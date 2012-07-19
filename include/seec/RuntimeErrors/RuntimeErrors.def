@@ -1,0 +1,81 @@
+// SEEC_RUNERR(ID, Argument Type List)
+
+#include "seec/Preprocessor/Quote.h"
+
+#ifndef SEEC_RUNERR
+#error "Must define SEEC_RUNERR before including RuntimeErrors.def"
+#endif
+
+#define SEEC_PP_NS_RE seec::runtime_errors
+#define SEEC_PP_NS_FS seec::runtime_errors::format_selects
+
+// Access to unowned memory
+SEEC_RUNERR(MemoryUnowned,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemoryAccess>,
+    SEEC_PP_NS_RE::ArgAddress,
+    SEEC_PP_NS_RE::ArgSize
+  ))
+
+// Read from uninitialized memory
+SEEC_RUNERR(MemoryUninitialized,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgAddress,
+    SEEC_PP_NS_RE::ArgSize
+  ))
+
+// Access to an object in memory overflows the object
+SEEC_RUNERR(MemoryOverflow,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemoryAccess>,
+    SEEC_PP_NS_RE::ArgAddress, // Access address
+    SEEC_PP_NS_RE::ArgSize,    // Access size
+    SEEC_PP_NS_RE::ArgObject,  // Object
+    SEEC_PP_NS_RE::ArgAddress, // Object address
+    SEEC_PP_NS_RE::ArgSize     // Object size
+  ))
+
+// Attempt to free unallocated memory
+SEEC_RUNERR(BadDynamicMemoryAddress,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::DynamicMemoryFunction>,
+    SEEC_PP_NS_RE::ArgAddress
+  ))
+
+// Overlapping blocks passed to memcpy
+SEEC_RUNERR(OverlappingSourceDest,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemCopyFunction>,
+    SEEC_PP_NS_RE::ArgAddress,
+    SEEC_PP_NS_RE::ArgSize
+  ))
+
+// Invalid C string.
+SEEC_RUNERR(InvalidCString,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::StringFunction>,
+    SEEC_PP_NS_RE::ArgAddress,
+    SEEC_PP_NS_RE::ArgSize
+  ))
+
+// Divide-by-zero
+SEEC_RUNERR(DivideByZero,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgObject
+  ))
+
+// Integer overflow
+SEEC_RUNERR(IntegerOverflow,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgObject
+  ))
+
+// Integer underflow
+SEEC_RUNERR(IntegerUnderflow,
+  SEEC_PP_QUOTE(
+    SEEC_PP_NS_RE::ArgObject
+  ))
+
+#undef SEEC_PP_NS_FS
+#undef SEEC_PP_NS_RE
+#undef SEEC_RUNERR

@@ -1,0 +1,18 @@
+//===- include/seec/Trace/DetectCallsClocale.def -------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+DETECT_CALL(C, setlocale,
+  DCQ(int category; char const *locale;),
+  DCQ(, category, locale))
+
+DETECT_CALL(C, localeconv, DCQ(), DCQ())
+
+// group for all <locale.h> functions
+
+DETECT_CALL_GROUP(C, locale_h,
+  DETECT_CALL_PREFIXIFY(C, setlocale),
+  DETECT_CALL_PREFIXIFY(C, localeconv)
+  )

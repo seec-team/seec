@@ -1,0 +1,75 @@
+//===- include/seec/Trace/DetectCallsCmath.def ---------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+// trigonometric functions
+
+DETECT_CALL(C, acos, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, asin, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, atan, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, atan2, DCQ(double Y, X;), DCQ(, Y, X))
+DETECT_CALL(C, cos, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, cosh, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, sin, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, sinh, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, tan, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, tanh, DCQ(double X;), DCQ(, X))
+
+DETECT_CALL_GROUP(C, math_h_trigonometric,
+  DETECT_CALL_PREFIXIFY(C, acos),
+  DETECT_CALL_PREFIXIFY(C, asin),
+  DETECT_CALL_PREFIXIFY(C, atan),
+  DETECT_CALL_PREFIXIFY(C, atan2),
+  DETECT_CALL_PREFIXIFY(C, cos),
+  DETECT_CALL_PREFIXIFY(C, cosh),
+  DETECT_CALL_PREFIXIFY(C, sin),
+  DETECT_CALL_PREFIXIFY(C, sinh),
+  DETECT_CALL_PREFIXIFY(C, tan),
+  DETECT_CALL_PREFIXIFY(C, tanh)
+  )
+
+// exponential, logarithmic, and power functions
+
+DETECT_CALL(C, exp, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, frexp, DCQ(double X; int *exponent;), DCQ(, X, exponent))
+DETECT_CALL(C, ldexp, DCQ(double X; int exponent;), DCQ(, X, exponent))
+DETECT_CALL(C, log, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, log10, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, modf, DCQ(double X; double *integer;), DCQ(, X, integer))
+DETECT_CALL(C, pow, DCQ(double X, Y;), DCQ(, X, Y))
+DETECT_CALL(C, sqrt, DCQ(double X;), DCQ(, X))
+
+DETECT_CALL_GROUP(C, math_h_explogpow,
+  DETECT_CALL_PREFIXIFY(C, exp),
+  DETECT_CALL_PREFIXIFY(C, frexp),
+  DETECT_CALL_PREFIXIFY(C, ldexp),
+  DETECT_CALL_PREFIXIFY(C, log),
+  DETECT_CALL_PREFIXIFY(C, log10),
+  DETECT_CALL_PREFIXIFY(C, modf),
+  DETECT_CALL_PREFIXIFY(C, pow),
+  DETECT_CALL_PREFIXIFY(C, sqrt)
+  )
+
+// other
+
+DETECT_CALL(C, ceil, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, fabs, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, floor, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, fmod, DCQ(double X, Y;), DCQ(, X, Y))
+
+DETECT_CALL_GROUP(C, math_h_other,
+  DETECT_CALL_PREFIXIFY(C, ceil),
+  DETECT_CALL_PREFIXIFY(C, fabs),
+  DETECT_CALL_PREFIXIFY(C, floor),
+  DETECT_CALL_PREFIXIFY(C, fmod)
+  )
+
+// group for all <math.h> functions
+
+DETECT_CALL_GROUP(C, math_h,
+  DETECT_CALL_PREFIXIFY(C, math_h_trigonometric),
+  DETECT_CALL_PREFIXIFY(C, math_h_explogpow),
+  DETECT_CALL_PREFIXIFY(C, math_h_other)
+  )

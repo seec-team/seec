@@ -1,0 +1,26 @@
+#ifndef SEEC_CSTDLIB_INTRINSIC
+#error "CStdLibIntrinsics.def included but SEEC_CSTDLIB_INTRINSIC not defined!"
+// #define SEEC_CSTDLIB_INTRINSIC(INTRINSIC_NAME, C_NAME, LLVM_TYPE, NARGS, ...)
+#endif
+
+#ifndef SEEC_CSTDLIB_INTRINSIC_ARG
+#define SEEC_CSTDLIB_INTRINSIC_ARG(TYPE, OPERAND)
+#endif
+
+SEEC_CSTDLIB_INTRINSIC(memcpy, memcpy, void *(void *, void *, size_t), 3,
+  SEEC_CSTDLIB_INTRINSIC_ARG(void *, 0),
+  SEEC_CSTDLIB_INTRINSIC_ARG(void *, 1),
+  SEEC_CSTDLIB_INTRINSIC_ARG(size_t, 2))
+
+SEEC_CSTDLIB_INTRINSIC(memmove, memmove, void *(void *, void *, size_t), 3,
+  SEEC_CSTDLIB_INTRINSIC_ARG(void *, 0),
+  SEEC_CSTDLIB_INTRINSIC_ARG(void *, 1),
+  SEEC_CSTDLIB_INTRINSIC_ARG(size_t, 2))
+
+SEEC_CSTDLIB_INTRINSIC(memset, memset, void *(void *, int, size_t), 3,
+  SEEC_CSTDLIB_INTRINSIC_ARG(void *, 0),
+  SEEC_CSTDLIB_INTRINSIC_ARG(int, 1),
+  SEEC_CSTDLIB_INTRINSIC_ARG(size_t, 2))
+
+#undef SEEC_CSTDLIB_INTRINSIC_ARG
+#undef SEEC_CSTDLIB_INTRINSIC

@@ -1,0 +1,113 @@
+#ifndef SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
+#define SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
+
+#include "seec/RuntimeErrors/ArgumentTypes.hpp"
+#include "seec/RuntimeErrors/FormatSelects.hpp"
+
+#include <memory>
+#include <vector>
+
+namespace seec {
+
+/// Classification and description of run-time errors.
+namespace runtime_errors {
+
+/// Enumeration of all known types of runtime errors.
+enum class RunErrorType : uint16_t {
+#define SEEC_RUNERR(ID, ARGS) ID,
+#include "seec/RuntimeErrors/RuntimeErrors.def"
+};
+
+/// \brief Get a string containing the textual ID of a RunErrorType.
+/// \param T the RunErrorType.
+/// \return a C string containing the textual ID of the value of T.
+char const *describe(RunErrorType T);
+
+/// \brief An instance of a runtime error.
+///
+/// Represents a single occurence of a runtime error, holding the type and
+/// arguments of the error.
+class RunError {
+  /// The type of runtime error.
+  RunErrorType Type;
+  
+  /// The arguments used.
+  std::vector<std::unique_ptr<Arg>> Args;
+
+public:
+  /// Constructor.
+  /// \param Type the type of runtime error.
+  /// \param Args the arguments used - will be moved from.
+  RunError(RunErrorType Type, std::vector<std::unique_ptr<Arg>> &&Args)
+  : Type(Type),
+    Args(std::move(Args))
+  {}
+  
+  /// Get the type of runtime error.
+  RunErrorType type() const { return Type; }
+  
+  /// Get the arguments to this runtime error.
+  decltype(Args) const &args() const { return Args; }
+};
+
+/// Helper function used by RunErrorCreatorBase to create an argument vector.
+template<typename ContainerTy>
+void emplaceArgs(ContainerTy &C) {}
+
+/// Helper function used by RunErrorCreatorBase to create an argument vector.
+template<typename ContainerTy, typename ArgType, typename... ArgTypes>
+void emplaceArgs(ContainerTy &C, ArgType &&Obj, ArgTypes&&... Args) {
+  C.emplace_back(new ArgType(Obj));
+  emplaceArgs(C, std::forward<ArgTypes>(Args)...);
+}
+
+/// \brief Implements the create method used by RunErrorCreator.
+/// \tparam Type the type of runtime error to create.
+/// \tparam ArgTypes the argument types that the runtime error expects.
+template<RunErrorType Type, typename... ArgTypes>
+class RunErrorCreatorBase {
+public:
+  /// \brief Create a new runtime error of type Type with the given arguments.
+  /// \param Args the arguments used for the new runtime error.
+  /// \return a unique_ptr owning the new runtime error.
+  static std::unique_ptr<RunError> create(ArgTypes&&... Args) {
+    std::vector<std::unique_ptr<Arg>> ArgsVec;
+    
+    emplaceArgs(ArgsVec, std::forward<ArgTypes>(Args)...);
+    
+    return std::unique_ptr<RunError>(new RunError(Type, std::move(ArgsVec)));
+  }
+};
+
+/// \brief Class used by createRunError to construct runtime errors.
+template<RunErrorType Type>
+class RunErrorCreator {};
+
+#define SEEC_RUNERR(ID, ARGS) \
+template<> \
+class RunErrorCreator<RunErrorType::ID> \
+: public RunErrorCreatorBase<RunErrorType::ID, ARGS> {};
+#include "seec/RuntimeErrors/RuntimeErrors.def"
+
+/// \brief Construct a new runtime error.
+///
+/// This function simply forwards its arguments to the static create function
+/// provided by RunErrorCreator, which is specialized by the type of runtime
+/// error being created. The type of argument should either be the argument
+/// expected by the error, or a type that can be used to implicitly construct
+/// the argument expected by the error.
+///
+/// \tparam Type the type of runtime error.
+/// \tparam ArgTypes the types of arguments used to construct the error.
+/// \param Args the arguments used to construct the error.
+/// \return a unique_ptr owning the new runtime error.
+template<RunErrorType Type, typename... ArgTypes>
+std::unique_ptr<RunError> createRunError(ArgTypes&&... Args) {
+  return RunErrorCreator<Type>::create(std::forward<ArgTypes>(Args)...);
+}
+
+} // namespace runtime_errors (in seec)
+  
+} // namespace seec
+
+#endif // SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP

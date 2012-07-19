@@ -1,0 +1,126 @@
+//===- include/seec/Trace/DetectCallsCstring.def -------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+DETECT_CALL(C, memchr,
+  DCQ(void const *str; int c; size_t n;),
+  DCQ(, str, c, n))
+
+DETECT_CALL(C, memcmp,
+  DCQ(void const *str1; void const *str2; size_t n;),
+  DCQ(, str1, str2, n))
+
+DETECT_CALL(C, memcpy,
+  DCQ(void *dest; void const *src; size_t n;),
+  DCQ(, dest, src, n))
+
+DETECT_CALL_FORWARD_INTRINSIC(memcpy, C, memcpy)
+
+DETECT_CALL(C, memmove,
+  DCQ(void *dest; void const *src; size_t n;),
+  DCQ(, dest, src, n))
+
+DETECT_CALL_FORWARD_INTRINSIC(memmove, C, memmove)
+
+DETECT_CALL(C, memset,
+  DCQ(void *str; int c; size_t n;),
+  DCQ(, str, c, n))
+
+DETECT_CALL_FORWARD_INTRINSIC(memset, C, memset)
+
+DETECT_CALL(C, strcat,
+  DCQ(char *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strncat,
+  DCQ(char *str1; char const *str2; size_t n;),
+  DCQ(, str1, str2, n))
+
+DETECT_CALL(C, strchr,
+  DCQ(char const *str; int c;),
+  DCQ(, str, c))
+
+DETECT_CALL(C, strcmp,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strncmp,
+  DCQ(char const *str1; char const *str2; size_t n;),
+  DCQ(, str1, str2, n))
+
+DETECT_CALL(C, strcoll,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strcpy,
+  DCQ(char *dest; char const *src;),
+  DCQ(, dest, src))
+
+DETECT_CALL(C, strncpy,
+  DCQ(char *dest; char const *src; size_t n;),
+  DCQ(, dest, src, n))
+
+DETECT_CALL(C, strcspn,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strerror,
+  DCQ(int errnum;),
+  DCQ(, errnum))
+
+DETECT_CALL(C, strlen,
+  DCQ(char const *str;),
+  DCQ(, str))
+
+DETECT_CALL(C, strpbrk,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strrchr,
+  DCQ(char const *str; int c;),
+  DCQ(, str, c))
+
+DETECT_CALL(C, strspn,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strstr,
+  DCQ(char const *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strtok,
+  DCQ(char *str1; char const *str2;),
+  DCQ(, str1, str2))
+
+DETECT_CALL(C, strxfrm,
+  DCQ(char *str1; char const *str2; size_t n;),
+  DCQ(, str1, str2, n))
+
+// group for all <string.h> functions
+
+DETECT_CALL_GROUP(C, string_h,
+  DETECT_CALL_PREFIXIFY(C, memchr),
+  DETECT_CALL_PREFIXIFY(C, memcmp),
+  DETECT_CALL_PREFIXIFY(C, memcpy),
+  DETECT_CALL_PREFIXIFY(C, memmove),
+  DETECT_CALL_PREFIXIFY(C, memset),
+  DETECT_CALL_PREFIXIFY(C, strcat),
+  DETECT_CALL_PREFIXIFY(C, strncat),
+  DETECT_CALL_PREFIXIFY(C, strchr),
+  DETECT_CALL_PREFIXIFY(C, strcmp),
+  DETECT_CALL_PREFIXIFY(C, strncmp),
+  DETECT_CALL_PREFIXIFY(C, strcoll),
+  DETECT_CALL_PREFIXIFY(C, strcpy),
+  DETECT_CALL_PREFIXIFY(C, strncpy),
+  DETECT_CALL_PREFIXIFY(C, strcspn),
+  DETECT_CALL_PREFIXIFY(C, strerror),
+  DETECT_CALL_PREFIXIFY(C, strlen),
+  DETECT_CALL_PREFIXIFY(C, strpbrk),
+  DETECT_CALL_PREFIXIFY(C, strrchr),
+  DETECT_CALL_PREFIXIFY(C, strspn),
+  DETECT_CALL_PREFIXIFY(C, strstr),
+  DETECT_CALL_PREFIXIFY(C, strtok),
+  DETECT_CALL_PREFIXIFY(C, strxfrm)
+  )

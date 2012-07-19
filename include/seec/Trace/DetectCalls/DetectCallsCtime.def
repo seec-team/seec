@@ -1,0 +1,55 @@
+//===- include/seec/Trace/DetectCallsCtime.def ---------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+DETECT_CALL(C, asctime,
+  DCQ(struct tm const *timeptr;),
+  DCQ(, timeptr))
+
+DETECT_CALL(C, clock,
+  DCQ(),
+  DCQ())
+
+DETECT_CALL(C, ctime,
+  DCQ(time_t const *timer;),
+  DCQ(, timer))
+
+DETECT_CALL(C, difftime,
+  DCQ(time_t time1, time2;),
+  DCQ(, time1, time2))
+
+DETECT_CALL(C, gmtime,
+  DCQ(time_t const *timer;),
+  DCQ(, timer))
+
+DETECT_CALL(C, localtime,
+  DCQ(time_t const *timer;),
+  DCQ(, timer))
+
+DETECT_CALL(C, mktime,
+  DCQ(struct tm *timeptr;),
+  DCQ(, timeptr))
+
+DETECT_CALL(C, strftime,
+  DCQ(char *str; size_t maxsize; char const *format; struct tm const *timeptr;),
+  DCQ(, str, maxsize, format, timeptr))
+
+DETECT_CALL(C, time,
+  DCQ(time_t *timer;),
+  DCQ(, timer))
+
+// group for all <time.h> functions
+
+DETECT_CALL_GROUP(C, time_h,
+  DETECT_CALL_PREFIXIFY(C, asctime),
+  DETECT_CALL_PREFIXIFY(C, clock),
+  DETECT_CALL_PREFIXIFY(C, ctime),
+  DETECT_CALL_PREFIXIFY(C, difftime),
+  DETECT_CALL_PREFIXIFY(C, gmtime),
+  DETECT_CALL_PREFIXIFY(C, localtime),
+  DETECT_CALL_PREFIXIFY(C, mktime),
+  DETECT_CALL_PREFIXIFY(C, strftime),
+  DETECT_CALL_PREFIXIFY(C, time)
+  )

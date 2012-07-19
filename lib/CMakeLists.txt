@@ -1,0 +1,8 @@
+add_subdirectory(Clang)
+add_subdirectory(ICU)
+add_subdirectory(RuntimeErrors)
+add_subdirectory(Runtimes)
+add_subdirectory(Trace)
+add_subdirectory(Transforms)
+add_subdirectory(Util)
+

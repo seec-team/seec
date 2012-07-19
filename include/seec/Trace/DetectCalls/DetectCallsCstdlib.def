@@ -1,0 +1,156 @@
+//===- include/seec/Trace/DetectCallsCstdlib.def -------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+// String functions
+DETECT_CALL(C, atof,
+  DCQ(char const *str;),
+  DCQ(, str))
+DETECT_CALL(C, atoi,
+  DCQ(char const *str;),
+  DCQ(, str))
+DETECT_CALL(C, atol,
+  DCQ(char const *str;),
+  DCQ(, str))
+DETECT_CALL(C, strtod,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
+DETECT_CALL(C, strtol,
+  DCQ(char const *str; char **endptr; int base;),
+  DCQ(, str, endptr, base))
+DETECT_CALL(C, strtoul,
+  DCQ(char const *str; char **endptr; int base;),
+  DCQ(, str, endptr, base))
+
+DETECT_CALL_GROUP(C, stdlib_h_string,
+  DETECT_CALL_PREFIXIFY(C, atof),
+  DETECT_CALL_PREFIXIFY(C, atoi),
+  DETECT_CALL_PREFIXIFY(C, atol),
+  DETECT_CALL_PREFIXIFY(C, strtod),
+  DETECT_CALL_PREFIXIFY(C, strtol),
+  DETECT_CALL_PREFIXIFY(C, strtoul)
+  )
+
+// Memory functions
+DETECT_CALL(C, calloc,
+  DCQ(size_t Num, Size;),
+  DCQ(, Num, Size))
+DETECT_CALL(C, free,
+  DCQ(void *Address;),
+  DCQ(, Address))
+DETECT_CALL(C, malloc,
+  DCQ(size_t Size;),
+  DCQ(, Size))
+DETECT_CALL(C, realloc,
+  DCQ(void *Address; size_t Size;),
+  DCQ(, Address, Size))
+
+DETECT_CALL_GROUP(C, stdlib_h_memory,
+  DETECT_CALL_PREFIXIFY(C, calloc),
+  DETECT_CALL_PREFIXIFY(C, free),
+  DETECT_CALL_PREFIXIFY(C, malloc),
+  DETECT_CALL_PREFIXIFY(C, realloc)
+  )
+
+// Environment
+DETECT_CALL(C, abort, , )
+DETECT_CALL(C, atexit,
+  DCQ(void (*function) (void);),
+  DCQ(, function))
+DETECT_CALL(C, exit,
+  DCQ(int status;),
+  DCQ(, status))
+DETECT_CALL(C, getenv,
+  DCQ(char const *name;),
+  DCQ(, name))
+DETECT_CALL(C, system,
+  DCQ(char const *command;),
+  DCQ(, command))
+
+DETECT_CALL_GROUP(C, stdlib_h_environment,
+  DETECT_CALL_PREFIXIFY(C, abort),
+  DETECT_CALL_PREFIXIFY(C, atexit),
+  DETECT_CALL_PREFIXIFY(C, exit),
+  DETECT_CALL_PREFIXIFY(C, getenv),
+  DETECT_CALL_PREFIXIFY(C, system)
+  )
+
+// Searching and sorting
+DETECT_CALL(C, bsearch,
+  DCQ(void const *key, *base;
+      size_t num, size;
+      int (*comparator)(void const *, void const *);),
+  DCQ(, key, base, num, size, comparator))
+DETECT_CALL(C, qsort,
+  DCQ(void *base;
+      size_t num, size;
+      int (*comparator)(void const *, void const *);),
+  DCQ(, base, num, size, comparator))
+
+DETECT_CALL_GROUP(C, stdlib_h_searching_sorting,
+  DETECT_CALL_PREFIXIFY(C, bsearch),
+  DETECT_CALL_PREFIXIFY(C, qsort)
+  )
+
+// Math functions
+DETECT_CALL(C, abs,
+  DCQ(int X;),
+  DCQ(, X))
+DETECT_CALL(C, div,
+  DCQ(int numer, denom;),
+  DCQ(, numer, denom))
+DETECT_CALL(C, labs,
+  DCQ(long int X;),
+  DCQ(, X))
+DETECT_CALL(C, ldiv,
+  DCQ(long int numer, denom;),
+  DCQ(, numer, denom))
+DETECT_CALL(C, rand, , )
+DETECT_CALL(C, srand,
+  DCQ(unsigned int seed;),
+  DCQ(, seed))
+
+DETECT_CALL_GROUP(C, stdlib_h_math,
+  DETECT_CALL_PREFIXIFY(C, abs),
+  DETECT_CALL_PREFIXIFY(C, div),
+  DETECT_CALL_PREFIXIFY(C, labs),
+  DETECT_CALL_PREFIXIFY(C, ldiv),
+  DETECT_CALL_PREFIXIFY(C, rand),
+  DETECT_CALL_PREFIXIFY(C, srand)
+  )
+
+// Multibyte characters
+DETECT_CALL(C, mblen,
+  DCQ(char const *str; size_t n;),
+  DCQ(, str, n))
+DETECT_CALL(C, mbstowcs,
+  DCQ(wchar_t *pwcs; char const *str; size_t n;),
+  DCQ(, pwcs, str, n))
+DETECT_CALL(C, mbtowc,
+  DCQ(wchar_t *pwc; char const *str; size_t n;),
+  DCQ(, pwc, str, n))
+DETECT_CALL(C, wcstombs,
+  DCQ(char *str; wchar_t const *pwcs; size_t n;),
+  DCQ(, str, pwcs, n))
+DETECT_CALL(C, wctomb,
+  DCQ(char *str; wchar_t wchar;),
+  DCQ(, str, wchar))
+
+DETECT_CALL_GROUP(C, stdlib_h_multibyte,
+  DETECT_CALL_PREFIXIFY(C, mblen),
+  DETECT_CALL_PREFIXIFY(C, mbstowcs),
+  DETECT_CALL_PREFIXIFY(C, mbtowc),
+  DETECT_CALL_PREFIXIFY(C, wcstombs),
+  DETECT_CALL_PREFIXIFY(C, wctomb)
+  )
+
+DETECT_CALL_GROUP(C, stdlib_h,
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_string),
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_memory),
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_environment),
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_searching_sorting),
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_math),
+  DETECT_CALL_PREFIXIFY(C, stdlib_h_multibyte)
+  )

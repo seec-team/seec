@@ -1,0 +1,37 @@
+#ifndef HANDLE_RECORD_POINT
+#define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE)
+#endif
+
+HANDLE_RECORD_POINT(FunctionBegin, void (types::i<8>*, types::i<8>*))
+HANDLE_RECORD_POINT(FunctionEnd, void (types::i<8>*))
+
+HANDLE_RECORD_POINT(Load,
+                  void (types::i<8>*, types::i<32>, types::i<8>*, types::i<64>))
+HANDLE_RECORD_POINT(PreStore,
+                  void (types::i<8>*, types::i<32>, types::i<8>*, types::i<64>))
+HANDLE_RECORD_POINT(PostStore,
+                  void (types::i<8>*, types::i<32>, types::i<8>*, types::i<64>))
+
+HANDLE_RECORD_POINT(PreCall, void (types::i<8>*, types::i<32>, types::i<8>*))
+HANDLE_RECORD_POINT(PostCall, void (types::i<8>*, types::i<32>, types::i<8>*))
+
+HANDLE_RECORD_POINT(PreCallIntrinsic, void (types::i<8>*, types::i<32>))
+HANDLE_RECORD_POINT(PostCallIntrinsic, void (types::i<8>*, types::i<32>))
+
+HANDLE_RECORD_POINT(UpdatePointer,
+                    void (types::i<8>*, types::i<32>, types::i<8>*))
+HANDLE_RECORD_POINT(UpdateInt8,
+                    void (types::i<8>*, types::i<32>, types::i<8>))
+HANDLE_RECORD_POINT(UpdateInt16,
+                    void (types::i<8>*, types::i<32>, types::i<16>))
+HANDLE_RECORD_POINT(UpdateInt32,
+                    void (types::i<8>*, types::i<32>, types::i<32>))
+HANDLE_RECORD_POINT(UpdateInt64,
+                    void (types::i<8>*, types::i<32>, types::i<64>))
+HANDLE_RECORD_POINT(UpdateFloat,
+                    void (types::i<8>*, types::i<32>, types::ieee_float))
+HANDLE_RECORD_POINT(UpdateDouble,
+                    void (types::i<8>*, types::i<32>, types::ieee_double))
+
+// Clean up
+#undef HANDLE_RECORD_POINT

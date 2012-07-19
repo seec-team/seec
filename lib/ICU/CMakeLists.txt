@@ -1,0 +1,11 @@
+add_library(SeeCICU
+  Output.cpp
+  Resources.cpp
+)
+
+INSTALL(TARGETS SeeCICU
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+

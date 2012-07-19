@@ -1,0 +1,61 @@
+root:table {
+  // Contains textual descriptions of runtime errors.
+  descriptions:table {
+    // 0 select MemoryAccess {read, write}
+    // 1 address
+    // 2 size
+    MemoryUnowned:string {
+      "{0, select, "
+        "read {Attempt to read unowned memory at address {1} ({2} bytes).}"
+        "write {Attempt to write unowned memory at address {1} ({2} bytes).}"
+        "other {Attempt to {0} unowned memory at address {1} ({2} bytes).}"
+      "}"
+    }
+
+    // 0 address
+    // 1 size
+    MemoryUninitialized:string {
+      "Read uninitialized memory from address {0} ({1} bytes)."
+    }
+
+    // 0 select MemoryAccess {read, write}
+    // 1 access address
+    // 2 access size
+    // 3 object
+    // 4 object address
+    // 5 object size
+    MemoryOverflow:string {
+      "Attempt to {0} memory at address {1} ({2} bytes) overflows object at address {4} ({5} bytes).}"
+    }
+
+    // 0 dynamic memory function
+    // 1 address
+    BadDynamicMemoryAddress:string {
+      "{0, select, "
+        "free {Bad address {1} given to free.}"
+        "realloc {Bad address {1} given to realloc.}"
+        "other {Bad address {1} given to function {0}.}"
+      "}"
+    }
+
+    // 0 function name
+    // 1 overlap start
+    // 2 overlap size
+    OverlappingSourceDest:string {
+      "Function {0} source and destination memory blocks overlap at address {1} ({2} bytes)."
+    }
+
+    // 0 string function name
+    // 1 address of invalid string
+    // 2 index of the argument that held the pointer
+    InvalidCString:string {
+      "Address {1}, passed to parameter {2} of function {0}, does not refer to a C string."
+    }
+    
+    // 0 dummy object
+    DivideByZero:string {
+      "Divide by zero!"
+    }
+  }
+}
+

@@ -1,0 +1,146 @@
+//===- include/seec/Trace/DetectCallsCstdio.def --------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+// file functions
+
+DETECT_CALL(C, clearerr, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, fclose, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, feof, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, ferror, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, fflush, DCQ(FILE *stream;), DCQ(, stream))
+
+DETECT_CALL(C, fgetpos, DCQ(FILE *stream; fpos_t *pos;), DCQ(, stream, pos))
+
+DETECT_CALL(C, fopen,
+  DCQ(char const *filename; char const *mode;),
+  DCQ(, filename, mode))
+
+DETECT_CALL(C, fread,
+  DCQ(void *ptr; size_t size; size_t nmemb; FILE *stream;),
+  DCQ(, ptr, size, nmemb, stream))
+
+DETECT_CALL(C, freopen,
+  DCQ(char const *filename; char const *mode; FILE *stream;),
+  DCQ(, filename, mode, stream))
+
+DETECT_CALL(C, fseek,
+  DCQ(FILE *stream; long int offset; int whence;),
+  DCQ(, stream, offset, whence))
+
+DETECT_CALL(C, fsetpos,
+  DCQ(FILE *stream; fpos_t const *pos;),
+  DCQ(, stream, pos))
+
+DETECT_CALL(C, ftell, DCQ(FILE *stream;), DCQ(, stream))
+
+DETECT_CALL(C, fwrite,
+  DCQ(void *ptr; size_t size; size_t nmemb; FILE *stream;),
+  DCQ(, ptr, size, nmemb, stream))
+
+DETECT_CALL(C, remove, DCQ(char const *filename;), DCQ(, filename))
+
+DETECT_CALL(C, rename,
+  DCQ(char const *old_filename; char const *new_filename;),
+  DCQ(, old_filename, new_filename))
+
+DETECT_CALL(C, rewind, DCQ(FILE *stream;), DCQ(, stream))
+
+DETECT_CALL(C, setbuf, DCQ(FILE *stream; char *buffer;), DCQ(, stream, buffer))
+
+DETECT_CALL(C, setvbuf,
+  DCQ(FILE *stream; char *buffer; int mode; size_t size;),
+  DCQ(, stream, buffer, mode, size))
+
+DETECT_CALL(C, tmpfile, DCQ(), DCQ())
+
+DETECT_CALL(C, tmpnam, DCQ(char *str;), DCQ(, str))
+
+DETECT_CALL_GROUP(C, stdio_h_file,
+  DETECT_CALL_PREFIXIFY(C, clearerr),
+  DETECT_CALL_PREFIXIFY(C, fclose),
+  DETECT_CALL_PREFIXIFY(C, feof),
+  DETECT_CALL_PREFIXIFY(C, ferror),
+  DETECT_CALL_PREFIXIFY(C, fflush),
+  DETECT_CALL_PREFIXIFY(C, fgetpos),
+  DETECT_CALL_PREFIXIFY(C, fopen),
+  DETECT_CALL_PREFIXIFY(C, fread),
+  DETECT_CALL_PREFIXIFY(C, freopen),
+  DETECT_CALL_PREFIXIFY(C, fseek),
+  DETECT_CALL_PREFIXIFY(C, fsetpos),
+  DETECT_CALL_PREFIXIFY(C, ftell),
+  DETECT_CALL_PREFIXIFY(C, fwrite),
+  DETECT_CALL_PREFIXIFY(C, remove),
+  DETECT_CALL_PREFIXIFY(C, rename),
+  DETECT_CALL_PREFIXIFY(C, rewind),
+  DETECT_CALL_PREFIXIFY(C, setbuf),
+  DETECT_CALL_PREFIXIFY(C, setvbuf),
+  DETECT_CALL_PREFIXIFY(C, tmpfile),
+  DETECT_CALL_PREFIXIFY(C, tmpnam)
+  )
+
+// formatted I/O functions
+// fprintf
+// printf
+// sprintf
+// vfprintf
+// vprintf
+// vsprintf
+// fscanf
+// scanf
+// sscanf
+
+// character I/O functions
+
+DETECT_CALL(C, fputc,
+  DCQ(int character; FILE *stream;),
+  DCQ(, character, stream))
+
+DETECT_CALL(C, fputs,
+  DCQ(char const *str; FILE *stream;),
+  DCQ(, str, stream))
+
+DETECT_CALL(C, getc, DCQ(FILE *stream;), DCQ(, stream))
+
+DETECT_CALL(C, getchar, DCQ(), DCQ())
+
+DETECT_CALL(C, gets,
+  DCQ(char const *str;),
+  DCQ(, str))
+
+DETECT_CALL(C, putc,
+  DCQ(int character; FILE *stream;),
+  DCQ(, character, stream))
+
+DETECT_CALL(C, putchar,
+  DCQ(int character;),
+  DCQ(, character))
+
+DETECT_CALL(C, puts,
+  DCQ(char const *str;),
+  DCQ(, str))
+
+DETECT_CALL(C, ungetc,
+  DCQ(int character; FILE *stream;),
+  DCQ(, character, stream))
+
+DETECT_CALL_GROUP(C, stdio_h_chario,
+  DETECT_CALL_PREFIXIFY(C, fputc),
+  DETECT_CALL_PREFIXIFY(C, fputs),
+  DETECT_CALL_PREFIXIFY(C, getc),
+  DETECT_CALL_PREFIXIFY(C, getchar),
+  DETECT_CALL_PREFIXIFY(C, gets),
+  DETECT_CALL_PREFIXIFY(C, putc),
+  DETECT_CALL_PREFIXIFY(C, putchar),
+  DETECT_CALL_PREFIXIFY(C, puts),
+  DETECT_CALL_PREFIXIFY(C, ungetc)
+  )
+
+// group for all <stdio.h> functions
+
+DETECT_CALL_GROUP(C, stdio_h,
+  DETECT_CALL_PREFIXIFY(C, stdio_h_file),
+  DETECT_CALL_PREFIXIFY(C, stdio_h_chario)
+  )

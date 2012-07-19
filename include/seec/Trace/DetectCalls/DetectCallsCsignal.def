@@ -1,0 +1,18 @@
+//===- include/seec/Trace/DetectCallsCsignal.def -------------------- C++ -===//
+//
+// Included from DetectCallsAll.def. Do not include this file directly!
+//
+//===----------------------------------------------------------------------===//
+
+DETECT_CALL(C, signal,
+  DCQ(int sig; void (*func)(int);),
+  DCQ(, sig, func))
+
+DETECT_CALL(C, raise, DCQ(int sig;), DCQ(, sig))
+
+// group for all <signal.h> functions
+
+DETECT_CALL_GROUP(C, signal_h,
+  DETECT_CALL_PREFIXIFY(C, signal),
+  DETECT_CALL_PREFIXIFY(C, raise)
+  )

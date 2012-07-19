@@ -1,0 +1,258 @@
+//
+// SEEC_TRACE_EVENT(
+//  EventName,
+//  Properties---,
+//  Traits---
+//
+// Where Properties is a quoted list (created with SEEC_PP_QUOTE), and each
+// element in the list takes the form:
+//  (Type, Name)
+//
+// And Traits is a quoted list (created with SEEC_PP_QUOTE), and each element
+// in the list takes the form:
+//  (Name)
+//
+
+#ifndef SEEC_TRACE_EVENT
+#error "Must define SEEC_TRACE_EVENT before including Events.def"
+#endif
+
+#ifndef SEEC_PP_QUOTE
+#define SEEC_PP_QUOTE(...) __VA_ARGS__
+#endif
+
+SEEC_TRACE_EVENT(TraceEnd,
+  SEEC_PP_QUOTE(
+    (uint64_t, Dummy)
+  ),
+  SEEC_PP_QUOTE(
+    (TraceEnd, is_block_start)
+  ))
+
+SEEC_TRACE_EVENT(FunctionStart,
+  SEEC_PP_QUOTE(
+    (offset_uint, Record)
+  ),
+  SEEC_PP_QUOTE(
+    (FunctionStart, is_block_start)
+  ))
+  
+SEEC_TRACE_EVENT(FunctionEnd,
+  SEEC_PP_QUOTE(
+    (offset_uint, Record)
+  ),
+  SEEC_PP_QUOTE(
+    (FunctionEnd, is_block_start)
+  ))
+
+SEEC_TRACE_EVENT(BasicBlockStart,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (offset_uint, PreviousAny),
+    (offset_uint, PreviousSame)
+  ),
+  SEEC_PP_QUOTE(
+    (BasicBlockStart, is_block_start),
+    (BasicBlockStart, is_function_level)
+  ))
+  
+SEEC_TRACE_EVENT(NewProcessTime,
+  SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime)
+  ),
+  SEEC_PP_QUOTE(
+    (NewProcessTime, is_block_start)
+  ))
+
+SEEC_TRACE_EVENT(PreInstruction,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime)
+  ),
+  SEEC_PP_QUOTE(
+    (PreInstruction, is_block_start),
+    (PreInstruction, is_function_level),
+    (PreInstruction, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(Instruction,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime)
+  ),
+  SEEC_PP_QUOTE(
+    (Instruction, is_block_start),
+    (Instruction, is_function_level),
+    (Instruction, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithSmallValue,
+  SEEC_PP_QUOTE(
+    (uint16_t, Value),
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithSmallValue, is_block_start),
+    (InstructionWithSmallValue, is_function_level),
+    (InstructionWithSmallValue, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithValue,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame),
+    (RuntimeValueRecord, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithValue, is_block_start),
+    (InstructionWithValue, is_function_level),
+    (InstructionWithValue, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithLargeValue,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame),
+    (offset_uint, DataOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithLargeValue, is_block_start),
+    (InstructionWithLargeValue, is_function_level),
+    (InstructionWithLargeValue, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(Alloca,
+  SEEC_PP_QUOTE(
+    (uint64_t, ElementSize),
+    (uint64_t, ElementCount)
+  ),
+  SEEC_PP_QUOTE(
+    (Alloca, is_function_level)
+  ))
+
+SEEC_TRACE_EVENT(StackRestore,
+  SEEC_PP_QUOTE(
+    (offset_uint, Previous)
+  ),
+  SEEC_PP_QUOTE(
+    (StackRestore, is_function_level)
+  ))
+
+SEEC_TRACE_EVENT(StackRestoreAlloca,
+  SEEC_PP_QUOTE(
+    (offset_uint, Alloca)
+  ),
+  SEEC_PP_QUOTE(
+    (StackRestoreAlloca, is_function_level),
+    (StackRestoreAlloca, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(Malloc,
+  SEEC_PP_QUOTE(
+    (uint64_t, Size),
+    (uint64_t, ProcessTime)
+  ),
+  SEEC_PP_QUOTE(
+    (Malloc, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(Free,
+  SEEC_PP_QUOTE(
+    (uint32_t, MallocThread),
+    (offset_uint, MallocOffset),
+    (uint64_t, ProcessTime)
+  ),
+  SEEC_PP_QUOTE(
+    (Free, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(StateTyped,
+  SEEC_PP_QUOTE(
+    (uint32_t, Overwritten),
+    (uint64_t, Address),
+    (uint64_t, ProcessTime),
+    (offset_uint, ValueOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (StateTyped, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(StateUntypedSmall,
+  SEEC_PP_QUOTE(
+    (uint8_t, Size),
+    (uint32_t, Overwritten),
+    (uint64_t, Address),
+    (uint64_t, ProcessTime),
+    (uint64_t, Data)
+  ),
+  SEEC_PP_QUOTE(
+    (StateUntypedSmall, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(StateUntyped,
+  SEEC_PP_QUOTE(
+    (uint32_t, Overwritten),
+    (uint64_t, Address),
+    (uint64_t, ProcessTime),
+    (offset_uint, DataOffset),
+    (uint64_t, DataSize)
+  ),
+  SEEC_PP_QUOTE(
+    (StateUntyped, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(StateClear,
+  SEEC_PP_QUOTE(
+    (uint32_t, Overwritten),
+    (uint64_t, Address),
+    (uint64_t, ProcessTime),
+    (uint64_t, ClearSize)
+  ),
+  SEEC_PP_QUOTE(
+    (StateClear, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(StateOverwritten,
+  SEEC_PP_QUOTE(
+    (uint32_t, StateThreadID),
+    (offset_uint, StateOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (StateOverwritten, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(StateOverwrittenFragment,
+  SEEC_PP_QUOTE(
+    (uint32_t, StateThreadID),
+    (offset_uint, StateOffset),
+    (uint64_t, FragmentAddress),
+    (uint64_t, FragmentSize)
+  ),
+  SEEC_PP_QUOTE(
+    (StateOverwrittenFragment, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(RuntimeError,
+  SEEC_PP_QUOTE(
+    (uint16_t, ErrorType),
+    (uint32_t, ArgumentCount)
+  ),
+  SEEC_PP_QUOTE(
+    (RuntimeError, no_traits)
+  ))
+
+SEEC_TRACE_EVENT(RuntimeErrorArgument,
+  SEEC_PP_QUOTE(
+    (uint8_t, ArgumentType),
+    (uint64_t, ArgumentData)
+  ),
+  SEEC_PP_QUOTE(
+    (RuntimeErrorArgument, is_subservient)
+  ))
+
+#undef SEEC_TRACE_EVENT
+#undef SEEC_PP_QUOTE

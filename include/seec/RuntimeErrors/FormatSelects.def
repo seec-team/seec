@@ -1,0 +1,57 @@
+// SEEC_FORMAT_SELECT(NAME, ITEMS)
+//
+// SEEC_FORMAT_SELECT_ITEM(NAME, ID, STRING)
+//
+// Note that ITEMS is not variadic -- unpacking logic (if any) must be included
+// into SEEC_FORMAT_SELECT_ITEM.
+
+#ifndef SEEC_FORMAT_SELECT
+#error "Must define SEEC_FORMAT_SELECT (for FormatSelects.def)"
+#endif
+
+#ifndef SEEC_FORMAT_SELECT_ITEM
+#error "Must define SEEC_FORMAT_SELECT_ITEM (for FormatSelects.def)"
+#endif
+
+SEEC_FORMAT_SELECT(MemoryAccess,
+  SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Read, "read")
+  SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Write, "write")
+  )
+
+SEEC_FORMAT_SELECT(DynamicMemoryFunction,
+  SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Calloc, "calloc")
+  SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Free, "free")
+  SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Malloc, "malloc")
+  SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Realloc, "realloc")
+  )
+
+SEEC_FORMAT_SELECT(MemCopyFunction,
+  SEEC_FORMAT_SELECT_ITEM(MemCopyFunction, Memcpy, "memcpy")
+  SEEC_FORMAT_SELECT_ITEM(MemCopyFunction, Strcpy, "strcpy")
+  SEEC_FORMAT_SELECT_ITEM(MemCopyFunction, Strncpy, "strncpy")
+  SEEC_FORMAT_SELECT_ITEM(MemCopyFunction, Strcat, "strcat")
+  SEEC_FORMAT_SELECT_ITEM(MemCopyFunction, Strncat, "strncat")
+  )
+
+SEEC_FORMAT_SELECT(StringFunction,
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcat, "strcat")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strchr, "strchr")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcmp, "strcmp")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcoll, "strcoll")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcpy, "strcpy")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcspn, "strcspn")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strerror, "strerror")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strlen, "strlen")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strncat, "strncat")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strncmp, "strncmp")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strncpy, "strncpy")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strpbrk, "strpbrk")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strrchr, "strrchr")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strspn, "strspn")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strstr, "strstr")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strtok, "strtok")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strxfrm, "strxfrm")
+  )
+
+#undef SEEC_FORMAT_SELECT_ITEM
+#undef SEEC_FORMAT_SELECT
