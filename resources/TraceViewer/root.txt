@@ -1,0 +1,35 @@
+root:table {
+  // Contains text used in the TraceViewer GUI.
+  GUIText:table {
+    //
+    // Main frame
+    //
+
+    FrameTitle:string {"SeeC Trace Viewer"}
+
+
+    //
+    // Menus
+    //
+
+    Menu_File:string {"&File"}
+
+    Menu_File_Open:string {"&Open"}
+
+    Menu_File_Exit:string {"E&xit"}
+
+
+    //
+    // Open trace dialog
+    //
+
+    OpenTrace_Title:string {"Choose a trace file to open"}
+
+    OpenTrace_FileType:string {"SeeC Process Trace (*.p.trace)|*.p.trace"}
+
+    OpenTrace_Error_LoadProcessTrace:string {"Couldn't read process trace."}
+
+    OpenTrace_Error_ParseIRFile:string {"Couldn't parse LLVM Module."}
+  }
+}
+

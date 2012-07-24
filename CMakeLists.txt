@@ -15,7 +15,7 @@ set(LLVM_INSTALL "" CACHE PATH "Root of LLVM install.")
 
 # A bit of a sanity check:
 if( NOT EXISTS ${LLVM_INSTALL}/include/llvm )
-  message(FATAL_ERROR "LLVM_INSTALL (${LLVM_INSTALL}) is not a valid LLVM source")
+  message(FATAL_ERROR "LLVM_INSTALL (${LLVM_INSTALL}) is not a valid LLVM installation.")
 endif()
 
 # Now set the header paths:
@@ -32,13 +32,22 @@ message("LLVM libraries at ${LLVM_INSTALL}/lib")
 message("Finding ICU...")
 set(ICU_INSTALL "" CACHE PATH "Root of ICU install.")
 if( NOT EXISTS ${ICU_INSTALL}/include/unicode/unistr.h )
-  message(FATAL_ERROR "ICU_INSTALL (${ICU_INSTALL}) is not a valid ICU source")
+  message(FATAL_ERROR "ICU_INSTALL (${ICU_INSTALL}) is not a valid ICU installation.")
 endif()
 
 message("ICU includes at ${ICU_INSTALL}/include")
 include_directories( BEFORE ${ICU_INSTALL}/include )
 
 message("ICU libraries at ${ICU_INSTALL}/lib")
+
+#
+# find wxWidgets
+#
+set(wxWidgets_USE_UNICODE true)
+set(wxWidgets_USE_STATIC true)
+message("Finding wxWidgets...")
+FIND_PACKAGE(wxWidgets REQUIRED core base)
+INCLUDE(${wxWidgets_USE_FILE})
 
 #
 # setup compiler options

@@ -11,6 +11,8 @@
 #ifndef SEEC_ICU_RESOURCES_HPP
 #define SEEC_ICU_RESOURCES_HPP
 
+#include "seec/Util/Maybe.hpp"
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/PathV1.h"
@@ -30,7 +32,7 @@
 
 namespace seec {
 
-/// \brief Get an ICU ResourceBundle.
+/// \brief Get a dynamically-allocated ICU ResourceBundle.
 ///
 /// The resource bundle for the Package must have been previously loaded,
 /// preferably using ResourceLoader.
@@ -38,80 +40,69 @@ namespace seec {
 std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
                                                   Locale const &GetLocale);
 
-/// \brief Handled loading and registering resources for ICU.
+
+/// Base-case for getResource operating on a ResourceBundle.
+inline ResourceBundle getResource(ResourceBundle const &Bundle,
+                                  UErrorCode &Status) {
+  return Bundle;
+}
+
+/// \brief Get the ICU ResourceBundle at a given position in the heirarchy.
+/// This function gets Bundle's internal ResourceBundle for the first key in
+/// Keys, then gets that ResourceBundle's internal ResourceBundle for the next
+/// key in Keys, and so on until Keys has been exhausted, at which point it
+/// returns the final internal ResourceBundle.
+/// \tparam KeyTs
+/// \param Bundle
+/// \param Status
+/// \param Keys
+/// \return
+template<typename KeyT, typename... KeyTs>
+ResourceBundle getResource(ResourceBundle const &Bundle,
+                           UErrorCode &Status,
+                           KeyT Key,
+                           KeyTs... Keys) {
+  return getResource(Bundle.get(Key, Status),
+                     Status,
+                     std::forward<KeyTs>(Keys)...);
+}
+
+/// \brief Get the ICU ResourceBundle at a given position in the heirarchy.
+/// This function opens the ResourceBundle for Package using GetLocale, then
+/// gets the internal ResourceBundle returned by traversing the heirarchy using
+/// getResource with Keys.
+/// \tparam KeyTs
+/// \param Package
+/// \param GetLocale
+/// \param Status
+/// \param Keys
+/// \return
+template<typename... KeyTs>
+ResourceBundle getResource(char const *Package,
+                           Locale const &GetLocale,
+                           UErrorCode &Status,
+                           KeyTs... Keys) {
+  return getResource(ResourceBundle(Package, GetLocale, Status),
+                     Status,
+                     std::forward<KeyTs>(Keys)...);
+}
+
+
+/// \brief Handle loading and registering resources for ICU.
 class ResourceLoader {
   llvm::sys::Path ResourcesDirectory;
-  
+
   std::map<std::string, std::unique_ptr<llvm::MemoryBuffer>> Resources;
-  
+
 public:
-  ResourceLoader(llvm::sys::Path const &ExecutablePath)
-  : ResourcesDirectory(ExecutablePath)
-  {
-    if (!ResourcesDirectory.empty()) {
-      // ResourcesDirectory should be */bin/
-      // we want */lib/seec/resources/
-      ResourcesDirectory.eraseComponent();
-      ResourcesDirectory.eraseComponent();
-      ResourcesDirectory.appendComponent("lib");
-      ResourcesDirectory.appendComponent("seec");
-      ResourcesDirectory.appendComponent("resources");
-    }
-    
-    if (!ResourcesDirectory.canRead()) {
-      // try default location (TODO: base this on build settings?)
-      ResourcesDirectory.set("/usr/local/lib/seec/resources");
-      
-      if (!ResourcesDirectory.canRead()) {
-        ResourcesDirectory.clear();
-      }
-    }
-  }
-  
-  bool loadResource(char const *Package) {
-    std::string PackageStr (Package);
-    
-    // check if we've already loaded the package
-    if (Resources.count(PackageStr))
-      return true;
-    
-    // find and load the package
-    auto PackagePath = ResourcesDirectory;
-    PackagePath.appendComponent(Package);
-    PackagePath.appendSuffix("dat");
-    
-    llvm::OwningPtr<llvm::MemoryBuffer> Holder;
-    llvm::MemoryBuffer::getFile(PackagePath.str(), Holder);
-    
-    if (!Holder) {
-      return false;
-    }
-    
-    // add to our resource map
-    auto Insert = Resources.insert(
-                    std::make_pair(
-                      std::move(PackageStr),
-                      std::unique_ptr<llvm::MemoryBuffer>(Holder.take())));
-    
-    // register the data with ICU
-    UErrorCode Status = U_ZERO_ERROR;
-    
-    udata_setAppData(Package, // package name
-                     Insert.first->second->getBufferStart(), // data
-                     &Status);
-    
-    if (U_FAILURE(Status)) {
-      Resources.erase(Insert.first);
-      return false;
-    }
-    
-    return true;
-  }
-  
+  ResourceLoader(llvm::sys::Path const &ExecutablePath);
+
+  bool loadResource(char const *Package);
+
   bool freeResource(llvm::StringRef Package) {
     return Resources.erase(Package.str()) != 0;
   }
-  
+
   void freeAllResources() {
     Resources.clear();
   }

@@ -5,4 +5,5 @@ add_subdirectory(Runtimes)
 add_subdirectory(Trace)
 add_subdirectory(Transforms)
 add_subdirectory(Util)
+add_subdirectory(wxWidgets)
 

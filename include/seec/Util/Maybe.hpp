@@ -290,18 +290,18 @@ public:
     typedef maybe_impl::MaybeValue<I, store_type> maybe_value_type;
     maybe_value_type::construct(Store, std::forward<Args>(args)...);
   }
-  
+
   /// Construct a new Maybe with the I-th element intialized using the
   /// supplied constructor arguments.
   template<uint8_t I, typename... Args>
   static Maybe construct(Args &&...args) {
     typedef maybe_impl::MaybeValue<I, store_type> maybe_value_type;
-    
+
     Maybe Object;
-    
+
     Object.Which = I + 1;
     maybe_value_type::construct(Object.Store, std::forward<Args>(args)...);
-    
+
     return std::move(Object);
   }
 
@@ -315,13 +315,13 @@ public:
   /// Determine whether a value is assigned to this Maybe.
   /// \return true iff an element is active.
   bool assigned() const { return Which != 0; }
-  
+
   /// Determine if the first element with type T is current assigned.
   template<typename T>
   bool assigned() const {
     if (Which == 0)
       return false;
-    
+
     // Find the first index of an element with type T (statically)
     typedef typename std::remove_reference<T>::type RawT;
     typedef maybe_impl::MaybeIndexByType<RawT, store_type> maybe_index_type;
@@ -329,7 +329,14 @@ public:
 
     return (Which - 1 == Index);
   }
-  
+
+  /// Determine if the element at index I is currently assigned.
+  bool assigned(uint8_t I) const {
+    if (Which == 0)
+      return false;
+    return Which - 1 == I;
+  }
+
   /// Get the currently active element's index, starting from 1. If no element
   /// is assigned, returns 0.
   uint8_t which() const { return Which; }

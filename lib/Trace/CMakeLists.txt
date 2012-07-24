@@ -5,6 +5,7 @@ add_library(SeeCTrace
   ThreadState.cpp
   TraceFormat.cpp
   TraceReader.cpp
+  TraceStorage.cpp
 )
 
 add_library(SeeCExecutionTracer

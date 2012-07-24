@@ -163,6 +163,12 @@ public:
   /// \}
 };
 
+///
+/// \param Filename The source file to be compiled.
+/// \param ExecutablePath Used by the Clang driver to find resources.
+/// \param Diagnostics The diagnostics engine for this compilation.
+/// \return A std::unique_ptr holding a clang::CompileInvocation that will
+///         parse the given source file.
 std::unique_ptr<clang::CompilerInvocation>
 GetCompileForSourceFile(
   char const *Filename,

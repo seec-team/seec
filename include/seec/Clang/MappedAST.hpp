@@ -33,7 +33,7 @@ namespace seec {
 /// Contains classes to assist with SeeC's usage of Clang.
 namespace seec_clang {
 
-/// 
+///
 class MappedAST {
   llvm::OwningPtr<clang::ASTUnit> AST;
   std::vector<clang::Decl const *> Decls;
@@ -69,7 +69,7 @@ public:
 
   /// Get the underlying ASTUnit.
   clang::ASTUnit const &getASTUnit() const { return *AST; }
-  
+
   /// Get the clang::Decl at the given index.
   clang::Decl const *getDeclFromIdx(uint64_t DeclIdx) const {
     if (DeclIdx < Decls.size())
@@ -86,25 +86,29 @@ public:
 };
 
 
-/// 
+///
 class MappedModule {
   llvm::Module const &Module;
-  
+
   llvm::StringRef ExecutablePath;
-  
+
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
-  
+
   llvm::DenseMap<llvm::MDNode const *, MappedAST const *> ASTLookup;
-  
+
   std::vector<std::unique_ptr<MappedAST>> ASTList;
-  
+
   unsigned MDStmtIdxKind;
   unsigned MDDeclIdxKind;
-  
+
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
 public:
+  /// Constructor.
+  /// \param Module the llvm::Module to map.
+  /// \param ExecutablePath Used by the Clang driver to find resources.
+  /// \param Diags The diagnostics engine to use during compilation.
   MappedModule(llvm::Module const &Module,
                llvm::StringRef ExecutablePath,
                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
@@ -116,16 +120,16 @@ public:
     MDStmtIdxKind(Module.getMDKindID(MDStmtIdxStr)),
     MDDeclIdxKind(Module.getMDKindID(MDDeclIdxStr))
   {}
-  
+
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode);
-  
+
   clang::Decl const *getDecl(llvm::Instruction const *I);
-  
+
   std::pair<clang::Decl const *, MappedAST const *>
   getDeclAndMappedAST(llvm::Instruction const *I);
-  
+
   clang::Stmt const *getStmt(llvm::Instruction const *I);
-  
+
   std::pair<clang::Stmt const *, MappedAST const *>
   getStmtAndMappedAST(llvm::Instruction const *I);
 };

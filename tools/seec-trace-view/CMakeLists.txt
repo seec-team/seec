@@ -1,4 +1,4 @@
-add_executable(seec-trace-print main.cpp)
+add_executable(seec-trace-view main.cpp)
 
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles nativecodegen codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target
@@ -15,13 +15,14 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
-target_link_libraries(seec-trace-print
+target_link_libraries(seec-trace-view
  # SeeC libraries
  SeeCClang
  SeeCTrace
  SeeCRuntimeErrors
  SeeCUtil
  SeeCICU
+ SeeCwxWidgets
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangRewrite.a
@@ -43,9 +44,12 @@ target_link_libraries(seec-trace-print
 
  # ICU libraries
  ${REQ_ICU_LIBRARIES}
+
+ # wxWidgets libraries
+ ${wxWidgets_LIBRARIES}
 )
 
-INSTALL(TARGETS seec-trace-print
+INSTALL(TARGETS seec-trace-view
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
