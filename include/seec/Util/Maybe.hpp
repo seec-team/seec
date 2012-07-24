@@ -1,11 +1,12 @@
-//===- seec/Util/Maybe.hpp ------------------------------------- C++ -===//
+//===- seec/Util/Maybe.hpp ------------------------------------------ C++ -===//
 //
 //
 //
 //===----------------------------------------------------------------------===//
-//
-// This file implements a generic "discriminated union" template, called Maybe.
-//
+///
+/// \file
+/// A generic "discriminated union" template, called Maybe.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef _SEEC_UTIL_MAYBE_HPP_
@@ -20,6 +21,7 @@ namespace seec {
 
 namespace util {
 
+/// Contains implementation details for seec::util::Maybe.
 namespace maybe_impl {
 
 template<typename...>
@@ -221,9 +223,19 @@ struct MaybeIndexByType<Element, MaybeStore<Head, Tail...>> {
 
 } // namespace maybe_impl
 
-template<uint8_t I>
-struct MaybeIndex {};
-
+/// \brief A generic "discriminated union" template.
+///
+/// This template class implements a discriminated union, which is able to hold
+/// a single object of any of the types supplied in Elems. The active element
+/// slot is recorded, so that:
+///  \li If a different slot becomes active, the previous object is destructed.
+///  \li If a slot is accessed (e.g. using get()), an assertion checks that the
+///      slot is currently active.
+///
+/// \tparam Elems... the types that this union should be able to store. The
+///         number of types must not exceed 255, but the same type can be used
+///         more than once.
+///
 template<typename... Elems>
 class Maybe {
 private:
@@ -237,13 +249,13 @@ private:
   store_type Store;
 
 public:
-  /// Construct a new Maybe with no active element.
+  /// Construct with no active element.
   Maybe()
   : Which(0),
     Store()
   {}
 
-  /// Construct a new Maybe which copies the active element from Other.
+  /// Construct by copying the active element from Other.
   Maybe(Maybe<Elems...> const & Other)
   : Which(Other.Which),
     Store()
@@ -252,7 +264,7 @@ public:
       Store.construct(Which - 1, Other.Store);
   }
 
-  /// Construct a new Maybe which copies the active element from Other.
+  /// Construct by copying the active element from Other.
   Maybe(Maybe<Elems...> & Other)
   : Which(Other.Which),
     Store()
@@ -261,7 +273,7 @@ public:
       Store.construct(Which - 1, Other.Store);
   }
 
-  /// Construct a new Maybe which moves the active element from Other.
+  /// Construct by moving the active element from Other.
   Maybe(Maybe<Elems...> && Other)
   : Which(Other.Which),
     Store()
@@ -270,25 +282,15 @@ public:
       Store.construct(Which - 1, std::move(Other.Store));
   }
 
-  /// Construct a new Maybe which initializes the active element of type T by
-  /// moving Value.
+  /// \brief Construct by moving from Value.
+  /// Construct a new Maybe which initializes the first element of type T to be
+  /// active by moving from Value.
   template<typename T>
   Maybe(T &&Value)
   : Which(0),
     Store()
   {
     assign(std::forward<T>(Value));
-  }
-
-  /// Construct a new Maybe which initializes the I-th element using the
-  /// supplied constructor arguments.
-  template<uint8_t I, typename... Args>
-  Maybe(MaybeIndex<I> Index, Args&&... args)
-  : Which(I + 1),
-    Store()
-  {
-    typedef maybe_impl::MaybeValue<I, store_type> maybe_value_type;
-    maybe_value_type::construct(Store, std::forward<Args>(args)...);
   }
 
   /// Construct a new Maybe with the I-th element intialized using the
@@ -467,8 +469,7 @@ public:
     return ValueType::get(Store);
   }
 
-  /// Get a const reference to the I-th element of this Maybe. The I-th
-  /// element must be the currently active element.
+  /// Get a const reference to the I-th element of this Maybe.
   template<uint8_t I>
   typename maybe_impl::MaybeValue<I, store_type>::type const &
   get() const {
@@ -510,6 +511,7 @@ public:
     return maybe_value_type::get(Store);
   }
 
+  /// \brief Apply the appropriate predicate to the currently active element.
   /// Apply the appropriate predicate to the currently active element, or if
   /// there is no active element, apply the UnassignedPred. The predicates
   /// should be supplied in order of element, so the 0th element would be used
