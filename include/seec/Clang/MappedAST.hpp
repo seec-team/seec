@@ -12,7 +12,6 @@
 #include "llvm/Module.h"
 #include "llvm/Instruction.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringRef.h"
 
 #include <memory>
@@ -35,13 +34,13 @@ namespace seec_clang {
 
 ///
 class MappedAST {
-  llvm::OwningPtr<clang::ASTUnit> AST;
+  clang::ASTUnit *AST;
+  
   std::vector<clang::Decl const *> Decls;
+  
   std::vector<clang::Stmt const *> Stmts;
 
-  MappedAST(MappedAST const &Other); // do not implement
-  MappedAST & operator=(MappedAST const &RHS); // do not implement
-
+  /// Constructor.
   MappedAST(clang::ASTUnit *AST,
             std::vector<clang::Decl const *> &&Decls,
             std::vector<clang::Stmt const *> &&Stmts)
@@ -49,8 +48,15 @@ class MappedAST {
     Decls(Decls),
     Stmts(Stmts)
   {}
+  
+  // Don't allow copying.
+  MappedAST(MappedAST const &Other) = delete;
+  MappedAST & operator=(MappedAST const &RHS) = delete;
 
 public:
+  /// Destructor.
+  ~MappedAST();
+  
   /// Factory.
   static std::unique_ptr<MappedAST>
   FromASTUnit(clang::ASTUnit *AST);
@@ -87,6 +93,31 @@ public:
 
 
 ///
+class MappedGlobalDecl {
+  llvm::sys::Path FilePath;
+  
+  clang::Decl const *Decl;
+  
+  llvm::Function const *Function;
+  
+public:
+  MappedGlobalDecl(llvm::sys::Path FilePath,
+                   clang::Decl const *Decl,
+                   llvm::Function const *Function)
+  : FilePath(FilePath),
+    Decl(Decl),
+    Function(Function)
+  {}
+  
+  llvm::sys::Path const &getFilePath() const { return FilePath; }
+  
+  clang::Decl const *getDecl() const { return Decl; }
+  
+  llvm::Function const *getFunction() const { return Function; }
+};
+
+
+///
 class MappedModule {
   llvm::Module const &Module;
 
@@ -99,8 +130,10 @@ class MappedModule {
   std::vector<std::unique_ptr<MappedAST>> ASTList;
 
   unsigned MDStmtIdxKind;
+  
   unsigned MDDeclIdxKind;
 
+  // Don't allow copying.
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
@@ -122,14 +155,23 @@ public:
   {}
 
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode);
+  
+  /// Get all of the mapped global Decls.
+  std::vector<MappedGlobalDecl> getMappedGlobalDecls();
 
+  /// For the given llvm::Instruction, find the clang::Decl.
   clang::Decl const *getDecl(llvm::Instruction const *I);
 
+  /// For the given llvm::Instruction, find the clang::Decl and the MappedAST
+  /// that it belongs to.
   std::pair<clang::Decl const *, MappedAST const *>
   getDeclAndMappedAST(llvm::Instruction const *I);
 
+  /// For the given llvm::Instruction, find the clang::Stmt.
   clang::Stmt const *getStmt(llvm::Instruction const *I);
-
+  
+  /// For the given llvm::Instruction, find the clang::Stmt and the MappedAST
+  /// that it belongs to.
   std::pair<clang::Stmt const *, MappedAST const *>
   getStmtAndMappedAST(llvm::Instruction const *I);
 };

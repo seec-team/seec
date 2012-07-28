@@ -23,6 +23,7 @@
 #include "llvm/Value.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/Path.h"
 
 using namespace clang;
 using namespace llvm;
@@ -170,7 +171,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   // setup the file node for the main file and add it to the files node
   llvm::Value *MainFileNodeOps[] {
     MDString::get(ModContext, MainFilename),
-    MDString::get(ModContext, "") // TODO (Path)
+    MDString::get(ModContext, llvm::sys::Path::GetCurrentDirectory().str())
   };
     
   auto MainFileNode = MDNode::get(ModContext, MainFileNodeOps);

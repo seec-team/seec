@@ -52,6 +52,15 @@ public:
 // class MappedAST
 //===----------------------------------------------------------------------===//
 
+MappedAST::~MappedAST() {
+  llvm::errs() << "~MappedAST @" << this
+               << " with AST@" << AST << "\n";
+  
+  delete AST;
+  
+  llvm::errs() << "...done\n";
+}
+
 std::unique_ptr<MappedAST>
 MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   if (!AST)
@@ -97,18 +106,33 @@ MappedAST::LoadFromCompilerInvocation(
 // class MappedModule
 //===----------------------------------------------------------------------===//
 
+llvm::sys::Path getPathFromFileNode(llvm::MDNode const *FileNode) {
+  auto FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
+  if (!FilenameStr)
+    return llvm::sys::Path();
+  
+  auto PathStr = dyn_cast<MDString>(FileNode->getOperand(1u));
+  if (!PathStr)
+    return llvm::sys::Path();
+  
+  auto FilePath = llvm::sys::Path(PathStr->getString());
+  FilePath.appendComponent(FilenameStr->getString());
+  
+  return std::move(FilePath);
+}
+
 MappedAST const *MappedModule::getASTForFile(llvm::MDNode const *FileNode) {
   // check lookup to see if we've already loaded the AST
   auto It = ASTLookup.find(FileNode);
   if (It != ASTLookup.end())
     return It->second;
-    
+  
   // if not, try to load the AST from the source file
-  auto Filename = dyn_cast<MDString>(FileNode->getOperand(0));
-  if (!Filename)
+  auto FilePath = getPathFromFileNode(FileNode);
+  if (FilePath.empty())
     return nullptr;
     
-  auto CI = GetCompileForSourceFile(Filename->getString().data(),
+  auto CI = GetCompileForSourceFile(FilePath.c_str(),
                                     ExecutablePath,
                                     Diags);
   if (!CI) {
@@ -129,6 +153,40 @@ MappedAST const *MappedModule::getASTForFile(llvm::MDNode const *FileNode) {
   ASTList.push_back(std::move(AST));
   
   return ASTRaw;
+}
+
+std::vector<MappedGlobalDecl> MappedModule::getMappedGlobalDecls() {
+  std::vector<MappedGlobalDecl> List;
+  
+  auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
+  if (!GlobalIdxMD)
+    return std::move(List);
+  
+  for (auto i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
+    auto Node = GlobalIdxMD->getOperand(i);
+    assert(Node->getNumOperands() == 3);
+    
+    auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
+    assert(FileNode);
+    
+    auto AST = getASTForFile(FileNode);
+    assert(AST);
+    
+    auto FilePath = getPathFromFileNode(FileNode);
+    assert(!FilePath.empty());
+    
+    auto Func = dyn_cast<Function>(Node->getOperand(1u));
+    assert(Func);
+    
+    auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
+    assert(DeclIdx);
+    
+    auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
+    
+    List.emplace_back(std::move(FilePath), Decl, Func);
+  }
+  
+  return std::move(List);
 }
 
 Decl const *MappedModule::getDecl(Instruction const *I) {
