@@ -53,12 +53,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 MappedAST::~MappedAST() {
-  llvm::errs() << "~MappedAST @" << this
-               << " with AST@" << AST << "\n";
-
   delete AST;
-
-  llvm::errs() << "...done\n";
 }
 
 std::unique_ptr<MappedAST>
