@@ -1,4 +1,10 @@
-add_executable(seec-trace-view main.cpp)
+add_executable(seec-trace-view
+  main.cpp
+  OpenTrace.cpp
+  SourceViewer.cpp
+  StateViewer.cpp
+  TraceViewerFrame.cpp
+  )
 
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles nativecodegen codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target

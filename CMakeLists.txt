@@ -46,12 +46,16 @@ message("ICU libraries at ${ICU_INSTALL}/lib")
 set(wxWidgets_USE_UNICODE true)
 set(wxWidgets_USE_STATIC true)
 message("Finding wxWidgets...")
-FIND_PACKAGE(wxWidgets REQUIRED core base)
+FIND_PACKAGE(wxWidgets REQUIRED core base aui adv)
 INCLUDE(${wxWidgets_USE_FILE})
+
+# fix CMAKE_CXX_FLAGS after wxWidgets sets it
+string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 #
 # setup compiler options
 #
+
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --cflags
  OUTPUT_VARIABLE LLVM_C_FLAGS

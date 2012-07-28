@@ -27,9 +27,29 @@ root:table {
 
     OpenTrace_FileType:string {"SeeC Process Trace (*.p.trace)|*.p.trace"}
 
+    OpenTrace_Status_Loaded {"Loaded trace with {0} states."}
+
     OpenTrace_Error_LoadProcessTrace:string {"Couldn't read process trace."}
 
     OpenTrace_Error_ParseIRFile:string {"Couldn't parse LLVM Module."}
+
+
+    //
+    // Source-code notebook
+    //
+    SourceBook_Title:string {"Source code"}
+
+
+    //
+    // ProcessTime scroller
+    //
+    ScrollProcessTime_Title:string {"Process time"}
+
+
+    //
+    // Status view
+    //
+    StatusView_Title:string {"Status"}
   }
 }
 
