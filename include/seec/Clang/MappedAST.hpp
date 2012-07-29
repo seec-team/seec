@@ -35,9 +35,9 @@ namespace seec_clang {
 ///
 class MappedAST {
   clang::ASTUnit *AST;
-  
+
   std::vector<clang::Decl const *> Decls;
-  
+
   std::vector<clang::Stmt const *> Stmts;
 
   /// Constructor.
@@ -48,7 +48,7 @@ class MappedAST {
     Decls(Decls),
     Stmts(Stmts)
   {}
-  
+
   // Don't allow copying.
   MappedAST(MappedAST const &Other) = delete;
   MappedAST & operator=(MappedAST const &RHS) = delete;
@@ -56,7 +56,7 @@ class MappedAST {
 public:
   /// Destructor.
   ~MappedAST();
-  
+
   /// Factory.
   static std::unique_ptr<MappedAST>
   FromASTUnit(clang::ASTUnit *AST);
@@ -92,15 +92,16 @@ public:
 };
 
 
-///
+/// Represents a mapping from an llvm::Function to a clang::Decl.
 class MappedGlobalDecl {
   llvm::sys::Path FilePath;
-  
+
   clang::Decl const *Decl;
-  
+
   llvm::Function const *Function;
-  
+
 public:
+  /// Constructor.
   MappedGlobalDecl(llvm::sys::Path FilePath,
                    clang::Decl const *Decl,
                    llvm::Function const *Function)
@@ -108,11 +109,20 @@ public:
     Decl(Decl),
     Function(Function)
   {}
-  
+
+  /// Copy constructor.
+  MappedGlobalDecl(MappedGlobalDecl const &) = default;
+
+  /// Copy assignment.
+  MappedGlobalDecl &operator=(MappedGlobalDecl const &) = default;
+
+  /// Get the path to the source file that this mapping refers to.
   llvm::sys::Path const &getFilePath() const { return FilePath; }
-  
+
+  /// Get the clang::Decl that is mapped to.
   clang::Decl const *getDecl() const { return Decl; }
-  
+
+  /// Get the llvm::Function that is mapped from.
   llvm::Function const *getFunction() const { return Function; }
 };
 
@@ -130,12 +140,16 @@ class MappedModule {
   std::vector<std::unique_ptr<MappedAST>> ASTList;
 
   unsigned MDStmtIdxKind;
-  
+
   unsigned MDDeclIdxKind;
+
+  llvm::DenseMap<llvm::Function const *, MappedGlobalDecl> GlobalLookup;
 
   // Don't allow copying.
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
+
+  MappedAST const *getASTForFile(llvm::MDNode const *FileNode);
 
 public:
   /// Constructor.
@@ -144,20 +158,16 @@ public:
   /// \param Diags The diagnostics engine to use during compilation.
   MappedModule(llvm::Module const &Module,
                llvm::StringRef ExecutablePath,
-               llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
-  : Module(Module),
-    ExecutablePath(ExecutablePath),
-    Diags(Diags),
-    ASTLookup(),
-    ASTList(),
-    MDStmtIdxKind(Module.getMDKindID(MDStmtIdxStr)),
-    MDDeclIdxKind(Module.getMDKindID(MDDeclIdxStr))
-  {}
+               llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
 
-  MappedAST const *getASTForFile(llvm::MDNode const *FileNode);
-  
-  /// Get all of the mapped global Decls.
-  std::vector<MappedGlobalDecl> getMappedGlobalDecls();
+  /// Get the GlobalLookup.
+  decltype(GlobalLookup) const &getGlobalLookup() const { return GlobalLookup; }
+
+  /// Find the clang::Decl mapping for an llvm::Function, if one exists.
+  MappedGlobalDecl const *getMappedGlobalDecl(llvm::Function const *F) const;
+
+  /// Find the clang::Decl for an llvm::Function, if one exists.
+  clang::Decl const *getDecl(llvm::Function const *F) const;
 
   /// For the given llvm::Instruction, find the clang::Decl.
   clang::Decl const *getDecl(llvm::Instruction const *I);
@@ -169,7 +179,7 @@ public:
 
   /// For the given llvm::Instruction, find the clang::Stmt.
   clang::Stmt const *getStmt(llvm::Instruction const *I);
-  
+
   /// For the given llvm::Instruction, find the clang::Stmt and the MappedAST
   /// that it belongs to.
   std::pair<clang::Stmt const *, MappedAST const *>

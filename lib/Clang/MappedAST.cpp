@@ -150,14 +150,25 @@ MappedAST const *MappedModule::getASTForFile(llvm::MDNode const *FileNode) {
   return ASTRaw;
 }
 
-std::vector<MappedGlobalDecl> MappedModule::getMappedGlobalDecls() {
-  std::vector<MappedGlobalDecl> List;
-
+MappedModule::MappedModule(
+                llvm::Module const &Module,
+                llvm::StringRef ExecutablePath,
+                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
+: Module(Module),
+  ExecutablePath(ExecutablePath),
+  Diags(Diags),
+  ASTLookup(),
+  ASTList(),
+  MDStmtIdxKind(Module.getMDKindID(MDStmtIdxStr)),
+  MDDeclIdxKind(Module.getMDKindID(MDDeclIdxStr)),
+  GlobalLookup()
+{
+  // Create the GlobalLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (!GlobalIdxMD)
-    return std::move(List);
+    return;
 
-  for (auto i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
+  for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
     auto Node = GlobalIdxMD->getOperand(i);
     assert(Node->getNumOperands() == 3);
 
@@ -178,10 +189,28 @@ std::vector<MappedGlobalDecl> MappedModule::getMappedGlobalDecls() {
 
     auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
 
-    List.emplace_back(std::move(FilePath), Decl, Func);
+    GlobalLookup.insert(std::make_pair(Func,
+                                       MappedGlobalDecl(std::move(FilePath),
+                                                        Decl,
+                                                        Func)));
   }
+}
 
-  return std::move(List);
+MappedGlobalDecl const *
+MappedModule::getMappedGlobalDecl(llvm::Function const *F) const {
+  auto It = GlobalLookup.find(F);
+  if (It == GlobalLookup.end())
+    return nullptr;
+
+  return &(It->second);
+}
+
+clang::Decl const *MappedModule::getDecl(llvm::Function const *F) const {
+  auto It = GlobalLookup.find(F);
+  if (It == GlobalLookup.end())
+    return nullptr;
+
+  return It->second.getDecl();
 }
 
 Decl const *MappedModule::getDecl(Instruction const *I) {
