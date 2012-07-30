@@ -48,13 +48,13 @@ using namespace llvm;
 namespace {
   static cl::opt<std::string>
   InputFile(cl::desc("<input trace>"), cl::Positional, cl::init(""));
-  
+
   static cl::opt<bool>
   ShowRawEvents("R", cl::desc("show raw events"));
-  
+
   static cl::opt<bool>
   ShowStates("S", cl::desc("show recreated states"));
-  
+
   static cl::opt<bool>
   ShowErrors("E", cl::desc("show run-time errors"));
 }
@@ -80,24 +80,24 @@ int main(int argc, char **argv, char * const *envp) {
   cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
 
   llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
-  
+
   // Setup resource loading.
   ResourceLoader Resources(ExecutablePath);
-  
+
   if (!Resources.loadResource("RuntimeErrors")) {
     llvm::errs() << "failed to load resource 'RuntimeErrors'\n";
     exit(EXIT_FAILURE);
   }
-  
+
   // Read the trace.
   InputBufferAllocator BufferAllocator;
-  
+
   auto MaybeProcTrace = ProcessTrace::readFrom(BufferAllocator);
   if (!MaybeProcTrace.assigned<std::unique_ptr<ProcessTrace>>()) {
     llvm::errs() << "failed to load process trace\n";
     exit(EXIT_FAILURE);
   }
-  
+
   ProcessTrace &Trace (*(MaybeProcTrace.get<std::unique_ptr<ProcessTrace>>()));
 
   // Load the bitcode.
@@ -109,7 +109,7 @@ int main(int argc, char **argv, char * const *envp) {
     ParseError.print(argv[0], errs());
     exit(EXIT_FAILURE);
   }
-  
+
   // Index the llvm::Module.
   seec::ModuleIndex ModIndex {*Mod, true};
 
@@ -160,38 +160,38 @@ int main(int argc, char **argv, char * const *envp) {
       }
     }
   }
-  
+
   // Recreate complete process states and print the details.
   if (ShowStates) {
     outs() << "Recreating states:\n";
-    
+
     ProcessState ProcState{Trace, ModIndex};
     outs() << ProcState << "\n";
-    
+
     while (ProcState.getProcessTime() != Trace.getFinalProcessTime()) {
       ++ProcState;
       outs() << ProcState << "\n";
     }
-    
+
     while (ProcState.getProcessTime() != 0) {
       --ProcState;
       outs() << ProcState << "\n";
     }
   }
-  
+
   // Print basic descriptions of all run-time errors.
   if (ShowErrors) {
     clang::LangOptions LangOpt;
-    
+
     clang::PrintingPolicy PrintPolicy(LangOpt);
     PrintPolicy.ConstantArraySizeAsWritten = true;
-    
+
     auto NumThreads = Trace.getNumThreads();
-    
+
     for (uint32_t i = 1; i <= NumThreads; ++i) {
       auto &&Thread = Trace.getThreadTrace(i);
       std::vector<uint32_t> FunctionStack;
-     
+
       outs() << "Thread #" << i << ":\n";
 
       for (auto &&Ev: Thread.events()) {
@@ -213,46 +213,46 @@ int main(int argc, char **argv, char * const *envp) {
             auto UniStr = seec::runtime_errors::format(*RunErr);
             outs() << "Error: \"" << UniStr << "\"\n";
           }
-          
+
           // Find the Instruction responsible for this error.
           auto const Prev = rfind<EventType::PreInstruction>
                                  (rangeBefore(Thread.events(), Ev));
           assert(Prev.assigned());
-          
+
           auto const InstrIndex = Prev.get<0>()->getIndex();
           assert(InstrIndex.assigned());
-          
+
           auto const FunIndex = ModIndex.getFunctionIndex(FunctionStack.back());
           assert(FunIndex);
-          
+
           auto const Instr = FunIndex->getInstruction(InstrIndex.get<0>());
           assert(Instr);
-          
+
           // Show the Clang Stmt that caused the error.
           auto const StmtAndAST = MapMod.getStmtAndMappedAST(Instr);
           assert(StmtAndAST.first && StmtAndAST.second);
-          
+
           auto const &AST = StmtAndAST.second->getASTUnit();
           auto const &SrcManager = AST.getSourceManager();
-          
+
           auto const LocStart = StmtAndAST.first->getLocStart();
           auto const Filename = SrcManager.getFilename(LocStart);
           auto const Line = SrcManager.getSpellingLineNumber(LocStart);
           auto const Column = SrcManager.getSpellingColumnNumber(LocStart);
-          
+
           outs() << Filename
                  << ", Line " << Line
                  << " Column " << Column << ":\n";
-          
+
           StmtAndAST.first->printPretty(outs(),
                                         nullptr,
                                         PrintPolicy);
-          
+
           outs() << "\n";
         }
       }
     }
   }
 
-  exit(EXIT_SUCCESS);
+  return EXIT_SUCCESS;
 }
