@@ -40,4 +40,17 @@ wxString getwxStringExOrDie(ResourceBundle const &Bundle,
   return towxString(Str);
 }
 
+wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
+                              char const *Key) {
+  UErrorCode Status = U_ZERO_ERROR;
+
+  auto Str = Bundle.getStringEx(Key, Status);
+
+  if (U_FAILURE(Status)) {
+    return wxString();
+  }
+
+  return towxString(Str);
+}
+
 } // namespace seec

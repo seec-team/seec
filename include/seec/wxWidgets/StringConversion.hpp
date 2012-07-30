@@ -32,6 +32,11 @@ wxString getwxStringEx(ResourceBundle const &Bundle,
 wxString getwxStringExOrDie(ResourceBundle const &Bundle,
                             char const *Key);
 
+/// Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString. If the extraction fails, return an empty wxString.
+wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
+                              char const *Key);
+
 } // namespace seec
 
 #endif // SEEC_WXWIDGETS_STRINGCONVERSION_HPP
