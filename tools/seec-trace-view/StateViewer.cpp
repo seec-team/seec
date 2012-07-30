@@ -17,9 +17,9 @@ enum class StateNodeType {
 
 class StateNodeBase {
   StateNodeType ThisType;
-  
+
   StateNodeBase *Parent;
-  
+
 protected:
   StateNodeBase(StateNodeType Type, StateNodeBase *ParentNode = nullptr)
   : ThisType(Type),
@@ -28,11 +28,11 @@ protected:
 
 public:
   virtual ~StateNodeBase();
-  
+
   StateNodeType getType() const { return ThisType; }
-  
+
   StateNodeBase *getParent() const { return Parent; }
-  
+
   static bool classof(StateNodeBase const *Node) { return true; }
 };
 
@@ -40,19 +40,19 @@ StateNodeBase::~StateNodeBase() = default;
 
 class StateNodeProcess : public StateNodeBase {
   seec::trace::ProcessState &ThisState;
-  
+
 public:
   StateNodeProcess(seec::trace::ProcessState &State)
   : StateNodeBase(StateNodeType::Process),
     ThisState(State)
   {}
-  
+
   virtual ~StateNodeProcess();
-  
+
   seec::trace::ProcessState &getState() const { return ThisState; }
-  
+
   static bool classof(StateNodeProcess const *Node) { return true; }
-  
+
   static bool classof(StateNodeBase const *Node) {
     return Node->getType() == StateNodeType::Process;
   }
@@ -62,20 +62,20 @@ StateNodeProcess::~StateNodeProcess() = default;
 
 class StateNodeThread : public StateNodeBase {
   seec::trace::ThreadState &ThisState;
-  
+
 public:
   StateNodeThread(StateNodeProcess *Parent,
                   seec::trace::ThreadState &State)
   : StateNodeBase(StateNodeType::Thread, Parent),
     ThisState(State)
   {}
-  
+
   virtual ~StateNodeThread();
-  
+
   seec::trace::ThreadState &getState() const { return ThisState; }
-  
+
   static bool classof(StateNodeThread const *Node) { return true; }
-  
+
   static bool classof(StateNodeBase const *Node) {
     return Node->getType() == StateNodeType::Thread;
   }
@@ -85,20 +85,20 @@ StateNodeThread::~StateNodeThread() = default;
 
 class StateNodeFunction : public StateNodeBase {
   seec::trace::FunctionState const &ThisState;
-  
+
 public:
   StateNodeFunction(StateNodeBase *Parent,
                     seec::trace::FunctionState const &State)
   : StateNodeBase(StateNodeType::Function, Parent),
     ThisState(State)
   {}
-  
+
   virtual ~StateNodeFunction();
-  
+
   seec::trace::FunctionState const &getState() const { return ThisState; }
-  
+
   static bool classof(StateNodeFunction const *Node) { return true; }
-  
+
   static bool classof(StateNodeBase const *Node) {
     return Node->getType() == StateNodeType::Function;
   }
@@ -108,168 +108,168 @@ StateNodeFunction::~StateNodeFunction() = default;
 
 class StateTreeModel : public wxDataViewModel
 {
-  /// Maps the Module back to the original source code.
-  seec::seec_clang::MappedModule *MapMod;
-  
+  /// Information about the trace that this state belongs to.
+  OpenTrace *Trace;
+
   /// The process state is the root of the state tree.
   seec::trace::ProcessState *Root;
-  
+
   /// Root node for the process state.
   std::unique_ptr<StateNodeProcess> RootNode;
-  
+
   /// Nodes for each thread state.
   std::map<seec::trace::ThreadState *,
            std::unique_ptr<StateNodeThread>> ThreadNodes;
-  
+
   /// Nodes for each thread's function states.
   std::map<seec::trace::ThreadState *,
            std::vector<std::unique_ptr<StateNodeFunction>>> FunctionNodes;
 
 public:
   StateTreeModel()
-  : MapMod(nullptr),
+  : Trace(nullptr),
     Root(nullptr),
     RootNode(),
     ThreadNodes(),
     FunctionNodes()
   {}
-  
+
   void updateFunction(seec::trace::FunctionState &State) {
-    
+
   }
-  
+
   void updateThread(seec::trace::ThreadState &State) {
     auto ThreadNode = ThreadNodes[&State].get();
-    
+
     // Make sure that we have the correct number of function nodes.
     auto &FuncNodes = FunctionNodes[&State];
     auto &CallStack = State.getCallStack();
-    
+
     if (FuncNodes.size() > CallStack.size()) {
       // Delete excess function nodes.
       while (FuncNodes.size() > CallStack.size()) {
         auto &Node = FuncNodes.back();
-        
+
         ItemDeleted(wxDataViewItem(reinterpret_cast<void *>(Node->getParent())),
                     wxDataViewItem(reinterpret_cast<void *>(Node.get())));
-        
+
         FuncNodes.pop_back();
       }
     }
-    
+
     auto ExistingSize = FuncNodes.size();
-    
+
     if (FuncNodes.size() < CallStack.size()) {
       // Add new function nodes.
       StateNodeBase *Parent
         = FuncNodes.empty()
         ? static_cast<StateNodeBase *>(ThreadNode)
         : static_cast<StateNodeBase *>(FuncNodes.back().get());
-      
+
       for (std::size_t i = FuncNodes.size(); i < CallStack.size(); ++i) {
         FuncNodes.emplace_back(new StateNodeFunction(Parent, CallStack[i]));
-        
+
         auto Added = FuncNodes.back().get();
-        
+
         ItemAdded(wxDataViewItem(reinterpret_cast<void *>(Parent)),
                   wxDataViewItem(reinterpret_cast<void *>(Added)));
-        
+
         Parent = Added;
       }
     }
-    
-    // Update existing functions nodes.
+
+    // Update existing functions' nodes.
     for (auto i = 0u; i < ExistingSize; ++i) {
       ItemChanged(wxDataViewItem(reinterpret_cast<void *>(FuncNodes[i].get())));
     }
-    
+
     // Update the thread item (it may have new children).
     ItemChanged(wxDataViewItem(reinterpret_cast<void *>(ThreadNode)));
   }
-  
+
   void updateProcess() {
     // The root process item doesn't change, so we don't need to notify.
-    
+
     // Update all threads individually.
     for (auto &ThreadStatePtr : Root->getThreadStates()) {
       updateThread(*ThreadStatePtr);
     }
   }
-  
+
   /// Set a new process state and notify any associated controls.
-  void setRoot(seec::seec_clang::MappedModule &NewMapMod,
+  void setRoot(OpenTrace &NewTrace,
                seec::trace::ProcessState &NewRoot) {
     if (Root == &NewRoot) {
       updateProcess();
       return;
     }
-    
+
     // Destroy old nodes.
     ThreadNodes.clear();
     FunctionNodes.clear();
-    
+
     // Create new Root (Process) node.
-    MapMod = &NewMapMod;
+    Trace = &NewTrace;
     Root = &NewRoot;
     RootNode.reset(new StateNodeProcess(NewRoot));
-    
+
     // Create new thread nodes.
     wxDataViewItemArray ThreadItems;
-    
+
     for (auto &ThreadState : NewRoot.getThreadStates()) {
       auto Node = new StateNodeThread(RootNode.get(), *ThreadState);
-      
+
       ThreadNodes.insert(
                     std::make_pair(ThreadState.get(),
                                    std::unique_ptr<StateNodeThread>(Node)));
-      
+
       ThreadItems.Add(wxDataViewItem(reinterpret_cast<void *>(Node)));
-      
+
       auto CallStack = std::vector<std::unique_ptr<StateNodeFunction>>();
       FunctionNodes.insert(std::make_pair(ThreadState.get(),
                                           std::move(CallStack)));
     }
-    
+
     // Notify the controllers of changes.
     Cleared();
-    
+
     // Add the root node.
     ItemAdded(wxDataViewItem(),
               wxDataViewItem(reinterpret_cast<void *>(RootNode.get())));
-    
+
     // Add all thread nodes.
     ItemsAdded(wxDataViewItem(reinterpret_cast<void *>(RootNode.get())),
                ThreadItems);
   }
-  
+
   int Compare(wxDataViewItem const &Item1,
               wxDataViewItem const &Item2,
               unsigned int Column,
               bool Ascending) const {
     return &Item1 - &Item2;
   }
-  
+
   virtual unsigned int GetColumnCount() const {
     return 1;
   }
-  
+
   virtual wxString GetColumnType(unsigned int Column) const {
     switch (Column) {
       case 0:  return "string";
       default: return "string";
     }
   }
-  
+
   virtual void GetValue(wxVariant &Variant,
                         wxDataViewItem const &Item,
                         unsigned int Column) const {
     if (!Root)
       return;
-    
+
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
     if (!NodeBase)
       return;
-    
+
     if (llvm::isa<StateNodeProcess>(NodeBase)) {
       switch (Column) {
         case 0:
@@ -279,7 +279,7 @@ public:
           return;
       }
     }
-    
+
     if (auto ThreadNode = llvm::dyn_cast<StateNodeThread>(NodeBase)) {
       switch (Column) {
         case 0:
@@ -292,19 +292,27 @@ public:
           return;
       }
     }
-    
+
     if (auto FunctionNode = llvm::dyn_cast<StateNodeFunction>(NodeBase)) {
       switch (Column) {
         case 0:
         {
           auto Index = FunctionNode->getState().getTrace().getIndex();
-          
-          // TODO: FIXME
-          auto Decl = MapMod->getMappedGlobalDecls()[Index].getDecl();
-          
+          auto Function = Trace->getModuleIndex().getFunction(Index);
+          if (!Function) {
+            Variant = (wxString("Unknown Function"));
+            return;
+          }
+
+          auto Decl = Trace->getMappedModule().getDecl(Function);
+          if (!Decl) {
+            Variant = (wxString("Unknown Function"));
+            return;
+          }
+
           auto NamedDecl = llvm::dyn_cast<clang::NamedDecl>(Decl);
           assert(NamedDecl);
-          
+
           Variant = (wxString("Function ") << NamedDecl->getNameAsString());
           return;
         }
@@ -313,95 +321,95 @@ public:
       }
     }
   }
-  
+
   virtual bool SetValue(wxVariant const &Variant,
                         wxDataViewItem const &Item,
                         unsigned int Column) {
     return false;
   }
-  
+
   virtual wxDataViewItem GetParent(wxDataViewItem const &Item) const {
     if (!Root)
       return wxDataViewItem(nullptr);
-    
+
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
     if (!NodeBase)
       return wxDataViewItem(nullptr);
-    
+
     return wxDataViewItem(reinterpret_cast<void *>(NodeBase->getParent()));
   }
-  
+
   virtual bool IsContainer(wxDataViewItem const &Item) const {
     if (!Root)
       return false;
-    
+
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
     if (!NodeBase)
       return false;
-    
+
     if (llvm::isa<StateNodeProcess>(NodeBase))
       return true;
-    
+
     if (llvm::isa<StateNodeThread>(NodeBase))
       return true;
-    
+
     if (llvm::isa<StateNodeFunction>(NodeBase))
       return true;
-    
+
     return false;
   }
-  
+
   virtual unsigned int GetChildren(wxDataViewItem const &Parent,
                                    wxDataViewItemArray &Array) const {
     if (!Root)
       return 0;
-    
+
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Parent.GetID());
     if (!NodeBase) {
       Array.Add(wxDataViewItem(reinterpret_cast<void *>(RootNode.get())));
       return 1;
     }
-    
+
     if (llvm::isa<StateNodeProcess>(NodeBase)) {
       unsigned int Count = 0;
-      
+
       for (auto &Pair : ThreadNodes) {
         Array.Add(wxDataViewItem(reinterpret_cast<void *>(Pair.second.get())));
         ++Count;
       }
-      
+
       return Count;
     }
-    
+
     if (auto NodeThread = llvm::dyn_cast<StateNodeThread>(NodeBase)) {
       auto FuncIt = FunctionNodes.find(&(NodeThread->getState()));
       if (FuncIt == FunctionNodes.end())
         return 0;
-      
+
       auto &Stack = FuncIt->second;
       if (Stack.empty())
         return 0;
-      
+
       Array.Add(wxDataViewItem(reinterpret_cast<void *>(Stack.front().get())));
       return 1;
     }
-    
+
     if (auto NodeFunc = llvm::dyn_cast<StateNodeFunction>(NodeBase)) {
       // First, find the thread that the function is in.
       auto InThread = NodeFunc->getParent();
       while (llvm::isa<StateNodeFunction>(InThread))
         InThread = InThread->getParent();
-      
+
       // Get the call stack for this thread.
       auto NodeThread = llvm::dyn_cast<StateNodeThread>(InThread);
       assert(NodeThread);
-      
+
       auto FuncIt = FunctionNodes.find(&(NodeThread->getState()));
       if (FuncIt == FunctionNodes.end())
         return 0;
-      
+
       auto &Stack = FuncIt->second;
-      
+
       // Find the function in the stack, and return the next function as its
       // child (if there is a next function).
       for (auto It = Stack.begin(), End = Stack.end(); It != End; ++It) {
@@ -410,14 +418,14 @@ public:
             Array.Add(wxDataViewItem(reinterpret_cast<void *>(It->get())));
             return 1;
           }
-          
+
           break;
         }
       }
-      
+
       return 0;
     }
-    
+
     return 0;
   }
 };
@@ -437,13 +445,13 @@ StateViewerPanel::StateViewerPanel(wxWindow *Parent,
                                   wxID_ANY))
 {
   DataViewCtrl->AssociateModel(StateTree);
-  
+
   // Column 0
   auto Renderer0 = new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_INERT);
   auto Column0 = new wxDataViewColumn("title", Renderer0, 0, 200, wxALIGN_LEFT,
                                       wxDATAVIEW_COL_RESIZABLE);
   DataViewCtrl->AppendColumn(Column0);
-  
+
   // Make the DataViewCtrl expand to fill its parent.
   auto TopSizer = new wxGridSizer(1, 1, wxSize(0,0));
   TopSizer->Add(DataViewCtrl, wxSizerFlags().Expand());
@@ -459,5 +467,5 @@ StateViewerPanel::~StateViewerPanel() {
 
 void StateViewerPanel::show(OpenTrace &TraceInfo,
                             seec::trace::ProcessState &State) {
-  StateTree->setRoot(TraceInfo.getMappedModule(), State);
+  StateTree->setRoot(TraceInfo, State);
 }
