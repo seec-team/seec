@@ -1,8 +1,17 @@
+#include "MallocViewer.hpp"
 #include "StateViewer.hpp"
 #include "OpenTrace.hpp"
 
+#include "seec/ICU/Format.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Util/MakeUnique.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
+
+#include <wx/dataview.h>
+#include <wx/aui/aui.h>
+#include <wx/aui/auibook.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 //------------------------------------------------------------------------------
 // StateTreeModel
@@ -270,10 +279,18 @@ public:
     if (!NodeBase)
       return;
 
+    // Get the GUIText from the TraceViewer ICU resources.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto TextTable = seec::getResource("TraceViewer",
+                                       Locale::getDefault(),
+                                       Status,
+                                       "GUIText");
+    assert(U_SUCCESS(Status));
+
     if (llvm::isa<StateNodeProcess>(NodeBase)) {
       switch (Column) {
         case 0:
-          Variant = wxString("Process");
+          Variant = seec::getwxStringExOrEmpty(TextTable, "CallTree_Process");
           return;
         default:
           return;
@@ -284,8 +301,10 @@ public:
       switch (Column) {
         case 0:
         {
-          auto ThreadID = ThreadNode->getState().getTrace().getThreadID();
-          Variant = (wxString("Thread #") << ThreadID);
+          int64_t ThreadID = ThreadNode->getState().getTrace().getThreadID();
+          auto ThreadStr = TextTable.getStringEx("CallTree_Thread", Status);
+          auto Formatted = seec::format(ThreadStr, Status, ThreadID);
+          Variant = seec::towxString(Formatted);
           return;
         }
         default:
@@ -300,20 +319,22 @@ public:
           auto Index = FunctionNode->getState().getTrace().getIndex();
           auto Function = Trace->getModuleIndex().getFunction(Index);
           if (!Function) {
-            Variant = (wxString("Unknown Function"));
+            Variant = seec::getwxStringExOrEmpty(TextTable,
+                                                 "CallTree_UnknownFunction");
             return;
           }
 
           auto Decl = Trace->getMappedModule().getDecl(Function);
           if (!Decl) {
-            Variant = (wxString("Unknown Function"));
+            Variant = seec::getwxStringExOrEmpty(TextTable,
+                                                 "CallTree_UnknownFunction");
             return;
           }
 
           auto NamedDecl = llvm::dyn_cast<clang::NamedDecl>(Decl);
           assert(NamedDecl);
 
-          Variant = (wxString("Function ") << NamedDecl->getNameAsString());
+          Variant = wxString(NamedDecl->getNameAsString());
           return;
         }
         default:
@@ -435,34 +456,66 @@ public:
 // StateViewerPanel
 //------------------------------------------------------------------------------
 
-StateViewerPanel::StateViewerPanel(wxWindow *Parent,
-                                   wxWindowID ID,
-                                   wxPoint const &Position,
-                                   wxSize const &Size)
-: wxPanel(Parent, ID, Position, Size),
-  StateTree(new StateTreeModel()),
-  DataViewCtrl(new wxDataViewCtrl(this,
-                                  wxID_ANY))
-{
+StateViewerPanel::~StateViewerPanel() {}
+
+bool StateViewerPanel::Create(wxWindow *Parent,
+                              wxWindowID ID,
+                              wxPoint const &Position,
+                              wxSize const &Size) {
+  if (!wxPanel::Create(Parent, ID, Position, Size))
+    return false;
+
+  // Get the GUIText from the TraceViewer ICU resources.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto TextTable = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "GUIText");
+  assert(U_SUCCESS(Status));
+
+  // Create the state tree (call stack).
+  StateTree = new StateTreeModel();
+  DataViewCtrl = new wxDataViewCtrl(this, wxID_ANY);
+
   DataViewCtrl->AssociateModel(StateTree);
 
-  // Column 0
+  // Column 0 of the state tree (call stack).
   auto Renderer0 = new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_INERT);
-  auto Column0 = new wxDataViewColumn("title", Renderer0, 0, 200, wxALIGN_LEFT,
+  auto ColumnTitle = seec::getwxStringExOrEmpty(TextTable,
+                                                "CallTree_Column0Title");
+  auto Column0 = new wxDataViewColumn(std::move(ColumnTitle),
+                                      Renderer0,
+                                      0,
+                                      200,
+                                      wxALIGN_LEFT,
                                       wxDATAVIEW_COL_RESIZABLE);
   DataViewCtrl->AppendColumn(Column0);
 
-  // Make the DataViewCtrl expand to fill its parent.
-  auto TopSizer = new wxGridSizer(1, 1, wxSize(0,0));
-  TopSizer->Add(DataViewCtrl, wxSizerFlags().Expand());
-  SetSizerAndFit(TopSizer);
-}
+  // Create the notebook that holds other state views.
+  StateBook = new wxAuiNotebook(this,
+                                wxID_ANY,
+                                wxDefaultPosition,
+                                wxDefaultSize,
+                                wxAUI_NB_TOP
+                                | wxAUI_NB_TAB_SPLIT
+                                | wxAUI_NB_TAB_MOVE
+                                | wxAUI_NB_SCROLL_BUTTONS);
 
-StateViewerPanel::~StateViewerPanel() {
-#if 0
-  if (StateTree)
-    delete StateTree;
-#endif
+  // Create the MallocViewer and add it to the notebook.
+  auto MallocViewer = new MallocViewerPanel(this);
+  StateBook->AddPage(MallocViewer,
+                     seec::getwxStringExOrEmpty(TextTable, "MallocView_Title"));
+
+  // Use a sizer to layout the state tree and notebook.
+  auto TopSizer = new wxGridSizer(1, // Rows
+                                  2, // Cols
+                                  wxSize(0,0) // Gap
+                                  );
+  TopSizer->Add(DataViewCtrl, wxSizerFlags().Expand());
+  TopSizer->Add(StateBook, wxSizerFlags().Expand());
+  SetSizerAndFit(TopSizer);
+
+  return true;
 }
 
 void StateViewerPanel::show(OpenTrace &TraceInfo,

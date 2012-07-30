@@ -1,6 +1,8 @@
 add_executable(seec-trace-view
   main.cpp
+  MallocViewer.cpp
   OpenTrace.cpp
+  ProcessTimeControl.cpp
   SourceViewer.cpp
   StateViewer.cpp
   TraceViewerFrame.cpp

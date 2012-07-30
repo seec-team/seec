@@ -50,6 +50,24 @@ root:table {
     // Status view
     //
     StatusView_Title:string {"Status"}
+
+
+    //
+    // Call tree
+    //
+    CallTree_Column0Title:string {"Call tree"}
+
+    CallTree_Process:string {"Process"}
+
+    CallTree_Thread:string {"Thread #{0}"}
+
+    CallTree_UnknownFunction:string {"<Unknown Function>"}
+
+
+    //
+    // Dynamic memory view
+    //
+    MallocView_Title:string {"Dynamic memory"}
   }
 }
 

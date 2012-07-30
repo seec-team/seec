@@ -1,4 +1,4 @@
-//===- TraceViewerFrame.hpp -----------------------------------------------===//
+//===- TraceViewerFrame.cpp -----------------------------------------------===//
 //
 //
 //
@@ -28,17 +28,15 @@ BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
                              TraceViewerFrame::OnSlideProcessTimeChanged)
 END_EVENT_TABLE()
 
-TraceViewerFrame::TraceViewerFrame(wxString const &Title,
-                                   wxPoint const &Position,
-                                   wxSize const &Size)
-: wxFrame(NULL, -1, Title, Position, Size),
-  Manager(this, wxAUI_MGR_DEFAULT),
-  Trace(),
-  State(),
-  SlideProcessTime(nullptr),
-  SourceViewer(nullptr),
-  StateViewer(nullptr)
+bool TraceViewerFrame::Create(wxWindow *Parent,
+                              wxWindowID ID,
+                              wxString const &Title,
+                              wxPoint const &Position,
+                              wxSize const &Size)
 {
+  if (!wxFrame::Create(Parent, ID, Title, Position, Size))
+    return false;
+
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
 
@@ -100,7 +98,6 @@ TraceViewerFrame::TraceViewerFrame(wxString const &Title,
                                  .Caption(Caption)
                                  .CaptionVisible(false)
                                  .Resizable(false)
-                                 .BestSize(2500, 50)
                                  .Floatable(false));
 
   Caption = seec::getwxStringExOrDie(TextTable, "SourceBook_Title");
@@ -123,6 +120,8 @@ TraceViewerFrame::TraceViewerFrame(wxString const &Title,
                                  .Floatable(false));
 
   Manager.Update();
+
+  return true;
 }
 
 void TraceViewerFrame::OnQuit(wxCommandEvent &WXUNUSED(Event)) {

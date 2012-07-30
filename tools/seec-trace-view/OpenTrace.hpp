@@ -25,6 +25,7 @@
 #include "llvm/Support/Path.h"
 
 #include <wx/wx.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 
@@ -49,13 +50,13 @@ class OpenTrace
 
   /// An indexed view of Module.
   std::unique_ptr<seec::ModuleIndex> ModuleIndex;
-  
+
   /// Diagnostics consumer used when reading original source code using Clang.
   clang::IgnoringDiagConsumer DiagConsumer;
-  
+
   /// Diagnostics engine used when reading original source code using Clang.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics;
-  
+
   /// Maps the Module back to the original source code.
   seec::seec_clang::MappedModule MapMod;
 
@@ -99,11 +100,11 @@ public:
   seec::util::Maybe<std::unique_ptr<OpenTrace>,
                     char const *>
   FromFilePath(wxString const &FilePath);
-  
-  
+
+
   /// \name Accessors
   /// @{
-  
+
   /// Get the context used by the Module.
   llvm::LLVMContext &getContext() const { return Context; }
 
@@ -117,13 +118,13 @@ public:
 
   /// Get an indexed view of Module.
   seec::ModuleIndex const &getModuleIndex() const { return *ModuleIndex; }
-  
+
   /// Get the MappedModule that maps the Module back to the original source
   /// code.
   seec::seec_clang::MappedModule &getMappedModule() {
     return MapMod;
   }
-  
+
   /// @}
 };
 

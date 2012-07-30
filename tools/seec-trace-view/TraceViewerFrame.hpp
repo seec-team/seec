@@ -32,6 +32,7 @@
 #include <wx/stdpaths.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/auibook.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 
@@ -39,16 +40,16 @@ class TraceViewerFrame : public wxFrame
 {
   /// Managers AUI behaviour.
   wxAuiManager Manager;
-  
+
   /// Stores information about the currently open trace.
   std::unique_ptr<OpenTrace> Trace;
-  
+
   /// Stores the current ProcessState.
   std::unique_ptr<seec::trace::ProcessState> State;
-  
+
   /// Slider used to control the current ProcessTime.
   wxSlider *SlideProcessTime;
-  
+
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
 
@@ -56,13 +57,39 @@ class TraceViewerFrame : public wxFrame
   StateViewerPanel *StateViewer;
 
 public:
-  TraceViewerFrame(wxString const &Title,
-                   wxPoint const &Position,
-                   wxSize const &Size);
-  
+  TraceViewerFrame()
+  : Manager(this, wxAUI_MGR_DEFAULT),
+    Trace(),
+    State(),
+    SlideProcessTime(nullptr),
+    SourceViewer(nullptr),
+    StateViewer(nullptr)
+  {}
+
+  TraceViewerFrame(wxWindow *Parent,
+                   wxWindowID ID = wxID_ANY,
+                   wxString const &Title = wxString(),
+                   wxPoint const &Position = wxDefaultPosition,
+                   wxSize const &Size = wxDefaultSize)
+  : Manager(this, wxAUI_MGR_DEFAULT),
+    Trace(),
+    State(),
+    SlideProcessTime(nullptr),
+    SourceViewer(nullptr),
+    StateViewer(nullptr)
+  {
+    Create(Parent, ID, Title, Position, Size);
+  }
+
   ~TraceViewerFrame() {
     Manager.UnInit();
   }
+
+  bool Create(wxWindow *Parent,
+              wxWindowID ID = wxID_ANY,
+              wxString const &Title = wxString(),
+              wxPoint const &Position = wxDefaultPosition,
+              wxSize const &Size = wxDefaultSize);
 
 #define SEEC_COMMAND_EVENT(EVENT) \
   void On##EVENT(wxCommandEvent &Event);

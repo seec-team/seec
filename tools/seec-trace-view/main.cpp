@@ -85,7 +85,11 @@ bool TraceViewerApp::OnInit() {
   if (U_FAILURE(Status))
     HandleFatalError("Couldn't load FrameTitle from GUIText resource bundle!");
 
-  auto Frame = new TraceViewerFrame(TitleStr, wxDefaultPosition, wxDefaultSize);
+  auto Frame = new TraceViewerFrame(nullptr,
+                                    wxID_ANY,
+                                    TitleStr,
+                                    wxDefaultPosition,
+                                    wxDefaultSize);
 
   Frame->Show(true);
 
