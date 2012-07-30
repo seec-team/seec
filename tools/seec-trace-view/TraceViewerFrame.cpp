@@ -10,13 +10,20 @@
 
 #include "TraceViewerFrame.hpp"
 
+#include "seec/ICU/Format.hpp"
+#include "seec/ICU/Resources.hpp"
+#include "seec/Util/Range.hpp"
+#include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
+
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/Path.h"
 
 #include <iostream>
 
 enum ControlIDs {
   TraceViewer_Reset = wxID_HIGHEST,
-  TraceViewer_SlideProcessTime
+  TraceViewer_ProcessTime
 };
 
 BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
@@ -24,8 +31,8 @@ BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
   EVT_MENU(ID_##EVENT, TraceViewerFrame::On##EVENT)
 #include "TraceViewerFrameEvents.def"
 
-  EVT_COMMAND_SCROLL_CHANGED(TraceViewer_SlideProcessTime,
-                             TraceViewerFrame::OnSlideProcessTimeChanged)
+  SEEC_EVT_PROCESS_TIME_CHANGED(TraceViewer_ProcessTime,
+                                TraceViewerFrame::OnProcessTimeChanged)
 END_EVENT_TABLE()
 
 bool TraceViewerFrame::Create(wxWindow *Parent,
@@ -64,17 +71,11 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   CreateStatusBar();
 
   // Hardcoded minimum size for the frame.
-  SetMinSize(wxSize(400,300));
+  SetMinSize(wxSize(640,480));
 
-  // Create a slider to control the current process time.
-  SlideProcessTime = new wxSlider(this,
-                                  TraceViewer_SlideProcessTime,
-                                  0, // Value
-                                  0, // MinValue
-                                  0, // MaxValue
-                                  wxDefaultPosition,
-                                  wxDefaultSize,
-                                  wxSL_HORIZONTAL | wxSL_LABELS);
+  // Create a control for the current process time.
+  ProcessTime = new ProcessTimeControl(this,
+                                       TraceViewer_ProcessTime);
 
   // Create the source code viewer.
   SourceViewer = new SourceViewerPanel(this,
@@ -88,38 +89,17 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                      wxDefaultPosition,
                                      wxDefaultSize);
 
-  // Add all the child controls using the AUI manager.
-  auto Caption = seec::getwxStringExOrDie(TextTable, "ScrollProcessTime_Title");
-  SlideProcessTime->SetLabel(Caption);
-  SlideProcessTime->Enable(false); // Disable the slider.
-  Manager.AddPane(SlideProcessTime,
-                  wxAuiPaneInfo().Top()
-                                 .CloseButton(false)
-                                 .Caption(Caption)
-                                 .CaptionVisible(false)
-                                 .Resizable(false)
-                                 .Floatable(false));
+  wxBoxSizer *TopSizer = new wxBoxSizer(wxVERTICAL);
+  TopSizer->Add(ProcessTime, wxSizerFlags().Expand());
 
-  Caption = seec::getwxStringExOrDie(TextTable, "SourceBook_Title");
-  Manager.AddPane(SourceViewer,
-                  wxAuiPaneInfo().Left()
-                                 .CloseButton(false)
-                                 .Caption(Caption)
-                                 .CaptionVisible(true)
-                                 .Resizable(true)
-                                 .Floatable(false));
+  wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
+  ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
+  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(1).Expand());
 
-  Caption = seec::getwxStringExOrDie(TextTable, "StatusView_Title");
-  Manager.AddPane(StateViewer,
-                  wxAuiPaneInfo().CenterPane()
-                                 .PaneBorder(false)
-                                 .CloseButton(false)
-                                 .Caption(Caption)
-                                 .CaptionVisible(true)
-                                 .Resizable(true)
-                                 .Floatable(false));
+  TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 
-  Manager.Update();
+  SetSizer(TopSizer);
+  TopSizer->SetSizeHints(this);
 
   return true;
 }
@@ -178,10 +158,7 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
     SetStatusText(seec::towxString(Formatted));
 
     // Display information about the newly-read trace.
-    SlideProcessTime->SetRange(0, FinalProcessTime);
-    SlideProcessTime->SetValue(0);
-    SlideProcessTime->Enable(true); // Enable the slider.
-
+    ProcessTime->setTrace(*Trace);
     StateViewer->show(*Trace, *State);
 
     for (auto &MapGlobalPair : Trace->getMappedModule().getGlobalLookup()) {
@@ -199,7 +176,7 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
   }
 }
 
-void TraceViewerFrame::OnSlideProcessTimeChanged(wxScrollEvent& event) {
-  State->setProcessTime(event.GetPosition());
+void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent& Event) {
+  State->setProcessTime(Event.getProcessTime());
   StateViewer->show(*Trace, *State);
 }
