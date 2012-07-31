@@ -68,6 +68,12 @@ root:table {
     // Dynamic memory view
     //
     MallocView_Title:string {"Dynamic memory"}
+
+    MallocView_ColumnTime:string {"Allocation Time"}
+
+    MallocView_ColumnAddress:string {"At Address"}
+
+    MallocView_ColumnSize:string {"Size (in bytes)"}
   }
 }
 

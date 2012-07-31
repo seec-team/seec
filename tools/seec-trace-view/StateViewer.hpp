@@ -19,6 +19,7 @@
 
 class OpenTrace;
 class StateTreeModel;
+class MallocViewerPanel;
 class wxAuiNotebook;
 class wxDataViewCtrl;
 
@@ -31,12 +32,15 @@ class StateViewerPanel : public wxPanel
 
   wxAuiNotebook *StateBook;
 
+  MallocViewerPanel *MallocViewer;
+
 public:
   StateViewerPanel()
   : wxPanel(),
     StateTree(nullptr),
     DataViewCtrl(nullptr),
-    StateBook(nullptr)
+    StateBook(nullptr),
+    MallocViewer(nullptr)
   {}
 
   StateViewerPanel(wxWindow *Parent,
@@ -46,7 +50,8 @@ public:
   : wxPanel(),
     StateTree(nullptr),
     DataViewCtrl(nullptr),
-    StateBook(nullptr)
+    StateBook(nullptr),
+    MallocViewer(nullptr)
   {
     Create(Parent, ID, Position, Size);
   }
@@ -59,6 +64,8 @@ public:
               wxSize const &Size = wxDefaultSize);
 
   void show(OpenTrace &TraceInfo, seec::trace::ProcessState &State);
+
+  void clear();
 };
 
 #endif // SEEC_TRACE_VIEW_STATEVIEWER_HPP

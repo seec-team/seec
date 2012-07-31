@@ -22,19 +22,28 @@ class ProcessState;
 }
 
 class OpenTrace;
+class MallocListModel;
+class wxDataViewCtrl;
 
 ///
 class MallocViewerPanel : public wxPanel
 {
+  MallocListModel *DataModel;
+
+  wxDataViewCtrl *DataView;
 
 public:
   MallocViewerPanel()
+  : DataModel(nullptr),
+    DataView(nullptr)
   {}
 
   MallocViewerPanel(wxWindow *Parent,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize)
+  : DataModel(nullptr),
+    DataView(nullptr)
   {
     Create(Parent, ID, Position, Size);
   }
@@ -47,6 +56,8 @@ public:
               wxSize const &Size = wxDefaultSize);
 
   void show(OpenTrace &TraceInfo, seec::trace::ProcessState &State);
+
+  void clear();
 };
 
 #endif // SEEC_TRACE_VIEW_MALLOCVIEWER_HPP

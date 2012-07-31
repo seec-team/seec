@@ -143,6 +143,8 @@ public:
     FunctionNodes()
   {}
 
+  virtual ~StateTreeModel() {}
+
   void updateFunction(seec::trace::FunctionState &State) {
 
   }
@@ -478,6 +480,7 @@ bool StateViewerPanel::Create(wxWindow *Parent,
   DataViewCtrl = new wxDataViewCtrl(this, wxID_ANY);
 
   DataViewCtrl->AssociateModel(StateTree);
+  StateTree->DecRef(); // Discount our reference to the StateTree.
 
   // Column 0 of the state tree (call stack).
   auto Renderer0 = new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_INERT);
@@ -502,7 +505,7 @@ bool StateViewerPanel::Create(wxWindow *Parent,
                                 | wxAUI_NB_SCROLL_BUTTONS);
 
   // Create the MallocViewer and add it to the notebook.
-  auto MallocViewer = new MallocViewerPanel(this);
+  MallocViewer = new MallocViewerPanel(this);
   StateBook->AddPage(MallocViewer,
                      seec::getwxStringExOrEmpty(TextTable, "MallocView_Title"));
 
@@ -521,4 +524,10 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 void StateViewerPanel::show(OpenTrace &TraceInfo,
                             seec::trace::ProcessState &State) {
   StateTree->setRoot(TraceInfo, State);
+  MallocViewer->show(TraceInfo, State);
+}
+
+void StateViewerPanel::clear() {
+  // TODO: Clear StateTree.
+  MallocViewer->clear();
 }
