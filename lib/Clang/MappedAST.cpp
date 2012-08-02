@@ -170,7 +170,7 @@ MappedModule::MappedModule(
 
   for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
     auto Node = GlobalIdxMD->getOperand(i);
-    assert(Node->getNumOperands() == 3);
+    assert(Node && Node->getNumOperands() == 3);
 
     auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
     assert(FileNode);
@@ -181,8 +181,11 @@ MappedModule::MappedModule(
     auto FilePath = getPathFromFileNode(FileNode);
     assert(!FilePath.empty());
 
-    auto Func = dyn_cast<Function>(Node->getOperand(1u));
-    assert(Func);
+    // Sometimes the compilation process creates mappings to Functions that do
+    // not exist in the Module, so we must carefully ignore them.
+    auto Func = dyn_cast_or_null<Function>(Node->getOperand(1u));
+    if (!Func)
+      continue;
 
     auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
     assert(DeclIdx);
