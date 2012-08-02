@@ -52,9 +52,7 @@ class ThreadEnvironment {
 public:
   ThreadEnvironment(ProcessEnvironment &PE);
   
-  ~ThreadEnvironment() {
-    llvm::errs() << "~ThreadEnvironment\n";
-  }
+  ~ThreadEnvironment() {}
   
   TraceThreadListener &getThreadListener() { return ThreadTracer; }
   
@@ -142,9 +140,7 @@ public:
     }
   }
   
-  ~ProcessEnvironment() {
-    llvm::errs() << "~ProcessEnvironment\n";
-  }
+  ~ProcessEnvironment() {}
   
   decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
   
