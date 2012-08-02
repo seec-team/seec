@@ -132,8 +132,8 @@ ProcessTrace::ProcessTrace(InputBufferAllocator &Allocator,
 seec::util::Maybe<std::unique_ptr<ProcessTrace>,
                   std::unique_ptr<seec::Error>>
 ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
-  auto TraceBuffer = Allocator.getProcessData("trace");
-  auto DataBuffer = Allocator.getProcessData("data");
+  auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
+  auto DataBuffer = Allocator.getProcessData(ProcessSegment::Data);
   
   BinaryReader TraceReader(TraceBuffer->getBufferStart(),
                            TraceBuffer->getBufferEnd());

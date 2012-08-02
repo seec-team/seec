@@ -385,8 +385,8 @@ class ThreadTrace {
   /// Constructor
   ThreadTrace(InputBufferAllocator &Allocator, uint32_t ID)
   : ThreadID(ID),
-    Trace(Allocator.getThreadData(ID, "trace")),
-    Events(Allocator.getThreadData(ID, "events")),
+    Trace(Allocator.getThreadData(ID, ThreadSegment::Trace)),
+    Events(Allocator.getThreadData(ID, ThreadSegment::Events)),
     TopLevelFunctions(getOffsetList(*reinterpret_cast<offset_uint const *>
                                     (Trace->getBufferStart())))
   {}

@@ -5,18 +5,40 @@ namespace seec {
 namespace trace {
 
 
+static char const *getProcessExtension(ProcessSegment Segment) {
+  switch (Segment) {
+    case ProcessSegment::Trace:
+      return "spt";
+    case ProcessSegment::Data:
+      return "spd";
+  }
+  
+  return nullptr;
+}
+
+static char const *getThreadExtension(ThreadSegment Segment) {
+  switch (Segment) {
+    case ThreadSegment::Trace:
+      return "stt";
+    case ThreadSegment::Events:
+      return "ste";
+  }
+  
+  return nullptr;
+}
+
 //------------------------------------------------------------------------------
 // OutputStreamAllocator
 //------------------------------------------------------------------------------
 
 std::unique_ptr<llvm::raw_ostream>
-OutputStreamAllocator::getProcessStream(llvm::StringRef Segment) {
+OutputStreamAllocator::getProcessStream(ProcessSegment Segment) {
+  std::string Filename ("st.");
+  Filename += getProcessExtension(Segment);
+  
   std::string ErrorInfo;
-
-  std::string Filename ("st.p.");
-  Filename += Segment.str();
-
-  auto Out = new llvm::raw_fd_ostream(Filename.c_str(), ErrorInfo,
+  auto Out = new llvm::raw_fd_ostream(Filename.c_str(),
+                                      ErrorInfo,
                                       llvm::raw_fd_ostream::F_Binary);
   if (!Out) {
     llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
@@ -28,16 +50,16 @@ OutputStreamAllocator::getProcessStream(llvm::StringRef Segment) {
 
 std::unique_ptr<llvm::raw_ostream>
 OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
-                                       llvm::StringRef Segment) {
-  std::string ErrorInfo;
-
+                                       ThreadSegment Segment) {
   std::string Filename;
   llvm::raw_string_ostream FilenameStream (Filename);
-
-  FilenameStream << "st.t" << ThreadID << "." << Segment;
+  FilenameStream << "st.t" << ThreadID
+                 << "." << getThreadExtension(Segment);
   FilenameStream.flush();
 
-  auto Out = new llvm::raw_fd_ostream(Filename.c_str(), ErrorInfo,
+  std::string ErrorInfo;
+  auto Out = new llvm::raw_fd_ostream(Filename.c_str(),
+                                      ErrorInfo,
                                       llvm::raw_fd_ostream::F_Binary);
   if (!Out) {
     llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
@@ -53,10 +75,10 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
 //------------------------------------------------------------------------------
 
 std::unique_ptr<llvm::MemoryBuffer>
-InputBufferAllocator::getProcessData(llvm::StringRef Segment) {
+InputBufferAllocator::getProcessData(ProcessSegment Segment) {
   auto Path = TraceDirectory;
-  Path.appendComponent("st.p");
-  Path.appendSuffix(Segment);
+  Path.appendComponent("st");
+  Path.appendSuffix(getProcessExtension(Segment));
 
   llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
 
@@ -72,10 +94,11 @@ InputBufferAllocator::getProcessData(llvm::StringRef Segment) {
 
 std::unique_ptr<llvm::MemoryBuffer>
 InputBufferAllocator::getThreadData(uint32_t ThreadID,
-                                    llvm::StringRef Segment) {
+                                    ThreadSegment Segment) {
   std::string Filename;
   llvm::raw_string_ostream FilenameStream (Filename);
-  FilenameStream << "st.t" << ThreadID << "." << Segment;
+  FilenameStream << "st.t" << ThreadID
+                 << "." << getThreadExtension(Segment);
   FilenameStream.flush();
 
   auto Path = TraceDirectory;

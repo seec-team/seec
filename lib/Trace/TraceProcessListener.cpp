@@ -26,7 +26,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   DetectCallsLookup(),
   FunctionAddresses(MIndex.getFunctionCount()),
   FunctionLookup(),
-  DataOut(StreamAlloc.getProcessStream("data")),
+  DataOut(StreamAlloc.getProcessStream(ProcessSegment::Data)),
   DataOutOffset(0),
   DataOutMutex(),
   Time(0),
@@ -41,7 +41,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
 {}
 
 TraceProcessListener::~TraceProcessListener() {
-  auto Out = StreamAllocator.getProcessStream("trace");
+  auto Out = StreamAllocator.getProcessStream(ProcessSegment::Trace);
   if (!Out)
     return;
     

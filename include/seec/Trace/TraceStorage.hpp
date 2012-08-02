@@ -24,6 +24,16 @@ namespace seec {
 
 namespace trace {
 
+enum class ProcessSegment {
+  Trace = 1,
+  Data
+};
+
+enum class ThreadSegment {
+  Trace = 1,
+  Events
+};
+
 /// \brief Allocates raw_ostreams for the various outputs required by tracing.
 ///
 /// This gives us a central area to control the output locations and filenames.
@@ -32,11 +42,11 @@ public:
   OutputStreamAllocator() {}
 
   /// Get an output for a process-level data segment.
-  std::unique_ptr<llvm::raw_ostream> getProcessStream(llvm::StringRef Segment);
+  std::unique_ptr<llvm::raw_ostream> getProcessStream(ProcessSegment Segment);
 
   /// Get an output for a thread-specific data segment.
   std::unique_ptr<llvm::raw_ostream> getThreadStream(uint32_t ThreadID,
-                                                     llvm::StringRef Segment);
+                                                     ThreadSegment Segment);
 };
 
 /// Gets MemoryBuffers for the various sections of a trace.
@@ -74,12 +84,12 @@ public:
   }
 
   /// Create a MemoryBuffer containing the process data for the given Segment.
-  std::unique_ptr<llvm::MemoryBuffer> getProcessData(llvm::StringRef Segment);
+  std::unique_ptr<llvm::MemoryBuffer> getProcessData(ProcessSegment Segment);
 
   /// Create a MemoryBuffer containing the data for the given thread's given
   /// Segment.
   std::unique_ptr<llvm::MemoryBuffer> getThreadData(uint32_t ThreadID,
-                                                    llvm::StringRef Segment);
+                                                    ThreadSegment Segment);
 };
 
 } // namespace trace (in seec)
