@@ -34,6 +34,43 @@ namespace seec {
 
 namespace trace {
 
+// Forward-declaration.
+class ProcessEnvironment;
+
+
+/// \brief ThreadEnvironment.
+///
+class ThreadEnvironment {
+  ProcessEnvironment &Process;
+  
+  TraceThreadListener ThreadTracer;
+  
+  FunctionIndex *FunIndex;
+  
+  std::vector<Function *> Stack;
+  
+public:
+  ThreadEnvironment(ProcessEnvironment &PE);
+  
+  ~ThreadEnvironment() {
+    llvm::errs() << "~ThreadEnvironment\n";
+  }
+  
+  TraceThreadListener &getThreadListener() { return ThreadTracer; }
+  
+  FunctionIndex &getFunctionIndex() {
+    assert(FunIndex);
+    return *FunIndex;
+  }
+  
+  void pushFunction(llvm::Function *Fun);
+  
+  llvm::Function *popFunction();
+};
+
+
+/// \brief ProcessEnvironment.
+///
 class ProcessEnvironment {
   llvm::LLVMContext Context;
   
@@ -47,6 +84,8 @@ class ProcessEnvironment {
   
   std::unique_ptr<TraceProcessListener> ProcessTracer;
   
+  std::map<std::thread::id, std::unique_ptr<ThreadEnvironment>> ThreadLookup;
+  
 public:
   ProcessEnvironment()
   : Context(),
@@ -54,7 +93,8 @@ public:
     ModIndex(),
     StreamAllocator(),
     SyncExit(),
-    ProcessTracer()
+    ProcessTracer(),
+    ThreadLookup()
   {
     llvm::llvm_start_multithreaded();
     
@@ -102,6 +142,12 @@ public:
     }
   }
   
+  ~ProcessEnvironment() {
+    llvm::errs() << "~ProcessEnvironment\n";
+  }
+  
+  decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
+  
   llvm::LLVMContext &getContext() { return Context; }
   
   llvm::Module const &getModule() const { return *Mod; }
@@ -115,46 +161,34 @@ public:
   TraceProcessListener &getProcessListener() { return *ProcessTracer; }
 };
 
-class ThreadEnvironment {
-  ProcessEnvironment &Process;
+
+//------------------------------------------------------------------------------
+// ThreadEnvironment
+//------------------------------------------------------------------------------
+
+ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
+: Process(PE),
+  ThreadTracer(PE.getProcessListener(), PE.getStreamAllocator()),
+  FunIndex(nullptr),
+  Stack()
+{}
+
+void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
+  Stack.push_back(Fun);
+  FunIndex = Process.getModuleIndex().getFunctionIndex(Fun);
+}
+
+llvm::Function *ThreadEnvironment::popFunction() {
+  auto Fun = Stack.back();
+  Stack.pop_back();
   
-  TraceThreadListener ThreadTracer;
+  FunIndex = 
+  Stack.empty() ? nullptr
+  : Process.getModuleIndex().getFunctionIndex(Stack.back());
   
-  FunctionIndex *FunIndex;
-  
-  std::vector<Function *> Stack;
-  
-public:
-  ThreadEnvironment(ProcessEnvironment &PE)
-  : Process(PE),
-    ThreadTracer(PE.getProcessListener(), PE.getStreamAllocator()),
-    FunIndex(nullptr),
-    Stack()
-  {}
-  
-  TraceThreadListener &getThreadListener() { return ThreadTracer; }
-  
-  FunctionIndex &getFunctionIndex() {
-    assert(FunIndex);
-    return *FunIndex;
-  }
-  
-  void pushFunction(llvm::Function *Fun) {
-    Stack.push_back(Fun);
-    FunIndex = Process.getModuleIndex().getFunctionIndex(Fun);
-  }
-  
-  llvm::Function *popFunction() {
-    auto Fun = Stack.back();
-    Stack.pop_back();
-    
-    FunIndex = 
-      Stack.empty() ? nullptr
-                    : Process.getModuleIndex().getFunctionIndex(Stack.back());
-    
-    return Fun;
-  }
-};
+  return Fun;
+}
+
 
 ProcessEnvironment &getProcessEnvironment() {
   static bool Initialized = false;
@@ -175,22 +209,19 @@ ProcessEnvironment &getProcessEnvironment() {
 }
 
 ThreadEnvironment &getThreadEnvironment() {
-  // waiting for thread_local
-  static bool Initialized = false;
-  static std::mutex InitializationMutex {};
-  static std::unique_ptr<ThreadEnvironment> ThreadEnv {};
+  // Yes, this is a terrible bottleneck. When thread_local support is available,
+  // we'll be using that instead.
+  static std::mutex AccessMutex {};
   
-  if (Initialized)
-    return *ThreadEnv;
+  std::lock_guard<std::mutex> Lock(AccessMutex);
   
-  std::lock_guard<std::mutex> Lock(InitializationMutex);
-  if (Initialized)
-    return *ThreadEnv;
+  auto &Lookup = getProcessEnvironment().getThreadLookup();
+  auto &ThreadEnvPtr = Lookup[std::this_thread::get_id()];
   
-  ThreadEnv.reset(new ThreadEnvironment(getProcessEnvironment()));
-  Initialized = true;
+  if (!ThreadEnvPtr)
+    ThreadEnvPtr.reset(new ThreadEnvironment(getProcessEnvironment()));
   
-  return *ThreadEnv;
+  return *ThreadEnvPtr;
 }
 
 } // namespace trace (in seec)

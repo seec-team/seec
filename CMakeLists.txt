@@ -5,13 +5,16 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
   message(FATAL_ERROR "In-source builds are not allowed.")
 endif()
 
-#
-# find LLVM
-#
-message("Finding LLVM...")
+#--------------------------------------------------------------------------------
+# Cached variables.
+#--------------------------------------------------------------------------------
+set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundles (Mac OS X).")
+set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
+set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 
-# A convenience variable:
-set(LLVM_INSTALL "" CACHE PATH "Root of LLVM install.")
+#--------------------------------------------------------------------------------
+# find LLVM
+#--------------------------------------------------------------------------------
 
 # A bit of a sanity check:
 if( NOT EXISTS ${LLVM_INSTALL}/include/llvm )
@@ -19,42 +22,33 @@ if( NOT EXISTS ${LLVM_INSTALL}/include/llvm )
 endif()
 
 # Now set the header paths:
-message("LLVM includes at ${LLVM_INSTALL}/include")
-# Include files from the source tree
+message("Using LLVM install at ${LLVM_INSTALL}")
 include_directories( BEFORE ${LLVM_INSTALL}/include )
 
-# Library paths:
-message("LLVM libraries at ${LLVM_INSTALL}/lib")
-
-#
+#--------------------------------------------------------------------------------
 # find ICU
-#
-message("Finding ICU...")
-set(ICU_INSTALL "" CACHE PATH "Root of ICU install.")
+#--------------------------------------------------------------------------------
 if( NOT EXISTS ${ICU_INSTALL}/include/unicode/unistr.h )
   message(FATAL_ERROR "ICU_INSTALL (${ICU_INSTALL}) is not a valid ICU installation.")
 endif()
 
-message("ICU includes at ${ICU_INSTALL}/include")
+message("Using ICU at ${ICU_INSTALL}")
 include_directories( BEFORE ${ICU_INSTALL}/include )
 
-message("ICU libraries at ${ICU_INSTALL}/lib")
-
-#
+#--------------------------------------------------------------------------------
 # find wxWidgets
-#
+#--------------------------------------------------------------------------------
 set(wxWidgets_USE_UNICODE true)
 set(wxWidgets_USE_STATIC true)
-message("Finding wxWidgets...")
 FIND_PACKAGE(wxWidgets REQUIRED core base aui adv)
 INCLUDE(${wxWidgets_USE_FILE})
 
 # fix CMAKE_CXX_FLAGS after wxWidgets sets it
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-#
+#--------------------------------------------------------------------------------
 # setup compiler options
-#
+#--------------------------------------------------------------------------------
 
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --cflags
@@ -86,12 +80,12 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 add_definitions( -DSEEC_LLVM_OBJ="${LLVM_INSTALL}" )
 
-#
+#--------------------------------------------------------------------------------
 # macro for generating ICU resources
 # adapted from: http://www.cmake.org/pipermail/cmake/2009-March/027433.html
 # note that, for icupkg to work correctly, resources must be specified BEFORE
 # any other resource that they depend upon. e.g. en_AU en root.
-#
+#--------------------------------------------------------------------------------
 macro(icu_resources package)
   # build directory for this package's resources
   set(${package}_res_dir ${CMAKE_BINARY_DIR}/resources/${package})
@@ -142,24 +136,23 @@ macro(icu_resources package)
   INSTALL(FILES ${${package}_icu_dat} DESTINATION lib/seec/resources)
 endmacro(icu_resources)
 
-#
-# back to SeeC
-#
-message("Use SeeC includes at ${PROJECT_SOURCE_DIR}/include")
+#--------------------------------------------------------------------------------
+# Setup the build for the various SeeC components
+#--------------------------------------------------------------------------------
 include_directories( BEFORE ${PROJECT_SOURCE_DIR}/include )
 
 message("Using C flags: ${CMAKE_C_FLAGS}")
 message("Using C++ flags: ${CMAKE_CXX_FLAGS}")
 
-message("Build SeeC resources...")
+message("Will build SeeC resources.")
 add_subdirectory(resources)
 
-message("Build SeeC libraries...")
+message("Will build SeeC libraries.")
 add_subdirectory(lib)
 
 option(SEEC_BUILD_TOOLS "Build the SeeC tools." ON)
 if(SEEC_BUILD_TOOLS)
-  message("Build SeeC tools...")
+  message("Will build SeeC tools.")
   add_subdirectory(tools)
 endif(SEEC_BUILD_TOOLS)
 

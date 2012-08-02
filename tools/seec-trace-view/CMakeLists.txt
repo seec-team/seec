@@ -1,4 +1,9 @@
-add_executable(seec-trace-view
+# wxWidgets for Cocoa uses RTTI, so we need to enable it for this tool.
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  string(REPLACE "-fno-rtti" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+set(SEEC_TRACE_VIEW_SRCS
   main.cpp
   MallocViewer.cpp
   OpenTrace.cpp
@@ -6,8 +11,18 @@ add_executable(seec-trace-view
   SourceViewer.cpp
   StateViewer.cpp
   TraceViewerFrame.cpp
+)
+
+#--------------------------------------------------------------------------------
+# Create the executable.
+#--------------------------------------------------------------------------------
+add_executable(seec-trace-view MACOSX_BUNDLE
+  ${SEEC_TRACE_VIEW_SRCS}
   )
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against.
+#--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles nativecodegen codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
@@ -57,9 +72,10 @@ target_link_libraries(seec-trace-view
  ${wxWidgets_LIBRARIES}
 )
 
+#--------------------------------------------------------------------------------
+# Installation settings.
+#--------------------------------------------------------------------------------
 INSTALL(TARGETS seec-trace-view
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
+  BUNDLE DESTINATION ${BUNDLE_PREFIX} COMPONENT Runtime
+  RUNTIME DESTINATION bin COMPONENT Runtime
 )
-

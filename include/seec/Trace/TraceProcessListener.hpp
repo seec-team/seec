@@ -25,7 +25,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
 
-#include <atomic>
+// #include <atomic>
 #include <functional>
 #include <map>
 #include <thread>
@@ -160,8 +160,8 @@ class TraceProcessListener {
   std::mutex DataOutMutex;
 
   /// Synthetic ``process time'' for this process.
-  std::atomic_uint_fast64_t Time;
-
+  // std::atomic_uint_fast64_t Time;
+  uint64_t Time;
 
   /// Integer ID given to the next requesting thread.
   uint32_t NextThreadID;
@@ -264,10 +264,16 @@ public:
   /// @{
   
   /// Get the current process time.
-  uint64_t getTime() const { return Time.load(); }
+  uint64_t getTime() const {
+    // return Time.load();
+    return Time;
+  }
   
   /// Increment the process time and get the new value.
-  uint64_t getNewTime() { return ++Time; }
+  uint64_t getNewTime() {
+    // return ++Time;
+    return ++Time;
+  }
   
   /// @}
 

@@ -37,12 +37,12 @@ namespace trace {
 typedef uint64_t offset_uint;
 
 /// Value used to represent an invalid or nonexistant offset.
-constexpr offset_uint noOffset() {
+inline offset_uint noOffset() {
   return std::numeric_limits<offset_uint>::max();
 }
 
 /// Version of the trace storage format.
-constexpr uint64_t formatVersion() {
+constexpr inline uint64_t formatVersion() {
   return 1;
 }
 

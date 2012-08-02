@@ -48,7 +48,7 @@ public:
   }
 
   /// Destructor.
-  ~SourceViewerPanel() = default;
+  virtual ~SourceViewerPanel();
 
   /// Create the panel.
   bool Create(wxWindow *Parent,

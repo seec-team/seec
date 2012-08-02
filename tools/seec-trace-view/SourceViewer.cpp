@@ -2,6 +2,8 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+SourceViewerPanel::~SourceViewerPanel() {}
+
 bool SourceViewerPanel::Create(wxWindow *Parent,
                                wxWindowID ID,
                                wxPoint const &Position,

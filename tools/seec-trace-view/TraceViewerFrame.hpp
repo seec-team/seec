@@ -92,6 +92,7 @@ private:
   DECLARE_EVENT_TABLE()
 
   enum CommandEvent {
+    ID_Zero = 0, // On Mac we can't a MenuItem ID of Zero.
 #define SEEC_COMMAND_EVENT(EVENT) \
     ID_##EVENT,
 #include "TraceViewerFrameEvents.def"

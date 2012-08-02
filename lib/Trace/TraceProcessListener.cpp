@@ -51,7 +51,8 @@ TraceProcessListener::~TraceProcessListener() {
   writeBinary(*Out, Version);
   writeBinary(*Out, Module.getModuleIdentifier());
   writeBinary(*Out, NumThreads);
-  writeBinary(*Out, Time.load());
+  // writeBinary(*Out, Time.load());
+  writeBinary(*Out, Time);
   writeBinary(*Out, GlobalVariableAddresses);
   writeBinary(*Out, GlobalVariableInitialData);
   writeBinary(*Out, FunctionAddresses);

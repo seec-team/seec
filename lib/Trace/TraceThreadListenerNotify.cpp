@@ -222,7 +222,7 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
     return;
   }
   
-  auto ActiveFunc = ActiveFunction.load();
+  auto ActiveFunc = getActiveFunction();
   assert(ActiveFunc && "No active function!");
 
   switch (ID) {
@@ -455,7 +455,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   uint64_t IntVal = reinterpret_cast<uintptr_t>(Value);
 
@@ -483,11 +483,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     auto const Offset = EventsOut.write<EventType::Alloca>(ElementSize,
                                                            CountRTV.get<0>());
 
-    ActiveFunction.load()->addAlloca(TracedAlloca(Alloca,
-                                                  IntVal,
-                                                  ElementSize,
-                                                  CountRTV.get<0>(),
-                                                  Offset));
+    getActiveFunction()->addAlloca(TracedAlloca(Alloca,
+                                                IntVal,
+                                                ElementSize,
+                                                CountRTV.get<0>(),
+                                                Offset));
   }
 }
 
@@ -498,7 +498,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -516,7 +516,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -534,7 +534,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>(
                                   Value,
@@ -552,7 +552,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>(
                                   Value,
@@ -570,7 +570,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -588,7 +588,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitNotification();});
 
-  auto &RTValue = ActiveFunction.load()->getCurrentRuntimeValue(Index);
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,

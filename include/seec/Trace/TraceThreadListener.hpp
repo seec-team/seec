@@ -26,7 +26,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 
-#include <atomic>
+// #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <thread>
@@ -113,7 +113,8 @@ class TraceThreadListener {
 
   /// Pointer to the trace information for the currently active Function, or
   /// nullptr if no Function is currently active.
-  std::atomic<TracedFunction *> ActiveFunction;
+  // std::atomic<TracedFunction *> ActiveFunction;
+  TracedFunction *ActiveFunction;
 
   /// Global memory lock owned by this thread.
   std::unique_lock<std::mutex> GlobalMemoryLock;
@@ -301,15 +302,25 @@ public:
   }
 
   /// Get trace information about the currently active Function.
+  /// \return a pointer to the current active TracedFunction, or nullptr
+  ///         if no Function is currently active.
+  TracedFunction *getActiveFunction() {
+    // return ActiveFunction.load();
+    return ActiveFunction;
+  }
+
+  /// Get trace information about the currently active Function.
   /// \return a const pointer to the current active TracedFunction, or nullptr
   ///         if no Function is currently active.
   TracedFunction const *getActiveFunction() const {
-    return ActiveFunction.load();
+    // return ActiveFunction.load();
+    return ActiveFunction;
   }
 
   /// Get the current RuntimeValue associated with an Instruction.
   RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const {
-    auto ActiveFunc = ActiveFunction.load();
+    // auto ActiveFunc = ActiveFunction.load();
+    auto ActiveFunc = ActiveFunction;
 
     if (!ActiveFunc)
       return nullptr;
