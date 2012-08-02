@@ -40,9 +40,11 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
 
   // Load the bitcode.
   llvm::LLVMContext &Context = llvm::getGlobalContext();
-
+  
+  DirPath.appendComponent(ProcTrace->getModuleIdentifier());
+  
   llvm::SMDiagnostic ParseError;
-  llvm::Module *Mod = llvm::ParseIRFile(ProcTrace->getModuleIdentifier(),
+  llvm::Module *Mod = llvm::ParseIRFile(DirPath.str(),
                                         ParseError,
                                         Context);
   if (!Mod) {
