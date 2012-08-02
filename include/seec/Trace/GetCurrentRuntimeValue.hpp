@@ -32,13 +32,8 @@ namespace trace {
 /// exists then getCurrentRuntimeValueAs will always return an unassigned Maybe.
 /// \tparam SrcTy Type of object to get raw GenericValue values from.
 /// \tparam T Type to try and extract the value as.
-template<typename SrcTy, typename T>
-struct GetCurrentRuntimeValueAsImpl {
-  static seec::util::Maybe<T>
-  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    return seec::util::Maybe<T>();
-  }
-};
+template<typename SrcTy, typename T, typename Enable = void>
+struct GetCurrentRuntimeValueAsImpl;
 
 /// \brief Specialization of getCurrentRuntimeValueAs to extract pointer types.
 ///
@@ -54,7 +49,7 @@ struct GetCurrentRuntimeValueAsImpl {
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
 /// \tparam T The base type to try and extract the value as a pointer to.
 template<typename SrcTy, typename T>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, T *> {
+struct GetCurrentRuntimeValueAsImpl<SrcTy, T *, void> {
   static seec::util::Maybe<T *>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     auto Ty = V->getType();
@@ -112,7 +107,7 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, T *> {
 ///
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
 template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, uint64_t> {
+struct GetCurrentRuntimeValueAsImpl<SrcTy, uint64_t, void> {
   static seec::util::Maybe<uint64_t>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     auto Ty = V->getType();
@@ -167,38 +162,67 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, uint64_t> {
   }
 };
 
-#define GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(TYPE, EXTENSION) \
-template<typename SrcTy> \
-struct GetCurrentRuntimeValueAsImpl<SrcTy, TYPE> { \
-  static seec::util::Maybe<TYPE> \
-  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) { \
-    assert(V->getType()->isIntegerTy() && "Extract " #TYPE " from non-int."); \
-    if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) { \
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) { \
-        return getAs<TYPE>(*RTValue, Instruction->getType()); \
-      } \
-    } \
-    else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) { \
-      return (TYPE) ConstantInt->get ## EXTENSION ## ExtValue(); \
-    } \
-    return seec::util::Maybe<TYPE>(); \
-  } \
+/// \brief Specialization of getCurrentRuntimeValueAs to extract signed
+///        integral types.
+template<typename SrcTy, typename T>
+struct GetCurrentRuntimeValueAsImpl
+  <SrcTy,
+   T,
+   typename std::enable_if<std::is_integral<T>::value
+                           && std::is_signed<T>::value
+                          >::type>
+{
+  static seec::util::Maybe<T>
+  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
+    assert(V->getType()->isIntegerTy()
+           && "Extracting integral type from non-integer value.");
+    
+    if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+        return getAs<T>(*RTValue, Instruction->getType());
+      }
+    }
+    else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) {
+      // TODO: Assert that the constant isn't too large.
+      return static_cast<T>(ConstantInt->getSExtValue());
+    }
+    
+    return seec::util::Maybe<T>();
+  }
 };
 
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(int8_t,  S)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(int16_t, S)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(int32_t, S)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(int64_t, S)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(uint8_t,  Z)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(uint16_t, Z)
-GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT(uint32_t, Z)
-// uint64_t defined above
-
-#undef GET_CURRENT_RUNTIME_VALUE_AS_IMPL_INT
+/// \brief Specialization of getCurrentRuntimeValueAs to extract unsigned
+///        integral types.
+template<typename SrcTy, typename T>
+struct GetCurrentRuntimeValueAsImpl
+  <SrcTy,
+   T,
+   typename std::enable_if<std::is_integral<T>::value
+                           && std::is_unsigned<T>::value
+                          >::type>
+{
+  static seec::util::Maybe<T>
+  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
+    assert(V->getType()->isIntegerTy()
+           && "Extracting integral type from non-integer value.");
+    
+    if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+        return getAs<T>(*RTValue, Instruction->getType());
+      }
+    }
+    else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) {
+      // TODO: Assert that the constant isn't too large.
+      return static_cast<T>(ConstantInt->getZExtValue());
+    }
+    
+    return seec::util::Maybe<T>();
+  }
+};
 
 // Overload for float types.
 template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, float> {
+struct GetCurrentRuntimeValueAsImpl<SrcTy, float, void> {
   static seec::util::Maybe<float>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isFloatTy());
@@ -218,7 +242,7 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, float> {
 
 // Overload for double types.
 template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, double> {
+struct GetCurrentRuntimeValueAsImpl<SrcTy, double, void> {
   static seec::util::Maybe<double>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isFloatTy());
@@ -238,7 +262,7 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, double> {
 
 // Overload to extract the raw RuntimeValue
 template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, RuntimeValue const *> {
+struct GetCurrentRuntimeValueAsImpl<SrcTy, RuntimeValue const *, void> {
   static seec::util::Maybe<RuntimeValue const *>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
@@ -294,7 +318,7 @@ bool getArgumentValues(SrcTy &Source,
                        llvm::CallInst const *Call,
                        size_t Offset,
                        T& Arg,
-                       TS&... Args) {
+                       TS&... Args) {  
   auto Value = getCurrentRuntimeValueAs<T>(Source, Call->getArgOperand(Offset));
   if (!Value.assigned())
     return false;

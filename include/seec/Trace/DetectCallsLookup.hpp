@@ -22,7 +22,7 @@ namespace trace {
 namespace detect_calls {
 
 /// Lists all detectable calls and groups.
-enum class Call {
+enum class Call : std::size_t {
   /// @{
   /// Detectable C function call or group.
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) PREFIX ## NAME,
