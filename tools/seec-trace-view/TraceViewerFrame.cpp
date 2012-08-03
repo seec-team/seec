@@ -43,6 +43,11 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 {
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
+  
+#if 0
+  auto LogWindow = new wxLogWindow(this, wxString("Log"));
+  LogWindow->Show();
+#endif
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;

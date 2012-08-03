@@ -17,6 +17,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+
 IMPLEMENT_CLASS(ProcessTimeEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_PROCESS_TIME_CHANGED, ProcessTimeEvent);
 wxDEFINE_EVENT(SEEC_EV_PROCESS_TIME_VIEWED, ProcessTimeEvent);
@@ -28,15 +29,25 @@ enum ControlIDs {
   ProcessTimeControl_SlideProcessTime
 };
 
+
+//------------------------------------------------------------------------------
+// event table
+//------------------------------------------------------------------------------
+
 BEGIN_EVENT_TABLE(ProcessTimeControl, wxPanel)
-  EVT_COMMAND_SCROLL_CHANGED(ProcessTimeControl_SlideProcessTime,
-                             ProcessTimeControl::OnSlideProcessTimeChanged)
+  EVT_COMMAND_SCROLL(ProcessTimeControl_SlideProcessTime,
+                     ProcessTimeControl::OnSlide)
 END_EVENT_TABLE()
+
+
+//------------------------------------------------------------------------------
+// method implementations
+//------------------------------------------------------------------------------
 
 bool ProcessTimeControl::Create(wxWindow *Parent, wxWindowID ID) {
   if (!wxPanel::Create(Parent, ID))
     return false;
-
+  
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
@@ -53,10 +64,15 @@ bool ProcessTimeControl::Create(wxWindow *Parent, wxWindowID ID) {
                                   0, // MaxValue
                                   wxDefaultPosition,
                                   wxDefaultSize,
-                                  wxSL_HORIZONTAL | wxSL_LABELS);
+                                  wxSL_HORIZONTAL
+                                  | wxSL_LABELS // Show labels for value.
+                                  | wxSL_AUTOTICKS // Show ticks.
+                                  | wxSL_BOTTOM // Show ticks below slider.
+                                  );
 
   auto Caption = seec::getwxStringExOrDie(TextTable, "ScrollProcessTime_Title");
   SlideProcessTime->SetLabel(Caption);
+  SlideProcessTime->SetTickFreq(1);
   SlideProcessTime->Enable(false); // Disable the slider.
 
   // Make the slider grow to fill this panel.
@@ -81,9 +97,21 @@ void ProcessTimeControl::clearTrace() {
   SlideProcessTime->Enable(false); // Disable the slider.
 }
 
-void ProcessTimeControl::OnSlideProcessTimeChanged(wxScrollEvent& Event) {
+void ProcessTimeControl::OnSlide(wxScrollEvent &Event) {
+  auto Type = Event.GetEventType();
   uint64_t Time = Event.GetPosition();
-  ProcessTimeEvent Ev(SEEC_EV_PROCESS_TIME_CHANGED, GetId(), Time);
-  Ev.SetEventObject(this);
-  ProcessWindowEvent(Ev);
+  
+  if (Type == wxEVT_SCROLL_CHANGED) {
+    ProcessTimeEvent Ev(SEEC_EV_PROCESS_TIME_CHANGED, GetId(), Time);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+  }
+#if __WXMAC__
+  // wxEVT_SCROLL_CHANGED isn't raised by the slider in wxCocoa.
+  else if (Type == wxEVT_SCROLL_THUMBRELEASE) {
+    ProcessTimeEvent Ev(SEEC_EV_PROCESS_TIME_CHANGED, GetId(), Time);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+  }
+#endif
 }

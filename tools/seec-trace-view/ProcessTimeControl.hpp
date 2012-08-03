@@ -115,8 +115,8 @@ public:
   /// Clear the currently open trace.
   void clearTrace();
 
-  /// Called when the SlideProcessTime slider is scrolled.
-  void OnSlideProcessTimeChanged(wxScrollEvent& event);
+  /// Called when the SlideProcessTime slider raises an event.
+  void OnSlide(wxScrollEvent &Event);
 
 private:
   // Declare the static event table (it is defined in ProcessTimeControl.cpp)
