@@ -21,10 +21,32 @@
 
 #include <map>
 
+
+// Forward declarations.
+
+class OpenTrace;
+
+namespace seec {
+namespace trace {
+class ProcessState;
+} // namespace trace (in seec)
+} // namespace seec
+
+namespace llvm {
+class Instruction;
+class Module;
+} // namespace llvm
+
+
+/// \brief SourceViewerPanel.
+///
 class SourceViewerPanel : public wxPanel
 {
   /// Notebook that holds all of the source windows.
   wxAuiNotebook *Notebook;
+
+  /// The currently associated trace information.
+  OpenTrace const *Trace;
 
   /// Lookup from file path to source window.
   std::map<llvm::sys::Path, wxWindow *> Pages;
@@ -32,7 +54,10 @@ class SourceViewerPanel : public wxPanel
 public:
   /// Construct without creating.
   SourceViewerPanel()
-  : wxPanel()
+  : wxPanel(),
+    Notebook(nullptr),
+    Trace(nullptr),
+    Pages()
   {}
 
   /// Construct and create.
@@ -42,6 +67,7 @@ public:
                     wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     Notebook(nullptr),
+    Trace(nullptr),
     Pages()
   {
     Create(Parent, ID, Position, Size);
@@ -58,6 +84,15 @@ public:
 
   /// Remove all files from the viewer.
   void clear();
+
+  /// Show the given State (associated with the given Trace).
+  void show(OpenTrace const &Trace, seec::trace::ProcessState const &State);
+
+  /// Set the currently associated trace information.
+  void setTrace(OpenTrace const *Trace);
+
+  /// Highlight the source code associated with the specified Instruction.
+  void highlightInstruction(llvm::Instruction *Instruction);
 
   /// Add a source file to the viewer, if it doesn't already exist.
   void addSourceFile(llvm::sys::Path FilePath);

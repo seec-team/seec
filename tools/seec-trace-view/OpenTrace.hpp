@@ -121,7 +121,7 @@ public:
 
   /// Get the MappedModule that maps the Module back to the original source
   /// code.
-  seec::seec_clang::MappedModule &getMappedModule() {
+  seec::seec_clang::MappedModule const &getMappedModule() const {
     return MapMod;
   }
 

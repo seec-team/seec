@@ -159,10 +159,7 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
     // Display information about the newly-read trace.
     ProcessTime->setTrace(*Trace);
     StateViewer->show(*Trace, *State);
-
-    for (auto &MapGlobalPair : Trace->getMappedModule().getGlobalLookup()) {
-      SourceViewer->addSourceFile(MapGlobalPair.second.getFilePath());
-    }
+    SourceViewer->show(*Trace, *State);
   }
   else if (NewTrace.assigned(1)) {
     // Display the error that occured.
@@ -178,4 +175,5 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent& Event) {
   State->setProcessTime(Event.getProcessTime());
   StateViewer->show(*Trace, *State);
+  SourceViewer->show(*Trace, *State);
 }

@@ -43,7 +43,7 @@ class RunError; // forward-declare for deserializeRuntimeError
 } // namespace runtime_errors (in seec)
 
 namespace trace {
-  
+
 class ThreadTrace; // forward-declare for FunctionTrace
 
 
@@ -52,30 +52,30 @@ class ThreadTrace; // forward-declare for FunctionTrace
 class EventReference {
   /// Pointer to the event record.
   EventRecordBase const *Record;
-  
+
 public:
   /// Construct an EventReference to the event at the position given by Data.
   /// \param Data a pointer to an event record.
   EventReference(char const *Data)
   : Record(reinterpret_cast<EventRecordBase const *>(Data))
   {}
-  
+
   /// Construct an EventReference to the given event record.
   /// \param Record a reference to an event record.
   EventReference(EventRecordBase const &Record)
   : Record(&Record)
   {}
-  
+
   /// Copy constructor.
   EventReference(EventReference const &Other) = default;
-  
+
   /// Copy assignment.
   EventReference &operator=(EventReference const &RHS) = default;
-  
-  
+
+
   /// \name Access
   /// @{
-  
+
   /// Get a reference to the current event, using the EventRecord appropriate
   /// for the given EventType. The current event's type must match the given
   /// EventType.
@@ -86,11 +86,11 @@ public:
     assert(Record->getType() == ET);
     return *(static_cast<EventRecord<ET> const *>(Record));
   }
-  
+
   EventRecordBase const &operator*() const { return *Record; }
-  
+
   EventRecordBase const *operator->() const { return Record; }
-  
+
   /// Get the result of applying the appropriate predicate to the underlying
   /// event record. An appropriate predicate from the supplied predicates will
   /// be selected using the dispatch() function.
@@ -114,87 +114,87 @@ public:
       default: llvm_unreachable("Reference to unknown event type!");
     }
   }
-  
+
   /// @} (Access)
-  
-  
+
+
   /// \name Comparison operators
   /// @{
-  
+
   bool operator==(EventReference const &RHS) const {
     return Record == RHS.Record;
   }
-  
+
   bool operator!=(EventReference const &RHS) const {
     return Record != RHS.Record;
   }
-  
+
   bool operator<(EventReference const &RHS) const {
     return Record < RHS.Record;
   }
-  
+
   bool operator<=(EventReference const &RHS) const {
     return Record <= RHS.Record;
   }
-  
+
   bool operator>(EventReference const &RHS) const {
     return Record > RHS.Record;
   }
-  
+
   bool operator>=(EventReference const &RHS) const {
     return Record >= RHS.Record;
   }
-  
+
   /// @} (Comparison operators)
-  
-  
+
+
   /// \name Movement operators
   /// @{
-  
+
   EventReference &operator++() {
     auto Data = reinterpret_cast<char const *>(Record);
     Data += Record->getEventSize();
     Record = reinterpret_cast<EventRecordBase const *>(Data);
     return *this;
   }
-  
+
   EventReference operator++(int Dummy) {
     auto Result = *this;
     ++(*this);
     return Result;
   }
-  
+
   EventReference operator+(std::size_t Steps) {
     auto Result = *this;
-    
+
     for (std::size_t i = 0; i < Steps; ++i)
       ++Result;
-    
+
     return Result;
   }
-  
+
   EventReference &operator--() {
     auto PreviousSize = Record->getPreviousEventSize();
     auto Data = reinterpret_cast<char const *>(Record) - PreviousSize;
     Record = reinterpret_cast<EventRecordBase const *>(Data);
     return *this;
   }
-  
+
   EventReference operator--(int Dummy) {
     auto Result = *this;
     --(*this);
     return Result;
   }
-  
+
   EventReference operator-(std::size_t Steps) {
     auto Result = *this;
-    
+
     for (std::size_t i = 0; i < Steps; ++i)
       --Result;
-    
+
     return Result;
   }
-  
+
   /// @} (Movement operators)
 };
 
@@ -204,49 +204,49 @@ public:
 class EventRange {
   /// Reference to the first event record in the range.
   EventReference Begin;
-  
+
   /// Reference to the first event record following (not in) the range.
   EventReference End;
-  
+
 public:
   EventRange()
   : Begin(nullptr),
     End(nullptr)
   {}
-  
+
   EventRange(EventReference Begin, EventReference End)
   : Begin(Begin),
     End(End)
   {}
-  
+
   EventRange(EventRange const &) = default;
-  
+
   EventRange &operator=(EventRange const &) = default;
-  
+
   EventReference begin() const { return Begin; }
-  
+
   EventReference end() const { return End; }
-  
+
   bool empty() const { return Begin == End; }
-  
+
   bool contains(EventReference Ev) const {
     return Begin <= Ev && Ev < End;
   }
-  
+
   offset_uint offsetOf(EventReference Ev) const {
     assert(Begin <= Ev && Ev <= End && "Ev not in EventRange");
-    
+
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
     auto const EvPtr = reinterpret_cast<char const *>(&*Ev);
-    
+
     return EvPtr - BeginPtr;
   }
-  
+
   EventReference referenceToOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
     return EventReference(BeginPtr + Offset);
   }
-  
+
   template<EventType ET>
   EventRecord<ET> const &eventAtOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
@@ -271,7 +271,7 @@ class FunctionTrace {
 
   /// Trace of the thread that this Function invocation occured in.
   ThreadTrace const *Thread;
-  
+
   char const *Data;
 
   /// Get the offset of Index in a serialized FunctionTrace.
@@ -320,7 +320,7 @@ class FunctionTrace {
 public:
   /// Copy constructor.
   FunctionTrace(FunctionTrace const &Other) = default;
-  
+
   /// Copy assignment.
   FunctionTrace &operator=(FunctionTrace const &RHS) = default;
 
@@ -397,13 +397,13 @@ public:
 
   /// Get the ID of the thread that this trace represents.
   uint32_t getThreadID() const { return ThreadID; }
-  
+
   /// Get a range containing all of the events in this thread.
   EventRange events() const {
     return EventRange(EventReference(Events->getBufferStart()),
                       EventReference(Events->getBufferEnd()));
   }
-  
+
   /// Get a list of offsets from this thread's trace information.
   llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
     auto List = Trace->getBufferStart() + AtOffset;
@@ -411,10 +411,10 @@ public:
     auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
     return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
   }
-  
+
   /// @} (Accessors)
-  
-  
+
+
   /// \name Functions
   /// @{
 
@@ -434,7 +434,17 @@ public:
     return std::unique_ptr<FunctionTrace>(
       new FunctionTrace(*this, Trace->getBufferStart() + AtOffset));
   }
-  
+
+  /// @}
+
+
+  /// Searching
+  /// @{
+
+  /// Find the FunctionTrace for the function call containing the given event.
+  seec::util::Maybe<FunctionTrace>
+  getFunctionContaining(EventReference EvRef) const;
+
   /// @}
 };
 
@@ -459,13 +469,13 @@ class ProcessTrace {
 
   /// Number of threads recorded.
   uint32_t NumThreads;
-  
+
   /// Process time at end of recording.
   uint64_t FinalProcessTime;
 
   /// Global variable runtime addresses, by index.
   std::vector<uint64_t> GlobalVariableAddresses;
-  
+
   /// Offsets of global variable's initial data.
   std::vector<offset_uint> GlobalVariableInitialData;
 
@@ -475,7 +485,7 @@ class ProcessTrace {
   /// Thread-specific traces, by (ThreadID - 1).
   // mutable because we lazily construct the ThreadTrace objects.
   mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
-  
+
   /// Constructor.
   ProcessTrace(InputBufferAllocator &Allocator,
                std::unique_ptr<llvm::MemoryBuffer> &&Trace,
@@ -504,7 +514,7 @@ public:
 
   /// Get the number of distinct threads in this process trace.
   uint32_t getNumThreads() const { return NumThreads; }
-  
+
   /// Get a reference to a block of data.
   /// \param Offset the offset of the data in the process' data record.
   /// \param Size the number of bytes in the block.
@@ -513,16 +523,16 @@ public:
     auto DataPtr = reinterpret_cast<char const *>(DataStart);
     return llvm::ArrayRef<char>(DataPtr, Size);
   }
-  
+
   /// Get the process time at the end of this trace.
   uint64_t getFinalProcessTime() const { return FinalProcessTime; }
 
   /// @} (Accessors)
-  
-  
+
+
   /// \name Global Variables
   /// @{
-  
+
   /// Get the run-time address of a global variable.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \return the run-time address of the specified GlobalVariable.
@@ -530,7 +540,7 @@ public:
     assert(Index < GlobalVariableAddresses.size());
     return GlobalVariableAddresses[Index];
   }
-  
+
   /// Get a reference to the block of data holding a global variable's initial
   /// state.
   /// \param Index the index of the GlobalVariable in the Module.
@@ -541,32 +551,32 @@ public:
     assert(Index < GlobalVariableInitialData.size());
     return getData(GlobalVariableInitialData[Index], Size);
   }
-  
+
   /// @} (Global Variables)
-  
-  
+
+
   /// \name Functions
   /// @{
-  
+
   /// @} (Functions)
-  
-  
+
+
   /// \name Threads
   /// @{
-  
+
   /// Get a reference to the ThreadTrace for a specific thread.
   /// \param ThreadID the unique ID of the thread to get,
   ///                 where 0 < ThreadID <= getNumThreads().
   ThreadTrace const &getThreadTrace(uint32_t ThreadID) const;
-  
+
   /// @} (Threads)
-  
-  
+
+
   /// \name Events
   /// @{
-  
+
   EventReference getEventReference(EventLocation Ev) const;
-  
+
   /// @}
 };
 

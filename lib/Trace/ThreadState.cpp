@@ -117,15 +117,15 @@ void ThreadState::addEvent(
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
   EventReference EvRef(Ev);
-  
+
   // Clear the current allocas.
   auto &FuncState = CallStack.back();
   FuncState.getAllocas().clear();
-  
+
   // Get all of the StackRestoreAlloca records.
   auto const Allocas = getLeadingBlock<EventType::StackRestoreAlloca>
                                       (rangeAfter(Trace.events(), EvRef));
-  
+
   // Add the restored allocas.
   for (auto const &RestoreAlloca : Allocas) {
     auto const Offset = RestoreAlloca.getAlloca();
@@ -147,7 +147,7 @@ void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-  
+
   // Add Alloca information.
   auto &FuncState = CallStack.back();
   FuncState.getAllocas().emplace_back(Instr.getIndex(),
@@ -169,7 +169,7 @@ void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-  
+
   auto const Address = Instr.getValue().UInt64;
   auto const MallocLocation = EventLocation(Trace.getThreadID(),
                                             Trace.events().offsetOf(EvRef));
@@ -187,15 +187,15 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
   // Find the original Malloc event.
   auto const MallocThreadID = Ev.getMallocThread();
   auto const MallocOffset = Ev.getMallocOffset();
-  
+
   auto const &ProcTrace = Parent.getTrace();
   assert(MallocThreadID && MallocThreadID <= ProcTrace.getNumThreads() &&
          "Invalid MallocThread in Free record.");
-  
+
   auto const &MallocThread = ProcTrace.getThreadTrace(MallocThreadID);
-  
+
   auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
-  
+
   // Find the Instruction that the Malloc was attached to.
   auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
                                   (rangeBeforeIncluding(MallocThread.events(),
@@ -204,9 +204,9 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-  
+
   auto const Address = Instr.getValue().UInt64;
-  
+
   // Update the shared ProcessState.
   Parent.Mallocs.erase(Address);
   Parent.ProcessTime = Ev.getProcessTime();
@@ -225,9 +225,9 @@ void ThreadState::addEvent(
   EventReference EvRef(Ev);
   auto const EvLocation = EventLocation(Trace.getThreadID(),
                                         Trace.events().offsetOf(EvRef));
-  
+
   auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-  
+
   Parent.Memory.add(MappedMemoryBlock(Ev.getAddress(), Ev.getSize(), DataPtr),
                     EvLocation);
 
@@ -239,9 +239,9 @@ void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   EventReference EvRef(Ev);
   auto const EvLocation = EventLocation(Trace.getThreadID(),
                                         Trace.events().offsetOf(EvRef));
-  
+
   auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
-  
+
   Parent.Memory.add(MappedMemoryBlock(Ev.getAddress(),
                                       Ev.getDataSize(),
                                       Data.data()),
@@ -281,7 +281,7 @@ void ThreadState::addNextEvent() {
 void ThreadState::addNextEventBlock() {
   seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
   seec::util::Maybe<uint64_t> NewProcessTime;
-  
+
   while (true) {
     // Make sure we have permission to update the shared state of the
     // ProcessState, if the next event is going to require it.
@@ -290,9 +290,9 @@ void ThreadState::addNextEventBlock() {
       assert(NewProcessTime.assigned());
       SharedUpdate = Parent.getScopedUpdate(NewProcessTime.get<0>() - 1);
     }
-    
+
     addNextEvent();
-    
+
     if (NextEvent->isBlockStart())
       break;
   }
@@ -305,12 +305,12 @@ void ThreadState::addNextEventBlock() {
 
 void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   auto &FuncState = CallStack.back();
-  
+
   auto MaybeRef = rfind(rangeBefore(Trace.events(), PriorTo),
                         [](EventRecordBase const &Ev) -> bool {
                           return Ev.isInstruction();
                         });
-  
+
   if (!MaybeRef.assigned()) {
     FuncState.clearActiveInstruction();
   }
@@ -327,11 +327,11 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const RecordOffset = Ev.getRecord();
   auto const Info = Trace.getFunctionTrace(RecordOffset);
   auto const Index = Info.getIndex();
-  
+
   assert(CallStack.size() && "Removing FunctionStart with empty CallStack");
   assert(CallStack.back().getIndex() == Index
          && "Removing FunctionStart does not match currently active function");
-  
+
   CallStack.pop_back();
   ThreadTime = Info.getThreadTimeEntered() - 1;
 }
@@ -341,18 +341,18 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   auto const Info = Trace.getFunctionTrace(RecordOffset);
   auto const Index = Info.getIndex();
   auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
-  
+
   assert(MappedFunction && "Couldn't get FunctionIndex");
-  
+
   CallStack.emplace_back(Index, *MappedFunction, Info);
   ThreadTime = Info.getThreadTimeExited() - 1;
-  
+
   // Now we need to restore all function-level events. For now, we use the
   // naive method, which is to simply re-add all events from the start of the
   // function to the end.
   EventReference EvRef(Ev);
   auto RestoreRef = ++(Trace.events().referenceToOffset(Info.getEventStart()));
-  
+
   for (; RestoreRef != EvRef; ++RestoreRef) {
     // Skip any events belonging to child functions.
     if (RestoreRef->getType() == EventType::FunctionStart) {
@@ -362,7 +362,7 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
       RestoreRef = ++(Trace.events().referenceToOffset(Child.getEventEnd()));
       continue;
     }
-    
+
     switch (RestoreRef->getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
       case EventType::NAME:                                                    \
@@ -401,7 +401,7 @@ void ThreadState::removeEvent(EventRecord<EventType::Instruction> const &Ev) {
 void ThreadState::removeEvent(
       EventRecord<EventType::InstructionWithSmallValue> const &Ev) {
   auto &FuncState = CallStack.back();
-  
+
   auto const PreviousOffset = Ev.getPreviousSame();
   if (PreviousOffset != noOffset()) {
     auto &Prev
@@ -413,17 +413,17 @@ void ThreadState::removeEvent(
     auto const Index = Ev.getIndex();
     FuncState.getRuntimeValue(Index).clear();
   }
-  
+
   // Find the previous instruction and set it as the active instruction.
   makePreviousInstructionActive(EventReference(Ev));
-  
+
   ThreadTime = Ev.getThreadTime() - 1;
 }
 
 void ThreadState::removeEvent(
       EventRecord<EventType::InstructionWithValue> const &Ev) {
   auto &FuncState = CallStack.back();
-  
+
   auto const PreviousOffset = Ev.getPreviousSame();
   if (PreviousOffset != noOffset()) {
     auto &Prev = Trace.events().eventAtOffset<EventType::InstructionWithValue>
@@ -434,10 +434,10 @@ void ThreadState::removeEvent(
     auto const Index = Ev.getIndex();
     FuncState.getRuntimeValue(Index).clear();
   }
-  
+
   // Find the previous instruction and set it as the active instruction.
   makePreviousInstructionActive(EventReference(Ev));
-  
+
   ThreadTime = Ev.getThreadTime() - 1;
 }
 
@@ -451,22 +451,22 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   // Clear the current allocas.
   auto &FuncState = CallStack.back();
   FuncState.getAllocas().clear();
-  
+
   auto const PreviousOffset = Ev.getPrevious();
-  
+
   if (PreviousOffset != noOffset()) {
     auto Events = Trace.events();
-    
+
     // Add the Allocas that were valid after the previous StackRestore.
     auto &RestoreEv
       = Events.eventAtOffset<EventType::StackRestore>(PreviousOffset);
     addEvent(RestoreEv);
-    
+
     // Now add all Allocas that occured between the previous StackRestore and
     // the current StackRestore.
     auto PreviousEvRef = Events.referenceToOffset(PreviousOffset);
     EventReference CurrentEvRef(Ev);
-    
+
     // Iterate through the events, skipping any child functions as we go.
     for (EventReference It(PreviousEvRef); It != CurrentEvRef; ++It) {
       if (It->getType() == EventType::FunctionStart) {
@@ -484,12 +484,12 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   else {
     auto FunctionInfo = CallStack.back().getTrace();
     auto StartOffset = FunctionInfo.getEventStart();
-    
+
     // Iterate through the events, adding all Allocas until we find
     // the StackRestore, skipping any child functions as we go.
     auto ItEventRef = Trace.events().referenceToOffset(StartOffset);
     EventReference EndEventRef(Ev);
-    
+
     for (++ItEventRef; ItEventRef != EndEventRef; ++ItEventRef) {
       if (ItEventRef->getType() == EventType::FunctionStart) {
         auto const &StartEv = ItEventRef.get<EventType::FunctionStart>();
@@ -521,13 +521,13 @@ void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
   auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
                                   (rangeBeforeIncluding(Trace.events(), EvRef));
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
-  
+
   auto const &InstrRef = MaybeInstrRef.get<0>();
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
   auto const Address = Instr.getValue().UInt64;
-  
+
   Parent.Mallocs.erase(Address);
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
@@ -536,16 +536,16 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
   // Find the original Malloc event.
   auto const MallocThreadID = Ev.getMallocThread();
   auto const MallocOffset = Ev.getMallocOffset();
-  
+
   auto const &ProcTrace = Parent.getTrace();
   assert(MallocThreadID && MallocThreadID <= ProcTrace.getNumThreads() &&
          "Invalid MallocThread in Free record.");
-  
+
   auto const &MallocThread = ProcTrace.getThreadTrace(MallocThreadID);
-  
+
   auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
   auto const &MallocEv = MallocRef.get<EventType::Malloc>();
-  
+
   // Find the Instruction that the Malloc was attached to.
   auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
                                   (rangeBeforeIncluding(MallocThread.events(),
@@ -554,18 +554,18 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-  
+
   // Information required to recreate the dynamic memory allocation.
   auto const Address = Instr.getValue().UInt64;
-  
+
   EventLocation MallocLocation(MallocThreadID, MallocOffset);
-  
+
   // Update the shared ProcessState.
   Parent.Mallocs.insert(std::make_pair(Address,
                                        MallocState(Address,
                                                    MallocEv.getSize(),
                                                    MallocLocation)));
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
@@ -573,16 +573,16 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
 void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
   // Clear this state.
   // TODO.
-  
+
   // Restore any overwritten states.
   auto const Overwritten = Ev.getOverwritten();
-  
+
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-    
+
     assert(Trace.events().contains(EvRef));
-    
+
     auto Dispatched = EvRef.dispatch(
       [this]
       (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
@@ -594,10 +594,10 @@ void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
         removeEvent(Ev);
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
   }
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
@@ -606,16 +606,16 @@ void ThreadState::removeEvent(
         EventRecord<EventType::StateUntypedSmall> const &Ev) {
   // Clear this state.
   Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getSize()));
-  
+
   // Restore any overwritten states.
   auto const Overwritten = Ev.getOverwritten();
-  
+
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-    
+
     assert(Trace.events().contains(EvRef));
-    
+
     auto Dispatched = EvRef.dispatch(
       [this]
       (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
@@ -627,10 +627,10 @@ void ThreadState::removeEvent(
         removeEvent(Ev);
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
   }
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
@@ -638,16 +638,16 @@ void ThreadState::removeEvent(
 void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   // Clear this state.
   Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getDataSize()));
-  
+
   // Restore any overwritten states.
   auto const Overwritten = Ev.getOverwritten();
-  
+
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-    
+
     assert(Trace.events().contains(EvRef));
-    
+
     auto Dispatched = EvRef.dispatch(
       [this]
       (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
@@ -659,23 +659,23 @@ void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
         removeEvent(Ev);
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
   }
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
   auto const Overwritten = Ev.getOverwritten();
-  
+
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-    
+
     assert(Trace.events().contains(EvRef));
-    
+
     auto Dispatched = EvRef.dispatch(
       [this]
       (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
@@ -687,10 +687,10 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
         removeEvent(Ev);
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
   }
-  
+
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   ProcessTime = Ev.getProcessTime() - 1;
 }
@@ -698,13 +698,13 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
 void ThreadState::removeEvent(
         EventRecord<EventType::StateOverwritten> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
-  
+
   if (StateThreadID) {
     // Restore state from a previous state event.
     EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
-  
+
     auto const StateRef = Parent.getTrace().getEventReference(StateLoc);
-  
+
     auto const Dispatched = StateRef.dispatch(
 #if 0 // TODO: Not yet implemented
       [this] (EventRecord<EventType::StateTyped> const &Ev) -> bool {
@@ -728,7 +728,7 @@ void ThreadState::removeEvent(
                           StateLoc);
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
   }
   else {
@@ -736,7 +736,7 @@ void ThreadState::removeEvent(
     auto const &ProcTrace = Parent.getTrace();
     auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
     auto const GVAddress = ProcTrace.getGlobalVariableAddress(GVIndex);
-    
+
     // TODO
   }
 }
@@ -744,20 +744,20 @@ void ThreadState::removeEvent(
 void ThreadState::removeEvent(
         EventRecord<EventType::StateOverwrittenFragment> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
-  
+
   if (StateThreadID) {
     // Restore state from a previous state event.
     EventLocation StateLoc(StateThreadID, Ev.getStateOffset());
-    
+
     auto StateRef = Parent.getTrace().getEventReference(StateLoc);
-    
+
     // (uint64_t, FragmentAddress),
     // (uint64_t, FragmentSize)
-    
+
     uint64_t DataAddress = 0;
     uint64_t DataSize = 0;
     char const *DataPtr = nullptr;
-    
+
     auto Dispatched = StateRef.dispatch(
 #if 0 // Not yet implemented
       [this] (EventRecord<EventType::StateTyped> const &Ev) -> bool {
@@ -778,15 +778,15 @@ void ThreadState::removeEvent(
         DataPtr = Data.data();
         return true;
       });
-    
+
     assert(Dispatched.assigned() && "Malformed trace!");
-  
+
     auto const FragmentAddress = Ev.getFragmentAddress();
     auto const FragmentSize = Ev.getFragmentSize();
-  
+
     if (FragmentAddress > DataAddress)
       DataPtr += (FragmentAddress - DataAddress);
-  
+
     // TODO: join fragments that match neighbouring fragments!
     Parent.Memory.add(MappedMemoryBlock(FragmentAddress, FragmentSize, DataPtr),
                       StateLoc);
@@ -796,7 +796,7 @@ void ThreadState::removeEvent(
     auto const &ProcTrace = Parent.getTrace();
     auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
     auto const GVAddress = ProcTrace.getGlobalVariableAddress(GVIndex);
-    
+
     // TODO
   }
 }
@@ -822,11 +822,11 @@ void ThreadState::removePreviousEvent() {
 void ThreadState::removePreviousEventBlock() {
   seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
   seec::util::Maybe<uint64_t> NewProcessTime;
-  
+
   while (NextEvent != Trace.events().begin()) {
     auto PreviousEvent = NextEvent;
     --PreviousEvent;
-    
+
     // Make sure we have permission to update the shared state of the
     // ProcessState, if the next event is going to require it.
     if (!SharedUpdate.assigned() && PreviousEvent->modifiesSharedState()) {
@@ -834,9 +834,9 @@ void ThreadState::removePreviousEventBlock() {
       assert(NewProcessTime.assigned());
       SharedUpdate = Parent.getScopedUpdate(NewProcessTime.get<0>());
     }
-    
+
     removePreviousEvent();
-    
+
     if (NextEvent->isBlockStart())
       break;
   }
@@ -888,7 +888,7 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
       else {
         // If the event is higher than the new process time, then we should
         // apply all blocks up to (but not including) the event.
-        
+
         // Find the start of the containing block.
         auto MaybeStart = rfind(rangeBeforeIncluding(Events, TheEventRef),
                                 [=](EventRecordBase const &Ev) -> bool {
@@ -920,7 +920,7 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
   else {
     // Moving backward.
     EventRange Events = rangeBefore(Trace.events(), NextEvent);
-    
+
     // Find first event Ev with Ev.getProcessTime() <= NewProcessTime.
     auto MaybeEventRef = rfind(Events,
                                [=](EventRecordBase const &Ev) -> bool {
@@ -935,7 +935,7 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
     if (MaybeEventRef.assigned()) {
       // Apply all blocks down to (but not including) the event.
       auto &TheEventRef = MaybeEventRef.get<0>();
-        
+
       // Find the start of the next block.
       auto MaybeNext = find(rangeAfter(Events, TheEventRef),
                             [=](EventRecordBase const &Ev) -> bool {
@@ -963,6 +963,11 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
       }
     }
   }
+}
+
+seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
+  return rfind(rangeBefore(Trace.events(), NextEvent),
+               [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,

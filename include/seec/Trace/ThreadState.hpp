@@ -13,6 +13,7 @@
 
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/TraceReader.hpp"
+#include "seec/Util/Maybe.hpp"
 
 #include <vector>
 
@@ -27,50 +28,50 @@ class ProcessState; // forward-declare for ThreadState
 ///
 class ThreadState {
   friend class ProcessState; // Allow ProcessStates to construct ThreadStates.
-  
-  
+
+
   /// \name Constants
   /// @{
-  
+
   /// The ProcessState that this ThreadState belongs to.
   ProcessState &Parent;
-  
+
   /// The ThreadTrace that this ThreadState was produced from.
   ThreadTrace const &Trace;
-  
+
   /// @}
-  
-  
+
+
   /// \name Variables
   /// @{
-  
+
   /// The next event to process when moving forward through the trace.
   EventReference NextEvent;
-  
+
   /// The synthetic process time that this ThreadState represents.
   uint64_t ProcessTime;
-  
+
   /// The synthetic thread time that this ThreadState represents.
   uint64_t ThreadTime;
-  
+
   /// The stack of FunctionState objects.
   std::vector<FunctionState> CallStack;
-  
+
   /// @}
-  
-  
+
+
   /// Constructor.
   ThreadState(ProcessState &Parent,
               ThreadTrace const &Trace);
-  
+
   // Don't allow copying
   ThreadState(ThreadState const &Other) = delete;
   ThreadState &operator=(ThreadState const &RHS) = delete;
-  
-  
+
+
   /// \name Movement
   /// @{
-  
+
   void addEvent(EventRecord<EventType::None> const &);
   void addEvent(EventRecord<EventType::FunctionStart> const &);
   void addEvent(EventRecord<EventType::FunctionEnd> const &);
@@ -90,21 +91,21 @@ class ThreadState {
   void addEvent(EventRecord<EventType::StateUntyped> const &);
   void addEvent(EventRecord<EventType::StateClear> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
-  
+
   /// Swallows unmatched calls to addEvent. This allows us to restrict calls to
   /// addEvent using an if statement when switching over types that do not have
   /// a defined addEvent (i.e. types with the trait is_subservient).
   template<typename T>
   void addEvent(T &&Object) { llvm_unreachable("addEvent(...) called!"); }
-  
+
   /// Add the event referenced by NextEvent to the state, and then increment
   /// NextEvent.
   void addNextEvent();
-  
+
   void addNextEventBlock();
-  
+
   void makePreviousInstructionActive(EventReference PriorTo);
-  
+
   void removeEvent(EventRecord<EventType::None> const &);
   void removeEvent(EventRecord<EventType::FunctionStart> const &);
   void removeEvent(EventRecord<EventType::FunctionEnd> const &);
@@ -126,37 +127,47 @@ class ThreadState {
   void removeEvent(EventRecord<EventType::StateOverwritten> const &);
   void removeEvent(EventRecord<EventType::StateOverwrittenFragment> const &);
   void removeEvent(EventRecord<EventType::RuntimeError> const &);
-  
+
   /// Swallows unmatched calls to removeEvent. This allows us to restrict calls
   /// to removeEvent using an if statement when switching over types that do
   /// not have a defined removeEvent (i.e. types with the trait is_subservient).
   void removeEvent(...) { llvm_unreachable("removeEvent(...) called!"); }
-  
+
   /// Decrement NextEvent, and then remove the event it references from the
   /// state.
   void removePreviousEvent();
-  
+
   void removePreviousEventBlock();
-  
+
   /// Move this thread's state until it agrees with the given ProcessTime.
   void setProcessTime(uint64_t ProcessTime);
-  
+
   /// @} (Movement)
-  
+
 public:
   /// \name Accessors
   /// @{
-  
+
   /// Get the ThreadTrace for this thread.
   ThreadTrace const &getTrace() const { return Trace; }
-  
+
   /// Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }
-  
+
   /// Get the current stack of FunctionStates.
   decltype(CallStack) const &getCallStack() const { return CallStack; }
-  
+
   /// @} (Accessors)
+
+
+  /// \name Searching
+  /// @{
+
+  /// Get the last event that modified the shared process state from this
+  /// thread.
+  seec::util::Maybe<EventReference> getLastProcessModifier() const;
+
+  /// @}
 };
 
 /// Print a textual description of a ThreadState.
