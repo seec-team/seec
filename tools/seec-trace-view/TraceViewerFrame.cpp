@@ -94,7 +94,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
   ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
-  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(1).Expand());
+  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(2).Expand());
 
   TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 

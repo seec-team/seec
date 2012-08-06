@@ -88,8 +88,12 @@ public:
   virtual void GetValue(wxVariant &Variant,
                         wxDataViewItem const &Item,
                         unsigned int Column) const {
-    if (!State)
+    if (!State) {
+      Variant = wxEmptyString;
       return;
+    }
+
+    wxASSERT(Item.IsOk());
 
     // Get the MallocState from the Item.
     auto &Malloc
@@ -97,8 +101,18 @@ public:
 
     switch (static_cast<Columns>(Column)) {
       case Columns::Time:
-        Variant = wxString("-");
-        return;
+        {
+          auto EventLocation = Malloc.getMallocLocation();
+          auto EventRef = State->getTrace().getEventReference(EventLocation);
+          auto MaybeProcessTime = EventRef->getProcessTime();
+
+          if (MaybeProcessTime.assigned())
+            Variant = (wxString() << MaybeProcessTime.get<0>());
+          else
+            Variant = wxString();
+
+          return;
+        }
       case Columns::Address:
         Variant = (wxString() << Malloc.getAddress());
         return;
@@ -112,7 +126,10 @@ public:
     Variant = (wxString("Bad Column #") << Column);
   }
 
-  virtual bool IsContainer(wxDataViewItem const &WXUNUSED(Item)) const {
+  virtual bool IsContainer(wxDataViewItem const &Item) const {
+    if (!Item.IsOk())
+      return true;
+
     return false;
   }
 
@@ -123,21 +140,19 @@ public:
   }
 
   void setState(seec::trace::ProcessState &NewState) {
-    State = &NewState;
-
     // Remove all existing items.
+    State = nullptr;
     Cleared();
 
-    // Add all mallocs in the new state.
-    wxDataViewItemArray Items;
+    // Set the new state.
+    State = &NewState;
 
+    // Add all mallocs in the new state.
     for (auto &MallocPair : State->getMallocs()) {
       auto ConstVoidPtr = reinterpret_cast<void const *>(&(MallocPair.second));
       auto VoidPtr = const_cast<void *>(ConstVoidPtr);
-      Items.Add(wxDataViewItem(VoidPtr));
+      ItemAdded(wxDataViewItem(nullptr), wxDataViewItem(VoidPtr));
     }
-
-    ItemsAdded(wxDataViewItem(nullptr), Items);
   }
 };
 
@@ -146,9 +161,7 @@ public:
 // MallocViewerPanel
 //------------------------------------------------------------------------------
 
-MallocViewerPanel::~MallocViewerPanel() {
-  //
-}
+MallocViewerPanel::~MallocViewerPanel() {}
 
 bool MallocViewerPanel::Create(wxWindow *Parent,
                                wxWindowID ID,
@@ -186,6 +199,7 @@ bool MallocViewerPanel::Create(wxWindow *Parent,
                                          wxDATAVIEW_COL_RESIZABLE);
   DataView->AppendColumn(TimeColumn);
 
+#if 0
   // Column 1 of the list (Address).
   auto AddressRenderer = new wxDataViewTextRenderer("string",
                                                     wxDATAVIEW_CELL_INERT);
@@ -200,6 +214,7 @@ bool MallocViewerPanel::Create(wxWindow *Parent,
                                          wxALIGN_LEFT,
                                          wxDATAVIEW_COL_RESIZABLE);
   DataView->AppendColumn(AddressColumn);
+#endif
 
   // Column 2 of the list (Size).
   auto SizeRenderer = new wxDataViewTextRenderer("string",
