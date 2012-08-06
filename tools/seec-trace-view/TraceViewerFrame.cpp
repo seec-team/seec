@@ -27,9 +27,8 @@ enum ControlIDs {
 };
 
 BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
-#define SEEC_COMMAND_EVENT(EVENT) \
-  EVT_MENU(ID_##EVENT, TraceViewerFrame::On##EVENT)
-#include "TraceViewerFrameEvents.def"
+  EVT_MENU(ID_Quit, TraceViewerFrame::OnQuit)
+  EVT_MENU(ID_OpenTrace, TraceViewerFrame::OnOpenTrace)
 
   SEEC_EVT_PROCESS_TIME_CHANGED(TraceViewer_ProcessTime,
                                 TraceViewerFrame::OnProcessTimeChanged)
