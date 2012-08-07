@@ -27,9 +27,8 @@ enum ControlIDs {
 };
 
 BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
-#define SEEC_COMMAND_EVENT(EVENT) \
-  EVT_MENU(ID_##EVENT, TraceViewerFrame::On##EVENT)
-#include "TraceViewerFrameEvents.def"
+  EVT_MENU(ID_Quit, TraceViewerFrame::OnQuit)
+  EVT_MENU(ID_OpenTrace, TraceViewerFrame::OnOpenTrace)
 
   SEEC_EVT_PROCESS_TIME_CHANGED(TraceViewer_ProcessTime,
                                 TraceViewerFrame::OnProcessTimeChanged)
@@ -99,7 +98,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
   ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
-  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(1).Expand());
+  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(2).Expand());
 
   TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 
@@ -165,10 +164,7 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
     // Display information about the newly-read trace.
     ProcessTime->setTrace(*Trace);
     StateViewer->show(*Trace, *State);
-
-    for (auto &MapGlobalPair : Trace->getMappedModule().getGlobalLookup()) {
-      SourceViewer->addSourceFile(MapGlobalPair.second.getFilePath());
-    }
+    SourceViewer->show(*Trace, *State);
   }
   else if (NewTrace.assigned(1)) {
     // Display the error that occured.
@@ -184,4 +180,5 @@ void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent& Event) {
   State->setProcessTime(Event.getProcessTime());
   StateViewer->show(*Trace, *State);
+  SourceViewer->show(*Trace, *State);
 }

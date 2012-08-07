@@ -29,9 +29,6 @@
 
 class TraceViewerFrame : public wxFrame
 {
-  /// Managers AUI behaviour.
-  // wxAuiManager Manager;
-
   /// Stores information about the currently open trace.
   std::unique_ptr<OpenTrace> Trace;
 
@@ -49,8 +46,7 @@ class TraceViewerFrame : public wxFrame
 
 public:
   TraceViewerFrame()
-  : // Manager(this, wxAUI_MGR_DEFAULT),
-    Trace(),
+  : Trace(),
     State(),
     ProcessTime(nullptr),
     SourceViewer(nullptr),
@@ -62,8 +58,7 @@ public:
                    wxString const &Title = wxString(),
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
-  : // Manager(this, wxAUI_MGR_DEFAULT),
-    Trace(),
+  : Trace(),
     State(),
     ProcessTime(nullptr),
     SourceViewer(nullptr),
@@ -72,9 +67,7 @@ public:
     Create(Parent, ID, Title, Position, Size);
   }
 
-  ~TraceViewerFrame() {
-    // Manager.UnInit();
-  }
+  ~TraceViewerFrame() {}
 
   bool Create(wxWindow *Parent,
               wxWindowID ID = wxID_ANY,
@@ -82,9 +75,8 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-#define SEEC_COMMAND_EVENT(EVENT) \
-  void On##EVENT(wxCommandEvent &Event);
-#include "TraceViewerFrameEvents.def"
+  void OnQuit(wxCommandEvent &Event);
+  void OnOpenTrace(wxCommandEvent &Event);
 
   void OnProcessTimeChanged(ProcessTimeEvent& Event);
 
@@ -92,10 +84,8 @@ private:
   DECLARE_EVENT_TABLE()
 
   enum CommandEvent {
-    ID_Zero = 0, // On Mac we can't a MenuItem ID of Zero.
-#define SEEC_COMMAND_EVENT(EVENT) \
-    ID_##EVENT,
-#include "TraceViewerFrameEvents.def"
+    ID_Quit = 1, // On Mac we can't a MenuItem ID of Zero.
+    ID_OpenTrace
   };
 };
 

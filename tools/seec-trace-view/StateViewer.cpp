@@ -219,14 +219,19 @@ public:
     ThreadNodes.clear();
     FunctionNodes.clear();
 
+    // Notify the controllers of changes.
+    Cleared();
+
     // Create new Root (Process) node.
     Trace = &NewTrace;
     Root = &NewRoot;
     RootNode.reset(new StateNodeProcess(NewRoot));
 
-    // Create new thread nodes.
-    wxDataViewItemArray ThreadItems;
+    // Add the root node.
+    ItemAdded(wxDataViewItem(nullptr),
+              wxDataViewItem(reinterpret_cast<void *>(RootNode.get())));
 
+    // Create new thread nodes.
     for (auto &ThreadState : NewRoot.getThreadStates()) {
       auto Node = new StateNodeThread(RootNode.get(), *ThreadState);
 
@@ -234,23 +239,15 @@ public:
                     std::make_pair(ThreadState.get(),
                                    std::unique_ptr<StateNodeThread>(Node)));
 
-      ThreadItems.Add(wxDataViewItem(reinterpret_cast<void *>(Node)));
+      ItemAdded(wxDataViewItem(reinterpret_cast<void *>(RootNode.get())),
+                wxDataViewItem(reinterpret_cast<void *>(Node)));
 
       auto CallStack = std::vector<std::unique_ptr<StateNodeFunction>>();
       FunctionNodes.insert(std::make_pair(ThreadState.get(),
                                           std::move(CallStack)));
+
+      // TODO: Create function nodes (if any).
     }
-
-    // Notify the controllers of changes.
-    Cleared();
-
-    // Add the root node.
-    ItemAdded(wxDataViewItem(),
-              wxDataViewItem(reinterpret_cast<void *>(RootNode.get())));
-
-    // Add all thread nodes.
-    ItemsAdded(wxDataViewItem(reinterpret_cast<void *>(RootNode.get())),
-               ThreadItems);
   }
 
   int Compare(wxDataViewItem const &Item1,
@@ -265,21 +262,21 @@ public:
   }
 
   virtual wxString GetColumnType(unsigned int Column) const {
-    switch (Column) {
-      case 0:  return "string";
-      default: return "string";
-    }
+    return wxString("string");
   }
 
   virtual void GetValue(wxVariant &Variant,
                         wxDataViewItem const &Item,
                         unsigned int Column) const {
-    if (!Root)
+    // If there's no tree associated with this model, return an empty value.
+    if (!Root) {
+      Variant = wxEmptyString;
       return;
+    }
+
+    wxASSERT(Item.IsOk());
 
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
-    if (!NodeBase)
-      return;
 
     // Get the GUIText from the TraceViewer ICU resources.
     UErrorCode Status = U_ZERO_ERROR;
@@ -295,6 +292,7 @@ public:
           Variant = seec::getwxStringExOrEmpty(TextTable, "CallTree_Process");
           return;
         default:
+          Variant = wxEmptyString;
           return;
       }
     }
@@ -310,6 +308,7 @@ public:
           return;
         }
         default:
+          Variant = wxEmptyString;
           return;
       }
     }
@@ -340,21 +339,22 @@ public:
           return;
         }
         default:
+          Variant = wxEmptyString;
           return;
       }
     }
+
+    wxLogError("StateTreeModel::GetValue() - Unknown item type.");
+    Variant = wxEmptyString;
   }
 
-  virtual bool SetValue(wxVariant const &Variant,
-                        wxDataViewItem const &Item,
-                        unsigned int Column) {
+  virtual bool SetValue(wxVariant const &WXUNUSED(Variant),
+                        wxDataViewItem const &WXUNUSED(Item),
+                        unsigned int WXUNUSED(Column)) {
     return false;
   }
 
   virtual wxDataViewItem GetParent(wxDataViewItem const &Item) const {
-    if (!Root)
-      return wxDataViewItem(nullptr);
-
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
     if (!NodeBase)
       return wxDataViewItem(nullptr);
@@ -363,12 +363,9 @@ public:
   }
 
   virtual bool IsContainer(wxDataViewItem const &Item) const {
-    if (!Root)
-      return false;
-
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Item.GetID());
     if (!NodeBase)
-      return false;
+      return true;
 
     if (llvm::isa<StateNodeProcess>(NodeBase))
       return true;
@@ -384,8 +381,9 @@ public:
 
   virtual unsigned int GetChildren(wxDataViewItem const &Parent,
                                    wxDataViewItemArray &Array) const {
-    if (!Root)
+    if (!Root) {
       return 0;
+    }
 
     auto NodeBase = reinterpret_cast<StateNodeBase *>(Parent.GetID());
     if (!NodeBase) {
@@ -477,10 +475,12 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 
   // Create the state tree (call stack).
   StateTree = new StateTreeModel();
-  DataViewCtrl = new wxDataViewCtrl(this, wxID_ANY);
 
+  DataViewCtrl = new wxDataViewCtrl(this, wxID_ANY);
   DataViewCtrl->AssociateModel(StateTree);
-  StateTree->DecRef(); // Discount our reference to the StateTree.
+
+  // DataViewCtrl takes ownership of the StateTree from us.
+  StateTree->DecRef();
 
   // Column 0 of the state tree (call stack).
   auto Renderer0 = new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_INERT);

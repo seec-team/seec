@@ -1,8 +1,0 @@
-#ifndef SEEC_COMMAND_EVENT
-#error "Must define SEEC_COMMAND_EVENT()"
-#endif
-
-SEEC_COMMAND_EVENT(Quit)
-SEEC_COMMAND_EVENT(OpenTrace)
-
-#undef SEEC_COMMAND_EVENT
