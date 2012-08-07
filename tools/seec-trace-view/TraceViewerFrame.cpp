@@ -43,7 +43,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
   
-#if 0
+#if 1
   auto LogWindow = new wxLogWindow(this, wxString("Log"));
   LogWindow->Show();
 #endif

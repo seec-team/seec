@@ -40,7 +40,7 @@ include_directories( BEFORE ${ICU_INSTALL}/include )
 #--------------------------------------------------------------------------------
 set(wxWidgets_USE_UNICODE true)
 set(wxWidgets_USE_STATIC true)
-FIND_PACKAGE(wxWidgets REQUIRED core base aui adv)
+FIND_PACKAGE(wxWidgets REQUIRED stc core base aui adv)
 INCLUDE(${wxWidgets_USE_FILE})
 
 # fix CMAKE_CXX_FLAGS after wxWidgets sets it

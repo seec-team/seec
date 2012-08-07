@@ -25,6 +25,7 @@
 // Forward declarations.
 
 class OpenTrace;
+class SourceFilePanel;
 
 namespace seec {
 namespace trace {
@@ -49,7 +50,7 @@ class SourceViewerPanel : public wxPanel
   OpenTrace const *Trace;
 
   /// Lookup from file path to source window.
-  std::map<llvm::sys::Path, wxWindow *> Pages;
+  std::map<llvm::sys::Path, SourceFilePanel *> Pages;
 
 public:
   /// Construct without creating.
