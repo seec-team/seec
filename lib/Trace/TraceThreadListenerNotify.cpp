@@ -85,6 +85,80 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   }
 }
 
+void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
+  // Handle common behaviour when entering and exiting notifications.
+  // Note thatnotifyArgs has the exit behaviour of a post-notification, because
+  // it effectively ends the FunctionStart block for main().
+  enterNotification();
+  ScopeExit OnExit([=](){exitPostNotification();});
+  
+  GlobalMemoryLock = ProcessListener.lockMemory();
+  
+  // Make the pointer array read/write.
+  uint64_t TableAddress = reinterpret_cast<uintptr_t>(ArgV);
+  uint64_t TableSize = sizeof(char *[ArgC + 1]);
+  ProcessListener.addKnownMemoryRegion(TableAddress,
+                                       TableSize,
+                                       MemoryPermission::ReadWrite);
+  
+  // Set the state of the pointer array.
+  recordUntypedState(reinterpret_cast<char const *>(ArgV), TableSize);
+  
+  // Now each of the individual strings.
+  for (uint64_t i = 0; i < ArgC; ++i) {
+    // Make the string read/write.
+    uint64_t StringAddress = reinterpret_cast<uintptr_t>(ArgV[i]);
+    uint64_t StringSize = strlen(ArgV[i]) + 1;
+    ProcessListener.addKnownMemoryRegion(StringAddress,
+                                         StringSize,
+                                         MemoryPermission::ReadWrite);
+    
+    // Set the state of the string.
+    recordUntypedState(ArgV[i], StringSize);
+  }
+
+  GlobalMemoryLock.unlock();
+}
+
+void TraceThreadListener::notifyEnv(char **EnvP) {
+  // Handle common behaviour when entering and exiting notifications.
+  enterNotification();
+  ScopeExit OnExit([=](){exitNotification();});
+  
+  GlobalMemoryLock = ProcessListener.lockMemory();
+  
+  // Find the number of pointers in the array (including the NULL pointer that
+  // terminates the array).
+  std::size_t Count = 0;
+  while (EnvP[Count++]);
+  
+  // Make the pointer array readable.
+  uint64_t TableAddress = reinterpret_cast<uintptr_t>(EnvP);
+  uint64_t TableSize = sizeof(char *[Count]);
+  ProcessListener.addKnownMemoryRegion(TableAddress,
+                                       TableSize,
+                                       MemoryPermission::ReadOnly);
+  
+  // Set the state of the pointer array.
+  recordUntypedState(reinterpret_cast<char const *>(EnvP), TableSize);
+  
+  // Now each of the individual strings. The limit is Count-1 because the final
+  // entry in EnvP is a NULL pointer.
+  for (std::size_t i = 0; i < Count - 1; ++i) {
+    // Make the string readable.
+    uint64_t StringAddress = reinterpret_cast<uintptr_t>(EnvP[i]);
+    uint64_t StringSize = strlen(EnvP[i]) + 1;
+    ProcessListener.addKnownMemoryRegion(StringAddress,
+                                         StringSize,
+                                         MemoryPermission::ReadOnly);
+    
+    // Set the state of the string.
+    recordUntypedState(EnvP[i], StringSize);
+  }
+  
+  GlobalMemoryLock.unlock();
+}
+
 void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
                                             llvm::Function const *F) {
   // It's OK to check this without owning FunctionStackMutex, because the

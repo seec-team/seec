@@ -244,6 +244,26 @@ void SeeCRecordFunctionEnd(uint32_t Index) {
   Listener.notifyFunctionEnd(Index, F);
 }
 
+void SeeCRecordSetReadable(void *Address, uint64_t Size) {
+  llvm::errs() << "readable " << Address << ", " << Size << "\n";
+}
+
+void SeeCRecordSetWritable(void *Address, uint64_t Size) {
+  llvm::errs() << "readable " << Address << ", " << Size << "\n";
+}
+
+void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyArgs(ArgC, ArgV);
+}
+
+void SeeCRecordEnv(char **EnvP) {
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyEnv(EnvP);
+}
+
 void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
   auto &ThreadEnv = getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();

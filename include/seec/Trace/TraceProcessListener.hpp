@@ -181,6 +181,9 @@ class TraceProcessListener {
 
   /// Keeps information about the current state of traced memory.
   TraceMemoryState TraceMemory;
+  
+  /// Keeps information about known, but unowned, areas of memory.
+  IntervalMapVector<uint64_t, MemoryPermission> KnownMemory;
 
 
   /// Dynamic memory mutex.
@@ -348,6 +351,18 @@ public:
   bool rangeHasKnownMemoryState(uint64_t Address, uint64_t Length) const {
     std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
     return TraceMemory.hasKnownState(Address, Length);
+  }
+  
+  /// Add a region of known, but unowned, memory.
+  void addKnownMemoryRegion(uint64_t Address,
+                            uint64_t Length,
+                            MemoryPermission Access) {
+    KnownMemory.insert(Address, Address + (Length - 1), Access);
+  }
+  
+  ///
+  bool removeKnownMemoryRegion(uint64_t Address) {
+    return KnownMemory.erase(Address) != 0;
   }
 
   /// @}

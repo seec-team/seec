@@ -389,6 +389,12 @@ public:
   void notifyFunctionBegin(uint32_t Index, llvm::Function const *F);
 
   void notifyFunctionEnd(uint32_t Index, llvm::Function const *F);
+  
+  /// \brief Receive the contents of argc and argv.
+  void notifyArgs(uint64_t ArgC, char **ArgV);
+  
+  /// \brief Receive the contents of envp.
+  void notifyEnv(char **EnvP);
 
   void notifyPreCall(uint32_t Index, llvm::CallInst const *Call,
                      void const *Address);

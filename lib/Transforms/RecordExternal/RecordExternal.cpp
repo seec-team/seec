@@ -22,6 +22,7 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -251,6 +252,58 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
   assert(CI && "Couldn't create call instruction.");
 
   CI->insertBefore(&*AllocaIt);
+  
+  // If this is main(), insert notifications for the strings we can read (args,
+  // env).
+  if (F.getName().equals("main")) {
+    // Record env, if it is used.
+    if (F.arg_size() >= 3) {
+      llvm::Value *ArgEnvPtr = &*++(++(F.arg_begin()));
+      
+      if (ArgEnvPtr->getType() != Int8PtrTy) {
+        auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy);
+        Cast->insertBefore(&*AllocaIt);
+        ArgEnvPtr = Cast;
+      }
+      
+      Value *CallArgs[] = { ArgEnvPtr };
+      CallInst *Call = CallInst::Create(RecordEnv, CallArgs);
+      assert(Call && "Couldn't create call instruction.");
+      
+      Call->insertBefore(&*AllocaIt);
+    }
+    
+    // Record argv, if it is used.
+    if (F.arg_size() >= 2) {
+      auto ArgIt = F.arg_begin();
+      
+      llvm::Value *ArgArgCPtr = &*ArgIt;
+      llvm::Value *ArgArgVPtr = &*++ArgIt;
+      
+      // If argc is less than 64 bits, we must extend it to 64 bits (because
+      // this is what the recording function expects).
+      auto IntTy = dyn_cast<IntegerType>(ArgArgCPtr->getType());
+      assert(IntTy && "First argument to main() is not an integer type.");
+      
+      if (IntTy->getBitWidth() < 64) {
+        auto Cast = new SExtInst(ArgArgCPtr, Int64Ty);
+        Cast->insertBefore(&*AllocaIt);
+        ArgArgCPtr = Cast;
+      }
+      
+      if (ArgArgVPtr->getType() != Int8PtrTy) {
+        auto Cast = new BitCastInst(ArgArgVPtr, Int8PtrTy);
+        Cast->insertBefore(&*AllocaIt);
+        ArgArgVPtr = Cast;
+      }
+      
+      Value *CallArgs[] = {ArgArgCPtr, ArgArgVPtr};
+      CallInst *Call = CallInst::Create(RecordArgs, CallArgs);
+      assert(Call && "Couldn't create call instruction.");
+      
+      Call->insertBefore(&*AllocaIt);
+    }
+  }
 
   // Clear FunctionInstructions so that it's ready for the next Function
   FunctionInstructions.clear();

@@ -36,6 +36,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   GlobalMemoryMutex(),
   TraceMemoryMutex(),
   TraceMemory(),
+  KnownMemory(),
   DynamicMemoryAllocations(),
   DynamicMemoryAllocationsMutex()
 {}
@@ -85,6 +86,18 @@ TraceProcessListener::getContainingMemoryArea(uint64_t Address,
       if (Area.contains(Address)) {
         return seec::util::Maybe<MemoryArea>(Area);
       }
+    }
+  }
+  
+  // Check readable/writable regions.
+  {
+    auto KnownIt = KnownMemory.find(Address);
+    if (KnownIt != KnownMemory.end()) {
+      // Range of interval is inclusive: [Begin, End]
+      auto Length = (KnownIt->End - KnownIt->Begin) + 1;
+      return seec::util::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
+                                                      Length,
+                                                      KnownIt->Value));
     }
   }
     
@@ -138,9 +151,9 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   // Set the initial memory state appropriately.
   addMemoryState(Start,
                  Length,
-                 0,     // ThreadID (0 indicates that this is initial data).
+                 initialDataThreadID(),
                  Index, // StateRecordOffset (overloaded for GV index).
-                 0      // ProcessTime (0 indicates that this is initial data).
+                 initialDataProcessTime()
                  );
   
   auto Offset = recordData(reinterpret_cast<char const *>(Address), Length);

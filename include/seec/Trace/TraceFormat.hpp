@@ -42,9 +42,11 @@ inline offset_uint noOffset() {
 }
 
 /// Version of the trace storage format.
-constexpr inline uint64_t formatVersion() {
-  return 1;
-}
+constexpr inline uint64_t formatVersion() { return 1; }
+
+constexpr inline uint32_t initialDataThreadID() { return 0; }
+
+constexpr inline uint64_t initialDataProcessTime() { return 0; }
 
 
 /// Enumeration of possible event types.
