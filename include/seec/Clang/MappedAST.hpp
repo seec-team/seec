@@ -135,9 +135,9 @@ class MappedModule {
 
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
 
-  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> ASTLookup;
+  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> mutable ASTLookup;
 
-  std::vector<std::unique_ptr<MappedAST>> ASTList;
+  std::vector<std::unique_ptr<MappedAST>> mutable ASTList;
 
   unsigned MDStmtIdxKind;
 
@@ -149,7 +149,8 @@ class MappedModule {
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
-  MappedAST const *getASTForFile(llvm::MDNode const *FileNode);
+  /// Get the AST for the given file.
+  MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
 
 public:
   /// Constructor.
@@ -170,20 +171,20 @@ public:
   clang::Decl const *getDecl(llvm::Function const *F) const;
 
   /// For the given llvm::Instruction, find the clang::Decl.
-  clang::Decl const *getDecl(llvm::Instruction const *I);
+  clang::Decl const *getDecl(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Decl and the MappedAST
   /// that it belongs to.
   std::pair<clang::Decl const *, MappedAST const *>
-  getDeclAndMappedAST(llvm::Instruction const *I);
+  getDeclAndMappedAST(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Stmt.
-  clang::Stmt const *getStmt(llvm::Instruction const *I);
+  clang::Stmt const *getStmt(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Stmt and the MappedAST
   /// that it belongs to.
   std::pair<clang::Stmt const *, MappedAST const *>
-  getStmtAndMappedAST(llvm::Instruction const *I);
+  getStmtAndMappedAST(llvm::Instruction const *I) const;
 };
 
 } // namespace clang (in seec)

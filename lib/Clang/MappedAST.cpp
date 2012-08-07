@@ -116,7 +116,8 @@ llvm::sys::Path getPathFromFileNode(llvm::MDNode const *FileNode) {
   return std::move(FilePath);
 }
 
-MappedAST const *MappedModule::getASTForFile(llvm::MDNode const *FileNode) {
+MappedAST const *
+MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   // check lookup to see if we've already loaded the AST
   auto It = ASTLookup.find(FileNode);
   if (It != ASTLookup.end())
@@ -216,7 +217,7 @@ clang::Decl const *MappedModule::getDecl(llvm::Function const *F) const {
   return It->second.getDecl();
 }
 
-Decl const *MappedModule::getDecl(Instruction const *I) {
+Decl const *MappedModule::getDecl(Instruction const *I) const {
   auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
   if (!DeclIdxNode)
     return nullptr;
@@ -237,7 +238,7 @@ Decl const *MappedModule::getDecl(Instruction const *I) {
 }
 
 std::pair<clang::Decl const *, MappedAST const *>
-MappedModule::getDeclAndMappedAST(llvm::Instruction const *I) {
+MappedModule::getDeclAndMappedAST(llvm::Instruction const *I) const {
   auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
   if (!DeclIdxNode)
     return std::make_pair(nullptr, nullptr);
@@ -257,7 +258,7 @@ MappedModule::getDeclAndMappedAST(llvm::Instruction const *I) {
   return std::make_pair(AST->getDeclFromIdx(CI->getZExtValue()), AST);
 }
 
-Stmt const *MappedModule::getStmt(Instruction const *I) {
+Stmt const *MappedModule::getStmt(Instruction const *I) const {
   auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
   if (!StmtIdxNode)
     return nullptr;
@@ -278,7 +279,7 @@ Stmt const *MappedModule::getStmt(Instruction const *I) {
 }
 
 std::pair<clang::Stmt const *, MappedAST const *>
-MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) {
+MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) const {
   auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
   if (!StmtIdxNode)
     return std::make_pair(nullptr, nullptr);
