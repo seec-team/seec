@@ -53,13 +53,15 @@ root:table {
 
 
     //
+    // Common
+    //
+    ThreadNumber:string {"Thread #{0}"}
+
+
+    //
     // Call tree
     //
     CallTree_Column0Title:string {"Call tree"}
-
-    CallTree_Process:string {"Process"}
-
-    CallTree_Thread:string {"Thread #{0}"}
 
     CallTree_UnknownFunction:string {"<Unknown Function>"}
 
@@ -76,4 +78,3 @@ root:table {
     MallocView_ColumnSize:string {"Size (in bytes)"}
   }
 }
-

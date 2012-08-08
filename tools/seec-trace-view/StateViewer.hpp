@@ -18,7 +18,7 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 class OpenTrace;
-class StateTreeModel;
+class ThreadStateTreeModel;
 class MallocViewerPanel;
 class wxAuiNotebook;
 class wxDataViewCtrl;
@@ -26,19 +26,22 @@ class wxDataViewCtrl;
 ///
 class StateViewerPanel : public wxPanel
 {
-  StateTreeModel *StateTree;
-
-  wxDataViewCtrl *DataViewCtrl;
-
+  wxAuiNotebook *ThreadBook;
+  
+  std::vector<ThreadStateTreeModel *> ThreadStateModels;
+  
+  std::vector<wxDataViewCtrl *> ThreadStateViews;
+  
   wxAuiNotebook *StateBook;
-
+  
   MallocViewerPanel *MallocViewer;
 
 public:
   StateViewerPanel()
   : wxPanel(),
-    StateTree(nullptr),
-    DataViewCtrl(nullptr),
+    ThreadBook(),
+    ThreadStateModels(),
+    ThreadStateViews(),
     StateBook(nullptr),
     MallocViewer(nullptr)
   {}
@@ -48,8 +51,9 @@ public:
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
   : wxPanel(),
-    StateTree(nullptr),
-    DataViewCtrl(nullptr),
+    ThreadBook(),
+    ThreadStateModels(),
+    ThreadStateViews(),
     StateBook(nullptr),
     MallocViewer(nullptr)
   {

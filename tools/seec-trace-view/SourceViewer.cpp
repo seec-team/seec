@@ -184,10 +184,16 @@ void SourceViewerPanel::show(OpenTrace const &Trace,
     switch (EvRef->getType()) {
       case seec::trace::EventType::FunctionStart:
         // TODO: Highlight the function entry.
+        {
+          wxLogDebug("Highlight FunctionStart not implemented.");
+        }
         break;
         
       case seec::trace::EventType::FunctionEnd:
         // TODO: Highlight the function exit.
+        {
+          wxLogDebug("Highlight FunctionEnd not implemented.");
+        }
         break;
         
       // Some kind of Instruction caused the update.
@@ -285,13 +291,51 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
   
   // Otherwise, if the Instruction has a mapping to a clang::Decl, highlight
   // the Decl.
+  auto DeclAndAST = ClangMap.getDeclAndMappedAST(Instruction);
   
-  // TODO:
-  // - Remove existing highlight.
-  // - Get the source file associated with Instruction.
-  // - Switch view to the source file (if required).
-  // - Get the Decl/Stmt associated with Instruction.
-  // - Get the range of the Decl/Stmt.
+  if (DeclAndAST.first && DeclAndAST.second) {
+    wxLogDebug("Decl found @%p\n", DeclAndAST.first);
+    
+    auto &SourceManager = DeclAndAST.second->getASTUnit().getSourceManager();
+    auto Start = SourceManager.getPresumedLoc(DeclAndAST.first->getLocStart());
+    auto End = SourceManager.getPresumedLoc(DeclAndAST.first->getLocEnd());
+    
+    if (strcmp(Start.getFilename(), End.getFilename())) {
+      wxLogDebug("Don't know how to highlight Decl across files: %s and %s\n",
+                 Start.getFilename(),
+                 End.getFilename());
+      return;
+    }
+    
+    llvm::sys::Path FilePath(Start.getFilename());
+    
+    auto It = Pages.find(FilePath);
+    if (It == Pages.end()) {
+      wxLogDebug("Couldn't find page for file %s\n", Start.getFilename());
+      return;
+    }
+    
+    // TODO: Clear highlight on current source file?
+    
+    wxLogDebug("Setting highlight on file %s\n", Start.getFilename());
+    
+    auto Index = Notebook->GetPageIndex(It->second);
+    Notebook->SetSelection(Index);
+    
+    It->second->setHighlight(Start.getLine(), Start.getColumn(),
+                             End.getLine(), End.getColumn());
+    
+    return;
+  }
+  
+  // No mapping information was found for this instruction.
+  std::string InstructionString;
+  {
+    // The stream will flush when it is destructed.
+    llvm::raw_string_ostream InstructionStream(InstructionString);
+    InstructionStream << *Instruction;
+  }
+  wxLogDebug("No mapping for '%s'\n", InstructionString.c_str());
 }
 
 void SourceViewerPanel::addSourceFile(llvm::sys::Path FilePath) {
