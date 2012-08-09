@@ -155,7 +155,7 @@ MappedModule::MappedModule(
                 llvm::Module const &Module,
                 llvm::StringRef ExecutablePath,
                 llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
-: Module(Module),
+: // Module(Module),
   ExecutablePath(ExecutablePath),
   Diags(Diags),
   ASTLookup(),
@@ -195,6 +195,7 @@ MappedModule::MappedModule(
 
     GlobalLookup.insert(std::make_pair(Func,
                                        MappedGlobalDecl(std::move(FilePath),
+                                                        *AST,
                                                         Decl,
                                                         Func)));
   }

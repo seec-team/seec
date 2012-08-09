@@ -95,6 +95,8 @@ public:
 /// Represents a mapping from an llvm::Function to a clang::Decl.
 class MappedGlobalDecl {
   llvm::sys::Path FilePath;
+  
+  MappedAST const &AST;
 
   clang::Decl const *Decl;
 
@@ -103,9 +105,11 @@ class MappedGlobalDecl {
 public:
   /// Constructor.
   MappedGlobalDecl(llvm::sys::Path FilePath,
+                   MappedAST const &AST,
                    clang::Decl const *Decl,
                    llvm::Function const *Function)
   : FilePath(FilePath),
+    AST(AST),
     Decl(Decl),
     Function(Function)
   {}
@@ -119,6 +123,9 @@ public:
   /// Get the path to the source file that this mapping refers to.
   llvm::sys::Path const &getFilePath() const { return FilePath; }
 
+  /// Get the AST that this clang::Decl belongs to.
+  MappedAST const &getAST() const { return AST; }
+  
   /// Get the clang::Decl that is mapped to.
   clang::Decl const *getDecl() const { return Decl; }
 
@@ -129,7 +136,7 @@ public:
 
 ///
 class MappedModule {
-  llvm::Module const &Module;
+  // llvm::Module const &Module;
 
   llvm::StringRef ExecutablePath;
 

@@ -122,12 +122,15 @@ public:
   /// Get the number of global variables in the indexed Module.
   size_t getGlobalCount() { return GlobalPtrByIdx.size(); }
 
+  /// Get the llvm::GlobalVariable at the given Index, or nullptr, if the Index
+  /// is invalid.
   llvm::GlobalVariable *getGlobal(size_t Index) {
     if (Index < GlobalPtrByIdx.size())
       return GlobalPtrByIdx[Index];
     return nullptr;
   }
 
+  /// Get the Index of the given llvm::GlobalVariable.
   util::Maybe<size_t> getIndexOfGlobal(llvm::GlobalVariable const *Global) {
     auto It = GlobalIdxByPtr.find(Global);
     if (It != GlobalIdxByPtr.end())
@@ -138,12 +141,15 @@ public:
   /// Get the number of functions in the indexed Module.
   size_t getFunctionCount() const { return FunctionPtrByIdx.size(); }
 
+  /// Get the llvm::Function at the given Index, or nullptr, if the Index is
+  /// invalid.
   llvm::Function *getFunction(size_t Index) const {
     if (Index < FunctionPtrByIdx.size())
       return FunctionPtrByIdx[Index];
     return nullptr;
   }
 
+  /// Get the Index of the given llvm::Function.
   util::Maybe<size_t> getIndexOfFunction(llvm::Function const *Function) const {
     auto It = FunctionIdxByPtr.find(Function);
     if (It != FunctionIdxByPtr.end())
