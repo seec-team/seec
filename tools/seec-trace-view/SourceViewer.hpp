@@ -34,6 +34,7 @@ class ProcessState;
 } // namespace seec
 
 namespace llvm {
+class Function;
 class Instruction;
 class Module;
 } // namespace llvm
@@ -91,6 +92,12 @@ public:
 
   /// Set the currently associated trace information.
   void setTrace(OpenTrace const *Trace);
+  
+  /// Highlight the source code associated with entering the specified Function.
+  void highlightFunctionEntry(llvm::Function *Function);
+  
+  /// Highlight the source code associated with exiting the specified Function.
+  void highlightFunctionExit(llvm::Function *Function);
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction *Instruction);

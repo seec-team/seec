@@ -4,6 +4,7 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
 
+#include "llvm/Function.h"
 #include "llvm/Instruction.h"
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -95,7 +96,7 @@ public:
     // wxTextCtrl line and column numbers are zero-based, whereas Clang's line
     // and column information is 1-based.
     HighlightStart = Text->XYToPosition(StartColumn - 1, StartLine - 1);
-    HighlightEnd = Text->XYToPosition(EndColumn - 1, EndLine - 1) + 1;
+    HighlightEnd = Text->XYToPosition(EndColumn - 1, EndLine - 1);
     
     if (HighlightStart == -1 || HighlightEnd == -1) {
       wxLogDebug("Couldn't get position information.");
@@ -183,16 +184,26 @@ void SourceViewerPanel::show(OpenTrace const &Trace,
     
     switch (EvRef->getType()) {
       case seec::trace::EventType::FunctionStart:
-        // TODO: Highlight the function entry.
+        // Highlight the Function entry.
         {
-          wxLogDebug("Highlight FunctionStart not implemented.");
+          auto &StartEv = EvRef->as<seec::trace::EventType::FunctionStart>();
+          auto &ThreadTrace = ThreadStatePtr->getTrace();
+          auto FuncTrace = ThreadTrace.getFunctionTrace(StartEv.getRecord());
+          auto Func = Trace.getModuleIndex().getFunction(FuncTrace.getIndex());
+          assert(Func && "Couldn't find llvm::Function.");
+          highlightFunctionEntry(Func);
         }
         break;
         
       case seec::trace::EventType::FunctionEnd:
-        // TODO: Highlight the function exit.
+        // Highlight the function exit.
         {
-          wxLogDebug("Highlight FunctionEnd not implemented.");
+          auto &EndEv = EvRef->as<seec::trace::EventType::FunctionEnd>();
+          auto &ThreadTrace = ThreadStatePtr->getTrace();
+          auto FuncTrace = ThreadTrace.getFunctionTrace(EndEv.getRecord());
+          auto Func = Trace.getModuleIndex().getFunction(FuncTrace.getIndex());
+          assert(Func && "Couldn't find llvm::Function.");
+          highlightFunctionEntry(Func);
         }
         break;
         
@@ -244,6 +255,50 @@ void SourceViewerPanel::setTrace(OpenTrace const *Trace) {
   }
 }
 
+void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
+  auto Mapping = Trace->getMappedModule().getMappedGlobalDecl(Function);
+  if (!Mapping) {
+    wxLogDebug("No mapping for Function '%s'",
+               Function->getName().str().c_str());
+    return;
+  }
+  
+  auto Decl = Mapping->getDecl();
+  auto &SourceManager = Mapping->getAST().getASTUnit().getSourceManager();
+  
+  auto Start = SourceManager.getPresumedLoc(Decl->getLocStart());
+  auto End = SourceManager.getPresumedLoc(Decl->getLocEnd());
+  
+  if (strcmp(Start.getFilename(), End.getFilename())) {
+    wxLogDebug("Don't know how to highlight Stmt across files: %s and %s\n",
+               Start.getFilename(),
+               End.getFilename());
+    return;
+  }
+  
+  llvm::sys::Path FilePath(Start.getFilename());
+  
+  auto It = Pages.find(FilePath);
+  if (It == Pages.end()) {
+    wxLogDebug("Couldn't find page for file %s\n", Start.getFilename());
+    return;
+  }
+  
+  // TODO: Clear highlight on current source file?
+  
+  wxLogDebug("Setting highlight on file %s\n", Start.getFilename());
+  
+  auto Index = Notebook->GetPageIndex(It->second);
+  Notebook->SetSelection(Index);
+  
+  It->second->setHighlight(Start.getLine(), Start.getColumn(),
+                           End.getLine(), End.getColumn() + 1);
+}
+
+void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
+  wxLogDebug("Highlight FunctionEnd not implemented.");
+}
+
 void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
   assert(Trace);
   
@@ -284,7 +339,7 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
     Notebook->SetSelection(Index);
     
     It->second->setHighlight(Start.getLine(), Start.getColumn(),
-                             End.getLine(), End.getColumn());
+                             End.getLine(), End.getColumn() + 1);
     
     return;
   }
@@ -323,7 +378,7 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
     Notebook->SetSelection(Index);
     
     It->second->setHighlight(Start.getLine(), Start.getColumn(),
-                             End.getLine(), End.getColumn());
+                             End.getLine(), End.getColumn() + 1);
     
     return;
   }
