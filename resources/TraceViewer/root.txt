@@ -39,6 +39,10 @@ root:table {
     //
     SourceBook_Title:string {"Source code"}
 
+    SourceView_FunctionEntry:string {"Entering function"}
+
+    SourceView_FunctionExit:string {"Leaving function"}
+
 
     //
     // ProcessTime scroller

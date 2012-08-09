@@ -1,8 +1,11 @@
 #include "SourceViewer.hpp"
 #include "OpenTrace.hpp"
 
+#include "seec/ICU/Format.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Function.h"
 #include "llvm/Instruction.h"
@@ -10,11 +13,14 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/stc/stc.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 //------------------------------------------------------------------------------
-// SourceWindow
+// SourceFilePanel
 //------------------------------------------------------------------------------
 
+/// \brief 
+/// 
 class SourceFilePanel : public wxPanel {
   /// Path to the file.
   llvm::sys::Path FilePath;
@@ -28,6 +34,9 @@ class SourceFilePanel : public wxPanel {
   /// Current highlight end.
   long HighlightEnd;
   
+  /// Current annotation line.
+  long AnnotationLine;
+  
 public:
   // Construct without creating.
   SourceFilePanel()
@@ -35,7 +44,8 @@ public:
     FilePath(),
     Text(nullptr),
     HighlightStart(-1),
-    HighlightEnd(-1)
+    HighlightEnd(-1),
+    AnnotationLine(-1)
   {}
   
   // Construct and create.
@@ -48,7 +58,8 @@ public:
     FilePath(),
     Text(nullptr),
     HighlightStart(-1),
-    HighlightEnd(-1)
+    HighlightEnd(-1),
+    AnnotationLine(-1)
   {
     Create(Parent, File, ID, Position, Size);
   }
@@ -104,6 +115,18 @@ public:
     }
     
     Text->SetSelection(HighlightStart, HighlightEnd);
+  }
+  
+  ///
+  void annotateLine(long Line, wxString const &AnnotationText) {
+    if (AnnotationLine != -1) {
+      Text->AnnotationSetText(AnnotationLine, wxEmptyString);
+      Text->AnnotationSetVisible(0);
+    }
+    
+    Text->AnnotationSetText(Line, AnnotationText);
+    Text->AnnotationSetVisible(1);
+    AnnotationLine = Line;
   }
 };
 
@@ -203,7 +226,7 @@ void SourceViewerPanel::show(OpenTrace const &Trace,
           auto FuncTrace = ThreadTrace.getFunctionTrace(EndEv.getRecord());
           auto Func = Trace.getModuleIndex().getFunction(FuncTrace.getIndex());
           assert(Func && "Couldn't find llvm::Function.");
-          highlightFunctionEntry(Func);
+          highlightFunctionExit(Func);
         }
         break;
         
@@ -293,10 +316,72 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
   
   It->second->setHighlight(Start.getLine(), Start.getColumn(),
                            End.getLine(), End.getColumn() + 1);
+
+  // Get the GUIText from the TraceViewer ICU resources.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto TextTable = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "GUIText");
+  assert(U_SUCCESS(Status));
+  
+  It->second->annotateLine(Start.getLine() - 1,
+                           seec::getwxStringExOrEmpty(
+                                                  TextTable,
+                                                  "SourceView_FunctionEntry"));
 }
 
 void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
-  wxLogDebug("Highlight FunctionEnd not implemented.");
+  auto Mapping = Trace->getMappedModule().getMappedGlobalDecl(Function);
+  if (!Mapping) {
+    wxLogDebug("No mapping for Function '%s'",
+               Function->getName().str().c_str());
+    return;
+  }
+  
+  auto Decl = Mapping->getDecl();
+  auto &SourceManager = Mapping->getAST().getASTUnit().getSourceManager();
+  
+  auto Start = SourceManager.getPresumedLoc(Decl->getLocStart());
+  auto End = SourceManager.getPresumedLoc(Decl->getLocEnd());
+  
+  if (strcmp(Start.getFilename(), End.getFilename())) {
+    wxLogDebug("Don't know how to highlight Stmt across files: %s and %s\n",
+               Start.getFilename(),
+               End.getFilename());
+    return;
+  }
+  
+  llvm::sys::Path FilePath(Start.getFilename());
+  
+  auto It = Pages.find(FilePath);
+  if (It == Pages.end()) {
+    wxLogDebug("Couldn't find page for file %s\n", Start.getFilename());
+    return;
+  }
+  
+  // TODO: Clear highlight on current source file?
+  
+  wxLogDebug("Setting highlight on file %s\n", Start.getFilename());
+  
+  auto Index = Notebook->GetPageIndex(It->second);
+  Notebook->SetSelection(Index);
+  
+  It->second->setHighlight(Start.getLine(), Start.getColumn(),
+                           End.getLine(), End.getColumn() + 1);
+
+  // Get the GUIText from the TraceViewer ICU resources.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto TextTable = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "GUIText");
+  assert(U_SUCCESS(Status));
+  
+  It->second->annotateLine(Start.getLine() - 1,
+                           seec::getwxStringExOrEmpty(
+                                                  TextTable,
+                                                  "SourceView_FunctionExit"));
 }
 
 void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
