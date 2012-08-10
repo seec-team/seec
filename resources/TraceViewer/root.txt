@@ -2,7 +2,16 @@ root:table {
   // Contains text used in the TraceViewer GUI.
   GUIText:table {
     //
-    // Main frame
+    // Welcome frame
+    //
+
+    Welcome_Title:string {"SeeC Trace Viewer"}
+
+    Welcome_Message:string {"Welcome to the <b>SeeC</b> Trace Viewer."}
+
+
+    //
+    // Main trace viewing frame
     //
 
     FrameTitle:string {"SeeC Trace Viewer"}
@@ -13,10 +22,6 @@ root:table {
     //
 
     Menu_File:string {"&File"}
-
-    Menu_File_Open:string {"&Open"}
-
-    Menu_File_Exit:string {"E&xit"}
 
 
     //

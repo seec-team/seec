@@ -8,16 +8,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OpenTrace.hpp"
+#include "seec/ICU/Format.hpp"
+#include "seec/ICU/Resources.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/IRReader.h"
 
+#include <wx/wx.h>
 #include <wx/stdpaths.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
-seec::util::Maybe<std::unique_ptr<OpenTrace>,
-                  char const *>
+#include "OpenTrace.hpp"
+
+seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString>
 OpenTrace::FromFilePath(wxString const &FilePath) {
-  typedef seec::util::Maybe<std::unique_ptr<OpenTrace>, char const *> RetTy;
+  typedef seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString> RetTy;
 
   // Create an InputBufferAllocator for the folder containing the trace file.
   wxStandardPaths StdPaths;
@@ -32,7 +37,15 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
   // Read the process trace using the InputBufferAllocator.
   auto MaybeProcTrace = seec::trace::ProcessTrace::readFrom(*BufferAllocator);
   if (!MaybeProcTrace.assigned(0)) {
-    return RetTy("OpenTrace_Error_LoadProcessTrace");
+    UErrorCode Status = U_ZERO_ERROR;
+    auto TextTable = seec::getResource("TraceViewer",
+                                       Locale::getDefault(),
+                                       Status,
+                                       "GUIText");
+    assert(U_SUCCESS(Status));
+
+    return RetTy(seec::getwxStringExOrDie(TextTable,
+                                          "OpenTrace_Error_LoadProcessTrace"));
   }
 
   auto ProcTrace = std::move(MaybeProcTrace.get<0>());
@@ -40,18 +53,29 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
 
   // Load the bitcode.
   llvm::LLVMContext &Context = llvm::getGlobalContext();
-  
+
   DirPath.appendComponent(ProcTrace->getModuleIdentifier());
-  
+
   llvm::SMDiagnostic ParseError;
   llvm::Module *Mod = llvm::ParseIRFile(DirPath.str(),
                                         ParseError,
                                         Context);
   if (!Mod) {
+    // TODO: Add the parse error to the returned error message.
+    //
     // ParseError.print("seec-trace-view", llvm::errs());
-    return RetTy("OpenTrace_Error_ParseIRFile");
+
+    UErrorCode Status = U_ZERO_ERROR;
+    auto TextTable = seec::getResource("TraceViewer",
+                                       Locale::getDefault(),
+                                       Status,
+                                       "GUIText");
+    assert(U_SUCCESS(Status));
+
+    return RetTy(seec::getwxStringExOrDie(TextTable,
+                                          "OpenTrace_Error_ParseIRFile"));
   }
-    
+
   return RetTy(std::unique_ptr<OpenTrace>(
                   new OpenTrace(ExecutablePath,
                                 Context,

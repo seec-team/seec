@@ -11,6 +11,7 @@ set(SEEC_TRACE_VIEW_SRCS
   SourceViewer.cpp
   StateViewer.cpp
   TraceViewerFrame.cpp
+  WelcomeFrame.cpp
 )
 
 #--------------------------------------------------------------------------------

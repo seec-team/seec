@@ -8,8 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TraceViewerFrame.hpp"
-
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/Range.hpp"
@@ -21,20 +19,28 @@
 
 #include <iostream>
 
+#include "TraceViewerApp.hpp"
+#include "TraceViewerFrame.hpp"
+
 enum ControlIDs {
   TraceViewer_Reset = wxID_HIGHEST,
   TraceViewer_ProcessTime
 };
 
 BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
-  EVT_MENU(ID_Quit, TraceViewerFrame::OnQuit)
-  EVT_MENU(ID_OpenTrace, TraceViewerFrame::OnOpenTrace)
+  EVT_MENU(wxID_CLOSE, TraceViewerFrame::OnClose)
 
   SEEC_EVT_PROCESS_TIME_CHANGED(TraceViewer_ProcessTime,
                                 TraceViewerFrame::OnProcessTimeChanged)
 END_EVENT_TABLE()
 
+TraceViewerFrame::~TraceViewerFrame() {
+  auto &App = wxGetApp();
+  App.removeTopLevelFrame(this);
+}
+
 bool TraceViewerFrame::Create(wxWindow *Parent,
+                              std::unique_ptr<OpenTrace> &&TracePtr,
                               wxWindowID ID,
                               wxString const &Title,
                               wxPoint const &Position,
@@ -42,40 +48,33 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 {
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
-  
-#if 1
-  auto LogWindow = new wxLogWindow(this, wxString("Log"));
-  LogWindow->Show();
-#endif
+
+  // Set the trace.
+  Trace = std::move(TracePtr);
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
-
   auto TextTable = seec::getResource("TraceViewer",
                                      Locale::getDefault(),
                                      Status,
                                      "GUIText");
   assert(U_SUCCESS(Status));
 
-  // Setup the menu bar.
-  wxMenu *menuFile = new wxMenu();
-  menuFile->Append(ID_OpenTrace,
-                   seec::getwxStringExOrDie(TextTable, "Menu_File_Open"));
+  // Setup the menus.
+  auto menuFile = new wxMenu();
+  menuFile->Append(wxID_OPEN);
+  menuFile->Append(wxID_CLOSE);
   menuFile->AppendSeparator();
-  menuFile->Append(ID_Quit,
-                   seec::getwxStringExOrDie(TextTable, "Menu_File_Exit"));
+  menuFile->Append(wxID_EXIT);
 
-  wxMenuBar *menuBar = new wxMenuBar();
+  auto menuBar = new wxMenuBar();
   menuBar->Append(menuFile,
-                  seec::getwxStringExOrDie(TextTable, "Menu_File"));
+                  seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
 
   SetMenuBar(menuBar);
 
   // Setup a status bar.
   CreateStatusBar();
-
-  // Hardcoded minimum size for the frame.
-  SetMinSize(wxSize(640,480));
 
   // Create a control for the current process time.
   ProcessTime = new ProcessTimeControl(this,
@@ -103,78 +102,28 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 
   SetSizer(TopSizer);
-  TopSizer->SetSizeHints(this);
+
+  // Temporary.
+  // Create a new ProcessState at the beginning of the trace.
+  State.reset(new seec::trace::ProcessState(Trace->getProcessTrace(),
+                                            Trace->getModuleIndex()));
+
+  // Show a message indicating that the new trace was loaded.
+  int64_t FinalProcessTime = Trace->getProcessTrace().getFinalProcessTime();
+  auto StatusMsg = TextTable.getStringEx("OpenTrace_Status_Loaded", Status);
+  auto Formatted = seec::format(StatusMsg, Status, FinalProcessTime);
+  SetStatusText(seec::towxString(Formatted));
+
+  // Display information about the newly-read trace.
+  ProcessTime->setTrace(*Trace);
+  StateViewer->show(*Trace, *State);
+  SourceViewer->show(*Trace, *State);
 
   return true;
 }
 
-void TraceViewerFrame::OnQuit(wxCommandEvent &WXUNUSED(Event)) {
+void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
   Close(true);
-}
-
-void TraceViewerFrame::OnOpenTrace(wxCommandEvent &WXUNUSED(Event)) {
-  UErrorCode Status = U_ZERO_ERROR;
-
-  auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
-                                     Status,
-                                     "GUIText");
-  assert(U_SUCCESS(Status));
-
-  wxFileDialog *OpenDialog
-    = new wxFileDialog(this,
-                       seec::getwxStringExOrDie(TextTable,
-                                                "OpenTrace_Title"),
-                       wxEmptyString,
-                       wxEmptyString,
-                       seec::getwxStringExOrDie(TextTable,
-                                                "OpenTrace_FileType"),
-                       wxFD_OPEN,
-                       wxDefaultPosition);
-
-  // Destroy the dialog when we leave this scope.
-  seec::ScopeExit DestroyDialog([=](){OpenDialog->Destroy();});
-
-  if (OpenDialog->ShowModal() != wxID_OK)
-    return;
-
-  // Attempt to read the trace, which should either return the newly read trace
-  // (in Maybe slot 0), or an error key (in Maybe slot 1).
-  auto NewTrace = OpenTrace::FromFilePath(OpenDialog->GetPath());
-  assert(NewTrace.assigned());
-
-  if (NewTrace.assigned(0)) {
-    // The trace was read successfully.
-    // Clean up the old trace before we change it.
-    SourceViewer->clear();
-
-    // Set the newly-read trace.
-    Trace = std::move(NewTrace.get<0>());
-
-    // Create a new ProcessState at the beginning of the trace.
-    State.reset(new seec::trace::ProcessState(Trace->getProcessTrace(),
-                                              Trace->getModuleIndex()));
-
-    // Show a message indicating that the new trace was loaded.
-    int64_t FinalProcessTime = Trace->getProcessTrace().getFinalProcessTime();
-    auto StatusMsg = TextTable.getStringEx("OpenTrace_Status_Loaded", Status);
-    auto Formatted = seec::format(StatusMsg, Status, FinalProcessTime);
-    SetStatusText(seec::towxString(Formatted));
-
-    // Display information about the newly-read trace.
-    ProcessTime->setTrace(*Trace);
-    StateViewer->show(*Trace, *State);
-    SourceViewer->show(*Trace, *State);
-  }
-  else if (NewTrace.assigned(1)) {
-    // Display the error that occured.
-    auto ErrorDialog
-      = new wxMessageDialog(this,
-                            seec::getwxStringExOrDie(TextTable,
-                                                     NewTrace.get<1>()));
-    ErrorDialog->ShowModal();
-    ErrorDialog->Destroy();
-  }
 }
 
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent& Event) {

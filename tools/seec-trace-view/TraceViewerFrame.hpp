@@ -11,11 +11,6 @@
 #ifndef SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 #define SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 
-#include "OpenTrace.hpp"
-#include "ProcessTimeControl.hpp"
-#include "SourceViewer.hpp"
-#include "StateViewer.hpp"
-
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 
@@ -26,6 +21,11 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
+
+#include "OpenTrace.hpp"
+#include "ProcessTimeControl.hpp"
+#include "SourceViewer.hpp"
+#include "StateViewer.hpp"
 
 class TraceViewerFrame : public wxFrame
 {
@@ -54,6 +54,7 @@ public:
   {}
 
   TraceViewerFrame(wxWindow *Parent,
+                   std::unique_ptr<OpenTrace> &&TracePtr,
                    wxWindowID ID = wxID_ANY,
                    wxString const &Title = wxString(),
                    wxPoint const &Position = wxDefaultPosition,
@@ -64,29 +65,26 @@ public:
     SourceViewer(nullptr),
     StateViewer(nullptr)
   {
-    Create(Parent, ID, Title, Position, Size);
+    Create(Parent, std::move(TracePtr), ID, Title, Position, Size);
   }
 
-  ~TraceViewerFrame() {}
+  /// \brief Destructor.
+  ~TraceViewerFrame();
 
   bool Create(wxWindow *Parent,
+              std::unique_ptr<OpenTrace> &&TracePtr,
               wxWindowID ID = wxID_ANY,
               wxString const &Title = wxString(),
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-  void OnQuit(wxCommandEvent &Event);
-  void OnOpenTrace(wxCommandEvent &Event);
+  /// \brief Close the current file.
+  void OnClose(wxCommandEvent &Event);
 
   void OnProcessTimeChanged(ProcessTimeEvent& Event);
 
 private:
   DECLARE_EVENT_TABLE()
-
-  enum CommandEvent {
-    ID_Quit = 1, // On Mac we can't a MenuItem ID of Zero.
-    ID_OpenTrace
-  };
 };
 
 #endif // SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP

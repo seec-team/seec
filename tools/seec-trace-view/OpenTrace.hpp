@@ -97,8 +97,7 @@ public:
   ///         statically-allocated C-String containing a key that can be used
   ///         to lookup the error in the GUIText table.
   static
-  seec::util::Maybe<std::unique_ptr<OpenTrace>,
-                    char const *>
+  seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString>
   FromFilePath(wxString const &FilePath);
 
 
