@@ -26,6 +26,7 @@
 #include "ProcessTimeControl.hpp"
 #include "SourceViewer.hpp"
 #include "StateViewer.hpp"
+#include "ThreadTimeControl.hpp"
 
 class TraceViewerFrame : public wxFrame
 {
@@ -34,9 +35,6 @@ class TraceViewerFrame : public wxFrame
 
   /// Stores the current ProcessState.
   std::unique_ptr<seec::trace::ProcessState> State;
-
-  /// Controls the current ProcessTime.
-  ProcessTimeControl *ProcessTime;
 
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
@@ -48,7 +46,6 @@ public:
   TraceViewerFrame()
   : Trace(),
     State(),
-    ProcessTime(nullptr),
     SourceViewer(nullptr),
     StateViewer(nullptr)
   {}
@@ -61,7 +58,6 @@ public:
                    wxSize const &Size = wxDefaultSize)
   : Trace(),
     State(),
-    ProcessTime(nullptr),
     SourceViewer(nullptr),
     StateViewer(nullptr)
   {
@@ -81,7 +77,9 @@ public:
   /// \brief Close the current file.
   void OnClose(wxCommandEvent &Event);
 
-  void OnProcessTimeChanged(ProcessTimeEvent& Event);
+  void OnProcessTimeChanged(ProcessTimeEvent &Event);
+
+  void OnThreadTimeChanged(ThreadTimeEvent &Event);
 
 private:
   DECLARE_EVENT_TABLE()

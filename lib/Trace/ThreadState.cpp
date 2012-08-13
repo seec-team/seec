@@ -40,6 +40,7 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
   CallStack.emplace_back(Index, *MappedFunction, Info);
+  ThreadTime = Info.getThreadTimeEntered();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
@@ -52,6 +53,7 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
          && "FunctionEnd does not match currently active function");
 
   CallStack.pop_back();
+  ThreadTime = Info.getThreadTimeExited();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::BasicBlockStart> const &Ev) {
@@ -963,6 +965,30 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
       }
     }
   }
+}
+
+void ThreadState::setThreadTime(uint64_t NewThreadTime) {
+  if (ThreadTime == NewThreadTime)
+    return;
+
+  if (ThreadTime < NewThreadTime) {
+    // Move forward
+    auto LastEvent = Trace.events().end();
+
+    while (ThreadTime < NewThreadTime && NextEvent != LastEvent) {
+      addNextEventBlock();
+    }
+  }
+  else {
+    // Move backward
+    auto FirstEvent = Trace.events().begin();
+
+    while (ThreadTime > NewThreadTime && NextEvent != FirstEvent) {
+      removePreviousEventBlock();
+    }
+  }
+
+  assert(ThreadTime == NewThreadTime);
 }
 
 seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {

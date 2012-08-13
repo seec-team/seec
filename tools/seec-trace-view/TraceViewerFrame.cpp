@@ -24,7 +24,8 @@
 
 enum ControlIDs {
   TraceViewer_Reset = wxID_HIGHEST,
-  TraceViewer_ProcessTime
+  TraceViewer_ProcessTime,
+  TraceViewer_ThreadTime
 };
 
 BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
@@ -32,9 +33,13 @@ BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
 
   SEEC_EVT_PROCESS_TIME_CHANGED(TraceViewer_ProcessTime,
                                 TraceViewerFrame::OnProcessTimeChanged)
+
+  SEEC_EVT_THREAD_TIME_CHANGED(TraceViewer_ThreadTime,
+                               TraceViewerFrame::OnThreadTimeChanged)
 END_EVENT_TABLE()
 
 TraceViewerFrame::~TraceViewerFrame() {
+  // Notify the TraceViewerApp that we have been destroyed.
   auto &App = wxGetApp();
   App.removeTopLevelFrame(this);
 }
@@ -51,6 +56,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   // Set the trace.
   Trace = std::move(TracePtr);
+
+  // Create a new ProcessState at the beginning of the trace.
+  State.reset(new seec::trace::ProcessState(Trace->getProcessTrace(),
+                                            Trace->getModuleIndex()));
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -76,48 +85,79 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   // Setup a status bar.
   CreateStatusBar();
 
-  // Create a control for the current process time.
-  ProcessTime = new ProcessTimeControl(this,
-                                       TraceViewer_ProcessTime);
+  if (Trace->getProcessTrace().getNumThreads() != 1) {
+    // Setup the view for a multi-threaded trace.
 
-  // Create the source code viewer.
-  SourceViewer = new SourceViewerPanel(this,
+    // Create a control for the current process time.
+    auto ProcessTime = new ProcessTimeControl(this, TraceViewer_ProcessTime);
+
+    // Create the source code viewer.
+    SourceViewer = new SourceViewerPanel(this,
+                                         *Trace,
+                                         wxID_ANY,
+                                         wxDefaultPosition,
+                                         wxDefaultSize);
+
+    // Create a text control to show the current state.
+    StateViewer = new StateViewerPanel(this,
                                        wxID_ANY,
                                        wxDefaultPosition,
                                        wxDefaultSize);
 
-  // Create a text control to show the current state.
-  StateViewer = new StateViewerPanel(this,
-                                     wxID_ANY,
-                                     wxDefaultPosition,
-                                     wxDefaultSize);
+    wxBoxSizer *TopSizer = new wxBoxSizer(wxVERTICAL);
+    TopSizer->Add(ProcessTime, wxSizerFlags().Expand());
 
-  wxBoxSizer *TopSizer = new wxBoxSizer(wxVERTICAL);
-  TopSizer->Add(ProcessTime, wxSizerFlags().Expand());
+    wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
+    ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
+    ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(2).Expand());
 
-  wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
-  ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
-  ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(2).Expand());
+    TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 
-  TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
+    SetSizer(TopSizer);
 
-  SetSizer(TopSizer);
+    // Display initial information about the trace.
+    ProcessTime->setTrace(*Trace);
+    StateViewer->show(*Trace, *State);
+    SourceViewer->show(*State);
+  }
+  else {
+    // Setup the view for a single-threaded trace.
+    auto &ThreadTrace = Trace->getProcessTrace().getThreadTrace(1);
 
-  // Temporary.
-  // Create a new ProcessState at the beginning of the trace.
-  State.reset(new seec::trace::ProcessState(Trace->getProcessTrace(),
-                                            Trace->getModuleIndex()));
+    // Create a control for the current thread time.
+    auto ThreadTime = new ThreadTimeControl(this,
+                                            *Trace,
+                                            ThreadTrace,
+                                            TraceViewer_ThreadTime);
 
-  // Show a message indicating that the new trace was loaded.
-  int64_t FinalProcessTime = Trace->getProcessTrace().getFinalProcessTime();
-  auto StatusMsg = TextTable.getStringEx("OpenTrace_Status_Loaded", Status);
-  auto Formatted = seec::format(StatusMsg, Status, FinalProcessTime);
-  SetStatusText(seec::towxString(Formatted));
+    // Create the source code viewer.
+    SourceViewer = new SourceViewerPanel(this,
+                                         *Trace,
+                                         wxID_ANY,
+                                         wxDefaultPosition,
+                                         wxDefaultSize);
 
-  // Display information about the newly-read trace.
-  ProcessTime->setTrace(*Trace);
-  StateViewer->show(*Trace, *State);
-  SourceViewer->show(*Trace, *State);
+    // Create a text control to show the current state.
+    StateViewer = new StateViewerPanel(this,
+                                       wxID_ANY,
+                                       wxDefaultPosition,
+                                       wxDefaultSize);
+
+    wxBoxSizer *TopSizer = new wxBoxSizer(wxVERTICAL);
+    TopSizer->Add(ThreadTime, wxSizerFlags().Expand());
+
+    wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
+    ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
+    ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(2).Expand());
+
+    TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
+
+    SetSizer(TopSizer);
+
+    // Display initial information about the trace.
+    StateViewer->show(*Trace, *State);
+    SourceViewer->show(*State, State->getThreadState(1));
+  }
 
   return true;
 }
@@ -126,8 +166,17 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
   Close(true);
 }
 
-void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent& Event) {
+void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
   State->setProcessTime(Event.getProcessTime());
+
   StateViewer->show(*Trace, *State);
-  SourceViewer->show(*Trace, *State);
+  SourceViewer->show(*State);
+}
+
+void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
+  auto &ThreadState = State->getThreadState(Event.getThreadID());
+  ThreadState.setThreadTime(Event.getThreadTime());
+
+  StateViewer->show(*Trace, *State);
+  SourceViewer->show(*State, ThreadState);
 }

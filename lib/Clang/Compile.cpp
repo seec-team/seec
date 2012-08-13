@@ -24,6 +24,7 @@
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace llvm;
@@ -94,6 +95,7 @@ GetCompileForSourceFile(char const *Filename,
     "-std=c99",
     "-Wall",
     "-pedantic",
+    "-g",
     "-emit-llvm",
     "-S",
     Filename
@@ -162,18 +164,18 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   SourceManager &SM,
                                   StringRef MainFilename) {
   auto &ModContext = Mod->getContext();
-  
+
   auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
 
   auto &DeclMap = Action.getDeclMap();
   auto &StmtMap = Action.getStmtMap();
-  
+
   // setup the file node for the main file and add it to the files node
   llvm::Value *MainFileNodeOps[] {
     MDString::get(ModContext, MainFilename),
     MDString::get(ModContext, llvm::sys::Path::GetCurrentDirectory().str())
   };
-    
+
   auto MainFileNode = MDNode::get(ModContext, MainFileNodeOps);
 
   // Handle Instruction Metadata
@@ -196,7 +198,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // StmtIdx
             };
-            
+
             Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
             Instruction.setMetadata(MDStmtPtrID, nullptr);
           }

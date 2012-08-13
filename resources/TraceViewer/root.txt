@@ -56,6 +56,12 @@ root:table {
 
 
     //
+    // ThreadTime scroller
+    //
+    ScrollThreadTime_Title:string {"Thread time"}
+
+
+    //
     // Status view
     //
     StatusView_Title:string {"Status"}

@@ -160,6 +160,20 @@ public:
   /// @} (Accessors)
 
 
+  /// \name Mutators
+  /// @{
+
+  /// \brief Move the state until this thread reaches the given thread time.
+  ///
+  /// TODO: Enable for multi-threaded traces (the process time may need to be
+  /// updated by other thread traces).
+  ///
+  /// \param NewThreadTime The new thread time for this thread.
+  void setThreadTime(uint64_t NewThreadTime);
+
+  /// @}
+
+
   /// \name Searching
   /// @{
 

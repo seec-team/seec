@@ -28,15 +28,16 @@ class OpenTrace;
 class SourceFilePanel;
 
 namespace seec {
-namespace trace {
-class ProcessState;
-} // namespace trace (in seec)
+  namespace trace {
+    class ProcessState;
+    class ThreadState;
+  } // namespace trace (in seec)
 } // namespace seec
 
 namespace llvm {
-class Function;
-class Instruction;
-class Module;
+  class Function;
+  class Instruction;
+  class Module;
 } // namespace llvm
 
 
@@ -64,6 +65,7 @@ public:
 
   /// Construct and create.
   SourceViewerPanel(wxWindow *Parent,
+                    OpenTrace const &TheTrace,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize)
@@ -72,7 +74,7 @@ public:
     Trace(nullptr),
     Pages()
   {
-    Create(Parent, ID, Position, Size);
+    Create(Parent, TheTrace, ID, Position, Size);
   }
 
   /// Destructor.
@@ -80,6 +82,7 @@ public:
 
   /// Create the panel.
   bool Create(wxWindow *Parent,
+              OpenTrace const &TheTrace,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
@@ -87,15 +90,17 @@ public:
   /// Remove all files from the viewer.
   void clear();
 
-  /// Show the given State (associated with the given Trace).
-  void show(OpenTrace const &Trace, seec::trace::ProcessState const &State);
+  /// Show the current state, without thread-specific information.
+  void show(seec::trace::ProcessState const &State);
 
-  /// Set the currently associated trace information.
-  void setTrace(OpenTrace const *Trace);
-  
+  /// Show the current state and display thread-specific information for the
+  /// given thread.
+  void show(seec::trace::ProcessState const &ProcessState,
+            seec::trace::ThreadState const &ThreadState);
+
   /// Highlight the source code associated with entering the specified Function.
   void highlightFunctionEntry(llvm::Function *Function);
-  
+
   /// Highlight the source code associated with exiting the specified Function.
   void highlightFunctionExit(llvm::Function *Function);
 

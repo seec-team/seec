@@ -400,8 +400,11 @@ public:
 
   /// Get a range containing all of the events in this thread.
   EventRange events() const {
+    auto LastEvent = Events->getBufferEnd()
+                     - sizeof(EventRecord<EventType::TraceEnd>);
+
     return EventRange(EventReference(Events->getBufferStart()),
-                      EventReference(Events->getBufferEnd()));
+                      EventReference(LastEvent));
   }
 
   /// Get a list of offsets from this thread's trace information.

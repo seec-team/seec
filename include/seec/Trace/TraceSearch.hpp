@@ -51,7 +51,7 @@ seec::util::Maybe<EventReference> find(EventRange Range) {
       return seec::util::Maybe<EventReference>(EventReference(Ev));
     }
   }
-  
+
   return seec::util::Maybe<EventReference>();
 }
 
@@ -63,13 +63,13 @@ seec::util::Maybe<EventReference> find(EventRange Range) {
 template<EventType... SearchFor>
 seec::util::Maybe<EventReference> rfind(EventRange Range) {
   auto PreBegin = --(Range.begin());
-  
+
   for (auto It = --(Range.end()); It != PreBegin; --It) {
     if (typeInList<SearchFor...>(It->getType())) {
       return seec::util::Maybe<EventReference>(It);
     }
   }
-  
+
   return seec::util::Maybe<EventReference>();
 }
 
@@ -87,7 +87,7 @@ seec::util::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
       return seec::util::Maybe<EventReference>(EventReference(Ev));
     }
   }
-  
+
   return seec::util::Maybe<EventReference>();
 }
 
@@ -101,14 +101,54 @@ seec::util::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
 template<typename PredT>
 seec::util::Maybe<EventReference> rfind(EventRange Range, PredT Predicate) {
   auto PreBegin = --(Range.begin());
-  
+
   for (auto It = --(Range.end()); It != PreBegin; --It) {
     if (Predicate(*It)) {
       return seec::util::Maybe<EventReference>(It);
     }
   }
-  
+
   return seec::util::Maybe<EventReference>();
+}
+
+/// For the first Event in a range for which the given predicate returns an
+/// assigned Maybe, return that Maybe. Otherwise, return an empty Maybe. The
+/// type of the returned value is equal to the return type of the supplied
+/// predicate, but must contain an assigned() method.
+/// \tparam PredT the type of the predicate.
+/// \param Range the event range to search in.
+/// \param Predicate the predicate to apply to the events.
+template<typename PredT>
+typename seec::FunctionTraits<PredT>::ReturnType
+firstSuccessfulApply(EventRange Range, PredT Predicate) {
+  for (auto &&Ev : Range) {
+    auto Value = Predicate(Ev);
+    if (Value.assigned())
+      return std::move(Value);
+  }
+
+  return typename seec::FunctionTraits<PredT>::ReturnType {};
+}
+
+/// For the last Event in a range for which the given predicate returns an
+/// assigned Maybe, return that Maybe. Otherwise, return an empty Maybe. The
+/// type of the returned value is equal to the return type of the supplied
+/// predicate, but must contain an assigned() method.
+/// \tparam PredT the type of the predicate.
+/// \param Range the event range to search in.
+/// \param Predicate the predicate to apply to the events.
+template<typename PredT>
+typename seec::FunctionTraits<PredT>::ReturnType
+lastSuccessfulApply(EventRange Range, PredT Predicate) {
+  auto PreBegin = --(Range.begin());
+
+  for (auto It = --(Range.end()); It != PreBegin; --It) {
+    auto Value = Predicate(*It);
+    if (Value.assigned())
+      return std::move(Value);
+  }
+
+  return typename seec::FunctionTraits<PredT>::ReturnType {};
 }
 
 /// Get the events in an EventRange prior to a specific event.
@@ -117,7 +157,7 @@ seec::util::Maybe<EventReference> rfind(EventRange Range, PredT Predicate) {
 /// \return an EventRange containing the events in Range prior to Ev.
 inline EventRange rangeBefore(EventRange Range, EventReference Ev) {
   assert(Range.begin() <= Ev && Ev <= Range.end());
-  
+
   return EventRange(Range.begin(), Ev);
 }
 
@@ -128,10 +168,10 @@ inline EventRange rangeBefore(EventRange Range, EventReference Ev) {
 ///         Ev.
 inline EventRange rangeBeforeIncluding(EventRange Range, EventReference Ev) {
   assert(Range.begin() <= Ev && Ev <= Range.end());
-  
+
   if (Ev != Range.end())
     return EventRange(Range.begin(), ++Ev);
-  
+
   return EventRange(Range.begin(), Ev);
 }
 
@@ -141,10 +181,10 @@ inline EventRange rangeBeforeIncluding(EventRange Range, EventReference Ev) {
 /// \return an EventRange containing the events in Range following Ev.
 inline EventRange rangeAfter(EventRange Range, EventReference Ev) {
   assert(Range.begin() <= Ev && Ev <= Range.end());
-  
+
   if (Ev != Range.end())
     return EventRange(++Ev, Range.end());
-  
+
   // range does not exist, so return an empty range.
   return EventRange(Ev, Ev);
 }
@@ -156,7 +196,7 @@ inline EventRange rangeAfter(EventRange Range, EventReference Ev) {
 ///         Ev.
 inline EventRange rangeAfterIncluding(EventRange Range, EventReference Ev) {
   assert(Range.begin() <= Ev && Ev <= Range.end());
-  
+
   return EventRange(Ev, Range.end());
 }
 
@@ -169,16 +209,16 @@ inline EventRange rangeAfterIncluding(EventRange Range, EventReference Ev) {
 template<EventType ET>
 llvm::ArrayRef<EventRecord<ET>> getLeadingBlock(EventRange Range) {
   std::size_t Count = 0;
-  
+
   for (auto EvRef = Range.begin(); EvRef != Range.end(); ++EvRef) {
     if (EvRef->getType() != ET)
       break;
     ++Count;
   }
-  
+
   if (!Count)
     return llvm::ArrayRef<EventRecord<ET>>();
-  
+
   return llvm::ArrayRef<EventRecord<ET>>(&(Range.begin().get<ET>()), Count);
 }
 

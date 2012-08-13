@@ -10,6 +10,7 @@ set(SEEC_TRACE_VIEW_SRCS
   ProcessTimeControl.cpp
   SourceViewer.cpp
   StateViewer.cpp
+  ThreadTimeControl.cpp
   TraceViewerFrame.cpp
   WelcomeFrame.cpp
 )
