@@ -12,49 +12,56 @@
 
 #include "llvm/ADT/StringRef.h"
 
+#include <dlfcn.h>
+
 namespace seec {
 
 namespace trace {
 
 namespace detect_calls {
 
-/// Check if a function is located at a certain address.
-/// \param C the function to check.
-/// \param Address the address to check.
-/// \return true iff the function represented by C is located at Address.
+
+Lookup::Lookup()
+: AddressMap{}
+{
+  // Find all the standard library functions we know about.
+  void *Ptr;
+  
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
+  if ((Ptr = dlsym(RTLD_DEFAULT, #NAME))) \
+    AddressMap.insert(std::make_pair(Ptr, Call::PREFIX##NAME));
+#include "seec/Trace/DetectCallsAll.def"
+}
+
 bool Lookup::Check(Call C, void const *Address) const {
-  return Addresses[(std::size_t)C] == Address;
+  // Try to find the Call in our AddressMap first.
+  auto It = AddressMap.find(Address);
+  if (It != AddressMap.end())
+    return It->second == C;
+  
+  return It->second == C;
 }
 
-/// Get the run-time location of a function, if it is known.
-/// \param C the function to locate.
-/// \return the run-time location of C, or nullptr if it is unknown.
-void const *Lookup::Get(Call C) const {
-  return Addresses[(std::size_t)C];
-}
-
-/// Get the run-time location of a function, if it is known.
-/// \param Name the name of the function to locate.
-/// \return the run-time location of the function, or nullptr if it is unknown.
-void const *Lookup::Get(llvm::StringRef Name) const {
+bool Lookup::Check(llvm::StringRef Name, void const *Address) const {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
   if (Name.equals(#NAME)) \
-    return Addresses[(std::size_t)Call::PREFIX ## NAME];
+    return Check(Call::PREFIX##NAME, Address);
 #include "seec/Trace/DetectCallsAll.def"
-  return nullptr;
+  
+  return false;
 }
 
-/// Set the run-time location of a function, if it is detectable by DetectCall.
-/// \param Name the name of the function.
-/// \param Address the run-time location of the function.
-void Lookup::Set(llvm::StringRef Name, void const *Address) {
+bool Lookup::Set(llvm::StringRef Name, void const *Address) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
   if (Name.equals(#NAME)) { \
-    Addresses[(std::size_t)Call::PREFIX ## NAME] = Address; \
-    return; \
+    AddressMap.insert(std::make_pair(Address, Call::PREFIX##NAME)); \
+    return true; \
   }
 #include "seec/Trace/DetectCallsAll.def"
+  
+  return false;
 }
+
 
 } // namespace detect_calls
 

@@ -10,6 +10,7 @@
 #include "llvm/Instruction.h"
 #include "llvm/Type.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace seec {
 
@@ -210,14 +211,24 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   auto const &Lookup = ProcessListener.getDetectCallsLookup();
 
   detectPreCalls<TraceThreadListener,
-                 Call::Cmemchr,
+                 // stdlib.h
+                 Call::Cstdlib_h_string,
                  Call::Cstdlib_h_memory,
+                 Call::Cgetenv,
+                 Call::Csystem,
+                 // string.h
+                 Call::Cmemchr,
+                 Call::Cmemcmp,
+                 Call::Cmemcpy,
+                 Call::Cmemmove,
+                 Call::Cmemset,
                  Call::Cstrcat,
                  Call::Cstrchr,
                  Call::Cstrcmp,
                  Call::Cstrcoll,
                  Call::Cstrcpy,
                  Call::Cstrcspn,
+                 Call::Cstrerror,
                  Call::Cstrlen,
                  Call::Cstrncat,
                  Call::Cstrncpy,
@@ -242,7 +253,14 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
   auto const &Lookup = ProcessListener.getDetectCallsLookup();
 
   detectPostCalls<TraceThreadListener,
+                  // stdlib.h
                   Call::Cstdlib_h_memory,
+                  Call::Cgetenv,
+                  // string.h
+                  Call::Cmemcmp,
+                  Call::Cmemcpy,
+                  Call::Cmemmove,
+                  Call::Cmemset,
                   Call::Cstrcat,
                   Call::Cstrcpy,
                   Call::Cstrerror,

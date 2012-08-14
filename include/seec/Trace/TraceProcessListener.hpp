@@ -32,11 +32,9 @@
 #include <vector>
 
 namespace llvm {
-
-class Module;
-class GlobalVariable;
-class Function;
-
+  class Module;
+  class GlobalVariable;
+  class Function;
 } // namespace llvm
 
 namespace seec {

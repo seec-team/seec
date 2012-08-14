@@ -34,6 +34,14 @@ SEEC_FORMAT_SELECT(MemCopyFunction,
   )
 
 SEEC_FORMAT_SELECT(StringFunction,
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Atof, "atof")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Atoi, "atoi")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Atol, "atol")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strtod, "strtod")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strtol, "strtol")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Strtoul, "strtoul")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, Getenv, "getenv")
+  SEEC_FORMAT_SELECT_ITEM(StringFunction, System, "system")
   SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcat, "strcat")
   SEEC_FORMAT_SELECT_ITEM(StringFunction, Strchr, "strchr")
   SEEC_FORMAT_SELECT_ITEM(StringFunction, Strcmp, "strcmp")

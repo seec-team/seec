@@ -33,18 +33,18 @@
 #include <memory>
 #include <vector>
 
+
 namespace llvm {
-
-class AllocaInst;
-class BinaryOperator;
-class Function;
-class CallInst;
-class LoadInst;
-class StoreInst;
-class Instruction;
-struct GenericValue;
-
+  class AllocaInst;
+  class BinaryOperator;
+  class Function;
+  class CallInst;
+  class LoadInst;
+  class StoreInst;
+  class Instruction;
+  struct GenericValue;
 } // namespace llvm
+
 
 namespace seec {
 
@@ -460,9 +460,30 @@ public:
   /// @} (Thread Listener Notifications)
 
 
-  /// \name Detect Calls Notifications
+  /// \name Detect Calls - stdlib.h string
   /// @{
+  
+  void preCatof(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  
+  void preCatoi(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  
+  void preCatol(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  
+  void preCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  char **EndPtr);
+  
+  void preCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  char **EndPtr, int Base);
 
+  void preCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr, int Base);
+  
+  /// @}
+  
+  
+  /// \name Detect Calls - stdlib.h memory
+  /// @{
+  
   void preCcalloc(llvm::CallInst const *Call, uint32_t Index, size_t Num,
                   size_t Size);
 
@@ -482,6 +503,27 @@ public:
 
   void postCrealloc(llvm::CallInst const *Call, uint32_t Index, void *Address,
                     uint64_t Size);
+  
+  /// @}
+  
+  
+  /// \name Detect Calls - stdlib.h environment
+  /// @{
+  
+  void preCgetenv(llvm::CallInst const *Call, uint32_t Index,
+                  char const *Name);
+  
+  void postCgetenv(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Name);
+  
+  void preCsystem(llvm::CallInst const *Call, uint32_t Index,
+                  char const *Command);
+  
+  /// @}
+  
+  
+  /// \name Detect Calls - string.h
+  /// @{
 
   void preCmemchr(llvm::CallInst const *Call, uint32_t Index,
                   void const *Ptr, int Value, size_t Num);
@@ -534,6 +576,8 @@ public:
   void preCstrcspn(llvm::CallInst const *Call, uint32_t Index,
                    char const *Str1, char const *Str2);
 
+  void preCstrerror(llvm::CallInst const *Call, uint32_t Index, int Errnum);
+  
   void postCstrerror(llvm::CallInst const *Call, uint32_t Index, int Errnum);
 
   void preCstrlen(llvm::CallInst const *Call, uint32_t Index,

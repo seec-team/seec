@@ -100,6 +100,20 @@ void checkMemoryOverlap(TraceThreadListener &Listener,
     InstructionIndex);
 }
 
+/// \brief Check if a character pointer points to an owned area of memory,
+/// which can be read from and contains a nul-terminated C string.
+///
+/// If an error is detected, then a runtime error will be raised in Listener,
+/// and this function will return true.
+///
+/// \param Listener The thread that the check will occur in (any runtime errors
+///                 will be stored in this thread.
+/// \param InstructionIndex The index of the llvm::Instruction that is reading
+///                         from this pointer.
+/// \param Func The string function that is reading from this pointer.
+/// \param ParameterIndex The index of Str in Func's argument list.
+/// \param Str The pointer that will be read as a string.
+/// \return true if an error was detected.
 ///
 bool checkCStringRead(TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
