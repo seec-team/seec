@@ -75,6 +75,13 @@ target_link_libraries(seec-trace-view
 )
 
 #--------------------------------------------------------------------------------
+# Bundle options for Mac OS X
+#--------------------------------------------------------------------------------
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set_target_properties(seec-trace-view PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/Info.plist.in)
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+#--------------------------------------------------------------------------------
 # Installation settings.
 #--------------------------------------------------------------------------------
 INSTALL(TARGETS seec-trace-view
