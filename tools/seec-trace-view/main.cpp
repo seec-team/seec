@@ -54,6 +54,36 @@ IMPLEMENT_APP(TraceViewerApp)
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
+void TraceViewerApp::OpenFile(wxString const &FileName) {
+  // Attempt to read the trace, which should either return the newly read trace
+  // (in Maybe slot 0), or an error message (in Maybe slot 1).
+  auto NewTrace = OpenTrace::FromFilePath(FileName);
+  assert(NewTrace.assigned());
+
+  if (NewTrace.assigned(0)) {
+    // The trace was read successfully, so create a new viewer to display it.
+    auto TraceViewer = new TraceViewerFrame(nullptr,
+                                            std::move(NewTrace.get<0>()));
+    TopLevelFrames.insert(TraceViewer);
+    TraceViewer->Show(true);
+
+    // Hide the Welcome frame (on Mac OS X), or destroy it (all others).
+#ifdef __WXMAC__
+    if (Welcome)
+      Welcome->Show(false);
+#else
+    if (Welcome)
+      Welcome->Close(true);
+#endif
+  }
+  else if (NewTrace.assigned(1)) {
+    // Display the error that occured.
+    auto ErrorDialog = new wxMessageDialog(nullptr, NewTrace.get<1>());
+    ErrorDialog->ShowModal();
+    ErrorDialog->Destroy();
+  }
+}
+
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
   wxStandardPaths StdPaths;
@@ -98,8 +128,42 @@ bool TraceViewerApp::OnInit() {
                              wxDefaultPosition,
                              wxDefaultSize);
   Welcome->Show(true);
+  
+  // Setup the debugging log window.
+#if 1
+  new wxLogWindow(nullptr, "Log");
+#endif
 
   return true;
+}
+
+void TraceViewerApp::MacNewFile() {
+  // TODO
+  
+  wxLogDebug("NewFile");
+}
+
+void TraceViewerApp::MacOpenFiles(wxArrayString const &FileNames) {
+  // TODO: In the future we could check if the files are source files, in which
+  // case we might compile them for the user (and possibly automatically
+  // generate a trace file).
+  
+  wxLogDebug("OpenFiles");
+  
+  for (wxString const &FileName : FileNames) {
+    OpenFile(FileName);
+  }
+}
+
+void TraceViewerApp::MacOpenFile(wxString const &FileName) {
+  wxLogDebug("OpenFile");
+  OpenFile(FileName);
+}
+
+void TraceViewerApp::MacReopenApp() {
+  // TODO: If there is no welcome window, create a new one.
+  
+  wxLogDebug("ReopenApp");
 }
 
 void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
@@ -129,33 +193,7 @@ void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
   if (OpenDialog->ShowModal() != wxID_OK)
     return;
 
-  // Attempt to read the trace, which should either return the newly read trace
-  // (in Maybe slot 0), or an error message (in Maybe slot 1).
-  auto NewTrace = OpenTrace::FromFilePath(OpenDialog->GetPath());
-  assert(NewTrace.assigned());
-
-  if (NewTrace.assigned(0)) {
-    // The trace was read successfully, so create a new viewer to display it.
-    auto TraceViewer = new TraceViewerFrame(nullptr,
-                                            std::move(NewTrace.get<0>()));
-    TopLevelFrames.insert(TraceViewer);
-    TraceViewer->Show(true);
-
-    // Hide the Welcome frame (on Mac OS X), or destroy it (all others).
-#ifdef __WXMAC__
-    if (Welcome)
-      Welcome->Show(false);
-#else
-    if (Welcome)
-      Welcome->Close(true);
-#endif
-  }
-  else if (NewTrace.assigned(1)) {
-    // Display the error that occured.
-    auto ErrorDialog = new wxMessageDialog(nullptr, NewTrace.get<1>());
-    ErrorDialog->ShowModal();
-    ErrorDialog->Destroy();
-  }
+  OpenFile(OpenDialog->GetPath());
 }
 
 void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {

@@ -25,9 +25,10 @@
 
 class WelcomeFrame;
 
+/// \brief The application class for the SeeC Trace Viewer.
+///
 class TraceViewerApp : public wxApp
 {
-private:
   /// The welcome frame that is displayed when no files are open.
   WelcomeFrame *Welcome;
 
@@ -36,6 +37,9 @@ private:
 
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
+  
+  /// \brief Open a new trace viewer for the given file.
+  void OpenFile(wxString const &FileName);
 
 public:
   /// \brief Constructor.
@@ -49,6 +53,20 @@ public:
 
   virtual bool OnInit();
 
+  /// @}
+  
+  
+  /// \name Mac OS X functionality
+  /// @{
+  
+  virtual void MacNewFile();
+  
+  virtual void MacOpenFiles(wxArrayString const &FileNames);
+  
+  virtual void MacOpenFile(wxString const &FileName);
+  
+  virtual void MacReopenApp();
+  
   /// @}
 
 
