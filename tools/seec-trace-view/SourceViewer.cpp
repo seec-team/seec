@@ -206,10 +206,14 @@ public:
   /// \brief Clear state-related information.
   void clearState() {
     // Remove existing highlights.
+    Text->Clear();
     
     // Remove annotations.
     Text->AnnotationClearAll();
     AnnotationLine = -1;
+    
+    // wxStyledTextCtrl doesn't automatically redraw after the above.
+    Text->Refresh();
   }
 
   ///
@@ -301,6 +305,10 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
   // For all of these, the first thing we need to do is find an event that
   // modified the shared process state during the most recent process time
   // update.
+  
+  // Clear existing state information from all files.
+  for (auto &PagePair : Pages)
+    PagePair.second->clearState();
 
   auto Time = State.getProcessTime();
 
@@ -335,6 +343,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
           auto FuncTrace = ThreadTrace.getFunctionTrace(StartEv.getRecord());
           auto Func = Trace->getModuleIndex().getFunction(FuncTrace.getIndex());
           assert(Func && "Couldn't find llvm::Function.");
+          
           highlightFunctionEntry(Func);
         }
         break;
@@ -347,6 +356,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
           auto FuncTrace = ThreadTrace.getFunctionTrace(EndEv.getRecord());
           auto Func = Trace->getModuleIndex().getFunction(FuncTrace.getIndex());
           assert(Func && "Couldn't find llvm::Function.");
+          
           highlightFunctionExit(Func);
         }
         break;
@@ -384,7 +394,9 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
 
 void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
                              seec::trace::ThreadState const &ThreadState) {
-  // TODO: Clear existing highlights.
+  // Clear existing state information from all files.
+  for (auto &PagePair : Pages)
+    PagePair.second->clearState();
 
   // Find the active function.
   auto &CallStack = ThreadState.getCallStack();
@@ -412,6 +424,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
     auto FunctionIndex = FunctionState.getIndex();
     auto Func = Trace->getModuleIndex().getFunction(FunctionIndex);
     assert(Func && "Couldn't find llvm::Function.");
+    
     highlightFunctionEntry(Func);
   }
 }
@@ -522,6 +535,17 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
                                                   "SourceView_FunctionExit"));
 }
 
+void SourceViewerPanel::showInstructionAt(llvm::Instruction *Instruction,
+                                          SourceFilePanel *Page,
+                                          unsigned StartLine,
+                                          unsigned StartCol,
+                                          unsigned EndLine,
+                                          unsigned EndCol) {
+  Page->setHighlight(StartLine, StartCol, EndLine, EndCol);
+  
+  // 
+}
+
 void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
   assert(Trace);
 
@@ -555,7 +579,7 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
     auto StartLine = SourceManager.getSpellingLineNumber(SpellStart, &Invalid);
     auto StartCol = SourceManager.getSpellingColumnNumber(SpellStart, &Invalid);
     auto EndLine = SourceManager.getSpellingLineNumber(SpellEnd, &Invalid);
-    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid);
+    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid) + 1;
 
     if (Invalid) {
       wxLogDebug("Invalid spelling location?");
@@ -566,8 +590,13 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
                Stmt->getStmtClassName(),
                StartLine, StartCol, EndLine, EndCol);
 
-    It->second->setHighlight(StartLine, StartCol, EndLine, EndCol + 1);
-
+    showInstructionAt(Instruction,
+                      It->second,
+                      StartLine,
+                      StartCol,
+                      EndLine,
+                      EndCol);
+    
     return;
   }
 
@@ -600,7 +629,7 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
     auto StartLine = SourceManager.getSpellingLineNumber(SpellStart, &Invalid);
     auto StartCol = SourceManager.getSpellingColumnNumber(SpellStart, &Invalid);
     auto EndLine = SourceManager.getSpellingLineNumber(SpellEnd, &Invalid);
-    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid);
+    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid) + 1;
 
     if (Invalid) {
       wxLogDebug("Invalid spelling location?");
@@ -611,8 +640,13 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
                Decl->getDeclKindName(),
                StartLine, StartCol, EndLine, EndCol);
 
-    It->second->setHighlight(StartLine, StartCol, EndLine, EndCol + 1);
-
+    showInstructionAt(Instruction,
+                  It->second,
+                  StartLine,
+                  StartCol,
+                  EndLine,
+                  EndCol);
+    
     return;
   }
 

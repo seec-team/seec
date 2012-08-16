@@ -53,7 +53,7 @@ class SourceViewerPanel : public wxPanel
 
   /// Lookup from file path to source window.
   std::map<llvm::sys::Path, SourceFilePanel *> Pages;
-
+  
 public:
   /// Construct without creating.
   SourceViewerPanel()
@@ -97,16 +97,31 @@ public:
   /// given thread.
   void show(seec::trace::ProcessState const &ProcessState,
             seec::trace::ThreadState const &ThreadState);
-
+  
+private:
+  /// \name State display.
+  /// @{
+  
   /// Highlight the source code associated with entering the specified Function.
   void highlightFunctionEntry(llvm::Function *Function);
 
   /// Highlight the source code associated with exiting the specified Function.
   void highlightFunctionExit(llvm::Function *Function);
+  
+  ///
+  void showInstructionAt(llvm::Instruction *Instruction,
+                         SourceFilePanel *Page,
+                         unsigned StartLine,
+                         unsigned StartCol,
+                         unsigned EndLine,
+                         unsigned EndCol);
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction *Instruction);
 
+  /// @}
+  
+  
   /// Add a source file to the viewer, if it doesn't already exist.
   void addSourceFile(llvm::sys::Path FilePath);
 
