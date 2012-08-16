@@ -9,6 +9,7 @@ set(SEEC_TRACE_VIEW_SRCS
   OpenTrace.cpp
   ProcessTimeControl.cpp
   SourceViewer.cpp
+  SourceViewerSettings.cpp
   StateViewer.cpp
   ThreadTimeControl.cpp
   TraceViewerFrame.cpp

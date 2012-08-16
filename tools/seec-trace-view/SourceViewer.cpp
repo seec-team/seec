@@ -1,6 +1,3 @@
-#include "SourceViewer.hpp"
-#include "OpenTrace.hpp"
-
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/ProcessState.hpp"
@@ -13,8 +10,13 @@
 #include "llvm/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <wx/font.h>
 #include <wx/stc/stc.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include "SourceViewer.hpp"
+#include "SourceViewerSettings.hpp"
+#include "OpenTrace.hpp"
 
 //------------------------------------------------------------------------------
 // SourceFilePanel
@@ -37,6 +39,109 @@ class SourceFilePanel : public wxPanel {
 
   /// Current annotation line.
   long AnnotationLine;
+  
+  /// \brief Setup the Scintilla preferences.
+  void setSTCPreferences() {
+    // Set the lexer to C++.
+    Text->SetLexer(wxSTC_LEX_CPP);
+        
+    // Setup the default common style settings.
+    for (auto Type : getAllSciCommonTypes()) {
+      auto MaybeStyle = getDefaultStyle(Type);
+      if (!MaybeStyle.assigned())
+        continue;
+      
+      auto StyleNum = static_cast<int>(Type);
+      auto &Style = MaybeStyle.get<0>();
+      
+      auto Font = Style.Font;
+      
+      Text->StyleSetForeground(StyleNum, Style.Foreground);
+      Text->StyleSetBackground(StyleNum, Style.Background);
+      Text->StyleSetFont(StyleNum, Font);
+      Text->StyleSetVisible(StyleNum, true);
+      Text->StyleSetCase(StyleNum, Style.CaseForce);
+    }
+    
+    // Setup the default style settings for the lexer.
+    for (auto Type : getAllSciLexerTypes()) {
+      auto MaybeStyle = getDefaultStyle(Type);
+      if (!MaybeStyle.assigned())
+        continue;
+      
+      auto StyleNum = static_cast<int>(Type);
+      auto &Style = MaybeStyle.get<0>();
+      
+      auto Font = Style.Font;
+      
+      Text->StyleSetForeground(StyleNum, Style.Foreground);
+      Text->StyleSetBackground(StyleNum, Style.Background);
+      Text->StyleSetFont(StyleNum, Font);
+      Text->StyleSetVisible(StyleNum, true);
+      Text->StyleSetCase(StyleNum, Style.CaseForce);
+    }
+    
+    // Setup the keywords used by the lexer.
+    // TODO: Read keywords from settings, which should read it from the ICU
+    // resource bundle.
+    Text->SetKeyWords(0,
+    wxString("asm auto bool break case catch char class const const_cast "
+    "continue default delete do double dynamic_cast else enum explicit "
+    "export extern false float for friend goto if inline int long "
+    "mutable namespace new operator private protected public register "
+    "reinterpret_cast return short signed sizeof static static_cast "
+    "struct switch template this throw true try typedef typeid "
+    "typename union unsigned using virtual void volatile wchar_t "
+    "while"));
+    
+    Text->SetKeyWords(1, wxString("file"));
+    
+    Text->SetKeyWords(2,
+    wxString("a addindex addtogroup anchor arg attention author b brief bug c "
+    "class code date def defgroup deprecated dontinclude e em endcode "
+    "endhtmlonly endif endlatexonly endlink endverbatim enum example "
+    "exception f$ f[ f] file fn hideinitializer htmlinclude "
+    "htmlonly if image include ingroup internal invariant interface "
+    "latexonly li line link mainpage name namespace nosubgrouping note "
+    "overload p page par param post pre ref relates remarks return "
+    "retval sa section see showinitializer since skip skipline struct "
+    "subsection test throw todo typedef union until var verbatim "
+    "verbinclude version warning weakgroup $ @ \"\" & < > # { }"));
+    
+    // Setup the line number margin (initially invisible).
+    Text->SetMarginType(static_cast<int>(SciMargin::LineNumber),
+                        wxSTC_MARGIN_NUMBER);
+    Text->SetMarginWidth(static_cast<int>(SciMargin::LineNumber), 0);
+    
+    // Miscellaneous.
+    Text->SetIndentationGuides(true);
+    Text->SetEdgeColumn(80);
+    // Text->SetEdgeMode(wxSTC_EDGE_LINE);
+    Text->SetWrapMode(wxSTC_WRAP_NONE);
+  }
+  
+  /// \brief Handle file loading.
+  void setFileSpecificOptions() {
+    // Don't allow the user to edit the source code, because it will ruin our
+    // mapping information.
+    Text->SetReadOnly(true);
+    
+    // Set the width of the line numbers margin.
+    auto LineCount = Text->GetLineCount();
+
+    unsigned Digits = 1;
+    while (LineCount /= 10)
+      ++Digits;
+    
+    auto CharWidth = Text->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("0"));
+    
+    auto MarginWidth = (Digits + 1) * CharWidth;
+    
+    Text->SetMarginWidth(static_cast<int>(SciMargin::LineNumber), MarginWidth);
+    
+    // Clear the selection.
+    Text->Clear();
+  }
 
 public:
   // Construct without creating.
@@ -81,17 +186,30 @@ public:
 
     Text = new wxStyledTextCtrl(this, wxID_ANY);
 
+    // Setup the preferences of Text.
+    setSTCPreferences();
+    
+    // Load the source code into the Scintilla control.
     if (!Text->LoadFile(FilePath.str())) {
       // TODO: Insert a localized error message.
     }
-
-    Text->SetReadOnly(true);
+    
+    setFileSpecificOptions();
 
     auto Sizer = new wxBoxSizer(wxHORIZONTAL);
     Sizer->Add(Text, wxSizerFlags().Proportion(1).Expand());
     SetSizerAndFit(Sizer);
 
     return true;
+  }
+  
+  /// \brief Clear state-related information.
+  void clearState() {
+    // Remove existing highlights.
+    
+    // Remove annotations.
+    Text->AnnotationClearAll();
+    AnnotationLine = -1;
   }
 
   ///
@@ -120,13 +238,11 @@ public:
 
   ///
   void annotateLine(long Line, wxString const &AnnotationText) {
-    if (AnnotationLine != -1) {
-      Text->AnnotationSetText(AnnotationLine, wxEmptyString);
-      Text->AnnotationSetVisible(0);
-    }
-
+    assert(AnnotationLine == -1);
+    
     Text->AnnotationSetText(Line, AnnotationText);
     Text->AnnotationSetVisible(1);
+    
     AnnotationLine = Line;
   }
 };

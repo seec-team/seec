@@ -130,7 +130,7 @@ bool TraceViewerApp::OnInit() {
   Welcome->Show(true);
   
   // Setup the debugging log window.
-#if 1
+#ifndef NDEBUG
   new wxLogWindow(nullptr, "Log");
 #endif
 

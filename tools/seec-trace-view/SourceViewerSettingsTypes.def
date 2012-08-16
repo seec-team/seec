@@ -1,0 +1,45 @@
+#ifndef SEEC_SCI_TYPE
+#define SEEC_SCI_TYPE(NAME, ID) 
+#endif
+
+#ifndef SEEC_SCI_COMMON_TYPE
+#define SEEC_SCI_COMMON_TYPE(NAME, ID) 
+#endif
+
+// CPP Lexer
+
+SEEC_SCI_TYPE(Default,                wxSTC_C_DEFAULT)
+SEEC_SCI_TYPE(Comment,                wxSTC_C_COMMENT)
+SEEC_SCI_TYPE(CommentLine,            wxSTC_C_COMMENTLINE)
+SEEC_SCI_TYPE(CommentDoc,             wxSTC_C_COMMENTDOC)
+SEEC_SCI_TYPE(Number,                 wxSTC_C_NUMBER)
+SEEC_SCI_TYPE(Keyword1,               wxSTC_C_WORD)
+SEEC_SCI_TYPE(String,                 wxSTC_C_STRING)
+SEEC_SCI_TYPE(Character,              wxSTC_C_CHARACTER)
+SEEC_SCI_TYPE(UUID,                   wxSTC_C_UUID)
+SEEC_SCI_TYPE(Preprocessor,           wxSTC_C_PREPROCESSOR)
+SEEC_SCI_TYPE(Operator,               wxSTC_C_OPERATOR)
+SEEC_SCI_TYPE(Identifier,             wxSTC_C_IDENTIFIER)
+SEEC_SCI_TYPE(StringEOL,              wxSTC_C_STRINGEOL)
+SEEC_SCI_TYPE(Verbatim,               wxSTC_C_VERBATIM)
+SEEC_SCI_TYPE(RegEx,                  wxSTC_C_REGEX)
+SEEC_SCI_TYPE(CommentLineDoc,         wxSTC_C_COMMENTLINEDOC)
+SEEC_SCI_TYPE(Keyword2,               wxSTC_C_WORD2)
+SEEC_SCI_TYPE(CommentDocKeyword,      wxSTC_C_COMMENTDOCKEYWORD)
+SEEC_SCI_TYPE(CommentDocKeywordError, wxSTC_C_COMMENTDOCKEYWORDERROR)
+SEEC_SCI_TYPE(GlobalClass,            wxSTC_C_GLOBALCLASS)
+
+
+// Common
+
+SEEC_SCI_COMMON_TYPE(Default,     wxSTC_STYLE_DEFAULT)
+SEEC_SCI_COMMON_TYPE(LineNumber,  wxSTC_STYLE_LINENUMBER)
+SEEC_SCI_COMMON_TYPE(BraceLight,  wxSTC_STYLE_BRACELIGHT)
+SEEC_SCI_COMMON_TYPE(BraceBad,    wxSTC_STYLE_BRACEBAD)
+SEEC_SCI_COMMON_TYPE(ControlChar, wxSTC_STYLE_CONTROLCHAR)
+SEEC_SCI_COMMON_TYPE(IndentGuide, wxSTC_STYLE_INDENTGUIDE)
+SEEC_SCI_COMMON_TYPE(CallTip,     wxSTC_STYLE_CALLTIP)
+
+
+#undef SEEC_SCI_TYPE
+#undef SEEC_SCI_COMMON_TYPE

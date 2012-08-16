@@ -92,4 +92,287 @@ root:table {
 
     MallocView_ColumnSize:string {"Size (in bytes)"}
   }
+
+
+  // Keywords used by Scintilla lexers.
+  ScintillaKeywords:table {
+    CPP:array {
+      {"asm auto bool break case catch char class const const_cast continue default delete do double dynamic_cast else enum explicit export extern false float for friend goto if inline int long mutable namespace new operator private protected public register reinterpret_cast return short signed sizeof static static_cast struct switch template this throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while"}
+      {"file"}
+      {"a addindex addtogroup anchor arg attention author b brief bug c class code date def defgroup deprecated dontinclude e em endcode endhtmlonly endif endlatexonly endlink endverbatim enum example exception f$ f[ f] file fn hideinitializer htmlinclude htmlonly if image include ingroup internal invariant interface latexonly li line link mainpage name namespace nosubgrouping note overload p page par param post pre ref relates remarks return retval sa section see showinitializer since skip skipline struct subsection test throw todo typedef union until var verbatim verbinclude version warning weakgroup $ @ \"\" & < > # { }"}
+    }
+  }
+
+  //
+  // Default style settings for Scintilla
+  //
+  ScintillaStyles:table {
+    //
+    // Common styles
+    //
+    
+    Default:table {
+      Name:string {"Default"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    LineNumber:table {
+      Name:string {"Line number"}
+      Foreground:string {"DARK GREY"}
+      Background:string {"LIGHT GREY"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    BraceLight:table {
+      Name:string {"Brace light"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    BraceBad:table {
+      Name:string {"Brace bad"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    ControlChar:table {
+      Name:string {"Control character"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    IndentGuide:table {
+      Name:string {"Indent guide"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    CallTip:table {
+      Name:string {"Call tip"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    //
+    // Lexer-related styles
+    //
+    
+    Comment:table {
+      Name:string {"Comment"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    CommentLine:table {
+      Name:string {"Comment line"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    CommentDoc:table {
+      Name:string {"Comment (Doxygen)"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    Number:table {
+      Name:string {"Number"}
+      Foreground:string {"SIENNA"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    Keyword1:table {
+      Name:string {"Keyword1"}
+      Foreground:string {"BLUE"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {"Bold"}
+      LetterCase:int {0}
+    }
+    
+    String:table {
+      Name:string {"String"}
+      Foreground:string {"BROWN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    Character:table {
+      Name:string {"Character"}
+      Foreground:string {"KHAKI"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    UUID:table {
+      Name:string {"UUID"}
+      Foreground:string {"ORCHID"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    Preprocessor:table {
+      Name:string {"Preprocessor"}
+      Foreground:string {"GREY"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    Operator:table {
+      Name:string {"Operator"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {"Bold"}
+      LetterCase:int {0}
+    }
+    
+    Identifier:table {
+      Name:string {"Identifier"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    StringEOL:table {
+      Name:string {"String (EOL)"}
+      Foreground:string {"BROWN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    Verbatim:table {
+      Name:string {"Verbatim"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    RegEx:table {
+      Name:string {"Regular expression"}
+      Foreground:string {"ORCHID"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    CommentLineDoc:table {
+      Name:string {"Comment line (Doxygen)"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    Keyword2:table {
+      Name:string {"Keyword2"}
+      Foreground:string {"MIDNIGHT BLUE"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    CommentDocKeyword:table {
+      Name:string {"Comment (Doxygen keyword)"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    CommentDocKeywordError:table {
+      Name:string {"Comment (Doxygen keyword error)"}
+      Foreground:string {"FOREST GREEN"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+    
+    GlobalClass:table {
+      Name:string {"Global class"}
+      Foreground:string {"BLACK"}
+      Background:string {"WHITE"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+  }
 }

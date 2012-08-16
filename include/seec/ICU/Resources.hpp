@@ -26,6 +26,7 @@
 #include "unicode/unistr.h"
 #include "unicode/locid.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -87,8 +88,29 @@ ResourceBundle getResource(char const *Package,
                      std::forward<KeyTs>(Keys)...);
 }
 
+/// \brief Returns a signed integer in a resource that has a given key.
+///
+/// This is analagous to getStringEx().
+///
+/// \param Bundle The resource bundle to extract from.
+/// \param Key The key of the integer that will be extracted.
+/// \param Status Fills in the outgoing error code.
+inline int32_t getIntEx(ResourceBundle const &Bundle,
+                        char const *Key,
+                        UErrorCode &Status) {
+  if (U_FAILURE(Status))
+    return int32_t{};
+  
+  auto Resource = Bundle.get(Key, Status);
+  if (U_FAILURE(Status))
+    return int32_t{};
+  
+  return Resource.getInt(Status);
+}
+
 
 /// \brief Handle loading and registering resources for ICU.
+///
 class ResourceLoader {
   llvm::sys::Path ResourcesDirectory;
 
