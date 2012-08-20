@@ -21,7 +21,8 @@ ThreadState::ThreadState(ProcessState &Parent,
   NextEvent(Trace.events().begin()),
   ProcessTime(Parent.getProcessTime()),
   ThreadTime(0),
-  CallStack()
+  CallStack(),
+  CurrentError()
 {}
 
 
@@ -71,6 +72,7 @@ void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
   auto &FuncState = CallStack.back();
   FuncState.setActiveInstruction(Index);
 
+  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -80,6 +82,7 @@ void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
   auto &FuncState = CallStack.back();
   FuncState.setActiveInstruction(Index);
 
+  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -93,6 +96,7 @@ void ThreadState::addEvent(
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
 
+  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -106,6 +110,7 @@ void ThreadState::addEvent(
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
 
+  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -114,6 +119,7 @@ void ThreadState::addEvent(
   // TODO
   llvm_unreachable("not yet implemented");
 
+  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -260,7 +266,9 @@ void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
-  // TODO
+  auto ErrRange = rangeAfterIncluding(Trace.events(), Ev);
+  CurrentError = deserializeRuntimeError(ErrRange);
+  assert(CurrentError);
 }
 
 void ThreadState::addNextEvent() {
@@ -308,18 +316,34 @@ void ThreadState::addNextEventBlock() {
 void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   auto &FuncState = CallStack.back();
 
-  auto MaybeRef = rfind(rangeBefore(Trace.events(), PriorTo),
-                        [](EventRecordBase const &Ev) -> bool {
-                          return Ev.isInstruction();
-                        });
+  // Find the previous instruction event that is part of the same function
+  // invocation as PriorTo, if there is such an event.
+  auto MaybeRef = rfindInFunction(Trace,
+                                  rangeBefore(Trace.events(), PriorTo),
+                                  [](EventRecordBase const &Ev) -> bool {
+                                    return Ev.isInstruction();
+                                  });
 
   if (!MaybeRef.assigned()) {
     FuncState.clearActiveInstruction();
+    return;
   }
-  else {
-    auto MaybeIndex = MaybeRef.get<0>()->getIndex();
-    assert(MaybeIndex.assigned());
-    FuncState.setActiveInstruction(MaybeIndex.get<0>());
+  
+  // Set the previous instruction as active.
+  auto MaybeIndex = MaybeRef.get<0>()->getIndex();
+  assert(MaybeIndex.assigned());
+  FuncState.setActiveInstruction(MaybeIndex.get<0>());
+  
+  // If there is a runtime error attached to the previous instruction, then
+  // it should be set as the current error now.
+  auto ErrorSearchRange = EventRange(MaybeRef.get<0>(), PriorTo);
+  auto MaybeErrorRef = find<EventType::RuntimeError>(ErrorSearchRange);
+  
+  if (MaybeErrorRef.assigned()) {
+    auto ErrorRef = MaybeErrorRef.get<0>();
+    auto ErrorRange = rangeAfterIncluding(ErrorSearchRange, ErrorRef);
+    CurrentError = deserializeRuntimeError(ErrorRange);
+    assert(CurrentError);
   }
 }
 
@@ -361,7 +385,11 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
       auto const &ChildStartEv = RestoreRef.get<EventType::FunctionStart>();
       auto const ChildRecordOffset = ChildStartEv.getRecord();
       auto const Child = Trace.getFunctionTrace(ChildRecordOffset);
-      RestoreRef = ++(Trace.events().referenceToOffset(Child.getEventEnd()));
+      
+      // Set the iterator to the FunctionEnd event for the child function. It
+      // will be incremented to the next event in this function, by the loop.
+      RestoreRef = Trace.events().referenceToOffset(Child.getEventEnd());
+      
       continue;
     }
 
@@ -804,7 +832,7 @@ void ThreadState::removeEvent(
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {
-  // TODO
+  CurrentError.reset(nullptr);
 }
 
 void ThreadState::removePreviousEvent() {
@@ -1001,6 +1029,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Thread #" << State.getTrace().getThreadID()
       << " @TT=" << State.getThreadTime()
       << "\n";
+  
+  if (State.getCurrentError())
+    Out << "  With RunError\n";
 
   for (auto &Function : State.getCallStack()) {
     Out << Function;

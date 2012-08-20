@@ -21,6 +21,10 @@ namespace seec {
 
 namespace trace {
 
+
+/// \name Search by EventType
+/// @{
+
 /// Base case of typeInList recursion - return false.
 template<typename...>
 bool typeInList(EventType Type) {
@@ -62,16 +66,26 @@ seec::util::Maybe<EventReference> find(EventRange Range) {
 ///         nullptr if no such Event exists.
 template<EventType... SearchFor>
 seec::util::Maybe<EventReference> rfind(EventRange Range) {
-  auto PreBegin = --(Range.begin());
-
-  for (auto It = --(Range.end()); It != PreBegin; --It) {
+  if (Range.begin() == Range.end())
+    return seec::util::Maybe<EventReference>();
+  
+  for (auto It = --(Range.end()); ; --It) {
     if (typeInList<SearchFor...>(It->getType())) {
       return seec::util::Maybe<EventReference>(It);
     }
+    
+    if (It == Range.begin())
+      break;
   }
 
   return seec::util::Maybe<EventReference>();
 }
+
+/// @}
+
+
+/// \name Search by Predicate
+/// @{
 
 /// Find the first Event in a range for which a predicate returns true.
 /// \tparam PredT the type of the predicate.
@@ -100,14 +114,98 @@ seec::util::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
 ///         is found, the Maybe is unassigned.
 template<typename PredT>
 seec::util::Maybe<EventReference> rfind(EventRange Range, PredT Predicate) {
-  auto PreBegin = --(Range.begin());
-
-  for (auto It = --(Range.end()); It != PreBegin; --It) {
+  if (Range.begin() == Range.end())
+    return seec::util::Maybe<EventReference>();
+  
+  for (auto It = --(Range.end()); ; --It) {
     if (Predicate(*It)) {
       return seec::util::Maybe<EventReference>(It);
     }
+    
+    if (It == Range.begin())
+      break;
   }
 
+  return seec::util::Maybe<EventReference>();
+}
+
+/// Find the first Event in a range in a function for which a predicate returns
+/// true.
+template<typename PredT>
+seec::util::Maybe<EventReference>
+findInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
+  for (auto It = Range.begin(); It != Range.end(); ++It) {
+    switch (It->getType()) {
+      case EventType::FunctionStart:
+        // Skip any events belonging to child functions.
+        {
+          auto const &ChildStartEv = It.get<EventType::FunctionStart>();
+          auto const ChildRecordOffset = ChildStartEv.getRecord();
+          auto const Child = Trace.getFunctionTrace(ChildRecordOffset);
+          
+          /// Set It to the FunctionEnd (it will be incremented to the next
+          /// event that is part of this function, by the loop).
+          It = Trace.events().referenceToOffset(Child.getEventEnd());
+        }
+        break;
+        
+      case EventType::FunctionEnd:
+        return seec::util::Maybe<EventReference>();
+        
+      default:
+        if (Predicate(*It))
+          return seec::util::Maybe<EventReference>(It);
+        break;
+    }
+  }
+  
+  return seec::util::Maybe<EventReference>();
+}
+
+/// Find the last Event in a range in a function for which a predicate returns
+/// true.
+template<typename PredT>
+seec::util::Maybe<EventReference>
+rfindInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
+  if (Range.begin() == Range.end())
+    return seec::util::Maybe<EventReference>();
+  
+  for (auto It = --(Range.end()); ; --It) {
+    switch (It->getType()) {
+      case EventType::FunctionStart:
+        // This is the start of the active function, so no valid event was
+        // found.
+        return seec::util::Maybe<EventReference>();
+      
+      case EventType::FunctionEnd:
+        // Skip any events belonging to child functions.
+        {
+          auto const &ChildEndEv = It.get<EventType::FunctionEnd>();
+          auto const ChildRecordOffset = ChildEndEv.getRecord();
+          auto const Child = Trace.getFunctionTrace(ChildRecordOffset);
+          
+          // Set It to the FunctionStart (it will be decremented to the
+          // previous event that is part of this function, by the loop).
+          It = Trace.events().referenceToOffset(Child.getEventStart());
+          
+          // If the FunctionStart is outside of the Range, then no valid event
+          // was found.
+          if (It < Range.begin())
+            return seec::util::Maybe<EventReference>();
+        }
+        break;
+      
+      default:
+        if (Predicate(*It))
+          return seec::util::Maybe<EventReference>(It);
+        break;
+    }
+    
+    // If this was the last event in the specified range, then stop searching.
+    if (It == Range.begin())
+      break;
+  }
+  
   return seec::util::Maybe<EventReference>();
 }
 
@@ -140,16 +238,26 @@ firstSuccessfulApply(EventRange Range, PredT Predicate) {
 template<typename PredT>
 typename seec::FunctionTraits<PredT>::ReturnType
 lastSuccessfulApply(EventRange Range, PredT Predicate) {
-  auto PreBegin = --(Range.begin());
-
-  for (auto It = --(Range.end()); It != PreBegin; --It) {
+  if (Range.begin() == Range.end())
+    return typename seec::FunctionTraits<PredT>::ReturnType {};
+  
+  for (auto It = --(Range.end()); ; --It) {
     auto Value = Predicate(*It);
     if (Value.assigned())
       return std::move(Value);
+    
+    if (It == Range.begin())
+      break;
   }
 
   return typename seec::FunctionTraits<PredT>::ReturnType {};
 }
+
+/// @}
+
+
+/// \name EventRange Helpers
+/// @{
 
 /// Get the events in an EventRange prior to a specific event.
 /// \param Range the range of events.
@@ -200,6 +308,9 @@ inline EventRange rangeAfterIncluding(EventRange Range, EventReference Ev) {
   return EventRange(Ev, Range.end());
 }
 
+/// @}
+
+
 /// Get an ArrayRef of all the consecutive event records of type ET at the
 /// start of the given event range.
 /// \tparam ET the type of events in the block that is being found.
@@ -221,6 +332,7 @@ llvm::ArrayRef<EventRecord<ET>> getLeadingBlock(EventRange Range) {
 
   return llvm::ArrayRef<EventRecord<ET>>(&(Range.begin().get<ET>()), Count);
 }
+
 
 } // namespace trace (in seec)
 

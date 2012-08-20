@@ -93,6 +93,8 @@ bool TraceViewerApp::OnInit() {
   ICUResources.reset(new seec::ResourceLoader(llvm::sys::Path{ExecutablePath}));
   if (!ICUResources->loadResource("TraceViewer"))
     HandleFatalError("Couldn't load TraceViewer resources!");
+  if (!ICUResources->loadResource("RuntimeErrors"))
+    HandleFatalError("Couldn't load RuntimeErrors resources!");
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;

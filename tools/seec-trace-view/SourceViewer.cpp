@@ -1,5 +1,6 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
@@ -382,7 +383,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
           auto Instruction = Lookup->getInstruction(InstructionIndex);
           assert(Instruction && "Couldn't find Instruction.");
 
-          highlightInstruction(Instruction);
+          highlightInstruction(Instruction, nullptr);
         }
         break;
     }
@@ -397,6 +398,12 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
+  
+  //
+  auto RuntimeError = ThreadState.getCurrentError();
+  if (RuntimeError) {
+    wxLogDebug("RuntimeError");
+  }
 
   // Find the active function.
   auto &CallStack = ThreadState.getCallStack();
@@ -417,7 +424,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
     auto Instruction = Lookup->getInstruction(InstructionIndex);
     assert(Instruction && "Couldn't find Instruction.");
 
-    highlightInstruction(Instruction);
+    highlightInstruction(Instruction, RuntimeError);
   }
   else {
     // If there is no active Instruction, highlight the function entry.
@@ -546,7 +553,9 @@ void SourceViewerPanel::showInstructionAt(llvm::Instruction *Instruction,
   // 
 }
 
-void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
+void SourceViewerPanel::highlightInstruction
+      (llvm::Instruction *Instruction,
+       seec::runtime_errors::RunError const *Error) {
   assert(Trace);
 
   auto &ClangMap = Trace->getMappedModule();
@@ -601,6 +610,12 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
                       StartCol,
                       EndLine,
                       EndCol);
+    
+    if (Error) {
+      auto UniStr = seec::runtime_errors::format(*Error);
+      auto ErrorStr = seec::towxString(UniStr);
+      It->second->annotateLine(StartLine - 1, ErrorStr);
+    }
     
     return;
   }

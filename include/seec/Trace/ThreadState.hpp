@@ -11,10 +11,12 @@
 #ifndef SEEC_TRACE_THREADSTATE_HPP
 #define SEEC_TRACE_THREADSTATE_HPP
 
+#include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace seec {
@@ -56,11 +58,14 @@ class ThreadState {
 
   /// The stack of FunctionState objects.
   std::vector<FunctionState> CallStack;
+  
+  /// The runtime error at this point of time in the thread (if any).
+  std::unique_ptr<seec::runtime_errors::RunError> CurrentError;
 
   /// @}
 
 
-  /// Constructor.
+  /// \brief Constructor.
   ThreadState(ProcessState &Parent,
               ThreadTrace const &Trace);
 
@@ -94,7 +99,8 @@ class ThreadState {
 
   /// Swallows unmatched calls to addEvent. This allows us to restrict calls to
   /// addEvent using an if statement when switching over types that do not have
-  /// a defined addEvent (i.e. types with the trait is_subservient).
+  /// a defined addEvent (i.e. types with the trait is_subservient). Calling
+  /// this function at runtime is an error.
   template<typename T>
   void addEvent(T &&Object) { llvm_unreachable("addEvent(...) called!"); }
 
@@ -131,6 +137,7 @@ class ThreadState {
   /// Swallows unmatched calls to removeEvent. This allows us to restrict calls
   /// to removeEvent using an if statement when switching over types that do
   /// not have a defined removeEvent (i.e. types with the trait is_subservient).
+  /// Calling this function at runtime is an error.
   void removeEvent(...) { llvm_unreachable("removeEvent(...) called!"); }
 
   /// Decrement NextEvent, and then remove the event it references from the
@@ -156,6 +163,13 @@ public:
 
   /// Get the current stack of FunctionStates.
   decltype(CallStack) const &getCallStack() const { return CallStack; }
+  
+  /// \brief Get a pointer to the current RunError for this thread.
+  /// \return a pointer to the current RunError for this thread, if one exists,
+  ///         otherwise nullptr.
+  seec::runtime_errors::RunError const *getCurrentError() const {
+    return CurrentError.get();
+  }
 
   /// @} (Accessors)
 

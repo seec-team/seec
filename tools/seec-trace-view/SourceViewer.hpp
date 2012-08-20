@@ -117,7 +117,8 @@ private:
                          unsigned EndCol);
 
   /// Highlight the source code associated with the specified Instruction.
-  void highlightInstruction(llvm::Instruction *Instruction);
+  void highlightInstruction(llvm::Instruction *Instruction,
+                            seec::runtime_errors::RunError const *Error);
 
   /// @}
   
