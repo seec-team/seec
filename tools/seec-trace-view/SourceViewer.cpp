@@ -585,6 +585,11 @@ void SourceViewerPanel::highlightInstruction(llvm::Instruction *Instruction) {
       wxLogDebug("Invalid spelling location?");
       return;
     }
+    
+    if (auto RefStmt = llvm::dyn_cast<clang::DeclRefExpr>(Stmt)) {
+      wxLogDebug(" Setting length by DeclRefExpr name.");
+      EndCol = StartCol + RefStmt->getFoundDecl()->getName().size();
+    }
 
     wxLogDebug("Stmt %s %u:%u -> %u:%u",
                Stmt->getStmtClassName(),
