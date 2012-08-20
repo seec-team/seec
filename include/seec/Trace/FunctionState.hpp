@@ -57,12 +57,16 @@ public:
     ElementCount(ElementCount)
   {}
   
+  /// Get the index of the llvm::AllocaInst that produced this state.
   uint32_t getInstructionIndex() const { return InstructionIndex; }
   
+  /// Get the runtime address for this allocation.
   uint64_t getAddress() const { return Address; }
   
+  /// Get the size of the element type that this allocation was for.
   uint64_t getElementSize() const { return ElementSize; }
   
+  /// Get the number of elements that space was allocated for.
   uint64_t getElementCount() const { return ElementCount; }
   
   /// Get the total size of this allocation.
@@ -89,7 +93,7 @@ class FunctionState {
   std::vector<AllocaState> Allocas;
   
 public:
-  /// Constructor.
+  /// \brief Constructor.
   /// \param Index Index of this llvm::Function in the llvm::Module.
   /// \param Function Indexed view of the llvm::Function.
   FunctionState(uint32_t Index,
@@ -106,12 +110,16 @@ public:
   /// \name Accessors.
   /// @{
   
+  /// \brief Get the index of the llvm::Function in the llvm::Module.
   uint32_t getIndex() const { return Index; }
   
+  /// \brief Get the function trace record for this function invocation.
   FunctionTrace getTrace() const { return Trace; }
   
+  /// \brief Get the number of llvm::Instructions in this llvm::Function.
   std::size_t getInstructionCount() const { return InstructionValues.size(); }
   
+  /// \brief Get the index of the active llvm::Instruction, if there is one.
   seec::util::Maybe<uint32_t> getActiveInstruction() const {
     return ActiveInstruction;
   }
@@ -122,10 +130,13 @@ public:
   /// \name Mutators.
   /// @{
   
+  /// \brief Set the index of the active llvm::Instruction.
+  /// \param Index the index for the new active llvm::Instruction.
   void setActiveInstruction(uint32_t Index) {
     ActiveInstruction = Index;
   }
   
+  /// \brief Clear the currently active llvm::Instruction.
   void clearActiveInstruction() {
     ActiveInstruction.reset();
   }
@@ -136,10 +147,14 @@ public:
   /// \name Runtime values.
   /// @{
   
+  /// \brief Get the current runtime value for an llvm::Instruction.
+  /// \param Index the index of the llvm::Instruction in this llvm::Function.
   RuntimeValue &getRuntimeValue(uint32_t Index) {
     return InstructionValues[Index];
   }
   
+  /// \brief Get the current runtime value for an llvm::Instruction.
+  /// \param Index the index of the llvm::Instruction in this llvm::Function.
   RuntimeValue const &getRuntimeValue(uint32_t Index) const {
     return InstructionValues[Index];
   }
@@ -150,8 +165,10 @@ public:
   /// \name Allocas.
   /// @{
   
+  /// \brief Get the active stack allocations for this function.
   decltype(Allocas) &getAllocas() { return Allocas; }
   
+  /// \brief Get the active stack allocations for this function.
   decltype(Allocas) const &getAllocas() const { return Allocas; }
   
   /// @}
