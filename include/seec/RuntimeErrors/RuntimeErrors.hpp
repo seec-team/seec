@@ -1,6 +1,7 @@
 #ifndef SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
 #define SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
 
+#include "seec/Preprocessor/Apply.h"
 #include "seec/RuntimeErrors/ArgumentTypes.hpp"
 #include "seec/RuntimeErrors/FormatSelects.hpp"
 
@@ -14,7 +15,8 @@ namespace runtime_errors {
 
 /// Enumeration of all known types of runtime errors.
 enum class RunErrorType : uint16_t {
-#define SEEC_RUNERR(ID, ARGS) ID,
+#define SEEC_RUNERR(ID, ARGS) \
+  ID,
 #include "seec/RuntimeErrors/RuntimeErrors.def"
 };
 
@@ -22,6 +24,12 @@ enum class RunErrorType : uint16_t {
 /// \param T the RunErrorType.
 /// \return a C string containing the textual ID of the value of T.
 char const *describe(RunErrorType T);
+
+/// \brief Get a string containing the name of a runtime error's argument.
+/// \param Type the runtime error type.
+/// \param Argument the index of the argument.
+/// \return a C string containing the name of the argument.
+char const *getArgumentName(RunErrorType Type, std::size_t Argument);
 
 /// \brief An instance of a runtime error.
 ///
@@ -83,11 +91,18 @@ public:
 template<RunErrorType Type>
 class RunErrorCreator {};
 
-#define SEEC_RUNERR(ID, ARGS) \
-template<> \
-class RunErrorCreator<RunErrorType::ID> \
-: public RunErrorCreatorBase<RunErrorType::ID, ARGS> {};
+#define SEEC_RUNERR_TYPE(NAME, TYPE) TYPE
+#define SEEC_RUNERR(ID, ARGS)                                                  \
+template<>                                                                     \
+class RunErrorCreator<RunErrorType::ID>                                        \
+: public RunErrorCreatorBase<RunErrorType::ID,                                 \
+                             SEEC_PP_APPLY_WITH_SEP(                           \
+                               SEEC_RUNERR_TYPE,                               \
+                               SEEC_PP_APPLY_COMMA_SEPARATOR,                  \
+                               ARGS)>                                          \
+{};
 #include "seec/RuntimeErrors/RuntimeErrors.def"
+#undef SEEC_RUNERR_TYPE
 
 /// \brief Construct a new runtime error.
 ///

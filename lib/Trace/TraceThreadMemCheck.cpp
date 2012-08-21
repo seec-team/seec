@@ -4,6 +4,11 @@ namespace seec {
 
 namespace trace {
 
+
+//===------------------------------------------------------------------------===
+// getContainingMemoryArea()
+//===------------------------------------------------------------------------===
+
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener,
                         uint64_t Address) {
@@ -18,6 +23,10 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 
   return MaybeArea;
 }
+
+//===------------------------------------------------------------------------===
+// getCStringInArea()
+//===------------------------------------------------------------------------===
 
 seec::util::Maybe<MemoryArea>
 getCStringInArea(char const *Str, MemoryArea Area) {
@@ -34,6 +43,10 @@ getCStringInArea(char const *Str, MemoryArea Area) {
 
   return seec::util::Maybe<MemoryArea>();
 }
+
+//===------------------------------------------------------------------------===
+// checkCStringIsValid()
+//===------------------------------------------------------------------------===
 
 bool checkCStringIsValid(
         TraceThreadListener &Listener,
@@ -58,6 +71,10 @@ bool checkCStringIsValid(
   return true;
 }
 
+//===------------------------------------------------------------------------===
+// checkMemoryOwnership()
+//===------------------------------------------------------------------------===
+
 bool checkMemoryOwnership(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
@@ -79,13 +96,46 @@ bool checkMemoryOwnership(
   return false;
 }
 
+//===------------------------------------------------------------------------===
+// checkMemoryOwnershipOfParameter()
+//===------------------------------------------------------------------------===
+
+bool checkMemoryOwnershipOfParameter(
+        TraceThreadListener &Listener,
+        uint32_t InstructionIndex,
+        seec::runtime_errors::format_selects::StandardFunction Function,
+        std::size_t ParameterIndex,
+        seec::runtime_errors::format_selects::MemoryAccess Access,
+        uint64_t Address,
+        uint64_t Size,
+        seec::util::Maybe<MemoryArea> ContainingArea) {
+  using namespace seec::runtime_errors;
+
+  if (!ContainingArea.assigned()) {
+    Listener.handleRunError(
+      createRunError<RunErrorType::PassPointerToUnowned>(Function,
+                                                         Address,
+                                                         ParameterIndex),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+
+    return true;
+  }
+
+  return false;
+}
+
+//===------------------------------------------------------------------------===
+// checkMemoryAccess()
+//===------------------------------------------------------------------------===
+
 bool checkMemoryAccess(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
         uint64_t Address,
         uint64_t Size,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        MemoryArea OwnedArea) {
+        MemoryArea ContainingArea) {
   using namespace seec::runtime_errors;
 
   auto const &ProcListener = Listener.getProcessListener();
@@ -93,14 +143,14 @@ bool checkMemoryAccess(
   // Check that the owned memory area contains the entire load.
   MemoryArea AccessArea(Address, Size);
 
-  if (!OwnedArea.contains(AccessArea)) {
+  if (!ContainingArea.contains(AccessArea)) {
     Listener.handleRunError(
       createRunError<RunErrorType::MemoryOverflow>(Access,
                                                    Address,
                                                    Size,
                                                    ArgObject{},
-                                                   OwnedArea.address(),
-                                                   OwnedArea.length()),
+                                                   ContainingArea.address(),
+                                                   ContainingArea.length()),
       RunErrorSeverity::Fatal,
       InstructionIndex);
 
@@ -121,6 +171,61 @@ bool checkMemoryAccess(
 
   return false;
 }
+
+//===------------------------------------------------------------------------===
+// checkMemoryAccessOfParameter()
+//===------------------------------------------------------------------------===
+
+bool checkMemoryAccessOfParameter(
+        TraceThreadListener &Listener,
+        uint32_t InstructionIndex,
+        seec::runtime_errors::format_selects::StandardFunction Function,
+        std::size_t ParameterIndex,
+        seec::runtime_errors::format_selects::MemoryAccess Access,
+        uint64_t Address,
+        uint64_t Size,
+        MemoryArea ContainingArea) {
+  using namespace seec::runtime_errors;
+
+  auto const &ProcListener = Listener.getProcessListener();
+
+  // Check that the owned memory area contains the entire access size.
+  MemoryArea AccessArea(Address, Size);
+
+  if (!ContainingArea.contains(AccessArea)) {
+    Listener.handleRunError(
+      createRunError<RunErrorType::PassPointerToInsufficient>
+                    (Function,
+                     Address,
+                     Size,
+                     ArgObject{},
+                     ContainingArea.address(),
+                     ContainingArea.length()),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+
+    return true;
+  }
+
+  // If this is a read, check that the memory is initialized.
+  if (Access == format_selects::MemoryAccess::Read) {
+    if (!ProcListener.rangeHasKnownMemoryState(Address, Size)) {
+      Listener.handleRunError(
+        createRunError<RunErrorType::PassPointerToUninitialized>
+                      (Function, Address, ParameterIndex),
+        RunErrorSeverity::Warning,
+        InstructionIndex);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+//===------------------------------------------------------------------------===
+// checkCStringRead()
+//===------------------------------------------------------------------------===
 
 bool checkCStringRead(TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
@@ -168,6 +273,10 @@ bool checkCStringRead(TraceThreadListener &Listener,
   return false;
 }
 
+//===------------------------------------------------------------------------===
+// checkLimitedCStringRead()
+//===------------------------------------------------------------------------===
+
 bool checkLimitedCStringRead(
                       TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
@@ -208,6 +317,7 @@ bool checkLimitedCStringRead(
 
   return false;
 }
+
 
 } // namespace trace (in seec)
 

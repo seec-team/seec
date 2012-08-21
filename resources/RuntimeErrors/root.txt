@@ -1,61 +1,84 @@
 root:table {
   // Contains textual descriptions of runtime errors.
   descriptions:table {
-    // 0 select MemoryAccess {read, write}
-    // 1 address
-    // 2 size
+    // select MemoryAccess {read, write}
+    // address
+    // size
     MemoryUnowned:string {
-      "{0, select, "
-        "read {Attempt to read unowned memory at address {1} ({2} bytes).}"
-        "write {Attempt to write unowned memory at address {1} ({2} bytes).}"
-        "other {Attempt to {0} unowned memory at address {1} ({2} bytes).}"
+      "{access_type, select, "
+        "read {Attempt to read unowned memory at address {address} ({size} bytes).}"
+        "write {Attempt to write unowned memory at address {address} ({size} bytes).}"
+        "other {Attempt to {access_type} unowned memory at address {address} ({size} bytes).}"
       "}"
     }
 
-    // 0 address
-    // 1 size
+    // address
+    // size
     MemoryUninitialized:string {
-      "Read uninitialized memory from address {0} ({1} bytes)."
+      "Read uninitialized memory from address {address} ({size} bytes)."
     }
 
-    // 0 select MemoryAccess {read, write}
-    // 1 access address
-    // 2 access size
-    // 3 object
-    // 4 object address
-    // 5 object size
+    // select MemoryAccess {read, write}
+    // access address
+    // access size
+    // object
+    // object address
+    // object size
     MemoryOverflow:string {
-      "Attempt to {0} memory at address {1} ({2} bytes) overflows object at address {4} ({5} bytes).}"
+      "Attempt to {access_type} memory at address {access_address} ({access_size} bytes) overflows object at address {object_address} ({object_size} bytes).}"
     }
 
-    // 0 dynamic memory function
-    // 1 address
+    // dynamic memory function
+    // address
     BadDynamicMemoryAddress:string {
-      "{0, select, "
-        "free {Bad address {1} given to free.}"
-        "realloc {Bad address {1} given to realloc.}"
-        "other {Bad address {1} given to function {0}.}"
+      "{function, select, "
+        "free {Bad address {address} given to free.}"
+        "realloc {Bad address {address} given to realloc.}"
+        "other {Bad address {address} given to function {function}.}"
       "}"
     }
 
-    // 0 function name
-    // 1 overlap start
-    // 2 overlap size
+    // function name
+    // overlap address
+    // overlap size
     OverlappingSourceDest:string {
-      "Function {0} source and destination memory blocks overlap at address {1} ({2} bytes)."
+      "Function {function} source and destination memory blocks overlap at address {address} ({size} bytes)."
     }
 
-    // 0 string function name
-    // 1 address of invalid string
-    // 2 index of the argument that held the pointer
+    // string function name
+    // address of invalid string
+    // index of the argument that held the pointer
     InvalidCString:string {
-      "Address {1}, passed to parameter {2} of function {0}, does not refer to a C string."
+      "Address {address}, passed to parameter {parameter} of function {function}, does not refer to a C string."
     }
     
-    // 0 dummy object
+    // dummy
     DivideByZero:string {
       "Divide by zero!"
     }
+
+    // dummy
+    IntegerOverflow:string {
+      "Integer overflow!"
+    }
+
+    // dummy
+    IntegerUnderflow:string {
+      "Integer underflow!"
+    }
+
+    // function
+    // address
+    // parameter
+    PassPointerToUnowned:string {
+      "Parameter {parameter} passed to function {function} points to unowned memory at address {address}."
+    }
+
+    // function
+    // address
+    // parameter
+    PassPointerToUninitialized:string {
+      "Parameter {parameter} passed to function {function} points to uninitialized memory at address {address}."
+    }
   }
 }
-

@@ -18,6 +18,18 @@ SEEC_FORMAT_SELECT(MemoryAccess,
   SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Write, "write")
   )
 
+SEEC_FORMAT_SELECT(StandardFunction,
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Memchr, "memchr")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Memcmp, "memcmp")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Memcpy, "memcpy")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Memmove, "memmove")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Memset, "memset")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Strcpy, "strcpy")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Strncpy, "strncpy")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Strcat, "strcat")
+  SEEC_FORMAT_SELECT_ITEM(StandardFunction, Strncat, "strncat")
+  )
+
 SEEC_FORMAT_SELECT(DynamicMemoryFunction,
   SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Calloc, "calloc")
   SEEC_FORMAT_SELECT_ITEM(DynamicMemoryFunction, Free, "free")

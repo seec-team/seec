@@ -1,5 +1,3 @@
-#include "TraceThreadMemCheck.hpp"
-
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 
@@ -9,6 +7,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
+
+#include "TraceThreadMemCheck.hpp"
 
 namespace seec {
 
@@ -407,11 +407,14 @@ void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
   acquireGlobalMemoryReadLock();
 
   uint64_t Address = reinterpret_cast<uintptr_t>(Ptr);
-
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        Address,
-                                                        Num,
-                                                        Index);
+  
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memchr,
+                               0, // Ptr is parameter 0
+                               format_selects::MemoryAccess::Read,
+                               Address,
+                               Num);
 }
 
 
@@ -431,15 +434,21 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
   uint64_t Address1UInt = reinterpret_cast<uintptr_t>(Address1);
   uint64_t Address2UInt = reinterpret_cast<uintptr_t>(Address2);
 
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        Address1UInt,
-                                                        Size,
-                                                        Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memcmp,
+                               0, // Address1 is parameter 0
+                               format_selects::MemoryAccess::Read,
+                               Address1UInt,
+                               Size);
 
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        Address2UInt,
-                                                        Size,
-                                                        Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memcmp,
+                               1, // Address2 is parameter 1
+                               format_selects::MemoryAccess::Read,
+                               Address2UInt,
+                               Size);
 }
 
 void TraceThreadListener::postCmemcmp(llvm::CallInst const *Call,
@@ -466,15 +475,21 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
   uint64_t DestAddr = reinterpret_cast<uintptr_t>(Destination);
   uint64_t SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        SrcAddr,
-                                                        Size,
-                                                        Index);
-
-  checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         DestAddr,
-                                                         Size,
-                                                         Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memcpy,
+                               1, // Source is parameter 1
+                               format_selects::MemoryAccess::Read,
+                               SrcAddr,
+                               Size);
+  
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memcpy,
+                               0, // Destination is parameter 0
+                               format_selects::MemoryAccess::Write,
+                               DestAddr,
+                               Size);
 
   checkMemoryOverlap<format_selects::MemCopyFunction::Memcpy>(
     *this,
@@ -508,15 +523,21 @@ void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
   uint64_t DestAddr = reinterpret_cast<uintptr_t>(Destination);
   uint64_t SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        SrcAddr,
-                                                        Size,
-                                                        Index);
-
-  checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         DestAddr,
-                                                         Size,
-                                                         Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memmove,
+                               1, // Source is parameter 1
+                               format_selects::MemoryAccess::Read,
+                               SrcAddr,
+                               Size);
+  
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memmove,
+                               0, // Destination is parameter 0
+                               format_selects::MemoryAccess::Write,
+                               DestAddr,
+                               Size);
 }
 
 void TraceThreadListener::postCmemmove(llvm::CallInst const *Call,
@@ -543,10 +564,13 @@ void TraceThreadListener::preCmemset(llvm::CallInst const *Call,
 
   uint64_t Address = reinterpret_cast<uintptr_t>(Destination);
 
-  checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         Address,
-                                                         Size,
-                                                         Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Memset,
+                               0, // Destination is parameter 0
+                               format_selects::MemoryAccess::Write,
+                               Address,
+                               Size);
 }
 
 void TraceThreadListener::postCmemset(llvm::CallInst const *Call,
@@ -575,12 +599,14 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
 
   // Check if Source points to owned memory.
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);
-  if (checkMemoryOwnership(*this,
-                           Index,
-                           SrcAddr,
-                           1,
-                           format_selects::MemoryAccess::Read,
-                           SrcArea)) {
+  if (checkMemoryOwnershipOfParameter(*this,
+                                      Index,
+                                      format_selects::StandardFunction::Strcat,
+                                      1, // Source is parameter 1
+                                      format_selects::MemoryAccess::Read,
+                                      SrcAddr,
+                                      1, // Read at least 1 byte
+                                      SrcArea)) {
     return;
   }
 
@@ -600,21 +626,25 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   // Check if the read from Source is OK. We already know that the size of the
   // read is valid, from using getCStringInArea, but this will check if the
   // memory is initialized.
-  checkMemoryAccess(*this,
-                    Index,
-                    SrcAddr,
-                    SrcStrLength,
-                    format_selects::MemoryAccess::Read,
-                    SrcArea.get<0>());
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Strcat,
+                               1, // Source is parameter 1
+                               format_selects::MemoryAccess::Read,
+                               SrcAddr,
+                               SrcStrLength,
+                               SrcArea.get<0>());
 
   // Check if Destination points to owned memory.
   auto const DestArea = seec::trace::getContainingMemoryArea(*this, DestAddr);
-  if (checkMemoryOwnership(*this,
-                           Index,
-                           DestAddr,
-                           1,
-                           format_selects::MemoryAccess::Write,
-                           DestArea)) {
+  if (checkMemoryOwnershipOfParameter(*this,
+                                      Index,
+                                      format_selects::StandardFunction::Strcat,
+                                      0, // Destination is parameter 0
+                                      format_selects::MemoryAccess::Write,
+                                      DestAddr,
+                                      1, // Access at least 1 byte
+                                      DestArea)) {
     return;
   }
 
@@ -631,12 +661,14 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
 
   // Check if it is OK to write the Source string to the end of the Destination
   // string.
-  checkMemoryAccess(*this,
-                    Index,
-                    DestStrArea.get<0>().last(),
-                    SrcStrLength,
-                    format_selects::MemoryAccess::Write,
-                    DestArea.get<0>());
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Strcat,
+                               0, // Destination is parameter 0
+                               format_selects::MemoryAccess::Write,
+                               DestStrArea.get<0>().last(),
+                               SrcStrLength,
+                               DestArea.get<0>());
 }
 
 void TraceThreadListener::postCstrcat(llvm::CallInst const *Call,
@@ -740,12 +772,14 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
 
   // Check if Source points to owned memory.
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);
-  if (checkMemoryOwnership(*this,
-                           Index,
-                           SrcAddr,
-                           1,
-                           format_selects::MemoryAccess::Read,
-                           SrcArea)) {
+  if (checkMemoryOwnershipOfParameter(*this,
+                                      Index,
+                                      format_selects::StandardFunction::Strcpy,
+                                      1, // Source is parameter 1
+                                      format_selects::MemoryAccess::Read,
+                                      SrcAddr,
+                                      1, // Read at least one byte
+                                      SrcArea)) {
     return;
   }
 
@@ -765,18 +799,23 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   // Check if the read from Source is OK. We already know that the size of the
   // read is valid, from using getCStringInArea, but this will check if the
   // memory is initialized.
-  checkMemoryAccess(*this,
-                    Index,
-                    SrcAddr,
-                    SrcStrLength,
-                    format_selects::MemoryAccess::Read,
-                    SrcArea.get<0>());
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Strcpy,
+                               1, // Source is parameter 1
+                               format_selects::MemoryAccess::Read,
+                               SrcAddr,
+                               SrcStrLength,
+                               SrcArea.get<0>());
 
   // Check if writing to Destination is OK.
-  checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         DestAddr,
-                                                         SrcStrLength,
-                                                         Index);
+  checkMemoryAccessOfParameter(*this,
+                               Index,
+                               format_selects::StandardFunction::Strcpy,
+                               0, // Destination is parameter 0
+                               format_selects::MemoryAccess::Write,
+                               DestAddr,
+                               SrcStrLength);
 }
 
 void TraceThreadListener::postCstrcpy(llvm::CallInst const *Call,

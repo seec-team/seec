@@ -96,6 +96,7 @@ GetCompileForSourceFile(char const *Filename,
     "-Wall",
     "-pedantic",
     "-g",
+    "-fno-builtin",
     "-emit-llvm",
     "-S",
     Filename

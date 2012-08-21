@@ -8,6 +8,8 @@
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
 #include <cstdint>
 
 namespace seec {
@@ -15,6 +17,8 @@ namespace seec {
 namespace trace {
 
 /// \brief Get the allocated memory area that contains Address, if any.
+/// \param Listener the listener for the thread requesting this information.
+/// \param Address the address of memory to find the owning allocation for.
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uint64_t Address);
 
@@ -33,7 +37,14 @@ bool checkCStringIsValid(
         seec::util::Maybe<MemoryArea> CStringArea
         );
 
+/// \brief Raise a MemoryUnowned error if the ContainingArea is unassigned.
 ///
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param InstructionIndex the index of the current llvm::Instruction.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+/// \param Access the type of memory access that we're checking.
+/// \param ContainingArea the memory area containing Address, if any.
 /// \return true iff the memory was unowned (ContainingArea was not assigned).
 bool checkMemoryOwnership(
         TraceThreadListener &Listener,
@@ -43,9 +54,39 @@ bool checkMemoryOwnership(
         seec::runtime_errors::format_selects::MemoryAccess Access,
         seec::util::Maybe<MemoryArea> ContainingArea);
 
+/// \brief Raise a PassPointerToUnowned error if the ContainingArea is
+///        unassigned.
+///
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param InstructionIndex the index of the current llvm::Instruction.
+/// \param Function the function that is being passed a pointer to Address.
+/// \param ParameterIndex the parameter that the pointer was passed in.
+/// \param Access the type of memory access that we're checking.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+/// \param ContainingArea the memory area containing Address, if any.
+/// \return true iff the memory was unowned (ContainingArea was not assigned).
+bool checkMemoryOwnershipOfParameter(
+        TraceThreadListener &Listener,
+        uint32_t InstructionIndex,
+        seec::runtime_errors::format_selects::StandardFunction Function,
+        std::size_t ParameterIndex,
+        seec::runtime_errors::format_selects::MemoryAccess Access,
+        uint64_t Address,
+        uint64_t Size,
+        seec::util::Maybe<MemoryArea> ContainingArea);
+
 /// \brief Check whether or not a memory access is valid.
+///
 /// Checks whether the size of the ContainingArea is sufficient for the memory
 /// access. If the Access is a read, checks whether the memory is initialized.
+///
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param InstructionIndex the index of the current llvm::Instruction.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+/// \param Access the type of memory access that we're checking.
+/// \param ContainingArea the memory area containing Address.
 /// \return true iff an error was detected.
 bool checkMemoryAccess(
         TraceThreadListener &Listener,
@@ -55,7 +96,44 @@ bool checkMemoryAccess(
         seec::runtime_errors::format_selects::MemoryAccess Access,
         MemoryArea ContainingArea);
 
+/// \brief Check whether or not dereferencing a parameter to a standard
+///        function would be valid.
 ///
+/// Checks whether the size of the ContainingArea is sufficient for the memory
+/// access. If the Access is a read, checks whether the memory is initialized.
+///
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param InstructionIndex the index of the current llvm::Instruction.
+/// \param Function the function that is being passed a pointer to Address.
+/// \param ParameterIndex the parameter that the pointer was passed in.
+/// \param Access the type of memory access that we're checking.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+/// \param ContainingArea the memory area containing Address.
+/// \return true iff an error was detected.
+bool checkMemoryAccessOfParameter(
+        TraceThreadListener &Listener,
+        uint32_t InstructionIndex,
+        seec::runtime_errors::format_selects::StandardFunction Function,
+        std::size_t ParameterIndex,
+        seec::runtime_errors::format_selects::MemoryAccess Access,
+        uint64_t Address,
+        uint64_t Size,
+        MemoryArea ContainingArea);
+
+/// \brief Check whether or not a memory access is valid.
+/// 
+/// This function first checks to see whether or not the memory at the given
+/// address is owned, using checkMemoryOwnership(). If the memory is unowned,
+/// an error will be raised and this function will return. If the memory is
+/// owned, then the access will be checked using checkMemoryAccess().
+///
+/// \tparam Access the type of memory access.
+/// 
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+/// \param InstructionIndex the index of the current llvm::Instruction.
 template<seec::runtime_errors::format_selects::MemoryAccess Access>
 void checkMemoryAccess(TraceThreadListener &Listener,
                        uint64_t Address,
@@ -78,6 +156,46 @@ void checkMemoryAccess(TraceThreadListener &Listener,
                     Size,
                     Access,
                     MaybeArea.get<0>());
+}
+
+/// \brief Check if the pointer passed to a standard function is valid.
+///
+/// \param Listener the listener for the thread that this check is occuring in.
+/// \param InstructionIndex the index of the current llvm::Instruction.
+/// \param Function the function that is being passed a pointer to Address.
+/// \param ParameterIndex the parameter that the pointer was passed in.
+/// \param Access the type of memory access that we're checking.
+/// \param Address the start address of the memory access that we're checking.
+/// \param Size the size of the memory access that we're checking.
+inline void checkMemoryAccessOfParameter(
+        TraceThreadListener &Listener,
+        uint32_t InstructionIndex,
+        seec::runtime_errors::format_selects::StandardFunction Function,
+        std::size_t ParameterIndex,
+        seec::runtime_errors::format_selects::MemoryAccess Access,
+        uint64_t Address,
+        uint64_t Size) {
+  auto MaybeArea = getContainingMemoryArea(Listener, Address);
+  
+  if (checkMemoryOwnershipOfParameter(Listener,
+                                      InstructionIndex,
+                                      Function,
+                                      ParameterIndex,
+                                      Access,
+                                      Address,
+                                      Size,
+                                      MaybeArea)) {
+    return;
+  }
+
+  checkMemoryAccessOfParameter(Listener,
+                               InstructionIndex,
+                               Function,
+                               ParameterIndex,
+                               Access,
+                               Address,
+                               Size,
+                               MaybeArea.get<0>());
 }
 
 ///

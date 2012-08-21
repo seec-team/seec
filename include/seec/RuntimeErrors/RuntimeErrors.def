@@ -6,76 +6,130 @@
 #error "Must define SEEC_RUNERR before including RuntimeErrors.def"
 #endif
 
-#define SEEC_PP_NS_RE seec::runtime_errors
-#define SEEC_PP_NS_FS seec::runtime_errors::format_selects
-
+//
 // Access to unowned memory
+//
 SEEC_RUNERR(MemoryUnowned,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemoryAccess>,
-    SEEC_PP_NS_RE::ArgAddress,
-    SEEC_PP_NS_RE::ArgSize
+    (access_type, seec::runtime_errors::ArgSelect
+                    <seec::runtime_errors::format_selects::MemoryAccess>),
+    (address,     seec::runtime_errors::ArgAddress),
+    (size,        seec::runtime_errors::ArgSize)
   ))
 
+//
 // Read from uninitialized memory
+//
 SEEC_RUNERR(MemoryUninitialized,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgAddress,
-    SEEC_PP_NS_RE::ArgSize
+    (address, seec::runtime_errors::ArgAddress),
+    (size,    seec::runtime_errors::ArgSize)
   ))
 
+//
 // Access to an object in memory overflows the object
+//
 SEEC_RUNERR(MemoryOverflow,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemoryAccess>,
-    SEEC_PP_NS_RE::ArgAddress, // Access address
-    SEEC_PP_NS_RE::ArgSize,    // Access size
-    SEEC_PP_NS_RE::ArgObject,  // Object
-    SEEC_PP_NS_RE::ArgAddress, // Object address
-    SEEC_PP_NS_RE::ArgSize     // Object size
+    (access_type,    seec::runtime_errors::ArgSelect
+                       <seec::runtime_errors::format_selects::MemoryAccess>),
+    (access_address, seec::runtime_errors::ArgAddress),
+    (access_size,    seec::runtime_errors::ArgSize),
+    (object,         seec::runtime_errors::ArgObject),
+    (object_address, seec::runtime_errors::ArgAddress),
+    (object_size,    seec::runtime_errors::ArgSize)
   ))
 
+//
 // Attempt to free unallocated memory
+//
 SEEC_RUNERR(BadDynamicMemoryAddress,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::DynamicMemoryFunction>,
-    SEEC_PP_NS_RE::ArgAddress
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::DynamicMemoryFunction>),
+    (address,  seec::runtime_errors::ArgAddress)
   ))
 
-// Overlapping blocks passed to memcpy
+//
+// Overlapping blocks passed to function.
+//
 SEEC_RUNERR(OverlappingSourceDest,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::MemCopyFunction>,
-    SEEC_PP_NS_RE::ArgAddress,
-    SEEC_PP_NS_RE::ArgSize
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::MemCopyFunction>),
+    (address,   seec::runtime_errors::ArgAddress),
+    (size,      seec::runtime_errors::ArgSize)
   ))
 
-// Invalid C string.
+//
+// Invalid C string passed to function..
+//
 SEEC_RUNERR(InvalidCString,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgSelect<SEEC_PP_NS_FS::StringFunction>,
-    SEEC_PP_NS_RE::ArgAddress,
-    SEEC_PP_NS_RE::ArgSize
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::StringFunction>),
+    (address,   seec::runtime_errors::ArgAddress),
+    (parameter, seec::runtime_errors::ArgSize)
   ))
 
+//
 // Divide-by-zero
+//
 SEEC_RUNERR(DivideByZero,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgObject
+    (dummy, seec::runtime_errors::ArgObject)
   ))
 
+//
 // Integer overflow
+//
 SEEC_RUNERR(IntegerOverflow,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgObject
+    (dummy, seec::runtime_errors::ArgObject)
   ))
 
+//
 // Integer underflow
+//
 SEEC_RUNERR(IntegerUnderflow,
   SEEC_PP_QUOTE(
-    SEEC_PP_NS_RE::ArgObject
+    (dummy, seec::runtime_errors::ArgObject)
   ))
 
-#undef SEEC_PP_NS_FS
-#undef SEEC_PP_NS_RE
+//
+// Passing a pointer to unowned memory to a function.
+//
+SEEC_RUNERR(PassPointerToUnowned,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::StandardFunction>),
+    (address,   seec::runtime_errors::ArgAddress),
+    (parameter, seec::runtime_errors::ArgSize)
+  ))
+
+//
+// Passing a pointer to uninitialized memory to a function.
+//
+SEEC_RUNERR(PassPointerToUninitialized,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::StandardFunction>),
+    (address,   seec::runtime_errors::ArgAddress),
+    (parameter, seec::runtime_errors::ArgSize)
+  ))
+
+//
+// Passing a pointer to an object of insufficient size to a function.
+//
+SEEC_RUNERR(PassPointerToInsufficient,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::StandardFunction>),
+    (access_address, seec::runtime_errors::ArgAddress),
+    (access_size,    seec::runtime_errors::ArgSize),
+    (object,         seec::runtime_errors::ArgObject),
+    (object_address, seec::runtime_errors::ArgAddress),
+    (object_size,    seec::runtime_errors::ArgSize)
+  ))
+
 #undef SEEC_RUNERR

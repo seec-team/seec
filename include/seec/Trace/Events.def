@@ -17,9 +17,7 @@
 #error "Must define SEEC_TRACE_EVENT before including Events.def"
 #endif
 
-#ifndef SEEC_PP_QUOTE
-#define SEEC_PP_QUOTE(...) __VA_ARGS__
-#endif
+#include "seec/Preprocessor/Quote.h"
 
 SEEC_TRACE_EVENT(TraceEnd,
   SEEC_PP_QUOTE(
@@ -255,4 +253,3 @@ SEEC_TRACE_EVENT(RuntimeErrorArgument,
   ))
 
 #undef SEEC_TRACE_EVENT
-#undef SEEC_PP_QUOTE

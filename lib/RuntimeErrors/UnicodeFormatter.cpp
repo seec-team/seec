@@ -78,19 +78,26 @@ UnicodeString format(RunError const &RunErr) {
     exit(EXIT_FAILURE);
   }
   
-  // get Formattable objects for Args
+  // For every argument, create a Formattable object and a name string.
+  std::vector<UnicodeString> ArgumentNames;
   std::vector<Formattable> Arguments;
+  
   for (auto &Arg: RunErr.args()) {
+    // Get the name for this argument.
+    auto Name = getArgumentName(RunErr.type(), ArgumentNames.size());
+    
+    ArgumentNames.push_back(UnicodeString::fromUTF8(Name));
     Arguments.push_back(formatArg(*Arg));
   }
   
-  Result = MessageFormat::format(
-    FormatString,
-    Arguments.data(),
-    Arguments.size(),
-    Result,
-    Status);
+  MessageFormat Formatter(FormatString, Status);
+  assert(U_SUCCESS(Status) && "Couldn't create MessageFormat object.");
   
+  Formatter.format(ArgumentNames.data(),
+                   Arguments.data(),
+                   Arguments.size(),
+                   Result,
+                   Status);
   assert(U_SUCCESS(Status) && "MessageFormat::format failed.");
   
   return Result;
