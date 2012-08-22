@@ -13,6 +13,7 @@
 
 namespace seec {
   
+/// Functions for performing constexpr math operations.
 namespace const_math {
   
 template<typename T>

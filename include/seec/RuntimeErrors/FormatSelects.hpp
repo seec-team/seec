@@ -7,6 +7,7 @@ namespace seec {
 
 namespace runtime_errors {
 
+/// Selects used by seec::runtime_errors::ArgSelect.
 namespace format_selects {
 
 enum class SelectID : uint32_t {

@@ -16,6 +16,7 @@
 
 namespace seec {
 
+/// Methods for converting the endianness of objects.
 namespace endianness {
 
 typedef llvm::support::endianness Endianness;

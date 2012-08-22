@@ -19,6 +19,7 @@
 
 namespace seec {
 
+/// General utilities.
 namespace util {
 
 /// Contains implementation details for seec::util::Maybe.
@@ -249,13 +250,13 @@ private:
   store_type Store;
 
 public:
-  /// Construct with no active element.
+  /// \brief Construct with no active element.
   Maybe()
   : Which(0),
     Store()
   {}
 
-  /// Construct by copying the active element from Other.
+  /// \brief Construct by copying the active element from Other.
   Maybe(Maybe<Elems...> const & Other)
   : Which(Other.Which),
     Store()
@@ -264,7 +265,7 @@ public:
       Store.construct(Which - 1, Other.Store);
   }
 
-  /// Construct by copying the active element from Other.
+  /// \brief Construct by copying the active element from Other.
   Maybe(Maybe<Elems...> & Other)
   : Which(Other.Which),
     Store()
@@ -273,7 +274,7 @@ public:
       Store.construct(Which - 1, Other.Store);
   }
 
-  /// Construct by moving the active element from Other.
+  /// \brief Construct by moving the active element from Other.
   Maybe(Maybe<Elems...> && Other)
   : Which(Other.Which),
     Store()
@@ -293,6 +294,8 @@ public:
     assign(std::forward<T>(Value));
   }
 
+  /// \brief Construct the I-th element using the given arguments.
+  ///
   /// Construct a new Maybe with the I-th element intialized using the
   /// supplied constructor arguments.
   template<uint8_t I, typename... Args>
@@ -307,6 +310,8 @@ public:
     return std::move(Object);
   }
 
+  /// \brief Destruct the currently active element (and this object).
+  ///
   /// Destruct this Maybe, which will cause the destructor of the active element
   /// to be run (if there is an active element).
   ~Maybe() {
@@ -314,11 +319,17 @@ public:
       Store.destroy(Which - 1);
   }
 
-  /// Determine whether a value is assigned to this Maybe.
+  /// \brief Determine whether a value is assigned to this Maybe.
   /// \return true iff an element is active.
   bool assigned() const { return Which != 0; }
 
-  /// Determine if the first element with type T is current assigned.
+  /// \brief Determine if the first element with type T is currently assigned.
+  ///
+  /// If T is a reference type, the reference is removed. We then find the
+  /// first element which matches this type, and check if it is the currently
+  /// active element.
+  ///
+  /// \return true iff the first element matching type T is currently assigned.
   template<typename T>
   bool assigned() const {
     if (Which == 0)
@@ -332,34 +343,36 @@ public:
     return (Which - 1 == Index);
   }
 
-  /// Determine if the element at index I is currently assigned.
+  /// \brief Determine if the element at index I is currently assigned.
+  ///
   bool assigned(uint8_t I) const {
     if (Which == 0)
       return false;
     return Which - 1 == I;
   }
 
-  /// Get the currently active element's index, starting from 1. If no element
-  /// is assigned, returns 0.
+  /// \brief Get the currently active element's index, starting from 1.
+  ///
+  /// If no element is assigned, returns 0.
   uint8_t which() const { return Which; }
 
-  /// Clear any current assignment.
+  /// \brief Clear any current assignment (destructing the active element).
   void reset() {
     if (Which != 0)
       Store.destroy(Which - 1);
     Which = 0;
   }
 
-  /// Clear any current assignment and assign a new T object created by moving
-  /// Value.
+  /// \brief Clear any current assignment and assign a new T object created by
+  /// moving Value.
   template<typename T>
   void assign(T &&Value) {
     reset();
     Which = 1 + Store.assign(std::forward<T>(Value));
   }
 
-  /// Clear any current assignment and construct a new object for the I-th
-  /// element.
+  /// \brief Clear any current assignment and construct a new object for the
+  /// I-th element.
   template<uint8_t I, typename... Args>
   void assign(Args&&... args) {
     reset();
@@ -369,7 +382,7 @@ public:
     maybe_value_type::construct(Store, std::forward<Args>(args)...);
   }
 
-  /// Copy another Maybe of the same type.
+  /// \brief Copy the active element from another Maybe of the same type.
   Maybe<Elems...> & operator= (Maybe<Elems...> const & RHS) {
     if (Which == RHS.Which) {
       if (Which == 0)
@@ -389,7 +402,7 @@ public:
     return *this;
   }
 
-  /// Copy another Maybe of the same type.
+  /// \brief Copy the active element from another Maybe of the same type.
   // explicitly provide non-const method, otherwise non-const references will
   // use the perfect forwarding template operator=.
   Maybe<Elems...> & operator= (Maybe<Elems...> & RHS) {
@@ -411,7 +424,7 @@ public:
     return *this;
   }
 
-  /// Move from another Maybe of the same type.
+  /// \brief Move from another Maybe of the same type.
   Maybe<Elems...> & operator= (Maybe<Elems...> && RHS) {
     if (Which == RHS.Which) {
       if (Which == 0)
@@ -431,7 +444,7 @@ public:
     return *this;
   }
 
-  /// Assign this Maybe's first element of type T to Value.
+  /// \brief Assign this Maybe's first element of type T to Value.
   template<typename T>
   Maybe<Elems...> & operator= (T &&Value) {
     // If our active element is already of type T, then use its operator=.
@@ -456,7 +469,7 @@ public:
     return *this;
   }
 
-  /// Get a reference to the I-th element of this Maybe.
+  /// \brief Get a reference to the I-th element of this Maybe.
   template<uint8_t I>
   typename maybe_impl::MaybeValue<I, store_type>::type &
   get() {
@@ -469,7 +482,7 @@ public:
     return ValueType::get(Store);
   }
 
-  /// Get a const reference to the I-th element of this Maybe.
+  /// \brief Get a const reference to the I-th element of this Maybe.
   template<uint8_t I>
   typename maybe_impl::MaybeValue<I, store_type>::type const &
   get() const {
@@ -479,7 +492,7 @@ public:
     return ValueType::get(Store);
   }
 
-  /// Get a reference to the first element with type T.
+  /// \brief Get a reference to the first element with type T.
   template<typename T>
   T &get() {
     // Find the first index of an element with type T (statically)
@@ -495,7 +508,7 @@ public:
     return maybe_value_type::get(Store);
   }
 
-  /// Get a const reference to the first element with type T.
+  /// \brief Get a const reference to the first element with type T.
   template<typename T>
   T const &get() const {
     // Find the first index of an element with type T (statically)
@@ -512,6 +525,7 @@ public:
   }
 
   /// \brief Apply the appropriate predicate to the currently active element.
+  ///
   /// Apply the appropriate predicate to the currently active element, or if
   /// there is no active element, apply the UnassignedPred. The predicates
   /// should be supplied in order of element, so the 0th element would be used
