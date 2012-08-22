@@ -29,7 +29,12 @@ IMPLEMENT_DYNAMIC_CLASS(ThreadTimeControl, wxPanel);
 
 enum ControlIDs {
   ThreadTimeControl_Reset = wxID_HIGHEST,
-  ThreadTimeControl_SlideThreadTime
+  ThreadTimeControl_SlideThreadTime,
+  ThreadTimeControl_ButtonGoToStart,
+  ThreadTimeControl_ButtonStepBack,
+  ThreadTimeControl_ButtonStepForward,
+  ThreadTimeControl_ButtonGoToNextError,
+  ThreadTimeControl_ButtonGoToEnd
 };
 
 
@@ -40,6 +45,19 @@ enum ControlIDs {
 BEGIN_EVENT_TABLE(ThreadTimeControl, wxPanel)
   EVT_COMMAND_SCROLL(ThreadTimeControl_SlideThreadTime,
                      ThreadTimeControl::OnSlide)
+  
+  EVT_BUTTON(ThreadTimeControl_ButtonGoToStart,
+             ThreadTimeControl::OnGoToStart)
+  
+  EVT_BUTTON(ThreadTimeControl_ButtonStepBack, ThreadTimeControl::OnStepBack)
+  
+  EVT_BUTTON(ThreadTimeControl_ButtonStepForward,
+             ThreadTimeControl::OnStepForward)
+  
+  EVT_BUTTON(ThreadTimeControl_ButtonGoToNextError,
+             ThreadTimeControl::OnGoToNextError)
+  
+  EVT_BUTTON(ThreadTimeControl_ButtonGoToEnd, ThreadTimeControl::OnGoToEnd)
 END_EVENT_TABLE()
 
 
@@ -62,7 +80,8 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   auto TextTable = seec::getResource("TraceViewer",
                                      Locale::getDefault(),
                                      Status,
-                                     "GUIText");
+                                     "GUIText",
+                                     "ScrollThreadTime");
   assert(U_SUCCESS(Status));
 
   // Find the maximum ThreadTime for this thread.
@@ -73,7 +92,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
                                     });
   uint64_t LastTime = LastEventTime.assigned() ? LastEventTime.get<0>() : 0;
 
-  // Create a slider to control the current process time.
+  // Create a slider to control the current thread time.
   SlideThreadTime = new wxSlider(this,
                                  ThreadTimeControl_SlideThreadTime,
                                  0, // Value
@@ -88,14 +107,45 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
                                  );
 
   // TODO: Format Caption for Thread #?
-  auto Caption = seec::getwxStringExOrDie(TextTable, "ScrollThreadTime_Title");
+  auto Caption = seec::getwxStringExOrDie(TextTable, "Title");
   SlideThreadTime->SetLabel(Caption);
   SlideThreadTime->SetTickFreq(1);
   SlideThreadTime->Enable(true); // Enable the slider.
+  
+  // Create stepping buttons to control the thread time.
+  auto ButtonGoToStart = new wxButton(this,
+                                      ThreadTimeControl_ButtonGoToStart,
+                                      seec::getwxStringExOrDie(TextTable,
+                                                               "GoToStart"));
+  
+  auto ButtonStepBack = new wxButton(this,
+                                     ThreadTimeControl_ButtonStepBack,
+                                     seec::getwxStringExOrDie(TextTable,
+                                                              "StepBack"));
 
-  // Make the slider grow to fill this panel.
-  auto TopSizer = new wxGridSizer(1, 1, wxSize(0,0));
-  TopSizer->Add(SlideThreadTime, wxSizerFlags().Expand());
+  auto ButtonStepForward = new wxButton(this,
+                                        ThreadTimeControl_ButtonStepForward,
+                                        seec::getwxStringExOrDie(
+                                          TextTable, "StepForward"));
+
+  auto ButtonGoToNextError = new wxButton(this,
+                                          ThreadTimeControl_ButtonGoToNextError,
+                                          seec::getwxStringExOrDie(
+                                            TextTable, "GoToNextError"));
+
+  auto ButtonGoToEnd = new wxButton(this,
+                                    ThreadTimeControl_ButtonGoToEnd,
+                                    seec::getwxStringExOrDie(TextTable,
+                                                             "GoToEnd"));
+
+  // Position all of our controls.
+  auto TopSizer = new wxBoxSizer(wxHORIZONTAL);
+  TopSizer->Add(ButtonGoToStart, wxSizerFlags().Centre());
+  TopSizer->Add(ButtonStepBack, wxSizerFlags().Centre());
+  TopSizer->Add(SlideThreadTime, wxSizerFlags().Proportion(1).Expand());
+  TopSizer->Add(ButtonStepForward, wxSizerFlags().Centre());
+  TopSizer->Add(ButtonGoToNextError, wxSizerFlags().Centre());
+  TopSizer->Add(ButtonGoToEnd, wxSizerFlags().Centre());
   SetSizerAndFit(TopSizer);
 
   return true;
@@ -119,4 +169,63 @@ void ThreadTimeControl::OnSlide(wxScrollEvent &Event) {
     ProcessWindowEvent(Ev);
   }
 #endif
+}
+
+void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
+  if (SlideThreadTime->GetValue() == 0)
+    return;
+  
+  SlideThreadTime->SetValue(0);
+  
+  auto const ThreadID = ThreadTrace->getThreadID();
+  ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, 0);
+  Ev.SetEventObject(this);
+  ProcessWindowEvent(Ev);
+}
+
+void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
+  if (SlideThreadTime->GetValue() == 0)
+    return;
+  
+  auto const Time = SlideThreadTime->GetValue() - 1;
+  SlideThreadTime->SetValue(Time);
+  
+  auto const ThreadID = ThreadTrace->getThreadID();
+  ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
+  Ev.SetEventObject(this);
+  ProcessWindowEvent(Ev);
+}
+
+void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
+  auto const MaxValue = SlideThreadTime->GetMax();
+  
+  if (SlideThreadTime->GetValue() == MaxValue)
+    return;
+  
+  auto const Time = SlideThreadTime->GetValue() + 1;
+  SlideThreadTime->SetValue(Time);
+  
+  auto const ThreadID = ThreadTrace->getThreadID();
+  ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
+  Ev.SetEventObject(this);
+  ProcessWindowEvent(Ev);
+}
+
+void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
+  if (SlideThreadTime->GetValue() == SlideThreadTime->GetMax())
+    return;
+}
+
+void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
+  auto const MaxValue = SlideThreadTime->GetMax();
+  
+  if (SlideThreadTime->GetValue() == MaxValue)
+    return;
+  
+  SlideThreadTime->SetValue(MaxValue);
+  
+  auto const ThreadID = ThreadTrace->getThreadID();
+  ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, MaxValue);
+  Ev.SetEventObject(this);
+  ProcessWindowEvent(Ev);
 }

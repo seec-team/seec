@@ -140,6 +140,21 @@ public:
 
   /// Called when the SlideThreadTime slider raises an event.
   void OnSlide(wxScrollEvent &Event);
+  
+  /// Called when the GoToStart button is clicked.
+  void OnGoToStart(wxCommandEvent &Event);
+  
+  /// Called when the StepBack button is clicked.
+  void OnStepBack(wxCommandEvent &Event);
+  
+  /// Called when the StepForward button is clicked.
+  void OnStepForward(wxCommandEvent &Event);
+  
+  /// Called when the GoToNextError button is clicked.
+  void OnGoToNextError(wxCommandEvent &Event);
+  
+  /// Called when the GoToEnd button is clicked.
+  void OnGoToEnd(wxCommandEvent &Event);
 
 private:
   // Declare the static event table (it is defined in ThreadTimeControl.cpp)

@@ -157,6 +157,9 @@ public:
 
   /// Get the ThreadTrace for this thread.
   ThreadTrace const &getTrace() const { return Trace; }
+  
+  /// Get the next event to process when moving forward through the trace.
+  EventReference getNextEvent() const { return NextEvent; }
 
   /// Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }

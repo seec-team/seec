@@ -58,8 +58,19 @@ root:table {
     //
     // ThreadTime scroller
     //
-    ScrollThreadTime_Title:string {"Thread time"}
+    ScrollThreadTime:table {
+      Title:string {"Thread time"}
 
+      GoToStart:string {"Go to start"}
+
+      StepBack:string {"Step back"}
+
+      StepForward:string {"Step forward"}
+
+      GoToNextError:string {"Go to next error"}
+
+      GoToEnd:string {"Go to end"}
+    }
 
     //
     // Status view
