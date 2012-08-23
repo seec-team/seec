@@ -26,20 +26,18 @@
 #include <memory>
 #include <thread>
 
+
 namespace llvm {
-
-class raw_ostream;
-class Function;
-class GlobalVariable;
-
+  class raw_ostream;
+  class Function;
+  class GlobalVariable;
 } // namespace llvm
+
 
 namespace seec {
 
 namespace runtime_errors {
-
-class RunError; // forward-declare for deserializeRuntimeError
-
+  class RunError; // forward-declare for deserializeRuntimeError
 } // namespace runtime_errors (in seec)
 
 namespace trace {

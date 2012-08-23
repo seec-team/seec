@@ -41,6 +41,23 @@ class TraceViewerFrame : public wxFrame
 
   /// Shows the current state.
   StateViewerPanel *StateViewer;
+  
+  
+  /// \name Multi-threaded traces
+  /// @{
+  
+  /// Controls the process time (in multi-threaded traces).
+  
+  /// @} (Multi-threaded traces)
+  
+  
+  /// \name Single-threaded traces
+  /// @{
+  
+  /// Controls the thread time (in single-threaded traces).
+  ThreadTimeControl *ThreadTime;
+  
+  /// @} (Single-threaded traces)
 
 public:
   TraceViewerFrame()

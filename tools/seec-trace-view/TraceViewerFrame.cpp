@@ -125,10 +125,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     auto &ThreadTrace = Trace->getProcessTrace().getThreadTrace(1);
 
     // Create a control for the current thread time.
-    auto ThreadTime = new ThreadTimeControl(this,
-                                            *Trace,
-                                            ThreadTrace,
-                                            TraceViewer_ThreadTime);
+    ThreadTime = new ThreadTimeControl(this,
+                                       *Trace,
+                                       ThreadTrace,
+                                       TraceViewer_ThreadTime);
 
     // Create the source code viewer.
     SourceViewer = new SourceViewerPanel(this,
@@ -157,6 +157,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Display initial information about the trace.
     StateViewer->show(*Trace, *State);
     SourceViewer->show(*State, State->getThreadState(1));
+    ThreadTime->show(*State, State->getThreadState(1));
   }
 
   return true;
@@ -179,4 +180,5 @@ void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
 
   StateViewer->show(*Trace, *State);
   SourceViewer->show(*State, ThreadState);
+  ThreadTime->show(*State, ThreadState);
 }

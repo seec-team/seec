@@ -11,6 +11,9 @@
 #ifndef SEEC_TRACE_VIEW_THREADTIMECONTROL_HPP
 #define SEEC_TRACE_VIEW_THREADTIMECONTROL_HPP
 
+#include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/ThreadState.hpp"
+
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -33,7 +36,7 @@ class ThreadTimeEvent : public wxEvent
   /// The Thread ID of the thread associated with this event.
   uint32_t ThreadID;
 
-  /// The thread trace associated with this event.
+  /// The thread time associated with this event.
   uint64_t ThreadTime;
 
 public:
@@ -103,6 +106,9 @@ class ThreadTimeControl : public wxPanel
 
   /// Trace for the thread that we're controlling.
   seec::trace::ThreadTrace const *ThreadTrace;
+  
+  /// State of the thread that we're controlling.
+  seec::trace::ThreadState const *ThreadState;
 
 public:
   // Make this class known to wxWidgets' class hierarchy, and dynamically
@@ -116,7 +122,8 @@ public:
   : wxPanel(),
     SlideThreadTime(nullptr),
     Trace(nullptr),
-    ThreadTrace(nullptr)
+    ThreadTrace(nullptr),
+    ThreadState(nullptr)
   {}
 
   /// \brief Constructor (with creation).
@@ -127,7 +134,8 @@ public:
   : wxPanel(),
     SlideThreadTime(nullptr),
     Trace(nullptr),
-    ThreadTrace(nullptr)
+    ThreadTrace(nullptr),
+    ThreadState(nullptr)
   {
     Create(Parent, TheTrace, TheThreadTrace, ID);
   }
@@ -138,6 +146,13 @@ public:
               seec::trace::ThreadTrace const &TheThreadTrace,
               wxWindowID ID = wxID_ANY);
 
+  /// Update this control to reflect the given state.
+  void show(seec::trace::ProcessState &ProcessState,
+            seec::trace::ThreadState &ThreadState);
+
+  /// \name Event Handlers
+  /// @{
+  
   /// Called when the SlideThreadTime slider raises an event.
   void OnSlide(wxScrollEvent &Event);
   
@@ -155,6 +170,8 @@ public:
   
   /// Called when the GoToEnd button is clicked.
   void OnGoToEnd(wxCommandEvent &Event);
+  
+  /// @} (Event Handlers)
 
 private:
   // Declare the static event table (it is defined in ThreadTimeControl.cpp)

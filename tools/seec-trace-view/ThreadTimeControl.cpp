@@ -21,6 +21,14 @@
 #include "ThreadTimeControl.hpp"
 
 
+namespace seec {
+  namespace trace {
+    class ProcessState;
+    class ThreadState;
+  } // namespace trace (in seec)
+} // namespace seec
+
+
 IMPLEMENT_CLASS(ThreadTimeEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_THREAD_TIME_CHANGED, ThreadTimeEvent);
 wxDEFINE_EVENT(SEEC_EV_THREAD_TIME_VIEWED,  ThreadTimeEvent);
@@ -151,6 +159,15 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   return true;
 }
 
+void ThreadTimeControl::show(seec::trace::ProcessState &ProcessState,
+                             seec::trace::ThreadState &ThreadState) {
+  this->ThreadState = &ThreadState;
+  
+  // If the state's thread time doesn't match our thread time, we must update
+  // ourself.
+  
+}
+
 void ThreadTimeControl::OnSlide(wxScrollEvent &Event) {
   auto Type = Event.GetEventType();
   uint64_t Time = Event.GetPosition();
@@ -214,6 +231,39 @@ void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
 void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
   if (SlideThreadTime->GetValue() == SlideThreadTime->GetMax())
     return;
+  
+  assert(ThreadState);
+  
+  auto NextEv = ThreadState->getNextEvent();
+  auto SearchRange = seec::trace::rangeAfterIncluding(ThreadTrace->events(),
+                                                      NextEv);
+  
+  // Find the first RuntimeError in SearchRange.
+  auto MaybeEvRef = seec::trace::find<seec::trace::EventType::RuntimeError>
+                                     (SearchRange);
+  if (!MaybeEvRef.assigned()) {
+    // There are no more errors.
+    return;
+  }
+  
+  // Find the thread time at this position.
+  auto TimeSearchRange = seec::trace::rangeBefore(ThreadTrace->events(),
+                                                  MaybeEvRef.get<0>());
+  
+  auto LastEventTime = seec::trace::lastSuccessfulApply(
+                                    TimeSearchRange,
+                                    [](seec::trace::EventRecordBase const &Ev){
+                                      return Ev.getThreadTime();
+                                    });
+  
+  uint64_t LastTime = LastEventTime.assigned() ? LastEventTime.get<0>() : 0;
+  
+  SlideThreadTime->SetValue(LastTime);
+  
+  auto const ThreadID = ThreadTrace->getThreadID();
+  ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, LastTime);
+  Ev.SetEventObject(this);
+  ProcessWindowEvent(Ev);
 }
 
 void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
