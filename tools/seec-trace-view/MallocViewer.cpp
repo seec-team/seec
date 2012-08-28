@@ -238,8 +238,7 @@ bool MallocViewerPanel::Create(wxWindow *Parent,
   return true;
 }
 
-void MallocViewerPanel::show(OpenTrace &TraceInfo,
-                             seec::trace::ProcessState &State) {
+void MallocViewerPanel::show(seec::trace::ProcessState &State) {
   DataModel->setState(State);
 }
 

@@ -4,6 +4,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_SRCS
+  FunctionStateViewer.cpp
   main.cpp
   MallocViewer.cpp
   OpenTrace.cpp
@@ -11,6 +12,7 @@ set(SEEC_TRACE_VIEW_SRCS
   SourceViewer.cpp
   SourceViewerSettings.cpp
   StateViewer.cpp
+  ThreadStateViewer.cpp
   ThreadTimeControl.cpp
   TraceViewerFrame.cpp
   WelcomeFrame.cpp

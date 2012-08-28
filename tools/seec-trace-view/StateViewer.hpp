@@ -17,8 +17,10 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <vector>
+
 class OpenTrace;
-class ThreadStateTreeModel;
+class ThreadStateViewerPanel;
 class MallocViewerPanel;
 class wxAuiNotebook;
 class wxDataViewCtrl;
@@ -26,48 +28,63 @@ class wxDataViewCtrl;
 ///
 class StateViewerPanel : public wxPanel
 {
+  /// \name Thread-specific state.
+  /// @{
+  
   wxAuiNotebook *ThreadBook;
   
-  std::vector<ThreadStateTreeModel *> ThreadStateModels;
+  std::vector<ThreadStateViewerPanel *> ThreadViewers;
   
-  std::vector<wxDataViewCtrl *> ThreadStateViews;
+  /// @} (Thread-specific state)
+  
+  
+  /// \name Process-wide state.
+  /// @{
   
   wxAuiNotebook *StateBook;
   
   MallocViewerPanel *MallocViewer;
+  
+  /// @} (Process-wide state)
+  
+  
+  /// The associated trace information.
+  OpenTrace const *Trace;
 
 public:
   StateViewerPanel()
   : wxPanel(),
     ThreadBook(),
-    ThreadStateModels(),
-    ThreadStateViews(),
+    ThreadViewers(),
     StateBook(nullptr),
-    MallocViewer(nullptr)
+    MallocViewer(nullptr),
+    Trace(nullptr)
   {}
 
   StateViewerPanel(wxWindow *Parent,
+                   OpenTrace const &TheTrace,
                    wxWindowID ID = wxID_ANY,
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     ThreadBook(),
-    ThreadStateModels(),
-    ThreadStateViews(),
+    ThreadViewers(),
     StateBook(nullptr),
-    MallocViewer(nullptr)
+    MallocViewer(nullptr),
+    Trace(nullptr)
   {
-    Create(Parent, ID, Position, Size);
+    Create(Parent, TheTrace, ID, Position, Size);
   }
 
   ~StateViewerPanel();
 
   bool Create(wxWindow *Parent,
+              OpenTrace const &TheTrace,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-  void show(OpenTrace &TraceInfo, seec::trace::ProcessState &State);
+  void show(seec::trace::ProcessState &State);
 
   void clear();
 };

@@ -100,6 +100,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Create a text control to show the current state.
     StateViewer = new StateViewerPanel(this,
+                                       *Trace,
                                        wxID_ANY,
                                        wxDefaultPosition,
                                        wxDefaultSize);
@@ -117,7 +118,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Display initial information about the trace.
     ProcessTime->setTrace(*Trace);
-    StateViewer->show(*Trace, *State);
+    StateViewer->show(*State);
     SourceViewer->show(*State);
   }
   else {
@@ -139,6 +140,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Create a text control to show the current state.
     StateViewer = new StateViewerPanel(this,
+                                       *Trace,
                                        wxID_ANY,
                                        wxDefaultPosition,
                                        wxDefaultSize);
@@ -155,7 +157,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     SetSizer(TopSizer);
 
     // Display initial information about the trace.
-    StateViewer->show(*Trace, *State);
+    StateViewer->show(*State);
     SourceViewer->show(*State, State->getThreadState(1));
     ThreadTime->show(*State, State->getThreadState(1));
   }
@@ -170,7 +172,7 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
   State->setProcessTime(Event.getProcessTime());
 
-  StateViewer->show(*Trace, *State);
+  StateViewer->show(*State);
   SourceViewer->show(*State);
 }
 
@@ -178,7 +180,7 @@ void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
   auto &ThreadState = State->getThreadState(Event.getThreadID());
   ThreadState.setThreadTime(Event.getThreadTime());
 
-  StateViewer->show(*Trace, *State);
+  StateViewer->show(*State);
   SourceViewer->show(*State, ThreadState);
   ThreadTime->show(*State, ThreadState);
 }

@@ -16,12 +16,11 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 namespace seec {
-namespace trace {
-class ProcessState;
-}
+  namespace trace {
+    class ProcessState;
+  }
 }
 
-class OpenTrace;
 class MallocListModel;
 class wxDataViewCtrl;
 
@@ -55,7 +54,7 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-  void show(OpenTrace &TraceInfo, seec::trace::ProcessState &State);
+  void show(seec::trace::ProcessState &State);
 
   void clear();
 };
