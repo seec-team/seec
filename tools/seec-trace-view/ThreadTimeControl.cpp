@@ -93,13 +93,8 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   assert(U_SUCCESS(Status));
 
   // Find the maximum ThreadTime for this thread.
-  auto LastEventTime = seec::trace::lastSuccessfulApply(
-                                    ThreadTrace->events(),
-                                    [](seec::trace::EventRecordBase const &Ev){
-                                      return Ev.getThreadTime();
-                                    });
-  uint64_t LastTime = LastEventTime.assigned() ? LastEventTime.get<0>() : 0;
-
+  auto LastTime = ThreadTrace->getFinalThreadTime();
+  
   // Create a slider to control the current thread time.
   SlideThreadTime = new wxSlider(this,
                                  ThreadTimeControl_SlideThreadTime,

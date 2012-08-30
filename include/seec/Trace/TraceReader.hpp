@@ -416,7 +416,7 @@ public:
   /// @} (Accessors)
 
 
-  /// \name Functions
+  /// \name Function traces
   /// @{
 
   /// Get a list of offsets of top-level FunctionTraces.
@@ -438,6 +438,14 @@ public:
 
   /// @}
 
+
+  /// Queries
+  /// @{
+  
+  uint64_t getFinalThreadTime() const;
+  
+  /// @}
+  
 
   /// Searching
   /// @{

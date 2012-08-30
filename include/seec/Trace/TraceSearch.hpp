@@ -241,6 +241,8 @@ lastSuccessfulApply(EventRange Range, PredT Predicate) {
   if (Range.begin() == Range.end())
     return typename seec::FunctionTraits<PredT>::ReturnType {};
   
+  assert(Range.begin() < Range.end());
+  
   for (auto It = --(Range.end()); ; --It) {
     auto Value = Predicate(*It);
     if (Value.assigned())
