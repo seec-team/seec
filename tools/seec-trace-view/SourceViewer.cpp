@@ -23,25 +23,42 @@
 // SourceFilePanel
 //------------------------------------------------------------------------------
 
-/// \brief
+/// \brief Viewer for a single source code file.
 ///
 class SourceFilePanel : public wxPanel {
+  /// \brief Store information about an indicated region.
+  ///
+  struct IndicatedRegion {
+    int Indicator;
+    
+    int Start;
+    
+    int Length;
+    
+    IndicatedRegion(int TheIndicator,
+                    int RegionStart,
+                    int RegionLength)
+    : Indicator(TheIndicator),
+      Start(RegionStart),
+      Length(RegionLength)
+    {}
+  };
+
   /// Path to the file.
   llvm::sys::Path FilePath;
 
   /// Text control that displays the file.
   wxStyledTextCtrl *Text;
-
-  /// Current highlight start.
-  long HighlightStart;
-
-  /// Current highlight end.
-  long HighlightEnd;
-
-  /// Current annotation line.
-  long AnnotationLine;
+  
+  /// Regions that have indicators for the current state.
+  std::vector<IndicatedRegion> StateIndications;
+  
+  /// Lines that are annotated for the current state.
+  std::vector<int> StateAnnotations;
+  
   
   /// \brief Setup the Scintilla preferences.
+  ///
   void setSTCPreferences() {
     // Set the lexer to C++.
     Text->SetLexer(wxSTC_LEX_CPP);
@@ -49,8 +66,12 @@ class SourceFilePanel : public wxPanel {
     // Setup the default common style settings.
     for (auto Type : getAllSciCommonTypes()) {
       auto MaybeStyle = getDefaultStyle(Type);
-      if (!MaybeStyle.assigned())
+      if (!MaybeStyle.assigned()) {
+        wxLogDebug("Couldn't get default style for style %s",
+                   getSciTypeName(Type));
+        
         continue;
+      }
       
       auto StyleNum = static_cast<int>(Type);
       auto &Style = MaybeStyle.get<0>();
@@ -67,8 +88,12 @@ class SourceFilePanel : public wxPanel {
     // Setup the default style settings for the lexer.
     for (auto Type : getAllSciLexerTypes()) {
       auto MaybeStyle = getDefaultStyle(Type);
-      if (!MaybeStyle.assigned())
+      if (!MaybeStyle.assigned()) {
+        wxLogDebug("Couldn't get default style for lexer style %s",
+                   getSciTypeName(Type));
+        
         continue;
+      }
       
       auto StyleNum = static_cast<int>(Type);
       auto &Style = MaybeStyle.get<0>();
@@ -80,6 +105,26 @@ class SourceFilePanel : public wxPanel {
       Text->StyleSetFont(StyleNum, Font);
       Text->StyleSetVisible(StyleNum, true);
       Text->StyleSetCase(StyleNum, Style.CaseForce);
+    }
+    
+    // Setup the style settings for our indicators.
+    for (auto Type : getAllSciIndicatorTypes()) {
+      auto MaybeStyle = getDefaultIndicatorStyle(Type);
+      if (!MaybeStyle.assigned()) {
+        wxLogDebug("Couldn't get default style for indicator %s",
+                   getSciIndicatorTypeName(Type));
+        
+        continue;
+      }
+      
+      auto Indicator = static_cast<int>(Type);
+      auto &IndicatorStyle = MaybeStyle.get<0>();
+      
+      Text->IndicatorSetStyle(Indicator, IndicatorStyle.Style);
+      Text->IndicatorSetForeground(Indicator, IndicatorStyle.Foreground);
+      Text->IndicatorSetAlpha(Indicator, IndicatorStyle.Alpha);
+      Text->IndicatorSetOutlineAlpha(Indicator, IndicatorStyle.OutlineAlpha);
+      Text->IndicatorSetUnder(Indicator, IndicatorStyle.Under);
     }
     
     // Setup the keywords used by the lexer.
@@ -122,6 +167,7 @@ class SourceFilePanel : public wxPanel {
   }
   
   /// \brief Handle file loading.
+  ///
   void setFileSpecificOptions() {
     // Don't allow the user to edit the source code, because it will ruin our
     // mapping information.
@@ -145,17 +191,16 @@ class SourceFilePanel : public wxPanel {
   }
 
 public:
-  // Construct without creating.
+  // \brief Construct without creating.
   SourceFilePanel()
   : wxPanel(),
     FilePath(),
     Text(nullptr),
-    HighlightStart(-1),
-    HighlightEnd(-1),
-    AnnotationLine(-1)
+    StateIndications(),
+    StateAnnotations()
   {}
 
-  // Construct and create.
+  // \brief Construct and create.
   SourceFilePanel(wxWindow *Parent,
                   llvm::sys::Path File,
                   wxWindowID ID = wxID_ANY,
@@ -164,17 +209,16 @@ public:
   : wxPanel(),
     FilePath(),
     Text(nullptr),
-    HighlightStart(-1),
-    HighlightEnd(-1),
-    AnnotationLine(-1)
+    StateIndications(),
+    StateAnnotations()
   {
     Create(Parent, File, ID, Position, Size);
   }
 
-  /// Destructor.
+  /// \brief Destructor.
   virtual ~SourceFilePanel() {}
 
-  /// Create the panel.
+  /// \brief Create the panel.
   bool Create(wxWindow *Parent,
               llvm::sys::Path File,
               wxWindowID ID = wxID_ANY,
@@ -205,50 +249,75 @@ public:
   }
   
   /// \brief Clear state-related information.
+  ///
   void clearState() {
-    // Remove existing highlights.
-    Text->Clear();
+    // Remove temporary indicators.
+    for (auto &Region : StateIndications) {
+      Text->SetIndicatorCurrent(Region.Indicator);
+      Text->IndicatorClearRange(Region.Start, Region.Length);
+    }
     
-    // Remove annotations.
+    StateIndications.clear();
+  
+    // Remove temporary annotations.
+#if 0
+    // There's no way to remove annotations from a single line with
+    // wxStyledTextCtrl at the moment, so we just remove all annotations.
+    for (auto Line : StateAnnotations) {
+      Text->AnnotationSetText(Line, wxEmptyString);
+    }
+#else
     Text->AnnotationClearAll();
-    AnnotationLine = -1;
+#endif
+    
+    StateAnnotations.clear();
     
     // wxStyledTextCtrl doesn't automatically redraw after the above.
     Text->Refresh();
   }
-
+  
+  /// \brief Set an indicator on a range of text for this state.
   ///
-  void setHighlight(long StartLine,
-                    long StartColumn,
-                    long EndLine,
-                    long EndColumn) {
-    // Remove existing highlight.
-    if (HighlightStart != -1 && HighlightEnd != -1) {
-      // Text->SetStyle(HighlightStart, HighlightEnd, Text->GetDefaultStyle());
-    }
-
+  bool setStateIndicator(SciIndicatorType Indicator,
+                         long StartLine,
+                         long StartColumn,
+                         long EndLine,
+                         long EndColumn) {
     // Find the position for the new highlight.
     // wxTextCtrl line and column numbers are zero-based, whereas Clang's line
     // and column information is 1-based.
-    HighlightStart = Text->XYToPosition(StartColumn - 1, StartLine - 1);
-    HighlightEnd = Text->XYToPosition(EndColumn - 1, EndLine - 1);
-
-    if (HighlightStart == -1 || HighlightEnd == -1) {
-      wxLogDebug("Couldn't get position information.");
-      return;
+    int Start = Text->XYToPosition(StartColumn - 1, StartLine - 1);
+    int End = Text->XYToPosition(EndColumn - 1, EndLine - 1);
+    
+    if (Start == -1 || End == -1) {
+      wxLogDebug("SourceFilePanel::setStateIndicator couldn't find position"
+                 " information!");
+      
+      return false;
     }
-
-    Text->SetSelection(HighlightStart, HighlightEnd);
+    
+    // Set the indicator on the text.
+    int IndicatorValue = static_cast<int>(Indicator);
+    int Length = End - Start;
+    
+    Text->SetIndicatorCurrent(IndicatorValue);
+    Text->IndicatorFillRange(Start, Length);
+    
+    // Save the indicator so that we can clear it in clearState().
+    StateIndications.emplace_back(IndicatorValue, Start, Length);
+    
+    return true;
   }
 
+  /// \brief Annotate a line for this state.
   ///
   void annotateLine(long Line, wxString const &AnnotationText) {
-    assert(AnnotationLine == -1);
-    
     Text->AnnotationSetText(Line, AnnotationText);
     Text->AnnotationSetVisible(1);
+    Text->AnnotationSetStyle(Line,
+                             static_cast<int>(SciLexerType::SeeCRuntimeError));
     
-    AnnotationLine = Line;
+    StateAnnotations.push_back(Line);
   }
 };
 
@@ -472,8 +541,9 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
   auto Index = Notebook->GetPageIndex(It->second);
   Notebook->SetSelection(Index);
 
-  It->second->setHighlight(Start.getLine(), Start.getColumn(),
-                           End.getLine(), End.getColumn() + 1);
+  It->second->setStateIndicator(SciIndicatorType::ActiveCode,
+                                Start.getLine(), Start.getColumn(),
+                                End.getLine(), End.getColumn() + 1);
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -525,8 +595,9 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
   auto Index = Notebook->GetPageIndex(It->second);
   Notebook->SetSelection(Index);
 
-  It->second->setHighlight(Start.getLine(), Start.getColumn(),
-                           End.getLine(), End.getColumn() + 1);
+  It->second->setStateIndicator(SciIndicatorType::ActiveCode,
+                                Start.getLine(), Start.getColumn(),
+                                End.getLine(), End.getColumn() + 1);
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -548,9 +619,8 @@ void SourceViewerPanel::showInstructionAt(llvm::Instruction *Instruction,
                                           unsigned StartCol,
                                           unsigned EndLine,
                                           unsigned EndCol) {
-  Page->setHighlight(StartLine, StartCol, EndLine, EndCol);
-  
-  // 
+  Page->setStateIndicator(SciIndicatorType::ActiveCode,
+                          StartLine, StartCol, EndLine, EndCol);
 }
 
 void SourceViewerPanel::highlightInstruction

@@ -6,7 +6,11 @@
 #define SEEC_SCI_COMMON_TYPE(NAME, ID) 
 #endif
 
-// CPP Lexer
+#ifndef SEEC_SCI_INDICATOR
+#define SEEC_SCI_INDICATOR(NAME) 
+#endif
+
+// CPP Lexer & SeeC styles
 
 SEEC_SCI_TYPE(Default,                wxSTC_C_DEFAULT)
 SEEC_SCI_TYPE(Comment,                wxSTC_C_COMMENT)
@@ -29,6 +33,8 @@ SEEC_SCI_TYPE(CommentDocKeyword,      wxSTC_C_COMMENTDOCKEYWORD)
 SEEC_SCI_TYPE(CommentDocKeywordError, wxSTC_C_COMMENTDOCKEYWORDERROR)
 SEEC_SCI_TYPE(GlobalClass,            wxSTC_C_GLOBALCLASS)
 
+SEEC_SCI_TYPE(SeeCRuntimeError,       wxSTC_STYLE_DEFAULT - 1)
+
 
 // Common
 
@@ -41,5 +47,11 @@ SEEC_SCI_COMMON_TYPE(IndentGuide, wxSTC_STYLE_INDENTGUIDE)
 SEEC_SCI_COMMON_TYPE(CallTip,     wxSTC_STYLE_CALLTIP)
 
 
+// SeeC Indicators
+
+SEEC_SCI_INDICATOR(ActiveCode)
+
+
 #undef SEEC_SCI_TYPE
 #undef SEEC_SCI_COMMON_TYPE
+#undef SEEC_SCI_INDICATOR

@@ -134,6 +134,80 @@ seec::util::Maybe<SciStyle> getDefaultStyle(SciLexerType Type);
 
 
 //===----------------------------------------------------------------------===//
+// SciIndicatorStyle
+//===----------------------------------------------------------------------===//
+
+/// \brief Holds the details of a particular indicator style
+///
+struct SciIndicatorStyle {
+  /// \brief The name of this indicator style.
+  wxString const Name;
+  
+  /// \brief The style value for SCI_INDICSETSTYLE().
+  int const Style;
+  
+  /// \brief The foreground colour for this style.
+  wxColour const Foreground;
+  
+  /// \brief The alpha transparency for drawing fill colours.
+  int const Alpha;
+  
+  /// \brief The alpha transparency for drawing outline colours.
+  int const OutlineAlpha;
+  
+  /// \brief Set whether to draw under text.
+  bool const Under;
+  
+  /// \brief Create a new SciIndicatorStyle object.
+  ///
+  SciIndicatorStyle(wxString const &TheName,
+                    int TheStyle,
+                    wxColour const &TheForeground,
+                    int TheAlpha,
+                    int TheOutlineAlpha,
+                    bool TheUnder)
+  : Name(TheName),
+    Style(TheStyle),
+    Foreground(TheForeground),
+    Alpha(TheAlpha),
+    OutlineAlpha(TheOutlineAlpha),
+    Under(TheUnder)
+  {}
+};
+
+
+//===----------------------------------------------------------------------===//
+// SciIndicatorType
+//===----------------------------------------------------------------------===//
+
+/// \brief Specified the indicator types that we use.
+///
+enum class SciIndicatorType : int {
+#define SEEC_SCI_INDICATOR(TYPE) \
+  TYPE,
+#include "SourceViewerSettingsTypes.def"
+};
+
+/// \brief Get the name of a SciIndicatorType.
+///
+char const *getSciIndicatorTypeName(SciIndicatorType Type);
+
+/// \brief Get the SciIndicatorType with the given name (if any).
+///
+seec::util::Maybe<SciIndicatorType>
+getSciIndicatorTypeFromName(llvm::StringRef Name);
+
+/// \brief Get an array containing all valid SciIndicatorType values.
+///
+llvm::ArrayRef<SciIndicatorType> getAllSciIndicatorTypes();
+
+/// \brief Get the default style settings for a given SciIndicatorType.
+///
+seec::util::Maybe<SciIndicatorStyle>
+getDefaultIndicatorStyle(SciIndicatorType Type);
+
+
+//===----------------------------------------------------------------------===//
 // SciMargin
 //===----------------------------------------------------------------------===//
 
