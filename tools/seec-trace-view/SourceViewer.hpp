@@ -28,6 +28,9 @@ class OpenTrace;
 class SourceFilePanel;
 
 namespace seec {
+  namespace seec_clang {
+    struct SimpleRange;
+  }
   namespace trace {
     class ProcessState;
     class ThreadState;
@@ -111,10 +114,7 @@ private:
   ///
   void showInstructionAt(llvm::Instruction *Instruction,
                          SourceFilePanel *Page,
-                         unsigned StartLine,
-                         unsigned StartCol,
-                         unsigned EndLine,
-                         unsigned EndCol);
+                         seec::seec_clang::SimpleRange const &Range);
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction *Instruction,

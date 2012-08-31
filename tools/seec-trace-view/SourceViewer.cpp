@@ -1,3 +1,4 @@
+#include "seec/Clang/SourceMapping.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
@@ -296,9 +297,10 @@ public:
       return false;
     }
     
-    // Set the indicator on the text.
+    // Set the indicator on the text. Clang's source ranges have an inclusive
+    // end, whereas Scintilla's is exclusive, hence the (End + 1).
     int IndicatorValue = static_cast<int>(Indicator);
-    int Length = End - Start;
+    int Length = (End + 1) - Start;
     
     Text->SetIndicatorCurrent(IndicatorValue);
     Text->IndicatorFillRange(Start, Length);
@@ -613,14 +615,15 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
                                                   "SourceView_FunctionExit"));
 }
 
-void SourceViewerPanel::showInstructionAt(llvm::Instruction *Instruction,
-                                          SourceFilePanel *Page,
-                                          unsigned StartLine,
-                                          unsigned StartCol,
-                                          unsigned EndLine,
-                                          unsigned EndCol) {
+void
+SourceViewerPanel::showInstructionAt
+  ( llvm::Instruction *Instruction,
+    SourceFilePanel *Page,
+    seec::seec_clang::SimpleRange const &Range
+  ) {
   Page->setStateIndicator(SciIndicatorType::ActiveCode,
-                          StartLine, StartCol, EndLine, EndCol);
+                          Range.Start.Line, Range.Start.Column,
+                          Range.End.Line, Range.End.Column);
 }
 
 void SourceViewerPanel::highlightInstruction
@@ -629,125 +632,65 @@ void SourceViewerPanel::highlightInstruction
   assert(Trace);
 
   auto &ClangMap = Trace->getMappedModule();
-
-  // If the Instruction has a mapping to a clang::Stmt, highlight the Stmt.
-  auto StmtAndAST = ClangMap.getStmtAndMappedAST(Instruction);
-
-  if (StmtAndAST.first && StmtAndAST.second) {
-    auto &SourceManager = StmtAndAST.second->getASTUnit().getSourceManager();
-    auto Stmt = StmtAndAST.first;
-
-    auto SpellStart = SourceManager.getSpellingLoc(Stmt->getLocStart());
-    auto SpellEnd = SourceManager.getSpellingLoc(Stmt->getLocEnd());
-
-    llvm::sys::Path FilePath(SourceManager.getFilename(SpellStart));
-
-    auto It = Pages.find(FilePath);
-    if (It == Pages.end()) {
-      wxLogDebug("Couldn't find page for file %s\n",
-                 SourceManager.getFilename(SpellStart).str().c_str());
-      return;
-    }
-
-    // TODO: Clear highlight on current source file.
-
-    auto Index = Notebook->GetPageIndex(It->second);
-    Notebook->SetSelection(Index);
-
-    bool Invalid = false;
-    auto StartLine = SourceManager.getSpellingLineNumber(SpellStart, &Invalid);
-    auto StartCol = SourceManager.getSpellingColumnNumber(SpellStart, &Invalid);
-    auto EndLine = SourceManager.getSpellingLineNumber(SpellEnd, &Invalid);
-    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid) + 1;
-
-    if (Invalid) {
-      wxLogDebug("Invalid spelling location?");
-      return;
+  
+  auto InstructionMap = ClangMap.getMapping(Instruction);
+  
+  if (!InstructionMap.getAST()) {
+    // No mapping information was found for this instruction.
+    std::string InstructionString;
+    
+    {
+      // The stream will flush when it is destructed.
+      llvm::raw_string_ostream InstructionStream(InstructionString);
+      InstructionStream << *Instruction;
     }
     
-    if (auto RefStmt = llvm::dyn_cast<clang::DeclRefExpr>(Stmt)) {
-      wxLogDebug(" Setting length by DeclRefExpr name.");
-      EndCol = StartCol + RefStmt->getFoundDecl()->getName().size();
-    }
-
-    wxLogDebug("Stmt %s %u:%u -> %u:%u",
-               Stmt->getStmtClassName(),
-               StartLine, StartCol, EndLine, EndCol);
-
-    showInstructionAt(Instruction,
-                      It->second,
-                      StartLine,
-                      StartCol,
-                      EndLine,
-                      EndCol);
-    
-    if (Error) {
-      auto UniStr = seec::runtime_errors::format(*Error);
-      auto ErrorStr = seec::towxString(UniStr);
-      It->second->annotateLine(StartLine - 1, ErrorStr);
-    }
+    wxLogDebug("No mapping for '%s'", InstructionString.c_str());
     
     return;
   }
-
-  // Otherwise, if the Instruction has a mapping to a clang::Decl, highlight
-  // the Decl.
-  auto DeclAndAST = ClangMap.getDeclAndMappedAST(Instruction);
-
-  if (DeclAndAST.first && DeclAndAST.second) {
-    auto &SourceManager = DeclAndAST.second->getASTUnit().getSourceManager();
-    auto Decl = DeclAndAST.first;
-
-    auto SpellStart = SourceManager.getSpellingLoc(Decl->getLocStart());
-    auto SpellEnd = SourceManager.getSpellingLoc(Decl->getLocEnd());
-
-    llvm::sys::Path FilePath(SourceManager.getFilename(SpellStart));
-
-    auto It = Pages.find(FilePath);
-    if (It == Pages.end()) {
-      wxLogDebug("Couldn't find page for file %s\n",
-                 SourceManager.getFilename(SpellStart).str().c_str());
-      return;
-    }
-
-    // TODO: Clear highlight on current source file.
-
-    auto Index = Notebook->GetPageIndex(It->second);
-    Notebook->SetSelection(Index);
-
-    bool Invalid = false;
-    auto StartLine = SourceManager.getSpellingLineNumber(SpellStart, &Invalid);
-    auto StartCol = SourceManager.getSpellingColumnNumber(SpellStart, &Invalid);
-    auto EndLine = SourceManager.getSpellingLineNumber(SpellEnd, &Invalid);
-    auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid) + 1;
-
-    if (Invalid) {
-      wxLogDebug("Invalid spelling location?");
-      return;
-    }
-
-    wxLogDebug("Decl %s %u:%u -> %u:%u",
-               Decl->getDeclKindName(),
-               StartLine, StartCol, EndLine, EndCol);
-
-    showInstructionAt(Instruction,
-                  It->second,
-                  StartLine,
-                  StartCol,
-                  EndLine,
-                  EndCol);
-    
+  
+  auto &AST = InstructionMap.getAST()->getASTUnit();
+  
+  // TODO: Clear state mapping on the current source file.
+  
+  // Focus on the mapped source file.
+  auto PageIt = Pages.find(InstructionMap.getFilePath());
+  if (PageIt == Pages.end()) {
+    wxLogDebug("Couldn't find page for file.\n");
     return;
   }
-
-  // No mapping information was found for this instruction.
-  std::string InstructionString;
-  {
-    // The stream will flush when it is destructed.
-    llvm::raw_string_ostream InstructionStream(InstructionString);
-    InstructionStream << *Instruction;
+  
+  auto PageIndex = Notebook->GetPageIndex(PageIt->second);
+  Notebook->SetSelection(PageIndex);
+  
+  // Now highlight the instruction.
+  if (InstructionMap.getStmt()) {
+    // Highlight the Stmt.
+    auto MaybeRange
+      = seec::seec_clang::getPrettyVisibleRange(InstructionMap.getStmt(), AST);
+    
+    if (MaybeRange.assigned()) {
+      showInstructionAt(Instruction, PageIt->second, MaybeRange.get<0>());
+      
+      // Show a description of the RunError.
+      if (Error) {
+        auto UniStr = seec::runtime_errors::format(*Error);
+        auto ErrorStr = seec::towxString(UniStr);
+        PageIt->second->annotateLine(MaybeRange.get<0>().Start.Line - 1,
+                                     ErrorStr);
+      }
+    }
   }
-  wxLogDebug("No mapping for '%s'", InstructionString.c_str());
+  else if (InstructionMap.getDecl()) {
+    // Highlight the Decl.
+    auto MaybeRange
+      = seec::seec_clang::getPrettyVisibleRange(InstructionMap.getDecl(), AST);
+    
+    if (MaybeRange.assigned()) {
+      showInstructionAt(Instruction, PageIt->second, MaybeRange.get<0>());
+    }    
+  }
 }
 
 void SourceViewerPanel::addSourceFile(llvm::sys::Path FilePath) {

@@ -300,6 +300,37 @@ MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) const {
   return std::make_pair(AST->getStmtFromIdx(CI->getZExtValue()), AST);
 }
 
+MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
+  auto DeclMap = getDeclAndMappedAST(I);
+  auto StmtMap = getStmtAndMappedAST(I);
+  
+  // Ensure that the Decl and Stmt come from the same AST.
+  if (DeclMap.first && StmtMap.first)
+    assert(DeclMap.second == StmtMap.second);
+  
+  // Find the file path from either the Decl or the Stmt mapping. If there is
+  // no mapping, return an empty path.
+  llvm::sys::Path FilePath;
+  
+  if (DeclMap.first) {
+    auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
+    auto FileNode = dyn_cast<MDNode>(DeclIdxNode->getOperand(0));
+    FilePath = getPathFromFileNode(FileNode);
+  }
+  else if (StmtMap.first) {
+    auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
+    auto FileNode = dyn_cast<MDNode>(StmtIdxNode->getOperand(0));
+    FilePath = getPathFromFileNode(FileNode);
+  }
+  
+  return MappedInstruction(I,
+                           FilePath,
+                           DeclMap.second ? DeclMap.second : StmtMap.second,
+                           DeclMap.first,
+                           StmtMap.first);
+}
+
+
 } // namespace seec_clang (in seec)
 
 } // namespace seec
