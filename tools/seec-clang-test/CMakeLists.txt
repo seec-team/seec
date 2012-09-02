@@ -2,7 +2,7 @@ add_executable(seec-clang-test main.cpp)
 
 # Determine the LLVM libraries that we need
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles mcjit jit nativecodegen bitreader bitwriter asmparser codegen ipo linker selectiondag instrumentation core target
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles mcjit jit native bitreader bitwriter asmparser codegen ipo linker selectiondag instrumentation core target
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
@@ -13,7 +13,6 @@ target_link_libraries(seec-clang-test
  SeeCClang
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangRewrite.a
  ${LLVM_INSTALL}/lib/libclangCodeGen.a
  ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a

@@ -29,7 +29,7 @@ add_executable(seec-trace-view MACOSX_BUNDLE
 # Determine the libraries that we need to link against.
 #--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles nativecodegen codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles native codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
@@ -53,7 +53,6 @@ target_link_libraries(seec-trace-view
  SeeCwxWidgets
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangRewrite.a
  ${LLVM_INSTALL}/lib/libclangCodeGen.a
  ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a
