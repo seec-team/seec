@@ -1,0 +1,12 @@
+#ifndef SEEC_RUNERR_ARG
+#error "Must define SEEC_RUNERR_ARG before including ArgumentTypes.def"
+#endif
+
+SEEC_RUNERR_ARG(Address)
+SEEC_RUNERR_ARG(Object)
+SEEC_RUNERR_ARG(SelectBase)
+SEEC_RUNERR_ARG(Size)
+SEEC_RUNERR_ARG(Operand)
+SEEC_RUNERR_ARG(Parameter)
+
+#undef SEEC_RUNERR_ARG

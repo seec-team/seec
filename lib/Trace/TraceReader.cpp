@@ -27,26 +27,7 @@ namespace trace {
 
 std::unique_ptr<seec::runtime_errors::Arg>
 deserializeRuntimeErrorArg(uint8_t Type, uint64_t Data) {
-  using namespace seec::runtime_errors;
-  using namespace seec::runtime_errors::format_selects;
-
-  switch (Type) {
-    case static_cast<uint8_t>(ArgType::Address):
-      return std::unique_ptr<Arg>(new ArgAddress(Data));
-    case static_cast<uint8_t>(ArgType::Object):
-      return std::unique_ptr<Arg>(new ArgObject());
-    case static_cast<uint8_t>(ArgType::Select):
-      {
-        uint32_t SelectType = Data >> 32; // Upper 32 bits
-        uint32_t SelectValue = Data & 0xFFFFFFFF; // Lower 32 bits
-        return createArgSelect(static_cast<SelectID>(SelectType), SelectValue);
-      }
-    case static_cast<uint8_t>(ArgType::Size):
-      return std::unique_ptr<Arg>(new ArgSize(Data));
-    default:
-      llvm_unreachable("Unknown Type");
-      return nullptr;
-  }
+  return seec::runtime_errors::Arg::deserialize(Type, Data);
 }
 
 std::unique_ptr<seec::runtime_errors::RunError>
@@ -143,7 +124,7 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
                     (EventRecordBase const &Ev) -> seec::util::Maybe<uint64_t>
                     {
                       auto Ty = Ev.getType();
-                      
+
                       if (Ty == EventType::FunctionEnd) {
                         auto EndEv = Ev.as<EventType::FunctionEnd>();
                         auto Record = EndEv.getRecord();
@@ -159,13 +140,13 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
                         auto FTrace = this->getFunctionTrace(Record);
                         return FTrace.getThreadTimeEntered();
                       }
-                      
+
                       return Ev.getThreadTime();
                     });
-  
+
   if (MaybeTime.assigned())
     return MaybeTime.get<0>();
-  
+
   return 0;
 }
 
