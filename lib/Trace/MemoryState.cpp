@@ -8,10 +8,10 @@ namespace trace {
 
 void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
   auto const Address = Block.start();
-  
+
   // Find the first fragment that starts >= Block's start.
   auto It = FragmentMap.lower_bound(Address);
-  
+
   // Best-case scenario: perfect replacement of a previous state.
   if (It->second.getBlock().area() == Block.area()) {
     FragmentMap.erase(It++);
@@ -21,20 +21,20 @@ void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
                                                           std::move(Event))));
     return;
   }
-  
+
   // Check if the previous fragment overlaps.
   if (It->first > Address && It != FragmentMap.begin()) {
     if ((--It)->second.getBlock().last() >= Address) {
       // Resize the previous fragment to remove the overlapping area.
       It->second.getBlock().setEnd(Address);
     }
-    
+
     ++It;
   }
-  
+
   // Find and remove overlapping fragments.
   auto const LastAddress = Block.last();
-  
+
   while (It != FragmentMap.end() && It->first <= LastAddress) {
     if (It->second.getBlock().last() <= LastAddress) {
       // Remove completely replaced fragment.
@@ -51,7 +51,7 @@ void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
       break;
     }
   }
-  
+
   // Add the new fragment.
   FragmentMap.insert(It,
                      std::make_pair(Address,
@@ -61,23 +61,23 @@ void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
 
 void MemoryState::clear(MemoryArea Area) {
   auto It = FragmentMap.lower_bound(Area.start());
-  
+
   // Best-case scenario: perfect removal of a previous state.
-  if (It->second.getBlock().area() == Area) {
+  if (It != FragmentMap.end() && It->second.getBlock().area() == Area) {
     FragmentMap.erase(It);
     return;
   }
-  
+
   // Check if the previous fragment overlaps.
   if (It->first > Area.start() && It != FragmentMap.begin()) {
     if ((--It)->second.getBlock().last() >= Area.start()) {
       // Resize the previous fragment to remove the overlapping area.
       It->second.getBlock().setEnd(Area.start());
     }
-    
+
     ++It;
   }
-  
+
   // Find and remove overlapping fragments.
   while (It != FragmentMap.end() && It->first <= Area.last()) {
     if (It->second.getBlock().last() <= Area.last()) {
@@ -100,19 +100,19 @@ void MemoryState::clear(MemoryArea Area) {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               MemoryState const &State) {
   Out << " MemoryState:\n";
-  
+
   for (auto const &Fragment : State.getFragmentMap()) {
     auto const &Block = Fragment.second.getBlock();
     Out << "  [" << Block.start() << ", " << Block.end() << ")";
-    
+
     if (Block.length() <= 8) {
       Out << ": ";
       seec::util::write_hex_bytes(Out, Block.data(), Block.length());
     }
-    
+
     Out << "\n";
   }
-  
+
   return Out;
 }
 
