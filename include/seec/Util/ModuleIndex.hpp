@@ -28,7 +28,7 @@ class FunctionIndex {
   std::vector<llvm::Instruction *> InstructionPtrByIdx;
   
   /// Map Instructions to their indices.
-  llvm::DenseMap<llvm::Instruction const *, size_t> InstructionIdxByPtr;
+  llvm::DenseMap<llvm::Instruction const *, uint32_t> InstructionIdxByPtr;
 
 public:
   FunctionIndex(llvm::Function &Function)
@@ -38,7 +38,8 @@ public:
   {
     for (auto &BasicBlock: Function) {
       for (auto &Instruction: BasicBlock) {
-        InstructionIdxByPtr[&Instruction] = InstructionPtrByIdx.size();
+        uint32_t Idx = static_cast<uint32_t>(InstructionPtrByIdx.size());
+        InstructionIdxByPtr[&Instruction] = Idx;
         InstructionPtrByIdx.push_back(&Instruction);
       }
     }
@@ -48,7 +49,7 @@ public:
   size_t getInstructionCount() const { return InstructionPtrByIdx.size(); }
 
   /// Get the Instruction at the given Index in the indexed Function.
-  llvm::Instruction *getInstruction(size_t Index) const {
+  llvm::Instruction *getInstruction(uint32_t Index) const {
     if (Index < InstructionPtrByIdx.size())
       return InstructionPtrByIdx[Index];
     return nullptr;
@@ -58,12 +59,12 @@ public:
   ///
   /// If the Instruction does not exist in the Function, then the Maybe returned
   /// will be unassigned.
-  util::Maybe<size_t>
+  util::Maybe<uint32_t>
   getIndexOfInstruction(llvm::Instruction const *Instruction) const {
     auto It = InstructionIdxByPtr.find(Instruction);
     if (It != InstructionIdxByPtr.end())
-      return util::Maybe<size_t>(It->second);
-    return util::Maybe<size_t>();
+      return util::Maybe<uint32_t>(It->second);
+    return util::Maybe<uint32_t>();
   }
 };
 
@@ -75,13 +76,13 @@ class ModuleIndex {
   std::vector<llvm::GlobalVariable *> GlobalPtrByIdx;
   
   /// Map GlobalVariables to their indices.
-  llvm::DenseMap<llvm::GlobalVariable const *, size_t> GlobalIdxByPtr;
+  llvm::DenseMap<llvm::GlobalVariable const *, uint32_t> GlobalIdxByPtr;
 
   /// Lookup Functions by their index.
   std::vector<llvm::Function *> mutable FunctionPtrByIdx;
   
   /// Map Functions to their indices.
-  llvm::DenseMap<llvm::Function const *, size_t> mutable FunctionIdxByPtr;
+  llvm::DenseMap<llvm::Function const *, uint32_t> mutable FunctionIdxByPtr;
 
   /// Store FunctionIndexs by the index of the Function.
   std::vector<std::unique_ptr<FunctionIndex>> mutable FunctionIndexByIdx;
@@ -124,18 +125,18 @@ public:
 
   /// Get the llvm::GlobalVariable at the given Index, or nullptr, if the Index
   /// is invalid.
-  llvm::GlobalVariable *getGlobal(size_t Index) {
+  llvm::GlobalVariable *getGlobal(uint32_t Index) {
     if (Index < GlobalPtrByIdx.size())
       return GlobalPtrByIdx[Index];
     return nullptr;
   }
 
   /// Get the Index of the given llvm::GlobalVariable.
-  util::Maybe<size_t> getIndexOfGlobal(llvm::GlobalVariable const *Global) {
+  util::Maybe<uint32_t> getIndexOfGlobal(llvm::GlobalVariable const *Global) {
     auto It = GlobalIdxByPtr.find(Global);
     if (It != GlobalIdxByPtr.end())
-      return util::Maybe<size_t>(It->second);
-    return util::Maybe<size_t>();
+      return util::Maybe<uint32_t>(It->second);
+    return util::Maybe<uint32_t>();
   }
   
   /// Get the number of functions in the indexed Module.
@@ -143,22 +144,22 @@ public:
 
   /// Get the llvm::Function at the given Index, or nullptr, if the Index is
   /// invalid.
-  llvm::Function *getFunction(size_t Index) const {
+  llvm::Function *getFunction(uint32_t Index) const {
     if (Index < FunctionPtrByIdx.size())
       return FunctionPtrByIdx[Index];
     return nullptr;
   }
 
   /// Get the Index of the given llvm::Function.
-  util::Maybe<size_t> getIndexOfFunction(llvm::Function const *Function) const {
+  util::Maybe<uint32_t> getIndexOfFunction(llvm::Function const *Function) const {
     auto It = FunctionIdxByPtr.find(Function);
     if (It != FunctionIdxByPtr.end())
-      return util::Maybe<size_t>(It->second);
-    return util::Maybe<size_t>();
+      return util::Maybe<uint32_t>(It->second);
+    return util::Maybe<uint32_t>();
   }
 
   void generateFunctionIndexForAll() const {
-    for (size_t i = 0; i < FunctionIndexByIdx.size(); ++i) {
+    for (std::size_t i = 0; i < FunctionIndexByIdx.size(); ++i) {
       if (!FunctionIndexByIdx[i]) {
         auto &Function = *(FunctionPtrByIdx[i]);
         FunctionIndexByIdx[i].reset(new FunctionIndex(Function));
@@ -166,7 +167,7 @@ public:
     }
   }
 
-  FunctionIndex *getFunctionIndex(size_t Index) const {
+  FunctionIndex *getFunctionIndex(uint32_t Index) const {
     if (Index >= FunctionIndexByIdx.size())
       return nullptr;
 
