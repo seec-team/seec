@@ -228,7 +228,7 @@ public:
     if (!MaybeIndex.assigned())
       return 0;
 
-    size_t Index = MaybeIndex.get<size_t>();
+    auto Index = MaybeIndex.get<0>();
     if (Index >= GlobalVariableAddresses.size())
       return 0;
 
@@ -243,7 +243,7 @@ public:
     if (!MaybeIndex.assigned())
       return 0;
 
-    size_t Index = MaybeIndex.get<size_t>();
+    auto Index = MaybeIndex.get<0>();
     if (Index >= FunctionAddresses.size())
       return 0;
 

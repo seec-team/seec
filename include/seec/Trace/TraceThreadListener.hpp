@@ -331,7 +331,7 @@ public:
     if (!MaybeIndex.assigned())
       return nullptr;
 
-    return &(ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<size_t>()));
+    return &(ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>()));
   }
 
   /// Find the allocated range that owns an address, if it belongs to this

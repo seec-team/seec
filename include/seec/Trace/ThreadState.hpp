@@ -154,17 +154,24 @@ class ThreadState {
 public:
   /// \name Accessors
   /// @{
+  
+  /// \brief Get the ProcessState that this ThreadState belongs to.
+  ProcessState &getParent() { return Parent; }
+  
+  /// \brief Get the ProcessState that this ThreadState belongs to.
+  ProcessState const &getParent() const { return Parent; }
 
-  /// Get the ThreadTrace for this thread.
+  /// \brief Get the ThreadTrace for this thread.
   ThreadTrace const &getTrace() const { return Trace; }
   
-  /// Get the next event to process when moving forward through the trace.
+  /// \brief Get the next event to process when moving forward through the
+  /// trace.
   EventReference getNextEvent() const { return NextEvent; }
 
-  /// Get the synthetic thread time that this ThreadState represents.
+  /// \brief Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }
 
-  /// Get the current stack of FunctionStates.
+  /// \brief Get the current stack of FunctionStates.
   decltype(CallStack) const &getCallStack() const { return CallStack; }
   
   /// \brief Get a pointer to the current RunError for this thread.
@@ -194,7 +201,7 @@ public:
   /// \name Searching
   /// @{
 
-  /// Get the last event that modified the shared process state from this
+  /// \brief Get the last event that modified the shared process state from this
   /// thread.
   seec::util::Maybe<EventReference> getLastProcessModifier() const;
 

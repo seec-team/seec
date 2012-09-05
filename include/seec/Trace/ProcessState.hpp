@@ -15,6 +15,7 @@
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <condition_variable>
@@ -22,9 +23,7 @@
 #include <thread>
 
 namespace llvm {
-
-class raw_ostream; // Forward-declaration for operator<<.
-
+  class raw_ostream; // Forward-declaration for operator<<.
 }
 
 namespace seec {

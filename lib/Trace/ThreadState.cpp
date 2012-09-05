@@ -40,7 +40,7 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionStart> const &Ev) {
 
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  CallStack.emplace_back(Index, *MappedFunction, Info);
+  CallStack.emplace_back(*this, Index, *MappedFunction, Info);
   ThreadTime = Info.getThreadTimeEntered();
 }
 
@@ -158,7 +158,8 @@ void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
 
   // Add Alloca information.
   auto &FuncState = CallStack.back();
-  FuncState.getAllocas().emplace_back(Instr.getIndex(),
+  FuncState.getAllocas().emplace_back(FuncState,
+                                      Instr.getIndex(),
                                       Instr.getValue().UInt64,
                                       Ev.getElementSize(),
                                       Ev.getElementCount());
@@ -370,7 +371,7 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
 
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  CallStack.emplace_back(Index, *MappedFunction, Info);
+  CallStack.emplace_back(*this, Index, *MappedFunction, Info);
   ThreadTime = Info.getThreadTimeExited() - 1;
 
   // Now we need to restore all function-level events. For now, we use the

@@ -112,12 +112,12 @@ private:
   void highlightFunctionExit(llvm::Function *Function);
   
   ///
-  void showInstructionAt(llvm::Instruction *Instruction,
+  void showInstructionAt(llvm::Instruction const *Instruction,
                          SourceFilePanel *Page,
                          seec::seec_clang::SimpleRange const &Range);
 
   /// Highlight the source code associated with the specified Instruction.
-  void highlightInstruction(llvm::Instruction *Instruction,
+  void highlightInstruction(llvm::Instruction const *Instruction,
                             seec::runtime_errors::RunError const *Error);
 
   /// @}

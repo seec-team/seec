@@ -11,28 +11,40 @@
 #ifndef SEEC_TRACE_FUNCTIONSTATE_HPP
 #define SEEC_TRACE_FUNCTIONSTATE_HPP
 
+#include "seec/DSA/MemoryBlock.hpp"
+#include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
-#include "seec/Util/ModuleIndex.hpp"
 
 #include <cstdint>
 #include <vector>
 
+
 namespace llvm {
-
-class raw_ostream;
-
+  class raw_ostream;
+  class AllocaInst;
+  class Instruction;
+  class Function;
 }
+
 
 namespace seec {
 
+class FunctionIndex;
+
 namespace trace {
+
+class FunctionState;
+class ThreadState;
 
 
 /// \brief Represents the result of a single alloca instruction.
 ///
 class AllocaState {
+  /// The FunctionState that this AllocaState belongs to.
+  FunctionState const &Parent;
+  
   /// Index of the llvm::AllocaInst.
   uint32_t InstructionIndex;
   
@@ -47,36 +59,65 @@ class AllocaState {
   
 public:
   /// Construct a new AllocaState with the specified values.
-  AllocaState(uint32_t InstructionIndex,
+  AllocaState(FunctionState const &Parent,
+              uint32_t InstructionIndex,
               uint64_t Address,
               uint64_t ElementSize,
               uint64_t ElementCount)
-  : InstructionIndex(InstructionIndex),
+  : Parent(Parent),
+    InstructionIndex(InstructionIndex),
     Address(Address),
     ElementSize(ElementSize),
     ElementCount(ElementCount)
   {}
   
-  /// Get the index of the llvm::AllocaInst that produced this state.
+  
+  /// \name Accessors
+  /// @{
+  
+  /// \brief Get the FunctionState that this AllocaState belongs to.
+  FunctionState const &getParent() const { return Parent; }
+  
+  /// \brief Get the index of the llvm::AllocaInst that produced this state.
   uint32_t getInstructionIndex() const { return InstructionIndex; }
   
-  /// Get the runtime address for this allocation.
+  /// \brief Get the runtime address for this allocation.
   uint64_t getAddress() const { return Address; }
   
-  /// Get the size of the element type that this allocation was for.
+  /// \brief Get the size of the element type that this allocation was for.
   uint64_t getElementSize() const { return ElementSize; }
   
-  /// Get the number of elements that space was allocated for.
+  /// \brief Get the number of elements that space was allocated for.
   uint64_t getElementCount() const { return ElementCount; }
   
-  /// Get the total size of this allocation.
+  /// \brief Get the total size of this allocation.
   uint64_t getTotalSize() const { return ElementSize * ElementCount; }
+  
+  /// @} (Accessors)
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Get the llvm::AllocaInst that produced this state.
+  llvm::AllocaInst const *getInstruction() const;
+  
+  /// \brief Get the region of memory belonging to this AllocaState.
+  MemoryState::Region getMemoryRegion() const;
+  
+  /// @} (Queries)
 };
 
 
 /// \brief State of a function invocation at a specific point in time.
 ///
 class FunctionState {
+  /// The ThreadState that this FunctionState belongs to.
+  ThreadState &Parent;
+  
+  /// Indexed view of the llvm::Function.
+  FunctionIndex const &FunctionLookup;
+  
   /// Index of the llvm::Function in the llvm::Module.
   uint32_t Index;
   
@@ -96,22 +137,29 @@ public:
   /// \brief Constructor.
   /// \param Index Index of this llvm::Function in the llvm::Module.
   /// \param Function Indexed view of the llvm::Function.
-  FunctionState(uint32_t Index,
+  FunctionState(ThreadState &Parent,
+                uint32_t Index,
                 FunctionIndex const &Function,
-                FunctionTrace Trace)
-  : Index(Index),
-    Trace(Trace),
-    ActiveInstruction(),
-    InstructionValues(Function.getInstructionCount()),
-    Allocas()
-  {}
+                FunctionTrace Trace);
   
   
   /// \name Accessors.
   /// @{
   
+  /// \brief Get the ThreadState that this FunctionState belongs to.
+  ThreadState &getParent() { return Parent; }
+  
+  /// \brief Get the ThreadState that this FunctionState belongs to.
+  ThreadState const &getParent() const { return Parent; }
+  
+  /// \brief Get the FunctionIndex for this llvm::Function.
+  FunctionIndex const &getFunctionLookup() const { return FunctionLookup; }
+  
   /// \brief Get the index of the llvm::Function in the llvm::Module.
   uint32_t getIndex() const { return Index; }
+  
+  /// \brief Get the llvm::Function.
+  llvm::Function const *getFunction() const;
   
   /// \brief Get the function trace record for this function invocation.
   FunctionTrace getTrace() const { return Trace; }
@@ -120,9 +168,12 @@ public:
   std::size_t getInstructionCount() const { return InstructionValues.size(); }
   
   /// \brief Get the index of the active llvm::Instruction, if there is one.
-  seec::util::Maybe<uint32_t> getActiveInstruction() const {
+  seec::util::Maybe<uint32_t> getActiveInstructionIndex() const {
     return ActiveInstruction;
   }
+  
+  /// \brief Get the active llvm::Instruction, if there is one.
+  llvm::Instruction const *getActiveInstruction() const;
   
   /// @} (Accessors)
   
@@ -150,14 +201,24 @@ public:
   /// \brief Get the current runtime value for an llvm::Instruction.
   /// \param Index the index of the llvm::Instruction in this llvm::Function.
   RuntimeValue &getRuntimeValue(uint32_t Index) {
+    assert(Index < InstructionValues.size());
     return InstructionValues[Index];
   }
   
   /// \brief Get the current runtime value for an llvm::Instruction.
   /// \param Index the index of the llvm::Instruction in this llvm::Function.
   RuntimeValue const &getRuntimeValue(uint32_t Index) const {
+    assert(Index < InstructionValues.size());
     return InstructionValues[Index];
   }
+  
+  /// \brief Get the current runtime value for an llvm::Instruction.
+  /// \param I the llvm::Instruction, which must belong to this function.
+  RuntimeValue &getRuntimeValue(llvm::Instruction const *I);
+  
+  /// \brief Get the current runtime value for an llvm::Instruction.
+  /// \param I the llvm::Instruction, which must belong to this function.
+  RuntimeValue const &getRuntimeValue(llvm::Instruction const *I) const;
   
   /// @}
   

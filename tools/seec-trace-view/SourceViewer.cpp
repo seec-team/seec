@@ -483,18 +483,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
 
   auto &FunctionState = CallStack.back();
 
-  auto MaybeInstructionIndex = FunctionState.getActiveInstruction();
-
-  if (MaybeInstructionIndex.assigned()) {
-    auto FunctionIndex = FunctionState.getIndex();
-    auto InstructionIndex = MaybeInstructionIndex.get<0>();
-
-    auto Lookup = Trace->getModuleIndex().getFunctionIndex(FunctionIndex);
-    assert(Lookup && "Couldn't find FunctionIndex.");
-
-    auto Instruction = Lookup->getInstruction(InstructionIndex);
-    assert(Instruction && "Couldn't find Instruction.");
-
+  if (auto Instruction = FunctionState.getActiveInstruction()) {
     highlightInstruction(Instruction, RuntimeError);
   }
   else {
@@ -617,7 +606,7 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
 
 void
 SourceViewerPanel::showInstructionAt
-  ( llvm::Instruction *Instruction,
+  ( llvm::Instruction const *Instruction,
     SourceFilePanel *Page,
     seec::seec_clang::SimpleRange const &Range
   ) {
@@ -627,7 +616,7 @@ SourceViewerPanel::showInstructionAt
 }
 
 void SourceViewerPanel::highlightInstruction
-      (llvm::Instruction *Instruction,
+      (llvm::Instruction const *Instruction,
        seec::runtime_errors::RunError const *Error) {
   assert(Trace);
 
