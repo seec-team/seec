@@ -15,6 +15,7 @@
 
 #include <cstring>
 #include <cstdint>
+#include <memory>
 #include <new>
 
 namespace seec {
@@ -24,121 +25,105 @@ namespace seec {
 class MemoryBlock : public MemoryArea {
 private:
   /// The data in this MemoryBlock.
-  char *Data;
+  std::unique_ptr<char []> Data;
 
 public:
-  /// Default constructor.
+  /// \brief Construct an empty MemoryBlock.
+  ///
   MemoryBlock()
   : MemoryArea(),
-    Data(nullptr)
+    Data()
   {}
 
-  /// Initializing constructor.
-  MemoryBlock(uint64_t Start, uint64_t Length, char const *Data)
+  /// \brief Construct MemoryBlock by copying the given data.
+  ///
+  MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData)
   : MemoryArea(Start, Length),
-    Data(nullptr)
+    Data()
   {
     if (Length) {
-      this->Data = new (std::nothrow) char[Length];
-
-      if (this->Data) {
-        memcpy(this->Data, Data, Length);
-      }
-      else {
+      Data.reset(new (std::nothrow) char[Length]);
+      
+      if (Data)
+        memcpy(Data.get(), CopyData, Length);
+      else
         setStartEnd(0, 0);
-      }
     }
   }
 
-  /// Initializing constructor.
+  /// \brief Construct a MemoryBlock by copying data from the given location.
+  ///
   MemoryBlock(void const *Start, size_t Length)
   : MemoryArea(reinterpret_cast<uintptr_t>(Start), Length),
-    Data(nullptr)
+    Data()
   {
     if (Length) {
-      Data = new (std::nothrow) char[Length];
+      Data.reset(new (std::nothrow) char[Length]);
 
-      if (this->Data) {
-        memcpy(Data, Start, Length);
-      }
-      else {
+      if (Data)
+        memcpy(Data.get(), Start, Length);
+      else
         setStartEnd(0, 0);
-      }
     }
   }
 
-  /// Copy constructor.
+  /// \brief Copy the given MemoryBlock.
+  ///
   MemoryBlock(MemoryBlock const &Other)
   : MemoryArea(Other),
-    Data(nullptr)
+    Data()
   {
     if (length()) {
-      Data = new (std::nothrow) char[length()];
+      Data.reset(new (std::nothrow) char[length()]);
 
-      if (Data) {
-        memcpy(Data, Other.Data, length());
-      }
-      else {
+      if (Data)
+        memcpy(Data.get(), Other.Data.get(), length());
+      else
         setStartEnd(0, 0);
-      }
     }
   }
 
-  /// Move constructor.
+  /// \brief Move state from the given MemoryBlock.
+  ///
   MemoryBlock(MemoryBlock &&Other)
-  : MemoryArea(Other),
-    Data(Other.Data)
+  : MemoryArea(std::move(Other)),
+    Data(std::move(Other.Data))
   {
     Other.setStartEnd(0, 0);
-    Other.Data = nullptr;
   }
 
-  /// Destructor.
-  ~MemoryBlock()
-  {
-    if (Data)
-      delete[] Data;
-  }
-
-  /// Copy assignment.
+  /// \brief Copy the given MemoryBlock.
+  ///
   MemoryBlock & operator=(MemoryBlock const &RHS) {
-    if (Data)
-      delete[] Data;
-
     MemoryArea::operator=(RHS);
 
     if (length()) {
-      Data = new (std::nothrow) char[length()];
+      Data.reset(new (std::nothrow) char[length()]);
 
-      if (Data) {
-        memcpy(Data, RHS.Data, length());
-      }
-      else {
+      if (Data)
+        memcpy(Data.get(), RHS.Data.get(), length());
+      else
         setStartEnd(0, 0);
-      }
     }
     else
-      Data = nullptr;
+      Data.reset();
 
     return *this;
   }
 
-  /// Move assignment.
+  /// \brief Move state from the given MemoryBlock.
+  ///
   MemoryBlock & operator=(MemoryBlock &&RHS) {
-    if (Data)
-      delete[] Data;
-
     MemoryArea::operator=(RHS);
-    Data = RHS.Data;
+    Data = std::move(RHS.Data);
 
     RHS.setStartEnd(0, 0);
-    RHS.Data = nullptr;
 
     return *this;
   }
 
   /// Get a pointer to the data of this MemoryBlock.
-  char const *data() const { return Data; }
+  char const *data() const { return Data.get(); }
   
   /// Get the MemoryArea that this MemoryBlock occupies.
   MemoryArea const &area() const { return *this; }
