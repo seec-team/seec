@@ -81,8 +81,8 @@ std::string to_hex_string(unsigned char Byte) {
   char const Low = static_cast<char>(Byte & 0xF);
 
   return std::string {
-    ((High < 10) ? ('0' + High) : ('a' + (High - 10))),
-    ((Low < 10) ? ('0' + Low) : ('a' + (Low - 10)))
+    static_cast<char>((High < 10) ? ('0' + High) : ('a' + (High - 10))),
+    static_cast<char>((Low < 10) ? ('0' + Low) : ('a' + (Low - 10)))
     };
 }
 
