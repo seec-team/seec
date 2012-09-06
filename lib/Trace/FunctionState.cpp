@@ -19,7 +19,7 @@ namespace trace {
 llvm::AllocaInst const *AllocaState::getInstruction() const {
   auto &Lookup = Parent->getFunctionLookup();
   auto Inst = Lookup.getInstruction(InstructionIndex);
-  assert(llvm::isa<llvm::AllocaInst>(Inst));
+  assert(Inst && llvm::isa<llvm::AllocaInst>(Inst));
   return llvm::cast<llvm::AllocaInst>(Inst);
 }
 
@@ -46,7 +46,9 @@ FunctionState::FunctionState(ThreadState &Parent,
   ActiveInstruction(),
   InstructionValues(Function.getInstructionCount()),
   Allocas()
-{}
+{
+  assert(FunctionLookup);
+}
 
 llvm::Function const *FunctionState::getFunction() const {
   return Parent->getParent().getModule().getFunction(Index);

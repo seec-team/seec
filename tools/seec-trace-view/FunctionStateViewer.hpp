@@ -31,38 +31,36 @@ class FunctionStateViewerPanel : public wxPanel
   OpenTrace const *Trace;
   
   ///
-  wxStaticText *Title;
+  wxStaticBoxSizer *Container;
   
 public:
   FunctionStateViewerPanel()
   : wxPanel(),
     Trace(nullptr),
-    Title(nullptr)
+    Container(nullptr)
   {}
   
   FunctionStateViewerPanel(wxWindow *Parent,
                            OpenTrace const &TheTrace,
+                           seec::trace::FunctionState const &State,
                            wxWindowID ID = wxID_ANY,
                            wxPoint const &Position = wxDefaultPosition,
                            wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     Trace(nullptr),
-    Title(nullptr)
+    Container(nullptr)
   {
-    Create(Parent, TheTrace, ID, Position, Size);
+    Create(Parent, TheTrace, State, ID, Position, Size);
   }
   
   virtual ~FunctionStateViewerPanel();
   
   bool Create(wxWindow *Parent,
               OpenTrace const &TheTrace,
+              seec::trace::FunctionState const &State,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
-  
-  /// \brief Update the display to show the given State.
-  ///
-  void showState(seec::trace::FunctionState const &State);
 };
 
 #endif // SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP

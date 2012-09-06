@@ -3,6 +3,8 @@
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
+#include "llvm/Instructions.h"
+
 #include <wx/collpane.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
@@ -18,6 +20,7 @@ FunctionStateViewerPanel::~FunctionStateViewerPanel() {}
 
 bool FunctionStateViewerPanel::Create(wxWindow *Parent,
                                       OpenTrace const &TheTrace,
+                                      seec::trace::FunctionState const &State,
                                       wxWindowID ID,
                                       wxPoint const &Position,
                                       wxSize const &Size) {
@@ -28,21 +31,8 @@ bool FunctionStateViewerPanel::Create(wxWindow *Parent,
     return false;
   
   Trace = &TheTrace;
+  auto &ClangMap = Trace->getMappedModule();
   
-  // Add the standard contents.
-  auto ContentsSizer = new wxBoxSizer(wxVERTICAL);
-  
-  Title = new wxStaticText(this, wxID_ANY, wxEmptyString);
-  
-  ContentsSizer->Add(Title, wxSizerFlags().Proportion(1).Expand());
-  
-  SetSizerAndFit(ContentsSizer);
-  
-  return true;
-}
-
-void
-FunctionStateViewerPanel::showState(seec::trace::FunctionState const &State) {
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
@@ -65,5 +55,47 @@ FunctionStateViewerPanel::showState(seec::trace::FunctionState const &State) {
     }
   }
   
-  Title->SetLabelText(NewLabel);
+  auto ContainerSizer = new wxBoxSizer(wxHORIZONTAL);
+  
+  // Add the standard contents.
+  Container = new wxStaticBoxSizer(wxVERTICAL, this, NewLabel);
+  auto StaticBox = Container->GetStaticBox();
+  
+  auto AllocasStr = new wxStaticText(StaticBox, wxID_ANY,
+                                     wxString("Local variables:"));
+  Container->Add(AllocasStr, wxSizerFlags());
+  
+  // Show the state of all Allocas.
+  for (auto &Alloca : State.getAllocas()) {
+    auto AllocaInst = Alloca.getInstruction();
+    
+    auto Mapping = ClangMap.getMapping(AllocaInst);
+    if (!Mapping.getAST())
+      continue;
+    
+    auto Decl = Mapping.getDecl();
+    if (!Decl)
+      continue;
+    
+    auto Value = llvm::dyn_cast<clang::ValueDecl>(Decl);
+    if (!Value) {
+      wxLogDebug("Decl for AllocaInst is not a ValueDecl");
+      continue;
+    }
+    
+    wxString AllocaStr;
+    AllocaStr << Value->getType().getAsString()
+              << ' '
+              << Value->getNameAsString();
+    
+    auto AllocaText = new wxStaticText(StaticBox, wxID_ANY, AllocaStr);
+    Container->Add(AllocaText, wxSizerFlags());
+  }
+  
+  Container->SetMinSize(wxSize(50, 10));
+  
+  ContainerSizer->Add(Container, wxSizerFlags().Proportion(1));
+  SetSizerAndFit(ContainerSizer);
+  
+  return true;
 }

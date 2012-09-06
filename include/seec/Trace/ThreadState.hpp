@@ -57,7 +57,7 @@ class ThreadState {
   uint64_t ThreadTime;
 
   /// The stack of FunctionState objects.
-  std::vector<FunctionState> CallStack;
+  std::vector<std::unique_ptr<FunctionState>> CallStack;
   
   /// The runtime error at this point of time in the thread (if any).
   std::unique_ptr<seec::runtime_errors::RunError> CurrentError;

@@ -36,11 +36,15 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const RecordOffset = Ev.getRecord();
   auto const Info = Trace.getFunctionTrace(RecordOffset);
   auto const Index = Info.getIndex();
+  
   auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
-
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  CallStack.emplace_back(*this, Index, *MappedFunction, Info);
+  auto State = new FunctionState(*this, Index, *MappedFunction, Info);
+  assert(State);
+  
+  CallStack.emplace_back(State);
+  
   ThreadTime = Info.getThreadTimeEntered();
 }
 
@@ -50,7 +54,7 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   auto const Index = Info.getIndex();
 
   assert(CallStack.size() && "FunctionEnd with empty CallStack");
-  assert(CallStack.back().getIndex() == Index
+  assert(CallStack.back()->getIndex() == Index
          && "FunctionEnd does not match currently active function");
 
   CallStack.pop_back();
@@ -69,7 +73,7 @@ void ThreadState::addEvent(EventRecord<EventType::NewProcessTime> const &Ev) {
 void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
   auto const Index = Ev.getIndex();
 
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.setActiveInstruction(Index);
 
   CurrentError.reset(nullptr);
@@ -79,7 +83,7 @@ void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
 void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
   auto const Index = Ev.getIndex();
 
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.setActiveInstruction(Index);
 
   CurrentError.reset(nullptr);
@@ -92,7 +96,7 @@ void ThreadState::addEvent(
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
 
@@ -106,7 +110,7 @@ void ThreadState::addEvent(
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
 
@@ -127,7 +131,7 @@ void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
   EventReference EvRef(Ev);
 
   // Clear the current allocas.
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.getAllocas().clear();
 
   // Get all of the StackRestoreAlloca records.
@@ -157,7 +161,7 @@ void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
 
   // Add Alloca information.
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.getAllocas().emplace_back(FuncState,
                                       Instr.getIndex(),
                                       Instr.getValue().UInt64,
@@ -315,7 +319,7 @@ void ThreadState::addNextEventBlock() {
 //------------------------------------------------------------------------------
 
 void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
 
   // Find the previous instruction event that is part of the same function
   // invocation as PriorTo, if there is such an event.
@@ -356,7 +360,7 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const Index = Info.getIndex();
 
   assert(CallStack.size() && "Removing FunctionStart with empty CallStack");
-  assert(CallStack.back().getIndex() == Index
+  assert(CallStack.back()->getIndex() == Index
          && "Removing FunctionStart does not match currently active function");
 
   CallStack.pop_back();
@@ -367,11 +371,15 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   auto const RecordOffset = Ev.getRecord();
   auto const Info = Trace.getFunctionTrace(RecordOffset);
   auto const Index = Info.getIndex();
+  
   auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
-
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  CallStack.emplace_back(*this, Index, *MappedFunction, Info);
+  auto State = new FunctionState(*this, Index, *MappedFunction, Info);
+  assert(State);
+  
+  CallStack.emplace_back(State);
+  
   ThreadTime = Info.getThreadTimeExited() - 1;
 
   // Now we need to restore all function-level events. For now, we use the
@@ -431,7 +439,7 @@ void ThreadState::removeEvent(EventRecord<EventType::Instruction> const &Ev) {
 
 void ThreadState::removeEvent(
       EventRecord<EventType::InstructionWithSmallValue> const &Ev) {
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
 
   auto const PreviousOffset = Ev.getPreviousSame();
   if (PreviousOffset != noOffset()) {
@@ -453,7 +461,7 @@ void ThreadState::removeEvent(
 
 void ThreadState::removeEvent(
       EventRecord<EventType::InstructionWithValue> const &Ev) {
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
 
   auto const PreviousOffset = Ev.getPreviousSame();
   if (PreviousOffset != noOffset()) {
@@ -480,7 +488,7 @@ void ThreadState::removeEvent(
 
 void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   // Clear the current allocas.
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   FuncState.getAllocas().clear();
 
   auto const PreviousOffset = Ev.getPrevious();
@@ -513,7 +521,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
     }
   }
   else {
-    auto FunctionInfo = CallStack.back().getTrace();
+    auto FunctionInfo = CallStack.back()->getTrace();
     auto StartOffset = FunctionInfo.getEventStart();
 
     // Iterate through the events, adding all Allocas until we find
@@ -541,7 +549,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
 
 void ThreadState::removeEvent(EventRecord<EventType::Alloca> const &Ev) {
   // Remove Alloca information.
-  auto &FuncState = CallStack.back();
+  auto &FuncState = *(CallStack.back());
   assert(!FuncState.getAllocas().empty());
   FuncState.getAllocas().pop_back();
 }
@@ -1035,7 +1043,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
     Out << "  With RunError\n";
 
   for (auto &Function : State.getCallStack()) {
-    Out << Function;
+    Out << *Function;
   }
 
   return Out;

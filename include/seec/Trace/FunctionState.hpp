@@ -153,7 +153,9 @@ public:
   ThreadState const &getParent() const { return *Parent; }
 
   /// \brief Get the FunctionIndex for this llvm::Function.
-  FunctionIndex const &getFunctionLookup() const { return *FunctionLookup; }
+  FunctionIndex const &getFunctionLookup() const {
+    return *FunctionLookup;
+  }
 
   /// \brief Get the index of the llvm::Function in the llvm::Module.
   uint32_t getIndex() const { return Index; }

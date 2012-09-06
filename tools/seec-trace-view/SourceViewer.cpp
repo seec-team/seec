@@ -481,7 +481,7 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
   if (CallStack.empty())
     return;
 
-  auto &FunctionState = CallStack.back();
+  auto &FunctionState = *(CallStack.back());
 
   if (auto Instruction = FunctionState.getActiveInstruction()) {
     highlightInstruction(Instruction, RuntimeError);
