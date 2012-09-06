@@ -1,3 +1,4 @@
+#include "seec/Clang/StateMapping.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/FunctionState.hpp"
@@ -5,6 +6,7 @@
 #include "seec/Util/Printing.hpp"
 
 #include "llvm/Instructions.h"
+#include "llvm/ADT/ArrayRef.h"
 
 #include <wx/collpane.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -90,18 +92,16 @@ bool FunctionStateViewerPanel::Create(wxWindow *Parent,
     AllocaStr << Value->getType().getAsString()
               << ' '
               << Value->getNameAsString()
-              << " =";
+              << " = ";
     
     if (Memory.isCompletelyInitialized()) {
-      // Temporary: write state as hex bytes.
-      AllocaStr << " 0x";
       auto const Bytes = Memory.getByteValues();
-      for (auto Byte : Bytes) {
-        AllocaStr << ' ' << seec::util::to_hex_string(Byte);
-      }
+      AllocaStr << seec::seec_clang::toString(Value,
+                                              llvm::ArrayRef<char>(Bytes));
+      AllocaStr << ";";
     }
     else {
-      AllocaStr << " uninitialized;";
+      AllocaStr << "uninitialized;";
     }
     
     auto AllocaText = new wxStaticText(StaticBox, wxID_ANY, AllocaStr);

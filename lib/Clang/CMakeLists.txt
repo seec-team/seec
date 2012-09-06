@@ -1,6 +1,7 @@
 add_library(SeeCClang 
   Compile.cpp
   MappedAST.cpp
+  StateMapping.cpp
 )
 
 INSTALL(TARGETS SeeCClang
