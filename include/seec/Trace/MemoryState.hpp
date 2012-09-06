@@ -181,39 +181,16 @@ public:
     /// @{
 
     /// \brief Find out if the contained bytes are initialized.
-    bool isCompletelyInitialized() const {
-      return false;
-    }
+    bool isCompletelyInitialized() const;
 
     /// \brief Find out whether each contained byte is initialized.
-    std::unique_ptr<uint8_t []> getByteInitialization() const {
-      std::unique_ptr<uint8_t []> Initialization {new uint8_t[Area.length()]};
-
-      auto It = State.FragmentMap.lower_bound(Area.start());
-
-      // Best-case scenario: this block's state was set in a single fragment.
-      if (It != State.FragmentMap.end()
-          && It->second.getBlock().area().contains(Area)) {
-        memset(Initialization.get(), 0xFF, Area.length());
-        return Initialization;
-      }
-
-      // Set all byte intializations to zero.
-      memset(Initialization.get(), 0, Area.length());
-
-      // Check if the previous fragment overlaps our area.
-      if (It != State.FragmentMap.begin()
-          && It != State.FragmentMap.end()
-          && It->first > Area.start()) {
-        --It;
-        // TODO
-        ++It;
-      }
-
-      // Find and set the values for overlapping fragments.
-
-      return Initialization;
-    }
+    std::vector<char> getByteInitialization() const;
+    
+    /// \brief Find out the value of each contained byte.
+    ///
+    /// Uninitialized bytes will have a value of zero.
+    ///
+    std::vector<char> getByteValues() const;
 
     /// @}
   };
