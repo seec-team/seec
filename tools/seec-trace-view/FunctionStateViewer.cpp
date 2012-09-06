@@ -2,6 +2,7 @@
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/Util/Printing.hpp"
 
 #include "llvm/Instructions.h"
 
@@ -83,10 +84,25 @@ bool FunctionStateViewerPanel::Create(wxWindow *Parent,
       continue;
     }
     
+    auto Memory = Alloca.getMemoryRegion();
+    
     wxString AllocaStr;
     AllocaStr << Value->getType().getAsString()
               << ' '
-              << Value->getNameAsString();
+              << Value->getNameAsString()
+              << " =";
+    
+    if (Memory.isCompletelyInitialized()) {
+      // Temporary: write state as hex bytes.
+      AllocaStr << " 0x";
+      auto const Bytes = Memory.getByteValues();
+      for (auto Byte : Bytes) {
+        AllocaStr << ' ' << seec::util::to_hex_string(Byte);
+      }
+    }
+    else {
+      AllocaStr << " uninitialized;";
+    }
     
     auto AllocaText = new wxStaticText(StaticBox, wxID_ANY, AllocaStr);
     Container->Add(AllocaText, wxSizerFlags());
