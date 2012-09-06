@@ -14,20 +14,23 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <string>
+
 namespace llvm {
-
-class raw_ostream;
-
+  class raw_ostream;
 }
 
 namespace seec {
 
 namespace util {
 
+/// \name Write hex bytes to an output stream.
+/// @{
+
 inline
 void write_hex_byte(llvm::raw_ostream &Out, unsigned char Byte) {
-  unsigned char High = Byte >> 4;
-  unsigned char Low = Byte & 0xF;
+  char const High = static_cast<char>(Byte >> 4);
+  char const Low = static_cast<char>(Byte & 0xF);
 
   Out.write((High < 10) ? ('0' + High) : ('a' + (High - 10)));
   Out.write((Low < 10) ? ('0' + Low) : ('a' + (Low - 10)));
@@ -64,6 +67,39 @@ void write_hex_padded(llvm::raw_ostream &Out, T Value) {
     Shift -= 8;
   }
 }
+
+/// @}
+
+
+/// \name Convert values to strings containing their hex representation.
+/// @{
+
+/// \brief Get a string with the hex representation of the given byte.
+inline
+std::string to_hex_string(unsigned char Byte) {
+  char const High = static_cast<char>(Byte >> 4);
+  char const Low = static_cast<char>(Byte & 0xF);
+
+  return std::string {
+    ((High < 10) ? ('0' + High) : ('a' + (High - 10))),
+    ((Low < 10) ? ('0' + Low) : ('a' + (Low - 10)))
+    };
+}
+
+/// \brief Get a string with the hex representation of the given byte.
+inline
+std::string to_hex_string(signed char Byte) {
+  return to_hex_string(static_cast<unsigned char>(Byte));
+}
+
+/// \brief Get a string with the hex representation of the given byte.
+inline
+std::string to_hex_string(char Byte) {
+  return to_hex_string(static_cast<unsigned char>(Byte));
+}
+
+/// @}
+
 
 } // namespace util
 
