@@ -35,9 +35,12 @@ class TraceViewerApp : public wxApp
   /// All other top-level frames.
   std::set<wxFrame *> TopLevelFrames;
 
+  /// The log window.
+  wxLogWindow *LogWindow;
+
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
-  
+
   /// \brief Open a new trace viewer for the given file.
   void OpenFile(wxString const &FileName);
 
@@ -45,7 +48,10 @@ public:
   /// \brief Constructor.
   TraceViewerApp()
   : wxApp(),
-    TopLevelFrames()
+    Welcome(nullptr),
+    TopLevelFrames(),
+    LogWindow(nullptr),
+    ICUResources()
   {}
 
   /// \name Interface to wxApp.
@@ -54,19 +60,19 @@ public:
   virtual bool OnInit();
 
   /// @}
-  
-  
+
+
   /// \name Mac OS X functionality
   /// @{
-  
+
   virtual void MacNewFile();
-  
+
   virtual void MacOpenFiles(wxArrayString const &FileNames);
-  
+
   virtual void MacOpenFile(wxString const &FileName);
-  
+
   virtual void MacReopenApp();
-  
+
   /// @}
 
 
@@ -91,6 +97,9 @@ public:
 
   /// \brief Notify that the welcome frame is being destroyed.
   void removeTopLevelFrame(WelcomeFrame *Frame) {
+    if (!Welcome)
+      return;
+
     assert(Welcome == Frame);
     Welcome = nullptr;
   }
