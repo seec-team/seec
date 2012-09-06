@@ -1,5 +1,4 @@
 add_library(SeeCUtil 
-  GenericValueHandling.cpp
   Printing.cpp
   SynchronizedExit.cpp
 )
