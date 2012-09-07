@@ -19,6 +19,8 @@ namespace seec {
 namespace seec_clang {
 
 
+/// \brief Get a string representation of State interpreted as the type of
+///        Value.
 std::string toString(clang::ValueDecl const *Value, llvm::ArrayRef<char> State);
 
 
