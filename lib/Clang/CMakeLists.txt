@@ -1,6 +1,7 @@
 add_library(SeeCClang 
   Compile.cpp
   MappedAST.cpp
+  RuntimeValueMapping.cpp
   StateMapping.cpp
 )
 

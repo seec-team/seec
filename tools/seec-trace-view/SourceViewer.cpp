@@ -1,8 +1,10 @@
 #include "seec/Clang/SourceMapping.hpp"
+#include "seec/Clang/RuntimeValueMapping.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -13,6 +15,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/font.h>
+#include <wx/tokenzr.h>
 #include <wx/stc/stc.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
@@ -153,11 +156,16 @@ class SourceFilePanel : public wxPanel {
                         wxSTC_MARGIN_NUMBER);
     Text->SetMarginWidth(static_cast<int>(SciMargin::LineNumber), 0);
     
+    // Annotations.
+    Text->AnnotationSetVisible(wxSTC_ANNOTATION_STANDARD);
+    
     // Miscellaneous.
     Text->SetIndentationGuides(true);
     Text->SetEdgeColumn(80);
     // Text->SetEdgeMode(wxSTC_EDGE_LINE);
     Text->SetWrapMode(wxSTC_WRAP_NONE);
+    
+    Text->SetExtraDescent(2);
   }
   
   /// \brief Handle file loading.
@@ -310,7 +318,27 @@ public:
                     wxString const &AnnotationText,
                     SciLexerType AnnotationStyle) {
     Text->AnnotationSetText(Line, AnnotationText);
-    Text->AnnotationSetVisible(1);
+    Text->AnnotationSetStyle(Line, static_cast<int>(AnnotationStyle));
+    StateAnnotations.push_back(Line);
+  }
+
+  /// \brief Annotate a line for this state, starting at a set column.
+  ///
+  void annotateLine(long Line,
+                    long Column,
+                    wxString const &AnnotationText,
+                    SciLexerType AnnotationStyle) {
+    wxString Spacing(' ', Column);
+    
+    // Create spaced annotation text by placing Spacing prior to each line in
+    // the AnnotationText.
+    wxString SpacedText;
+    wxStringTokenizer LineTokenizer(AnnotationText, "\n");
+    while (LineTokenizer.HasMoreTokens())
+      SpacedText << Spacing << LineTokenizer.GetNextToken();
+    
+    // Display the spaced annotation text.
+    Text->AnnotationSetText(Line, SpacedText);
     Text->AnnotationSetStyle(Line, static_cast<int>(AnnotationStyle));
     StateAnnotations.push_back(Line);
   }
@@ -446,8 +474,9 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
 
           auto Instruction = Lookup->getInstruction(InstructionIndex);
           assert(Instruction && "Couldn't find Instruction.");
-
-          highlightInstruction(Instruction, nullptr);
+          
+          // TODO: Re-enable.
+          // highlightInstruction(Instruction, nullptr);
         }
         break;
     }
@@ -477,7 +506,8 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
   auto &FunctionState = *(CallStack.back());
 
   if (auto Instruction = FunctionState.getActiveInstruction()) {
-    highlightInstruction(Instruction, RuntimeError);
+    auto &RTValue = FunctionState.getRuntimeValue(Instruction);
+    highlightInstruction(Instruction, RTValue, RuntimeError);
   }
   else {
     // If there is no active Instruction, highlight the function entry.
@@ -612,6 +642,7 @@ SourceViewerPanel::showInstructionAt
 
 void SourceViewerPanel::highlightInstruction
       (llvm::Instruction const *Instruction,
+       seec::trace::RuntimeValue const &Value,
        seec::runtime_errors::RunError const *Error) {
   assert(Trace);
 
@@ -655,15 +686,27 @@ void SourceViewerPanel::highlightInstruction
       = seec::seec_clang::getPrettyVisibleRange(InstructionMap.getStmt(), AST);
     
     if (MaybeRange.assigned()) {
-      showInstructionAt(Instruction, PageIt->second, MaybeRange.get<0>());
+      auto &Range = MaybeRange.get<0>();
       
-      // Show a description of the RunError.
-      if (Error) {
+      showInstructionAt(Instruction, PageIt->second, Range);
+      
+      if (Error) { // Show a description of the RunError.
         auto UniStr = seec::runtime_errors::format(*Error);
         auto ErrorStr = seec::towxString(UniStr);
-        PageIt->second->annotateLine(MaybeRange.get<0>().Start.Line - 1,
+        PageIt->second->annotateLine(Range.Start.Line - 1,
                                      ErrorStr,
                                      SciLexerType::SeeCRuntimeError);
+      }
+      else if(Value.assigned()) { // Show the RuntimeValue.
+        if (llvm::isa<clang::Expr>(InstructionMap.getStmt())) {
+          auto StrValue = seec::seec_clang::toString(InstructionMap.getStmt(),
+                                                     Instruction,
+                                                     Value);
+          PageIt->second->annotateLine(Range.Start.Line - 1,
+                                       Range.Start.Column - 1,
+                                       wxString(StrValue),
+                                       SciLexerType::SeeCRuntimeValue);
+        }
       }
     }
   }

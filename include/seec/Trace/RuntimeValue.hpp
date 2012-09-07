@@ -153,7 +153,7 @@ template<typename T>
 struct GetAsImpl<T *> {
   static T *impl(RuntimeValue const &Value, llvm::Type const *Type) {
     assert(Type->isPointerTy());
-    return nullptr;
+    return reinterpret_cast<T *>(static_cast<uintptr_t>(Value.getUInt64()));
   }
 };
 

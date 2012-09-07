@@ -33,6 +33,7 @@ namespace seec {
   }
   namespace trace {
     class ProcessState;
+    class RuntimeValue;
     class ThreadState;
   } // namespace trace (in seec)
 } // namespace seec
@@ -118,6 +119,7 @@ private:
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction const *Instruction,
+                            seec::trace::RuntimeValue const &Value,
                             seec::runtime_errors::RunError const *Error);
 
   /// @}
