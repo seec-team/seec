@@ -34,7 +34,8 @@ SEEC_SCI_TYPE(CommentDocKeywordError, wxSTC_C_COMMENTDOCKEYWORDERROR)
 SEEC_SCI_TYPE(GlobalClass,            wxSTC_C_GLOBALCLASS)
 
 SEEC_SCI_TYPE(SeeCRuntimeError,       wxSTC_STYLE_DEFAULT - 1)
-
+SEEC_SCI_TYPE(SeeCRuntimeValue,       wxSTC_STYLE_DEFAULT - 2)
+SEEC_SCI_TYPE(SeeCRuntimeInformation, wxSTC_STYLE_DEFAULT - 3)
 
 // Common
 

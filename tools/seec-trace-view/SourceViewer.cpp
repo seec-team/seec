@@ -128,33 +128,26 @@ class SourceFilePanel : public wxPanel {
       Text->IndicatorSetUnder(Indicator, IndicatorStyle.Under);
     }
     
-    // Setup the keywords used by the lexer.
-    // TODO: Read keywords from settings, which should read it from the ICU
-    // resource bundle.
-    Text->SetKeyWords(0,
-    wxString("asm auto bool break case catch char class const const_cast "
-    "continue default delete do double dynamic_cast else enum explicit "
-    "export extern false float for friend goto if inline int long "
-    "mutable namespace new operator private protected public register "
-    "reinterpret_cast return short signed sizeof static static_cast "
-    "struct switch template this throw true try typedef typeid "
-    "typename union unsigned using virtual void volatile wchar_t "
-    "while"));
-    
-    Text->SetKeyWords(1, wxString("file"));
-    
-    Text->SetKeyWords(2,
-    wxString("a addindex addtogroup anchor arg attention author b brief bug c "
-    "class code date def defgroup deprecated dontinclude e em endcode "
-    "endhtmlonly endif endlatexonly endlink endverbatim enum example "
-    "exception f$ f[ f] file fn hideinitializer htmlinclude "
-    "htmlonly if image include ingroup internal invariant interface "
-    "latexonly li line link mainpage name namespace nosubgrouping note "
-    "overload p page par param post pre ref relates remarks return "
-    "retval sa section see showinitializer since skip skipline struct "
-    "subsection test throw todo typedef union until var verbatim "
-    "verbinclude version warning weakgroup $ @ \"\" & < > # { }"));
-    
+    //
+    UErrorCode Status = U_ZERO_ERROR;
+    auto KeywordRes = seec::getResource("TraceViewer",
+                                        Locale::getDefault(),
+                                        Status,
+                                        "ScintillaKeywords",
+                                        "CPP");
+    if (U_SUCCESS(Status)) {
+      // Setup the keywords used by the lexer.
+      auto Size = KeywordRes.getSize();
+      
+      for (int32_t i = 0; i < Size; ++i) {
+        auto UniStr = KeywordRes.getStringEx(i, Status);
+        if (U_FAILURE(Status))
+          break;
+        
+        Text->SetKeyWords(i, seec::towxString(UniStr));
+      }
+    }
+
     // Setup the line number margin (initially invisible).
     Text->SetMarginType(static_cast<int>(SciMargin::LineNumber),
                         wxSTC_MARGIN_NUMBER);
@@ -313,12 +306,12 @@ public:
 
   /// \brief Annotate a line for this state.
   ///
-  void annotateLine(long Line, wxString const &AnnotationText) {
+  void annotateLine(long Line,
+                    wxString const &AnnotationText,
+                    SciLexerType AnnotationStyle) {
     Text->AnnotationSetText(Line, AnnotationText);
     Text->AnnotationSetVisible(1);
-    Text->AnnotationSetStyle(Line,
-                             static_cast<int>(SciLexerType::SeeCRuntimeError));
-    
+    Text->AnnotationSetStyle(Line, static_cast<int>(AnnotationStyle));
     StateAnnotations.push_back(Line);
   }
 };
@@ -547,7 +540,8 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
   It->second->annotateLine(Start.getLine() - 1,
                            seec::getwxStringExOrEmpty(
                                                   TextTable,
-                                                  "SourceView_FunctionEntry"));
+                                                  "SourceView_FunctionEntry"),
+                           SciLexerType::SeeCRuntimeInformation);
 }
 
 void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
@@ -601,7 +595,8 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
   It->second->annotateLine(Start.getLine() - 1,
                            seec::getwxStringExOrEmpty(
                                                   TextTable,
-                                                  "SourceView_FunctionExit"));
+                                                  "SourceView_FunctionExit"),
+                           SciLexerType::SeeCRuntimeInformation);
 }
 
 void
@@ -667,7 +662,8 @@ void SourceViewerPanel::highlightInstruction
         auto UniStr = seec::runtime_errors::format(*Error);
         auto ErrorStr = seec::towxString(UniStr);
         PageIt->second->annotateLine(MaybeRange.get<0>().Start.Line - 1,
-                                     ErrorStr);
+                                     ErrorStr,
+                                     SciLexerType::SeeCRuntimeError);
       }
     }
   }

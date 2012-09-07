@@ -206,6 +206,26 @@ root:table {
       LetterCase:int {0}
     }
 
+    SeeCRuntimeValue:table {
+      Name:string {"Runtime value"}
+      Foreground:string {"BLACK"}
+      Background:string {"rgb(220,255,220)"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
+    SeeCRuntimeInformation:table {
+      Name:string {"Runtime information"}
+      Foreground:string {"BLACK"}
+      Background:string {"rgb(220,220,255)"}
+      FontName:string {""}
+      FontSize:int {12}
+      FontStyle:string {""}
+      LetterCase:int {0}
+    }
+
     //
     // Lexer-specific styles
     //
@@ -306,7 +326,7 @@ root:table {
       Background:string {"WHITE"}
       FontName:string {""}
       FontSize:int {12}
-      FontStyle:string {"Bold"}
+      FontStyle:string {""}
       LetterCase:int {0}
     }
     
