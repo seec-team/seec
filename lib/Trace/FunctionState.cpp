@@ -4,7 +4,6 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
-#include "llvm/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace seec {
@@ -54,6 +53,13 @@ llvm::Function const *FunctionState::getFunction() const {
   return Parent->getParent().getModule().getFunction(Index);
 }
 
+llvm::Instruction const *FunctionState::getInstruction(uint32_t Index) const {
+  if (Index >= InstructionValues.size())
+    return nullptr;
+  
+  return FunctionLookup->getInstruction(Index);
+}
+
 llvm::Instruction const *FunctionState::getActiveInstruction() const {
   if (!ActiveInstruction.assigned())
     return nullptr;
@@ -92,10 +98,28 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   for (std::size_t i = 0; i < InstructionCount; ++i) {
     auto const &Value = State.getRuntimeValue(i);
     if (Value.assigned()) {
-      Out << "    " << i << " = "
-          << Value.getUInt64() << " or "
-          << Value.getFloat() << " or "
-          << Value.getDouble() << "\n";
+      auto Type = State.getInstruction(i)->getType();
+      
+      Out << "    " << i << " = ";
+      
+      if (llvm::isa<llvm::IntegerType>(Type)) {
+        Out << "(int64_t)" << State.getRuntimeValueAs<int64_t>(i).get<0>()
+            << ", (uint64_t)" << State.getRuntimeValueAs<uint64_t>(i).get<0>();
+      }
+      else if (Type->isFloatTy()) {
+        Out << "(float)" << State.getRuntimeValueAs<float>(i).get<0>();
+      }
+      else if (Type->isDoubleTy()) {
+        Out << "(double)" << State.getRuntimeValueAs<double>(i).get<0>();
+      }
+      else if (Type->isPointerTy()) {
+        Out << "(? *)" << State.getRuntimeValueAs<void *>(i).get<0>();
+      }
+      else {
+        Out << "(unknown type)";
+      }
+      
+      Out << "\n";
     }
   }
 

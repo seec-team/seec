@@ -107,17 +107,6 @@ struct GetAsImpl<T,
                                          && std::is_signed<T>::value>::type
                 > {
   static T impl(RuntimeValue const &Value, llvm::Type const *Type) {
-    return static_cast<T>(Value.getUInt64());
-  }
-};
-
-// Specialization to get unsigned integer types.
-template<typename T>
-struct GetAsImpl<T,
-                 typename std::enable_if<std::is_integral<T>::value
-                                         && std::is_unsigned<T>::value>::type
-                > {
-  static T impl(RuntimeValue const &Value, llvm::Type const *Type) {
     auto IntType = llvm::dyn_cast<llvm::IntegerType>(Type);
     assert(IntType && "Extracting int from non-integer type?");
     
@@ -132,9 +121,22 @@ struct GetAsImpl<T,
   }
 };
 
+// Specialization to get unsigned integer types.
+template<typename T>
+struct GetAsImpl<T,
+                 typename std::enable_if<std::is_integral<T>::value
+                                         && std::is_unsigned<T>::value>::type
+                > {
+  static T impl(RuntimeValue const &Value, llvm::Type const *Type) {
+    assert(Type->isIntegerTy());
+    return static_cast<T>(Value.getUInt64());
+  }
+};
+
 template<>
 struct GetAsImpl<float> {
   static float impl(RuntimeValue const &Value, llvm::Type const *Type) {
+    assert(Type->isFloatTy());
     return Value.getFloat();
   }
 };
@@ -142,12 +144,21 @@ struct GetAsImpl<float> {
 template<>
 struct GetAsImpl<double> {
   static double impl(RuntimeValue const &Value, llvm::Type const *Type) {
+    assert(Type->isDoubleTy());
     return Value.getDouble();
   }
 };
 
 template<typename T>
-T getAs(RuntimeValue const &Value, llvm::Type const *Type = nullptr) {
+struct GetAsImpl<T *> {
+  static T *impl(RuntimeValue const &Value, llvm::Type const *Type) {
+    assert(Type->isPointerTy());
+    return nullptr;
+  }
+};
+
+template<typename T>
+T getAs(RuntimeValue const &Value, llvm::Type const *Type) {
   return GetAsImpl<T>::impl(Value, Type);
 }
 

@@ -17,6 +17,8 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/Instructions.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -168,6 +170,9 @@ public:
 
   /// \brief Get the number of llvm::Instructions in this llvm::Function.
   std::size_t getInstructionCount() const { return InstructionValues.size(); }
+  
+  /// \brief Get the llvm::Instruction at the specified index.
+  llvm::Instruction const *getInstruction(uint32_t Index) const;
 
   /// \brief Get the index of the active llvm::Instruction, if there is one.
   seec::util::Maybe<uint32_t> getActiveInstructionIndex() const {
@@ -213,6 +218,29 @@ public:
     assert(Index < InstructionValues.size());
     return InstructionValues[Index];
   }
+  
+  /// \brief Get an llvm::Instruction's runtime value as a specific type.
+  ///
+  /// If the runtime value is undefined, then the resulting Maybe will be
+  /// unassigned.
+  ///
+  /// If the type is a mismatch to the llvm::Instruction's type, e.g. trying
+  /// to extract an llvm::IntegerType as a float, then this is an error
+  /// (checked by assertion).
+  ///
+  template<typename T>
+  seec::util::Maybe<T> getRuntimeValueAs(uint32_t Index) const {
+    assert(Index < InstructionValues.size());
+    
+    auto &RTValue = InstructionValues[Index];
+    if (!RTValue.assigned())
+      return seec::util::Maybe<T>();
+    
+    auto Inst = getInstruction(Index);
+    assert(Inst);
+    
+    return getAs<T>(RTValue, Inst->getType());
+  }
 
   /// \brief Get the current runtime value for an llvm::Instruction.
   /// \param I the llvm::Instruction, which must belong to this function.
@@ -221,6 +249,24 @@ public:
   /// \brief Get the current runtime value for an llvm::Instruction.
   /// \param I the llvm::Instruction, which must belong to this function.
   RuntimeValue const &getRuntimeValue(llvm::Instruction const *I) const;
+  
+  /// \brief Get an llvm::Instruction's runtime value as a specific type.
+  ///
+  /// If the runtime value is undefined, then the resulting Maybe will be
+  /// unassigned.
+  ///
+  /// If the type is a mismatch to the llvm::Instruction's type, e.g. trying
+  /// to extract an llvm::IntegerType as a float, then this is an error
+  /// (checked by assertion).
+  ///
+  template<typename T>
+  seec::util::Maybe<T> getRuntimeValueAs(llvm::Instruction const *I) const {
+    auto &RTValue = getRuntimeValue(I);
+    if (!RTValue.assigned())
+      return seec::util::Maybe<T>();
+    
+    return getAs<T>(RTValue, I->getType());
+  }
 
   /// @}
 
