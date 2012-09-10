@@ -9,11 +9,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef _SEEC_UTIL_MAYBE_HPP_
-#define _SEEC_UTIL_MAYBE_HPP_
+#ifndef SEEC_UTIL_MAYBE_HPP
+#define SEEC_UTIL_MAYBE_HPP
 
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <utility>
 #include <type_traits>
 
@@ -24,6 +25,23 @@ namespace util {
 
 /// Contains implementation details for seec::util::Maybe.
 namespace maybe_impl {
+
+//===------------------------------------------------------------------------===
+// typeInList
+//===------------------------------------------------------------------------===
+
+template<typename T>
+constexpr bool typeInList() { return false; }
+
+template<typename T, typename Head, typename... Tail>
+constexpr bool typeInList() {
+  return std::is_same<T, Head>::value ? true : typeInList<T, Tail...>();
+}
+
+
+//===------------------------------------------------------------------------===
+// MaybeStore
+//===------------------------------------------------------------------------===
 
 template<typename...>
 class MaybeStore; // undefined
@@ -38,70 +56,67 @@ public:
   void copy(uint8_t Index, MaybeStore<> const & Other) {}
   void move(uint8_t Index, MaybeStore<> && Other) {}
   void destroy(uint8_t Index) {}
-  void doSwitch(uint8_t Index) {}
 };
 
 // recursive case
 template<typename Head, typename... Tail>
 class MaybeStore<Head, Tail...> {
 public:
-  typedef MaybeStore<Tail...> tail_type;
+  typedef MaybeStore<Tail...> TailT;
 
 private:
   union {
     Head Item;
-    tail_type TailItems;
+    TailT TailItems;
   };
 
 public:
-  /// Constructor (no-op).
-  MaybeStore()
-  : TailItems()
-  {}
+  /// \brief Constructor (no-op).
+  MaybeStore() : TailItems() {}
 
-  /// Destructor (no-op).
-  ~MaybeStore()
-  {}
+  /// \brief Destructor (no-op).
+  ~MaybeStore() {}
 
-  /// Get a reference to the Head object of this union.
-  Head & head() { return Item; }
+  /// \brief Get a reference to the Head object of this union.
+  Head &head() { return Item; }
 
-  /// Get a const reference to the Head object of this union.
-  Head const & head() const { return Item; }
+  /// \brief Get a const reference to the Head object of this union.
+  Head const &head() const { return Item; }
 
-  /// Get a reference to the tail MaybeStore of this union.
-  tail_type & tail() { return TailItems; }
+  /// \brief Get a reference to the tail MaybeStore of this union.
+  TailT &tail() { return TailItems; }
 
-  /// Get a const reference to the tail MaybeStore of this union.
-  tail_type const & tail() const { return TailItems; }
+  /// \brief Get a const reference to the tail MaybeStore of this union.
+  TailT const &tail() const { return TailItems; }
 
-  /// Assign a newly constructed Head object, copying from Value.
+  /// \brief Assign a newly constructed Head object, copying from Value.
   uint8_t assign(Head const &Value) {
     // Construct a new Head object, copying from Value
     new(&Item) Head(Value);
     return 0;
   }
 
-  /// Assign a newly constructed Head object, copying from Value.
+  /// \brief Assign a newly constructed Head object, copying from Value.
   uint8_t assign(Head &Value) {
     // Construct a new Head object, copying from Value
     new(&Item) Head(Value);
     return 0;
   }
 
-  /// Assign a newly constructed Head object, moving from Value.
+  /// \brief Assign a newly constructed Head object, moving from Value.
   uint8_t assign(Head &&Value) {
     // Construct a new Head object, moving from Value
     new(&Item) Head(std::move(Value));
     return 0;
   }
 
-  /// Assign a newly constructed T object, using Value.
+  /// \brief Assign a newly constructed T object, using Value.
   template<typename T>
   uint8_t assign(T &&Value) {
     return 1 + TailItems.assign(std::forward<T>(Value));
   }
 
+  /// \brief Copy-construct a new object at index from the object in Other.
   void construct(uint8_t Index, MaybeStore<Head, Tail...> const & Other) {
     if (Index == 0)
       new(&Item) Head(Other.Item);
@@ -109,6 +124,7 @@ public:
       TailItems.construct(Index - 1, Other.TailItems);
   }
 
+  /// \brief Copy-construct a new object at index from the object in Other.
   void construct(uint8_t Index, MaybeStore<Head, Tail...> & Other) {
     if (Index == 0)
       new(&Item) Head(Other.Item);
@@ -116,6 +132,7 @@ public:
       TailItems.construct(Index - 1, Other.TailItems);
   }
 
+  /// \brief Move-construct a new object at index from the object in Other.
   void construct(uint8_t Index, MaybeStore<Head, Tail...> && Other) {
     if (Index == 0)
       new(&Item) Head(std::move(Other.Item));
@@ -123,7 +140,8 @@ public:
       TailItems.construct(Index - 1, std::move(Other.TailItems));
   }
 
-  /// Set the object at Index to the value from Other, using copy assignment.
+  /// \brief Set the object at Index to the value from Other, using copy
+  ///        assignment.
   void copy(uint8_t Index, MaybeStore<Head, Tail...> const &Other) {
     if (Index == 0)
       Item = Other.Item;
@@ -131,7 +149,8 @@ public:
       TailItems.copy(Index - 1, Other.TailItems);
   }
 
-  /// Set the object at Index to the value from Other, using move assignment.
+  /// \brief Set the object at Index to the value from Other, using move
+  ///        assignment.
   void move(uint8_t Index, MaybeStore<Head, Tail...> &&Other) {
     if (Index == 0)
       Item = std::move(Other.Item);
@@ -139,24 +158,16 @@ public:
       TailItems.move(Index - 1, std::move(Other.TailItems));
   }
 
-  /// Run the destructor for the object at Index.
+  /// \brief Run the destructor for the object at Index.
   void destroy(uint8_t Index) {
     if (Index == 0)
       Item.~Head(); // explicitly destroy item
     else
       TailItems.destroy(Index - 1);
   }
-
-  /// Apply the Index-th predicate to the Index-th object.
-  template<typename PredTy, typename... PredTys>
-  void doSwitch(uint8_t Index, PredTy Pred, PredTys... Preds) {
-    if (Index == 0)
-      Pred(Item);
-    else
-      TailItems.doSwitch(Index - 1, Preds...);
-  }
 };
 
+// Base case of MaybeValue (should never be used).
 template<uint8_t I, typename T>
 struct MaybeValue {
   typedef void type;
@@ -166,60 +177,72 @@ struct MaybeValue {
 
 template<uint8_t I, typename Head, typename... Tail>
 struct MaybeValue<I, MaybeStore<Head, Tail...>> {
-  typedef MaybeStore<Head, Tail...> store_type;
-  typedef MaybeStore<Tail...> tail_store_type;
-  typedef MaybeValue<I - 1, tail_store_type> tail_value;
+  // Ensure that I is allowable.
+  static_assert(I < sizeof...(Tail) + 1, "Value of I is too large.");
 
-  typedef typename tail_value::type type;
+  typedef MaybeStore<Head, Tail...> StoreT;
+  typedef MaybeStore<Tail...> TailStoreT;
+  typedef MaybeValue<I - 1, TailStoreT> TailValueT;
 
-  static type &get(store_type &maybe) {
-    return tail_value::get(maybe.tail());
+  typedef typename TailValueT::type type;
+
+  static type &get(StoreT &maybe) {
+    return TailValueT::get(maybe.tail());
   }
 
-  static type const &get(store_type const &maybe) {
-    return tail_value::get(maybe.tail());
+  static type const &get(StoreT const &maybe) {
+    return TailValueT::get(maybe.tail());
   }
 
   template<typename... Args>
-  static void construct(store_type &maybe, Args&&... args) {
-    tail_value::construct(maybe.tail(), std::forward<Args>(args)...);
+  static void construct(StoreT &maybe, Args&&... args) {
+    TailValueT::construct(maybe.tail(), std::forward<Args>(args)...);
   }
 };
 
 template<typename Head, typename... Tail>
 struct MaybeValue<0, MaybeStore<Head, Tail...>> {
-  typedef MaybeStore<Head, Tail...> store_type;
+  typedef MaybeStore<Head, Tail...> StoreT;
 
   typedef Head type;
 
-  static type &get(store_type &maybe) {
+  static type &get(StoreT &maybe) {
     return maybe.head();
   }
 
-  static type const &get(store_type const &maybe) {
+  static type const &get(StoreT const &maybe) {
     return maybe.head();
   }
 
   template<typename... Args>
-  static void construct(store_type &maybe, Args&&... args) {
+  static void construct(StoreT &maybe, Args&&... args) {
     new (&maybe.head()) Head(std::forward<Args>(args)...);
   }
 };
 
+// Base case of MaybeIndexByType: undefined.
 template<typename...>
-struct MaybeIndexByType; // undefined
+struct MaybeIndexByType;
 
+// Specialization of MaybeIndexByType that matches when the type is the same as
+// the head type of the MaybeStore.
 template<typename Element, typename... Tail>
 struct MaybeIndexByType<Element, MaybeStore<Element, Tail...>> {
   static constexpr uint8_t Index = 0;
 };
 
+// General case of MaybeIndexByType, which finds the index of the type in the
+// tail of the MaybeStore, and adds 1 to that index (to account for the head of
+// the MaybeStore).
 template<typename Element, typename Head, typename... Tail>
 struct MaybeIndexByType<Element, MaybeStore<Head, Tail...>> {
-  typedef MaybeStore<Tail...> tail_store_type;
-  typedef MaybeIndexByType<Element, tail_store_type> tail_index;
+  static_assert(typeInList<Element, Tail...>(),
+                "Type was not found in element types.");
 
-  static constexpr uint8_t Index = 1 + tail_index::Index;
+  typedef MaybeStore<Tail...> TailStoreT;
+  typedef MaybeIndexByType<Element, TailStoreT> TailIndexT;
+
+  static constexpr uint8_t Index = 1 + TailIndexT::Index;
 };
 
 } // namespace maybe_impl
@@ -234,20 +257,27 @@ struct MaybeIndexByType<Element, MaybeStore<Head, Tail...>> {
 ///      slot is currently active.
 ///
 /// \tparam Elems... the types that this union should be able to store. The
-///         number of types must not exceed 255, but the same type can be used
-///         more than once.
+///         number of types must be less than 255, but the same type can be used
+///         more than once. If the same type is used more than once, any method
+///         that accesses an element by type will access the first element with
+///         that type.
 ///
 template<typename... Elems>
 class Maybe {
 private:
-  typedef maybe_impl::MaybeStore<Elems...> store_type;
-
   /// Determines which element in Store is currently active. A zero value
   /// indicates that no element is active. 1 is the first element, etc.
   uint8_t Which;
 
+  // Ensure that the number of elements supplied can be represented by Which.
+  static_assert(sizeof...(Elems) < std::numeric_limits<uint8_t>::max(),
+                "Too many elements for Maybe.");
+
+  // Define the type of the store for our given elements.
+  typedef maybe_impl::MaybeStore<Elems...> StoreT;
+
   /// Implements a union capable of storing any of the types in Elems.
-  store_type Store;
+  StoreT Store;
 
 public:
   /// \brief Construct with no active element.
@@ -298,16 +328,19 @@ public:
   ///
   /// Construct a new Maybe with the I-th element intialized using the
   /// supplied constructor arguments.
-  template<uint8_t I, typename... Args>
-  static Maybe construct(Args &&...args) {
-    typedef maybe_impl::MaybeValue<I, store_type> maybe_value_type;
+  template<uint8_t I, typename... ArgTs>
+  static Maybe construct(ArgTs &&...Args) {
+    // Ensure that I is allowable.
+    static_assert(I < sizeof...(Elems), "Value of I is too large.");
 
+    // Get the accessor for index I in our store type.
+    typedef maybe_impl::MaybeValue<I, StoreT> ValueT;
+
+    // Construct and return the new Maybe.
     Maybe Object;
-
     Object.Which = I + 1;
-    maybe_value_type::construct(Object.Store, std::forward<Args>(args)...);
-
-    return std::move(Object);
+    ValueT::construct(Object.Store, std::forward<ArgTs>(Args)...);
+    return Object;
   }
 
   /// \brief Destruct the currently active element (and this object).
@@ -332,14 +365,21 @@ public:
   /// \return true iff the first element matching type T is currently assigned.
   template<typename T>
   bool assigned() const {
+    // Remove reference from type T.
+    typedef typename std::remove_reference<T>::type RawT;
+
+    // Ensure that this type exists in our element types.
+    static_assert(seec::util::maybe_impl::typeInList<RawT, Elems...>(),
+                  "Type was not found in element types.");
+
     if (Which == 0)
       return false;
 
-    // Find the first index of an element with type T (statically)
-    typedef typename std::remove_reference<T>::type RawT;
-    typedef maybe_impl::MaybeIndexByType<RawT, store_type> maybe_index_type;
-    auto constexpr Index = maybe_index_type::Index;
+    // Find the first index of an element with type T.
+    typedef maybe_impl::MaybeIndexByType<RawT, StoreT> IndexT;
+    auto constexpr Index = IndexT::Index;
 
+    // Return true if this index is the currently active index.
     return (Which - 1 == Index);
   }
 
@@ -348,6 +388,7 @@ public:
   bool assigned(uint8_t I) const {
     if (Which == 0)
       return false;
+
     return Which - 1 == I;
   }
 
@@ -360,6 +401,7 @@ public:
   void reset() {
     if (Which != 0)
       Store.destroy(Which - 1);
+
     Which = 0;
   }
 
@@ -368,78 +410,104 @@ public:
   template<typename T>
   void assign(T &&Value) {
     reset();
+
     Which = 1 + Store.assign(std::forward<T>(Value));
   }
 
   /// \brief Clear any current assignment and construct a new object for the
   /// I-th element.
-  template<uint8_t I, typename... Args>
-  void assign(Args&&... args) {
+  template<uint8_t I, typename... ArgTs>
+  void assign(ArgTs&&... Args) {
+    // Ensure that I is allowable.
+    static_assert(I < sizeof...(Elems), "Value of I is too large.");
+
+    // Clear any currently active element.
     reset();
+
+    // Set this element to be active.
     Which = I + 1;
 
-    typedef maybe_impl::MaybeValue<I, store_type> maybe_value_type;
-    maybe_value_type::construct(Store, std::forward<Args>(args)...);
+    // Get an accessor for this element.
+    typedef maybe_impl::MaybeValue<I, StoreT> ValueT;
+
+    // Construct this element using the supplied arguments.
+    ValueT::construct(Store, std::forward<ArgTs>(Args)...);
   }
 
   /// \brief Copy the active element from another Maybe of the same type.
-  Maybe<Elems...> & operator= (Maybe<Elems...> const & RHS) {
+  Maybe<Elems...> & operator= (Maybe<Elems...> const &RHS) {
     if (Which == RHS.Which) {
-      if (Which == 0)
+      if (Which == 0) // Both Maybes are unassigned, so do nothing.
         return *this;
 
-      // directly copy element from RHS
+      // Directly copy element from RHS.
       Store.copy(Which - 1, RHS.Store);
 
       return *this;
     }
 
-    // clear current element and construct new element from RHS
+    // Clear any currently active element.
     reset();
-    Which = RHS.Which;
-    Store.construct(Which - 1, RHS.Store);
+
+    if (RHS.Which != 0) {
+      // Set the active element of RHS to be active.
+      Which = RHS.Which;
+
+      // Copy-construct the active element from RHS.
+      Store.construct(Which - 1, RHS.Store);
+    }
 
     return *this;
   }
 
   /// \brief Copy the active element from another Maybe of the same type.
-  // explicitly provide non-const method, otherwise non-const references will
-  // use the perfect forwarding template operator=.
-  Maybe<Elems...> & operator= (Maybe<Elems...> & RHS) {
+  Maybe<Elems...> & operator= (Maybe<Elems...> &RHS) {
     if (Which == RHS.Which) {
-      if (Which == 0)
+      if (Which == 0) // Both Maybes are unassigned, so do nothing.
         return *this;
 
-      // directly copy element from RHS
+      // Directly copy element from RHS.
       Store.copy(Which - 1, RHS.Store);
 
       return *this;
     }
 
-    // clear current element and construct new element from RHS
+    // Clear any currently active element.
     reset();
-    Which = RHS.Which;
-    Store.construct(Which - 1, RHS.Store);
+
+    if (RHS.Which != 0) {
+      // Set the active element of RHS to be active.
+      Which = RHS.Which;
+
+      // Copy-construct the active element from RHS.
+      Store.construct(Which - 1, RHS.Store);
+    }
 
     return *this;
   }
 
   /// \brief Move from another Maybe of the same type.
-  Maybe<Elems...> & operator= (Maybe<Elems...> && RHS) {
+  Maybe<Elems...> & operator= (Maybe<Elems...> &&RHS) {
     if (Which == RHS.Which) {
-      if (Which == 0)
+      if (Which == 0) // Both Maybes are unassigned, so do nothing.
         return *this;
 
-      // directly move element from RHS
-      Store.move(Which - 1, std::move(RHS.Store));
+      // Directly move element from RHS.
+      Store.copy(Which - 1, std::move(RHS.Store));
 
       return *this;
     }
 
-    // clear current element and construct new element from RHS
+    // Clear any currently active element.
     reset();
-    Which = RHS.Which;
-    Store.construct(Which - 1, std::move(RHS.Store));
+
+    if (RHS.Which != 0) {
+      // Set the active element of RHS to be active.
+      Which = RHS.Which;
+
+      // Move-construct the active element from RHS.
+      Store.construct(Which - 1, std::move(RHS.Store));
+    }
 
     return *this;
   }
@@ -447,23 +515,35 @@ public:
   /// \brief Assign this Maybe's first element of type T to Value.
   template<typename T>
   Maybe<Elems...> & operator= (T &&Value) {
-    // If our active element is already of type T, then use its operator=.
+    // Get the type of T with any reference removed.
+    typedef typename std::remove_reference<T>::type RawT;
+
+    // Ensure that this type exists in our element types.
+    static_assert(seec::util::maybe_impl::typeInList<RawT, Elems...>(),
+                  "Type was not found in element types.");
+
+    // First, check if the currently active element is of type T, in which case
+    // we can directly use its assignment operator.
     if (Which != 0) {
-      // Find the first index of an element with type T (statically)
-      typedef typename std::remove_reference<T>::type RawT;
-      typedef maybe_impl::MaybeIndexByType<RawT, store_type> maybe_index_type;
-      auto constexpr Index = maybe_index_type::Index;
+      // Find the index of the first element matching type RawT.
+      typedef maybe_impl::MaybeIndexByType<RawT, StoreT> IndexT;
+      auto constexpr Index = IndexT::Index;
 
       if (Which - 1 == Index) {
-        typedef maybe_impl::MaybeValue<Index, store_type> maybe_value_type;
-        maybe_value_type::get(Store) = std::forward<T>(Value);
+        // Get the accessor for this element.
+        typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
+
+        // Assign to the element using its assignment operator.
+        ValueT::get(Store) = std::forward<T>(Value);
 
         return *this;
       }
     }
 
-    // Otherwise, destroy it and construct a new object.
+    // Destroy any currently existing element.
     reset();
+
+    // Construct a new element of type T from the given Value.
     assign(std::forward<T>(Value));
 
     return *this;
@@ -471,71 +551,68 @@ public:
 
   /// \brief Get a reference to the I-th element of this Maybe.
   template<uint8_t I>
-  typename maybe_impl::MaybeValue<I, store_type>::type &
+  typename maybe_impl::MaybeValue<I, StoreT>::type &
   get() {
-    if (!Which)
+    // Ensure that I is allowable.
+    static_assert(I < sizeof...(Elems), "Value of I is too large.");
+
+    // Ensure that element I is active.
+    if (!Which) {
+      // TODO: We must be able to default-construct this element.
       Which = I + 1;
+    }
     else
       assert(Which == I + 1 && "Illegal access to Maybe.");
 
-    typedef typename maybe_impl::MaybeValue<I, store_type> ValueType;
-    return ValueType::get(Store);
+    // Return a reference to element I.
+    typedef typename maybe_impl::MaybeValue<I, StoreT> ValueT;
+    return ValueT::get(Store);
   }
 
   /// \brief Get a const reference to the I-th element of this Maybe.
   template<uint8_t I>
-  typename maybe_impl::MaybeValue<I, store_type>::type const &
+  typename maybe_impl::MaybeValue<I, StoreT>::type const &
   get() const {
+    // Ensure that I is allowable.
+    static_assert(I < sizeof...(Elems), "Value of I is too large.");
+
+    // Ensure that element I is active.
     assert(Which == I + 1 && "Illegal access to Maybe.");
 
-    typedef typename maybe_impl::MaybeValue<I, store_type> ValueType;
-    return ValueType::get(Store);
+    typedef typename maybe_impl::MaybeValue<I, StoreT> ValueT;
+    return ValueT::get(Store);
   }
 
   /// \brief Get a reference to the first element with type T.
   template<typename T>
   T &get() {
     // Find the first index of an element with type T (statically)
-    typedef maybe_impl::MaybeIndexByType<T, store_type> maybe_index_type;
-    auto constexpr Index = maybe_index_type::Index;
+    typedef maybe_impl::MaybeIndexByType<T, StoreT> IndexT;
+    auto constexpr Index = IndexT::Index;
 
     if (!Which)
       Which = Index + 1;
     else
       assert((Which == Index + 1) && "Illegal access to Maybe.");
 
-    typedef maybe_impl::MaybeValue<Index, store_type> maybe_value_type;
-    return maybe_value_type::get(Store);
+    typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
+    return ValueT::get(Store);
   }
 
   /// \brief Get a const reference to the first element with type T.
   template<typename T>
   T const &get() const {
     // Find the first index of an element with type T (statically)
-    typedef maybe_impl::MaybeIndexByType<T, store_type> maybe_index_type;
-    auto constexpr Index = maybe_index_type::Index;
+    typedef maybe_impl::MaybeIndexByType<T, StoreT> IndexT;
+    auto constexpr Index = IndexT::Index;
 
     if (!Which)
       Which = Index + 1;
     else
       assert((Which == Index + 1) && "Illegal access to Maybe.");
 
-    typedef maybe_impl::MaybeValue<Index, store_type> maybe_value_type;
-    return maybe_value_type::get(Store);
-  }
-
-  /// \brief Apply the appropriate predicate to the currently active element.
-  ///
-  /// Apply the appropriate predicate to the currently active element, or if
-  /// there is no active element, apply the UnassignedPred. The predicates
-  /// should be supplied in order of element, so the 0th element would be used
-  /// with the first predicate in Preds, etc.
-  template<typename UnassignedPredTy, typename... PredTys>
-  void doSwitch(UnassignedPredTy UnassignedPred, PredTys... Preds) {
-    if (Which == 0)
-      UnassignedPred();
-    else
-      Store.doSwitch(Which - 1, Preds...);
+    typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
+    return ValueT::get(Store);
   }
 };
 
@@ -543,4 +620,4 @@ public:
 
 } // namespace seec
 
-#endif // _SEEC_UTIL_MAYBE_HPP_
+#endif // SEEC_UTIL_MAYBE_HPP
