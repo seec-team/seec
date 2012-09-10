@@ -13,9 +13,13 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/wxWidgets/ImageResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/raw_ostream.h"
+
+#include <wx/bmpbuttn.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "OpenTrace.hpp"
 #include "ThreadTimeControl.hpp"
@@ -36,13 +40,12 @@ wxDEFINE_EVENT(SEEC_EV_THREAD_TIME_VIEWED,  ThreadTimeEvent);
 IMPLEMENT_DYNAMIC_CLASS(ThreadTimeControl, wxPanel);
 
 enum ControlIDs {
-  ThreadTimeControl_Reset = wxID_HIGHEST,
-  ThreadTimeControl_SlideThreadTime,
-  ThreadTimeControl_ButtonGoToStart,
-  ThreadTimeControl_ButtonStepBack,
-  ThreadTimeControl_ButtonStepForward,
-  ThreadTimeControl_ButtonGoToNextError,
-  ThreadTimeControl_ButtonGoToEnd
+  ControlID_Reset = wxID_HIGHEST,
+  ControlID_ButtonGoToStart,
+  ControlID_ButtonStepBack,
+  ControlID_ButtonStepForward,
+  ControlID_ButtonGoToNextError,
+  ControlID_ButtonGoToEnd
 };
 
 
@@ -51,21 +54,11 @@ enum ControlIDs {
 //------------------------------------------------------------------------------
 
 BEGIN_EVENT_TABLE(ThreadTimeControl, wxPanel)
-  EVT_COMMAND_SCROLL(ThreadTimeControl_SlideThreadTime,
-                     ThreadTimeControl::OnSlide)
-  
-  EVT_BUTTON(ThreadTimeControl_ButtonGoToStart,
-             ThreadTimeControl::OnGoToStart)
-  
-  EVT_BUTTON(ThreadTimeControl_ButtonStepBack, ThreadTimeControl::OnStepBack)
-  
-  EVT_BUTTON(ThreadTimeControl_ButtonStepForward,
-             ThreadTimeControl::OnStepForward)
-  
-  EVT_BUTTON(ThreadTimeControl_ButtonGoToNextError,
-             ThreadTimeControl::OnGoToNextError)
-  
-  EVT_BUTTON(ThreadTimeControl_ButtonGoToEnd, ThreadTimeControl::OnGoToEnd)
+  EVT_BUTTON(ControlID_ButtonGoToStart, ThreadTimeControl::OnGoToStart)
+  EVT_BUTTON(ControlID_ButtonStepBack, ThreadTimeControl::OnStepBack)
+  EVT_BUTTON(ControlID_ButtonStepForward, ThreadTimeControl::OnStepForward)
+  EVT_BUTTON(ControlID_ButtonGoToNextError, ThreadTimeControl::OnGoToNextError)
+  EVT_BUTTON(ControlID_ButtonGoToEnd, ThreadTimeControl::OnGoToEnd)
 END_EVENT_TABLE()
 
 
@@ -92,64 +85,59 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
                                      "ScrollThreadTime");
   assert(U_SUCCESS(Status));
 
-  // Find the maximum ThreadTime for this thread.
-  auto LastTime = ThreadTrace->getFinalThreadTime();
-  
-  // Create a slider to control the current thread time.
-  SlideThreadTime = new wxSlider(this,
-                                 ThreadTimeControl_SlideThreadTime,
-                                 0, // Value
-                                 0, // MinValue
-                                 LastTime, // MaxValue
-                                 wxDefaultPosition,
-                                 wxDefaultSize,
-                                 wxSL_HORIZONTAL
-                                 | wxSL_LABELS // Show labels for value.
-                                 | wxSL_AUTOTICKS // Show ticks.
-                                 | wxSL_BOTTOM // Show ticks below slider.
-                                 );
+  // Get the GUI images from the TraceViewer ICU resources.
+  auto ImageTable = seec::getResource("TraceViewer",
+                                      Locale::getDefault(),
+                                      Status,
+                                      "GUIImages",
+                                      "Movement");
+  assert(U_SUCCESS(Status));
 
-  // TODO: Format Caption for Thread #?
-  auto Caption = seec::getwxStringExOrDie(TextTable, "Title");
-  SlideThreadTime->SetLabel(Caption);
-  SlideThreadTime->SetTickFreq(1);
-  SlideThreadTime->Enable(true); // Enable the slider.
-  
   // Create stepping buttons to control the thread time.
-  auto ButtonGoToStart = new wxButton(this,
-                                      ThreadTimeControl_ButtonGoToStart,
-                                      seec::getwxStringExOrDie(TextTable,
-                                                               "GoToStart"));
-  
-  auto ButtonStepBack = new wxButton(this,
-                                     ThreadTimeControl_ButtonStepBack,
-                                     seec::getwxStringExOrDie(TextTable,
-                                                              "StepBack"));
+  auto ImageGoToStart = seec::getwxImageEx(ImageTable,
+                                           "BackwardArrowToBlock",
+                                           Status);
+  auto ButtonGoToStart = new wxBitmapButton(this,
+                                            ControlID_ButtonGoToStart,
+                                            ImageGoToStart);
 
-  auto ButtonStepForward = new wxButton(this,
-                                        ThreadTimeControl_ButtonStepForward,
-                                        seec::getwxStringExOrDie(
-                                          TextTable, "StepForward"));
+  auto ImageStepBack = seec::getwxImageEx(ImageTable,
+                                          "BackwardArrow",
+                                          Status);
+  auto ButtonStepBack = new wxBitmapButton(this,
+                                           ControlID_ButtonStepBack,
+                                           ImageStepBack);
 
-  auto ButtonGoToNextError = new wxButton(this,
-                                          ThreadTimeControl_ButtonGoToNextError,
-                                          seec::getwxStringExOrDie(
-                                            TextTable, "GoToNextError"));
+  auto ImageStepForward = seec::getwxImageEx(ImageTable,
+                                             "ForwardArrow",
+                                              Status);
+  auto ButtonStepForward = new wxBitmapButton(this,
+                                              ControlID_ButtonStepForward,
+                                              ImageStepForward);
 
-  auto ButtonGoToEnd = new wxButton(this,
-                                    ThreadTimeControl_ButtonGoToEnd,
-                                    seec::getwxStringExOrDie(TextTable,
-                                                             "GoToEnd"));
+  auto ImageGoToNextError = seec::getwxImageEx(ImageTable,
+                                               "ForwardArrowToError",
+                                               Status);
+  auto ButtonGoToNextError = new wxBitmapButton(this,
+                                                ControlID_ButtonGoToNextError,
+                                                ImageGoToNextError);
+
+  auto ImageGoToEnd = seec::getwxImageEx(ImageTable,
+                                         "ForwardArrowToBlock",
+                                         Status);
+  auto ButtonGoToEnd = new wxBitmapButton(this,
+                                          ControlID_ButtonGoToEnd,
+                                          ImageGoToEnd);
 
   // Position all of our controls.
   auto TopSizer = new wxBoxSizer(wxHORIZONTAL);
-  TopSizer->Add(ButtonGoToStart, wxSizerFlags().Centre());
-  TopSizer->Add(ButtonStepBack, wxSizerFlags().Centre());
-  TopSizer->Add(SlideThreadTime, wxSizerFlags().Proportion(1).Expand());
-  TopSizer->Add(ButtonStepForward, wxSizerFlags().Centre());
-  TopSizer->Add(ButtonGoToNextError, wxSizerFlags().Centre());
-  TopSizer->Add(ButtonGoToEnd, wxSizerFlags().Centre());
-  SetSizerAndFit(TopSizer);
+  TopSizer->Add(ButtonGoToStart, wxSizerFlags().Proportion(1).Shaped());
+  TopSizer->Add(ButtonStepBack, wxSizerFlags().Proportion(1).Shaped());
+  TopSizer->Add(ButtonStepForward, wxSizerFlags().Proportion(1).Shaped());
+  TopSizer->Add(ButtonGoToNextError, wxSizerFlags().Proportion(1).Shaped());
+  TopSizer->Add(ButtonGoToEnd, wxSizerFlags().Proportion(1).Shaped());
+  TopSizer->SetSizeHints(this);
+  SetSizer(TopSizer);
 
   return true;
 }
@@ -157,38 +145,16 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
 void ThreadTimeControl::show(seec::trace::ProcessState &ProcessState,
                              seec::trace::ThreadState &ThreadState) {
   this->ThreadState = &ThreadState;
-  
+
   // If the state's thread time doesn't match our thread time, we must update
   // ourself.
-  
-}
 
-void ThreadTimeControl::OnSlide(wxScrollEvent &Event) {
-  auto Type = Event.GetEventType();
-  uint64_t Time = Event.GetPosition();
-  auto ThreadID = ThreadTrace->getThreadID();
-
-  if (Type == wxEVT_SCROLL_CHANGED) {
-    ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
-  }
-#if __WXMAC__
-  // wxEVT_SCROLL_CHANGED isn't raised by the slider in wxCocoa.
-  else if (Type == wxEVT_SCROLL_THUMBRELEASE) {
-    ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
-  }
-#endif
 }
 
 void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
-  if (SlideThreadTime->GetValue() == 0)
+  if (ThreadState->getThreadTime() == 0)
     return;
-  
-  SlideThreadTime->SetValue(0);
-  
+
   auto const ThreadID = ThreadTrace->getThreadID();
   ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, 0);
   Ev.SetEventObject(this);
@@ -196,12 +162,11 @@ void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
-  if (SlideThreadTime->GetValue() == 0)
+  if (ThreadState->getThreadTime() == 0)
     return;
-  
-  auto const Time = SlideThreadTime->GetValue() - 1;
-  SlideThreadTime->SetValue(Time);
-  
+
+  auto const Time = ThreadState->getThreadTime() - 1;
+
   auto const ThreadID = ThreadTrace->getThreadID();
   ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
   Ev.SetEventObject(this);
@@ -209,14 +174,13 @@ void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
-  auto const MaxValue = SlideThreadTime->GetMax();
-  
-  if (SlideThreadTime->GetValue() == MaxValue)
+  auto const MaxValue = ThreadTrace->getFinalThreadTime();
+
+  if (ThreadState->getThreadTime() == MaxValue)
     return;
-  
-  auto const Time = SlideThreadTime->GetValue() + 1;
-  SlideThreadTime->SetValue(Time);
-  
+
+  auto const Time = ThreadState->getThreadTime() + 1;
+
   auto const ThreadID = ThreadTrace->getThreadID();
   ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, Time);
   Ev.SetEventObject(this);
@@ -224,15 +188,15 @@ void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
-  if (SlideThreadTime->GetValue() == SlideThreadTime->GetMax())
+  if (ThreadState->getThreadTime() == ThreadTrace->getFinalThreadTime())
     return;
-  
+
   assert(ThreadState);
-  
+
   auto NextEv = ThreadState->getNextEvent();
   auto SearchRange = seec::trace::rangeAfterIncluding(ThreadTrace->events(),
                                                       NextEv);
-  
+
   // Find the first RuntimeError in SearchRange.
   auto MaybeEvRef = seec::trace::find<seec::trace::EventType::RuntimeError>
                                      (SearchRange);
@@ -240,21 +204,19 @@ void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
     // There are no more errors.
     return;
   }
-  
+
   // Find the thread time at this position.
   auto TimeSearchRange = seec::trace::rangeBefore(ThreadTrace->events(),
                                                   MaybeEvRef.get<0>());
-  
+
   auto LastEventTime = seec::trace::lastSuccessfulApply(
                                     TimeSearchRange,
                                     [](seec::trace::EventRecordBase const &Ev){
                                       return Ev.getThreadTime();
                                     });
-  
+
   uint64_t LastTime = LastEventTime.assigned() ? LastEventTime.get<0>() : 0;
-  
-  SlideThreadTime->SetValue(LastTime);
-  
+
   auto const ThreadID = ThreadTrace->getThreadID();
   ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, LastTime);
   Ev.SetEventObject(this);
@@ -262,13 +224,11 @@ void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
-  auto const MaxValue = SlideThreadTime->GetMax();
-  
-  if (SlideThreadTime->GetValue() == MaxValue)
+  auto const MaxValue = ThreadTrace->getFinalThreadTime();
+
+  if (ThreadState->getThreadTime() == MaxValue)
     return;
-  
-  SlideThreadTime->SetValue(MaxValue);
-  
+
   auto const ThreadID = ThreadTrace->getThreadID();
   ThreadTimeEvent Ev(SEEC_EV_THREAD_TIME_CHANGED, GetId(), ThreadID, MaxValue);
   Ev.SetEventObject(this);

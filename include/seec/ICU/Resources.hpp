@@ -13,12 +13,12 @@
 
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/PathV1.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/system_error.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "unicode/resbund.h"
 #include "unicode/udata.h"
@@ -42,7 +42,7 @@ std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
                                                   Locale const &GetLocale);
 
 
-/// Base-case for getResource operating on a ResourceBundle.
+/// \brief Base-case for getResource operating on a ResourceBundle.
 inline ResourceBundle getResource(ResourceBundle const &Bundle,
                                   UErrorCode &Status) {
   return Bundle;
@@ -100,12 +100,30 @@ inline int32_t getIntEx(ResourceBundle const &Bundle,
                         UErrorCode &Status) {
   if (U_FAILURE(Status))
     return int32_t{};
-  
+
   auto Resource = Bundle.get(Key, Status);
   if (U_FAILURE(Status))
     return int32_t{};
-  
+
   return Resource.getInt(Status);
+}
+
+/// \brief Returns the binary data in a resource that has a given key.
+///
+/// \param Bundle The resource bundle to extract from.
+/// \param Key The key of the binary data that will be extracted.
+/// \param Status Fills in the outgoing error code.
+inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
+                                           char const *Key,
+                                           UErrorCode  &Status) {
+  auto Resource = Bundle.get(Key, Status);
+
+  int32_t Length = -1;
+  auto Data = Resource.getBinary(Length, Status);
+  if (U_FAILURE(Status) || Length < 0)
+    return llvm::ArrayRef<uint8_t>();
+
+  return llvm::ArrayRef<uint8_t>(Data, static_cast<std::size_t>(Length));
 }
 
 

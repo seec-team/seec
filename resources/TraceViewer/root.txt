@@ -105,6 +105,23 @@ root:table {
   }
 
 
+  GUIImages:table {
+    Movement:table {
+      BackwardArrow:import {"Images/backward-arrow.png"}
+
+      BackwardArrowToBlock:import {"Images/backward-arrow-to-block.png"}
+
+      BackwardArrowToError:import {"Images/backward-arrow-to-error.png"}
+
+      ForwardArrow:import {"Images/forward-arrow.png"}
+
+      ForwardArrowToBlock:import {"Images/forward-arrow-to-block.png"}
+
+      ForwardArrowToError:import {"Images/forward-arrow-to-error.png"}
+    }
+  }
+
+
   // Keywords used by Scintilla lexers.
   ScintillaKeywords:table {
     CPP:array {

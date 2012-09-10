@@ -91,6 +91,9 @@ bool TraceViewerApp::OnInit() {
   wxStandardPaths StdPaths;
   char const *ExecutablePath = StdPaths.GetExecutablePath().c_str();
 
+  // Initialize the wxImage image handlers.
+  wxInitAllImageHandlers();
+
   // Load ICU resources for TraceViewer.
   ICUResources.reset(new seec::ResourceLoader(llvm::sys::Path{ExecutablePath}));
   if (!ICUResources->loadResource("TraceViewer"))

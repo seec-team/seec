@@ -98,15 +98,12 @@ wxDECLARE_EVENT(SEEC_EV_THREAD_TIME_VIEWED, ThreadTimeEvent);
 ///
 class ThreadTimeControl : public wxPanel
 {
-  /// Slider for the user to manipulate the thread time.
-  wxSlider *SlideThreadTime;
-
   /// Information about the currently open trace (if any).
   OpenTrace *Trace;
 
   /// Trace for the thread that we're controlling.
   seec::trace::ThreadTrace const *ThreadTrace;
-  
+
   /// State of the thread that we're controlling.
   seec::trace::ThreadState const *ThreadState;
 
@@ -120,7 +117,6 @@ public:
   /// created by calling Create().
   ThreadTimeControl()
   : wxPanel(),
-    SlideThreadTime(nullptr),
     Trace(nullptr),
     ThreadTrace(nullptr),
     ThreadState(nullptr)
@@ -132,7 +128,6 @@ public:
                     seec::trace::ThreadTrace const &TheThreadTrace,
                     wxWindowID ID = wxID_ANY)
   : wxPanel(),
-    SlideThreadTime(nullptr),
     Trace(nullptr),
     ThreadTrace(nullptr),
     ThreadState(nullptr)
@@ -152,25 +147,22 @@ public:
 
   /// \name Event Handlers
   /// @{
-  
-  /// Called when the SlideThreadTime slider raises an event.
-  void OnSlide(wxScrollEvent &Event);
-  
+
   /// Called when the GoToStart button is clicked.
   void OnGoToStart(wxCommandEvent &Event);
-  
+
   /// Called when the StepBack button is clicked.
   void OnStepBack(wxCommandEvent &Event);
-  
+
   /// Called when the StepForward button is clicked.
   void OnStepForward(wxCommandEvent &Event);
-  
+
   /// Called when the GoToNextError button is clicked.
   void OnGoToNextError(wxCommandEvent &Event);
-  
+
   /// Called when the GoToEnd button is clicked.
   void OnGoToEnd(wxCommandEvent &Event);
-  
+
   /// @} (Event Handlers)
 
 private:
