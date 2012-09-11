@@ -270,7 +270,8 @@ private:
   uint8_t Which;
 
   // Ensure that the number of elements supplied can be represented by Which.
-  static_assert(sizeof...(Elems) < std::numeric_limits<uint8_t>::max(),
+  // Hardcoded until our libc++ is updated to support constexpr max().
+  static_assert(sizeof...(Elems) < 255,
                 "Too many elements for Maybe.");
 
   // Define the type of the store for our given elements.
