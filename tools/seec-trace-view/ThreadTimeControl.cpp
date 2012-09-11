@@ -94,50 +94,40 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   assert(U_SUCCESS(Status));
 
   // Create stepping buttons to control the thread time.
-  auto ImageGoToStart = seec::getwxImageEx(ImageTable,
-                                           "BackwardArrowToBlock",
-                                           Status);
-  auto ButtonGoToStart = new wxBitmapButton(this,
-                                            ControlID_ButtonGoToStart,
-                                            ImageGoToStart);
-
-  auto ImageStepBack = seec::getwxImageEx(ImageTable,
-                                          "BackwardArrow",
-                                          Status);
-  auto ButtonStepBack = new wxBitmapButton(this,
-                                           ControlID_ButtonStepBack,
-                                           ImageStepBack);
-
-  auto ImageStepForward = seec::getwxImageEx(ImageTable,
-                                             "ForwardArrow",
-                                              Status);
-  auto ButtonStepForward = new wxBitmapButton(this,
-                                              ControlID_ButtonStepForward,
-                                              ImageStepForward);
-
-  auto ImageGoToNextError = seec::getwxImageEx(ImageTable,
-                                               "ForwardArrowToError",
-                                               Status);
-  auto ButtonGoToNextError = new wxBitmapButton(this,
-                                                ControlID_ButtonGoToNextError,
-                                                ImageGoToNextError);
-
-  auto ImageGoToEnd = seec::getwxImageEx(ImageTable,
-                                         "ForwardArrowToBlock",
-                                         Status);
-  auto ButtonGoToEnd = new wxBitmapButton(this,
-                                          ControlID_ButtonGoToEnd,
-                                          ImageGoToEnd);
+#define SEEC_BUTTON(NAME, TEXT_KEY, IMAGE_KEY)                                 \
+  wxButton *Button##NAME = nullptr;                                            \
+  auto Text##NAME = seec::getwxStringExOrEmpty(TextTable, TEXT_KEY);           \
+  auto Img##NAME = seec::getwxImageEx(ImageTable, IMAGE_KEY, Status);          \
+  if (Img##NAME.IsOk()) {                                                      \
+    Img##NAME.Rescale(100, 50, wxIMAGE_QUALITY_HIGH);                          \
+    Button##NAME = new wxBitmapButton(this, ControlID_Button##NAME, Img##NAME);\
+  }                                                                            \
+  else {                                                                       \
+    Button##NAME = new wxButton(this, ControlID_Button##NAME, Text##NAME);     \
+  }                                                                            \
+  
+  SEEC_BUTTON(GoToStart, "GoToStart", "BackwardArrowToBlock")
+  SEEC_BUTTON(StepBack, "StepBack", "BackwardArrow")
+  SEEC_BUTTON(StepForward, "StepForward", "ForwardArrow")
+  SEEC_BUTTON(GoToNextError, "GoToNextError", "ForwardArrowToError")
+  SEEC_BUTTON(GoToEnd, "GoToEnd", "ForwardArrowToBlock")
+  
+#undef SEEC_BUTTON
 
   // Position all of our controls.
   auto TopSizer = new wxBoxSizer(wxHORIZONTAL);
-  TopSizer->Add(ButtonGoToStart, wxSizerFlags().Proportion(1).Shaped());
-  TopSizer->Add(ButtonStepBack, wxSizerFlags().Proportion(1).Shaped());
-  TopSizer->Add(ButtonStepForward, wxSizerFlags().Proportion(1).Shaped());
-  TopSizer->Add(ButtonGoToNextError, wxSizerFlags().Proportion(1).Shaped());
-  TopSizer->Add(ButtonGoToEnd, wxSizerFlags().Proportion(1).Shaped());
-  TopSizer->SetSizeHints(this);
-  SetSizer(TopSizer);
+  TopSizer->AddStretchSpacer(1);
+  
+  wxSizerFlags ButtonSizer;
+  
+  TopSizer->Add(ButtonGoToStart, ButtonSizer);
+  TopSizer->Add(ButtonStepBack, ButtonSizer);
+  TopSizer->Add(ButtonStepForward, ButtonSizer);
+  TopSizer->Add(ButtonGoToNextError, ButtonSizer);
+  TopSizer->Add(ButtonGoToEnd, ButtonSizer);
+  
+  TopSizer->AddStretchSpacer(1);
+  SetSizerAndFit(TopSizer);
 
   return true;
 }
