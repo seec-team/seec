@@ -101,8 +101,13 @@ int main(int argc, char **argv, char * const *envp) {
     exit(EXIT_FAILURE);
   }
 
-  GenerateSerializableMappings(*Action, Mod, Compiler.getSourceManager(),
+  GenerateSerializableMappings(*Action,
+                               Mod,
+                               Compiler.getSourceManager(),
                                InputFile);
+  
+  // Store all used source files into the LLVM Module.
+  StoreUsedSourcesInModule(Mod, Compiler.getSourceManager());
 
   // Write the LLVM Module to a file
   std::string Error;

@@ -284,6 +284,38 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   }
 }
 
+void StoreUsedSourcesInModule(llvm::Module *Mod,
+                              clang::SourceManager &SrcManager) {
+  assert(Mod && "No module?");
+  
+  auto SourceFileNode = Mod->getOrInsertNamedMetadata(MDSources);
+  auto &LLVMContext = Mod->getContext();
+  
+  for (auto It = SrcManager.fileinfo_begin(), End = SrcManager.fileinfo_end();
+       It != End;
+       ++It) {
+    // Get the filename as an MDString.
+    auto NameNode = llvm::MDString::get(LLVMContext, It->first->getName());
+    
+    // Get the file contents as a constant data array.
+    llvm::Constant *ContentsNode = nullptr;
+    auto Buffer = It->second->getRawBuffer();
+    
+    if (Buffer) {
+      auto Start = reinterpret_cast<uint8_t const *>(Buffer->getBufferStart());
+      llvm::ArrayRef<uint8_t> BufferRef(Start, Buffer->getBufferSize());
+      ContentsNode = llvm::ConstantDataArray::get(LLVMContext, BufferRef);
+    }
+    
+    // Get an MDNode with the filename and contents.
+    llvm::Value *Pair[] = {NameNode, ContentsNode};
+    auto PairNode = llvm::MDNode::get(LLVMContext, Pair);
+    
+    // Add the file's MDNode to the global sources node.
+    SourceFileNode->addOperand(PairNode);
+  }
+}
+
 } // namespace clang (in seec)
 
 } // namespace seec

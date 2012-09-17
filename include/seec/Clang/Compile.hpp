@@ -175,10 +175,15 @@ GetCompileForSourceFile(
   llvm::StringRef ExecutablePath,
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics);
 
+///
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
                                   clang::SourceManager &SM,
                                   llvm::StringRef MainFilename);
+
+/// \brief Store all source files in SrcManager into the given llvm::Module.
+void StoreUsedSourcesInModule(llvm::Module *Mod,
+                              clang::SourceManager &SrcManager);
 
 } // namespace clang (in seec)
 
