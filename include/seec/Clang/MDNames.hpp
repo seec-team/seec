@@ -17,7 +17,7 @@ char const * const MDDeclIdxStr = "seec.clang.decl.idx";
 char const * const MDGlobalDeclPtrsStr = "clang.global.decl.ptrs";
 char const * const MDGlobalDeclIdxsStr = "seec.clang.global.decl.idxs";
 
-char const * const MDSources = "seec.clang.sources";
+char const * const MDCompileInfo = "seec.clang.compile.info";
 
 }
 

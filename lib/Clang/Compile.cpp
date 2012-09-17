@@ -22,6 +22,8 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <vector>
+
 using namespace clang;
 using namespace llvm;
 
@@ -284,13 +286,21 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   }
 }
 
-void StoreUsedSourcesInModule(llvm::Module *Mod,
-                              clang::SourceManager &SrcManager) {
+void StoreCompileInformationInModule(llvm::Module *Mod,
+                                     clang::CompilerInstance &Compiler) {
   assert(Mod && "No module?");
   
-  auto SourceFileNode = Mod->getOrInsertNamedMetadata(MDSources);
   auto &LLVMContext = Mod->getContext();
+  auto &SrcManager = Compiler.getSourceManager();
   
+  std::vector<llvm::Value *> FileInfoNodes;
+  std::vector<llvm::Value *> ArgNodes;
+  
+  // Get information about the main file.
+  auto MainFileID = SrcManager.getMainFileID();
+  auto MainFileEntry = SrcManager.getFileEntryForID(MainFileID);
+  
+  // Get all source file information nodes.
   for (auto It = SrcManager.fileinfo_begin(), End = SrcManager.fileinfo_end();
        It != End;
        ++It) {
@@ -311,9 +321,29 @@ void StoreUsedSourcesInModule(llvm::Module *Mod,
     llvm::Value *Pair[] = {NameNode, ContentsNode};
     auto PairNode = llvm::MDNode::get(LLVMContext, Pair);
     
-    // Add the file's MDNode to the global sources node.
-    SourceFileNode->addOperand(PairNode);
+    FileInfoNodes.push_back(PairNode);
   }
+  
+  // Get all compile argument nodes.
+  auto &Invocation = Compiler.getInvocation();
+  
+  std::vector<std::string> InvocationArgs;
+  Invocation.toArgs(InvocationArgs);
+  
+  for (auto &Arg : InvocationArgs) {
+    ArgNodes.push_back(llvm::MDString::get(LLVMContext, Arg));
+  }
+  
+  // Create the compile info node for this unit.
+  llvm::Value *CompileInfoOperands[] = {
+    llvm::MDString::get(LLVMContext, MainFileEntry->getName()),
+    llvm::MDNode::get(LLVMContext, FileInfoNodes),
+    llvm::MDNode::get(LLVMContext, ArgNodes)
+  };
+  
+  auto CompileInfoNode = llvm::MDNode::get(LLVMContext, CompileInfoOperands);
+  auto GlobalCompileInfo = Mod->getOrInsertNamedMetadata(MDCompileInfo);
+  GlobalCompileInfo->addOperand(CompileInfoNode);
 }
 
 } // namespace clang (in seec)

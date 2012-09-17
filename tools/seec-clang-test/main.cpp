@@ -107,7 +107,7 @@ int main(int argc, char **argv, char * const *envp) {
                                InputFile);
   
   // Store all used source files into the LLVM Module.
-  StoreUsedSourcesInModule(Mod, Compiler.getSourceManager());
+  StoreCompileInformationInModule(Mod, Compiler);
 
   // Write the LLVM Module to a file
   std::string Error;
