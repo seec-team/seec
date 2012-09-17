@@ -30,6 +30,8 @@
 #include "TraceViewerFrame.hpp"
 #include "WelcomeFrame.hpp"
 
+//#define SEEC_SHOW_DEBUG 1
+
 
 //------------------------------------------------------------------------------
 // TraceViewerApp
@@ -89,13 +91,14 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
   wxStandardPaths StdPaths;
-  char const *ExecutablePath = StdPaths.GetExecutablePath().c_str();
-
+  llvm::sys::Path ExecutablePath(StdPaths.GetExecutablePath().ToStdString());
+  
   // Initialize the wxImage image handlers.
   wxInitAllImageHandlers();
 
   // Load ICU resources for TraceViewer.
-  ICUResources.reset(new seec::ResourceLoader(llvm::sys::Path{ExecutablePath}));
+  ICUResources.reset(new seec::ResourceLoader(ExecutablePath));
+  
   if (!ICUResources->loadResource("TraceViewer"))
     HandleFatalError("Couldn't load TraceViewer resources!");
   if (!ICUResources->loadResource("RuntimeErrors"))
@@ -136,7 +139,7 @@ bool TraceViewerApp::OnInit() {
                              wxDefaultSize);
   Welcome->Show(true);
 
-#ifndef NDEBUG
+#ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.
   LogWindow = new wxLogWindow(nullptr, "Log");
 #endif
@@ -208,7 +211,7 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
   wxApp::SetExitOnFrameDelete(true);
 #endif
 
-#ifndef NDEBUG
+#ifdef SEEC_SHOW_DEBUG
   if (LogWindow) {
     if (auto Frame = LogWindow->GetFrame()) {
       Frame->Close(true);

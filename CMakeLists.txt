@@ -25,6 +25,11 @@ endif()
 message("Using LLVM install at ${LLVM_INSTALL}")
 include_directories( BEFORE ${LLVM_INSTALL}/include )
 
+# Copy Clang resources into our resources build directory:
+file(COPY ${LLVM_INSTALL}/lib/clang DESTINATION ${CMAKE_BINARY_DIR}/resources/)
+
+INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION lib/seec/resources)
+
 #--------------------------------------------------------------------------------
 # find ICU
 #--------------------------------------------------------------------------------
@@ -78,7 +83,10 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-add_definitions( -DSEEC_LLVM_OBJ="${LLVM_INSTALL}" )
+#--------------------------------------------------------------------------------
+# Set build variables
+#--------------------------------------------------------------------------------
+set_property(GLOBAL PROPERTY SEEC_RESOURCE_FILES "")
 
 #--------------------------------------------------------------------------------
 # macro for generating ICU resources
@@ -131,6 +139,11 @@ macro(icu_resources package)
 
   # custom target to require packaging each resource (depends on stamp files)
   add_custom_target(icu_resources_${package} ALL DEPENDS ${${package}_icu_stamps})
+
+  # add the package (.dat file) to the list of resource files.
+  # list(APPEND SEEC_RESOURCE_FILES ${${package}_icu_dat})
+
+  set_property(GLOBAL APPEND PROPERTY SEEC_RESOURCE_FILES "${${package}_icu_dat}")
 
   # install the package (.dat file)
   INSTALL(FILES ${${package}_icu_dat} DESTINATION lib/seec/resources)

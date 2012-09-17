@@ -90,3 +90,13 @@ INSTALL(TARGETS seec-trace-view
   BUNDLE DESTINATION ${BUNDLE_PREFIX} COMPONENT Runtime
   RUNTIME DESTINATION bin COMPONENT Runtime
 )
+
+# Copy all of our resources into the bundle's Resources directory.
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+  
+  get_property(RES_FILES GLOBAL PROPERTY SEEC_RESOURCE_FILES)
+  foreach(RES_FILE ${RES_FILES})
+    INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+  endforeach(RES_FILE)
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

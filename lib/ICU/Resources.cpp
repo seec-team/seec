@@ -26,23 +26,22 @@ std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
 ResourceLoader::ResourceLoader(llvm::sys::Path const &ExecutablePath)
 : ResourcesDirectory(ExecutablePath)
 {
-  if (!ResourcesDirectory.empty()) {
-    // ResourcesDirectory should be */bin/
-    // we want */lib/seec/resources/
-    ResourcesDirectory.eraseComponent();
-    ResourcesDirectory.eraseComponent();
+  // Find the location of the ICU resources, which should be fixed relative
+  // to our executable path.
+  // For Bundles find: ../../Resources
+  // Otherwise find:   ../lib/seec/resources
+  
+  ResourcesDirectory.eraseComponent(); // remove executable name
+  ResourcesDirectory.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  
+  if (llvm::StringRef(ResourcesDirectory.str()).endswith("Contents")) {
+    ResourcesDirectory.eraseComponent(); // remove "Contents" (bundle)
+    ResourcesDirectory.appendComponent("Resources");
+  }
+  else {
     ResourcesDirectory.appendComponent("lib");
     ResourcesDirectory.appendComponent("seec");
     ResourcesDirectory.appendComponent("resources");
-  }
-
-  if (!ResourcesDirectory.canRead()) {
-    // try default location (TODO: base this on build settings?)
-    ResourcesDirectory.set("/usr/local/lib/seec/resources");
-
-    if (!ResourcesDirectory.canRead()) {
-      ResourcesDirectory.clear();
-    }
   }
 }
 

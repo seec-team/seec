@@ -136,6 +136,10 @@ class ResourceLoader {
 
 public:
   ResourceLoader(llvm::sys::Path const &ExecutablePath);
+  
+  llvm::sys::Path const &getResourcesDirectory() const {
+    return ResourcesDirectory;
+  }
 
   bool loadResource(char const *Package);
 

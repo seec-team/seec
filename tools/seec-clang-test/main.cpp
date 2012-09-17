@@ -8,10 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SEEC_LLVM_OBJ
-#error "Must define SEEC_LLVM_OBJ!"
-#endif
-
 #include "seec/Clang/Compile.hpp"
 
 #include "clang/Basic/Diagnostic.h"

@@ -1,7 +1,3 @@
-#ifndef SEEC_LLVM_OBJ
-#error "Must define SEEC_LLVM_OBJ!"
-#endif
-
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MDNames.hpp"
 
@@ -89,13 +85,42 @@ GetCompileForSourceFile(char const *Filename,
                         true, // IsProduction
                         *Diagnostics);
 
-  Driver.ResourceDir = SEEC_LLVM_OBJ "/lib/clang/" CLANG_VERSION_STRING;
+  // Find the location of the Clang resources, which should be fixed relative
+  // to our executable path.
+  // For Bundles find: ../../Resources/clang/CLANG_VERSION_STRING
+  // Otherwise find:   ../lib/seec/resources/clang/CLANG_VERSION_STRING
+  
+  llvm::sys::Path ResourcePath (ExecutablePath);
+  ResourcePath.eraseComponent(); // remove executable name
+  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  
+  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
+    ResourcePath.eraseComponent(); // remove "Contents" (bundle)
+    ResourcePath.appendComponent("Resources");
+    ResourcePath.appendComponent("clang");
+    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+  }
+  else {
+    ResourcePath.appendComponent("lib");
+    ResourcePath.appendComponent("seec");
+    ResourcePath.appendComponent("resources");
+    ResourcePath.appendComponent("clang");
+    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+  }
+  
+  if (!ResourcePath.canRead()) {
+    llvm::errs() << "Couldn't find resources!\n";
+    llvm::errs() << "Path = " << ResourcePath.str() << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  Driver.ResourceDir = ResourcePath.str();
 
+  // Setup the command-line arguments for the compilation
   char const * CompilationArgs[] {
     "-std=c99",
     "-Wall",
     "-pedantic",
-    "-g",
     "-fno-builtin",
     "-fno-stack-protector",
     "-D_FORTIFY_SOURCE=0",
