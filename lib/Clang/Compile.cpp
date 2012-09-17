@@ -299,6 +299,14 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   // Get information about the main file.
   auto MainFileID = SrcManager.getMainFileID();
   auto MainFileEntry = SrcManager.getFileEntryForID(MainFileID);
+  auto CurrentDirectory = llvm::sys::Path::GetCurrentDirectory();
+  
+  llvm::Value *MainFileOperands[] = {
+    llvm::MDString::get(LLVMContext, MainFileEntry->getName()),
+    llvm::MDString::get(LLVMContext, CurrentDirectory.str())
+  };
+  
+  auto MainFileNode = llvm::MDNode::get(LLVMContext, MainFileOperands);
   
   // Get all source file information nodes.
   for (auto It = SrcManager.fileinfo_begin(), End = SrcManager.fileinfo_end();
@@ -336,7 +344,7 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   
   // Create the compile info node for this unit.
   llvm::Value *CompileInfoOperands[] = {
-    llvm::MDString::get(LLVMContext, MainFileEntry->getName()),
+    MainFileNode,
     llvm::MDNode::get(LLVMContext, FileInfoNodes),
     llvm::MDNode::get(LLVMContext, ArgNodes)
   };

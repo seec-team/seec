@@ -5,8 +5,6 @@
 #ifndef SEEC_CLANG_MAPPEDAST_HPP
 #define SEEC_CLANG_MAPPEDAST_HPP
 
-#include "seec/Clang/MDNames.hpp"
-
 #include "clang/Frontend/ASTUnit.h"
 
 #include "llvm/Module.h"
@@ -186,6 +184,66 @@ public:
 
 
 ///
+class MappedCompileInfo {
+public:
+  /// \brief Info for one source file used during compilation.
+  class FileInfo {
+    /// Name of the source file.
+    std::string Name;
+    
+    // Contents of the source file.
+    std::unique_ptr<llvm::MemoryBuffer> Contents;
+  
+  public:
+    /// \brief Constructor.
+    FileInfo(llvm::StringRef Filename,
+             llvm::StringRef FileContents)
+    : Name(Filename.str()),
+      Contents(llvm::MemoryBuffer::getMemBuffer(FileContents, "", false))
+    {}
+    
+    FileInfo(FileInfo &&Other) = default;
+    
+    FileInfo &operator=(FileInfo &&RHS) = default;
+    
+    std::string const &getName() const { return Name; }
+  };
+  
+private:
+  /// Working directory of the compilation.
+  std::string MainDirectory;
+  
+  /// Filename of the main file for this compilation.
+  std::string MainFileName;
+  
+  /// Information about all source files used in the compilation.
+  std::vector<FileInfo> SourceFiles;
+  
+  /// Arguments for the invocation of this compilation.
+  std::vector<std::string> InvocationArguments;
+  
+  MappedCompileInfo(std::string &&TheDirectory,
+                    std::string &&TheMainFileName,
+                    std::vector<FileInfo> &&TheSourceFiles,
+                    std::vector<std::string> &&TheInvocationArguments)
+  : MainDirectory(std::move(TheDirectory)),
+    MainFileName(std::move(TheMainFileName)),
+    SourceFiles(std::move(TheSourceFiles)),
+    InvocationArguments(std::move(TheInvocationArguments))
+  {}
+
+public:
+  static std::unique_ptr<MappedCompileInfo> get(llvm::MDNode *CompileInfo);
+  
+  MappedCompileInfo(MappedCompileInfo &&Other) = default;
+  
+  MappedCompileInfo &operator=(MappedCompileInfo &&RHS) = default;
+  
+  std::string const &getMainFileName() const { return MainFileName; }
+};
+
+
+///
 class MappedModule {
   // llvm::Module const &Module;
 
@@ -202,12 +260,15 @@ class MappedModule {
   unsigned MDDeclIdxKind;
 
   llvm::DenseMap<llvm::Function const *, MappedGlobalDecl> GlobalLookup;
+  
+  /// Compile information for each main file in this Module.
+  std::map<std::string, std::unique_ptr<MappedCompileInfo>> CompileInfo;
 
   // Don't allow copying.
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
-  /// Get the AST for the given file.
+  /// \brief Get the AST for the given file.
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
 
 public:

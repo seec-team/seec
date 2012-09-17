@@ -4,6 +4,7 @@
 
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MDNames.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
 
@@ -98,6 +99,73 @@ MappedAST::LoadFromCompilerInvocation(
 }
 
 //===----------------------------------------------------------------------===//
+// class MappedCompileInfo
+//===----------------------------------------------------------------------===//
+std::unique_ptr<MappedCompileInfo>
+MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
+  if (!CompileInfo || CompileInfo->getNumOperands() != 3)
+    return nullptr;
+  
+  // Get the main file info.
+  auto MainFile = llvm::dyn_cast<llvm::MDNode>(CompileInfo->getOperand(0u));
+  if (!MainFile)
+    return nullptr;
+  
+  assert(MainFile->getNumOperands() == 2u);
+  
+  auto MainFileName = llvm::dyn_cast<llvm::MDString>(MainFile->getOperand(0u));
+  auto MainDirectory = llvm::dyn_cast<llvm::MDString>(MainFile->getOperand(1u));
+  
+  // Get the source file information.
+  auto SourcesNode = llvm::dyn_cast<llvm::MDNode>(CompileInfo->getOperand(1u));
+  if (!SourcesNode)
+    return nullptr;
+  
+  // Get the arguments.
+  auto ArgsNode = llvm::dyn_cast<llvm::MDNode>(CompileInfo->getOperand(2u));
+  if (!ArgsNode)
+    return nullptr;
+  
+  // Extract the source file information.
+  std::vector<FileInfo> SourceFiles;
+  
+  for (unsigned i = 0u; i < SourcesNode->getNumOperands(); ++i) {
+    auto SourceNode = llvm::dyn_cast<llvm::MDNode>(SourcesNode->getOperand(i));
+    if (!SourceNode)
+      continue;
+    
+    assert(SourceNode->getNumOperands() == 2u);
+    
+    auto Name = llvm::dyn_cast<llvm::MDString>(SourceNode->getOperand(0u));
+    assert(Name);
+
+    auto DataNode = SourceNode->getOperand(1u);
+    auto Contents = llvm::dyn_cast<llvm::ConstantDataSequential>(DataNode);
+    assert(Contents);
+    
+    SourceFiles.emplace_back(Name->getString().str(),
+                             Contents->getRawDataValues());
+  }
+  
+  // Extract the invocation arguments.
+  std::vector<std::string> InvocationArguments;
+  
+  for (unsigned i = 0u; i < ArgsNode->getNumOperands(); ++i) {
+    auto Str = llvm::dyn_cast<llvm::MDString>(ArgsNode->getOperand(i));
+    if (!Str)
+      continue;
+    
+    InvocationArguments.push_back(Str->getString().str());
+  }
+  
+  return std::unique_ptr<MappedCompileInfo>(
+            new MappedCompileInfo(MainDirectory->getString().str(),
+                                  MainFileName->getString().str(),
+                                  std::move(SourceFiles),
+                                  std::move(InvocationArguments)));
+}
+
+//===----------------------------------------------------------------------===//
 // class MappedModule
 //===----------------------------------------------------------------------===//
 
@@ -127,6 +195,8 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   auto FilePath = getPathFromFileNode(FileNode);
   if (FilePath.empty())
     return nullptr;
+    
+  // llvm::errs() << "Compile for " << FilePath.c_str() << "\n";
 
   auto CI = GetCompileForSourceFile(FilePath.c_str(),
                                     ExecutablePath,
@@ -162,7 +232,8 @@ MappedModule::MappedModule(
   ASTList(),
   MDStmtIdxKind(Module.getMDKindID(MDStmtIdxStr)),
   MDDeclIdxKind(Module.getMDKindID(MDDeclIdxStr)),
-  GlobalLookup()
+  GlobalLookup(),
+  CompileInfo()
 {
   // Create the GlobalLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
@@ -198,6 +269,21 @@ MappedModule::MappedModule(
                                                         *AST,
                                                         Decl,
                                                         Func)));
+  }
+  
+  // Load compile information from the Module.
+  auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
+  if (!GlobalCompileInfo)
+    return;
+  
+  for (std::size_t i = 0u; i < GlobalCompileInfo->getNumOperands(); ++i) {
+    auto Node = GlobalCompileInfo->getOperand(i);
+    auto MappedInfo = MappedCompileInfo::get(Node);
+    if (!MappedInfo)
+      continue;
+    
+    CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
+                                      std::move(MappedInfo)));
   }
 }
 
