@@ -8,7 +8,7 @@ string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
 execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --ldflags-libsonly
+ COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)

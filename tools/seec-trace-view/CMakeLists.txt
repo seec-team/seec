@@ -26,7 +26,7 @@ add_executable(seec-trace-view MACOSX_BUNDLE
   )
 
 #--------------------------------------------------------------------------------
-# Determine the libraries that we need to link against.
+# Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles native codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target
@@ -35,14 +35,31 @@ execute_process(
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (ICU)
+#--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --ldflags-libsonly
+ COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (WX)
+#--------------------------------------------------------------------------------
+execute_process(
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs html stc core base aui adv
+ OUTPUT_VARIABLE REQ_WX_LIBRARIES
+)
+string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
+# string(REPLACE "-l" "" REQ_WX_LIBRARIES ${REQ_WX_LIBRARIES})
+# string(REPLACE " " ";" REQ_WX_LIBRARIES ${REQ_WX_LIBRARIES})
+
+#--------------------------------------------------------------------------------
+# Link.
+#--------------------------------------------------------------------------------
 target_link_libraries(seec-trace-view
  # SeeC libraries
  SeeCClang
@@ -73,7 +90,7 @@ target_link_libraries(seec-trace-view
  ${REQ_ICU_LIBRARIES}
 
  # wxWidgets libraries
- ${wxWidgets_LIBRARIES}
+ ${REQ_WX_LIBRARIES}
 )
 
 #--------------------------------------------------------------------------------

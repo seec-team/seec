@@ -11,6 +11,7 @@ endif()
 set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundles (Mac OS X).")
 set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
+set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
 
 #--------------------------------------------------------------------------------
 # find LLVM
@@ -43,13 +44,32 @@ include_directories( BEFORE ${ICU_INSTALL}/include )
 #--------------------------------------------------------------------------------
 # find wxWidgets
 #--------------------------------------------------------------------------------
-set(wxWidgets_USE_UNICODE true)
-set(wxWidgets_USE_STATIC true)
-FIND_PACKAGE(wxWidgets REQUIRED html stc core base aui adv)
-INCLUDE(${wxWidgets_USE_FILE})
+if( NOT EXISTS ${WX_INSTALL}/bin/wx-config )
+  message(FATAL_ERROR "WX_INSTALL (${WX_INSTALL}) is not a valid wxWidgets installation.")
+endif()
+
+# set(wxWidgets_USE_UNICODE true)
+# set(wxWidgets_USE_STATIC true)
+# FIND_PACKAGE(wxWidgets REQUIRED html stc core base aui adv)
+# INCLUDE(${wxWidgets_USE_FILE})
 
 # fix CMAKE_CXX_FLAGS after wxWidgets sets it
-string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+# string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+execute_process(
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --cflags
+ OUTPUT_VARIABLE WX_C_FLAGS
+)
+string(STRIP ${WX_C_FLAGS} WX_C_FLAGS)
+
+execute_process(
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --cxxflags
+ OUTPUT_VARIABLE WX_CXX_FLAGS
+)
+string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
+
+message("WX_C_FLAGS ${WX_C_FLAGS}")
+message("WX_CXX_FLAGS ${WX_CXX_FLAGS}")
 
 #--------------------------------------------------------------------------------
 # setup compiler options
@@ -73,8 +93,8 @@ execute_process(
 )
 string(STRIP ${LLVM_LD_FLAGS} LLVM_LD_FLAGS)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -std=c99")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -std=c++0x")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} ${WX_C_FLAGS} -Wall -std=c99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} ${WX_CXX_FLAGS} -Wall -std=c++11")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LLVM_LD_FLAGS} -L ${ICU_INSTALL}/lib")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
