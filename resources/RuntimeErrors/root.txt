@@ -80,5 +80,15 @@ root:table {
     PassPointerToUninitialized:string {
       "Parameter {parameter} passed to function {function} points to uninitialized memory at address {address}."
     }
+
+    // function
+    // access_address
+    // access_size
+    // object
+    // object_address
+    // object_size
+    PassPointerToInsufficient:string {
+      "Insufficient memory at destination of pointer passed to {function}. Needed {access_size} bytes and received {object_size}."
+    }
   }
 }
