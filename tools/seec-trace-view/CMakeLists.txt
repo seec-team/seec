@@ -3,6 +3,22 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   string(REPLACE "-fno-rtti" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
+set(SEEC_TRACE_VIEW_HEADERS
+  FunctionStateViewer.hpp
+  MallocViewer.hpp
+  OpenTrace.hpp
+  ProcessTimeControl.hpp
+  SourceViewer.hpp
+  SourceViewerSettings.hpp
+  SourceViewerSettingsTypes.def
+  StateViewer.hpp
+  ThreadStateViewer.hpp
+  ThreadTimeControl.hpp
+  TraceViewerApp.hpp
+  TraceViewerFrame.hpp
+  WelcomeFrame.hpp
+  )
+
 set(SEEC_TRACE_VIEW_SRCS
   FunctionStateViewer.cpp
   MallocViewer.cpp
@@ -16,14 +32,16 @@ set(SEEC_TRACE_VIEW_SRCS
   TraceViewerApp.cpp
   TraceViewerFrame.cpp
   WelcomeFrame.cpp
-)
+  )
 
 #--------------------------------------------------------------------------------
 # Create the executable.
 #--------------------------------------------------------------------------------
-add_executable(seec-trace-view MACOSX_BUNDLE
-  ${SEEC_TRACE_VIEW_SRCS}
-  )
+if (${CMAKE_GENERATOR} MATCHES "Xcode")
+  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
+else()
+  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_SRCS})
+endif()
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)

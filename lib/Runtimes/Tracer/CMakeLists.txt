@@ -2,13 +2,13 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-add_library(SeeCRuntimeTracer SHARED
+set(SOURCES
   Tracer.cpp
-)
+  )
 
-add_library(SeeCRuntimeTracer-static
-  Tracer.cpp
-)
+add_library(SeeCRuntimeTracer SHARED ${SOURCES})
+
+add_library(SeeCRuntimeTracer-static ${SOURCES})
 
 SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES OUTPUT_NAME "SeeCRuntimeTracer")
 SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES PREFIX "lib")
