@@ -39,6 +39,7 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceMemory.hpp
   ../../include/seec/Trace/TraceProcessListener.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
+  TraceThreadMemCheck.hpp
   )
 
 set(EXECUTION_TRACER_SOURCES
