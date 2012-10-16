@@ -181,7 +181,7 @@ llvm::sys::Path getPathFromFileNode(llvm::MDNode const *FileNode) {
   auto FilePath = llvm::sys::Path(PathStr->getString());
   FilePath.appendComponent(FilenameStr->getString());
 
-  return std::move(FilePath);
+  return FilePath;
 }
 
 MappedAST const *

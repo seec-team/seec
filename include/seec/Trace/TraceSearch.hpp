@@ -222,7 +222,7 @@ firstSuccessfulApply(EventRange Range, PredT Predicate) {
   for (auto &&Ev : Range) {
     auto Value = Predicate(Ev);
     if (Value.assigned())
-      return std::move(Value);
+      return Value;
   }
 
   return typename seec::FunctionTraits<PredT>::ReturnType {};
@@ -246,7 +246,7 @@ lastSuccessfulApply(EventRange Range, PredT Predicate) {
   for (auto It = --(Range.end()); ; --It) {
     auto Value = Predicate(*It);
     if (Value.assigned())
-      return std::move(Value);
+      return Value;
     
     if (It == Range.begin())
       break;

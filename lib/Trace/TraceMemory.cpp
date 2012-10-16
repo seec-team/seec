@@ -44,7 +44,7 @@ TraceMemoryState::add(uint64_t Address,
                                                             StateRecordOffset,
                                                             ProcessTime)));
 
-    return std::move(Overwritten);
+    return Overwritten;
   }
 
   // Check if the previous fragment overlaps.
@@ -87,7 +87,7 @@ TraceMemoryState::add(uint64_t Address,
                                                       StateRecordOffset,
                                                       ProcessTime)));
 
-  return std::move(Overwritten);
+  return Overwritten;
 }
 
 OverwrittenMemoryInfo TraceMemoryState::clear(uint64_t Address, 
@@ -106,7 +106,7 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uint64_t Address,
     
     Fragments.erase(It);
 
-    return std::move(Overwritten);
+    return Overwritten;
   }
 
   // Check if the previous fragment overlaps.
@@ -142,7 +142,7 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uint64_t Address,
     }
   }
 
-  return std::move(Overwritten);
+  return Overwritten;
 }
 
 bool TraceMemoryState::hasKnownState(uint64_t Address, uint64_t Length) const {
