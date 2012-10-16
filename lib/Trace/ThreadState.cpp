@@ -798,9 +798,6 @@ void ThreadState::removeEvent(
 
     auto StateRef = Parent.getTrace().getEventReference(StateLoc);
 
-    // (uint64_t, FragmentAddress),
-    // (uint64_t, FragmentSize)
-
     uint64_t DataAddress = 0;
     uint64_t DataSize = 0;
     char const *DataPtr = nullptr;
