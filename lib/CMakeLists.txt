@@ -1,4 +1,5 @@
 add_subdirectory(Clang)
+add_subdirectory(DSA)
 add_subdirectory(ICU)
 add_subdirectory(RuntimeErrors)
 add_subdirectory(Runtimes)

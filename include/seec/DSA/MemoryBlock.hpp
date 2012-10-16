@@ -37,51 +37,15 @@ public:
 
   /// \brief Construct MemoryBlock by copying the given data.
   ///
-  MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData)
-  : MemoryArea(Start, Length),
-    Data()
-  {
-    if (Length) {
-      Data.reset(new (std::nothrow) char[Length]);
-      
-      if (Data)
-        memcpy(Data.get(), CopyData, Length);
-      else
-        setStartEnd(0, 0);
-    }
-  }
+  MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData);
 
   /// \brief Construct a MemoryBlock by copying data from the given location.
   ///
-  MemoryBlock(void const *Start, size_t Length)
-  : MemoryArea(reinterpret_cast<uintptr_t>(Start), Length),
-    Data()
-  {
-    if (Length) {
-      Data.reset(new (std::nothrow) char[Length]);
-
-      if (Data)
-        memcpy(Data.get(), Start, Length);
-      else
-        setStartEnd(0, 0);
-    }
-  }
+  MemoryBlock(void const *Start, size_t Length);
 
   /// \brief Copy the given MemoryBlock.
   ///
-  MemoryBlock(MemoryBlock const &Other)
-  : MemoryArea(Other),
-    Data()
-  {
-    if (length()) {
-      Data.reset(new (std::nothrow) char[length()]);
-
-      if (Data)
-        memcpy(Data.get(), Other.Data.get(), length());
-      else
-        setStartEnd(0, 0);
-    }
-  }
+  MemoryBlock(MemoryBlock const &Other);
 
   /// \brief Move state from the given MemoryBlock.
   ///
@@ -94,33 +58,11 @@ public:
 
   /// \brief Copy the given MemoryBlock.
   ///
-  MemoryBlock & operator=(MemoryBlock const &RHS) {
-    MemoryArea::operator=(RHS);
-
-    if (length()) {
-      Data.reset(new (std::nothrow) char[length()]);
-
-      if (Data)
-        memcpy(Data.get(), RHS.Data.get(), length());
-      else
-        setStartEnd(0, 0);
-    }
-    else
-      Data.reset();
-
-    return *this;
-  }
+  MemoryBlock &operator=(MemoryBlock const &RHS);
 
   /// \brief Move state from the given MemoryBlock.
   ///
-  MemoryBlock & operator=(MemoryBlock &&RHS) {
-    MemoryArea::operator=(RHS);
-    Data = std::move(RHS.Data);
-
-    RHS.setStartEnd(0, 0);
-
-    return *this;
-  }
+  MemoryBlock &operator=(MemoryBlock &&RHS);
 
   /// Get a pointer to the data of this MemoryBlock.
   char const *data() const { return Data.get(); }
