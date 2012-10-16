@@ -1,4 +1,5 @@
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Util/ModuleIndex.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -12,6 +13,38 @@ namespace trace {
 //------------------------------------------------------------------------------
 // ProcessState
 //------------------------------------------------------------------------------
+
+ProcessState::ProcessState(ProcessTrace const &Trace,
+                           ModuleIndex const &ModIndex)
+: Trace(Trace),
+  Module(ModIndex),
+  TD(&ModIndex.getModule()),
+  UpdateMutex(),
+  UpdateCV(),
+  ProcessTime(0),
+  ThreadStates(Trace.getNumThreads()),
+  Mallocs(),
+  Memory()
+{
+  // Setup initial memory state for global variables.
+  for (auto i = 0; i < Module.getGlobalCount(); ++i) {
+    auto const Global = Module.getGlobal(i);
+    assert(Global);
+    
+    auto const ElemTy = Global->getType()->getElementType();
+    auto const Size = TD.getTypeStoreSize(ElemTy);
+    auto const Data = Trace.getGlobalVariableInitialData(i, Size);
+    auto const Start = Trace.getGlobalVariableAddress(i);
+    
+    Memory.add(MappedMemoryBlock(Start, Size, Data.data()), EventLocation());
+  }
+  
+  // Setup ThreadState objects for each thread.
+  auto NumThreads = Trace.getNumThreads();
+  for (std::size_t i = 0; i < NumThreads; ++i) {
+    ThreadStates[i].reset(new ThreadState(*this, Trace.getThreadTrace(i+1)));
+  }
+}
 
 void ProcessState::setProcessTime(uint64_t Time) {
   std::vector<std::thread> ThreadStateUpdaters;

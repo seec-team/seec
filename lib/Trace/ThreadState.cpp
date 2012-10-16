@@ -738,7 +738,7 @@ void ThreadState::removeEvent(
         EventRecord<EventType::StateOverwritten> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
 
-  if (StateThreadID) {
+  if (StateThreadID != initialDataThreadID()) {
     // Restore state from a previous state event.
     EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
 
@@ -772,11 +772,19 @@ void ThreadState::removeEvent(
   }
   else {
     // Restore state from a global variable's initial data.
-    auto const &ProcTrace = Parent.getTrace();
     auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
-    auto const GVAddress = ProcTrace.getGlobalVariableAddress(GVIndex);
-
-    // TODO
+    auto const Global = Parent.getModule().getGlobal(GVIndex);
+    assert(Global);
+    
+    auto const ElemTy = Global->getType()->getElementType();
+    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    
+    auto const &ProcTrace = Parent.getTrace();
+    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
+    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
+    
+    Parent.Memory.add(MappedMemoryBlock(Address, Size, Data.data()),
+                      EventLocation());
   }
 }
 
@@ -784,7 +792,7 @@ void ThreadState::removeEvent(
         EventRecord<EventType::StateOverwrittenFragment> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
 
-  if (StateThreadID) {
+  if (StateThreadID != initialDataThreadID()) {
     // Restore state from a previous state event.
     EventLocation StateLoc(StateThreadID, Ev.getStateOffset());
 
@@ -832,11 +840,25 @@ void ThreadState::removeEvent(
   }
   else {
     // Restore state from a global variable's initial data.
-    auto const &ProcTrace = Parent.getTrace();
     auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
-    auto const GVAddress = ProcTrace.getGlobalVariableAddress(GVIndex);
-
-    // TODO
+    auto const Global = Parent.getModule().getGlobal(GVIndex);
+    assert(Global);
+    
+    auto const ElemTy = Global->getType()->getElementType();
+    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    
+    auto const &ProcTrace = Parent.getTrace();
+    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
+    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
+    
+    auto const FragmentAddress = Ev.getFragmentAddress();
+    auto const FragmentSize = Ev.getFragmentSize();
+    
+    Parent.Memory.add(MappedMemoryBlock(FragmentAddress,
+                                        FragmentSize,
+                                        Data.slice(FragmentAddress - Address,
+                                                   FragmentSize).data()),
+                      EventLocation());
   }
 }
 

@@ -70,7 +70,7 @@ public:
 
 class ModuleIndex {
   // The indexed Module.
-  // llvm::Module &Module;
+  llvm::Module const &Module;
 
   /// Lookup GlobalVariables by their index.
   std::vector<llvm::GlobalVariable *> GlobalPtrByIdx;
@@ -94,7 +94,7 @@ class ModuleIndex {
 public:
   ModuleIndex(llvm::Module &Module,
               bool const GenerateFunctionIndexForAll = false)
-  : // Module(Module),
+  : Module(Module),
     FunctionPtrByIdx(),
     FunctionIdxByPtr(),
     FunctionIndexByIdx()
@@ -120,19 +120,23 @@ public:
     }
   }
   
+  /// Get the Module.
+  llvm::Module const &getModule() const { return Module; }
+  
   /// Get the number of global variables in the indexed Module.
-  size_t getGlobalCount() { return GlobalPtrByIdx.size(); }
+  size_t getGlobalCount() const { return GlobalPtrByIdx.size(); }
 
   /// Get the llvm::GlobalVariable at the given Index, or nullptr, if the Index
   /// is invalid.
-  llvm::GlobalVariable *getGlobal(uint32_t Index) {
+  llvm::GlobalVariable *getGlobal(uint32_t Index) const {
     if (Index < GlobalPtrByIdx.size())
       return GlobalPtrByIdx[Index];
     return nullptr;
   }
 
   /// Get the Index of the given llvm::GlobalVariable.
-  util::Maybe<uint32_t> getIndexOfGlobal(llvm::GlobalVariable const *Global) {
+  util::Maybe<uint32_t>
+  getIndexOfGlobal(llvm::GlobalVariable const *Global) const {
     auto It = GlobalIdxByPtr.find(Global);
     if (It != GlobalIdxByPtr.end())
       return util::Maybe<uint32_t>(It->second);

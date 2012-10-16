@@ -338,6 +338,12 @@ class EventLocation {
   offset_uint Offset;
   
 public:
+  /// Construct a new empty EventLocation.
+  EventLocation()
+  : ThreadID(0),
+    Offset(noOffset())
+  {}
+  
   /// Construct a new EventLocation.
   EventLocation(uint32_t EventThreadID, offset_uint EventOffset)
   : ThreadID(EventThreadID),
@@ -350,6 +356,9 @@ public:
   
   /// Get the thread ID of the thread that contains the event.
   uint32_t getThreadID() const { return ThreadID; }
+  
+  /// Check whether this event location has a legitimate offset.
+  bool hasOffset() const { return Offset != noOffset(); }
   
   /// Get the offset of the event in the thread's event trace.
   offset_uint getOffset() const { return Offset; }
