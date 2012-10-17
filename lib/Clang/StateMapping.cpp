@@ -107,6 +107,7 @@ toString(clang::BuiltinType const *Type, llvm::ArrayRef<char> State) {
     SEEC_UNHANDLED_BUILTIN(BoundMember)
     SEEC_UNHANDLED_BUILTIN(PseudoObject)
     SEEC_UNHANDLED_BUILTIN(UnknownAny)
+    SEEC_UNHANDLED_BUILTIN(BuiltinFn)
     SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
 
 #undef SEEC_HANDLE_BUILTIN
