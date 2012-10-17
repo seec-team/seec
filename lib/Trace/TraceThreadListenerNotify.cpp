@@ -96,8 +96,8 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   GlobalMemoryLock = ProcessListener.lockMemory();
   
   // Make the pointer array read/write.
-  uint64_t TableAddress = reinterpret_cast<uintptr_t>(ArgV);
-  uint64_t TableSize = sizeof(char *[ArgC + 1]);
+  auto TableAddress = reinterpret_cast<uintptr_t>(ArgV);
+  auto TableSize = sizeof(char *[ArgC + 1]);
   ProcessListener.addKnownMemoryRegion(TableAddress,
                                        TableSize,
                                        MemoryPermission::ReadWrite);
@@ -108,8 +108,8 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // Now each of the individual strings.
   for (uint64_t i = 0; i < ArgC; ++i) {
     // Make the string read/write.
-    uint64_t StringAddress = reinterpret_cast<uintptr_t>(ArgV[i]);
-    uint64_t StringSize = strlen(ArgV[i]) + 1;
+    auto StringAddress = reinterpret_cast<uintptr_t>(ArgV[i]);
+    auto StringSize = strlen(ArgV[i]) + 1;
     ProcessListener.addKnownMemoryRegion(StringAddress,
                                          StringSize,
                                          MemoryPermission::ReadWrite);
@@ -134,8 +134,8 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   while (EnvP[Count++]);
   
   // Make the pointer array readable.
-  uint64_t TableAddress = reinterpret_cast<uintptr_t>(EnvP);
-  uint64_t TableSize = sizeof(char *[Count]);
+  auto TableAddress = reinterpret_cast<uintptr_t>(EnvP);
+  auto TableSize = sizeof(char *[Count]);
   ProcessListener.addKnownMemoryRegion(TableAddress,
                                        TableSize,
                                        MemoryPermission::ReadOnly);
@@ -147,8 +147,8 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   // entry in EnvP is a NULL pointer.
   for (std::size_t i = 0; i < Count - 1; ++i) {
     // Make the string readable.
-    uint64_t StringAddress = reinterpret_cast<uintptr_t>(EnvP[i]);
-    uint64_t StringSize = strlen(EnvP[i]) + 1;
+    auto StringAddress = reinterpret_cast<uintptr_t>(EnvP[i]);
+    auto StringSize = strlen(EnvP[i]) + 1;
     ProcessListener.addKnownMemoryRegion(StringAddress,
                                          StringSize,
                                          MemoryPermission::ReadOnly);
@@ -320,7 +320,7 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
   switch (ID) {
     case llvm::Intrinsic::ID::stacksave:
     {
-      auto SaveRTV = getCurrentRuntimeValueAs<uint64_t>(*this, CI);
+      auto SaveRTV = getCurrentRuntimeValueAs<uintptr_t>(*this, CI);
       assert(SaveRTV.assigned() && "Couldn't get stacksave run-time value.");
 
       ActiveFunc->stackSave(SaveRTV.get<0>());
@@ -331,7 +331,7 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
     case llvm::Intrinsic::ID::stackrestore:
     {
       auto SaveValue = CI->getArgOperand(0);
-      auto SaveRTV = getCurrentRuntimeValueAs<uint64_t>(*this, SaveValue);
+      auto SaveRTV = getCurrentRuntimeValueAs<uintptr_t>(*this, SaveValue);
       assert(SaveRTV.assigned() && "Couldn't get stacksave run-time value.");
 
       auto Cleared = ActiveFunc->stackRestore(SaveRTV.get<0>());
@@ -361,14 +361,14 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
 void TraceThreadListener::notifyPreLoad(uint32_t Index,
                                         llvm::LoadInst const *Load,
                                         void const *Data,
-                                        uint64_t Size) {
+                                        std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   ScopeExit OnExit([=](){exitPreNotification();});
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
-  uint64_t Address = reinterpret_cast<uintptr_t>(Data);
+  uintptr_t Address = reinterpret_cast<uintptr_t>(Data);
 
   using namespace seec::runtime_errors;
   checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
@@ -380,7 +380,7 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
 void TraceThreadListener::notifyPostLoad(uint32_t Index,
                                          llvm::LoadInst const *Load,
                                          void const *Address,
-                                         uint64_t Size) {
+                                         std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   ScopeExit OnExit([=](){exitPostNotification();});
@@ -391,18 +391,18 @@ void TraceThreadListener::notifyPostLoad(uint32_t Index,
 void TraceThreadListener::notifyPreStore(uint32_t Index,
                                          llvm::StoreInst const *Store,
                                          void const *Address,
-                                         uint64_t Size) {
+                                         std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   ScopeExit OnExit([=](){exitPreNotification();});
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
-  uint64_t Address64 = reinterpret_cast<uintptr_t>(Address);
+  auto AddressInt = reinterpret_cast<uintptr_t>(Address);
 
   using namespace seec::runtime_errors;
   checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         Address64,
+                                                         AddressInt,
                                                          Size,
                                                          Index);
 }
@@ -410,7 +410,7 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
 void TraceThreadListener::notifyPostStore(uint32_t Index,
                                           llvm::StoreInst const *Store,
                                           void const *Address,
-                                          uint64_t Size) {
+                                          std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   ScopeExit OnExit([=](){exitPostNotification();});
@@ -549,7 +549,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  uint64_t IntVal = reinterpret_cast<uintptr_t>(Value);
+  auto IntVal = reinterpret_cast<uintptr_t>(Value);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -565,9 +565,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
     auto &TargetData = ProcessListener.targetData();
 
-    uint64_t const ElementSize = TargetData.getTypeAllocSize(AllocaType);
+    auto const ElementSize = TargetData.getTypeAllocSize(AllocaType);
 
-    auto const CountRTV = getCurrentRuntimeValueAs<uint64_t>
+    auto const CountRTV = getCurrentRuntimeValueAs<std::size_t>
                                                   (*this,
                                                    Alloca->getArraySize());
     assert(CountRTV.assigned() && "Couldn't get Count run-time value.");

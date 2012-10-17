@@ -12,7 +12,9 @@
 
 namespace seec {
 
-MemoryBlock::MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData)
+MemoryBlock::MemoryBlock(uintptr_t Start,
+                         std::size_t Length,
+                         char const *CopyData)
 : MemoryArea(Start, Length),
   Data()
 {
@@ -26,7 +28,7 @@ MemoryBlock::MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData)
   }
 }
 
-MemoryBlock::MemoryBlock(void const *Start, size_t Length)
+MemoryBlock::MemoryBlock(void const *Start, std::size_t Length)
 : MemoryArea(reinterpret_cast<uintptr_t>(Start), Length),
   Data()
 {

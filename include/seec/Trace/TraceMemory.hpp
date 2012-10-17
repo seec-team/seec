@@ -38,8 +38,8 @@ class TraceMemoryFragment {
 
 public:
   /// Construct a new fragment for a state.
-  TraceMemoryFragment(uint64_t Address,
-                      uint64_t Length,
+  TraceMemoryFragment(uintptr_t Address,
+                      std::size_t Length,
                       uint32_t ThreadID,
                       offset_uint StateRecordOffset,
                       uint64_t ProcessTime)
@@ -146,7 +146,7 @@ class TraceMemoryState {
   TraceMemoryState &operator=(TraceMemoryState const &) = delete;
   
   /// Map from start addresses to memory fragments.
-  std::map<uint64_t, TraceMemoryFragment> Fragments;
+  std::map<uintptr_t, TraceMemoryFragment> Fragments;
 
 public:
   /// Construct a new, empty TraceMemoryState.
@@ -166,19 +166,19 @@ public:
   /// \param Length number of bytes of updated memory.
   /// \param StateRecordOffset offset of the new memory state.
   /// \return an ordered set of offsets of overwritten memory states.
-  OverwrittenMemoryInfo add(uint64_t Address,
-                            uint64_t Length,
+  OverwrittenMemoryInfo add(uintptr_t Address,
+                            std::size_t Length,
                             uint32_t ThreadID,
                             offset_uint StateRecordOffset,
                             uint64_t ProcessTime);
   
   /// \brief Clear a section of memory and return the removed states.
   ///
-  OverwrittenMemoryInfo clear(uint64_t Address,
-                              uint64_t Length);
+  OverwrittenMemoryInfo clear(uintptr_t Address,
+                              std::size_t Length);
   
   /// \brief 
-  bool hasKnownState(uint64_t Address, uint64_t Length) const;
+  bool hasKnownState(uintptr_t Address, std::size_t Length) const;
 };
 
 

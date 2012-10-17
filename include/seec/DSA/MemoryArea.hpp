@@ -28,41 +28,41 @@ enum class MemoryPermission : uint8_t {
 
 
 ///
-class MemoryArea : public Interval<uint64_t> {
+class MemoryArea : public Interval<uintptr_t> {
   MemoryPermission Access;
   
 public:
   /// Default constructor.
   MemoryArea()
-  : Interval(Interval<uint64_t>::withStartEnd(0, 0)),
+  : Interval(Interval<uintptr_t>::withStartEnd(0, 0)),
     Access(MemoryPermission::ReadWrite)
   {}
 
   /// Initializing constructor.
-  MemoryArea(uint64_t Address, uint64_t Length)
-  : Interval(Interval<uint64_t>::withStartLength(Address, Length)),
+  MemoryArea(uintptr_t Address, std::size_t Length)
+  : Interval(Interval<uintptr_t>::withStartLength(Address, Length)),
     Access(MemoryPermission::ReadWrite)
   {}
   
   /// Initializing constructor.
-  MemoryArea(uint64_t Address, uint64_t Length, MemoryPermission Access)
-  : Interval(Interval<uint64_t>::withStartLength(Address, Length)),
+  MemoryArea(uintptr_t Address, std::size_t Length, MemoryPermission Access)
+  : Interval(Interval<uintptr_t>::withStartLength(Address, Length)),
     Access(Access)
   {}
 
   /// Initializing constructor.
-  MemoryArea(void const *Start, size_t Length)
+  MemoryArea(void const *Start, std::size_t Length)
   : Interval(
-      Interval<uint64_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
-                                          static_cast<uint64_t>(Length))),
+      Interval<uintptr_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
+                                           static_cast<uintptr_t>(Length))),
     Access(MemoryPermission::ReadWrite)
   {}
   
   /// Initializing constructor.
-  MemoryArea(void const *Start, size_t Length, MemoryPermission Access)
+  MemoryArea(void const *Start, std::size_t Length, MemoryPermission Access)
   : Interval(
-      Interval<uint64_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
-                                          static_cast<uint64_t>(Length))),
+      Interval<uintptr_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
+                                           static_cast<uintptr_t>(Length))),
     Access(Access)
   {}
 
@@ -77,10 +77,10 @@ public:
   /// @{
 
   /// Get the address of the first byte in this area.
-  uint64_t address() const { return start(); }
+  uintptr_t address() const { return start(); }
 
   /// Get the address of the last byte in this area.
-  uint64_t lastAddress() const { return last(); }
+  uintptr_t lastAddress() const { return last(); }
   
   /// Get the access permissions for this memory area.
   MemoryPermission getAccess() const { return Access; }
@@ -92,11 +92,11 @@ public:
   /// @{
   
   bool operator==(MemoryArea const &RHS) const {
-    return Interval<uint64_t>::operator==(RHS);
+    return Interval<uintptr_t>::operator==(RHS);
   }
   
   bool operator!=(MemoryArea const &RHS) const {
-    return Interval<uint64_t>::operator==(RHS);
+    return Interval<uintptr_t>::operator==(RHS);
   }
   
   /// @}

@@ -11,7 +11,7 @@ namespace trace {
 
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener,
-                        uint64_t Address) {
+                        uintptr_t Address) {
   auto const &ProcListener = Listener.getProcessListener();
 
   // Find the memory area containing Address.
@@ -30,7 +30,7 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 
 seec::util::Maybe<MemoryArea>
 getCStringInArea(char const *Str, MemoryArea Area) {
-  uint64_t const StrAddress = reinterpret_cast<uintptr_t>(Str);
+  auto const StrAddress = reinterpret_cast<uintptr_t>(Str);
 
   auto const MaxLen = Area.withStart(StrAddress).length();
 
@@ -51,7 +51,7 @@ getCStringInArea(char const *Str, MemoryArea Area) {
 bool checkCStringIsValid(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
+        uintptr_t Address,
         uint64_t ParameterIndex,
         seec::runtime_errors::format_selects::StringFunction Function,
         seec::util::Maybe<MemoryArea> CStringArea
@@ -78,8 +78,8 @@ bool checkCStringIsValid(
 bool checkMemoryOwnership(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         seec::util::Maybe<MemoryArea> ContainingArea) {
   using namespace seec::runtime_errors;
@@ -106,8 +106,8 @@ bool checkMemoryOwnershipOfParameter(
         seec::runtime_errors::format_selects::StandardFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::util::Maybe<MemoryArea> ContainingArea) {
   using namespace seec::runtime_errors;
 
@@ -132,8 +132,8 @@ bool checkMemoryOwnershipOfParameter(
 bool checkMemoryAccess(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         MemoryArea ContainingArea) {
   using namespace seec::runtime_errors;
@@ -182,8 +182,8 @@ bool checkMemoryAccessOfParameter(
         seec::runtime_errors::format_selects::StandardFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         MemoryArea ContainingArea) {
   using namespace seec::runtime_errors;
 
@@ -234,7 +234,7 @@ bool checkCStringRead(TraceThreadListener &Listener,
                       char const *Str) {
   using namespace seec::runtime_errors;
 
-  uint64_t StrAddr = reinterpret_cast<uintptr_t>(Str);
+  auto StrAddr = reinterpret_cast<uintptr_t>(Str);
 
   // Check if Str points to owned memory.
   auto const Area = getContainingMemoryArea(Listener, StrAddr);
@@ -286,7 +286,7 @@ bool checkLimitedCStringRead(
                       std::size_t Limit) {
   using namespace seec::runtime_errors;
 
-  uint64_t StrAddr = reinterpret_cast<uintptr_t>(Str);
+  auto StrAddr = reinterpret_cast<uintptr_t>(Str);
 
   // Check if Str points to owned memory.
   auto const Area = getContainingMemoryArea(Listener, StrAddr);

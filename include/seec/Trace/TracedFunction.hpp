@@ -44,13 +44,13 @@ class TracedAlloca {
   llvm::AllocaInst const *Instruction;
   
   /// The address of the allocated memory.
-  uint64_t Address;
+  uintptr_t Address;
   
   /// The size of the allocated type.
-  uint64_t ElementSize;
+  std::size_t ElementSize;
   
   /// The number of elements allocated.
-  uint64_t ElementCount;
+  std::size_t ElementCount;
   
   /// Offset of the Alloca event.
   offset_uint EventOffset;
@@ -58,9 +58,9 @@ class TracedAlloca {
 public:
   /// Constructor.
   TracedAlloca(llvm::AllocaInst const *Instruction,
-               uint64_t Address,
-               uint64_t ElementSize,
-               uint64_t ElementCount,
+               uintptr_t Address,
+               std::size_t ElementSize,
+               std::size_t ElementCount,
                offset_uint EventOffset)
   : Instruction(Instruction),
     Address(Address),
@@ -83,13 +83,13 @@ public:
   llvm::AllocaInst const *instruction() const { return Instruction; }
   
   /// Get the address of the allocated memory.
-  uint64_t address() const { return Address; }
+  uintptr_t address() const { return Address; }
   
   /// Get the size of the allocated type.
-  uint64_t elementSize() const { return ElementSize; }
+  std::size_t elementSize() const { return ElementSize; }
   
   /// Get the number of elements allocated.
-  uint64_t elementCount() const { return ElementCount; }
+  std::size_t elementCount() const { return ElementCount; }
   
   /// Get the offset of the Alloca event.
   offset_uint eventOffset() const { return EventOffset; }
@@ -174,13 +174,13 @@ class TracedFunction {
   std::vector<TracedAlloca> Allocas;
   
   /// Stores stacksaved Allocas.
-  llvm::DenseMap<uint64_t, std::vector<TracedAlloca>> StackSaves;
+  llvm::DenseMap<uintptr_t, std::vector<TracedAlloca>> StackSaves;
   
   /// Lowest address occupied by this function's stack allocated variables.
-  uint64_t StackLow;
+  uintptr_t StackLow;
   
   /// Highest address occupied by this function's stack allocated variables.
-  uint64_t StackHigh;
+  uintptr_t StackHigh;
   
   /// Controls access to all stack-related information (Allocas, StackSaves,
   /// StackLow, StackHigh).
@@ -270,7 +270,7 @@ public:
   /// Get the stack-allocated area that contains an address. This method is
   /// thread safe.
   seec::util::Maybe<MemoryArea>
-  getContainingMemoryArea(uint64_t Address) const {
+  getContainingMemoryArea(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(StackMutex);
     
     if (Address < StackLow || Address > StackHigh)
@@ -375,7 +375,7 @@ public:
   }
   
   /// \brief
-  void stackSave(uint64_t Key) {
+  void stackSave(uintptr_t Key) {
     std::lock_guard<std::mutex> Lock(StackMutex);
     
     StackSaves[Key] = Allocas;
@@ -383,17 +383,17 @@ public:
   
   /// \brief Restore a previous stack state.
   /// \return area of memory that was invalidated by this stackrestore.
-  MemoryArea stackRestore(uint64_t Key) {
+  MemoryArea stackRestore(uintptr_t Key) {
     std::lock_guard<std::mutex> Lock(StackMutex);
     
     auto const &RestoreAllocas = StackSaves[Key];
     
     // Calculate invalidated memory area. This is the area occupied by all
     // allocas that are currently active, but will be removed by the restore.
-    uint64_t ClearLow = 0;
-    uint64_t ClearHigh = 0;
+    uintptr_t ClearLow = 0;
+    uintptr_t ClearHigh = 0;
     
-    for (size_t i = 0; i < Allocas.size(); ++i) {
+    for (std::size_t i = 0; i < Allocas.size(); ++i) {
       if (i >= RestoreAllocas.size() || Allocas[i] != RestoreAllocas[i]) {
         auto FirstArea = Allocas[i].area();
         auto FinalArea = Allocas.back().area();

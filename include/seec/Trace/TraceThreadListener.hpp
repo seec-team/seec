@@ -182,15 +182,15 @@ class TraceThreadListener {
   }
 
   /// \brief Write a malloc record and update the process' dynamic memory.
-  void recordMalloc(uint64_t Address, uint64_t Size);
+  void recordMalloc(uintptr_t Address, std::size_t Size);
 
   /// \brief Write a free record and update the process' dynamic memory.
   /// \return the DynamicAllocation that was freed.
-  DynamicAllocation recordFree(uint64_t Address);
+  DynamicAllocation recordFree(uintptr_t Address);
 
   /// \brief Write a free record and update the process' dynamic memory. Clears
   ///        the freed area of memory.
-  void recordFreeAndClear(uint64_t Address);
+  void recordFreeAndClear(uintptr_t Address);
 
   /// @} (Dynamic memory)
 
@@ -229,13 +229,13 @@ class TraceThreadListener {
   }
 
   /// \brief Record an untyped update to memory.
-  void recordUntypedState(char const *Data, uint64_t Size);
+  void recordUntypedState(char const *Data, std::size_t Size);
 
   /// \brief Record a typed update to memory.
-  void recordTypedState(void const *Data, uint64_t Size, offset_uint Value);
+  void recordTypedState(void const *Data, std::size_t Size, offset_uint Value);
 
   /// \brief
-  void recordStateClear(uint64_t Address, uint64_t Size);
+  void recordStateClear(uintptr_t Address, std::size_t Size);
 
   /// \brief Unimplemented.
   void recordMemset();
@@ -290,14 +290,14 @@ public:
   /// Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
-  uint64_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
     return ProcessListener.getRuntimeAddress(GV);
   }
 
   /// Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
-  uint64_t getRuntimeAddress(llvm::Function const *F) const {
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const {
     return ProcessListener.getRuntimeAddress(F);
   }
 
@@ -337,7 +337,7 @@ public:
   /// Find the allocated range that owns an address, if it belongs to this
   /// thread. This method is thread safe.
   seec::util::Maybe<MemoryArea>
-  getContainingMemoryArea(uint64_t Address) const {
+  getContainingMemoryArea(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(FunctionStackMutex);
 
     seec::util::Maybe<MemoryArea> Area;
@@ -409,22 +409,22 @@ public:
   void notifyPreLoad(uint32_t Index,
                      llvm::LoadInst const *Load,
                      void const *Address,
-                     uint64_t Size);
+                     std::size_t Size);
 
   void notifyPostLoad(uint32_t Index,
                       llvm::LoadInst const *Load,
                       void const *Address,
-                      uint64_t Size);
+                      std::size_t Size);
 
   void notifyPreStore(uint32_t Index,
                       llvm::StoreInst const *Store,
                       void const *Address,
-                      uint64_t Size);
+                      std::size_t Size);
 
   void notifyPostStore(uint32_t Index,
                        llvm::StoreInst const *Store,
                        void const *Address,
-                       uint64_t Size);
+                       std::size_t Size);
 
   void notifyPreDivide(uint32_t Index,
                        llvm::BinaryOperator const *Instruction);
@@ -499,10 +499,10 @@ public:
   void postCmalloc(llvm::CallInst const *Call, uint32_t Index, size_t Size);
 
   void preCrealloc(llvm::CallInst const *Call, uint32_t Index, void *Address,
-                   uint64_t Size);
+                   size_t Size);
 
   void postCrealloc(llvm::CallInst const *Call, uint32_t Index, void *Address,
-                    uint64_t Size);
+                    size_t Size);
   
   /// @}
   

@@ -60,7 +60,7 @@ TraceProcessListener::~TraceProcessListener() {
 }
 
 seec::util::Maybe<MemoryArea>
-TraceProcessListener::getContainingMemoryArea(uint64_t Address,
+TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
                                               uint32_t RequestingThreadID
                                               ) const {
   // Check global variables.
@@ -142,9 +142,9 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   llvm::Type *ElemTy = GV->getType()->getElementType();
 
   // Make a closed interval [Start, End].
-  uint64_t Start = reinterpret_cast<uintptr_t>(Address);
-  uint64_t Length = TD.getTypeStoreSize(ElemTy);
-  uint64_t End = Start + (Length - 1);
+  uintptr_t Start = reinterpret_cast<uintptr_t>(Address);
+  auto Length = TD.getTypeStoreSize(ElemTy);
+  uintptr_t End = Start + (Length - 1);
 
   GlobalVariableLookup.insert(Start, End, GV);
   

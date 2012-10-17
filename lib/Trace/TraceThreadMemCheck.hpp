@@ -20,7 +20,7 @@ namespace trace {
 /// \param Listener the listener for the thread requesting this information.
 /// \param Address the address of memory to find the owning allocation for.
 seec::util::Maybe<MemoryArea>
-getContainingMemoryArea(TraceThreadListener &Listener, uint64_t Address);
+getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
 /// \brief If Str points to a C string that fits within Area, then find the
 ///        area of that C string, including the terminating nul character.
@@ -31,7 +31,7 @@ getCStringInArea(char const *Str, MemoryArea Area);
 bool checkCStringIsValid(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
+        uintptr_t Address,
         uint64_t ParameterIndex,
         seec::runtime_errors::format_selects::StringFunction Function,
         seec::util::Maybe<MemoryArea> CStringArea
@@ -49,8 +49,8 @@ bool checkCStringIsValid(
 bool checkMemoryOwnership(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         seec::util::Maybe<MemoryArea> ContainingArea);
 
@@ -72,8 +72,8 @@ bool checkMemoryOwnershipOfParameter(
         seec::runtime_errors::format_selects::StandardFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::util::Maybe<MemoryArea> ContainingArea);
 
 /// \brief Check whether or not a memory access is valid.
@@ -91,8 +91,8 @@ bool checkMemoryOwnershipOfParameter(
 bool checkMemoryAccess(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         MemoryArea ContainingArea);
 
@@ -117,8 +117,8 @@ bool checkMemoryAccessOfParameter(
         seec::runtime_errors::format_selects::StandardFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        uint64_t Address,
-        uint64_t Size,
+        uintptr_t Address,
+        std::size_t Size,
         MemoryArea ContainingArea);
 
 /// \brief Check whether or not a memory access is valid.
@@ -136,8 +136,8 @@ bool checkMemoryAccessOfParameter(
 /// \param InstructionIndex the index of the current llvm::Instruction.
 template<seec::runtime_errors::format_selects::MemoryAccess Access>
 void checkMemoryAccess(TraceThreadListener &Listener,
-                       uint64_t Address,
-                       uint64_t Size,
+                       uintptr_t Address,
+                       std::size_t Size,
                        uint32_t InstrIndex) {
   auto MaybeArea = getContainingMemoryArea(Listener, Address);
 
@@ -173,8 +173,8 @@ inline void checkMemoryAccessOfParameter(
         seec::runtime_errors::format_selects::StandardFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
-        uint64_t Address,
-        uint64_t Size) {
+        uintptr_t Address,
+        std::size_t Size) {
   auto MaybeArea = getContainingMemoryArea(Listener, Address);
   
   if (checkMemoryOwnershipOfParameter(Listener,

@@ -34,7 +34,7 @@ public:
   {}
 
   /// Initializing constructor.
-  MappedMemoryBlock(uint64_t Start, uint64_t Length, char const *Data)
+  MappedMemoryBlock(uintptr_t Start, std::size_t Length, char const *Data)
   : MemoryArea(Start, Length),
     Data(Data)
   {}
@@ -80,7 +80,7 @@ public:
   /// \name Mutators
   /// @{
   
-  void trimLeftSide(uint64_t NewStartAddress) {
+  void trimLeftSide(uintptr_t NewStartAddress) {
     assert(NewStartAddress >= start());
     
     auto const MoveSize = NewStartAddress - start();

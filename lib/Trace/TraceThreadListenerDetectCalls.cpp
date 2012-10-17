@@ -195,16 +195,16 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
   acquireGlobalMemoryWriteLock();
   acquireDynamicMemoryLock();
 
-  uint64_t Address64 = reinterpret_cast<uintptr_t>(Address);
+  auto AddressInt = reinterpret_cast<uintptr_t>(Address);
 
-  if (!ProcessListener.isCurrentDynamicMemoryAllocation(Address64)) {
+  if (!ProcessListener.isCurrentDynamicMemoryAllocation(AddressInt)) {
     using namespace seec::runtime_errors;
 
 
     handleRunError(
       createRunError<RunErrorType::BadDynamicMemoryAddress>(
         format_selects::DynamicMemoryFunction::Free,
-        Address64),
+        AddressInt),
       RunErrorSeverity::Fatal,
       Index);
   }
@@ -253,19 +253,19 @@ void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
 void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       void *Address,
-                                      uint64_t Size) {
+                                      size_t Size) {
   acquireGlobalMemoryWriteLock();
   acquireDynamicMemoryLock();
 
-  uint64_t Address64 = reinterpret_cast<uintptr_t>(Address);
+  auto AddressInt = reinterpret_cast<uintptr_t>(Address);
 
-  if (!ProcessListener.isCurrentDynamicMemoryAllocation(Address64)) {
+  if (!ProcessListener.isCurrentDynamicMemoryAllocation(AddressInt)) {
     using namespace seec::runtime_errors;
 
     handleRunError(
       createRunError<RunErrorType::BadDynamicMemoryAddress>(
         format_selects::DynamicMemoryFunction::Realloc,
-        Address64),
+        AddressInt),
       RunErrorSeverity::Fatal,
       Index);
   }
@@ -274,14 +274,14 @@ void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
 void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
                                        uint32_t Index,
                                        void *Address,
-                                       uint64_t Size) {
+                                       size_t Size) {
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
 
   assert(RTValue.assigned() && "Expected assigned RTValue.");
 
   auto NewAddress = RTValue.getUInt64();
 
-  uint64_t OldAddress = reinterpret_cast<uintptr_t>(Address);
+  auto OldAddress = reinterpret_cast<uintptr_t>(Address);
 
   if (OldAddress) {
     if (Size) {
@@ -406,7 +406,7 @@ void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
   
   acquireGlobalMemoryReadLock();
 
-  uint64_t Address = reinterpret_cast<uintptr_t>(Ptr);
+  auto Address = reinterpret_cast<uintptr_t>(Ptr);
   
   checkMemoryAccessOfParameter(*this,
                                Index,
@@ -431,15 +431,15 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
   
   acquireGlobalMemoryReadLock();
 
-  uint64_t Address1UInt = reinterpret_cast<uintptr_t>(Address1);
-  uint64_t Address2UInt = reinterpret_cast<uintptr_t>(Address2);
+  auto Address1Int = reinterpret_cast<uintptr_t>(Address1);
+  auto Address2Int = reinterpret_cast<uintptr_t>(Address2);
 
   checkMemoryAccessOfParameter(*this,
                                Index,
                                format_selects::StandardFunction::Memcmp,
                                0, // Address1 is parameter 0
                                format_selects::MemoryAccess::Read,
-                               Address1UInt,
+                               Address1Int,
                                Size);
 
   checkMemoryAccessOfParameter(*this,
@@ -447,7 +447,7 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
                                format_selects::StandardFunction::Memcmp,
                                1, // Address2 is parameter 1
                                format_selects::MemoryAccess::Read,
-                               Address2UInt,
+                               Address2Int,
                                Size);
 }
 
@@ -472,8 +472,8 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
 
   acquireGlobalMemoryWriteLock();
 
-  uint64_t DestAddr = reinterpret_cast<uintptr_t>(Destination);
-  uint64_t SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  auto DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  auto SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
   checkMemoryAccessOfParameter(*this,
                                Index,
@@ -520,8 +520,8 @@ void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
 
   acquireGlobalMemoryWriteLock();
 
-  uint64_t DestAddr = reinterpret_cast<uintptr_t>(Destination);
-  uint64_t SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  auto DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  auto SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
   checkMemoryAccessOfParameter(*this,
                                Index,
@@ -562,7 +562,7 @@ void TraceThreadListener::preCmemset(llvm::CallInst const *Call,
 
   acquireGlobalMemoryWriteLock();
 
-  uint64_t Address = reinterpret_cast<uintptr_t>(Destination);
+  auto Address = reinterpret_cast<uintptr_t>(Destination);
 
   checkMemoryAccessOfParameter(*this,
                                Index,
@@ -594,8 +594,8 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   
   acquireGlobalMemoryWriteLock();
 
-  uint64_t const DestAddr = reinterpret_cast<uintptr_t>(Destination);
-  uint64_t const SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
   // Check if Source points to owned memory.
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);
@@ -767,8 +767,8 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   
   acquireGlobalMemoryWriteLock();
 
-  uint64_t const DestAddr = reinterpret_cast<uintptr_t>(Destination);
-  uint64_t const SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
 
   // Check if Source points to owned memory.
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);

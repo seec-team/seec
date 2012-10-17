@@ -237,7 +237,7 @@ public:
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
     auto const EvPtr = reinterpret_cast<char const *>(&*Ev);
 
-    return EvPtr - BeginPtr;
+    return static_cast<offset_uint>(EvPtr - BeginPtr);
   }
 
   EventReference referenceToOffset(offset_uint Offset) const {
@@ -273,37 +273,37 @@ class FunctionTrace {
   char const *Data;
 
   /// Get the offset of Index in a serialized FunctionTrace.
-  static constexpr size_t IndexOffset() {
+  static constexpr std::size_t IndexOffset() {
     return 0;
   }
 
   /// Get the offset of EventStart in a serialized FunctionTrace.
-  static constexpr size_t EventStartOffset() {
+  static constexpr std::size_t EventStartOffset() {
     return IndexOffset() + sizeof(uint32_t);
   }
 
   /// Get the offset of EventEnd in a serialized FunctionTrace.
-  static constexpr size_t EventEndOffset() {
+  static constexpr std::size_t EventEndOffset() {
     return EventStartOffset() + sizeof(offset_uint);
   }
 
   /// Get the offset of ThreadTimeEntered in a serialized FunctionTrace.
-  static constexpr size_t ThreadTimeEnteredOffset() {
+  static constexpr std::size_t ThreadTimeEnteredOffset() {
     return EventEndOffset() + sizeof(offset_uint);
   }
 
   /// Get the offset of ThreadTimeExited in a serialized FunctionTrace.
-  static constexpr size_t ThreadTimeExitedOffset() {
+  static constexpr std::size_t ThreadTimeExitedOffset() {
     return ThreadTimeEnteredOffset() + sizeof(uint64_t);
   }
 
   /// Get the offset of ChildList in a serialized FunctionTrace.
-  static constexpr size_t ChildListOffset() {
+  static constexpr std::size_t ChildListOffset() {
     return ThreadTimeExitedOffset() + sizeof(uint64_t);
   }
 
   /// Get the offset of NonLocalChangeList in a serialized FunctionTrace.
-  static constexpr size_t NonLocalChangeListOffset() {
+  static constexpr std::size_t NonLocalChangeListOffset() {
     return ChildListOffset() + sizeof(offset_uint);
   }
 
@@ -483,13 +483,13 @@ class ProcessTrace {
   uint64_t FinalProcessTime;
 
   /// Global variable runtime addresses, by index.
-  std::vector<uint64_t> GlobalVariableAddresses;
+  std::vector<uintptr_t> GlobalVariableAddresses;
 
   /// Offsets of global variable's initial data.
   std::vector<offset_uint> GlobalVariableInitialData;
 
   /// Function runtime addresses, by index.
-  std::vector<uint64_t> FunctionAddresses;
+  std::vector<uintptr_t> FunctionAddresses;
 
   /// Thread-specific traces, by (ThreadID - 1).
   // mutable because we lazily construct the ThreadTrace objects.
@@ -503,9 +503,9 @@ class ProcessTrace {
                std::string &&ModuleIdentifier,
                uint32_t NumThreads,
                uint64_t FinalProcessTime,
-               std::vector<uint64_t> &&GVAddresses,
+               std::vector<uintptr_t> &&GVAddresses,
                std::vector<offset_uint> &&GVInitialData,
-               std::vector<uint64_t> &&FAddresses,
+               std::vector<uintptr_t> &&FAddresses,
                std::vector<std::unique_ptr<ThreadTrace>> &&TTraces);
 
 public:
@@ -545,7 +545,7 @@ public:
   /// Get the run-time address of a global variable.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \return the run-time address of the specified GlobalVariable.
-  uint64_t getGlobalVariableAddress(uint32_t Index) const {
+  uintptr_t getGlobalVariableAddress(uint32_t Index) const {
     assert(Index < GlobalVariableAddresses.size());
     return GlobalVariableAddresses[Index];
   }

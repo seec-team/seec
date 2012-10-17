@@ -798,8 +798,8 @@ void ThreadState::removeEvent(
 
     auto StateRef = Parent.getTrace().getEventReference(StateLoc);
 
-    uint64_t DataAddress = 0;
-    uint64_t DataSize = 0;
+    uintptr_t DataAddress = 0;
+    std::size_t DataSize = 0;
     char const *DataPtr = nullptr;
 
     auto Dispatched = StateRef.dispatch(

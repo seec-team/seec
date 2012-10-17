@@ -38,18 +38,18 @@ namespace trace {
 ///
 class MallocState {
   /// Address of the allocated memory.
-  uint64_t Address;
+  uintptr_t Address;
 
   /// Size of the allocated memory.
-  uint64_t Size;
+  std::size_t Size;
 
   /// Location of the Malloc event.
   EventLocation Malloc;
 
 public:
   /// Construct a new MallocState with the given values.
-  MallocState(uint64_t Address,
-              uint64_t Size,
+  MallocState(uintptr_t Address,
+              std::size_t Size,
               EventLocation MallocLocation)
   : Address(Address),
     Size(Size),
@@ -57,10 +57,10 @@ public:
   {}
 
   /// Get the address of the allocated memory.
-  uint64_t getAddress() const { return Address; }
+  uintptr_t getAddress() const { return Address; }
 
   /// Get the size of the allocated memory.
-  uint64_t getSize() const { return Size; }
+  std::size_t getSize() const { return Size; }
 
   /// Get the location of the Malloc event.
   EventLocation getMallocLocation() const { return Malloc; }
@@ -175,7 +175,7 @@ class ProcessState {
   std::vector<std::unique_ptr<ThreadState>> ThreadStates;
 
   /// All current dynamic memory allocations, indexed by address.
-  llvm::DenseMap<uint64_t, MallocState> Mallocs;
+  llvm::DenseMap<uintptr_t, MallocState> Mallocs;
 
   /// Current state of memory.
   MemoryState Memory;

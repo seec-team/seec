@@ -16,8 +16,8 @@ namespace seec {
 namespace trace {
 
 OverwrittenMemoryInfo
-TraceMemoryState::add(uint64_t Address,
-                      uint64_t Length,
+TraceMemoryState::add(uintptr_t Address,
+                      std::size_t Length,
                       uint32_t ThreadID,
                       offset_uint StateRecordOffset,
                       uint64_t ProcessTime) {
@@ -90,8 +90,8 @@ TraceMemoryState::add(uint64_t Address,
   return Overwritten;
 }
 
-OverwrittenMemoryInfo TraceMemoryState::clear(uint64_t Address, 
-                                              uint64_t Length) {
+OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address, 
+                                              std::size_t Length) {
   auto LastAddress = Address + (Length - 1);
   
   // Collect overwritten states.
@@ -145,7 +145,8 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uint64_t Address,
   return Overwritten;
 }
 
-bool TraceMemoryState::hasKnownState(uint64_t Address, uint64_t Length) const {
+bool TraceMemoryState::hasKnownState(uintptr_t Address,
+                                     std::size_t Length) const {
   auto LastAddress = Address + (Length - 1);
   
   auto It = Fragments.lower_bound(Address);

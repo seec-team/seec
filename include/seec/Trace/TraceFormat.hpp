@@ -42,7 +42,7 @@ inline offset_uint noOffset() {
 }
 
 /// Version of the trace storage format.
-constexpr inline uint64_t formatVersion() { return 1; }
+constexpr inline uint64_t formatVersion() { return 2; }
 
 constexpr inline uint32_t initialDataThreadID() { return 0; }
 
@@ -127,31 +127,45 @@ struct FunctionRecord {
 union RuntimeValueRecord {
   uint64_t UInt64;
   
+  uintptr_t UIntPtr;
+  
   float Float;
   
   double Double;
   
+  /// \brief Default construct.
   RuntimeValueRecord()
   {}
   
+  /// \brief Copy construct.
   RuntimeValueRecord(RuntimeValueRecord const &Other) = default;
   
+  /// \brief Construct a new record holding a uint32_t.
   RuntimeValueRecord(uint32_t Value)
   : UInt64(Value)
   {}
   
+  /// \brief Construct a new record holding a uint64_t.
   RuntimeValueRecord(uint64_t Value)
   : UInt64(Value)
   {}
   
+  /// \brief Construct a new record holding a uintptr_t.
+  RuntimeValueRecord(uintptr_t Value)
+  : UIntPtr(Value)
+  {}
+  
+  /// \brief Construct a new record holding a float.
   RuntimeValueRecord(float Value)
   : Float(Value)
   {}
   
+  /// \brief Construct a new record holding a double.
   RuntimeValueRecord(double Value)
   : Double(Value)
   {}
   
+  /// \brief Copy assign.
   RuntimeValueRecord &operator=(RuntimeValueRecord const &RHS) = default;
 };
 

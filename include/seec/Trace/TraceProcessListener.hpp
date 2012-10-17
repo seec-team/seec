@@ -55,16 +55,16 @@ class DynamicAllocation {
   offset_uint Offset;
   
   /// Address of the allocation.
-  uint64_t Address;
+  uintptr_t Address;
 
   /// Size of the allocation.
-  uint64_t Size;
+  std::size_t Size;
 
 public:
   DynamicAllocation(uint32_t Thread,
                     offset_uint Offset,
-                    uint64_t Address,
-                    uint64_t Size)
+                    uintptr_t Address,
+                    std::size_t Size)
   : Thread(Thread),
     Offset(Offset),
     Address(Address),
@@ -83,9 +83,9 @@ public:
 
   offset_uint offset() const { return Offset; }
   
-  uint64_t address() const { return Address; }
+  uintptr_t address() const { return Address; }
 
-  uint64_t size() const { return Size; }
+  std::size_t size() const { return Size; }
   
   MemoryArea area() const { return MemoryArea(Address, Size); }
   
@@ -95,7 +95,7 @@ public:
   /// \name Mutators
   /// @{
   
-  void update(uint32_t NewThread, offset_uint NewOffset, uint64_t NewSize) {
+  void update(uint32_t NewThread, offset_uint NewOffset, std::size_t NewSize) {
     Thread = NewThread;
     Offset = NewOffset;
     Size = NewSize;
@@ -130,10 +130,10 @@ class TraceProcessListener {
   ModuleIndex &MIndex;
 
   /// Lookup GlobalVariable's run-time addresses by index.
-  std::vector<uint64_t> GlobalVariableAddresses;
+  std::vector<uintptr_t> GlobalVariableAddresses;
 
   /// Find GlobalVariables by their run-time addresses.
-  IntervalMapVector<uint64_t, llvm::GlobalVariable const *>
+  IntervalMapVector<uintptr_t, llvm::GlobalVariable const *>
     GlobalVariableLookup;
     
   /// Offsets of data for the initial state of GlobalVariables.
@@ -143,10 +143,10 @@ class TraceProcessListener {
   seec::trace::detect_calls::Lookup DetectCallsLookup;
 
   /// Lookup Function's run-time addresses by index.
-  std::vector<uint64_t> FunctionAddresses;
+  std::vector<uintptr_t> FunctionAddresses;
 
   /// Find Functions by their run-time addresses.
-  llvm::DenseMap<uint64_t, llvm::Function const *> FunctionLookup;
+  llvm::DenseMap<uintptr_t, llvm::Function const *> FunctionLookup;
 
   /// Output stream for this process' data.
   std::unique_ptr<llvm::raw_ostream> DataOut;
@@ -181,14 +181,14 @@ class TraceProcessListener {
   TraceMemoryState TraceMemory;
   
   /// Keeps information about known, but unowned, areas of memory.
-  IntervalMapVector<uint64_t, MemoryPermission> KnownMemory;
+  IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
 
 
   /// Dynamic memory mutex.
   std::mutex DynamicMemoryMutex;
 
   /// Lookup for current dynamic memory allocations, by address.
-  std::map<uint64_t, DynamicAllocation> DynamicMemoryAllocations;
+  std::map<uintptr_t, DynamicAllocation> DynamicMemoryAllocations;
 
   /// Controls internal access to DynamicMemoryAllocations.
   mutable std::mutex DynamicMemoryAllocationsMutex;
@@ -223,7 +223,7 @@ public:
   /// Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
-  uint64_t getRuntimeAddress(llvm::GlobalVariable const *GV) {
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) {
     auto MaybeIndex = MIndex.getIndexOfGlobal(GV);
     if (!MaybeIndex.assigned())
       return 0;
@@ -238,7 +238,7 @@ public:
   /// Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
-  uint64_t getRuntimeAddress(llvm::Function const *F) {
+  uintptr_t getRuntimeAddress(llvm::Function const *F) {
     auto MaybeIndex = MIndex.getIndexOfFunction(F);
     if (!MaybeIndex.assigned())
       return 0;
@@ -256,7 +256,7 @@ public:
   /// TracingThreadListeners other than that of the thread that requested the
   /// information. This method is thread safe.
   seec::util::Maybe<MemoryArea>
-  getContainingMemoryArea(uint64_t Address, uint32_t RequestingThreadID) const;
+  getContainingMemoryArea(uintptr_t Address, uint32_t RequestingThreadID) const;
 
   /// @} (Accessors)
   
@@ -326,8 +326,8 @@ public:
   }
 
   /// Add a new memory state to the trace, and get the overwritten states.
-  OverwrittenMemoryInfo addMemoryState(uint64_t Address,
-                                       uint64_t Length,
+  OverwrittenMemoryInfo addMemoryState(uintptr_t Address,
+                                       std::size_t Length,
                                        uint32_t ThreadID,
                                        offset_uint StateRecordOffset,
                                        uint64_t ProcessTime) {
@@ -340,26 +340,26 @@ public:
   }
   
   /// Clear memory state over the specified region.
-  OverwrittenMemoryInfo clearMemoryState(uint64_t Address,
-                                         uint64_t Length) {
+  OverwrittenMemoryInfo clearMemoryState(uintptr_t Address,
+                                         std::size_t Length) {
     std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
     return TraceMemory.clear(Address, Length);
   }
   
-  bool rangeHasKnownMemoryState(uint64_t Address, uint64_t Length) const {
+  bool rangeHasKnownMemoryState(uintptr_t Address, std::size_t Length) const {
     std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
     return TraceMemory.hasKnownState(Address, Length);
   }
   
   /// Add a region of known, but unowned, memory.
-  void addKnownMemoryRegion(uint64_t Address,
-                            uint64_t Length,
+  void addKnownMemoryRegion(uintptr_t Address,
+                            std::size_t Length,
                             MemoryPermission Access) {
     KnownMemory.insert(Address, Address + (Length - 1), Access);
   }
   
   ///
-  bool removeKnownMemoryRegion(uint64_t Address) {
+  bool removeKnownMemoryRegion(uintptr_t Address) {
     return KnownMemory.erase(Address) != 0;
   }
 
@@ -376,7 +376,7 @@ public:
   }
 
   /// Check if an address is the start of a dynamically allocated memory block.
-  bool isCurrentDynamicMemoryAllocation(uint64_t Address) const {
+  bool isCurrentDynamicMemoryAllocation(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
 
     return DynamicMemoryAllocations.count(Address);
@@ -384,7 +384,7 @@ public:
 
   /// Get information about the Malloc event that allocated an address.
   seec::util::Maybe<DynamicAllocation>
-  getCurrentDynamicMemoryAllocation(uint64_t Address) const {
+  getCurrentDynamicMemoryAllocation(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
 
     auto It = DynamicMemoryAllocations.find(Address);
@@ -400,10 +400,10 @@ public:
   /// \param Address
   /// \param Thread
   /// \param Offset
-  void setCurrentDynamicMemoryAllocation(uint64_t Address,
+  void setCurrentDynamicMemoryAllocation(uintptr_t Address,
                                          uint32_t Thread,
                                          offset_uint Offset,
-                                         uint64_t Size) {
+                                         std::size_t Size) {
     std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
 
     // if the address is already allocated, update its details (realloc)
@@ -419,7 +419,7 @@ public:
   }
 
   /// Remove the dynamic memory allocation for an address.
-  bool removeCurrentDynamicMemoryAllocation(uint64_t Address) {
+  bool removeCurrentDynamicMemoryAllocation(uintptr_t Address) {
     std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
 
     return DynamicMemoryAllocations.erase(Address);

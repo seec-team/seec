@@ -125,8 +125,8 @@ SEEC_TRACE_EVENT(InstructionWithLargeValue,
 
 SEEC_TRACE_EVENT(Alloca,
   SEEC_PP_QUOTE(
-    (uint64_t, ElementSize),
-    (uint64_t, ElementCount)
+    (std::size_t, ElementSize),
+    (std::size_t, ElementCount)
   ),
   SEEC_PP_QUOTE(
     (Alloca, is_function_level)
@@ -151,7 +151,7 @@ SEEC_TRACE_EVENT(StackRestoreAlloca,
 
 SEEC_TRACE_EVENT(Malloc,
   SEEC_PP_QUOTE(
-    (uint64_t, Size),
+    (std::size_t, Size),
     (uint64_t, ProcessTime)
   ),
   SEEC_PP_QUOTE(
@@ -171,7 +171,7 @@ SEEC_TRACE_EVENT(Free,
 SEEC_TRACE_EVENT(StateTyped,
   SEEC_PP_QUOTE(
     (uint32_t, Overwritten),
-    (uint64_t, Address),
+    (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, ValueOffset)
   ),
@@ -183,7 +183,7 @@ SEEC_TRACE_EVENT(StateUntypedSmall,
   SEEC_PP_QUOTE(
     (uint8_t, Size),
     (uint32_t, Overwritten),
-    (uint64_t, Address),
+    (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (uint64_t, Data)
   ),
@@ -194,10 +194,10 @@ SEEC_TRACE_EVENT(StateUntypedSmall,
 SEEC_TRACE_EVENT(StateUntyped,
   SEEC_PP_QUOTE(
     (uint32_t, Overwritten),
-    (uint64_t, Address),
+    (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, DataOffset),
-    (uint64_t, DataSize)
+    (std::size_t, DataSize)
   ),
   SEEC_PP_QUOTE(
     (StateUntyped, modifies_shared_state)
@@ -206,9 +206,9 @@ SEEC_TRACE_EVENT(StateUntyped,
 SEEC_TRACE_EVENT(StateClear,
   SEEC_PP_QUOTE(
     (uint32_t, Overwritten),
-    (uint64_t, Address),
+    (uintptr_t, Address),
     (uint64_t, ProcessTime),
-    (uint64_t, ClearSize)
+    (std::size_t, ClearSize)
   ),
   SEEC_PP_QUOTE(
     (StateClear, modifies_shared_state)
@@ -227,8 +227,8 @@ SEEC_TRACE_EVENT(StateOverwrittenFragment,
   SEEC_PP_QUOTE(
     (uint32_t, StateThreadID),
     (offset_uint, StateOffset),
-    (uint64_t, FragmentAddress),
-    (uint64_t, FragmentSize)
+    (uintptr_t, FragmentAddress),
+    (std::size_t, FragmentSize)
   ),
   SEEC_PP_QUOTE(
     (StateOverwrittenFragment, is_subservient)

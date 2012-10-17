@@ -37,11 +37,11 @@ public:
 
   /// \brief Construct MemoryBlock by copying the given data.
   ///
-  MemoryBlock(uint64_t Start, uint64_t Length, char const *CopyData);
+  MemoryBlock(uintptr_t Start, std::size_t Length, char const *CopyData);
 
   /// \brief Construct a MemoryBlock by copying data from the given location.
   ///
-  MemoryBlock(void const *Start, size_t Length);
+  MemoryBlock(void const *Start, std::size_t Length);
 
   /// \brief Copy the given MemoryBlock.
   ///

@@ -66,7 +66,7 @@ void TraceThreadListener::synchronizeProcessTime() {
 // Dynamic memory
 //------------------------------------------------------------------------------
 
-void TraceThreadListener::recordMalloc(uint64_t Address, uint64_t Size) {
+void TraceThreadListener::recordMalloc(uintptr_t Address, std::size_t Size) {
   ProcessTime = getCIProcessTime();
   
   auto Offset = EventsOut.write<EventType::Malloc>(Size, ProcessTime);
@@ -78,7 +78,7 @@ void TraceThreadListener::recordMalloc(uint64_t Address, uint64_t Size) {
                                                     Size);
 }
 
-DynamicAllocation TraceThreadListener::recordFree(uint64_t Address) {
+DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
   auto MaybeMalloc = ProcessListener.getCurrentDynamicMemoryAllocation(Address);
 
   // If the allocation didn't exist it should have been caught in preCfree.
@@ -100,7 +100,7 @@ DynamicAllocation TraceThreadListener::recordFree(uint64_t Address) {
   return Malloc;
 }
 
-void TraceThreadListener::recordFreeAndClear(uint64_t Address) {
+void TraceThreadListener::recordFreeAndClear(uintptr_t Address) {
   auto Malloc = recordFree(Address);
   
   // Clear the state of the freed area.
@@ -112,10 +112,11 @@ void TraceThreadListener::recordFreeAndClear(uint64_t Address) {
 // Memory states
 //------------------------------------------------------------------------------
 
-void TraceThreadListener::recordUntypedState(char const *Data, uint64_t Size) {
+void TraceThreadListener::recordUntypedState(char const *Data,
+                                             std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
-  uint64_t Address = (uintptr_t) Data;
+  uintptr_t Address = (uintptr_t) Data;
 
   ProcessTime = getCIProcessTime();
   
@@ -161,14 +162,14 @@ void TraceThreadListener::recordUntypedState(char const *Data, uint64_t Size) {
 }
 
 void TraceThreadListener::recordTypedState(void const *Data,
-                                           uint64_t Size,
+                                           std::size_t Size,
                                            offset_uint Value){
   recordUntypedState(reinterpret_cast<char const *>(Data), Size);
   
 #if 0
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
-  uint64_t Address = (uintptr_t)Data;
+  uintptr_t Address = (uintptr_t)Data;
   
   ProcessTime = getCIProcessTime();
   
@@ -192,7 +193,8 @@ void TraceThreadListener::recordTypedState(void const *Data,
 #endif
 }
 
-void TraceThreadListener::recordStateClear(uint64_t Address, uint64_t Size) {
+void TraceThreadListener::recordStateClear(uintptr_t Address,
+                                           std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
   ProcessTime = getCIProcessTime();

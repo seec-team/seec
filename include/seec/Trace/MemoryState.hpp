@@ -96,7 +96,7 @@ public:
 ///
 class MemoryState {
   /// Map fragments' start addresses to the fragments themselves.
-  std::map<uint64_t, MemoryStateFragment> FragmentMap;
+  std::map<uintptr_t, MemoryStateFragment> FragmentMap;
 
   // Don't allow copying
   MemoryState(MemoryState const &) = delete;

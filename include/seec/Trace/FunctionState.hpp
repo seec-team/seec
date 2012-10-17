@@ -51,21 +51,21 @@ class AllocaState {
   uint32_t InstructionIndex;
 
   /// Runtime address for this allocation.
-  uint64_t Address;
+  uintptr_t Address;
 
   /// Size of the element type that this allocation was for.
-  uint64_t ElementSize;
+  std::size_t ElementSize;
 
   /// Number of elements that space was allocated for.
-  uint64_t ElementCount;
+  std::size_t ElementCount;
 
 public:
   /// Construct a new AllocaState with the specified values.
   AllocaState(FunctionState const &Parent,
               uint32_t InstructionIndex,
-              uint64_t Address,
-              uint64_t ElementSize,
-              uint64_t ElementCount)
+              uintptr_t Address,
+              std::size_t ElementSize,
+              std::size_t ElementCount)
   : Parent(&Parent),
     InstructionIndex(InstructionIndex),
     Address(Address),
@@ -84,16 +84,16 @@ public:
   uint32_t getInstructionIndex() const { return InstructionIndex; }
 
   /// \brief Get the runtime address for this allocation.
-  uint64_t getAddress() const { return Address; }
+  uintptr_t getAddress() const { return Address; }
 
   /// \brief Get the size of the element type that this allocation was for.
-  uint64_t getElementSize() const { return ElementSize; }
+  std::size_t getElementSize() const { return ElementSize; }
 
   /// \brief Get the number of elements that space was allocated for.
-  uint64_t getElementCount() const { return ElementCount; }
+  std::size_t getElementCount() const { return ElementCount; }
 
   /// \brief Get the total size of this allocation.
-  uint64_t getTotalSize() const { return ElementSize * ElementCount; }
+  std::size_t getTotalSize() const { return ElementSize * ElementCount; }
 
   /// @} (Accessors)
 

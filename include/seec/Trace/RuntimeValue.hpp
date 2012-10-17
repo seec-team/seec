@@ -59,6 +59,11 @@ public:
     RecordOffset = Offset;
     Data.UInt64 = static_cast<uint64_t>(Value);
   }
+  
+  void set(offset_uint Offset, uintptr_t Value) {
+    RecordOffset = Offset;
+    Data.UIntPtr = Value;
+  }
 
   void set(offset_uint Offset, float Value) {
     RecordOffset = Offset;
@@ -91,6 +96,8 @@ public:
   decltype(Data) const &getData() const { return Data; }
   
   uint64_t getUInt64() const { return Data.UInt64; }
+  
+  uintptr_t getUIntPtr() const { return Data.UIntPtr; }
 
   float getFloat() const { return Data.Float; }
 
@@ -153,7 +160,7 @@ template<typename T>
 struct GetAsImpl<T *> {
   static T *impl(RuntimeValue const &Value, llvm::Type const *Type) {
     assert(Type->isPointerTy());
-    return reinterpret_cast<T *>(static_cast<uintptr_t>(Value.getUInt64()));
+    return reinterpret_cast<T *>(Value.getUIntPtr());
   }
 };
 

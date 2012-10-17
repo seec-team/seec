@@ -60,10 +60,10 @@ public:
 /// \brief An argument that holds a runtime address.
 ///
 class ArgAddress : public Arg {
-  uint64_t Address;
+  uintptr_t Address;
 
 public:
-  ArgAddress(uint64_t Address)
+  ArgAddress(uintptr_t Address)
   : Arg(ArgType::Address),
     Address(Address)
   {}
@@ -87,7 +87,7 @@ public:
   /// \return true iff *A is an ArgAddress.
   static bool classof(Arg const *A) { return A->type() == ArgType::Address; }
 
-  uint64_t address() const { return Address; }
+  uintptr_t address() const { return Address; }
 };
 
 /// \brief An argument that represents a runtime object.
