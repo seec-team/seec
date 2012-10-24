@@ -6,61 +6,30 @@ namespace seec {
 namespace trace {
 
 
+//------------------------------------------------------------------------------
+// MemoryState Mutators
+//------------------------------------------------------------------------------
+
 void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
-  auto const Address = Block.start();
-
-  // Find the first fragment that starts >= Block's start.
-  auto It = FragmentMap.lower_bound(Address);
-
-  // Best-case scenario: perfect replacement of a previous state.
-  if (It->second.getBlock().area() == Block.area()) {
-    FragmentMap.erase(It++);
-    FragmentMap.insert(It,
-                       std::make_pair(Address,
-                                      MemoryStateFragment(std::move(Block),
-                                                          std::move(Event))));
-    return;
-  }
-
-  // Check if the previous fragment overlaps.
-  if (It->first > Address && It != FragmentMap.begin()) {
-    if ((--It)->second.getBlock().last() >= Address) {
-      // Resize the previous fragment to remove the overlapping area.
-      It->second.getBlock().setEnd(Address);
-    }
-
-    ++It;
-  }
-
-  // Find and remove overlapping fragments.
-  auto const LastAddress = Block.last();
-
-  while (It != FragmentMap.end() && It->first <= LastAddress) {
-    if (It->second.getBlock().last() <= LastAddress) {
-      // Remove completely replaced fragment.
-      FragmentMap.erase(It++);
-    }
-    else {
-      // Reposition right-overlapping fragment.
-      auto const NewStartAddress = LastAddress + 1;
-      auto Fragment = std::move(It->second);
-      Fragment.getBlock().trimLeftSide(NewStartAddress);
-      FragmentMap.erase(It++);
-      FragmentMap.insert(It,
-                         std::make_pair(NewStartAddress, std::move(Fragment)));
-      break;
-    }
-  }
-
+  // Clear space for the new fragment.
+  clear(Block.area());
+  
   // Add the new fragment.
-  FragmentMap.insert(It,
-                     std::make_pair(Address,
+  auto const Address = Block.start();
+  
+  // TODO: get an iterator from clear() to hint to insert.
+  FragmentMap.insert(std::make_pair(Address,
                                     MemoryStateFragment(std::move(Block),
                                                         std::move(Event))));
 }
 
-void MemoryState::clear(MemoryArea Area) {
-  auto It = FragmentMap.lower_bound(Area.start());
+void MemoryState::clear(MemoryArea const Area) {
+  // Convenience variables.
+  auto const Address = Area.start();
+  auto const LastAddress = Area.lastAddress();
+  
+  // Get the first fragment starting >= Address.
+  auto It = FragmentMap.lower_bound(Address);
 
   // Best-case scenario: perfect removal of a previous state.
   if (It != FragmentMap.end() && It->second.getBlock().area() == Area) {
@@ -69,33 +38,87 @@ void MemoryState::clear(MemoryArea Area) {
   }
 
   // Check if the previous fragment overlaps.
-  if (It->first > Area.start() && It != FragmentMap.begin()) {
-    if ((--It)->second.getBlock().last() >= Area.start()) {
-      // Resize the previous fragment to remove the overlapping area.
-      It->second.getBlock().setEnd(Area.start());
+  if (It->first > Address && It != FragmentMap.begin()) {
+    if ((--It)->second.getBlock().lastAddress() >= Area.start()) {
+      // Previous fragment overlaps with our start. Check if we are splitting
+      // the fragment or performing a right-trim.
+      if (It->second.getBlock().lastAddress() > LastAddress) { // Split
+        // Create a new fragment for the right-hand side.
+        MappedMemoryBlock RightBlock(It->second.getBlock());
+        RightBlock.trimLeftSide(LastAddress + 1);
+        MemoryStateFragment RightFragment(std::move(RightBlock),
+                                          It->second.getStateRecordLocation());
+        
+        // Resize the previous fragment to remove the right-hand and overlap.
+        It->second.getBlock().setEnd(Address);
+        
+        // Insert the right-hand side fragment.
+        // TODO: Hint this insertion.
+        FragmentMap.insert(std::make_pair(LastAddress + 1,
+                                          std::move(RightFragment)));
+      }
+      else { // Right-trim
+        // Resize the previous fragment to remove the overlapping area.
+        It->second.getBlock().setEnd(Area.start());
+      }
     }
 
     ++It;
   }
 
   // Find and remove overlapping fragments.
-  while (It != FragmentMap.end() && It->first <= Area.last()) {
-    if (It->second.getBlock().last() <= Area.last()) {
+  while (It != FragmentMap.end() && It->first <= LastAddress) {
+    if (It->second.getBlock().lastAddress() <= LastAddress) {
       // Remove completely replaced fragment.
       FragmentMap.erase(It++);
     }
     else {
       // Reposition right-overlapping fragment.
-      auto const NewStartAddress = Area.last() + 1;
       auto Fragment = std::move(It->second);
-      Fragment.getBlock().trimLeftSide(NewStartAddress);
       FragmentMap.erase(It++);
+      Fragment.getBlock().trimLeftSide(LastAddress + 1);
       FragmentMap.insert(It,
-                         std::make_pair(NewStartAddress, std::move(Fragment)));
+                         std::make_pair(LastAddress + 1, std::move(Fragment)));
       break;
     }
   }
 }
+
+void MemoryState::unsplit(uintptr_t LeftAddress, uintptr_t RightAddress) {
+ auto LeftIt = FragmentMap.find(LeftAddress);
+ auto RightIt = FragmentMap.find(RightAddress);
+ assert(LeftIt != FragmentMap.end() && RightIt != FragmentMap.end());
+ 
+ // Set the left fragment to cover the entire (merged) range.
+ LeftIt->second.getBlock().setEnd(RightIt->second.getBlock().end());
+ 
+ // Delete the right fragment.
+ FragmentMap.erase(RightIt);
+}
+
+void MemoryState::untrimRightSide(uintptr_t Address, std::size_t TrimSize) {
+  auto It = FragmentMap.find(Address);
+  assert(It != FragmentMap.end() && "Illegal MemoryState::untrimRightSide.");
+  
+  // Increase the size of the fragment.
+  It->second.getBlock().setEnd(It->second.getBlock().end() + TrimSize);
+}
+
+void MemoryState::untrimLeftSide(uintptr_t Address, uintptr_t PriorAddress) {
+  auto It = FragmentMap.find(Address);
+  assert(It != FragmentMap.end() && "Illegal MemoryState::untrimLeftSide.");
+  
+  // Shift the fragment back to its original position.
+  auto Fragment = std::move(It->second);
+  FragmentMap.erase(It++);
+  Fragment.getBlock().untrimLeftSide(PriorAddress);
+  FragmentMap.insert(It, std::make_pair(PriorAddress, std::move(Fragment)));
+}
+
+
+//------------------------------------------------------------------------------
+// MemoryState::Region
+//------------------------------------------------------------------------------
 
 bool MemoryState::Region::isCompletelyInitialized() const {
   auto It = State.FragmentMap.lower_bound(Area.start());
@@ -262,6 +285,11 @@ std::vector<char> MemoryState::Region::getByteValues() const {
 
   return Values;
 }
+
+
+//------------------------------------------------------------------------------
+// MemoryState Printing
+//------------------------------------------------------------------------------
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               MemoryState const &State) {

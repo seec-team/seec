@@ -21,66 +21,12 @@ TraceMemoryState::add(uintptr_t Address,
                       uint32_t ThreadID,
                       offset_uint StateRecordOffset,
                       uint64_t ProcessTime) {
-  auto LastAddress = Address + (Length - 1);
-  
-  // collect overwritten states
-  OverwrittenMemoryInfo Overwritten;
+  // Make room for the fragment and determine the overwritten memory.
+  OverwrittenMemoryInfo Overwritten = clear(Address, Length);
 
-  // get the first fragment starting >= Address.
-  auto It = Fragments.lower_bound(Address);
-
-  // best-case scenario: perfect replacement of a previous state
-  if (It->first == Address && It->second.area().lastAddress() == LastAddress) {
-    Overwritten.add(It->second);
-    
-    // move It to the next state (to use as a placement hint for the new state)
-    // and delete the overwritten state
-    Fragments.erase(It++);
-    
-    Fragments.insert(It, std::make_pair(Address,
-                                        TraceMemoryFragment(Address,
-                                                            Length,
-                                                            ThreadID,
-                                                            StateRecordOffset,
-                                                            ProcessTime)));
-
-    return Overwritten;
-  }
-
-  // Check if the previous fragment overlaps.
-  if (It->first > Address && It != Fragments.begin()) {
-    if ((--It)->second.area().lastAddress() >= Address) {
-      Overwritten.add(It->second);
-      
-      // Resize the fragment to remove the overlapping area.
-      It->second.area().setEnd(Address);
-    }
-    
-    ++It;
-  }
-
-  // find remaining overlapping fragments
-  while (It != Fragments.end() && It->first <= LastAddress) {
-    Overwritten.add(It->second);
-    
-    if (It->second.area().lastAddress() <= LastAddress) {
-      // remove internally overlapping fragment
-      Fragments.erase(It++);
-    }
-    else {
-      // reposition right-overlapping fragment
-      auto Fragment = std::move(It->second);
-      Fragments.erase(It++);
-      Fragments.insert(It,
-                       std::make_pair(LastAddress + 1, std::move(Fragment)));
-      break;
-    }
-  }
-
-  // add the new fragment.
-  // Fragments.emplace(Address, Address, Length, StateRecordOffset);
-  Fragments.insert(It,
-                   std::make_pair(Address,
+  // Add the new fragment.
+  // TODO: get an iterator from clear() to hint to insert.
+  Fragments.insert(std::make_pair(Address,
                                   TraceMemoryFragment(Address,
                                                       Length,
                                                       ThreadID,
@@ -101,8 +47,10 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address,
   auto It = Fragments.lower_bound(Address);
 
   // Best-case scenario: perfect removal of a previous state.
-  if (It->first == Address && It->second.area().lastAddress() == LastAddress) {
-    Overwritten.add(It->second);
+  if (It != Fragments.end()
+      && It->first == Address
+      && It->second.area().lastAddress() == LastAddress) {
+    Overwritten.add(StateOverwrite::forReplace(It->second));
     
     Fragments.erase(It);
 
@@ -112,13 +60,32 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address,
   // Check if the previous fragment overlaps.
   if (It->first > Address && It != Fragments.begin()) {
     if ((--It)->second.area().lastAddress() >= Address) {
-      Overwritten.add(It->second);
-      
-      // Trim the length of the previous fragment.
-      auto FragmentAddress = It->second.area().address();
-      auto NewFragmentLength = Address - FragmentAddress;
-      
-      It->second.reposition(MemoryArea{FragmentAddress, NewFragmentLength});
+      // Previous fragment overlaps with our start. Check if we are splitting
+      // the fragment or performing a right-trim.
+      if (It->second.area().lastAddress() > LastAddress) { // Split
+        seec::MemoryArea OverwriteArea(Address, Length);
+        Overwritten.add(StateOverwrite::forSplitFragment(It->second,
+                                                         OverwriteArea));
+        
+        // Create a new fragment to use on the right-hand side.
+        auto RightFragment = It->second;
+        RightFragment.area().setStart(LastAddress + 1);
+        
+        // Resize the fragment to remove the right-hand side and overlap.
+        It->second.area().setEnd(Address);
+        
+        // Add the right-hand side fragment.
+        // TODO: Hint this insertion.
+        Fragments.insert(std::make_pair(LastAddress + 1,
+                                        std::move(RightFragment)));
+      }
+      else { // Right-Trim
+        Overwritten.add(StateOverwrite::forTrimFragmentRight(It->second,
+                                                             Address));
+        
+        // Resize the fragment to remove the overlapping area.
+        It->second.area().setEnd(Address);
+      }
     }
     
     ++It;
@@ -126,18 +93,23 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address,
 
   // Find remaining overlapping fragments.
   while (It != Fragments.end() && It->first <= LastAddress) {
-    Overwritten.add(It->second);
-    
     if (It->second.area().lastAddress() <= LastAddress) {
+      Overwritten.add(StateOverwrite::forReplace(It->second));
+      
       // Remove internally overlapping fragment.
       Fragments.erase(It++);
     }
     else {
+      Overwritten.add(StateOverwrite::forTrimFragmentLeft(It->second,
+                                                          LastAddress + 1));
+      
       // Reposition right-overlapping fragment.
       auto Fragment = std::move(It->second);
       Fragments.erase(It++);
+      Fragment.area().setStart(LastAddress + 1);
       Fragments.insert(It,
                        std::make_pair(LastAddress + 1, std::move(Fragment)));
+      
       break;
     }
   }

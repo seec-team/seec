@@ -83,6 +83,10 @@ struct is_instruction { static bool const value = false; };
 template<EventType ET>
 struct modifies_shared_state { static bool const value = false; };
 
+/// For events that set memory state (not clearing).
+template<EventType ET>
+struct is_memory_state { static bool const value = false; };
+
 /// Dummy trait for events that define no other traits.
 template<EventType ET>
 struct no_traits { static bool const value = false; };
@@ -281,6 +285,19 @@ public:
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
       case EventType::NAME:                                                    \
         return modifies_shared_state<EventType::NAME>::value;
+#include "seec/Trace/Events.def"
+      default: llvm_unreachable("Reference to unknown event type!");
+    }
+    
+    return false;
+  }
+  
+  /// Check if this event has the is_memory_state trait.
+  bool isMemoryState() const {
+    switch (Type) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+      case EventType::NAME:                                                    \
+        return is_memory_state<EventType::NAME>::value;
 #include "seec/Trace/Events.def"
       default: llvm_unreachable("Reference to unknown event type!");
     }

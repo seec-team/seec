@@ -128,9 +128,6 @@ void TraceThreadListener::recordUntypedState(char const *Data,
                                                         ThreadID,
                                                         EventsOut.offset(),
                                                         ProcessTime);
-  
-  auto &OverwrittenStates = OverwrittenInfo.states();
-  
   if (Size <= EventRecord<EventType::StateUntypedSmall>::sizeofData()) {
     EventRecord<EventType::StateUntypedSmall>::typeofData DataStore;
     char *DataStorePtr = reinterpret_cast<char *>(&DataStore);
@@ -139,7 +136,7 @@ void TraceThreadListener::recordUntypedState(char const *Data,
     
     EventsOut.write<EventType::StateUntypedSmall>(
       static_cast<uint8_t>(Size),
-      static_cast<uint32_t>(OverwrittenStates.size()),
+      static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
       Address,
       ProcessTime,
       DataStore);
@@ -149,14 +146,14 @@ void TraceThreadListener::recordUntypedState(char const *Data,
 
     // write the state information to the trace
     EventsOut.write<EventType::StateUntyped>(
-      static_cast<uint32_t>(OverwrittenStates.size()),
+      static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
       Address,
       ProcessTime,
       DataOffset,
       Size);
   }
   
-  writeStateOverwritten(OverwrittenStates.begin(), OverwrittenStates.end());
+  writeStateOverwritten(OverwrittenInfo);
   
   // TODO: add non-local change records for all appropriate functions
 }
@@ -201,15 +198,13 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
   
   auto OverwrittenInfo = ProcessListener.clearMemoryState(Address, Size);
   
-  auto &OverwrittenStates = OverwrittenInfo.states();
-  
   EventsOut.write<EventType::StateClear>(
-    static_cast<uint32_t>(OverwrittenStates.size()),
+    static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
     Address,
     ProcessTime,
     Size);
   
-  writeStateOverwritten(OverwrittenStates.begin(), OverwrittenStates.end());
+  writeStateOverwritten(OverwrittenInfo);
 }
 
 void TraceThreadListener::recordMemset() {

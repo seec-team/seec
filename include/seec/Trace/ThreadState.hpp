@@ -92,8 +92,14 @@ class ThreadState {
   void addEvent(EventRecord<EventType::Malloc> const &);
   void addEvent(EventRecord<EventType::Free> const &);
   void addEvent(EventRecord<EventType::StateTyped> const &);
+  void addEvent(EventRecord<EventType::StateTyped> const &,
+                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateUntypedSmall> const &);
+  void addEvent(EventRecord<EventType::StateUntypedSmall> const &,
+                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateUntyped> const &);
+  void addEvent(EventRecord<EventType::StateUntyped> const &,
+                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateClear> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
@@ -101,8 +107,7 @@ class ThreadState {
   /// addEvent using an if statement when switching over types that do not have
   /// a defined addEvent (i.e. types with the trait is_subservient). Calling
   /// this function at runtime is an error.
-  template<typename T>
-  void addEvent(T &&Object) { llvm_unreachable("addEvent(...) called!"); }
+  void addEvent(...) { llvm_unreachable("addEvent(...) called!"); }
 
   /// Add the event referenced by NextEvent to the state, and then increment
   /// NextEvent.
@@ -126,12 +131,18 @@ class ThreadState {
   void removeEvent(EventRecord<EventType::Alloca> const &);
   void removeEvent(EventRecord<EventType::Malloc> const &);
   void removeEvent(EventRecord<EventType::Free> const &);
+  bool removeEventIfOverwrite(EventReference EvRef);
   void removeEvent(EventRecord<EventType::StateTyped> const &);
   void removeEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void removeEvent(EventRecord<EventType::StateUntyped> const &);
   void removeEvent(EventRecord<EventType::StateClear> const &);
-  void removeEvent(EventRecord<EventType::StateOverwritten> const &);
-  void removeEvent(EventRecord<EventType::StateOverwrittenFragment> const &);
+  void removeEvent(EventRecord<EventType::StateOverwrite> const &);
+  void removeEvent(EventRecord<EventType::StateOverwriteFragment> const &);
+  void removeEvent(
+    EventRecord<EventType::StateOverwriteFragmentTrimmedRight> const &);
+  void removeEvent(
+    EventRecord<EventType::StateOverwriteFragmentTrimmedLeft> const &);
+  void removeEvent(EventRecord<EventType::StateOverwriteFragmentSplit> const &);
   void removeEvent(EventRecord<EventType::RuntimeError> const &);
 
   /// Swallows unmatched calls to removeEvent. This allows us to restrict calls

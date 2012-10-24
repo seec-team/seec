@@ -217,14 +217,45 @@ class TraceThreadListener {
   }
 
   /// \brief Write a set of overwritten states, using StateOverwrittenRecord.
-  template<typename Iter>
-  void writeStateOverwritten(Iter Begin, Iter End) {
-    for (; Begin != End; ++Begin) {
-      EventsOut.write<EventType::StateOverwrittenFragment>(
-                        Begin->threadID(),
-                        Begin->stateRecordOffset(),
-                        Begin->area().address(),
-                        Begin->area().length());
+  void writeStateOverwritten(OverwrittenMemoryInfo const &Info) {
+    for (auto const &Overwrite : Info.overwrites()) {
+      auto &Event = Overwrite.getStateEvent();
+      auto &OldArea = Overwrite.getOldArea();
+      auto &NewArea = Overwrite.getNewArea();
+      
+      switch (Overwrite.getType()) {
+        case StateOverwrite::OverwriteType::ReplaceState:
+          EventsOut.write<EventType::StateOverwrite>
+                         (Event.getThreadID(),
+                          Event.getOffset());
+          break;
+        
+        case StateOverwrite::OverwriteType::ReplaceFragment:
+          EventsOut.write<EventType::StateOverwriteFragment>
+                         (Event.getThreadID(),
+                          Event.getOffset(),
+                          NewArea.address(),
+                          NewArea.length());
+          break;
+        
+        case StateOverwrite::OverwriteType::TrimFragmentRight:
+          EventsOut.write<EventType::StateOverwriteFragmentTrimmedRight>
+                         (OldArea.address(),
+                          OldArea.end() - NewArea.start());
+          break;
+        
+        case StateOverwrite::OverwriteType::TrimFragmentLeft:
+          EventsOut.write<EventType::StateOverwriteFragmentTrimmedLeft>
+                         (NewArea.end(),
+                          OldArea.start());
+          break;
+        
+        case StateOverwrite::OverwriteType::SplitFragment:
+          EventsOut.write<EventType::StateOverwriteFragmentSplit>
+                         (OldArea.address(),
+                          NewArea.end());
+          break;
+      }
     }
   }
 

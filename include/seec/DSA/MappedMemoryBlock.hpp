@@ -80,8 +80,20 @@ public:
   /// \name Mutators
   /// @{
   
+  /// \brief Move the left hand side to a new, higher, start address.
+  ///
   void trimLeftSide(uintptr_t NewStartAddress) {
     assert(NewStartAddress >= start());
+    
+    auto const MoveSize = NewStartAddress - start();
+    setStart(NewStartAddress);
+    Data += MoveSize;
+  }
+  
+  /// \brief Move the left hand side to a new, lower, start address.
+  ///
+  void untrimLeftSide(uintptr_t NewStartAddress) {
+    assert(NewStartAddress <= start());
     
     auto const MoveSize = NewStartAddress - start();
     setStart(NewStartAddress);
