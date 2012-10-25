@@ -14,7 +14,7 @@
 #include "llvm/Constants.h"
 #include "llvm/Value.h"
 #include "llvm/Type.h"
-#include "llvm/Support/TypeBuilder.h"
+#include "llvm/TypeBuilder.h"
 
 using namespace llvm;
 

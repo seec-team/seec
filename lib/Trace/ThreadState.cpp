@@ -781,7 +781,7 @@ void ThreadState::removeEvent(
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
     
     auto const &ProcTrace = Parent.getTrace();
     auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
@@ -824,7 +824,7 @@ void ThreadState::removeEvent(
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
     
     auto const &ProcTrace = Parent.getTrace();
     auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);

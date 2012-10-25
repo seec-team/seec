@@ -1,5 +1,6 @@
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 
+#include "llvm/DataLayout.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
@@ -14,7 +15,6 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 
 using namespace llvm;
@@ -76,13 +76,13 @@ int main(int argc, char **argv)
   TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(M->getTargetTriple()));
   Passes.add(TLI);
 
-  // Add an appropriate TargetData instance for this module.
-  TargetData *TD = 0;
+  // Add an appropriate DataLayout instance for this module.
+  DataLayout *DL = 0;
   const std::string &ModuleDataLayout = M.get()->getDataLayout();
   if (!ModuleDataLayout.empty())
-    TD = new TargetData(ModuleDataLayout);
-  if (TD)
-    Passes.add(TD);
+    DL = new DataLayout(ModuleDataLayout);
+  if (DL)
+    Passes.add(DL);
 
   // Add SeeC's recording instrumentation pass
   Passes.add(new InsertExternalRecording());

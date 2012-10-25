@@ -563,9 +563,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     // Add a record to this function's stack.
     auto AllocaType = Alloca->getAllocatedType();
 
-    auto &TargetData = ProcessListener.targetData();
+    auto &DataLayout = ProcessListener.dataLayout();
 
-    auto const ElementSize = TargetData.getTypeAllocSize(AllocaType);
+    auto const ElementSize = DataLayout.getTypeAllocSize(AllocaType);
 
     auto const CountRTV = getCurrentRuntimeValueAs<std::size_t>
                                                   (*this,

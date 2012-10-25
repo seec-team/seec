@@ -17,7 +17,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 #include <condition_variable>
 #include <memory>
@@ -81,8 +81,8 @@ class ProcessState {
   /// Indexed view of the llvm::Module that this trace was created from.
   ModuleIndex const &Module;
   
-  /// TargetData for the llvm::Module that this trace was created from.
-  llvm::TargetData TD;
+  /// DataLayout for the llvm::Module that this trace was created from.
+  llvm::DataLayout DL;
 
   /// @}
 
@@ -200,8 +200,8 @@ public:
   /// Get a ModuleIndex for the llvm::Module that the trace was produced from.
   ModuleIndex const &getModule() const { return Module; }
   
-  /// Get the TargetData for the llvm::Module that the trace was produced from.
-  llvm::TargetData const &getTargetData() const { return TD; }
+  /// Get the DataLayout for the llvm::Module that the trace was produced from.
+  llvm::DataLayout const &getDataLayout() const { return DL; }
 
   /// Get the synthetic process time that this state represents.
   uint64_t getProcessTime() const { return ProcessTime; }

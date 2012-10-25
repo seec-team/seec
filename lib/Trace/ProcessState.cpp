@@ -18,7 +18,7 @@ ProcessState::ProcessState(ProcessTrace const &Trace,
                            ModuleIndex const &ModIndex)
 : Trace(Trace),
   Module(ModIndex),
-  TD(&ModIndex.getModule()),
+  DL(&ModIndex.getModule()),
   UpdateMutex(),
   UpdateCV(),
   ProcessTime(0),
@@ -32,7 +32,7 @@ ProcessState::ProcessState(ProcessTrace const &Trace,
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = TD.getTypeStoreSize(ElemTy);
+    auto const Size = DL.getTypeStoreSize(ElemTy);
     auto const Data = Trace.getGlobalVariableInitialData(i, Size);
     auto const Start = Trace.getGlobalVariableAddress(i);
     
