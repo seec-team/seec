@@ -13,17 +13,17 @@
 
 #include "seec/Util/ModuleIndex.hpp"
 
+#include "llvm/DataLayout.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstVisitor.h"
-#include "llvm/Target/TargetData.h"
 
 #include <memory>
 #include <vector>
 
 namespace llvm {
 
-class TargetData;
+class DataLayout;
 
 /// This pass inserts calls to external execution tracing functions.
 class InsertExternalRecording
@@ -46,8 +46,8 @@ private:
   Type *Int64Ty;
   Type *Int8PtrTy;
 
-  /// TargetData for the Module.
-  TargetData *TD;
+  /// DataLayout for the Module.
+  DataLayout *DL;
 
   /// Index of the Module.
   std::unique_ptr<seec::ModuleIndex> ModIndex;
@@ -69,7 +69,7 @@ public:
     Int32Ty(nullptr),
     Int64Ty(nullptr),
     Int8PtrTy(nullptr),
-    TD(nullptr),
+    DL(nullptr),
     ModIndex(nullptr)
   {}
 

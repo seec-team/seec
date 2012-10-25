@@ -21,9 +21,9 @@
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Serialization.hpp"
 
+#include "llvm/DataLayout.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
 
 // #include <atomic>
 #include <functional>
@@ -123,8 +123,8 @@ class TraceProcessListener {
   /// Original uninstrumented Module.
   llvm::Module &Module;
 
-  /// TargetData for the Module.
-  llvm::TargetData TD;
+  /// DataLayout for the Module.
+  llvm::DataLayout DL;
 
   /// Shared index for the uninstrumented Module.
   ModuleIndex &MIndex;
@@ -214,8 +214,8 @@ public:
   /// Get the uninstrumented Module.
   llvm::Module &module() { return Module; }
 
-  /// Get the TargetData for this Module.
-  llvm::TargetData &targetData() { return TD; }
+  /// Get the DataLayout for this Module.
+  llvm::DataLayout &dataLayout() { return DL; }
 
   /// Get the shared module index.
   ModuleIndex &moduleIndex() { return MIndex; }
