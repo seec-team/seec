@@ -52,8 +52,8 @@ class OpenTrace
   std::unique_ptr<seec::ModuleIndex> ModuleIndex;
   
   /// Diagnostics options used when reading original source code using Clang.
-  clang::DiagnosticOptions DiagOpts;
-
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts;
+  
   /// Diagnostics consumer used when reading original source code using Clang.
   clang::IgnoringDiagConsumer DiagConsumer;
 
@@ -74,11 +74,12 @@ class OpenTrace
     ProcTrace(std::move(Trace)),
     Module(Module),
     ModuleIndex(new seec::ModuleIndex(*Module, true)),
+    DiagOpts(new clang::DiagnosticOptions()),
     DiagConsumer(),
     Diagnostics(new clang::DiagnosticsEngine(
                       llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs>
                                               (new clang::DiagnosticIDs()),
-                      &DiagOpts,
+                      &*DiagOpts,
                       &DiagConsumer,
                       false)),
     MapMod(*Module, ExecutablePath, Diagnostics)

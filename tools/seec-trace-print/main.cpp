@@ -114,15 +114,16 @@ int main(int argc, char **argv, char * const *envp) {
   seec::ModuleIndex ModIndex {*Mod, true};
 
   // Setup diagnostics printing for Clang diagnostics.
-  clang::DiagnosticOptions DiagnosticOpts;
-  DiagnosticOpts.ShowColors = true;
-
-  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &DiagnosticOpts);
+  IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
+    = new clang::DiagnosticOptions();
+  DiagOpts->ShowColors = true;
+  
+  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
 
   IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics
     = new clang::DiagnosticsEngine(
       IntrusiveRefCntPtr<clang::DiagnosticIDs>(new clang::DiagnosticIDs()),
-      &DiagnosticOpts,
+      &*DiagOpts,
       &DiagnosticPrinter,
       false);
 
