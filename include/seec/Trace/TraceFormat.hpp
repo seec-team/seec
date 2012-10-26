@@ -150,18 +150,20 @@ union RuntimeValueRecord {
   : UInt64(Value)
   {}
   
-  /// \brief Construct a new record holding a uintptr_t.
-  RuntimeValueRecord(uintptr_t Value)
-  : UIntPtr(Value)
-  {}
+  /// \brief Create a new record holding a uintptr_t.
+  static RuntimeValueRecord ofPointer(uintptr_t Value) {
+    RuntimeValueRecord Record;
+    Record.UIntPtr = Value;
+    return Record;
+  }
   
   /// \brief Construct a new record holding a float.
-  RuntimeValueRecord(float Value)
+  explicit RuntimeValueRecord(float Value)
   : Float(Value)
   {}
   
   /// \brief Construct a new record holding a double.
-  RuntimeValueRecord(double Value)
+  explicit RuntimeValueRecord(double Value)
   : Double(Value)
   {}
   

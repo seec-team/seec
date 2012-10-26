@@ -27,7 +27,7 @@ ProcessState::ProcessState(ProcessTrace const &Trace,
   Memory()
 {
   // Setup initial memory state for global variables.
-  for (auto i = 0; i < Module.getGlobalCount(); ++i) {
+  for (std::size_t i = 0; i < Module.getGlobalCount(); ++i) {
     auto const Global = Module.getGlobal(i);
     assert(Global);
     

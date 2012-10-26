@@ -555,7 +555,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                   Index,
                                   ++Time,
                                   RTValue.getRecordOffset(),
-                                  IntVal);
+                                  RuntimeValueRecord::ofPointer(IntVal));
 
   RTValue.set(Offset, IntVal);
 
@@ -668,7 +668,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                   Index,
                                   ++Time,
                                   RTValue.getRecordOffset(),
-                                  Value);
+                                  RuntimeValueRecord(Value));
 
   RTValue.set(Offset, Value);
 }
@@ -686,7 +686,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                   Index,
                                   ++Time,
                                   RTValue.getRecordOffset(),
-                                  Value);
+                                  RuntimeValueRecord(Value));
 
   RTValue.set(Offset, Value);
 }
