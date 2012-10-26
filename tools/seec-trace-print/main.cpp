@@ -20,8 +20,8 @@
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Frontend/DiagnosticOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
 #include "llvm/LLVMContext.h"
@@ -114,14 +114,16 @@ int main(int argc, char **argv, char * const *envp) {
   seec::ModuleIndex ModIndex {*Mod, true};
 
   // Setup diagnostics printing for Clang diagnostics.
-  clang::DiagnosticOptions DiagnosticOpts;
-  DiagnosticOpts.ShowColors = true;
-
-  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), DiagnosticOpts);
+  IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
+    = new clang::DiagnosticOptions();
+  DiagOpts->ShowColors = true;
+  
+  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
 
   IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics
     = new clang::DiagnosticsEngine(
       IntrusiveRefCntPtr<clang::DiagnosticIDs>(new clang::DiagnosticIDs()),
+      &*DiagOpts,
       &DiagnosticPrinter,
       false);
 

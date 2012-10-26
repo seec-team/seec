@@ -227,10 +227,18 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev) {
-  // TODO
+  llvm_unreachable("Not implemented.");
 
-  Parent.ProcessTime = Ev.getProcessTime();
-  ProcessTime = Ev.getProcessTime();
+  // Parent.ProcessTime = Ev.getProcessTime();
+  // ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev,
+                           MemoryArea const &FragmentArea) {
+  llvm_unreachable("Not implemented.");
+
+  // Parent.ProcessTime = Ev.getProcessTime();
+  // ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(
@@ -248,6 +256,26 @@ void ThreadState::addEvent(
   ProcessTime = Ev.getProcessTime();
 }
 
+void ThreadState::addEvent(
+        EventRecord<EventType::StateUntypedSmall> const &Ev,
+        MemoryArea const &FragmentArea) {
+  EventReference EvRef(Ev);
+  auto const EvLocation = EventLocation(Trace.getThreadID(),
+                                        Trace.events().offsetOf(EvRef));
+
+  auto FragmentStartOffset = FragmentArea.start() - Ev.getAddress();
+  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
+  DataPtr += FragmentStartOffset;
+
+  Parent.Memory.add(MappedMemoryBlock(FragmentArea.start(),
+                                      FragmentArea.length(),
+                                      DataPtr),
+                    EvLocation);
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
+}
+
 void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   EventReference EvRef(Ev);
   auto const EvLocation = EventLocation(Trace.getThreadID(),
@@ -258,6 +286,25 @@ void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   Parent.Memory.add(MappedMemoryBlock(Ev.getAddress(),
                                       Ev.getDataSize(),
                                       Data.data()),
+                    EvLocation);
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev,
+                           MemoryArea const &FragmentArea) {
+  EventReference EvRef(Ev);
+  auto const EvLocation = EventLocation(Trace.getThreadID(),
+                                        Trace.events().offsetOf(EvRef));
+  
+  auto FragmentStartOffset = FragmentArea.start() - Ev.getAddress();
+  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
+  auto DataPtr = Data.data() + FragmentStartOffset;
+
+  Parent.Memory.add(MappedMemoryBlock(FragmentArea.start(),
+                                      FragmentArea.length(),
+                                      DataPtr),
                     EvLocation);
 
   Parent.ProcessTime = Ev.getProcessTime();
@@ -609,6 +656,28 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
   ProcessTime = Ev.getProcessTime() - 1;
 }
 
+bool ThreadState::removeEventIfOverwrite(EventReference EvRef) {
+  switch (EvRef->getType()) {
+    case EventType::StateOverwrite:
+      removeEvent(EvRef.get<EventType::StateOverwrite>());
+      return true;
+    case EventType::StateOverwriteFragment:
+      removeEvent(EvRef.get<EventType::StateOverwriteFragment>());
+      return true;
+    case EventType::StateOverwriteFragmentTrimmedRight:
+      removeEvent(EvRef.get<EventType::StateOverwriteFragmentTrimmedRight>());
+      return true;
+    case EventType::StateOverwriteFragmentTrimmedLeft:
+      removeEvent(EvRef.get<EventType::StateOverwriteFragmentTrimmedLeft>());
+      return true;
+    case EventType::StateOverwriteFragmentSplit:
+      removeEvent(EvRef.get<EventType::StateOverwriteFragmentSplit>());
+      return true;
+    default:
+      return false;
+  }
+}
+
 void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
   // Clear this state.
   // TODO.
@@ -619,22 +688,9 @@ void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-
-    assert(Trace.events().contains(EvRef));
-
-    auto Dispatched = EvRef.dispatch(
-      [this]
-      (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      },
-      [this]
-      (EventRecord<EventType::StateOverwrittenFragment> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
+    assert(Trace.events().contains(EvRef) && "Malformed trace!");
+    auto Removed = removeEventIfOverwrite(EvRef);
+    assert(Removed && "Malformed trace!");
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
@@ -652,22 +708,9 @@ void ThreadState::removeEvent(
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-
-    assert(Trace.events().contains(EvRef));
-
-    auto Dispatched = EvRef.dispatch(
-      [this]
-      (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      },
-      [this]
-      (EventRecord<EventType::StateOverwrittenFragment> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
+    assert(Trace.events().contains(EvRef) && "Malformed trace!");
+    auto Removed = removeEventIfOverwrite(EvRef);
+    assert(Removed && "Malformed trace!");
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
@@ -684,22 +727,9 @@ void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-
-    assert(Trace.events().contains(EvRef));
-
-    auto Dispatched = EvRef.dispatch(
-      [this]
-      (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      },
-      [this]
-      (EventRecord<EventType::StateOverwrittenFragment> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
+    assert(Trace.events().contains(EvRef) && "Malformed trace!");
+    auto Removed = removeEventIfOverwrite(EvRef);
+    assert(Removed && "Malformed trace!");
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
@@ -712,22 +742,9 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
   EventReference EvRef(Ev);
   for (auto i = Overwritten; i != 0; --i) {
     ++EvRef;
-
-    assert(Trace.events().contains(EvRef));
-
-    auto Dispatched = EvRef.dispatch(
-      [this]
-      (EventRecord<EventType::StateOverwritten> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      },
-      [this]
-      (EventRecord<EventType::StateOverwrittenFragment> const &Ev) -> bool {
-        removeEvent(Ev);
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
+    assert(Trace.events().contains(EvRef) && "Malformed trace!");
+    auto Removed = removeEventIfOverwrite(EvRef);
+    assert(Removed && "Malformed trace!");
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
@@ -735,49 +752,36 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
 }
 
 void ThreadState::removeEvent(
-        EventRecord<EventType::StateOverwritten> const &Ev) {
+  EventRecord<EventType::StateOverwrite> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
-
+  
   if (StateThreadID != initialDataThreadID()) {
-    // Restore state from a previous state event.
+    // Restore the state from the state event.
     EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
-
     auto const StateRef = Parent.getTrace().getEventReference(StateLoc);
-
-    auto const Dispatched = StateRef.dispatch(
-#if 0 // TODO: Not yet implemented
-      [this] (EventRecord<EventType::StateTyped> const &Ev) -> bool {
-        return true;
-      },
-#endif
-      [&, this] (EventRecord<EventType::StateUntypedSmall> const &Ev) -> bool {
-        auto const Address = Ev.getAddress();
-        auto const Size = Ev.getSize();
-        auto const Data = reinterpret_cast<char const *>(&(Ev.getData()));
-        Parent.Memory.add(MappedMemoryBlock(Address, Size, Data),
-                          StateLoc);
-        return true;
-      },
-      [&, this] (EventRecord<EventType::StateUntyped> const &Ev) -> bool {
-        auto const Address = Ev.getAddress();
-        auto const Size = Ev.getDataSize();
-        auto const Data = Parent.getTrace().getData(Ev.getDataOffset(),
-                                                    Ev.getDataSize());
-        Parent.Memory.add(MappedMemoryBlock(Address, Size, Data.data()),
-                          StateLoc);
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
+    
+    switch (StateRef->getType()) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+      case EventType::NAME:                                                    \
+        if (is_memory_state<EventType::NAME>::value)                           \
+          addEvent(StateRef.get<EventType::NAME>());                           \
+        else                                                                   \
+          llvm_unreachable("Referenced event is not a state event.");          \
+        break;
+#include "seec/Trace/Events.def"
+      default:
+        llvm_unreachable("Reference to unknown event type!");
+        break;
+    }
   }
   else {
-    // Restore state from a global variable's initial data.
+    // Restore the state from a global variable's initial data.
     auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
     auto const Global = Parent.getModule().getGlobal(GVIndex);
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
     
     auto const &ProcTrace = Parent.getTrace();
     auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
@@ -789,51 +793,29 @@ void ThreadState::removeEvent(
 }
 
 void ThreadState::removeEvent(
-        EventRecord<EventType::StateOverwrittenFragment> const &Ev) {
+  EventRecord<EventType::StateOverwriteFragment> const &Ev) {
   auto const StateThreadID = Ev.getStateThreadID();
-
+  
   if (StateThreadID != initialDataThreadID()) {
-    // Restore state from a previous state event.
-    EventLocation StateLoc(StateThreadID, Ev.getStateOffset());
-
-    auto StateRef = Parent.getTrace().getEventReference(StateLoc);
-
-    uintptr_t DataAddress = 0;
-    std::size_t DataSize = 0;
-    char const *DataPtr = nullptr;
-
-    auto Dispatched = StateRef.dispatch(
-#if 0 // Not yet implemented
-      [this] (EventRecord<EventType::StateTyped> const &Ev) -> bool {
-        return true;
-      },
-#endif
-      [&, this] (EventRecord<EventType::StateUntypedSmall> const &Ev) -> bool {
-        DataAddress = Ev.getAddress();
-        DataSize = Ev.getSize();
-        DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-        return true;
-      },
-      [&, this] (EventRecord<EventType::StateUntyped> const &Ev) -> bool {
-        DataAddress = Ev.getAddress();
-        DataSize = Ev.getDataSize();
-        auto Data = Parent.getTrace().getData(Ev.getDataOffset(),
-                                              Ev.getDataSize());
-        DataPtr = Data.data();
-        return true;
-      });
-
-    assert(Dispatched.assigned() && "Malformed trace!");
-
-    auto const FragmentAddress = Ev.getFragmentAddress();
-    auto const FragmentSize = Ev.getFragmentSize();
-
-    if (FragmentAddress > DataAddress)
-      DataPtr += (FragmentAddress - DataAddress);
-
-    // TODO: join fragments that match neighbouring fragments!
-    Parent.Memory.add(MappedMemoryBlock(FragmentAddress, FragmentSize, DataPtr),
-                      StateLoc);
+    // Restore the state from the state event.
+    EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
+    auto const StateRef = Parent.getTrace().getEventReference(StateLoc);
+    
+    MemoryArea FragmentArea(Ev.getFragmentAddress(), Ev.getFragmentSize());
+    
+    switch (StateRef->getType()) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+      case EventType::NAME:                                                    \
+        if (is_memory_state<EventType::NAME>::value)                           \
+          addEvent(StateRef.get<EventType::NAME>(), FragmentArea);             \
+        else                                                                   \
+          llvm_unreachable("Referenced event is not a state event.");          \
+        break;
+#include "seec/Trace/Events.def"
+      default:
+        llvm_unreachable("Reference to unknown event type!");
+        break;
+    }
   }
   else {
     // Restore state from a global variable's initial data.
@@ -842,7 +824,7 @@ void ThreadState::removeEvent(
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getTargetData().getTypeStoreSize(ElemTy);
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
     
     auto const &ProcTrace = Parent.getTrace();
     auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
@@ -857,6 +839,23 @@ void ThreadState::removeEvent(
                                                    FragmentSize).data()),
                       EventLocation());
   }
+}
+
+void ThreadState::removeEvent(
+  EventRecord<EventType::StateOverwriteFragmentTrimmedRight> const &Ev) {
+  Parent.Memory.untrimRightSide(Ev.getAddressOfBlock(), Ev.getAmountTrimmed());
+}
+
+void ThreadState::removeEvent(
+  EventRecord<EventType::StateOverwriteFragmentTrimmedLeft> const &Ev) {
+  Parent.Memory.untrimLeftSide(Ev.getTrimmedAddressOfBlock(),
+                               Ev.getPreviousAddressOfBlock());
+}
+
+void ThreadState::removeEvent(
+  EventRecord<EventType::StateOverwriteFragmentSplit> const &Ev) {
+  Parent.Memory.unsplit(Ev.getAddressOfLeftBlock(),
+                        Ev.getAddressOfRightBlock());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {

@@ -176,7 +176,8 @@ SEEC_TRACE_EVENT(StateTyped,
     (offset_uint, ValueOffset)
   ),
   SEEC_PP_QUOTE(
-    (StateTyped, modifies_shared_state)
+    (StateTyped, modifies_shared_state),
+    (StateTyped, is_memory_state)
   ))
 
 SEEC_TRACE_EVENT(StateUntypedSmall,
@@ -188,7 +189,8 @@ SEEC_TRACE_EVENT(StateUntypedSmall,
     (uint64_t, Data)
   ),
   SEEC_PP_QUOTE(
-    (StateUntypedSmall, modifies_shared_state)
+    (StateUntypedSmall, modifies_shared_state),
+    (StateUntypedSmall, is_memory_state)
   ))
 
 SEEC_TRACE_EVENT(StateUntyped,
@@ -200,7 +202,8 @@ SEEC_TRACE_EVENT(StateUntyped,
     (std::size_t, DataSize)
   ),
   SEEC_PP_QUOTE(
-    (StateUntyped, modifies_shared_state)
+    (StateUntyped, modifies_shared_state),
+    (StateUntyped, is_memory_state)
   ))
 
 SEEC_TRACE_EVENT(StateClear,
@@ -214,16 +217,16 @@ SEEC_TRACE_EVENT(StateClear,
     (StateClear, modifies_shared_state)
   ))
 
-SEEC_TRACE_EVENT(StateOverwritten,
+SEEC_TRACE_EVENT(StateOverwrite,
   SEEC_PP_QUOTE(
     (uint32_t, StateThreadID),
     (offset_uint, StateOffset)
   ),
   SEEC_PP_QUOTE(
-    (StateOverwritten, is_subservient)
+    (StateOverwrite, is_subservient)
   ))
 
-SEEC_TRACE_EVENT(StateOverwrittenFragment,
+SEEC_TRACE_EVENT(StateOverwriteFragment,
   SEEC_PP_QUOTE(
     (uint32_t, StateThreadID),
     (offset_uint, StateOffset),
@@ -231,7 +234,34 @@ SEEC_TRACE_EVENT(StateOverwrittenFragment,
     (std::size_t, FragmentSize)
   ),
   SEEC_PP_QUOTE(
-    (StateOverwrittenFragment, is_subservient)
+    (StateOverwriteFragment, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedRight,
+  SEEC_PP_QUOTE(
+    (uintptr_t, AddressOfBlock),
+    (std::size_t, AmountTrimmed)
+  ),
+  SEEC_PP_QUOTE(
+    (StateOverwriteFragmentTrimmedRight, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedLeft,
+  SEEC_PP_QUOTE(
+    (uintptr_t, TrimmedAddressOfBlock),
+    (uintptr_t, PreviousAddressOfBlock)
+  ),
+  SEEC_PP_QUOTE(
+    (StateOverwriteFragmentTrimmedLeft, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(StateOverwriteFragmentSplit,
+  SEEC_PP_QUOTE(
+    (uintptr_t, AddressOfLeftBlock),
+    (uintptr_t, AddressOfRightBlock)
+  ),
+  SEEC_PP_QUOTE(
+    (StateOverwriteFragmentSplit, is_subservient)
   ))
 
 SEEC_TRACE_EVENT(RuntimeError,

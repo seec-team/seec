@@ -12,12 +12,74 @@ namespace seec {
 namespace trace {
 
 
+class EventPrinter {
+  llvm::raw_ostream &Out;
+  
+public:
+  EventPrinter(llvm::raw_ostream &OutStream)
+  : Out(OutStream)
+  {}
+  
+  EventPrinter &operator<<(unsigned char Value) {
+    Out << static_cast<unsigned int>(Value);
+    return *this;
+  }
+  
+  EventPrinter &operator<<(signed char Value) {
+    Out << static_cast<int>(Value);
+    return *this;
+  }
+  
+  /*
+#define SEEC_EVENT_PRINT_FORWARD(TYPE)   \
+  EventPrinter &operator<<(TYPE Value) { \
+    Out << Value;                        \
+    return *this;                        \
+  }
+  
+  SEEC_EVENT_PRINT_FORWARD(llvm::StringRef)
+  SEEC_EVENT_PRINT_FORWARD(char const *)
+  SEEC_EVENT_PRINT_FORWARD(std::string const &)
+  SEEC_EVENT_PRINT_FORWARD(unsigned long)
+  SEEC_EVENT_PRINT_FORWARD(long)
+  SEEC_EVENT_PRINT_FORWARD(unsigned long long)
+  SEEC_EVENT_PRINT_FORWARD(long long)
+  SEEC_EVENT_PRINT_FORWARD(void const *)
+  SEEC_EVENT_PRINT_FORWARD(unsigned int)
+  SEEC_EVENT_PRINT_FORWARD(int)
+  SEEC_EVENT_PRINT_FORWARD(double)
+
+#undef SEEC_EVENT_PRINT_FORWARD
+  */
+  
+  template<typename T>
+  EventPrinter &operator<<(T &&Value) {
+    Out << std::forward<T>(Value);
+    return *this;
+  }
+  
+  EventPrinter &changeColor(llvm::raw_ostream::Colors Color,
+                            bool Bold = false,
+                            bool BG = false) {
+    Out.changeColor(Color, Bold, BG);
+    return *this;
+  }
+  
+  EventPrinter &resetColor() {
+    Out.resetColor();
+    return *this;
+  }
+  
+  bool is_displayed() const { return Out.is_displayed(); }
+};
+
+
 //------------------------------------------------------------------------------
 // RuntimeValueRecord
 //------------------------------------------------------------------------------
 
-llvm::raw_ostream & operator<<(llvm::raw_ostream &Out,
-                               RuntimeValueRecord const &Record) {
+EventPrinter &operator<<(EventPrinter &Out,
+                         RuntimeValueRecord const &Record) {
   return Out << "<union>";
 }
 
@@ -150,24 +212,6 @@ seec::util::Maybe<uint32_t> EventRecordBase::getIndex() const {
 }
 
 
-llvm::raw_ostream & operator<<(llvm::raw_ostream &Out,
-                               EventRecordBase const &Event) {
-  switch (Event.getType()) {
-    case EventType::None:
-      return Out << "<none>";
-
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-    case EventType::NAME:                                                      \
-      return Out << static_cast<EventRecord<EventType::NAME> const &>(Event);  \
-
-#include "seec/Trace/Events.def"
-
-    default:
-      llvm_unreachable("Encountered unknown EventType.");
-  }
-}
-
-
 //------------------------------------------------------------------------------
 // Event records
 //------------------------------------------------------------------------------
@@ -188,8 +232,8 @@ llvm::raw_ostream & operator<<(llvm::raw_ostream &Out,
   }                                                                            \
 
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,                          \
-                              EventRecord<EventType::NAME> const &Event) {     \
+EventPrinter &operator<<(EventPrinter &Out,                                    \
+                         EventRecord<EventType::NAME> const &Event) {          \
   Out << "[";                                                                  \
   if (Out.is_displayed()) {                                                    \
     Out.changeColor(llvm::raw_ostream::GREEN);                                 \
@@ -218,7 +262,7 @@ static_assert(std::is_trivially_copyable<EventRecordBase>::value,
 static_assert(std::is_trivially_copyable<EventRecord<EventType::NAME>>::value, \
               "EventRecord<" #NAME "> is not trivially copyable!");
 #include "seec/Trace/Events.def"
-#endif
+#endif // 0
 
 
 // check the alignment requirements of event records
@@ -236,6 +280,33 @@ static_assert(sizeof(EventRecord<EventType::NAME>) >= MaximumRecordAlignment(),\
 static_assert(                                                                 \
   sizeof(EventRecord<EventType::NAME>) % MaximumRecordAlignment() == 0,        \
   "EventRecord<" #NAME "> size not divisible by MaximumRecordAlignment()");
+#include "seec/Trace/Events.def"
+
+
+//------------------------------------------------------------------------------
+// EventRecordBase output for llvm::raw_ostream
+//------------------------------------------------------------------------------
+
+llvm::raw_ostream & operator<<(llvm::raw_ostream &OutStream,
+                               EventRecordBase const &Event) {
+  EventPrinter Printer(OutStream);
+  
+  switch (Event.getType()) {
+    case EventType::None:
+      return OutStream << "<none>";
+
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+    case EventType::NAME:                                                      \
+      Printer << static_cast<EventRecord<EventType::NAME> const &>(Event);     \
+      return OutStream;
+
+#include "seec/Trace/Events.def"
+
+    default:
+      llvm_unreachable("Encountered unknown EventType.");
+  }
+}
+
 
 } // namespace trace (in seec)
 

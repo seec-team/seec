@@ -149,7 +149,6 @@ bool TraceViewerApp::OnInit() {
 
 void TraceViewerApp::MacNewFile() {
   // TODO
-
   wxLogDebug("NewFile");
 }
 
@@ -157,23 +156,21 @@ void TraceViewerApp::MacOpenFiles(wxArrayString const &FileNames) {
   // TODO: In the future we could check if the files are source files, in which
   // case we might compile them for the user (and possibly automatically
   // generate a trace file).
-
-  wxLogDebug("OpenFiles");
-
   for (wxString const &FileName : FileNames) {
     OpenFile(FileName);
   }
 }
 
 void TraceViewerApp::MacOpenFile(wxString const &FileName) {
-  wxLogDebug("OpenFile");
   OpenFile(FileName);
 }
 
-void TraceViewerApp::MacReopenApp() {
-  // TODO: If there is no welcome window, create a new one.
-
-  wxLogDebug("ReopenApp");
+void TraceViewerApp::MacReopenApp() {  
+  if (TopLevelFrames.size() == 0) {
+    // Re-open welcome frame, if it exists.
+    if (Welcome)
+      Welcome->Show(true);
+  }
 }
 
 void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
@@ -228,6 +225,8 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
     Frame->Close(true);
   }
   TopLevelFrames.clear();
+    
+  std::exit(EXIT_SUCCESS);
 }
 
 void TraceViewerApp::HandleFatalError(wxString Description) {

@@ -12,15 +12,17 @@
 
 #include "seec/Transforms/ReplaceCStdLibIntrinsics/ReplaceCStdLibIntrinsics.hpp"
 #include "seec/Util/ValueConversion.hpp"
+
+#include "llvm/DataLayout.h"
 #include "llvm/Instructions.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/Type.h"
+#include "llvm/TypeBuilder.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
 #include <cassert>
 
 using namespace seec;

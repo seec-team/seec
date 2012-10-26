@@ -17,13 +17,13 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instructions.h"
 #include "llvm/Type.h"
+#include "llvm/TypeBuilder.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Support/TypeBuilder.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -126,9 +126,9 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   Int64Ty = Type::getInt64Ty(Context);
   Int8PtrTy = Type::getInt8PtrTy(Context);
 
-  // Get TargetData
-  TD = getAnalysisIfAvailable<TargetData>();
-  if (!TD)
+  // Get DataLayout
+  DL = getAnalysisIfAvailable<DataLayout>();
+  if (!DL)
     return false;
 
   // Index the module (prior to adding any functions)
@@ -209,7 +209,7 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 /// \param F the function to instrument.
 /// \return true if the function was modified.
 bool InsertExternalRecording::runOnFunction(Function &F) {
-  if (!TD)
+  if (!DL)
     return false;
 
   // Get a list of all the instructions in the function, so that we can visit
@@ -383,7 +383,7 @@ void InsertExternalRecording::visitLoadInst(LoadInst &LI) {
     CastInst::CreatePointerCast(LI.getPointerOperand(), Int8PtrTy, "", &LI),
 
     // The size of the store, as an i64
-    ConstantInt::get(Int64Ty, TD->getTypeStoreSize(LI.getType()), false)
+    ConstantInt::get(Int64Ty, DL->getTypeStoreSize(LI.getType()), false)
   };
 
   // Create the call to the recording function, prior to the load instruction
@@ -413,7 +413,7 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
     CastInst::CreatePointerCast(SI.getPointerOperand(), Int8PtrTy, "", &SI),
 
     // The size of the store, as an i64
-    ConstantInt::get(Int64Ty, TD->getTypeStoreSize(StoreValue->getType()))
+    ConstantInt::get(Int64Ty, DL->getTypeStoreSize(StoreValue->getType()))
   };
 
   // Create the call to the recording function prior to the store

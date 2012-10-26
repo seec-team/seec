@@ -18,7 +18,7 @@
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Frontend/DiagnosticOptions.h"
+#include "clang/Basic/DiagnosticOptions.h"
 
 #include "llvm/LLVMContext.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
@@ -50,7 +50,10 @@ class OpenTrace
 
   /// An indexed view of Module.
   std::unique_ptr<seec::ModuleIndex> ModuleIndex;
-
+  
+  /// Diagnostics options used when reading original source code using Clang.
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts;
+  
   /// Diagnostics consumer used when reading original source code using Clang.
   clang::IgnoringDiagConsumer DiagConsumer;
 
@@ -71,10 +74,12 @@ class OpenTrace
     ProcTrace(std::move(Trace)),
     Module(Module),
     ModuleIndex(new seec::ModuleIndex(*Module, true)),
+    DiagOpts(new clang::DiagnosticOptions()),
     DiagConsumer(),
     Diagnostics(new clang::DiagnosticsEngine(
                       llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs>
                                               (new clang::DiagnosticIDs()),
+                      &*DiagOpts,
                       &DiagConsumer,
                       false)),
     MapMod(*Module, ExecutablePath, Diagnostics)

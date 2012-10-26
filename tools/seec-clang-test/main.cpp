@@ -11,9 +11,9 @@
 #include "seec/Clang/Compile.hpp"
 
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/DiagnosticOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
 #include "llvm/Module.h"
@@ -63,15 +63,18 @@ int main(int argc, char **argv, char * const *envp) {
   llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
 
   // Setup diagnostics printing
-  DiagnosticOptions DiagnosticOpts;
-  DiagnosticOpts.ShowColors = true;
+  IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
+    = new clang::DiagnosticOptions();
+  DiagOpts->ShowColors = true;
 
-  TextDiagnosticPrinter DiagnosticPrinter(errs(), DiagnosticOpts);
+  TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
 
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics
     = new DiagnosticsEngine(
         IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-        &DiagnosticPrinter, false);
+        &*DiagOpts,
+        &DiagnosticPrinter,
+        false);
 
   Diagnostics->setSuppressSystemWarnings(true);
 

@@ -133,6 +133,18 @@ public:
   /// \brief Clear a region of memory.
   ///
   void clear(MemoryArea Area);
+  
+  /// \brief Merge two (previously split) fragments.
+  ///
+  void unsplit(uintptr_t LeftAddress, uintptr_t RightAddress);
+  
+  /// \brief Extend the block at the given Address by TrimSize.
+  ///
+  void untrimRightSide(uintptr_t Address, std::size_t TrimSize);
+  
+  /// \brief Move the block at Address to its PriorAddress.
+  ///
+  void untrimLeftSide(uintptr_t Address, uintptr_t PriorAddress);
 
   /// @} (Mutators)
 

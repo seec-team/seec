@@ -126,6 +126,7 @@ GetCompileForSourceFile(char const *Filename,
     "-fno-builtin",
     "-fno-stack-protector",
     "-D_FORTIFY_SOURCE=0",
+    "-g",
     "-emit-llvm",
     "-S",
     Filename

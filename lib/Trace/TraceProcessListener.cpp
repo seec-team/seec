@@ -18,7 +18,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
 : StreamAllocator(StreamAlloc),
   SyncExit(SyncExit),
   Module(Module),
-  TD(&Module),
+  DL(&Module),
   MIndex(MIndex),
   GlobalVariableAddresses(MIndex.getGlobalCount()),
   GlobalVariableLookup(),
@@ -143,7 +143,7 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
 
   // Make a closed interval [Start, End].
   uintptr_t Start = reinterpret_cast<uintptr_t>(Address);
-  auto Length = TD.getTypeStoreSize(ElemTy);
+  auto Length = DL.getTypeStoreSize(ElemTy);
   uintptr_t End = Start + (Length - 1);
 
   GlobalVariableLookup.insert(Start, End, GV);

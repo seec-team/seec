@@ -72,6 +72,8 @@ public:
   MemoryArea &area() { return Area; }
 
   MemoryArea const &area() const { return Area; }
+  
+  EventLocation const &stateRecord() const { return StateRecord; }
 
   uint32_t threadID() const { return StateRecord.getThreadID(); }
 
@@ -94,44 +96,166 @@ public:
 
 
 ///
-class OverwrittenMemoryInfo {
-  std::vector<TraceMemoryFragment> States;
+class StateOverwrite {
+public:
+  /// Define the type of overwrite that occured.
+  enum class OverwriteType {
+    ReplaceState,      ///< Completely overwrite an existing whole state.
+    ReplaceFragment,   ///< Completely overwrite an existing fragment.
+    TrimFragmentRight, ///< Overwrite the right side of an existing fragment.
+    TrimFragmentLeft,  ///< Overwrite the left side of an existing fragment.
+    SplitFragment      ///< Overwrite the middle of an existing fragment.
+  };
+  
+private:
+  /// The type of this overwrite.
+  OverwriteType Type;
+  
+  EventLocation State;
+  
+  MemoryArea OldArea;
+  
+  MemoryArea NewArea;
+  
+  /// \brief Constructor.
+  StateOverwrite(OverwriteType TheType,
+                 EventLocation TheState,
+                 MemoryArea TheOldArea,
+                 MemoryArea TheNewArea)
+  : Type(TheType),
+    State(TheState),
+    OldArea(TheOldArea),
+    NewArea(TheNewArea)
+  {}
   
 public:
+  /// \brief Copy constructor.
+  StateOverwrite(StateOverwrite const &) = default;
+  
+  /// \brief Move constructor.
+  StateOverwrite(StateOverwrite &&) = default;
+  
+  /// \brief Copy assignment.
+  StateOverwrite &operator=(StateOverwrite const &) = default;
+  
+  /// \brief Move assignment.
+  StateOverwrite &operator=(StateOverwrite &&) = default;
+
+  /// \brief Create a StateOverwrite describing the complete replacement of a
+  ///        Fragment.
+  /// \param Fragment the overwritten fragment.
+  static StateOverwrite forReplace(TraceMemoryFragment const &Fragment) {
+    // TODO: We should check if the Fragment is in fact a complete state, in
+    // which case the type should be ReplaceState.
+    return StateOverwrite(OverwriteType::ReplaceFragment,
+                          Fragment.stateRecord(),
+                          Fragment.area(),
+                          Fragment.area());
+  }
+  
+  /// \brief Create a StateOverwrite describing the overwriting of the right
+  ///        (end) of a Fragment.
+  /// \param Fragment the overwritten fragment.
+  /// \param TrimmedEnd the trimmed end address of the fragment.
+  static
+  StateOverwrite forTrimFragmentRight(TraceMemoryFragment const &Fragment,
+                                      uintptr_t TrimmedEnd) {
+    return StateOverwrite(OverwriteType::TrimFragmentRight,
+                          Fragment.stateRecord(),
+                          Fragment.area(),
+                          MemoryArea(TrimmedEnd,
+                                     Fragment.area().end() - TrimmedEnd));
+  }
+  
+  /// \brief Create a StateOverwrite describing the overwriting of the left
+  ///        (beginning) of a Fragment.
+  /// \param Fragment the overwritten fragment.
+  /// \param TrimmedStart the trimmed start address of the fragment.
+  static StateOverwrite forTrimFragmentLeft(TraceMemoryFragment const &Fragment,
+                                            uintptr_t TrimmedStart) {
+    return StateOverwrite(OverwriteType::TrimFragmentLeft,
+                          Fragment.stateRecord(),
+                          Fragment.area(),
+                          MemoryArea(Fragment.area().start(),
+                                     TrimmedStart - Fragment.area().start()));
+  }
+  
+  /// \brief Create a StateOverwrite describing the overwrite of an internal
+  ///        section of a Fragment.
+  /// 
+  static StateOverwrite forSplitFragment(TraceMemoryFragment const &Fragment,
+                                         MemoryArea const &Overwritten) {
+    return StateOverwrite(OverwriteType::SplitFragment,
+                          Fragment.stateRecord(),
+                          Fragment.area(),
+                          Overwritten);
+  }
+  
+  
+  /// \name Accessors
+  /// @{
+  
+  OverwriteType getType() const { return Type; }
+  
+  EventLocation const &getStateEvent() const { return State; }
+  
+  MemoryArea const &getOldArea() const { return OldArea; }
+  
+  MemoryArea const &getNewArea() const { return NewArea; }
+  
+  /// @}
+};
+
+
+/// \brief Contains information about all overwritten states caused by a new
+///        memory state.
+class OverwrittenMemoryInfo {
+  std::vector<StateOverwrite> Overwrites;
+  
+public:
+  /// \name Construction and assignment.
+  /// @{
+  
   /// Constructor.
   OverwrittenMemoryInfo()
-  : States()
+  : Overwrites()
   {}
   
   /// Copy constructor.
   OverwrittenMemoryInfo(OverwrittenMemoryInfo const &Other) = default;
   
   /// Move constructor.
-  OverwrittenMemoryInfo(OverwrittenMemoryInfo &&Other)
-  : States(std::move(Other.States))
-  {}
+  OverwrittenMemoryInfo(OverwrittenMemoryInfo &&Other) = default;
   
   /// Copy assignment.
   OverwrittenMemoryInfo &operator=(OverwrittenMemoryInfo const &RHS) = default;
   
   /// Move assignment.
-  OverwrittenMemoryInfo &operator=(OverwrittenMemoryInfo &&RHS) {
-    States = std::move(RHS.States);
-    return *this;
-  }
+  OverwrittenMemoryInfo &operator=(OverwrittenMemoryInfo &&RHS) = default;
+  
+  /// @}
+  
   
   /// \name Accessors
   /// @{
   
-  std::vector<TraceMemoryFragment> const &states() const { return States; }
+  /// \brief Access our collection of StateOverwrite objects.
+  std::vector<StateOverwrite> const &overwrites() const { return Overwrites; }
   
   /// @}
+  
   
   /// \name Mutators
   /// @{
   
-  void add(TraceMemoryFragment Fragment) {
-    States.push_back(Fragment);
+  /// \brief Add a new StateOverwrite.
+  void add(StateOverwrite const &Fragment) {
+    Overwrites.push_back(Fragment);
+  }
+  
+  /// \brief Add a new StateOverwrite.
+  void add(StateOverwrite &&Fragment) {
+    Overwrites.push_back(Fragment);
   }
   
   /// @}
