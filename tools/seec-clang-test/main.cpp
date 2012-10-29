@@ -18,6 +18,7 @@
 
 #include "llvm/Module.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -103,6 +104,20 @@ int main(int argc, char **argv, char * const *envp) {
     errs() << "no Module generated\n";
     exit(EXIT_FAILURE);
   }
+  
+  std::string *VerifyError = nullptr;
+  if (llvm::verifyModule(*Mod,
+                         llvm::VerifierFailureAction::PrintMessageAction,
+                         VerifyError)) {
+    llvm::errs() << "Module error found.\n";
+  }
+  
+  // Write the current LLVM Module to a file.
+  std::string FileError;
+  
+  raw_fd_ostream DebugModOut("debug-module.ll", FileError);
+  Mod->print(DebugModOut, nullptr);
+  DebugModOut.close();
 
   GenerateSerializableMappings(*Action,
                                Mod,
@@ -112,10 +127,8 @@ int main(int argc, char **argv, char * const *envp) {
   // Store all used source files into the LLVM Module.
   StoreCompileInformationInModule(Mod, Compiler);
 
-  // Write the LLVM Module to a file
-  std::string Error;
-
-  raw_fd_ostream ModOut(ModuleOutputFile.c_str(), Error);
+  // Write the LLVM Module to a file.
+  raw_fd_ostream ModOut(ModuleOutputFile.c_str(), FileError);
   Mod->print(ModOut, nullptr);
   ModOut.close();
 

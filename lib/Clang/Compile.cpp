@@ -4,6 +4,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Version.h"
+#include "clang/CodeGen/SeeCMapping.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
@@ -17,6 +18,7 @@
 #include "llvm/Module.h"
 #include "llvm/Type.h"
 #include "llvm/Value.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
@@ -166,24 +168,21 @@ GetCompileForSourceFile(char const *Filename,
 // GetMetadataPointer
 //===----------------------------------------------------------------------===//
 template<typename T>
+T *GetPointerFromMetadata(llvm::Value const *V) {
+  auto CI = llvm::dyn_cast<llvm::ConstantInt>(V);
+  assert(CI && "GetPointerFromMetadata requires a ConstantInt.");
+  return reinterpret_cast<T *>(static_cast<uintptr_t>(CI->getZExtValue()));
+}
+
+template<typename T>
 T const *GetMetadataPointer(Instruction const &I, unsigned MDKindID) {
   MDNode *Node = I.getMetadata(MDKindID);
   if (!Node)
     return nullptr;
-
-  Value *Op = Node->getOperand(0);
-  if (!Op) {
-    errs() << "!Op\n";
-    return nullptr;
-  }
-
-  ConstantInt *CI = dyn_cast<ConstantInt>(Op);
-  if (!CI) {
-    errs() << "!CI\n";
-    return nullptr;
-  }
-
-  return (T const *) (uintptr_t) CI->getZExtValue();
+  
+  assert(Node->getNumOperands() > 0 && "Insufficient operands in MDNode.");
+  
+  return GetPointerFromMetadata<T const>(Node->getOperand(0));
 }
 
 //===----------------------------------------------------------------------===//
@@ -252,7 +251,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
     }
   }
 
-  // Handle global Metadata
+  // Handle global Decl maps.
   llvm::NamedMDNode *GlobalPtrMD = Mod->getNamedMetadata(MDGlobalDeclPtrsStr);
   if (GlobalPtrMD) {
     llvm::NamedMDNode *GlobalIdxMD
@@ -261,20 +260,13 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
     unsigned NumOperands = GlobalPtrMD->getNumOperands();
     for (unsigned i = 0; i < NumOperands; ++i) {
       llvm::MDNode *PtrNode = GlobalPtrMD->getOperand(i);
-
       assert(PtrNode->getNumOperands() == 2 && "Unexpected NumOperands!");
 
-      ConstantInt *CIPtr = dyn_cast<ConstantInt>(PtrNode->getOperand(1));
-      Decl const *D = (Decl const *) (uintptr_t) CIPtr->getZExtValue();
+      auto MDDeclPtr = PtrNode->getOperand(1);
+      auto D = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
 
       auto It = DeclMap.find(D);
-      if (It == DeclMap.end()) {
-        errs() << "couldn't find Idx for Decl";
-        if (NamedDecl const *ND = dyn_cast<NamedDecl>(D))
-          errs() << ": " << ND->getName();
-        errs() << "\n";
-        continue;
-      }
+      assert(It != DeclMap.end() && "Couldn't map clang::Decl.");
 
       llvm::Value *Ops[] = {
         MainFileNode,
@@ -285,10 +277,51 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       GlobalIdxMD->addOperand(llvm::MDNode::get(ModContext, Ops));
     }
   }
+  GlobalPtrMD->eraseFromParent();
+  
+  // Handle global Stmt maps. Each element in the global Stmt map has one
+  // reference to a clang::Stmt, which is currently a constant int holding the
+  // runtime address of the clang::Stmt. We must get this value, cast it back
+  // to a clang::Stmt *, find the index of that statement using the StmtMap,
+  // and then replace the constant int with an Stmt identifier MDNode of the
+  // form: [MainFileNode, Stmt Index].
+  auto StmtMapName = seec::clang::StmtMapping::getGlobalMDNameForMapping();
+  llvm::NamedMDNode *GlobalStmtPtrMD = Mod->getNamedMetadata(StmtMapName);
+  if (GlobalStmtPtrMD) {
+    llvm::NamedMDNode *GlobalStmtIdxMD
+      = Mod->getOrInsertNamedMetadata(MDGlobalValueMapStr);
+    
+    unsigned NumOperands = GlobalStmtPtrMD->getNumOperands();
+    for (unsigned i = 0; i < NumOperands; ++i) {
+      auto MappingNode = GlobalStmtPtrMD->getOperand(i);
+      assert(MappingNode->getNumOperands() == 4 && "Unexpected NumOperands!");
+      
+      auto MDStmtPtr = MappingNode->getOperand(1);
+      auto Stmt = GetPointerFromMetadata< ::clang::Stmt const>(MDStmtPtr);
+      assert(Stmt && "Couldn't get clang::Stmt pointer.");
+      
+      auto It = StmtMap.find(Stmt);
+      assert(It != StmtMap.end() && "Couldn't map clang::Stmt.");
+      
+      llvm::Value *StmtIdentifierOps[] = {
+        MainFileNode,
+        ConstantInt::get(Int64Ty, It->second)
+      };
+      
+      llvm::Value *MappingOps[] = {
+        MappingNode->getOperand(0),
+        llvm::MDNode::get(ModContext, StmtIdentifierOps),
+        MappingNode->getOperand(2),
+        MappingNode->getOperand(3)
+      };
+      
+      GlobalStmtIdxMD->addOperand(llvm::MDNode::get(ModContext, MappingOps));
+    }
+  }
 }
 
 void StoreCompileInformationInModule(llvm::Module *Mod,
-                                     clang::CompilerInstance &Compiler) {
+                                     ::clang::CompilerInstance &Compiler) {
   assert(Mod && "No module?");
   
   auto &LLVMContext = Mod->getContext();

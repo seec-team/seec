@@ -114,7 +114,7 @@ public:
   virtual bool HandleTopLevelDecl(clang::DeclGroupRef D);
 
   virtual void HandleInterestingDecl(clang::DeclGroupRef D) {
-    Child->HandleInterestingDecl(D);
+    HandleTopLevelDecl(D);
   }
 
   virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
