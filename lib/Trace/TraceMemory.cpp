@@ -22,7 +22,7 @@ TraceMemoryState::add(uintptr_t Address,
                       offset_uint StateRecordOffset,
                       uint64_t ProcessTime) {
   // Make room for the fragment and determine the overwritten memory.
-  OverwrittenMemoryInfo Overwritten = clear(Address, Length);
+  auto Overwritten = clear(Address, Length);
 
   // Add the new fragment.
   // TODO: get an iterator from clear() to hint to insert.
@@ -33,6 +33,86 @@ TraceMemoryState::add(uintptr_t Address,
                                                       StateRecordOffset,
                                                       ProcessTime)));
 
+  return Overwritten;
+}
+
+OverwrittenMemoryInfo
+TraceMemoryState::memmove(uintptr_t const Source,
+                          uintptr_t const Destination,
+                          std::size_t const Size,
+                          EventLocation const &Event,
+                          uint64_t const ProcessTime) {
+  auto const SourceEnd = Source + Size;
+  
+  // Create the new fragments.
+  decltype(Fragments) Moved;
+  auto MovedInsert = Moved.end();
+  
+  // Get the first source fragment starting >= Source.
+  auto It = Fragments.lower_bound(Source);
+  
+  // Check if the previous fragment overlaps.
+  if (It != Fragments.begin()
+      && (It == Fragments.end() || It->first > Source)) {
+    --It;
+    
+    if (It->second.area().lastAddress() >= Source) {
+      // Previous fragment overlaps with our start.
+      if (It->second.area().end() >= SourceEnd) {
+        // Fragment completely covers the move area.
+        MovedInsert =
+            Moved.insert(MovedInsert,
+                         std::make_pair(Destination,
+                                        TraceMemoryFragment(Destination,
+                                                            Size,
+                                                            Event.getThreadID(),
+                                                            Event.getOffset(),
+                                                            ProcessTime)));
+      }
+      else {
+        // Copy the right-hand side of the fragment.
+        auto const NewSize = It->second.area().withStart(Source).length();
+        MovedInsert =
+            Moved.insert(MovedInsert,
+                         std::make_pair(Destination,
+                                        TraceMemoryFragment(Destination,
+                                                            NewSize,
+                                                            Event.getThreadID(),
+                                                            Event.getOffset(),
+                                                            ProcessTime)));
+      }
+    }
+    
+    ++It;
+  }
+  
+  // Find remaining overlapping fragments.  
+  while (It != Fragments.end() && It->first < SourceEnd) {
+    auto const NewAddress = Destination + (It->first - Source);
+    
+    // If this fragment exceeds the move's source range, trim the size.
+    auto const NewSize = It->second.area().end() <= SourceEnd
+                       ? It->second.area().length()
+                       : It->second.area().withEnd(Source + Size).length();
+    
+    MovedInsert =
+          Moved.insert(MovedInsert,
+                       std::make_pair(Destination,
+                                      TraceMemoryFragment(NewAddress,
+                                                          NewSize,
+                                                          Event.getThreadID(),
+                                                          Event.getOffset(),
+                                                          ProcessTime)));
+    
+    ++It;
+  }
+  
+  // Make room for the fragments and determine the overwritten memory.
+  auto Overwritten = clear(Destination, Size);
+  
+  // Add the fragments (it would be better if we could move them).
+  Fragments.insert(Moved.begin(), Moved.end());
+  
   return Overwritten;
 }
 
@@ -58,7 +138,8 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address,
   }
 
   // Check if the previous fragment overlaps.
-  if (It->first > Address && It != Fragments.begin()) {
+  if (It != Fragments.begin()
+      && (It == Fragments.end() || It->first > Address)) {
     if ((--It)->second.area().lastAddress() >= Address) {
       // Previous fragment overlaps with our start. Check if we are splitting
       // the fragment or performing a right-trim.

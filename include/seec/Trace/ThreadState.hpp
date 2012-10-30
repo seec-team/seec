@@ -100,6 +100,9 @@ class ThreadState {
   void addEvent(EventRecord<EventType::StateUntyped> const &);
   void addEvent(EventRecord<EventType::StateUntyped> const &,
                 MemoryArea const &);
+  void addEvent(EventRecord<EventType::StateMemmove> const &);
+  void addEvent(EventRecord<EventType::StateMemmove> const &,
+                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateClear> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
@@ -135,6 +138,7 @@ class ThreadState {
   void removeEvent(EventRecord<EventType::StateTyped> const &);
   void removeEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void removeEvent(EventRecord<EventType::StateUntyped> const &);
+  void removeEvent(EventRecord<EventType::StateMemmove> const &);
   void removeEvent(EventRecord<EventType::StateClear> const &);
   void removeEvent(EventRecord<EventType::StateOverwrite> const &);
   void removeEvent(EventRecord<EventType::StateOverwriteFragment> const &);

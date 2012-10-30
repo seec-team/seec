@@ -340,6 +340,16 @@ public:
                            ProcessTime);
   }
   
+  /// \brief Add a new memmove state to the trace.
+  OverwrittenMemoryInfo addMemoryMove(uintptr_t Source,
+                                      uintptr_t Destination,
+                                      std::size_t Size,
+                                      EventLocation const &Event,
+                                      uint64_t ProcessTime) {
+    std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
+    return TraceMemory.memmove(Source, Destination, Size, Event, ProcessTime);
+  }
+  
   /// Clear memory state over the specified region.
   OverwrittenMemoryInfo clearMemoryState(uintptr_t Address,
                                          std::size_t Length) {

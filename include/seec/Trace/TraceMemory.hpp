@@ -288,13 +288,29 @@ public:
   ///
   /// \param Address start address of the updated memory.
   /// \param Length number of bytes of updated memory.
+  /// \param ThreadID the thread in which this memory state occurred.
   /// \param StateRecordOffset offset of the new memory state.
-  /// \return an ordered set of offsets of overwritten memory states.
+  /// \param ProcessTime the process time associated with this state change.
+  /// \return information about all overwritten memory states.
   OverwrittenMemoryInfo add(uintptr_t Address,
                             std::size_t Length,
                             uint32_t ThreadID,
                             offset_uint StateRecordOffset,
                             uint64_t ProcessTime);
+  
+  /// \brief Add a new memmove state and return overwritten states.
+  ///
+  /// \param Source start address of the source of the memmove.
+  /// \param Destination start address of the destination of the memmove.
+  /// \param Size number of bytes to move.
+  /// \param Event location of the state event responsible for this memmove.
+  /// \param ProcessTime the process time associated with this state change.
+  /// \return information about all overwritten memory states.
+  OverwrittenMemoryInfo memmove(uintptr_t const Source,
+                                uintptr_t const Destination,
+                                std::size_t const Size,
+                                EventLocation const &Event,
+                                uint64_t const ProcessTime);
   
   /// \brief Clear a section of memory and return the removed states.
   ///

@@ -503,7 +503,9 @@ void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
                                       void *Destination,
                                       void const *Source,
                                       size_t Size) {
-  recordUntypedState(reinterpret_cast<char const *>(Destination), Size);
+  recordMemmove(reinterpret_cast<uintptr_t>(Source),
+                reinterpret_cast<uintptr_t>(Destination),
+                Size);
 }
 
 
@@ -545,7 +547,9 @@ void TraceThreadListener::postCmemmove(llvm::CallInst const *Call,
                                        void *Destination,
                                        void const *Source,
                                        size_t Size) {
-  recordUntypedState(reinterpret_cast<char const *>(Destination), Size);
+  recordMemmove(reinterpret_cast<uintptr_t>(Source),
+                reinterpret_cast<uintptr_t>(Destination),
+                Size);
 }
 
 

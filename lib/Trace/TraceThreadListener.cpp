@@ -162,32 +162,6 @@ void TraceThreadListener::recordTypedState(void const *Data,
                                            std::size_t Size,
                                            offset_uint Value){
   recordUntypedState(reinterpret_cast<char const *>(Data), Size);
-  
-#if 0
-  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
-  
-  uintptr_t Address = (uintptr_t)Data;
-  
-  ProcessTime = getCIProcessTime();
-  
-  // update the process' memory trace with the new state, and find the states
-  // that were overwritten.
-  auto OverwrittenInfo = ProcessListener.addMemoryState(Address,
-                                                        Size,
-                                                        ThreadID,
-                                                        EventsOut.offset(),
-                                                        ProcessTime);
-  
-  auto &OverwrittenStates = OverwrittenInfo.states();
-  
-  EventsOut.write<EventType::StateTyped>(
-    static_cast<uint32_t>(OverwrittenStates.size()),
-    Address,
-    ProcessTime,
-    Value);
-  
-  writeStateOverwritten(OverwrittenStates.begin(), OverwrittenStates.end());
-#endif
 }
 
 void TraceThreadListener::recordStateClear(uintptr_t Address,
@@ -211,8 +185,31 @@ void TraceThreadListener::recordMemset() {
   llvm_unreachable("recordMemset unimplemented");
 }
 
-void TraceThreadListener::recordMemcpy() {
-  llvm_unreachable("recordMemcpy unimplemented");
+void TraceThreadListener::recordMemmove(uintptr_t Source,
+                                        uintptr_t Destination,
+                                        std::size_t Size) {
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+  
+  ProcessTime = getCIProcessTime();
+      
+  auto const OverwrittenInfo
+              = ProcessListener.addMemoryMove(Source,
+                                              Destination,
+                                              Size,
+                                              EventLocation(ThreadID,
+                                                            EventsOut.offset()),
+                                              ProcessTime);
+  
+  auto const OverwrittenCount =
+                    static_cast<uint32_t>(OverwrittenInfo.overwrites().size());
+  
+  EventsOut.write<EventType::StateMemmove>(OverwrittenCount,
+                                           ProcessTime,
+                                           Source,
+                                           Destination,
+                                           Size);
+  
+  writeStateOverwritten(OverwrittenInfo);
 }
 
 

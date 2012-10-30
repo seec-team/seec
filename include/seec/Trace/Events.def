@@ -206,6 +206,19 @@ SEEC_TRACE_EVENT(StateUntyped,
     (StateUntyped, is_memory_state)
   ))
 
+SEEC_TRACE_EVENT(StateMemmove,
+  SEEC_PP_QUOTE(
+    (uint32_t, Overwritten),
+    (uint64_t, ProcessTime),
+    (uintptr_t, SourceAddress),
+    (uintptr_t, DestinationAddress),
+    (std::size_t, Size)
+  ),
+  SEEC_PP_QUOTE(
+    (StateMemmove, modifies_shared_state),
+    (StateMemmove, is_memory_state)
+  ))
+
 SEEC_TRACE_EVENT(StateClear,
   SEEC_PP_QUOTE(
     (uint32_t, Overwritten),

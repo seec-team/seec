@@ -129,6 +129,13 @@ public:
   /// \brief Add a memory block caused by an event.
   ///
   void add(MappedMemoryBlock Block, EventLocation Event);
+  
+  /// \brief Copy a region of memory to a new region.
+  ///
+  void memcpy(uintptr_t Source,
+              uintptr_t Destination,
+              std::size_t Size,
+              EventLocation Event);
 
   /// \brief Clear a region of memory.
   ///

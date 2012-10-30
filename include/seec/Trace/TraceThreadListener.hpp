@@ -265,14 +265,14 @@ class TraceThreadListener {
   /// \brief Record a typed update to memory.
   void recordTypedState(void const *Data, std::size_t Size, offset_uint Value);
 
-  /// \brief
+  /// \brief Record a clear to a memory region.
   void recordStateClear(uintptr_t Address, std::size_t Size);
 
   /// \brief Unimplemented.
   void recordMemset();
 
-  /// \brief Unimplemented.
-  void recordMemcpy();
+  /// \brief Record a memmove (or memcpy) update to memory.
+  void recordMemmove(uintptr_t Source, uintptr_t Destination, std::size_t Size);
 
   /// @} (Memory states)
 

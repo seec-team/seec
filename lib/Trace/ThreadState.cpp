@@ -311,6 +311,24 @@ void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev,
   ProcessTime = Ev.getProcessTime();
 }
 
+void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev) {
+  EventReference EvRef(Ev);
+  
+  Parent.Memory.memcpy(Ev.getSourceAddress(),
+                       Ev.getDestinationAddress(),
+                       Ev.getSize(),
+                       EventLocation(Trace.getThreadID(),
+                                     Trace.events().offsetOf(EvRef)));
+  
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev,
+                           MemoryArea const &FragmentArea) {
+  // TODO
+}
+
 void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
   Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getClearSize()));
   Parent.ProcessTime = Ev.getProcessTime();
@@ -720,6 +738,25 @@ void ThreadState::removeEvent(
 void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   // Clear this state.
   Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getDataSize()));
+
+  // Restore any overwritten states.
+  auto const Overwritten = Ev.getOverwritten();
+
+  EventReference EvRef(Ev);
+  for (auto i = Overwritten; i != 0; --i) {
+    ++EvRef;
+    assert(Trace.events().contains(EvRef) && "Malformed trace!");
+    auto Removed = removeEventIfOverwrite(EvRef);
+    assert(Removed && "Malformed trace!");
+  }
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  ProcessTime = Ev.getProcessTime() - 1;
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::StateMemmove> const &Ev) {
+  // Clear this state.
+  Parent.Memory.clear(MemoryArea(Ev.getDestinationAddress(), Ev.getSize()));
 
   // Restore any overwritten states.
   auto const Overwritten = Ev.getOverwritten();

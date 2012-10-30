@@ -23,6 +23,76 @@ void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
                                                         std::move(Event))));
 }
 
+void MemoryState::memcpy(uintptr_t Source,
+                         uintptr_t Destination,
+                         std::size_t Size,
+                         seec::trace::EventLocation Event) {
+  auto const SourceEnd = Source + Size;
+  
+  // Create the new fragments.
+  decltype(FragmentMap) Moved;
+  auto MovedInsert = Moved.end();
+  
+  // Get the first source fragment starting >= Source.
+  auto It = FragmentMap.lower_bound(Source);
+  
+  // Check if the previous fragment overlaps.
+  if (It != FragmentMap.begin()
+      && (It == FragmentMap.end() || It->first > Source)) {
+    --It;
+    
+    if (It->second.getBlock().area().end() > Source) {
+      // Previous fragment overlaps with our start.
+      
+      // Copy the fragment's block and shift the start to match the start of
+      // the moved region (this will also handle the block's mapped data).
+      auto Block = It->second.getBlock();
+      Block.trimLeftSide(Source);
+      
+      // Change the block's area to the destination.
+      if (Block.area().length() <= Size)
+        Block.setStartEnd(Destination, Destination + Block.area().length());
+      else
+        Block.setStartEnd(Destination, Size);
+      
+      // Create a new state fragment for this event with the modified block.
+      MovedInsert = Moved.insert(MovedInsert,
+                                 std::make_pair(Source,
+                                                MemoryStateFragment(Block,
+                                                                    Event)));
+    }
+    
+    ++It;
+  }
+  
+  // Find remaining overlapping fragments.
+  while (It != FragmentMap.end() && It->first < SourceEnd) {
+    // Copy the fragment's block.
+    auto Block = It->second.getBlock();
+    
+    // Change the block's area to the destination for this block.
+    auto const NewStart = Destination + (It->first - Source);
+    if (Block.area().end() <= SourceEnd)
+      Block.setStartEnd(NewStart, NewStart + Block.area().length());
+    else
+      Block.setStartEnd(NewStart, NewStart + Size);
+    
+    // Create a new state fragment for this event with the modified block.
+    MovedInsert = Moved.insert(MovedInsert,
+                               std::make_pair(NewStart,
+                                              MemoryStateFragment(Block,
+                                                                  Event)));
+    
+    ++It;
+  }
+  
+  // Make room for the fragments.
+  clear(MemoryArea(Destination, Size));
+  
+  // Add the fragments.
+  FragmentMap.insert(Moved.begin(), Moved.end());
+}
+
 void MemoryState::clear(MemoryArea const Area) {
   // Convenience variables.
   auto const Address = Area.start();
@@ -38,7 +108,8 @@ void MemoryState::clear(MemoryArea const Area) {
   }
 
   // Check if the previous fragment overlaps.
-  if (It->first > Address && It != FragmentMap.begin()) {
+  if (It != FragmentMap.begin()
+      && (It == FragmentMap.end() || It->first > Address)) {
     if ((--It)->second.getBlock().lastAddress() >= Area.start()) {
       // Previous fragment overlaps with our start. Check if we are splitting
       // the fragment or performing a right-trim.
