@@ -15,12 +15,11 @@ namespace seec {
 
 namespace trace {
 
-OverwrittenMemoryInfo
-TraceMemoryState::add(uintptr_t Address,
-                      std::size_t Length,
-                      uint32_t ThreadID,
-                      offset_uint StateRecordOffset,
-                      uint64_t ProcessTime) {
+OverwrittenMemoryInfo TraceMemoryState::add(uintptr_t Address,
+                                            std::size_t Length,
+                                            uint32_t ThreadID,
+                                            offset_uint StateRecordOffset,
+                                            uint64_t ProcessTime) {
   // Make room for the fragment and determine the overwritten memory.
   auto Overwritten = clear(Address, Length);
 
@@ -36,12 +35,11 @@ TraceMemoryState::add(uintptr_t Address,
   return Overwritten;
 }
 
-OverwrittenMemoryInfo
-TraceMemoryState::memmove(uintptr_t const Source,
-                          uintptr_t const Destination,
-                          std::size_t const Size,
-                          EventLocation const &Event,
-                          uint64_t const ProcessTime) {
+OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
+                                                uintptr_t const Destination,
+                                                std::size_t const Size,
+                                                EventLocation const &Event,
+                                                uint64_t const ProcessTime) {
   auto const SourceEnd = Source + Size;
   
   // Create the new fragments.

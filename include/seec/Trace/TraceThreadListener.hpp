@@ -216,7 +216,7 @@ class TraceThreadListener {
     }
   }
 
-  /// \brief Write a set of overwritten states, using StateOverwrittenRecord.
+  /// \brief Write a set of overwritten states.
   void writeStateOverwritten(OverwrittenMemoryInfo const &Info) {
     for (auto const &Overwrite : Info.overwrites()) {
       auto &Event = Overwrite.getStateEvent();
