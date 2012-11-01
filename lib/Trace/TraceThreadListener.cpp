@@ -116,24 +116,25 @@ void TraceThreadListener::recordUntypedState(char const *Data,
                                              std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
-  uintptr_t Address = (uintptr_t) Data;
+  uintptr_t Address = reinterpret_cast<uintptr_t>(Data);
 
   ProcessTime = getCIProcessTime();
   
-
-  // update the process' memory trace with the new state, and find the states
+  // Update the process' memory trace with the new state, and find the states
   // that were overwritten.
-  auto OverwrittenInfo = ProcessListener.addMemoryState(Address,
-                                                        Size,
-                                                        ThreadID,
-                                                        EventsOut.offset(),
-                                                        ProcessTime);
+  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
+  auto OverwrittenInfo = MemoryState->add(Address,
+                                          Size,
+                                          ThreadID,
+                                          EventsOut.offset(),
+                                          ProcessTime);
+  
   if (Size <= EventRecord<EventType::StateUntypedSmall>::sizeofData()) {
     EventRecord<EventType::StateUntypedSmall>::typeofData DataStore;
     char *DataStorePtr = reinterpret_cast<char *>(&DataStore);
-    
     memcpy(DataStorePtr, Data, Size);
     
+    // Write the state information to the trace.
     EventsOut.write<EventType::StateUntypedSmall>(
       static_cast<uint8_t>(Size),
       static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
@@ -144,7 +145,7 @@ void TraceThreadListener::recordUntypedState(char const *Data,
   else {
     auto DataOffset = ProcessListener.recordData(Data, Size);
 
-    // write the state information to the trace
+    // Write the state information to the trace.
     EventsOut.write<EventType::StateUntyped>(
       static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
       Address,
@@ -170,7 +171,8 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
   
   ProcessTime = getCIProcessTime();
   
-  auto OverwrittenInfo = ProcessListener.clearMemoryState(Address, Size);
+  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
+  auto OverwrittenInfo = MemoryState->clear(Address, Size);
   
   EventsOut.write<EventType::StateClear>(
     static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
@@ -191,9 +193,10 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
   ProcessTime = getCIProcessTime();
-      
-  auto const OverwrittenInfo
-              = ProcessListener.addMemoryMove(Source,
+  
+  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
+  auto const OverwrittenInfo =
+                         MemoryState->memmove(Source,
                                               Destination,
                                               Size,
                                               EventLocation(ThreadID,

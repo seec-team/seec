@@ -159,7 +159,8 @@ bool checkMemoryAccess(
 
   // If this is a read, check that the memory is initialized.
   if (Access == format_selects::MemoryAccess::Read) {
-    if (!ProcListener.rangeHasKnownMemoryState(Address, Size)) {
+    auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
+    if (!MemoryState->hasKnownState(Address, Size)) {
       Listener.handleRunError(
         createRunError<RunErrorType::MemoryUninitialized>(Address, Size),
         RunErrorSeverity::Warning,
@@ -209,7 +210,8 @@ bool checkMemoryAccessOfParameter(
 
   // If this is a read, check that the memory is initialized.
   if (Access == format_selects::MemoryAccess::Read) {
-    if (!ProcListener.rangeHasKnownMemoryState(Address, Size)) {
+    auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
+    if (!MemoryState->hasKnownState(Address, Size)) {
       Listener.handleRunError(
         createRunError<RunErrorType::PassPointerToUninitialized>
                       (Function, Address, ParameterIndex),

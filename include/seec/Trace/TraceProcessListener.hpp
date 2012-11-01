@@ -17,6 +17,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceMemory.hpp"
 #include "seec/Trace/TraceStorage.hpp"
+#include "seec/Util/LockedObjectAccessor.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Serialization.hpp"
@@ -325,41 +326,17 @@ public:
   std::unique_lock<std::mutex> lockMemory() {
     return std::unique_lock<std::mutex>(GlobalMemoryMutex);
   }
-
-  /// Add a new memory state to the trace, and get the overwritten states.
-  OverwrittenMemoryInfo addMemoryState(uintptr_t Address,
-                                       std::size_t Length,
-                                       uint32_t ThreadID,
-                                       offset_uint StateRecordOffset,
-                                       uint64_t ProcessTime) {
-    std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
-    return TraceMemory.add(Address,
-                           Length,
-                           ThreadID,
-                           StateRecordOffset,
-                           ProcessTime);
+  
+  /// \brief Get access to this ProcessListener's TraceMemoryState.
+  LockedObjectAccessor<TraceMemoryState, std::mutex>
+  getTraceMemoryStateAccessor() {
+    return makeLockedObjectAccessor(TraceMemoryMutex, TraceMemory);
   }
   
-  /// \brief Add a new memmove state to the trace.
-  OverwrittenMemoryInfo addMemoryMove(uintptr_t Source,
-                                      uintptr_t Destination,
-                                      std::size_t Size,
-                                      EventLocation const &Event,
-                                      uint64_t ProcessTime) {
-    std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
-    return TraceMemory.memmove(Source, Destination, Size, Event, ProcessTime);
-  }
-  
-  /// Clear memory state over the specified region.
-  OverwrittenMemoryInfo clearMemoryState(uintptr_t Address,
-                                         std::size_t Length) {
-    std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
-    return TraceMemory.clear(Address, Length);
-  }
-  
-  bool rangeHasKnownMemoryState(uintptr_t Address, std::size_t Length) const {
-    std::lock_guard<std::mutex> Lock(TraceMemoryMutex);
-    return TraceMemory.hasKnownState(Address, Length);
+  /// \brief Get const access to this ProcessListener's TraceMemoryState.
+  LockedObjectAccessor<TraceMemoryState const, std::mutex>
+  getTraceMemoryStateAccessor() const {
+    return makeLockedObjectAccessor(TraceMemoryMutex, TraceMemory);
   }
   
   /// Add a region of known, but unowned, memory.
