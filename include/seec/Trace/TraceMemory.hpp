@@ -262,6 +262,28 @@ public:
 };
 
 
+/// \brief Holds information about a copied memory fragment.
+///
+class StateCopy {
+  EventLocation Event; ///< Location of the original state event.
+  
+  MemoryArea Area; ///< The area that was copied from.
+
+public:
+  /// \brief Create a new StateCopy.
+  StateCopy(EventLocation CopiedEvent, MemoryArea CopiedArea)
+  : Event(CopiedEvent),
+    Area(CopiedArea)
+  {}
+  
+  /// \brief Get the location of the original state event.
+  EventLocation const &getEvent() const { return Event; }
+  
+  /// \brief Get the area that was copied from.
+  MemoryArea const &getArea() const { return Area; }
+};
+
+
 /// \brief Holds information about traced memory states.
 ///
 class TraceMemoryState {
@@ -306,11 +328,12 @@ public:
   /// \param Event location of the state event responsible for this memmove.
   /// \param ProcessTime the process time associated with this state change.
   /// \return information about all overwritten memory states.
-  OverwrittenMemoryInfo memmove(uintptr_t const Source,
-                                uintptr_t const Destination,
-                                std::size_t const Size,
-                                EventLocation const &Event,
-                                uint64_t const ProcessTime);
+  std::pair<OverwrittenMemoryInfo, std::vector<StateCopy>>
+  memmove(uintptr_t const Source,
+          uintptr_t const Destination,
+          std::size_t const Size,
+          EventLocation const &Event,
+          uint64_t const ProcessTime);
   
   /// \brief Clear a section of memory and return the removed states.
   ///

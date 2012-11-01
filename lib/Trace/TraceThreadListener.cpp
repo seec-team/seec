@@ -194,14 +194,14 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   
   ProcessTime = getCIProcessTime();
   
-  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  auto const OverwrittenInfo =
-                         MemoryState->memmove(Source,
-                                              Destination,
-                                              Size,
-                                              EventLocation(ThreadID,
-                                                            EventsOut.offset()),
-                                              ProcessTime);
+  auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
+  auto const MoveInfo = MemoryState->memmove(Source,
+                                             Destination,
+                                             Size,
+                                             EventLocation(ThreadID,
+                                                           EventsOut.offset()),
+                                             ProcessTime);
+  auto const &OverwrittenInfo = MoveInfo.first;
   
   auto const OverwrittenCount =
                     static_cast<uint32_t>(OverwrittenInfo.overwrites().size());

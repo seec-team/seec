@@ -35,12 +35,16 @@ OverwrittenMemoryInfo TraceMemoryState::add(uintptr_t Address,
   return Overwritten;
 }
 
-OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
-                                                uintptr_t const Destination,
-                                                std::size_t const Size,
-                                                EventLocation const &Event,
-                                                uint64_t const ProcessTime) {
+std::pair<OverwrittenMemoryInfo, std::vector<StateCopy>>
+TraceMemoryState::memmove(uintptr_t const Source,
+                          uintptr_t const Destination,
+                          std::size_t const Size,
+                          EventLocation const &Event,
+                          uint64_t const ProcessTime) {
   auto const SourceEnd = Source + Size;
+  
+  // Record the copied fragments.
+  std::vector<StateCopy> Copies;
   
   // Create the new fragments.
   decltype(Fragments) Moved;
@@ -58,6 +62,8 @@ OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
       // Previous fragment overlaps with our start.
       if (It->second.area().end() >= SourceEnd) {
         // Fragment completely covers the move area.
+        Copies.emplace_back(Event, MemoryArea(Source, Size));
+        
         MovedInsert =
             Moved.insert(MovedInsert,
                          std::make_pair(Destination,
@@ -70,6 +76,9 @@ OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
       else {
         // Copy the right-hand side of the fragment.
         auto const NewSize = It->second.area().withStart(Source).length();
+        
+        Copies.emplace_back(Event, MemoryArea(Source, NewSize));
+        
         MovedInsert =
             Moved.insert(MovedInsert,
                          std::make_pair(Destination,
@@ -93,6 +102,8 @@ OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
                        ? It->second.area().length()
                        : It->second.area().withEnd(Source + Size).length();
     
+    Copies.emplace_back(Event, MemoryArea(NewAddress, NewSize));
+    
     MovedInsert =
           Moved.insert(MovedInsert,
                        std::make_pair(Destination,
@@ -111,7 +122,7 @@ OverwrittenMemoryInfo TraceMemoryState::memmove(uintptr_t const Source,
   // Add the fragments (it would be better if we could move them).
   Fragments.insert(Moved.begin(), Moved.end());
   
-  return Overwritten;
+  return std::make_pair(Overwritten, Copies);
 }
 
 OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address, 
