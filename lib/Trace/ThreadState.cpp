@@ -27,6 +27,126 @@ ThreadState::ThreadState(ProcessState &Parent,
 
 
 //------------------------------------------------------------------------------
+// Memory state event movement.
+//------------------------------------------------------------------------------
+
+void
+ThreadState::addMemoryState(
+  EventRecord<EventType::StateTyped> const &State,
+  seec::trace::MemoryState &Memory
+  )
+{
+  llvm_unreachable("Not implemented.");
+}
+
+void
+ThreadState::restoreMemoryState(
+  EventRecord<EventType::StateTyped> const &State,
+  MemoryArea const &InArea,
+  seec::trace::MemoryState &Memory
+  )
+{
+  llvm_unreachable("Not implemented.");
+}
+
+void
+ThreadState::addMemoryState(
+  EventRecord<EventType::StateUntypedSmall> const &Ev,
+  seec::trace::MemoryState &Memory
+  )
+{
+  EventReference EvRef(Ev);
+
+  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
+
+  Memory.add(MappedMemoryBlock(Ev.getAddress(), Ev.getSize(), DataPtr),
+             EventLocation(Trace.getThreadID(),
+                           Trace.events().offsetOf(EvRef)));
+}
+
+void
+ThreadState::restoreMemoryState(
+  EventRecord<EventType::StateUntypedSmall> const &Ev,
+  MemoryArea const &InArea,
+  seec::trace::MemoryState &Memory
+  )
+{
+  EventReference EvRef(Ev);
+  
+  auto FragmentStartOffset = InArea.start() - Ev.getAddress();
+  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
+  DataPtr += FragmentStartOffset;
+
+  Memory.add(MappedMemoryBlock(InArea.start(),
+                               InArea.length(),
+                               DataPtr),
+             EventLocation(Trace.getThreadID(),
+                           Trace.events().offsetOf(EvRef)));
+}
+
+void
+ThreadState::addMemoryState(
+  EventRecord<EventType::StateUntyped> const &Ev,
+  seec::trace::MemoryState &Memory
+  )
+{
+  EventReference EvRef(Ev);
+  
+  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
+
+  Memory.add(MappedMemoryBlock(Ev.getAddress(),
+                               Ev.getDataSize(),
+                               Data.data()),
+             EventLocation(Trace.getThreadID(),
+                           Trace.events().offsetOf(EvRef)));
+}
+
+void
+ThreadState::restoreMemoryState(
+  EventRecord<EventType::StateUntyped> const &Ev,
+  MemoryArea const &InArea,
+  seec::trace::MemoryState &Memory
+  )
+{
+  EventReference EvRef(Ev);
+  
+  auto FragmentStartOffset = InArea.start() - Ev.getAddress();
+  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
+  auto DataPtr = Data.data() + FragmentStartOffset;
+
+  Memory.add(MappedMemoryBlock(InArea.start(),
+                               InArea.length(),
+                               DataPtr),
+             EventLocation(Trace.getThreadID(),
+                           Trace.events().offsetOf(EvRef)));
+}
+
+void
+ThreadState::addMemoryState(
+  EventRecord<EventType::StateMemmove> const &Ev,
+  seec::trace::MemoryState &Memory
+  )
+{
+  EventReference EvRef(Ev);
+  
+  Parent.Memory.memcpy(Ev.getSourceAddress(),
+                       Ev.getDestinationAddress(),
+                       Ev.getSize(),
+                       EventLocation(Trace.getThreadID(),
+                                     Trace.events().offsetOf(EvRef)));
+}
+
+void
+ThreadState::restoreMemoryState(
+  EventRecord<EventType::StateMemmove> const &Ev,
+  MemoryArea const &InArea,
+  seec::trace::MemoryState &Memory
+  )
+{
+  llvm_unreachable("Not implemented.");
+}
+
+//------------------------------------------------------------------------------
 // Adding events
 //------------------------------------------------------------------------------
 
@@ -227,106 +347,28 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev) {
-  llvm_unreachable("Not implemented.");
-
-  // Parent.ProcessTime = Ev.getProcessTime();
-  // ProcessTime = Ev.getProcessTime();
-}
-
-void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev,
-                           MemoryArea const &FragmentArea) {
-  llvm_unreachable("Not implemented.");
-
-  // Parent.ProcessTime = Ev.getProcessTime();
-  // ProcessTime = Ev.getProcessTime();
-}
-
-void ThreadState::addEvent(
-        EventRecord<EventType::StateUntypedSmall> const &Ev) {
-  EventReference EvRef(Ev);
-  auto const EvLocation = EventLocation(Trace.getThreadID(),
-                                        Trace.events().offsetOf(EvRef));
-
-  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-
-  Parent.Memory.add(MappedMemoryBlock(Ev.getAddress(), Ev.getSize(), DataPtr),
-                    EvLocation);
-
+  addMemoryState(Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
-void ThreadState::addEvent(
-        EventRecord<EventType::StateUntypedSmall> const &Ev,
-        MemoryArea const &FragmentArea) {
-  EventReference EvRef(Ev);
-  auto const EvLocation = EventLocation(Trace.getThreadID(),
-                                        Trace.events().offsetOf(EvRef));
-
-  auto FragmentStartOffset = FragmentArea.start() - Ev.getAddress();
-  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-  DataPtr += FragmentStartOffset;
-
-  Parent.Memory.add(MappedMemoryBlock(FragmentArea.start(),
-                                      FragmentArea.length(),
-                                      DataPtr),
-                    EvLocation);
-
+void
+ThreadState::addEvent(EventRecord<EventType::StateUntypedSmall> const &Ev) {
+  addMemoryState(Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
-  EventReference EvRef(Ev);
-  auto const EvLocation = EventLocation(Trace.getThreadID(),
-                                        Trace.events().offsetOf(EvRef));
-
-  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
-
-  Parent.Memory.add(MappedMemoryBlock(Ev.getAddress(),
-                                      Ev.getDataSize(),
-                                      Data.data()),
-                    EvLocation);
-
-  Parent.ProcessTime = Ev.getProcessTime();
-  ProcessTime = Ev.getProcessTime();
-}
-
-void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev,
-                           MemoryArea const &FragmentArea) {
-  EventReference EvRef(Ev);
-  auto const EvLocation = EventLocation(Trace.getThreadID(),
-                                        Trace.events().offsetOf(EvRef));
-  
-  auto FragmentStartOffset = FragmentArea.start() - Ev.getAddress();
-  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
-  auto DataPtr = Data.data() + FragmentStartOffset;
-
-  Parent.Memory.add(MappedMemoryBlock(FragmentArea.start(),
-                                      FragmentArea.length(),
-                                      DataPtr),
-                    EvLocation);
-
+  addMemoryState(Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev) {
-  EventReference EvRef(Ev);
-  
-  Parent.Memory.memcpy(Ev.getSourceAddress(),
-                       Ev.getDestinationAddress(),
-                       Ev.getSize(),
-                       EventLocation(Trace.getThreadID(),
-                                     Trace.events().offsetOf(EvRef)));
-  
+  addMemoryState(Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
-}
-
-void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev,
-                           MemoryArea const &FragmentArea) {
-  // TODO
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
@@ -801,7 +843,7 @@ void ThreadState::removeEvent(
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
       case EventType::NAME:                                                    \
         if (is_memory_state<EventType::NAME>::value)                           \
-          addEvent(StateRef.get<EventType::NAME>());                           \
+          addMemoryState(StateRef.get<EventType::NAME>(), Parent.Memory);      \
         else                                                                   \
           llvm_unreachable("Referenced event is not a state event.");          \
         break;
@@ -844,7 +886,9 @@ void ThreadState::removeEvent(
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
       case EventType::NAME:                                                    \
         if (is_memory_state<EventType::NAME>::value)                           \
-          addEvent(StateRef.get<EventType::NAME>(), FragmentArea);             \
+          restoreMemoryState(StateRef.get<EventType::NAME>(),                  \
+                             FragmentArea,                                     \
+                             Parent.Memory);                                   \
         else                                                                   \
           llvm_unreachable("Referenced event is not a state event.");          \
         break;

@@ -74,6 +74,50 @@ class ThreadState {
   ThreadState &operator=(ThreadState const &RHS) = delete;
 
 
+  /// \name Memory state event movement.
+  /// @{
+  
+  void addMemoryState(EventRecord<EventType::StateTyped> const &State,
+                      MemoryState &Memory);
+  void restoreMemoryState(EventRecord<EventType::StateTyped> const &State,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory);
+
+  void addMemoryState(EventRecord<EventType::StateUntypedSmall> const &State,
+                      MemoryState &Memory);
+  void
+  restoreMemoryState(EventRecord<EventType::StateUntypedSmall> const &State,
+                     MemoryArea const &InArea,
+                     MemoryState &Memory);
+
+  void addMemoryState(EventRecord<EventType::StateUntyped> const &State,
+                      MemoryState &Memory);
+  void restoreMemoryState(EventRecord<EventType::StateUntyped> const &State,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory);
+  
+  void addMemoryState(EventRecord<EventType::StateMemmove> const &State,
+                      MemoryState &Memory);
+  void restoreMemoryState(EventRecord<EventType::StateMemmove> const &State,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory);
+  
+  template<EventType ET>
+  void addMemoryState(EventRecord<ET> const &Ev,
+                      MemoryState &Memory) {
+    llvm_unreachable("addMemoryState(...)");
+  }
+  
+  template<EventType ET>
+  void restoreMemoryState(EventRecord<ET> const &Ev,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory) {
+    llvm_unreachable("restoreMemoryState(...)");
+  }
+  
+  /// @}
+  
+
   /// \name Movement
   /// @{
 
@@ -92,17 +136,9 @@ class ThreadState {
   void addEvent(EventRecord<EventType::Malloc> const &);
   void addEvent(EventRecord<EventType::Free> const &);
   void addEvent(EventRecord<EventType::StateTyped> const &);
-  void addEvent(EventRecord<EventType::StateTyped> const &,
-                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateUntypedSmall> const &);
-  void addEvent(EventRecord<EventType::StateUntypedSmall> const &,
-                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateUntyped> const &);
-  void addEvent(EventRecord<EventType::StateUntyped> const &,
-                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateMemmove> const &);
-  void addEvent(EventRecord<EventType::StateMemmove> const &,
-                MemoryArea const &);
   void addEvent(EventRecord<EventType::StateClear> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
