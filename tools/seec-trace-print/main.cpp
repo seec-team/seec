@@ -131,7 +131,7 @@ int main(int argc, char **argv, char * const *envp) {
   Diagnostics->setIgnoreAllWarnings(true);
 
   // Setup the map to find Decls and Stmts from Instructions
-  seec::seec_clang::MappedModule MapMod(*Mod,
+  seec::seec_clang::MappedModule MapMod(ModIndex,
                                         ExecutablePath.str(),
                                         Diagnostics);
 

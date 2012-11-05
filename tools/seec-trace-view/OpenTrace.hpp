@@ -82,7 +82,7 @@ class OpenTrace
                       &*DiagOpts,
                       &DiagConsumer,
                       false)),
-    MapMod(*Module, ExecutablePath, Diagnostics)
+    MapMod(*ModuleIndex, ExecutablePath, Diagnostics)
   {}
 
   // Don't allow copying.

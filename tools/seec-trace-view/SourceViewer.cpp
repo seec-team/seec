@@ -1,3 +1,4 @@
+#include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/SourceMapping.hpp"
 #include "seec/Clang/RuntimeValueMapping.hpp"
 #include "seec/ICU/Format.hpp"
@@ -7,6 +8,7 @@
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Util/Range.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Function.h"
@@ -680,10 +682,10 @@ void SourceViewerPanel::highlightInstruction
   Notebook->SetSelection(PageIndex);
   
   // Now highlight the instruction.
-  if (InstructionMap.getStmt()) {
+  if (auto Statement = InstructionMap.getStmt()) {
     // Highlight the Stmt.
     auto MaybeRange
-      = seec::seec_clang::getPrettyVisibleRange(InstructionMap.getStmt(), AST);
+      = seec::seec_clang::getPrettyVisibleRange(Statement, AST);
     
     if (MaybeRange.assigned()) {
       auto &Range = MaybeRange.get<0>();
@@ -698,10 +700,29 @@ void SourceViewerPanel::highlightInstruction
                                      SciLexerType::SeeCRuntimeError);
       }
       else if(Value.assigned()) { // Show the RuntimeValue.
-        if (llvm::isa<clang::Expr>(InstructionMap.getStmt())) {
-          auto StrValue = seec::seec_clang::toString(InstructionMap.getStmt(),
+        auto StmtMappings = ClangMap.getMappedStmtsForValue(Instruction);
+        bool MappedRVal = false;
+        
+        for (auto &StmtMapping : seec::range(StmtMappings.first,
+                                             StmtMappings.second)) {
+          if (StmtMapping.second->getStatement() != Statement)
+            continue;
+          
+          auto Type = StmtMapping.second->getMapType();
+          if (Type != seec::seec_clang::MappedStmt::Type::RValScalar)
+            continue;
+          
+          if (StmtMapping.second->getValue() == Instruction) {
+            MappedRVal = true;
+            break;
+          }
+        }
+        
+        if (MappedRVal) {
+          auto StrValue = seec::seec_clang::toString(Statement,
                                                      Instruction,
                                                      Value);
+          
           PageIt->second->annotateLine(Range.Start.Line - 1,
                                        Range.Start.Column - 1,
                                        wxString(StrValue),
