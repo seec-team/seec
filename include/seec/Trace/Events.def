@@ -219,6 +219,17 @@ SEEC_TRACE_EVENT(StateMemmove,
     (StateMemmove, is_memory_state)
   ))
 
+SEEC_TRACE_EVENT(StateCopied,
+  SEEC_PP_QUOTE(
+    (uint32_t, StateThreadID),
+    (offset_uint, StateOffset),
+    (uintptr_t, Address),
+    (std::size_t, Size)
+  ),
+  SEEC_PP_QUOTE(
+    (StateCopied, is_subservient)
+  ))
+
 SEEC_TRACE_EVENT(StateClear,
   SEEC_PP_QUOTE(
     (uint32_t, Overwritten),

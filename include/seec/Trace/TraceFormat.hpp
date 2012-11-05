@@ -44,8 +44,11 @@ inline offset_uint noOffset() {
 /// Version of the trace storage format.
 constexpr inline uint64_t formatVersion() { return 2; }
 
+/// ThreadID used to indicate that an event location refers to the initial
+/// state of the process.
 constexpr inline uint32_t initialDataThreadID() { return 0; }
 
+/// ProcessTime used to refer to the initial state of the process.
 constexpr inline uint64_t initialDataProcessTime() { return 0; }
 
 
@@ -56,6 +59,9 @@ enum class EventType : uint8_t {
 #include "seec/Trace/Events.def"
   Highest
 };
+
+/// \brief Get a string indicating describing the value of Type.
+char const *describe(EventType Type);
 
 
 //------------------------------------------------------------------------------

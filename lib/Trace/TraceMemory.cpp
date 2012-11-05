@@ -62,7 +62,7 @@ TraceMemoryState::memmove(uintptr_t const Source,
       // Previous fragment overlaps with our start.
       if (It->second.area().end() >= SourceEnd) {
         // Fragment completely covers the move area.
-        Copies.emplace_back(Event, MemoryArea(Source, Size));
+        Copies.emplace_back(It->second.stateRecord(), MemoryArea(Source, Size));
         
         MovedInsert =
             Moved.insert(MovedInsert,
@@ -77,7 +77,8 @@ TraceMemoryState::memmove(uintptr_t const Source,
         // Copy the right-hand side of the fragment.
         auto const NewSize = It->second.area().withStart(Source).length();
         
-        Copies.emplace_back(Event, MemoryArea(Source, NewSize));
+        Copies.emplace_back(It->second.stateRecord(),
+                            MemoryArea(Source, NewSize));
         
         MovedInsert =
             Moved.insert(MovedInsert,
@@ -102,11 +103,12 @@ TraceMemoryState::memmove(uintptr_t const Source,
                        ? It->second.area().length()
                        : It->second.area().withEnd(Source + Size).length();
     
-    Copies.emplace_back(Event, MemoryArea(NewAddress, NewSize));
+    Copies.emplace_back(It->second.stateRecord(),
+                        MemoryArea(It->first, NewSize));
     
     MovedInsert =
           Moved.insert(MovedInsert,
-                       std::make_pair(Destination,
+                       std::make_pair(NewAddress,
                                       TraceMemoryFragment(NewAddress,
                                                           NewSize,
                                                           Event.getThreadID(),

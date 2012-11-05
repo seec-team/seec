@@ -201,6 +201,7 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
                                              EventLocation(ThreadID,
                                                            EventsOut.offset()),
                                              ProcessTime);
+  
   auto const &OverwrittenInfo = MoveInfo.first;
   
   auto const OverwrittenCount =
@@ -212,7 +213,16 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
                                            Destination,
                                            Size);
   
+  // Write events describing the overwritten states.
   writeStateOverwritten(OverwrittenInfo);
+  
+  // Write events describing the copied states.
+  for (auto const &Copy : MoveInfo.second) {
+    EventsOut.write<EventType::StateCopied>(Copy.getEvent().getThreadID(),
+                                            Copy.getEvent().getOffset(),
+                                            Copy.getArea().start(),
+                                            Copy.getArea().length());
+  }
 }
 
 

@@ -16,7 +16,11 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
+#include <cstdlib>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace seec {
@@ -77,43 +81,109 @@ class ThreadState {
   /// \name Memory state event movement.
   /// @{
   
-  void addMemoryState(EventRecord<EventType::StateTyped> const &State,
+  void addMemoryState(EventLocation const &EvLoc,
+                      EventRecord<EventType::StateTyped> const &Ev,
                       MemoryState &Memory);
-  void restoreMemoryState(EventRecord<EventType::StateTyped> const &State,
+  
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateTyped> const &Ev,
+                          MemoryState &Memory) {
+    addMemoryState(EvLoc, Ev, Memory);
+  }
+  
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateTyped> const &Ev,
                           MemoryArea const &InArea,
                           MemoryState &Memory);
 
-  void addMemoryState(EventRecord<EventType::StateUntypedSmall> const &State,
+  void addMemoryState(EventLocation const &EvLoc,
+                      EventRecord<EventType::StateUntypedSmall> const &Ev,
                       MemoryState &Memory);
+  
   void
-  restoreMemoryState(EventRecord<EventType::StateUntypedSmall> const &State,
+  restoreMemoryState(EventLocation const &EvLoc,
+                     EventRecord<EventType::StateUntypedSmall> const &Ev,
+                     MemoryState &Memory) {
+    addMemoryState(EvLoc, Ev, Memory);
+  }
+  
+  void
+  restoreMemoryState(EventLocation const &EvLoc,
+                     EventRecord<EventType::StateUntypedSmall> const &Ev,
                      MemoryArea const &InArea,
                      MemoryState &Memory);
 
-  void addMemoryState(EventRecord<EventType::StateUntyped> const &State,
+  void addMemoryState(EventLocation const &EvLoc,
+                      EventRecord<EventType::StateUntyped> const &Ev,
                       MemoryState &Memory);
-  void restoreMemoryState(EventRecord<EventType::StateUntyped> const &State,
-                          MemoryArea const &InArea,
-                          MemoryState &Memory);
   
-  void addMemoryState(EventRecord<EventType::StateMemmove> const &State,
-                      MemoryState &Memory);
-  void restoreMemoryState(EventRecord<EventType::StateMemmove> const &State,
-                          MemoryArea const &InArea,
-                          MemoryState &Memory);
-  
-  template<EventType ET>
-  void addMemoryState(EventRecord<ET> const &Ev,
-                      MemoryState &Memory) {
-    llvm_unreachable("addMemoryState(...)");
-  }
-  
-  template<EventType ET>
-  void restoreMemoryState(EventRecord<ET> const &Ev,
-                          MemoryArea const &InArea,
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateUntyped> const &Ev,
                           MemoryState &Memory) {
-    llvm_unreachable("restoreMemoryState(...)");
+    addMemoryState(EvLoc, Ev, Memory);
   }
+  
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateUntyped> const &Ev,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory);
+  
+  void addMemoryState(EventLocation const &EvLoc,
+                      EventRecord<EventType::StateMemmove> const &Ev,
+                      MemoryState &Memory);
+  
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateMemmove> const &Ev,
+                          MemoryState &Memory);
+  
+  void restoreMemoryState(EventLocation const &EvLoc,
+                          EventRecord<EventType::StateMemmove> const &Ev,
+                          MemoryArea const &InArea,
+                          MemoryState &Memory);
+  
+  template<EventType ET>
+  void addMemoryState(
+          EventLocation const &EvLoc,
+          EventRecord<ET> const &Ev,
+          MemoryState &Memory,
+          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
+  {
+    llvm::errs() << "\ncalled addMemoryState/3 for EventType "
+                 << describe(ET) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  template<EventType ET>
+  void restoreMemoryState(
+          EventLocation const &EvLoc,
+          EventRecord<ET> const &Ev,
+          MemoryState &Memory,
+          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
+  {
+    llvm::errs() << "\ncalled restoreMemoryState/3 for EventType "
+                 << describe(ET) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  template<EventType ET>
+  void restoreMemoryState(
+          EventLocation const &EvLoc,
+          EventRecord<ET> const &Ev,
+          MemoryArea const &InArea,
+          MemoryState &Memory,
+          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
+  {
+    llvm::errs() << "\ncalled restoreMemoryState/4 for EventType "
+                 << describe(ET) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  void restoreMemoryState(EventLocation const &Ev,
+                          MemoryState &Memory);
+  
+  void restoreMemoryState(EventLocation const &Ev,
+                          MemoryState &Memory,
+                          MemoryArea const &InArea);
   
   /// @}
   

@@ -32,6 +32,7 @@ ThreadState::ThreadState(ProcessState &Parent,
 
 void
 ThreadState::addMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateTyped> const &State,
   seec::trace::MemoryState &Memory
   )
@@ -41,6 +42,7 @@ ThreadState::addMemoryState(
 
 void
 ThreadState::restoreMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateTyped> const &State,
   MemoryArea const &InArea,
   seec::trace::MemoryState &Memory
@@ -51,6 +53,7 @@ ThreadState::restoreMemoryState(
 
 void
 ThreadState::addMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateUntypedSmall> const &Ev,
   seec::trace::MemoryState &Memory
   )
@@ -60,12 +63,12 @@ ThreadState::addMemoryState(
   auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
 
   Memory.add(MappedMemoryBlock(Ev.getAddress(), Ev.getSize(), DataPtr),
-             EventLocation(Trace.getThreadID(),
-                           Trace.events().offsetOf(EvRef)));
+             EvLoc);
 }
 
 void
 ThreadState::restoreMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateUntypedSmall> const &Ev,
   MemoryArea const &InArea,
   seec::trace::MemoryState &Memory
@@ -80,12 +83,12 @@ ThreadState::restoreMemoryState(
   Memory.add(MappedMemoryBlock(InArea.start(),
                                InArea.length(),
                                DataPtr),
-             EventLocation(Trace.getThreadID(),
-                           Trace.events().offsetOf(EvRef)));
+             EvLoc);
 }
 
 void
 ThreadState::addMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateUntyped> const &Ev,
   seec::trace::MemoryState &Memory
   )
@@ -97,12 +100,12 @@ ThreadState::addMemoryState(
   Memory.add(MappedMemoryBlock(Ev.getAddress(),
                                Ev.getDataSize(),
                                Data.data()),
-             EventLocation(Trace.getThreadID(),
-                           Trace.events().offsetOf(EvRef)));
+             EvLoc);
 }
 
 void
 ThreadState::restoreMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateUntyped> const &Ev,
   MemoryArea const &InArea,
   seec::trace::MemoryState &Memory
@@ -117,12 +120,12 @@ ThreadState::restoreMemoryState(
   Memory.add(MappedMemoryBlock(InArea.start(),
                                InArea.length(),
                                DataPtr),
-             EventLocation(Trace.getThreadID(),
-                           Trace.events().offsetOf(EvRef)));
+             EvLoc);
 }
 
 void
 ThreadState::addMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateMemmove> const &Ev,
   seec::trace::MemoryState &Memory
   )
@@ -132,18 +135,171 @@ ThreadState::addMemoryState(
   Parent.Memory.memcpy(Ev.getSourceAddress(),
                        Ev.getDestinationAddress(),
                        Ev.getSize(),
-                       EventLocation(Trace.getThreadID(),
-                                     Trace.events().offsetOf(EvRef)));
+                       EvLoc);
 }
 
 void
 ThreadState::restoreMemoryState(
+  EventLocation const &EvLoc,
+  EventRecord<EventType::StateMemmove> const &Ev,
+  seec::trace::MemoryState &Memory
+  )
+{
+  // 1. Create a new, empty MemoryState.
+  seec::trace::MemoryState StageMemory;
+  
+  // 2. Restore the copied events into the new MemoryState.
+  EventReference EvRef(Ev);
+  while ((++EvRef)->isSubservient()) {
+    if (EvRef->getType() == EventType::StateCopied) {
+      auto const &CopyEv = EvRef.get<EventType::StateCopied>();
+      restoreMemoryState(EventLocation(CopyEv.getStateThreadID(),
+                                       CopyEv.getStateOffset()),
+                         StageMemory,
+                         MemoryArea(CopyEv.getAddress(),
+                                    CopyEv.getSize()));
+    }
+  }
+  
+  // 3. Move the events in the new MemoryState into the new position.
+  StageMemory.memcpy(Ev.getSourceAddress(),
+                     Ev.getDestinationAddress(),
+                     Ev.getSize(),
+                     EvLoc);
+  
+  // 4. Copy the new fragments into Memory.
+  auto &Fragments = StageMemory.getFragmentMap();
+  auto End = Fragments.lower_bound(Ev.getDestinationAddress() + Ev.getSize());
+  
+  for (auto It = Fragments.find(Ev.getDestinationAddress()); It != End; ++It) {
+    Memory.add(std::move(It->second.getBlock()), EvLoc);
+  }
+}
+
+void
+ThreadState::restoreMemoryState(
+  EventLocation const &EvLoc,
   EventRecord<EventType::StateMemmove> const &Ev,
   MemoryArea const &InArea,
   seec::trace::MemoryState &Memory
   )
 {
-  llvm_unreachable("Not implemented.");
+  // 1. Create a new, empty MemoryState.
+  seec::trace::MemoryState StageMemory;
+  
+  // 2. Restore the copied events into the new MemoryState.
+  EventReference EvRef(Ev);
+  while ((++EvRef)->isSubservient()) {
+    if (EvRef->getType() == EventType::StateCopied) {
+      auto const &CopyEv = EvRef.get<EventType::StateCopied>();
+      restoreMemoryState(EventLocation(CopyEv.getStateThreadID(),
+                                       CopyEv.getStateOffset()),
+                         StageMemory,
+                         MemoryArea(CopyEv.getAddress(),
+                                    CopyEv.getSize()));
+    }
+  }
+  
+  // 3. Move the events in the new MemoryState into the new position.
+  auto const Offset = InArea.start() - Ev.getDestinationAddress();
+  StageMemory.memcpy(Ev.getSourceAddress() + Offset,
+                     InArea.start(),
+                     InArea.length(),
+                     EvLoc);
+  
+  // 4. Copy the new fragments into Memory.
+  auto &Fragments = StageMemory.getFragmentMap();
+  auto End = Fragments.lower_bound(InArea.end());
+  
+  for (auto It = Fragments.find(InArea.start()); It != End; ++It) {
+    Memory.add(std::move(It->second.getBlock()), EvLoc);
+  }
+}
+
+void ThreadState::restoreMemoryState(EventLocation const &Ev,
+                                     MemoryState &Memory) {
+  if (Ev.getThreadID() != initialDataThreadID()) {
+    // Restore the state from the state event.
+    auto const StateRef = Parent.getTrace().getEventReference(Ev);
+    
+    switch (StateRef->getType()) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+      case EventType::NAME:                                                    \
+        if (is_memory_state<EventType::NAME>::value)                           \
+          restoreMemoryState(Ev, StateRef.get<EventType::NAME>(), Memory);     \
+        else                                                                   \
+          llvm_unreachable("Referenced event is not a state event.");          \
+        break;
+#include "seec/Trace/Events.def"
+      default:
+        llvm_unreachable("Reference to unknown event type!");
+        break;
+    }
+  }
+  else {
+    // Restore the state from a global variable's initial data.
+    auto const GVIndex = static_cast<uint32_t>(Ev.getOffset());
+    auto const Global = Parent.getModule().getGlobal(GVIndex);
+    assert(Global);
+    
+    auto const ElemTy = Global->getType()->getElementType();
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
+    
+    auto const &ProcTrace = Parent.getTrace();
+    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
+    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
+    
+    Memory.add(MappedMemoryBlock(Address, Size, Data.data()),
+               EventLocation());
+  }
+}
+
+void ThreadState::restoreMemoryState(EventLocation const &Ev,
+                                     MemoryState &Memory,
+                                     MemoryArea const &InArea) {
+  if (Ev.getThreadID() != initialDataThreadID()) {
+    // Restore the state from the state event.
+    auto const StateRef = Parent.getTrace().getEventReference(Ev);
+    
+    switch (StateRef->getType()) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+      case EventType::NAME:                                                    \
+        if (is_memory_state<EventType::NAME>::value)                           \
+          restoreMemoryState(Ev,                                               \
+                             StateRef.get<EventType::NAME>(),                  \
+                             InArea,                                           \
+                             Memory);                                          \
+        else                                                                   \
+          llvm_unreachable("Referenced event is not a state event.");          \
+        break;
+#include "seec/Trace/Events.def"
+      default:
+        llvm_unreachable("Reference to unknown event type!");
+        break;
+    }
+  }
+  else {
+    // Restore state from a global variable's initial data.
+    auto const GVIndex = static_cast<uint32_t>(Ev.getOffset());
+    auto const Global = Parent.getModule().getGlobal(GVIndex);
+    assert(Global);
+    
+    auto const ElemTy = Global->getType()->getElementType();
+    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
+    
+    auto const &ProcTrace = Parent.getTrace();
+    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
+    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
+    
+    auto const FragmentAddress = InArea.start();
+    auto const FragmentSize = InArea.length();
+    
+    Parent.Memory.add(MappedMemoryBlock(FragmentAddress,
+                                        FragmentSize,
+                                        Data.slice(FragmentAddress - Address,
+                                                   FragmentSize).data()),
+                      EventLocation());
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -347,26 +503,30 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev) {
-  addMemoryState(Ev, Parent.Memory);
+  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
+  addMemoryState(EvLoc, Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void
 ThreadState::addEvent(EventRecord<EventType::StateUntypedSmall> const &Ev) {
-  addMemoryState(Ev, Parent.Memory);
+  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
+  addMemoryState(EvLoc, Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
-  addMemoryState(Ev, Parent.Memory);
+  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
+  addMemoryState(EvLoc, Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev) {
-  addMemoryState(Ev, Parent.Memory);
+  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
+  addMemoryState(EvLoc, Ev, Parent.Memory);
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
@@ -831,95 +991,18 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
 }
 
 void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwrite> const &Ev) {
-  auto const StateThreadID = Ev.getStateThreadID();
-  
-  if (StateThreadID != initialDataThreadID()) {
-    // Restore the state from the state event.
-    EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
-    auto const StateRef = Parent.getTrace().getEventReference(StateLoc);
-    
-    switch (StateRef->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        if (is_memory_state<EventType::NAME>::value)                           \
-          addMemoryState(StateRef.get<EventType::NAME>(), Parent.Memory);      \
-        else                                                                   \
-          llvm_unreachable("Referenced event is not a state event.");          \
-        break;
-#include "seec/Trace/Events.def"
-      default:
-        llvm_unreachable("Reference to unknown event type!");
-        break;
-    }
-  }
-  else {
-    // Restore the state from a global variable's initial data.
-    auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
-    auto const Global = Parent.getModule().getGlobal(GVIndex);
-    assert(Global);
-    
-    auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
-    
-    auto const &ProcTrace = Parent.getTrace();
-    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
-    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
-    
-    Parent.Memory.add(MappedMemoryBlock(Address, Size, Data.data()),
-                      EventLocation());
-  }
+  EventRecord<EventType::StateOverwrite> const &Ev)
+{
+  restoreMemoryState(EventLocation(Ev.getStateThreadID(), Ev.getStateOffset()),
+                     Parent.Memory);
 }
 
 void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwriteFragment> const &Ev) {
-  auto const StateThreadID = Ev.getStateThreadID();
-  
-  if (StateThreadID != initialDataThreadID()) {
-    // Restore the state from the state event.
-    EventLocation const StateLoc(StateThreadID, Ev.getStateOffset());
-    auto const StateRef = Parent.getTrace().getEventReference(StateLoc);
-    
-    MemoryArea FragmentArea(Ev.getFragmentAddress(), Ev.getFragmentSize());
-    
-    switch (StateRef->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        if (is_memory_state<EventType::NAME>::value)                           \
-          restoreMemoryState(StateRef.get<EventType::NAME>(),                  \
-                             FragmentArea,                                     \
-                             Parent.Memory);                                   \
-        else                                                                   \
-          llvm_unreachable("Referenced event is not a state event.");          \
-        break;
-#include "seec/Trace/Events.def"
-      default:
-        llvm_unreachable("Reference to unknown event type!");
-        break;
-    }
-  }
-  else {
-    // Restore state from a global variable's initial data.
-    auto const GVIndex = static_cast<uint32_t>(Ev.getStateOffset());
-    auto const Global = Parent.getModule().getGlobal(GVIndex);
-    assert(Global);
-    
-    auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
-    
-    auto const &ProcTrace = Parent.getTrace();
-    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
-    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
-    
-    auto const FragmentAddress = Ev.getFragmentAddress();
-    auto const FragmentSize = Ev.getFragmentSize();
-    
-    Parent.Memory.add(MappedMemoryBlock(FragmentAddress,
-                                        FragmentSize,
-                                        Data.slice(FragmentAddress - Address,
-                                                   FragmentSize).data()),
-                      EventLocation());
-  }
+  EventRecord<EventType::StateOverwriteFragment> const &Ev)
+{
+  restoreMemoryState(EventLocation(Ev.getStateThreadID(), Ev.getStateOffset()),
+                     Parent.Memory,
+                     MemoryArea(Ev.getFragmentAddress(), Ev.getFragmentSize()));
 }
 
 void ThreadState::removeEvent(

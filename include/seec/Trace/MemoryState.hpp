@@ -128,7 +128,11 @@ public:
 
   /// \brief Add a memory block caused by an event.
   ///
-  void add(MappedMemoryBlock Block, EventLocation Event);
+  void add(MappedMemoryBlock const &Block, EventLocation Event);
+  
+  /// \brief Add a memory block caused by an event.
+  ///
+  void add(MappedMemoryBlock &&Block, EventLocation Event);
   
   /// \brief Copy a region of memory to a new region.
   ///

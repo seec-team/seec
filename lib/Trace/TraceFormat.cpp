@@ -30,28 +30,6 @@ public:
     return *this;
   }
   
-  /*
-#define SEEC_EVENT_PRINT_FORWARD(TYPE)   \
-  EventPrinter &operator<<(TYPE Value) { \
-    Out << Value;                        \
-    return *this;                        \
-  }
-  
-  SEEC_EVENT_PRINT_FORWARD(llvm::StringRef)
-  SEEC_EVENT_PRINT_FORWARD(char const *)
-  SEEC_EVENT_PRINT_FORWARD(std::string const &)
-  SEEC_EVENT_PRINT_FORWARD(unsigned long)
-  SEEC_EVENT_PRINT_FORWARD(long)
-  SEEC_EVENT_PRINT_FORWARD(unsigned long long)
-  SEEC_EVENT_PRINT_FORWARD(long long)
-  SEEC_EVENT_PRINT_FORWARD(void const *)
-  SEEC_EVENT_PRINT_FORWARD(unsigned int)
-  SEEC_EVENT_PRINT_FORWARD(int)
-  SEEC_EVENT_PRINT_FORWARD(double)
-
-#undef SEEC_EVENT_PRINT_FORWARD
-  */
-  
   template<typename T>
   EventPrinter &operator<<(T &&Value) {
     Out << std::forward<T>(Value);
@@ -72,6 +50,17 @@ public:
   
   bool is_displayed() const { return Out.is_displayed(); }
 };
+
+
+char const *describe(EventType Type) {
+  switch (Type) {
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS) \
+    case EventType::NAME: return #NAME;
+#include "seec/Trace/Events.def"
+    default:
+      return "Unknown EventType";
+  }
+}
 
 
 //------------------------------------------------------------------------------

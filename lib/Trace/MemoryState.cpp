@@ -10,7 +10,20 @@ namespace trace {
 // MemoryState Mutators
 //------------------------------------------------------------------------------
 
-void MemoryState::add(MappedMemoryBlock Block, EventLocation Event) {
+void MemoryState::add(MappedMemoryBlock const &Block, EventLocation Event) {
+  // Clear space for the new fragment.
+  clear(Block.area());
+  
+  // Add the new fragment.
+  auto const Address = Block.start();
+  
+  // TODO: get an iterator from clear() to hint to insert.
+  FragmentMap.insert(std::make_pair(Address,
+                                    MemoryStateFragment(Block,
+                                                        std::move(Event))));
+}
+
+void MemoryState::add(MappedMemoryBlock &&Block, EventLocation Event) {
   // Clear space for the new fragment.
   clear(Block.area());
   
