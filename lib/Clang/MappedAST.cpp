@@ -4,7 +4,9 @@
 
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MDNames.hpp"
+#include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
 
@@ -101,6 +103,7 @@ MappedAST::LoadFromCompilerInvocation(
 //===----------------------------------------------------------------------===//
 // class MappedCompileInfo
 //===----------------------------------------------------------------------===//
+
 std::unique_ptr<MappedCompileInfo>
 MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
   if (!CompileInfo || CompileInfo->getNumOperands() != 3)
@@ -184,6 +187,103 @@ llvm::sys::Path getPathFromFileNode(llvm::MDNode const *FileNode) {
   return FilePath;
 }
 
+MappedModule::MappedModule(
+                ModuleIndex const &ModIndex,
+                llvm::StringRef ExecutablePath,
+                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
+: ModIndex(ModIndex),
+  ExecutablePath(ExecutablePath),
+  Diags(Diags),
+  ASTLookup(),
+  ASTList(),
+  MDStmtIdxKind(ModIndex.getModule().getMDKindID(MDStmtIdxStr)),
+  MDDeclIdxKind(ModIndex.getModule().getMDKindID(MDDeclIdxStr)),
+  GlobalLookup(),
+  CompileInfo(),
+  StmtToMappedStmt(),
+  ValueToMappedStmt()
+{
+  auto &Module = ModIndex.getModule();
+  
+  // Create the GlobalLookup.
+  auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
+  if (GlobalIdxMD) {
+    for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
+      auto Node = GlobalIdxMD->getOperand(i);
+      assert(Node && Node->getNumOperands() == 3);
+
+      auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
+      assert(FileNode);
+
+      auto AST = getASTForFile(FileNode);
+      assert(AST);
+
+      auto FilePath = getPathFromFileNode(FileNode);
+      assert(!FilePath.empty());
+
+      // Sometimes the compilation process creates mappings to Functions that do
+      // not exist in the Module, so we must carefully ignore them.
+      auto Func = dyn_cast_or_null<Function>(Node->getOperand(1u));
+      if (!Func)
+        continue;
+
+      auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
+      assert(DeclIdx);
+
+      auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
+
+      GlobalLookup.insert(std::make_pair(Func,
+                                         MappedGlobalDecl(std::move(FilePath),
+                                                          *AST,
+                                                          Decl,
+                                                          Func)));
+    }
+  }
+  
+  // Load compile information from the Module.
+  auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
+  if (GlobalCompileInfo) {
+    for (std::size_t i = 0u; i < GlobalCompileInfo->getNumOperands(); ++i) {
+      auto Node = GlobalCompileInfo->getOperand(i);
+      auto MappedInfo = MappedCompileInfo::get(Node);
+      if (!MappedInfo)
+        continue;
+      
+      CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
+                                        std::move(MappedInfo)));
+    }
+  }
+  
+  // Load clang::Stmt to llvm::Value mapping from the Module.
+  auto GlobalStmtMaps = Module.getNamedMetadata(MDGlobalValueMapStr);
+  if (GlobalStmtMaps) {
+    for (std::size_t i = 0u; i < GlobalStmtMaps->getNumOperands(); ++i) {
+      auto Mapping = MappedStmt::fromMetadata(GlobalStmtMaps->getOperand(i),
+                                              *this);
+      if (!Mapping)
+        continue;
+      
+      auto RawPtr = Mapping.get();
+      auto Values = RawPtr->getValues();
+      
+      StmtToMappedStmt.insert(std::make_pair(RawPtr->getStatement(),
+                                             std::move(Mapping)));
+      
+      if (Values.first)
+        ValueToMappedStmt.insert(std::make_pair(Values.first, RawPtr));
+      
+      if (Values.second)
+        ValueToMappedStmt.insert(std::make_pair(Values.second, RawPtr));
+    }
+  }
+}
+
+MappedModule::~MappedModule() = default;
+
+//------------------------------------------------------------------------------
+// MappedModule:: Accessors.
+//------------------------------------------------------------------------------
+
 MappedAST const *
 MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   // check lookup to see if we've already loaded the AST
@@ -221,71 +321,27 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   return ASTRaw;
 }
 
-MappedModule::MappedModule(
-                llvm::Module const &Module,
-                llvm::StringRef ExecutablePath,
-                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
-: // Module(Module),
-  ExecutablePath(ExecutablePath),
-  Diags(Diags),
-  ASTLookup(),
-  ASTList(),
-  MDStmtIdxKind(Module.getMDKindID(MDStmtIdxStr)),
-  MDDeclIdxKind(Module.getMDKindID(MDDeclIdxStr)),
-  GlobalLookup(),
-  CompileInfo()
-{
-  // Create the GlobalLookup.
-  auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
-  if (!GlobalIdxMD)
-    return;
-
-  for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
-    auto Node = GlobalIdxMD->getOperand(i);
-    assert(Node && Node->getNumOperands() == 3);
-
-    auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
-    assert(FileNode);
-
-    auto AST = getASTForFile(FileNode);
-    assert(AST);
-
-    auto FilePath = getPathFromFileNode(FileNode);
-    assert(!FilePath.empty());
-
-    // Sometimes the compilation process creates mappings to Functions that do
-    // not exist in the Module, so we must carefully ignore them.
-    auto Func = dyn_cast_or_null<Function>(Node->getOperand(1u));
-    if (!Func)
-      continue;
-
-    auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
-    assert(DeclIdx);
-
-    auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
-
-    GlobalLookup.insert(std::make_pair(Func,
-                                       MappedGlobalDecl(std::move(FilePath),
-                                                        *AST,
-                                                        Decl,
-                                                        Func)));
-  }
+std::pair<MappedAST const *, clang::Stmt const *>
+MappedModule::getASTAndStmt(llvm::MDNode const *StmtIdentifier) const {
+  assert(StmtIdentifier && StmtIdentifier->getNumOperands() == 2);
   
-  // Load compile information from the Module.
-  auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
-  if (!GlobalCompileInfo)
-    return;
+  auto FileMD = llvm::dyn_cast<llvm::MDNode>(StmtIdentifier->getOperand(0u));
+  if (!FileMD)
+    return std::pair<MappedAST const *, clang::Stmt const *>(nullptr, nullptr);
   
-  for (std::size_t i = 0u; i < GlobalCompileInfo->getNumOperands(); ++i) {
-    auto Node = GlobalCompileInfo->getOperand(i);
-    auto MappedInfo = MappedCompileInfo::get(Node);
-    if (!MappedInfo)
-      continue;
-    
-    CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
-                                      std::move(MappedInfo)));
-  }
+  auto AST = getASTForFile(FileMD);
+  auto StmtIdx = llvm::dyn_cast<ConstantInt>(StmtIdentifier->getOperand(1u));
+  
+  if (!AST || !StmtIdx)
+    return std::pair<MappedAST const *, clang::Stmt const *>(nullptr, nullptr);
+  
+  return std::make_pair(AST,
+                        AST->getStmtFromIdx(StmtIdx->getZExtValue()));
 }
+
+//------------------------------------------------------------------------------
+// MappedModule:: Mapped llvm::Function pointers.
+//------------------------------------------------------------------------------
 
 MappedGlobalDecl const *
 MappedModule::getMappedGlobalDecl(llvm::Function const *F) const {
@@ -302,6 +358,40 @@ clang::Decl const *MappedModule::getDecl(llvm::Function const *F) const {
     return nullptr;
 
   return It->second.getDecl();
+}
+
+//------------------------------------------------------------------------------
+// MappedModule:: Mapped llvm::Instruction pointers.
+//------------------------------------------------------------------------------
+
+MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
+  auto DeclMap = getDeclAndMappedAST(I);
+  auto StmtMap = getStmtAndMappedAST(I);
+  
+  // Ensure that the Decl and Stmt come from the same AST.
+  if (DeclMap.first && StmtMap.first)
+    assert(DeclMap.second == StmtMap.second);
+  
+  // Find the file path from either the Decl or the Stmt mapping. If there is
+  // no mapping, return an empty path.
+  llvm::sys::Path FilePath;
+  
+  if (DeclMap.first) {
+    auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
+    auto FileNode = dyn_cast<MDNode>(DeclIdxNode->getOperand(0));
+    FilePath = getPathFromFileNode(FileNode);
+  }
+  else if (StmtMap.first) {
+    auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
+    auto FileNode = dyn_cast<MDNode>(StmtIdxNode->getOperand(0));
+    FilePath = getPathFromFileNode(FileNode);
+  }
+  
+  return MappedInstruction(I,
+                           FilePath,
+                           DeclMap.second ? DeclMap.second : StmtMap.second,
+                           DeclMap.first,
+                           StmtMap.first);
 }
 
 Decl const *MappedModule::getDecl(Instruction const *I) const {
@@ -384,36 +474,6 @@ MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) const {
     return std::make_pair(nullptr, nullptr);
 
   return std::make_pair(AST->getStmtFromIdx(CI->getZExtValue()), AST);
-}
-
-MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
-  auto DeclMap = getDeclAndMappedAST(I);
-  auto StmtMap = getStmtAndMappedAST(I);
-  
-  // Ensure that the Decl and Stmt come from the same AST.
-  if (DeclMap.first && StmtMap.first)
-    assert(DeclMap.second == StmtMap.second);
-  
-  // Find the file path from either the Decl or the Stmt mapping. If there is
-  // no mapping, return an empty path.
-  llvm::sys::Path FilePath;
-  
-  if (DeclMap.first) {
-    auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
-    auto FileNode = dyn_cast<MDNode>(DeclIdxNode->getOperand(0));
-    FilePath = getPathFromFileNode(FileNode);
-  }
-  else if (StmtMap.first) {
-    auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
-    auto FileNode = dyn_cast<MDNode>(StmtIdxNode->getOperand(0));
-    FilePath = getPathFromFileNode(FileNode);
-  }
-  
-  return MappedInstruction(I,
-                           FilePath,
-                           DeclMap.second ? DeclMap.second : StmtMap.second,
-                           DeclMap.first,
-                           StmtMap.first);
 }
 
 

@@ -12,23 +12,26 @@
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace clang {
-
-class Decl;
-class DiagnosticsEngine;
-class FileSystemOptions;
-class Stmt;
-
+  class Decl;
+  class DiagnosticsEngine;
+  class FileSystemOptions;
+  class Stmt;
 }
 
 namespace seec {
 
+class ModuleIndex;
+
 /// Contains classes to assist with SeeC's usage of Clang.
 namespace seec_clang {
+
+class MappedStmt;
 
 ///
 class MappedAST {
@@ -243,67 +246,97 @@ public:
 };
 
 
+/// \brief Clang mapping for an llvm::Module.
 ///
 class MappedModule {
-  // llvm::Module const &Module;
-
+  /// Indexed view of the llvm::Module.
+  seec::ModuleIndex const &ModIndex;
+  
+  /// Path of the currently-running executable.
   llvm::StringRef ExecutablePath;
 
+  /// DiagnosticsEngine used during parsing.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
 
+  /// Map file descriptor MDNode pointers to MappedAST objects.
   llvm::DenseMap<llvm::MDNode const *, MappedAST const *> mutable ASTLookup;
 
+  /// Hold the MappedAST objects.
   std::vector<std::unique_ptr<MappedAST>> mutable ASTList;
 
+  /// Kind of clang::Stmt mapping metadata.
   unsigned MDStmtIdxKind;
 
+  /// Kind of clang::Decl mapping metadata.
   unsigned MDDeclIdxKind;
 
+  /// Map llvm::Function pointers to MappedGlobalDecl objects.
   llvm::DenseMap<llvm::Function const *, MappedGlobalDecl> GlobalLookup;
   
   /// Compile information for each main file in this Module.
   std::map<std::string, std::unique_ptr<MappedCompileInfo>> CompileInfo;
+  
+  /// Lookup from clang::Stmt pointer to MappedStmt objects.
+  std::multimap<clang::Stmt const *,
+                std::unique_ptr<MappedStmt>> StmtToMappedStmt;
+  
+  /// Lookup from llvm::Value pointer to MappedStmt objects.
+  std::multimap<llvm::Value const *, MappedStmt const *> ValueToMappedStmt;
 
   // Don't allow copying.
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
-  /// \brief Get the AST for the given file.
-  MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
-
 public:
   /// Constructor.
-  /// \param Module the llvm::Module to map.
+  /// \param ModIndex Indexed view of the llvm::Module to map.
   /// \param ExecutablePath Used by the Clang driver to find resources.
   /// \param Diags The diagnostics engine to use during compilation.
-  MappedModule(llvm::Module const &Module,
+  MappedModule(seec::ModuleIndex const &ModIndex,
                llvm::StringRef ExecutablePath,
                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
 
-  /// Get the GlobalLookup.
-  decltype(GlobalLookup) const &getGlobalLookup() const { return GlobalLookup; }
+  /// Destructor.
+  ~MappedModule();
 
-
-  /// \name Mapped llvm::Functions.
+  /// \name Accessors.
   /// @{
   
-  /// Find the clang::Decl mapping for an llvm::Function, if one exists.
+  /// \brief Get the indexed view of the llvm::Module.
+  seec::ModuleIndex const &getModuleIndex() const { return ModIndex; }
+  
+  /// \brief Get the AST for the given file.
+  MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
+  
+  /// \brief Get the AST and clang::Stmt for the given Statement Identifier.
+  std::pair<MappedAST const *, clang::Stmt const *>
+  getASTAndStmt(llvm::MDNode const *StmtIdentifier) const;
+  
+  /// \brief Get the GlobalLookup.
+  decltype(GlobalLookup) const &getGlobalLookup() const { return GlobalLookup; }
+  
+  /// @}
+
+
+  /// \name Mapped llvm::Function pointers.
+  /// @{
+  
+  /// \brief Find the clang::Decl mapping for an llvm::Function, if one exists.
   MappedGlobalDecl const *getMappedGlobalDecl(llvm::Function const *F) const;
 
-  /// Find the clang::Decl for an llvm::Function, if one exists.
+  /// \brief Find the clang::Decl for an llvm::Function, if one exists.
   clang::Decl const *getDecl(llvm::Function const *F) const;
   
   /// @}
   
 
-  /// \name Mapped llvm::Instructions.
+  /// \name Mapped llvm::Instruction pointers.
   /// @{
   
   /// \brief Get Clang mapping information for the given llvm::Instruction.
-  ///
   MappedInstruction getMapping(llvm::Instruction const *I) const;
   
-  /// For the given llvm::Instruction, find the clang::Decl.
+  /// \brief For the given llvm::Instruction, find the clang::Decl.
   clang::Decl const *getDecl(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Decl and the MappedAST
@@ -311,13 +344,26 @@ public:
   std::pair<clang::Decl const *, MappedAST const *>
   getDeclAndMappedAST(llvm::Instruction const *I) const;
 
-  /// For the given llvm::Instruction, find the clang::Stmt.
+  /// \brief For the given llvm::Instruction, find the clang::Stmt.
   clang::Stmt const *getStmt(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Stmt and the MappedAST
   /// that it belongs to.
   std::pair<clang::Stmt const *, MappedAST const *>
   getStmtAndMappedAST(llvm::Instruction const *I) const;
+  
+  /// @}
+  
+  
+  /// \name Mapped clang::Stmt pointers.
+  /// @{
+  
+  /// \brief Get all MappedStmt objects containing the given llvm::Value.
+  std::pair<decltype(ValueToMappedStmt)::const_iterator,
+            decltype(ValueToMappedStmt)::const_iterator>
+  getMappedStmtsForValue(llvm::Value const *Value) const {
+    return ValueToMappedStmt.equal_range(Value);
+  }
   
   /// @}
 };

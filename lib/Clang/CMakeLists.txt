@@ -1,6 +1,8 @@
 set(HEADERS
   ../../include/seec/Clang/Compile.hpp
   ../../include/seec/Clang/MappedAST.hpp
+  ../../include/seec/Clang/MappedFile.hpp
+  ../../include/seec/Clang/MappedStmt.hpp
   ../../include/seec/Clang/RuntimeValueMapping.hpp
   ../../include/seec/Clang/StateMapping.hpp
   )
@@ -8,6 +10,8 @@ set(HEADERS
 set(SOURCES
   Compile.cpp
   MappedAST.cpp
+  MappedFile.cpp
+  MappedStmt.cpp
   RuntimeValueMapping.cpp
   StateMapping.cpp
 )
