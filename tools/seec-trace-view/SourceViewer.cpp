@@ -389,6 +389,21 @@ void SourceViewerPanel::clear() {
   Pages.clear();
 }
 
+SourceFilePanel *SourceViewerPanel::showPageForFile(llvm::sys::Path const &File)
+{
+  // Find the SourceFilePanel.
+  auto PageIt = Pages.find(File);
+  if (PageIt == Pages.end()) {
+    wxLogDebug("Couldn't find page for file.\n");
+    return nullptr;
+  }
+  
+  // Select the SourceFilePanel in the notebook.
+  Notebook->SetSelection(Notebook->GetPageIndex(PageIt->second));
+  
+  return PageIt->second;
+}
+
 void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
   // We want to show some information about the last action that modified the
   // shared state of the process. This can occur for one of three reasons:
@@ -544,22 +559,15 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
 
   llvm::sys::Path FilePath(Start.getFilename());
 
-  auto It = Pages.find(FilePath);
-  if (It == Pages.end()) {
-    wxLogDebug("Couldn't find page for file %s\n", Start.getFilename());
+  auto Panel = showPageForFile(FilePath);
+  if (!Panel)
     return;
-  }
 
   // TODO: Clear highlight on current source file?
 
-  wxLogDebug("Setting highlight on file %s\n", Start.getFilename());
-
-  auto Index = Notebook->GetPageIndex(It->second);
-  Notebook->SetSelection(Index);
-
-  It->second->setStateIndicator(SciIndicatorType::ActiveCode,
-                                Start.getLine(), Start.getColumn(),
-                                End.getLine(), End.getColumn() + 1);
+  Panel->setStateIndicator(SciIndicatorType::ActiveCode,
+                           Start.getLine(), Start.getColumn(),
+                           End.getLine(), End.getColumn() + 1);
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -569,11 +577,10 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
                                      "GUIText");
   assert(U_SUCCESS(Status));
 
-  It->second->annotateLine(Start.getLine() - 1,
-                           seec::getwxStringExOrEmpty(
-                                                  TextTable,
-                                                  "SourceView_FunctionEntry"),
-                           SciLexerType::SeeCRuntimeInformation);
+  Panel->annotateLine(Start.getLine() - 1,
+                      seec::getwxStringExOrEmpty(TextTable,
+                                                 "SourceView_FunctionEntry"),
+                      SciLexerType::SeeCRuntimeInformation);
 }
 
 void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
@@ -599,22 +606,15 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
 
   llvm::sys::Path FilePath(Start.getFilename());
 
-  auto It = Pages.find(FilePath);
-  if (It == Pages.end()) {
-    wxLogDebug("Couldn't find page for file %s\n", Start.getFilename());
+  auto Panel = showPageForFile(FilePath);
+  if (!Panel)
     return;
-  }
 
   // TODO: Clear highlight on current source file?
 
-  wxLogDebug("Setting highlight on file %s\n", Start.getFilename());
-
-  auto Index = Notebook->GetPageIndex(It->second);
-  Notebook->SetSelection(Index);
-
-  It->second->setStateIndicator(SciIndicatorType::ActiveCode,
-                                Start.getLine(), Start.getColumn(),
-                                End.getLine(), End.getColumn() + 1);
+  Panel->setStateIndicator(SciIndicatorType::ActiveCode,
+                           Start.getLine(), Start.getColumn(),
+                           End.getLine(), End.getColumn() + 1);
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -624,22 +624,55 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
                                      "GUIText");
   assert(U_SUCCESS(Status));
 
-  It->second->annotateLine(Start.getLine() - 1,
-                           seec::getwxStringExOrEmpty(
-                                                  TextTable,
-                                                  "SourceView_FunctionExit"),
-                           SciLexerType::SeeCRuntimeInformation);
+  Panel->annotateLine(Start.getLine() - 1,
+                      seec::getwxStringExOrEmpty(TextTable,
+                                                 "SourceView_FunctionExit"),
+                      SciLexerType::SeeCRuntimeInformation);
 }
 
 void
-SourceViewerPanel::showInstructionAt
-  ( llvm::Instruction const *Instruction,
-    SourceFilePanel *Page,
-    seec::seec_clang::SimpleRange const &Range
-  ) {
+SourceViewerPanel::showActiveRange(SourceFilePanel *Page,
+                                   seec::seec_clang::SimpleRange const &Range)
+{
   Page->setStateIndicator(SciIndicatorType::ActiveCode,
                           Range.Start.Line, Range.Start.Column,
                           Range.End.Line, Range.End.Column);
+}
+
+void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
+                                       seec::seec_clang::MappedAST const &AST,
+                                       llvm::StringRef Value) {
+  auto &ClangAST = AST.getASTUnit();
+  
+  auto MaybeRange = seec::seec_clang::getPrettyVisibleRange(Statement,
+                                                            ClangAST);
+  if (!MaybeRange.assigned()) {
+    wxLogDebug("Couldn't get range for ::clang::Stmt.");
+    return;
+  }
+  
+  auto LocStart = Statement->getLocStart();
+  auto Filename = ClangAST.getSourceManager().getFilename(LocStart);
+  if (Filename.empty()) {
+    wxLogDebug("Couldn't get filename for ::clang::Stmt.");
+    return;
+  }
+  
+  llvm::sys::Path FilePath(Filename);
+  auto Panel = showPageForFile(FilePath);
+  if (!Panel) {
+    wxLogDebug("Couldn't show page for source file.");
+    return;
+  }
+  
+  showActiveRange(Panel, MaybeRange.get<0>());
+  
+  if (!Value.empty()) {
+    Panel->annotateLine(MaybeRange.get<0>().Start.Line - 1,
+                        MaybeRange.get<0>().Start.Column - 1,
+                        wxString(Value),
+                        SciLexerType::SeeCRuntimeValue);
+  }
 }
 
 void SourceViewerPanel::highlightInstruction
@@ -647,98 +680,81 @@ void SourceViewerPanel::highlightInstruction
        seec::trace::RuntimeValue const &Value,
        seec::runtime_errors::RunError const *Error) {
   assert(Trace);
+  
+  // TODO: Clear state mapping on the current source file.
 
   auto &ClangMap = Trace->getMappedModule();
   
-  auto InstructionMap = ClangMap.getMapping(Instruction);
-  
-  if (!InstructionMap.getAST()) {
-    // No mapping information was found for this instruction.
-    std::string InstructionString;
+  // First, see if the Instruction represents a value that we can display.
+  if (Value.assigned()) {
+    auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
     
-    {
-      // The stream will flush when it is destructed.
-      llvm::raw_string_ostream InstructionStream(InstructionString);
-      InstructionStream << *Instruction;
+    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
+      switch (Mapping.second->getMapType()) {
+        case seec::seec_clang::MappedStmt::Type::LValSimple:
+          // Not yet implemented.
+          wxLogDebug("Unimplemented LValSimple.");
+          break;
+        case seec::seec_clang::MappedStmt::Type::RValScalar:
+          {
+            wxLogDebug("Showing RValScalar.");
+            
+            auto Statement = Mapping.second->getStatement();
+            
+            auto StrValue = seec::seec_clang::toString(Statement,
+                                                       Instruction,
+                                                       Value);
+            
+            // Hilight this clang::Stmt.
+            showActiveStmt(Statement, Mapping.second->getAST(), StrValue);
+          }
+          return;
+        case seec::seec_clang::MappedStmt::Type::RValAggregate:
+          // Not yet implemented.
+          wxLogDebug("Unimplemented RValAggregate.");
+          break;
+      }
     }
-    
-    wxLogDebug("No mapping for '%s'", InstructionString.c_str());
-    
-    return;
   }
+  
+  // Find the clang::Stmt or clang::Decl that the Instruction belongs to.
+  auto InstructionMap = ClangMap.getMapping(Instruction);
+  if (!InstructionMap.getAST())
+    return; // Instruction has no mapping.
   
   auto &AST = InstructionMap.getAST()->getASTUnit();
   
-  // TODO: Clear state mapping on the current source file.
-  
   // Focus on the mapped source file.
-  auto PageIt = Pages.find(InstructionMap.getFilePath());
-  if (PageIt == Pages.end()) {
-    wxLogDebug("Couldn't find page for file.\n");
+  auto Panel = showPageForFile(InstructionMap.getFilePath());
+  if (!Panel)
     return;
-  }
   
-  auto PageIndex = Notebook->GetPageIndex(PageIt->second);
-  Notebook->SetSelection(PageIndex);
-  
-  // Now highlight the instruction.
   if (auto Statement = InstructionMap.getStmt()) {
-    // Highlight the Stmt.
-    auto MaybeRange
-      = seec::seec_clang::getPrettyVisibleRange(Statement, AST);
+    // Highlight the associated clang::Stmt.
+    auto MaybeRange = seec::seec_clang::getPrettyVisibleRange(Statement, AST);
     
     if (MaybeRange.assigned()) {
       auto &Range = MaybeRange.get<0>();
       
-      showInstructionAt(Instruction, PageIt->second, Range);
+      showActiveRange(Panel, Range);
       
-      if (Error) { // Show a description of the RunError.
+      // If there is a runtime error, then show a description of it.
+      if (Error) {
         auto UniStr = seec::runtime_errors::format(*Error);
         auto ErrorStr = seec::towxString(UniStr);
-        PageIt->second->annotateLine(Range.Start.Line - 1,
-                                     ErrorStr,
-                                     SciLexerType::SeeCRuntimeError);
-      }
-      else if(Value.assigned()) { // Show the RuntimeValue.
-        auto StmtMappings = ClangMap.getMappedStmtsForValue(Instruction);
-        bool MappedRVal = false;
-        
-        for (auto &StmtMapping : seec::range(StmtMappings.first,
-                                             StmtMappings.second)) {
-          if (StmtMapping.second->getStatement() != Statement)
-            continue;
-          
-          auto Type = StmtMapping.second->getMapType();
-          if (Type != seec::seec_clang::MappedStmt::Type::RValScalar)
-            continue;
-          
-          if (StmtMapping.second->getValue() == Instruction) {
-            MappedRVal = true;
-            break;
-          }
-        }
-        
-        if (MappedRVal) {
-          auto StrValue = seec::seec_clang::toString(Statement,
-                                                     Instruction,
-                                                     Value);
-          
-          PageIt->second->annotateLine(Range.Start.Line - 1,
-                                       Range.Start.Column - 1,
-                                       wxString(StrValue),
-                                       SciLexerType::SeeCRuntimeValue);
-        }
+        Panel->annotateLine(Range.Start.Line - 1,
+                            ErrorStr,
+                            SciLexerType::SeeCRuntimeError);
       }
     }
   }
-  else if (InstructionMap.getDecl()) {
-    // Highlight the Decl.
-    auto MaybeRange
-      = seec::seec_clang::getPrettyVisibleRange(InstructionMap.getDecl(), AST);
+  else if (auto Decl = InstructionMap.getDecl()) {
+    // Highlight the associated clang::Decl.
+    auto MaybeRange = seec::seec_clang::getPrettyVisibleRange(Decl, AST);
     
     if (MaybeRange.assigned()) {
-      showInstructionAt(Instruction, PageIt->second, MaybeRange.get<0>());
-    }    
+      showActiveRange(Panel, MaybeRange.get<0>());
+    }
   }
 }
 

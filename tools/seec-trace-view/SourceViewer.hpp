@@ -11,6 +11,7 @@
 #ifndef SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 #define SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 
 #include <wx/wx.h>
@@ -43,6 +44,10 @@ namespace llvm {
   class Instruction;
   class Module;
 } // namespace llvm
+
+namespace clang {
+  class Stmt;
+} // namespace clang
 
 
 /// \brief SourceViewerPanel.
@@ -93,6 +98,9 @@ public:
 
   /// Remove all files from the viewer.
   void clear();
+  
+  /// Display and return the SourceFilePanel for the given file.
+  SourceFilePanel *showPageForFile(llvm::sys::Path const &File);
 
   /// Show the current state, without thread-specific information.
   void show(seec::trace::ProcessState const &State);
@@ -113,9 +121,13 @@ private:
   void highlightFunctionExit(llvm::Function *Function);
   
   ///
-  void showInstructionAt(llvm::Instruction const *Instruction,
-                         SourceFilePanel *Page,
-                         seec::seec_clang::SimpleRange const &Range);
+  void showActiveRange(SourceFilePanel *Page,
+                       seec::seec_clang::SimpleRange const &Range);
+  
+  ///
+  void showActiveStmt(::clang::Stmt const *Statement,
+                      seec::seec_clang::MappedAST const &AST,
+                      llvm::StringRef Value);
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction const *Instruction,

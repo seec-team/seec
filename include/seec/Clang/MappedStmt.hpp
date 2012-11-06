@@ -22,6 +22,7 @@ namespace seec {
 /// Contains classes to assist with SeeC's usage of Clang.
 namespace seec_clang {
 
+class MappedAST;
 class MappedFile;
 class MappedModule;
 
@@ -37,6 +38,9 @@ private:
   /// The type of this mapping.
   Type MapType;
   
+  /// The AST that the mapped clang::Stmt belongs to.
+  MappedAST const *AST;
+  
   /// The mapped clang::Stmt.
   clang::Stmt const *Statement;
   
@@ -48,10 +52,12 @@ private:
   
   /// \brief Constructor.
   MappedStmt(Type TheMapType,
+             MappedAST const *TheAST,
              clang::Stmt const *TheStatement,
              llvm::Value const *TheValue1,
              llvm::Value const *TheValue2)
   : MapType(TheMapType),
+    AST(TheAST),
     Statement(TheStatement),
     Value1(TheValue1),
     Value2(TheValue2)
@@ -90,6 +96,8 @@ public:
   /// @{
   
   Type getMapType() const { return MapType; }
+  
+  MappedAST const &getAST() const { return *AST; }
   
   clang::Stmt const *getStatement() const { return Statement; }
   

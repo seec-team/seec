@@ -36,8 +36,9 @@ llvm::Value const *
 getMappedValueFromMD(llvm::MDNode const *ValueMap,
                      ModuleIndex const &ModIndex)
 {
-  if (!ValueMap || ValueMap->getNumOperands() == 0)
+  if (!ValueMap || ValueMap->getNumOperands() == 0) {
     return nullptr;
+  }
   
   auto Type = llvm::dyn_cast<llvm::MDString>(ValueMap->getOperand(0u));
   auto TypeStr = Type->getString();
@@ -67,6 +68,7 @@ getMappedValueFromMD(llvm::MDNode const *ValueMap,
     return FuncIndex->getArgument(IdxValue);
   }
   else {
+    llvm_unreachable("Encountered unknown value type.");
     return nullptr;
   }
 }
@@ -91,6 +93,7 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
     return nullptr;
   
   auto ASTAndStmt = Module.getASTAndStmt(StmtIdentMD);
+  assert(ASTAndStmt.first && ASTAndStmt.second);
   
   // Find the values.
   auto MapVal1MD = llvm::dyn_cast_or_null<llvm::MDNode>(RootMD->getOperand(2u));
@@ -99,7 +102,10 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   auto Val1 = getMappedValueFromMD(MapVal1MD, Module.getModuleIndex());
   auto Val2 = getMappedValueFromMD(MapVal2MD, Module.getModuleIndex());
   
+  assert(Val1 && "MappedStmt with no primary Value.");
+  
   return std::unique_ptr<MappedStmt>(new MappedStmt(Type.get<0>(),
+                                                    ASTAndStmt.first,
                                                     ASTAndStmt.second,
                                                     Val1,
                                                     Val2));

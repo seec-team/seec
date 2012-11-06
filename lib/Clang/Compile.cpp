@@ -1,5 +1,6 @@
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MDNames.hpp"
+#include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/Stmt.h"
@@ -188,11 +189,52 @@ T const *GetMetadataPointer(Instruction const &I, unsigned MDKindID) {
 //===----------------------------------------------------------------------===//
 // GenerateSerializableMappings
 //===----------------------------------------------------------------------===//
+llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
+                                      seec::ModuleIndex const &ModIndex) {
+  if (!ValueMap)
+    return ValueMap;
+  
+  auto &ModContext = ModIndex.getModule().getContext();
+  
+  auto ValueMapMD = llvm::dyn_cast<llvm::MDNode>(ValueMap);
+  
+  auto Type = llvm::dyn_cast<llvm::MDString>(ValueMapMD->getOperand(0u));
+  auto TypeStr = Type->getString();
+  
+  if (TypeStr.equals("instruction")) {
+    auto Func = llvm::dyn_cast<llvm::Function>(ValueMapMD->getOperand(1u));
+    assert(Func);
+    
+    auto FuncIndex = ModIndex.getFunctionIndex(Func);
+    assert(FuncIndex);
+    
+    auto InstrAddr = ValueMapMD->getOperand(2u);
+    auto Instr = GetPointerFromMetadata<llvm::Instruction>(InstrAddr);
+    auto InstrIndex = FuncIndex->getIndexOfInstruction(Instr);
+    assert(InstrIndex.assigned());
+    
+    auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
+    
+    llvm::Value *Ops[] = {
+      Type,
+      Func,
+      ConstantInt::get(Int64Ty, InstrIndex.get<0>())
+    };
+    
+    return MDNode::get(ModContext, Ops);
+  }
+  else {
+    return ValueMap;
+  }
+}
+
 /// Modify Mod's Metadata to use numbered mappings rather than pointers.
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
                                   SourceManager &SM,
                                   StringRef MainFilename) {
+  seec::ModuleIndex ModIndex(*Mod, true);
+  
   auto &ModContext = Mod->getContext();
 
   auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
@@ -308,11 +350,19 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
         ConstantInt::get(Int64Ty, It->second)
       };
       
+      // Must convert Instruction and Argument maps to use indices rather than
+      // pointers.
+      auto Val1 = MakeValueMapSerializable(MappingNode->getOperand(2),
+                                           ModIndex);
+      
+      auto Val2 = MakeValueMapSerializable(MappingNode->getOperand(3),
+                                           ModIndex);
+      
       llvm::Value *MappingOps[] = {
         MappingNode->getOperand(0),
         llvm::MDNode::get(ModContext, StmtIdentifierOps),
-        MappingNode->getOperand(2),
-        MappingNode->getOperand(3)
+        Val1,
+        Val2
       };
       
       GlobalStmtIdxMD->addOperand(llvm::MDNode::get(ModContext, MappingOps));
