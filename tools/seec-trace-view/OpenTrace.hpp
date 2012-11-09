@@ -49,7 +49,7 @@ class OpenTrace
   llvm::Module *Module;
 
   /// An indexed view of Module.
-  std::unique_ptr<seec::ModuleIndex> ModuleIndex;
+  std::shared_ptr<seec::ModuleIndex> ModuleIndex;
   
   /// Diagnostics options used when reading original source code using Clang.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts;
@@ -127,6 +127,9 @@ public:
 
   /// Get an indexed view of Module.
   seec::ModuleIndex const &getModuleIndex() const { return *ModuleIndex; }
+  
+  /// Get the shared_ptr for the indexed view of Module.
+  decltype(ModuleIndex) const &getModuleIndexPtr() const { return ModuleIndex; }
 
   /// Get the MappedModule that maps the Module back to the original source
   /// code.

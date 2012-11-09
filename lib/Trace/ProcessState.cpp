@@ -15,10 +15,10 @@ namespace trace {
 //------------------------------------------------------------------------------
 
 ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
-                           ModuleIndex const &ModIndex)
+                           std::shared_ptr<ModuleIndex const> ModIndexPtr)
 : Trace(std::move(TracePtr)),
-  Module(ModIndex),
-  DL(&ModIndex.getModule()),
+  Module(std::move(ModIndexPtr)),
+  DL(&(Module->getModule())),
   UpdateMutex(),
   UpdateCV(),
   ProcessTime(0),
@@ -27,8 +27,8 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   Memory()
 {
   // Setup initial memory state for global variables.
-  for (std::size_t i = 0; i < Module.getGlobalCount(); ++i) {
-    auto const Global = Module.getGlobal(i);
+  for (std::size_t i = 0; i < Module->getGlobalCount(); ++i) {
+    auto const Global = Module->getGlobal(i);
     assert(Global);
     
     auto const ElemTy = Global->getType()->getElementType();

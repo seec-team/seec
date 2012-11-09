@@ -110,7 +110,7 @@ int main(int argc, char **argv, char * const *envp) {
   }
 
   // Index the llvm::Module.
-  seec::ModuleIndex ModIndex {*Mod, true};
+  auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);
 
   // Setup diagnostics printing for Clang diagnostics.
   IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
@@ -130,7 +130,7 @@ int main(int argc, char **argv, char * const *envp) {
   Diagnostics->setIgnoreAllWarnings(true);
 
   // Setup the map to find Decls and Stmts from Instructions
-  seec::seec_clang::MappedModule MapMod(ModIndex,
+  seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
                                         ExecutablePath.str(),
                                         Diagnostics);
 
@@ -166,7 +166,7 @@ int main(int argc, char **argv, char * const *envp) {
   if (ShowStates) {
     outs() << "Recreating states:\n";
 
-    ProcessState ProcState{Trace, ModIndex};
+    ProcessState ProcState{Trace, ModIndexPtr};
     outs() << ProcState << "\n";
 
     while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
@@ -223,7 +223,8 @@ int main(int argc, char **argv, char * const *envp) {
           auto const InstrIndex = Prev.get<0>()->getIndex();
           assert(InstrIndex.assigned());
 
-          auto const FunIndex = ModIndex.getFunctionIndex(FunctionStack.back());
+          auto const FunIndex =
+            ModIndexPtr->getFunctionIndex(FunctionStack.back());
           assert(FunIndex);
 
           auto const Instr = FunIndex->getInstruction(InstrIndex.get<0>());

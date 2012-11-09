@@ -79,7 +79,7 @@ class ProcessState {
   std::shared_ptr<ProcessTrace const> Trace;
 
   /// Indexed view of the llvm::Module that this trace was created from.
-  ModuleIndex const &Module;
+  std::shared_ptr<ModuleIndex const> Module;
   
   /// DataLayout for the llvm::Module that this trace was created from.
   llvm::DataLayout DL;
@@ -190,7 +190,7 @@ class ProcessState {
 public:
   /// Construct a new ProcessState at the beginning of the Trace.
   ProcessState(std::shared_ptr<ProcessTrace const> Trace,
-               ModuleIndex const &ModIndex);
+               std::shared_ptr<ModuleIndex const> ModIndex);
 
   /// \name Accessors.
   /// @{
@@ -199,7 +199,7 @@ public:
   ProcessTrace const &getTrace() const { return *Trace; }
 
   /// Get a ModuleIndex for the llvm::Module that the trace was produced from.
-  ModuleIndex const &getModule() const { return Module; }
+  ModuleIndex const &getModule() const { return *Module; }
   
   /// Get the DataLayout for the llvm::Module that the trace was produced from.
   llvm::DataLayout const &getDataLayout() const { return DL; }

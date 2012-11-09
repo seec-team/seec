@@ -59,7 +59,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   // Create a new ProcessState at the beginning of the trace.
   State.reset(new seec::trace::ProcessState(Trace->getProcessTracePtr(),
-                                            Trace->getModuleIndex()));
+                                            Trace->getModuleIndexPtr()));
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
