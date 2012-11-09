@@ -14,15 +14,15 @@ namespace trace {
 // ProcessState
 //------------------------------------------------------------------------------
 
-ProcessState::ProcessState(ProcessTrace const &Trace,
+ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
                            ModuleIndex const &ModIndex)
-: Trace(Trace),
+: Trace(std::move(TracePtr)),
   Module(ModIndex),
   DL(&ModIndex.getModule()),
   UpdateMutex(),
   UpdateCV(),
   ProcessTime(0),
-  ThreadStates(Trace.getNumThreads()),
+  ThreadStates(Trace->getNumThreads()),
   Mallocs(),
   Memory()
 {
@@ -33,16 +33,16 @@ ProcessState::ProcessState(ProcessTrace const &Trace,
     
     auto const ElemTy = Global->getType()->getElementType();
     auto const Size = DL.getTypeStoreSize(ElemTy);
-    auto const Data = Trace.getGlobalVariableInitialData(i, Size);
-    auto const Start = Trace.getGlobalVariableAddress(i);
+    auto const Data = Trace->getGlobalVariableInitialData(i, Size);
+    auto const Start = Trace->getGlobalVariableAddress(i);
     
     Memory.add(MappedMemoryBlock(Start, Size, Data.data()), EventLocation());
   }
   
   // Setup ThreadState objects for each thread.
-  auto NumThreads = Trace.getNumThreads();
+  auto NumThreads = Trace->getNumThreads();
   for (std::size_t i = 0; i < NumThreads; ++i) {
-    ThreadStates[i].reset(new ThreadState(*this, Trace.getThreadTrace(i+1)));
+    ThreadStates[i].reset(new ThreadState(*this, Trace->getThreadTrace(i+1)));
   }
 }
 
@@ -65,7 +65,7 @@ void ProcessState::setProcessTime(uint64_t Time) {
 }
 
 ProcessState &ProcessState::operator++() {
-  if (ProcessTime == Trace.getFinalProcessTime())
+  if (ProcessTime == Trace->getFinalProcessTime())
     return *this;
   
   setProcessTime(ProcessTime + 1);

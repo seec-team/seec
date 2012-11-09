@@ -58,7 +58,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Trace = std::move(TracePtr);
 
   // Create a new ProcessState at the beginning of the trace.
-  State.reset(new seec::trace::ProcessState(Trace->getProcessTrace(),
+  State.reset(new seec::trace::ProcessState(Trace->getProcessTracePtr(),
                                             Trace->getModuleIndex()));
 
   // Get the GUIText from the TraceViewer ICU resources.

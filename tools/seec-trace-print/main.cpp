@@ -91,18 +91,17 @@ int main(int argc, char **argv, char * const *envp) {
 
   // Read the trace.
   InputBufferAllocator BufferAllocator;
-
   auto MaybeProcTrace = ProcessTrace::readFrom(BufferAllocator);
   if (!MaybeProcTrace.assigned<std::unique_ptr<ProcessTrace>>()) {
     llvm::errs() << "failed to load process trace\n";
     exit(EXIT_FAILURE);
   }
-
-  ProcessTrace &Trace (*(MaybeProcTrace.get<std::unique_ptr<ProcessTrace>>()));
+  
+  std::shared_ptr<ProcessTrace> Trace (MaybeProcTrace.get<0>().release());
 
   // Load the bitcode.
   llvm::SMDiagnostic ParseError;
-  llvm::Module *Mod = llvm::ParseIRFile(Trace.getModuleIdentifier(),
+  llvm::Module *Mod = llvm::ParseIRFile(Trace->getModuleIdentifier(),
                                         ParseError,
                                         Context);
   if (!Mod) {
@@ -137,12 +136,12 @@ int main(int argc, char **argv, char * const *envp) {
 
   // Print the raw events from each thread trace.
   if (ShowRawEvents) {
-    auto NumThreads = Trace.getNumThreads();
+    auto NumThreads = Trace->getNumThreads();
 
     outs() << "Showing raw events:\n";
 
     for (uint32_t i = 1; i <= NumThreads; ++i) {
-      auto &&Thread = Trace.getThreadTrace(i);
+      auto &&Thread = Trace->getThreadTrace(i);
 
       outs() << "Thread #" << i << ":\n";
 
@@ -170,7 +169,7 @@ int main(int argc, char **argv, char * const *envp) {
     ProcessState ProcState{Trace, ModIndex};
     outs() << ProcState << "\n";
 
-    while (ProcState.getProcessTime() != Trace.getFinalProcessTime()) {
+    while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
       ++ProcState;
       outs() << ProcState << "\n";
     }
@@ -188,10 +187,10 @@ int main(int argc, char **argv, char * const *envp) {
     clang::PrintingPolicy PrintPolicy(LangOpt);
     PrintPolicy.ConstantArraySizeAsWritten = true;
 
-    auto NumThreads = Trace.getNumThreads();
+    auto NumThreads = Trace->getNumThreads();
 
     for (uint32_t i = 1; i <= NumThreads; ++i) {
-      auto &&Thread = Trace.getThreadTrace(i);
+      auto &&Thread = Trace->getThreadTrace(i);
       std::vector<uint32_t> FunctionStack;
 
       outs() << "Thread #" << i << ":\n";

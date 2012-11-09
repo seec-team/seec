@@ -43,7 +43,7 @@ class OpenTrace
   std::unique_ptr<seec::trace::InputBufferAllocator> BufferAllocator;
 
   /// The ProcessTrace for this trace.
-  std::unique_ptr<seec::trace::ProcessTrace> ProcTrace;
+  std::shared_ptr<seec::trace::ProcessTrace> ProcTrace;
 
   /// The llvm::Module that this trace was produced from.
   llvm::Module *Module;
@@ -67,7 +67,7 @@ class OpenTrace
   OpenTrace(llvm::StringRef ExecutablePath,
             llvm::LLVMContext &Context,
             std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator,
-            std::unique_ptr<seec::trace::ProcessTrace> &&Trace,
+            std::shared_ptr<seec::trace::ProcessTrace> Trace,
             llvm::Module *Module)
   : Context(Context),
     BufferAllocator(std::move(Allocator)),
@@ -115,6 +115,11 @@ public:
   /// Get the ProcessTrace for this trace.
   seec::trace::ProcessTrace const &getProcessTrace() const {
     return *ProcTrace;
+  }
+  
+  /// Get the shared_ptr for the ProcessTrace.
+  decltype(ProcTrace) const &getProcessTracePtr() const {
+    return ProcTrace;
   }
 
   /// Get the llvm::Module that this trace was produced from.
