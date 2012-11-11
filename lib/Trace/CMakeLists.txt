@@ -3,6 +3,7 @@ set(TRACE_HEADERS
   ../../include/seec/Trace/FunctionState.hpp
   ../../include/seec/Trace/MemoryState.hpp
   ../../include/seec/Trace/ProcessState.hpp
+  ../../include/seec/Trace/StateMovement.hpp
   ../../include/seec/Trace/RuntimeValue.hpp
   ../../include/seec/Trace/ThreadState.hpp
   ../../include/seec/Trace/TraceFormat.hpp
@@ -15,6 +16,7 @@ set(TRACE_SOURCES
   FunctionState.cpp
   MemoryState.cpp
   ProcessState.cpp
+  StateMovement.cpp
   ThreadState.cpp
   TraceFormat.cpp
   TraceReader.cpp
