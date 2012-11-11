@@ -110,9 +110,33 @@ bool moveBackward(ThreadState &State) {
 }
 
 bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
-  auto PreviousTime = State.getThreadTime();
-  State.setThreadTime(ThreadTime);
-  return PreviousTime != State.getThreadTime();
+  if (State.getThreadTime() == ThreadTime)
+    return false;
+  
+  bool Moved = false;
+
+  if (State.getThreadTime() < ThreadTime) {
+    // Move forward
+    auto LastEvent = State.getTrace().events().end();
+
+    while (State.getThreadTime() < ThreadTime
+           && State.getNextEvent() != LastEvent) {
+      State.addNextEventBlock();
+      Moved = true;
+    }
+  }
+  else {
+    // Move backward
+    auto FirstEvent = State.getTrace().events().begin();
+
+    while (State.getThreadTime() > ThreadTime
+           && State.getNextEvent() != FirstEvent) {
+      State.removePreviousEventBlock();
+      Moved = true;
+    }
+  }
+
+  return Moved;
 }
 
 } // namespace trace (in seec)

@@ -195,37 +195,46 @@ public:
   /// \name Accessors.
   /// @{
 
-  /// Get the ProcessTrace backing this state.
+  /// \brief Get the ProcessTrace backing this state.
   ProcessTrace const &getTrace() const { return *Trace; }
 
-  /// Get a ModuleIndex for the llvm::Module that the trace was produced from.
+  /// \brief Get a ModuleIndex for the llvm::Module.
   ModuleIndex const &getModule() const { return *Module; }
   
-  /// Get the DataLayout for the llvm::Module that the trace was produced from.
+  /// \brief Get the DataLayout for the llvm::Module.
   llvm::DataLayout const &getDataLayout() const { return DL; }
 
-  /// Get the synthetic process time that this state represents.
+  /// \brief Get the synthetic process time that this state represents.
   uint64_t getProcessTime() const { return ProcessTime; }
-
-  /// Get the vector of thread states.
+  
+  /// \brief Get the vector of thread states.
   decltype(ThreadStates) const &getThreadStates() const { return ThreadStates; }
+  
+  /// \brief Get the number of thread states.
+  std::size_t getThreadStateCount() const { return ThreadStates.size(); }
 
-  /// Get the thread state for the given Thread ID.
+  /// \brief Get the thread state for the given Thread ID.
   ThreadState &getThreadState(uint32_t ThreadID) {
     assert(ThreadID > 0 && ThreadID <= ThreadStates.size());
     return *(ThreadStates[ThreadID - 1]);
   }
 
-  /// Get the thread state for the given Thread ID.
+  /// \brief Get the thread state for the given Thread ID.
   ThreadState const &getThreadState(uint32_t ThreadID) const {
     assert(ThreadID > 0 && ThreadID <= ThreadStates.size());
     return *(ThreadStates[ThreadID - 1]);
   }
 
-  /// Get the map of dynamic memory allocations.
+  /// \brief Get the map of dynamic memory allocations.
+  decltype(Mallocs) &getMallocs() { return Mallocs; }
+  
+  /// \brief Get the map of dynamic memory allocations.
   decltype(Mallocs) const &getMallocs() const { return Mallocs; }
 
-  /// Get the memory state.
+  /// \brief Get the memory state.
+  decltype(Memory) &getMemory() { return Memory; }
+  
+  /// \brief Get the memory state.
   decltype(Memory) const &getMemory() const { return Memory; }
 
   /// @}
@@ -234,13 +243,13 @@ public:
   /// \name Mutators.
   /// @{
 
-  /// Set a new ProcessTime and update all states accordingly.
+  /// \brief Set a new ProcessTime and update all states accordingly.
   void setProcessTime(uint64_t Time);
 
-  /// Move to the next ProcessTime (if there is one in this trace).
+  /// \brief Move to the next ProcessTime (if there is one in this trace).
   ProcessState &operator++();
 
-  /// Move to the previous ProcessTime (if there is one in this trace).
+  /// \brief Move to the previous ProcessTime (if there is one in this trace).
   ProcessState &operator--();
 
   ///

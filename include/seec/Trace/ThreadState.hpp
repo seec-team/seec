@@ -222,8 +222,6 @@ class ThreadState {
   /// NextEvent.
   void addNextEvent();
 
-  void addNextEventBlock();
-
   void makePreviousInstructionActive(EventReference PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
@@ -265,8 +263,6 @@ class ThreadState {
   /// state.
   void removePreviousEvent();
 
-  void removePreviousEventBlock();
-
   /// Move this thread's state until it agrees with the given ProcessTime.
   void setProcessTime(uint64_t ProcessTime);
 
@@ -307,14 +303,10 @@ public:
 
   /// \name Mutators
   /// @{
-
-  /// \brief Move the state until this thread reaches the given thread time.
-  ///
-  /// TODO: Enable for multi-threaded traces (the process time may need to be
-  /// updated by other thread traces).
-  ///
-  /// \param NewThreadTime The new thread time for this thread.
-  void setThreadTime(uint64_t NewThreadTime);
+  
+  void addNextEventBlock();
+  
+  void removePreviousEventBlock();
 
   /// @}
 

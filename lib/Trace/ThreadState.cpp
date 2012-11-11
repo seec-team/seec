@@ -1186,30 +1186,6 @@ void ThreadState::setProcessTime(uint64_t NewProcessTime) {
   }
 }
 
-void ThreadState::setThreadTime(uint64_t NewThreadTime) {
-  if (ThreadTime == NewThreadTime)
-    return;
-
-  if (ThreadTime < NewThreadTime) {
-    // Move forward
-    auto LastEvent = Trace.events().end();
-
-    while (ThreadTime < NewThreadTime && NextEvent != LastEvent) {
-      addNextEventBlock();
-    }
-  }
-  else {
-    // Move backward
-    auto FirstEvent = Trace.events().begin();
-
-    while (ThreadTime > NewThreadTime && NextEvent != FirstEvent) {
-      removePreviousEventBlock();
-    }
-  }
-
-  assert(ThreadTime == NewThreadTime);
-}
-
 seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
   return rfind(rangeBefore(Trace.events(), NextEvent),
                [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});
