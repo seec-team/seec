@@ -54,6 +54,11 @@ bool move(ProcessState &State,
   return false;
 }
 
+
+//===------------------------------------------------------------------------===
+// ThreadState movement
+//===------------------------------------------------------------------------===
+
 bool moveForwardUntil(ProcessState &State,
                       std::function<bool (ProcessState &)> Predicate) {
   return false;
@@ -63,6 +68,28 @@ bool moveBackwardUntil(ProcessState &State,
                        std::function<bool (ProcessState &)> Predicate) {
   return false;
 }
+
+bool moveForward(ProcessState &State) {
+  auto PreviousTime = State.getProcessTime();
+  ++State;
+  return PreviousTime != State.getProcessTime();
+}
+
+bool moveBackward(ProcessState &State) {
+  auto PreviousTime = State.getProcessTime();
+  --State;
+  return PreviousTime != State.getProcessTime();
+}
+
+bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
+  auto PreviousTime = State.getProcessTime();
+  State.setProcessTime(ProcessTime);
+  return PreviousTime != State.getProcessTime();
+}
+
+//===------------------------------------------------------------------------===
+// ThreadState movement
+//===------------------------------------------------------------------------===
 
 bool moveForwardUntil(ThreadState &State,
                       std::function<bool (ThreadState &)> Predicate) {
@@ -80,6 +107,12 @@ bool moveForward(ThreadState &State) {
 
 bool moveBackward(ThreadState &State) {
   return false;
+}
+
+bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
+  auto PreviousTime = State.getThreadTime();
+  State.setThreadTime(ThreadTime);
+  return PreviousTime != State.getThreadTime();
 }
 
 } // namespace trace (in seec)

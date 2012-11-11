@@ -10,6 +10,7 @@
 
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Trace/StateMovement.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -178,7 +179,7 @@ void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
 
 void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
   auto &ThreadState = State->getThreadState(Event.getThreadID());
-  ThreadState.setThreadTime(Event.getThreadTime());
+  seec::trace::moveToTime(ThreadState, Event.getThreadTime());
 
   StateViewer->show(*State);
   SourceViewer->show(*State, ThreadState);

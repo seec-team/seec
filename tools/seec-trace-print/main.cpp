@@ -14,6 +14,7 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
@@ -170,12 +171,12 @@ int main(int argc, char **argv, char * const *envp) {
     outs() << ProcState << "\n";
 
     while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
-      ++ProcState;
+      moveForward(ProcState);
       outs() << ProcState << "\n";
     }
 
     while (ProcState.getProcessTime() != 0) {
-      --ProcState;
+      moveBackward(ProcState);
       outs() << ProcState << "\n";
     }
   }
