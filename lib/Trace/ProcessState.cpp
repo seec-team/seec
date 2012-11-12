@@ -46,42 +46,6 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   }
 }
 
-void ProcessState::setProcessTime(uint64_t Time) {
-  std::vector<std::thread> ThreadStateUpdaters;
-  
-  for (auto &ThreadStatePtr : getThreadStates()) {
-    // Create a new thread of execution that will set the process time of this
-    // ThreadState.
-    auto ThreadStateRawPtr = ThreadStatePtr.get();
-    ThreadStateUpdaters.emplace_back([=](){
-                                      ThreadStateRawPtr->setProcessTime(Time);
-                                     });
-  }
-  
-  // Wait for all ThreadStates to finish updating.
-  for (auto &UpdateThread : ThreadStateUpdaters) {
-    UpdateThread.join();
-  }
-}
-
-ProcessState &ProcessState::operator++() {
-  if (ProcessTime == Trace->getFinalProcessTime())
-    return *this;
-  
-  setProcessTime(ProcessTime + 1);
-  
-  return *this;
-}
-
-ProcessState &ProcessState::operator--() {
-  if (ProcessTime == 0)
-    return *this;
-  
-  setProcessTime(ProcessTime - 1);
-  
-  return *this;
-}
-
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State) {
   Out << "Process @" << State.getProcessTime() << "\n";

@@ -240,24 +240,6 @@ public:
   decltype(Memory) const &getMemory() const { return Memory; }
 
   /// @}
-
-
-  /// \name Mutators.
-  /// @{
-
-  /// \brief Set a new ProcessTime and update all states accordingly.
-  void setProcessTime(uint64_t Time);
-
-  /// \brief Move to the next ProcessTime (if there is one in this trace).
-  ProcessState &operator++();
-
-  /// \brief Move to the previous ProcessTime (if there is one in this trace).
-  ProcessState &operator--();
-
-  ///
-
-
-  /// @}
 };
 
 /// Print a textual description of a ProcessState.

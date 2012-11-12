@@ -171,7 +171,7 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 }
 
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
-  State->setProcessTime(Event.getProcessTime());
+  seec::trace::moveToTime(*State, Event.getProcessTime());
 
   StateViewer->show(*State);
   SourceViewer->show(*State);
