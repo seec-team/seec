@@ -163,20 +163,43 @@ bool moveBackwardUntil(ProcessState &State,
 }
 
 bool moveForward(ProcessState &State) {
-  auto PreviousTime = State.getProcessTime();
-  ++State;
-  return PreviousTime != State.getProcessTime();
+  if (State.getProcessTime() == State.getTrace().getFinalProcessTime())
+    return false;
+  
+  moveToTime(State, State.getProcessTime() + 1);
+  
+  return true;
 }
 
 bool moveBackward(ProcessState &State) {
-  auto PreviousTime = State.getProcessTime();
-  --State;
-  return PreviousTime != State.getProcessTime();
+  if (State.getProcessTime() == 0)
+    return false;
+  
+  moveToTime(State, State.getProcessTime() - 1);
+  
+  return true;
 }
 
 bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
   auto PreviousTime = State.getProcessTime();
-  State.setProcessTime(ProcessTime);
+  
+  std::vector<std::thread> ThreadStateUpdaters;
+  
+  for (auto &ThreadStatePtr : State.getThreadStates()) {
+    // Create a new thread of execution that will set the process time of this
+    // ThreadState.
+    auto ThreadStateRawPtr = ThreadStatePtr.get();
+    ThreadStateUpdaters.emplace_back(
+      [=](){
+        ThreadStateRawPtr->setProcessTime(ProcessTime);
+      });
+  }
+  
+  // Wait for all ThreadStates to finish updating.
+  for (auto &UpdateThread : ThreadStateUpdaters) {
+    UpdateThread.join();
+  }
+  
   return PreviousTime != State.getProcessTime();
 }
 
