@@ -54,20 +54,26 @@ public:
       if (NextEvent == LastEvent)
         break;
       
-      // Make sure we have permission to update the shared state of the
-      // ProcessState, if the next event is going to require it.
-      if (!UpdateLock && NextEvent->modifiesSharedState()) {
+      // Wait until the ProcessState reaches the appropriate process time
+      // before we continue adding events.
+      // If the event is just updating the local process time, then we must
+      // wait until the ProcessState has reached this time. If the event will
+      // set the ProcessState's time, then we must wait until the ProcessState
+      // is at the time immediately prior to this new time.
+      if (!UpdateLock) {
         auto MaybeNewProcessTime = NextEvent->getProcessTime();
-        assert(MaybeNewProcessTime.assigned());
-        auto WaitForTime = MaybeNewProcessTime.get<0>() - 1;
-        
-        auto const &ProcState = State.getParent();
-        
-        UpdateLock.lock();
-        ProcessStateCV.wait(UpdateLock,
-                            [=, &ProcState](){
-                              return ProcState.getProcessTime() == WaitForTime;
-                            });
+        if (MaybeNewProcessTime.assigned()) {
+          auto const &ProcState = State.getParent();
+          auto const WaitUntil = NextEvent->modifiesSharedState()
+                               ? MaybeNewProcessTime.get<0>() - 1
+                               : MaybeNewProcessTime.get<0>();
+          
+          UpdateLock.lock();
+          ProcessStateCV.wait(UpdateLock,
+                              [=, &ProcState](){
+                                return ProcState.getProcessTime() >= WaitUntil;
+                              });
+        }
       }
 
       State.addNextEvent();
@@ -89,20 +95,27 @@ public:
       
       --PreviousEvent;
 
-      // Make sure we have permission to update the shared state of the
-      // ProcessState, if the next event is going to require it.
-      if (!UpdateLock && PreviousEvent->modifiesSharedState()) {
+      // Wait until the ProcessState reaches the appropriate process time
+      // before we continue removing events.
+      // If the event just updates the local process time, then we must wait
+      // until the ProcessState has reached an earlier time. If the event will
+      // set the ProcessState's time, then we must wait until the ProcessState
+      // is at the time equal to the event's time (the removal of the event
+      // will then cause the ProcessState to go to the next earliest time).
+      if (!UpdateLock) {
         auto MaybeNewProcessTime = PreviousEvent->getProcessTime();
-        assert(MaybeNewProcessTime.assigned());
-        auto WaitForTime = MaybeNewProcessTime.get<0>();
-        
-        auto const &ProcState = State.getParent();
-        
-        UpdateLock.lock();
-        ProcessStateCV.wait(UpdateLock,
-                            [=, &ProcState](){
-                              return ProcState.getProcessTime() == WaitForTime;
-                            });
+        if (MaybeNewProcessTime.assigned()) {
+          auto const &ProcState = State.getParent();
+          auto const WaitUntil = PreviousEvent->modifiesSharedState()
+                               ? MaybeNewProcessTime.get<0>()
+                               : MaybeNewProcessTime.get<0>() - 1;
+          
+          UpdateLock.lock();
+          ProcessStateCV.wait(UpdateLock,
+                              [=, &ProcState](){
+                                return ProcState.getProcessTime() <= WaitUntil;
+                              });
+        }
       }
 
       State.removePreviousEvent();
