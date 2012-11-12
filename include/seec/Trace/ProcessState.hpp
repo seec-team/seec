@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/DataLayout.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <thread>
@@ -171,7 +172,7 @@ private:
   /// @{
 
   /// The synthetic process time that this state represents.
-  uint64_t ProcessTime;
+  std::atomic<uint64_t> ProcessTime;
 
   /// Thread states, indexed by (ThreadID - 1).
   std::vector<std::unique_ptr<ThreadState>> ThreadStates;

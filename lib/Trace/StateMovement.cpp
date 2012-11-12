@@ -12,6 +12,7 @@
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
 
+#include <condition_variable>
 #include <thread>
 #include <vector>
 
@@ -28,6 +29,9 @@ class ThreadedStateMovementHelper {
   /// Used to wait for the ProcessState to update.
   std::condition_variable ProcessStateCV;
   
+  /// Indicates that the movement has satisfied a predicate.
+  std::atomic<bool> MovementComplete;
+  
 public:
   /// \name Constructors
   /// @{
@@ -35,7 +39,8 @@ public:
   /// \brief Default constructor.
   ThreadedStateMovementHelper()
   : ProcessStateMutex(),
-    ProcessStateCV()
+    ProcessStateCV(),
+    MovementComplete(false)
   {}
   
   ThreadedStateMovementHelper(ThreadedStateMovementHelper const &) = delete;
@@ -44,10 +49,9 @@ public:
   
   /// @}
   
-  void addNextEventBlock(ThreadState &State) {
+  void addNextEventBlock(ThreadState &State,
+                         std::unique_lock<std::mutex> &UpdateLock) {
     auto const LastEvent = State.getTrace().events().end();
-    
-    std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
 
     while (true) {
       auto NextEvent = State.getNextEvent();
@@ -78,15 +82,19 @@ public:
 
       State.addNextEvent();
 
-      if (NextEvent->isBlockStart())
+      if (State.getNextEvent()->isBlockStart())
         break;
     }
   }
-
-  void removePreviousEventBlock(ThreadState &State) {
-    auto const FirstEvent = State.getTrace().events().begin();
-    
+  
+  void addNextEventBlock(ThreadState &State) {
     std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
+    addNextEventBlock(State, UpdateLock);
+  }
+
+  void removePreviousEventBlock(ThreadState &State,
+                                std::unique_lock<std::mutex> &UpdateLock) {
+    auto const FirstEvent = State.getTrace().events().begin();
 
     while (true) {
       auto PreviousEvent = State.getNextEvent();
@@ -124,28 +132,92 @@ public:
         break;
     }
   }
+  
+  void removePreviousEventBlock(ThreadState &State) {
+    std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
+    removePreviousEventBlock(State, UpdateLock);
+  }
+  
+  bool moveForward(ProcessState &State,
+                   std::function<bool (ProcessState &)> ProcessPredicate) {
+    std::atomic<bool> Moved(false);
+    std::vector<std::thread> Workers;
+    
+    for (auto &ThreadStatePtr : State.getThreadStates()) {
+      auto RawPtr = ThreadStatePtr.get();
+      
+      // Create a new worker thread to move this ThreadState.
+      Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
+        // Thread worker code...
+        auto const LastEvent = RawPtr->getTrace().events().end();
+        
+        while (RawPtr->getNextEvent() != LastEvent) {
+          // Add the next event block from this thread.
+          std::unique_lock<std::mutex> Lock(ProcessStateMutex, std::defer_lock);
+          addNextEventBlock(*RawPtr, Lock);
+          Moved = true;
+          
+          // If the event acquired the shared process lock, then it might have
+          // updated the ProcessState, in which case check the ProcessPredicate.
+          if (Lock && ProcessPredicate(State)) {
+            MovementComplete = true;
+            ProcessStateCV.notify_all();
+            break;
+          }
+          
+          // TODO: thread predicates.
+        }
+      });
+    }
+    
+    // Wait for all thread workers to complete.
+    for (auto &Worker : Workers) {
+      Worker.join();
+    }
+    
+    return Moved;
+  }
+  
+  bool moveBackward(ProcessState &State,
+                    std::function<bool (ProcessState &)> ProcessPredicate) {
+    std::atomic<bool> Moved(false);
+    std::vector<std::thread> Workers;
+    
+    for (auto &ThreadStatePtr : State.getThreadStates()) {
+      auto RawPtr = ThreadStatePtr.get();
+      
+      // Create a new worker thread to move this ThreadState.
+      Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
+        // Thread worker code...
+        auto const FirstEvent = RawPtr->getTrace().events().begin();
+        
+        while (RawPtr->getNextEvent() != FirstEvent) {
+          // Add the next event block from this thread.
+          std::unique_lock<std::mutex> Lock(ProcessStateMutex, std::defer_lock);
+          removePreviousEventBlock(*RawPtr, Lock);
+          Moved = true;
+          
+          // If the event acquired the shared process lock, then it might have
+          // updated the ProcessState, in which case check the ProcessPredicate.
+          if (Lock && ProcessPredicate(State)) {
+            MovementComplete = true;
+            ProcessStateCV.notify_all();
+            break;
+          }
+          
+          // TODO: thread predicates.
+        }
+      });
+    }
+    
+    // Wait for all thread workers to complete.
+    for (auto &Worker : Workers) {
+      Worker.join();
+    }
+    
+    return Moved;
+  }
 };
-
-/// \brief Move State in Direction until ProcessPredicate is true.
-/// \return true iff State was moved.
-bool move(ProcessState &State,
-          std::function<bool (ProcessState &)> ProcessPredicate) {
-  std::vector<std::thread> ThreadWorkers;
-  
-  for (auto &ThreadStatePtr : State.getThreadStates()) {
-    // Create a new worker thread to move this ThreadState.
-    ThreadWorkers.emplace_back([=](){
-      // Thread worker code...
-    });
-  }
-  
-  // Wait for all thread workers to complete.
-  for (auto &Worker : ThreadWorkers) {
-    Worker.join();
-  }
-  
-  return false;
-}
 
 
 //===------------------------------------------------------------------------===
@@ -154,53 +226,55 @@ bool move(ProcessState &State,
 
 bool moveForwardUntil(ProcessState &State,
                       std::function<bool (ProcessState &)> Predicate) {
-  return false;
+  ThreadedStateMovementHelper Mover;
+  return Mover.moveForward(State, Predicate);
 }
 
 bool moveBackwardUntil(ProcessState &State,
                        std::function<bool (ProcessState &)> Predicate) {
-  return false;
+  ThreadedStateMovementHelper Mover;
+  return Mover.moveBackward(State, Predicate);
 }
 
 bool moveForward(ProcessState &State) {
-  if (State.getProcessTime() == State.getTrace().getFinalProcessTime())
+  auto const ProcessTime = State.getProcessTime();
+  
+  if (ProcessTime == State.getTrace().getFinalProcessTime())
     return false;
   
-  moveToTime(State, State.getProcessTime() + 1);
-  
-  return true;
+  return moveForwardUntil(State,
+                          [=](ProcessState &NewState){
+                            return NewState.getProcessTime() > ProcessTime;
+                          });
 }
 
 bool moveBackward(ProcessState &State) {
-  if (State.getProcessTime() == 0)
+  auto const ProcessTime = State.getProcessTime();
+  
+  if (ProcessTime == 0)
     return false;
   
-  moveToTime(State, State.getProcessTime() - 1);
-  
-  return true;
+  return moveBackwardUntil(State,
+                           [=](ProcessState &NewState){
+                             return NewState.getProcessTime() < ProcessTime;
+                           });
 }
 
 bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
   auto PreviousTime = State.getProcessTime();
   
-  std::vector<std::thread> ThreadStateUpdaters;
-  
-  for (auto &ThreadStatePtr : State.getThreadStates()) {
-    // Create a new thread of execution that will set the process time of this
-    // ThreadState.
-    auto ThreadStateRawPtr = ThreadStatePtr.get();
-    ThreadStateUpdaters.emplace_back(
-      [=](){
-        ThreadStateRawPtr->setProcessTime(ProcessTime);
-      });
-  }
-  
-  // Wait for all ThreadStates to finish updating.
-  for (auto &UpdateThread : ThreadStateUpdaters) {
-    UpdateThread.join();
-  }
-  
-  return PreviousTime != State.getProcessTime();
+  if (PreviousTime == ProcessTime)
+    return false;
+  else if (PreviousTime < ProcessTime)
+    return moveForwardUntil(State,
+                            [=](ProcessState &NewState){
+                              return NewState.getProcessTime() >= ProcessTime;
+                            });
+  else if (PreviousTime > ProcessTime)
+    return moveBackwardUntil(State,
+                             [=](ProcessState &NewState){
+                               return NewState.getProcessTime() <= ProcessTime;
+                             });
 }
 
 
