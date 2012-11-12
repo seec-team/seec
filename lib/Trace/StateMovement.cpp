@@ -49,15 +49,16 @@ public:
   
   /// @}
   
-  void addNextEventBlock(ThreadState &State,
+  bool addNextEventBlock(ThreadState &State,
                          std::unique_lock<std::mutex> &UpdateLock) {
     auto const LastEvent = State.getTrace().events().end();
+    auto const RewindNextEvent = State.getNextEvent();
+    if (RewindNextEvent == LastEvent)
+      return false;
+    
+    auto NextEvent = RewindNextEvent;
 
     while (true) {
-      auto NextEvent = State.getNextEvent();
-      if (NextEvent == LastEvent)
-        break;
-      
       // Wait until the ProcessState reaches the appropriate process time
       // before we continue adding events.
       // If the event is just updating the local process time, then we must
@@ -75,32 +76,49 @@ public:
           UpdateLock.lock();
           ProcessStateCV.wait(UpdateLock,
                               [=, &ProcState](){
-                                return ProcState.getProcessTime() >= WaitUntil;
+                                return MovementComplete ||
+                                       ProcState.getProcessTime() >= WaitUntil;
                               });
+          
+          if (MovementComplete) {
+            // We can release the lock, because we'll only be rewinding local
+            // changes. (If there were non-local changes in our rewinding area,
+            // then we would already have owned the lock from applying them,
+            // and thus would not be in this branch)
+            UpdateLock.unlock();
+            
+            // Rewind changes.
+            while (State.getNextEvent() != RewindNextEvent)
+              State.removePreviousEvent();
+            
+            return false;
+          }
         }
       }
-
+      
       State.addNextEvent();
-
-      if (State.getNextEvent()->isBlockStart())
-        break;
+      
+      NextEvent = State.getNextEvent();
+      if (NextEvent->isBlockStart() || NextEvent == LastEvent)
+        return true;
     }
   }
   
-  void addNextEventBlock(ThreadState &State) {
+  bool addNextEventBlock(ThreadState &State) {
     std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
-    addNextEventBlock(State, UpdateLock);
+    return addNextEventBlock(State, UpdateLock);
   }
 
-  void removePreviousEventBlock(ThreadState &State,
+  bool removePreviousEventBlock(ThreadState &State,
                                 std::unique_lock<std::mutex> &UpdateLock) {
     auto const FirstEvent = State.getTrace().events().begin();
+    auto const RewindNextEvent = State.getNextEvent();
+    if (RewindNextEvent == FirstEvent)
+      return false;
+    
+    auto PreviousEvent = RewindNextEvent;
 
     while (true) {
-      auto PreviousEvent = State.getNextEvent();
-      if (PreviousEvent == FirstEvent)
-        break;
-      
       --PreviousEvent;
 
       // Wait until the ProcessState reaches the appropriate process time
@@ -121,21 +139,38 @@ public:
           UpdateLock.lock();
           ProcessStateCV.wait(UpdateLock,
                               [=, &ProcState](){
-                                return ProcState.getProcessTime() <= WaitUntil;
+                                return MovementComplete ||
+                                       ProcState.getProcessTime() <= WaitUntil;
                               });
+          
+          if (MovementComplete) {
+            // We can release the lock, because we'll only be rewinding local
+            // changes. (If there were non-local changes in our rewinding area,
+            // then we would already have owned the lock from applying them,
+            // and thus would not be in this branch)
+            UpdateLock.unlock();
+            
+            // Rewind changes.
+            while (State.getNextEvent() != RewindNextEvent)
+              State.addNextEvent();
+            
+            return false;
+          }
         }
       }
 
       State.removePreviousEvent();
 
-      if (PreviousEvent->isBlockStart())
-        break;
+      if (PreviousEvent->isBlockStart() || PreviousEvent == FirstEvent)
+        return true;
+      
+      PreviousEvent = State.getNextEvent();
     }
   }
   
-  void removePreviousEventBlock(ThreadState &State) {
+  bool removePreviousEventBlock(ThreadState &State) {
     std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
-    removePreviousEventBlock(State, UpdateLock);
+    return removePreviousEventBlock(State, UpdateLock);
   }
   
   bool moveForward(ProcessState &State,
@@ -154,8 +189,12 @@ public:
         while (RawPtr->getNextEvent() != LastEvent) {
           // Add the next event block from this thread.
           std::unique_lock<std::mutex> Lock(ProcessStateMutex, std::defer_lock);
-          addNextEventBlock(*RawPtr, Lock);
-          Moved = true;
+          if (addNextEventBlock(*RawPtr, Lock))
+            Moved = true;
+          
+          // Check if another worker satisfied the movement.
+          if (MovementComplete)
+            break;
           
           // If the event acquired the shared process lock, then it might have
           // updated the ProcessState, in which case check the ProcessPredicate.
@@ -194,8 +233,12 @@ public:
         while (RawPtr->getNextEvent() != FirstEvent) {
           // Add the next event block from this thread.
           std::unique_lock<std::mutex> Lock(ProcessStateMutex, std::defer_lock);
-          removePreviousEventBlock(*RawPtr, Lock);
-          Moved = true;
+          if (removePreviousEventBlock(*RawPtr, Lock))
+            Moved = true;
+          
+          // Check if another worker satisfied the movement.
+          if (MovementComplete)
+            break;
           
           // If the event acquired the shared process lock, then it might have
           // updated the ProcessState, in which case check the ProcessPredicate.
