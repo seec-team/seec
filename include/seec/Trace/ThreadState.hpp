@@ -266,9 +266,6 @@ public:
   /// state.
   void removePreviousEvent();
 
-  /// Move this thread's state until it agrees with the given ProcessTime.
-  void setProcessTime(uint64_t ProcessTime);
-
   /// @} (Movement)
 
 
@@ -302,16 +299,6 @@ public:
   }
 
   /// @} (Accessors)
-
-
-  /// \name Mutators
-  /// @{
-  
-  void addNextEventBlock();
-  
-  void removePreviousEventBlock();
-
-  /// @}
 
 
   /// \name Searching

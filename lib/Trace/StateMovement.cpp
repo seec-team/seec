@@ -260,12 +260,10 @@ bool moveBackward(ProcessState &State) {
                            });
 }
 
-bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
-  auto PreviousTime = State.getProcessTime();
+bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
+  auto const PreviousTime = State.getProcessTime();
   
-  if (PreviousTime == ProcessTime)
-    return false;
-  else if (PreviousTime < ProcessTime)
+  if (PreviousTime < ProcessTime)
     return moveForwardUntil(State,
                             [=](ProcessState &NewState){
                               return NewState.getProcessTime() >= ProcessTime;
@@ -275,6 +273,8 @@ bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
                              [=](ProcessState &NewState){
                                return NewState.getProcessTime() <= ProcessTime;
                              });
+  
+  return false;
 }
 
 
