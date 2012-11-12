@@ -20,18 +20,29 @@ namespace trace {
 class ProcessState;
 class ThreadState;
 
+
+/// \name Typedefs
+/// @{
+
+typedef std::function<bool (ProcessState &)> ProcessPredTy;
+typedef std::function<bool (ThreadState &)> ThreadPredTy;
+typedef std::map<ThreadState const *, ThreadPredTy> ThreadPredMapTy;
+
+/// @}
+
+
 /// \name ProcessState movement.
 /// @{
 
 /// \brief Move State forward until Predicate returns true.
 /// \return true iff the State was moved.
 bool moveForwardUntil(ProcessState &State,
-                      std::function<bool (ProcessState &)> Predicate);
+                      ProcessPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
 /// \return true iff the State was moved.
 bool moveBackwardUntil(ProcessState &State,
-                       std::function<bool (ProcessState &)> Predicate);
+                       ProcessPredTy Predicate);
 
 /// \brief Move State forward to the next process time.
 /// \return true iff the State was moved.
@@ -56,12 +67,12 @@ bool moveToTime(ProcessState &State, uint64_t ProcessTime);
 /// \brief Move State forward until Predicate returns true.
 /// \return true iff the State was moved.
 bool moveForwardUntil(ThreadState &State,
-                      std::function<bool (ThreadState &)> Predicate);
+                      ThreadPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
 /// \return true iff the State was moved.
 bool moveBackwardUntil(ThreadState &State,
-                       std::function<bool (ThreadState &)> Predicate);
+                       ThreadPredTy Predicate);
 
 /// \brief Move State forward to the next thread time.
 /// \return true iff the State was moved.

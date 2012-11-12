@@ -13,12 +13,14 @@
 #include "seec/Trace/ThreadState.hpp"
 
 #include <condition_variable>
+#include <map>
 #include <thread>
 #include <vector>
 
 namespace seec {
 
 namespace trace {
+
 
 /// \brief Implements state movement logic.
 ///
@@ -174,16 +176,23 @@ public:
   }
   
   bool moveForward(ProcessState &State,
-                   std::function<bool (ProcessState &)> ProcessPredicate) {
+                   ProcessPredTy &ProcessPredicate,
+                   ThreadPredMapTy ThreadPredicates) {
     std::atomic<bool> Moved(false);
     std::vector<std::thread> Workers;
     
     for (auto &ThreadStatePtr : State.getThreadStates()) {
-      auto RawPtr = ThreadStatePtr.get();
+      auto const RawPtr = ThreadStatePtr.get();
+      ThreadPredTy ThreadPred;
+      
+      // Get the thread-specific predicate, if one exists.
+      auto const ThreadPredIt = ThreadPredicates.find(RawPtr);
+      if (ThreadPredIt != ThreadPredicates.end())
+        ThreadPred = ThreadPredIt->second;
       
       // Create a new worker thread to move this ThreadState.
       Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
-        // Thread worker code...
+        // Thread worker code
         auto const LastEvent = RawPtr->getTrace().events().end();
         
         while (RawPtr->getNextEvent() != LastEvent) {
@@ -198,13 +207,18 @@ public:
           
           // If the event acquired the shared process lock, then it might have
           // updated the ProcessState, in which case check the ProcessPredicate.
-          if (Lock && ProcessPredicate(State)) {
+          if (Lock && ProcessPredicate && ProcessPredicate(State)) {
             MovementComplete = true;
             ProcessStateCV.notify_all();
             break;
           }
           
-          // TODO: thread predicates.
+          // Check the thread-specific predicate, if one exists.
+          if (ThreadPred && ThreadPred(*RawPtr)) {
+            MovementComplete = true;
+            ProcessStateCV.notify_all();
+            break;
+          }
         }
       });
     }
@@ -218,16 +232,23 @@ public:
   }
   
   bool moveBackward(ProcessState &State,
-                    std::function<bool (ProcessState &)> ProcessPredicate) {
+                    ProcessPredTy &ProcessPredicate,
+                    ThreadPredMapTy ThreadPredicates) {
     std::atomic<bool> Moved(false);
     std::vector<std::thread> Workers;
     
     for (auto &ThreadStatePtr : State.getThreadStates()) {
       auto RawPtr = ThreadStatePtr.get();
+      ThreadPredTy ThreadPred;
+      
+      // Get the thread-specific predicate, if one exists.
+      auto const ThreadPredIt = ThreadPredicates.find(RawPtr);
+      if (ThreadPredIt != ThreadPredicates.end())
+        ThreadPred = ThreadPredIt->second;
       
       // Create a new worker thread to move this ThreadState.
       Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
-        // Thread worker code...
+        // Thread worker code
         auto const FirstEvent = RawPtr->getTrace().events().begin();
         
         while (RawPtr->getNextEvent() != FirstEvent) {
@@ -248,7 +269,12 @@ public:
             break;
           }
           
-          // TODO: thread predicates.
+          // Check the thread-specific predicate, if one exists.
+          if (ThreadPred && ThreadPred(*RawPtr)) {
+            MovementComplete = true;
+            ProcessStateCV.notify_all();
+            break;
+          }
         }
       });
     }
@@ -268,15 +294,15 @@ public:
 //===------------------------------------------------------------------------===
 
 bool moveForwardUntil(ProcessState &State,
-                      std::function<bool (ProcessState &)> Predicate) {
+                      ProcessPredTy Predicate) {
   ThreadedStateMovementHelper Mover;
-  return Mover.moveForward(State, Predicate);
+  return Mover.moveForward(State, Predicate, ThreadPredMapTy{});
 }
 
 bool moveBackwardUntil(ProcessState &State,
-                       std::function<bool (ProcessState &)> Predicate) {
+                       ProcessPredTy Predicate) {
   ThreadedStateMovementHelper Mover;
-  return Mover.moveBackward(State, Predicate);
+  return Mover.moveBackward(State, Predicate, ThreadPredMapTy{});
 }
 
 bool moveForward(ProcessState &State) {
@@ -286,7 +312,7 @@ bool moveForward(ProcessState &State) {
     return false;
   
   return moveForwardUntil(State,
-                          [=](ProcessState &NewState){
+                          [=](ProcessState &NewState) -> bool {
                             return NewState.getProcessTime() > ProcessTime;
                           });
 }
@@ -326,12 +352,12 @@ bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
 //===------------------------------------------------------------------------===
 
 bool moveForwardUntil(ThreadState &State,
-                      std::function<bool (ThreadState &)> Predicate) {
+                      ThreadPredTy Predicate) {
   return false;
 }
 
 bool moveBackwardUntil(ThreadState &State,
-                       std::function<bool (ThreadState &)> Predicate) {
+                       ThreadPredTy Predicate) {
   return false;
 }
 
