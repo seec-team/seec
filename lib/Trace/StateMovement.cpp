@@ -54,9 +54,64 @@ bool move(ProcessState &State,
   return false;
 }
 
+void addNextEventBlock(ThreadState &State) {
+  auto const LastEvent = State.getTrace().events().end();
+  
+  seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
+  seec::util::Maybe<uint64_t> NewProcessTime;
+
+  while (true) {
+    auto NextEvent = State.getNextEvent();
+    if (NextEvent == LastEvent)
+      break;
+    
+    // Make sure we have permission to update the shared state of the
+    // ProcessState, if the next event is going to require it.
+    if (!SharedUpdate.assigned() && NextEvent->modifiesSharedState()) {
+      NewProcessTime = NextEvent->getProcessTime();
+      assert(NewProcessTime.assigned());
+      auto const WaitForProcessTime = NewProcessTime.get<0>() - 1;
+      SharedUpdate = State.getParent().getScopedUpdate(WaitForProcessTime);
+    }
+
+    State.addNextEvent();
+
+    if (NextEvent->isBlockStart())
+      break;
+  }
+}
+
+void removePreviousEventBlock(ThreadState &State) {
+  auto const FirstEvent = State.getTrace().events().begin();
+  
+  seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
+  seec::util::Maybe<uint64_t> NewProcessTime;
+
+  while (true) {
+    auto PreviousEvent = State.getNextEvent();
+    if (PreviousEvent == FirstEvent)
+      break;
+    
+    --PreviousEvent;
+
+    // Make sure we have permission to update the shared state of the
+    // ProcessState, if the next event is going to require it.
+    if (!SharedUpdate.assigned() && PreviousEvent->modifiesSharedState()) {
+      NewProcessTime = PreviousEvent->getProcessTime();
+      assert(NewProcessTime.assigned());
+      SharedUpdate = State.getParent().getScopedUpdate(NewProcessTime.get<0>());
+    }
+
+    State.removePreviousEvent();
+
+    if (PreviousEvent->isBlockStart())
+      break;
+  }
+}
+
 
 //===------------------------------------------------------------------------===
-// ThreadState movement
+// ProcessState movement
 //===------------------------------------------------------------------------===
 
 bool moveForwardUntil(ProcessState &State,
@@ -86,6 +141,7 @@ bool moveToTime(ProcessState &State, uint64_t ProcessTime) {
   State.setProcessTime(ProcessTime);
   return PreviousTime != State.getProcessTime();
 }
+
 
 //===------------------------------------------------------------------------===
 // ThreadState movement
@@ -121,7 +177,7 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
 
     while (State.getThreadTime() < ThreadTime
            && State.getNextEvent() != LastEvent) {
-      State.addNextEventBlock();
+      addNextEventBlock(State);
       Moved = true;
     }
   }
@@ -131,7 +187,7 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
 
     while (State.getThreadTime() > ThreadTime
            && State.getNextEvent() != FirstEvent) {
-      State.removePreviousEventBlock();
+      removePreviousEventBlock(State);
       Moved = true;
     }
   }

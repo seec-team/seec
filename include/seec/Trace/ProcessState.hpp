@@ -96,6 +96,7 @@ class ProcessState {
   /// Used to wait for an appropriate update time (i.e. correct ProcessTime).
   std::condition_variable UpdateCV;
 
+public:
   /// \brief Managed update access during its lifetime.
   /// On construction, lock UpdateMutex and ensure that ProcessTime matches
   /// the required time (or wait until it does). On destruction, unlock the
@@ -165,6 +166,7 @@ class ProcessState {
 
   /// @}
 
+private:
   /// \name Variable data
   /// @{
 

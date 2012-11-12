@@ -218,10 +218,12 @@ class ThreadState {
   /// this function at runtime is an error.
   void addEvent(...) { llvm_unreachable("addEvent(...) called!"); }
 
+public:
   /// Add the event referenced by NextEvent to the state, and then increment
   /// NextEvent.
   void addNextEvent();
 
+private:
   void makePreviousInstructionActive(EventReference PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
@@ -259,6 +261,7 @@ class ThreadState {
   /// Calling this function at runtime is an error.
   void removeEvent(...) { llvm_unreachable("removeEvent(...) called!"); }
 
+public:
   /// Decrement NextEvent, and then remove the event it references from the
   /// state.
   void removePreviousEvent();
@@ -268,7 +271,7 @@ class ThreadState {
 
   /// @} (Movement)
 
-public:
+
   /// \name Accessors
   /// @{
   
