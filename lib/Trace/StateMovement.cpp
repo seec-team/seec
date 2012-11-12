@@ -19,24 +19,104 @@ namespace seec {
 
 namespace trace {
 
-enum class MovementType {
-  None,
-  Forward,
-  Backward
-};
+/// \brief Implements state movement logic.
+///
+class ThreadedStateMovementHelper {
+  /// Controls access to the ProcessState.
+  std::mutex ProcessStateMutex;
+  
+  /// Used to wait for the ProcessState to update.
+  std::condition_variable ProcessStateCV;
+  
+public:
+  /// \name Constructors
+  /// @{
+  
+  /// \brief Default constructor.
+  ThreadedStateMovementHelper()
+  : ProcessStateMutex(),
+    ProcessStateCV()
+  {}
+  
+  ThreadedStateMovementHelper(ThreadedStateMovementHelper const &) = delete;
+  
+  ThreadedStateMovementHelper(ThreadedStateMovementHelper &&) = delete;
+  
+  /// @}
+  
+  void addNextEventBlock(ThreadState &State) {
+    auto const LastEvent = State.getTrace().events().end();
+    
+    std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
 
-class ThreadWorkerCoordinator {
+    while (true) {
+      auto NextEvent = State.getNextEvent();
+      if (NextEvent == LastEvent)
+        break;
+      
+      // Make sure we have permission to update the shared state of the
+      // ProcessState, if the next event is going to require it.
+      if (!UpdateLock && NextEvent->modifiesSharedState()) {
+        auto MaybeNewProcessTime = NextEvent->getProcessTime();
+        assert(MaybeNewProcessTime.assigned());
+        auto WaitForTime = MaybeNewProcessTime.get<0>() - 1;
+        
+        auto const &ProcState = State.getParent();
+        
+        UpdateLock.lock();
+        ProcessStateCV.wait(UpdateLock,
+                            [=, &ProcState](){
+                              return ProcState.getProcessTime() == WaitForTime;
+                            });
+      }
 
+      State.addNextEvent();
+
+      if (NextEvent->isBlockStart())
+        break;
+    }
+  }
+
+  void removePreviousEventBlock(ThreadState &State) {
+    auto const FirstEvent = State.getTrace().events().begin();
+    
+    std::unique_lock<std::mutex> UpdateLock(ProcessStateMutex, std::defer_lock);
+
+    while (true) {
+      auto PreviousEvent = State.getNextEvent();
+      if (PreviousEvent == FirstEvent)
+        break;
+      
+      --PreviousEvent;
+
+      // Make sure we have permission to update the shared state of the
+      // ProcessState, if the next event is going to require it.
+      if (!UpdateLock && PreviousEvent->modifiesSharedState()) {
+        auto MaybeNewProcessTime = PreviousEvent->getProcessTime();
+        assert(MaybeNewProcessTime.assigned());
+        auto WaitForTime = MaybeNewProcessTime.get<0>();
+        
+        auto const &ProcState = State.getParent();
+        
+        UpdateLock.lock();
+        ProcessStateCV.wait(UpdateLock,
+                            [=, &ProcState](){
+                              return ProcState.getProcessTime() == WaitForTime;
+                            });
+      }
+
+      State.removePreviousEvent();
+
+      if (PreviousEvent->isBlockStart())
+        break;
+    }
+  }
 };
 
 /// \brief Move State in Direction until ProcessPredicate is true.
 /// \return true iff State was moved.
 bool move(ProcessState &State,
-          MovementType Direction,
           std::function<bool (ProcessState &)> ProcessPredicate) {
-  if (Direction == MovementType::None)
-    return false;
-  
   std::vector<std::thread> ThreadWorkers;
   
   for (auto &ThreadStatePtr : State.getThreadStates()) {
@@ -52,61 +132,6 @@ bool move(ProcessState &State,
   }
   
   return false;
-}
-
-void addNextEventBlock(ThreadState &State) {
-  auto const LastEvent = State.getTrace().events().end();
-  
-  seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
-  seec::util::Maybe<uint64_t> NewProcessTime;
-
-  while (true) {
-    auto NextEvent = State.getNextEvent();
-    if (NextEvent == LastEvent)
-      break;
-    
-    // Make sure we have permission to update the shared state of the
-    // ProcessState, if the next event is going to require it.
-    if (!SharedUpdate.assigned() && NextEvent->modifiesSharedState()) {
-      NewProcessTime = NextEvent->getProcessTime();
-      assert(NewProcessTime.assigned());
-      auto const WaitForProcessTime = NewProcessTime.get<0>() - 1;
-      SharedUpdate = State.getParent().getScopedUpdate(WaitForProcessTime);
-    }
-
-    State.addNextEvent();
-
-    if (NextEvent->isBlockStart())
-      break;
-  }
-}
-
-void removePreviousEventBlock(ThreadState &State) {
-  auto const FirstEvent = State.getTrace().events().begin();
-  
-  seec::util::Maybe<ProcessState::ScopedUpdate> SharedUpdate;
-  seec::util::Maybe<uint64_t> NewProcessTime;
-
-  while (true) {
-    auto PreviousEvent = State.getNextEvent();
-    if (PreviousEvent == FirstEvent)
-      break;
-    
-    --PreviousEvent;
-
-    // Make sure we have permission to update the shared state of the
-    // ProcessState, if the next event is going to require it.
-    if (!SharedUpdate.assigned() && PreviousEvent->modifiesSharedState()) {
-      NewProcessTime = PreviousEvent->getProcessTime();
-      assert(NewProcessTime.assigned());
-      SharedUpdate = State.getParent().getScopedUpdate(NewProcessTime.get<0>());
-    }
-
-    State.removePreviousEvent();
-
-    if (PreviousEvent->isBlockStart())
-      break;
-  }
 }
 
 
@@ -169,6 +194,7 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
   if (State.getThreadTime() == ThreadTime)
     return false;
   
+  ThreadedStateMovementHelper Mover;
   bool Moved = false;
 
   if (State.getThreadTime() < ThreadTime) {
@@ -177,7 +203,7 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
 
     while (State.getThreadTime() < ThreadTime
            && State.getNextEvent() != LastEvent) {
-      addNextEventBlock(State);
+      Mover.addNextEventBlock(State);
       Moved = true;
     }
   }
@@ -187,7 +213,7 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
 
     while (State.getThreadTime() > ThreadTime
            && State.getNextEvent() != FirstEvent) {
-      removePreviousEventBlock(State);
+      Mover.removePreviousEventBlock(State);
       Moved = true;
     }
   }
