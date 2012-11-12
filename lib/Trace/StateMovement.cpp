@@ -13,6 +13,7 @@
 #include "seec/Trace/ThreadState.hpp"
 
 #include <condition_variable>
+#include <initializer_list>
 #include <map>
 #include <thread>
 #include <vector>
@@ -176,7 +177,7 @@ public:
   }
   
   bool moveForward(ProcessState &State,
-                   ProcessPredTy &ProcessPredicate,
+                   ProcessPredTy ProcessPredicate,
                    ThreadPredMapTy ThreadPredicates) {
     std::atomic<bool> Moved(false);
     std::vector<std::thread> Workers;
@@ -232,7 +233,7 @@ public:
   }
   
   bool moveBackward(ProcessState &State,
-                    ProcessPredTy &ProcessPredicate,
+                    ProcessPredTy ProcessPredicate,
                     ThreadPredMapTy ThreadPredicates) {
     std::atomic<bool> Moved(false);
     std::vector<std::thread> Workers;
@@ -263,7 +264,7 @@ public:
           
           // If the event acquired the shared process lock, then it might have
           // updated the ProcessState, in which case check the ProcessPredicate.
-          if (Lock && ProcessPredicate(State)) {
+          if (Lock && ProcessPredicate && ProcessPredicate(State)) {
             MovementComplete = true;
             ProcessStateCV.notify_all();
             break;
@@ -353,51 +354,43 @@ bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
 
 bool moveForwardUntil(ThreadState &State,
                       ThreadPredTy Predicate) {
-  return false;
+  ThreadedStateMovementHelper Mover;
+  return Mover.moveForward(State.getParent(),
+                           ProcessPredTy{},
+                           ThreadPredMapTy{std::make_pair(&State, Predicate)});
 }
 
 bool moveBackwardUntil(ThreadState &State,
                        ThreadPredTy Predicate) {
-  return false;
+  ThreadedStateMovementHelper Mover;
+  return Mover.moveBackward(State.getParent(),
+                            ProcessPredTy{},
+                            ThreadPredMapTy{std::make_pair(&State, Predicate)});
 }
 
 bool moveForward(ThreadState &State) {
-  return false;
+  return moveForwardUntil(State, [](ThreadState &){return true;});
 }
 
 bool moveBackward(ThreadState &State) {
-  return false;
+  return moveBackwardUntil(State, [](ThreadState &){return true;});
 }
 
 bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
-  if (State.getThreadTime() == ThreadTime)
-    return false;
+  auto const PreviousTime = State.getThreadTime();
   
-  ThreadedStateMovementHelper Mover;
-  bool Moved = false;
-
-  if (State.getThreadTime() < ThreadTime) {
-    // Move forward
-    auto LastEvent = State.getTrace().events().end();
-
-    while (State.getThreadTime() < ThreadTime
-           && State.getNextEvent() != LastEvent) {
-      Mover.addNextEventBlock(State);
-      Moved = true;
-    }
-  }
-  else {
-    // Move backward
-    auto FirstEvent = State.getTrace().events().begin();
-
-    while (State.getThreadTime() > ThreadTime
-           && State.getNextEvent() != FirstEvent) {
-      Mover.removePreviousEventBlock(State);
-      Moved = true;
-    }
-  }
-
-  return Moved;
+  if (PreviousTime < ThreadTime)
+    return moveForwardUntil(State,
+                            [=](ThreadState &NewState){
+                              return NewState.getThreadTime() >= ThreadTime;
+                            });
+  else if (PreviousTime > ThreadTime)
+    return moveBackwardUntil(State,
+                             [=](ThreadState &NewState){
+                               return NewState.getThreadTime() <= ThreadTime;
+                             });
+  
+  return false;
 }
 
 } // namespace trace (in seec)
