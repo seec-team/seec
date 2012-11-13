@@ -27,26 +27,6 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 }
 
 //===------------------------------------------------------------------------===
-// getCStringInArea()
-//===------------------------------------------------------------------------===
-
-seec::util::Maybe<MemoryArea>
-getCStringInArea(char const *Str, MemoryArea Area) {
-  auto const StrAddress = reinterpret_cast<uintptr_t>(Str);
-
-  auto const MaxLen = Area.withStart(StrAddress).length();
-
-  for (std::size_t Index = 0; Index < MaxLen; ++Index) {
-    if (!Str[Index]) {
-      // The area of the C string includes the terminating nul character.
-      return MemoryArea(StrAddress, Index + 1);
-    }
-  }
-
-  return seec::util::Maybe<MemoryArea>();
-}
-
-//===------------------------------------------------------------------------===
 // checkCStringIsValid()
 //===------------------------------------------------------------------------===
 
@@ -247,6 +227,22 @@ bool CStdLibChecker::memoryExists(uintptr_t Address,
                         Instruction);
   
   return false;
+}
+
+seec::util::Maybe<MemoryArea>
+CStdLibChecker::getCStringInArea(char const *String, MemoryArea Area)
+{
+  auto const StrAddress = reinterpret_cast<uintptr_t>(String);
+  auto const MaxLength = Area.withStart(StrAddress).length();
+  
+  for (std::size_t Index = 0; Index < MaxLength; ++Index) {
+    if (!String[Index]) {
+      // Area includes the terminating NUL byte.
+      return MemoryArea(StrAddress, Index + 1);
+    }
+  }
+
+  return seec::util::Maybe<MemoryArea>();
 }
 
 MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,

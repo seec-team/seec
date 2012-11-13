@@ -22,11 +22,6 @@ namespace trace {
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
-/// \brief If Str points to a C string that fits within Area, then find the
-///        area of that C string, including the terminating nul character.
-seec::util::Maybe<MemoryArea>
-getCStringInArea(char const *Str, MemoryArea Area);
-
 /// \brief Raise an InvalidCString error if the CStringArea is unassigned.
 bool checkCStringIsValid(
         TraceThreadListener &Listener,
@@ -249,6 +244,10 @@ public:
                     seec::runtime_errors::format_selects::MemoryAccess Access,
                     seec::util::Maybe<MemoryArea> const &Area);
   
+  /// \brief Find the area of the C string referenced by String.
+  seec::util::Maybe<MemoryArea> getCStringInArea(char const *String,
+                                                 MemoryArea Area);
+
   /// \brief Find the limited C string referenced by String.
   /// If String points to a C string that fits within Area, then get the
   /// area of that C string, including the terminating nul character. If

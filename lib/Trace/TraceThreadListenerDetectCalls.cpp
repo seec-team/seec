@@ -565,6 +565,9 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   using namespace seec::runtime_errors;
   
   acquireGlobalMemoryWriteLock();
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strcat;
+  CStdLibChecker Checker(*this, Index, Fn);
 
   auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
   auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
@@ -583,7 +586,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   }
 
   // Check if Source points to a valid C string.
-  auto const SrcStrArea = getCStringInArea(Source, SrcArea.get<0>());
+  auto const SrcStrArea = Checker.getCStringInArea(Source, SrcArea.get<0>());
   if (checkCStringIsValid(*this,
                           Index,
                           SrcAddr,
@@ -621,7 +624,8 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   }
 
   // Check if Destination points to a valid C string.
-  auto const DestStrArea = getCStringInArea(Destination, DestArea.get<0>());
+  auto const DestStrArea = Checker.getCStringInArea(Destination,
+                                                    DestArea.get<0>());
   if (checkCStringIsValid(*this,
                           Index,
                           DestAddr,
@@ -716,6 +720,9 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   using namespace seec::runtime_errors;
   
   acquireGlobalMemoryWriteLock();
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strcpy;
+  CStdLibChecker Checker(*this, Index, Fn);
 
   auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
   auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
@@ -734,7 +741,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   }
 
   // Check if Source points to a valid C string.
-  auto const SrcStrArea = getCStringInArea(Source, SrcArea.get<0>());
+  auto const SrcStrArea = Checker.getCStringInArea(Source, SrcArea.get<0>());
   if (checkCStringIsValid(*this,
                           Index,
                           SrcAddr,
