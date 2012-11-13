@@ -368,13 +368,11 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
-  uintptr_t Address = reinterpret_cast<uintptr_t>(Data);
-
-  using namespace seec::runtime_errors;
-  checkMemoryAccess<format_selects::MemoryAccess::Read>(*this,
-                                                        Address,
-                                                        Size,
-                                                        Index);
+  auto const Address = reinterpret_cast<uintptr_t>(Data);
+  auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Read;
+  
+  CStdLibChecker Checker(*this, Index);
+  Checker.checkMemoryExistsAndAccessible(Address, Size, Access);
 }
 
 void TraceThreadListener::notifyPostLoad(uint32_t Index,
@@ -398,13 +396,11 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
-  auto AddressInt = reinterpret_cast<uintptr_t>(Address);
-
-  using namespace seec::runtime_errors;
-  checkMemoryAccess<format_selects::MemoryAccess::Write>(*this,
-                                                         AddressInt,
-                                                         Size,
-                                                         Index);
+  auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
+  auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Write;
+  
+  CStdLibChecker Checker(*this, Index);
+  Checker.checkMemoryExistsAndAccessible(AddressInt, Size, Access);
 }
 
 void TraceThreadListener::notifyPostStore(uint32_t Index,

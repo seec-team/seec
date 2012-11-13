@@ -71,26 +71,6 @@ bool checkMemoryOwnershipOfParameter(
         std::size_t Size,
         seec::util::Maybe<MemoryArea> ContainingArea);
 
-/// \brief Check whether or not a memory access is valid.
-///
-/// Checks whether the size of the ContainingArea is sufficient for the memory
-/// access. If the Access is a read, checks whether the memory is initialized.
-///
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-/// \param Access the type of memory access that we're checking.
-/// \param ContainingArea the memory area containing Address.
-/// \return true iff an error was detected.
-bool checkMemoryAccess(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        uintptr_t Address,
-        std::size_t Size,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        MemoryArea ContainingArea);
-
 /// \brief Check whether or not dereferencing a parameter to a standard
 ///        function would be valid.
 ///
@@ -115,43 +95,6 @@ bool checkMemoryAccessOfParameter(
         uintptr_t Address,
         std::size_t Size,
         MemoryArea ContainingArea);
-
-/// \brief Check whether or not a memory access is valid.
-/// 
-/// This function first checks to see whether or not the memory at the given
-/// address is owned, using checkMemoryOwnership(). If the memory is unowned,
-/// an error will be raised and this function will return. If the memory is
-/// owned, then the access will be checked using checkMemoryAccess().
-///
-/// \tparam Access the type of memory access.
-/// 
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-template<seec::runtime_errors::format_selects::MemoryAccess Access>
-void checkMemoryAccess(TraceThreadListener &Listener,
-                       uintptr_t Address,
-                       std::size_t Size,
-                       uint32_t InstrIndex) {
-  auto MaybeArea = getContainingMemoryArea(Listener, Address);
-
-  if (checkMemoryOwnership(Listener,
-                           InstrIndex,
-                           Address,
-                           Size,
-                           Access,
-                           MaybeArea)) {
-    return;
-  }
-
-  checkMemoryAccess(Listener,
-                    InstrIndex,
-                    Address,
-                    Size,
-                    Access,
-                    MaybeArea.get<0>());
-}
 
 /// \brief Check if the pointer passed to a standard function is valid.
 ///
@@ -222,12 +165,23 @@ class CStdLibChecker {
   uint32_t Instruction;
   
   /// The function that we are checking.
-  seec::runtime_errors::format_selects::CStdFunction Function;
+  seec::util::Maybe<seec::runtime_errors::format_selects::CStdFunction>
+    Function;
   
 public:
   /// \brief Constructor.
   /// \param InThread The listener for the thread we are checking.
   /// \param InstructionIndex Index of the llvm::Instruction we are checking.
+  CStdLibChecker(TraceThreadListener &InThread,
+                 uint32_t InstructionIndex)
+  : Thread(InThread),
+    Instruction(InstructionIndex)
+  {}
+  
+  /// \brief Constructor.
+  /// \param InThread The listener for the thread we are checking.
+  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
+  /// \param Function the function we are checking.
   CStdLibChecker(TraceThreadListener &InThread,
                  uint32_t InstructionIndex,
                  seec::runtime_errors::format_selects::CStdFunction Function)
@@ -243,6 +197,33 @@ public:
                     std::size_t Size,
                     seec::runtime_errors::format_selects::MemoryAccess Access,
                     seec::util::Maybe<MemoryArea> const &Area);
+  
+  /// \brief Check whether or not a memory access is valid.
+  ///
+  /// Checks whether the size of the ContainingArea is sufficient for the
+  /// memory access. If the Access is a read, checks whether the memory is
+  /// initialized.
+  ///
+  /// \param Address the start address of the memory access that we're checking.
+  /// \param Size the size of the memory access that we're checking.
+  /// \param Access the type of memory access that we're checking.
+  /// \param ContainingArea the memory area containing Address.
+  ///
+  /// \return true iff there were no errors.
+  bool
+  checkMemoryAccess(uintptr_t Address,
+                    std::size_t Size,
+                    seec::runtime_errors::format_selects::MemoryAccess Access,
+                    MemoryArea ContainingArea);
+  
+  /// \brief Check if memory is known and accessible.
+  ///
+  /// \return true iff there were no errors.
+  bool
+  checkMemoryExistsAndAccessible(
+                    uintptr_t Address,
+                    std::size_t Size,
+                    seec::runtime_errors::format_selects::MemoryAccess Access);
   
   /// \brief Find the area of the C string referenced by String.
   seec::util::Maybe<MemoryArea> getCStringInArea(char const *String,
