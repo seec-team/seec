@@ -239,15 +239,6 @@ bool checkCStringRead(TraceThreadListener &Listener,
                       uint64_t ParameterIndex,
                       char const *Str);
 
-///
-bool checkLimitedCStringRead(
-                      TraceThreadListener &Listener,
-                      uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::CStdFunction Func,
-                      uint64_t ParameterIndex,
-                      char const *Str,
-                      std::size_t Limit);
-
 /// \brief Helps detect and report run-time errors with C stdlib usage.
 class CStdLibChecker {
   /// The listener for the thread we are checking.
@@ -280,9 +271,19 @@ public:
                                      MemoryArea Area,
                                      std::size_t Limit);
   
+  /// \brief Check a read from a C String.
+  ///
+  /// \return The number of characters in the string that can be read,
+  ///         including the terminating nul byte. Zero indicates that nothing
+  ///         can be read (in which case a runtime error has been raised).
+  std::size_t checkCStringRead(unsigned Parameter,
+                               char const *String);
+  
   /// \brief Check a size-limited read from a C String.
   ///
-  /// \return The number of characters in the string that can be read.
+  /// \return The number of characters in the string that can be read,
+  ///         including the terminating nul byte. Zero indicates that nothing
+  ///         can be read (in which case a runtime error has been raised).
   std::size_t checkLimitedCStringRead(unsigned Parameter,
                                       char const *String,
                                       std::size_t Limit);

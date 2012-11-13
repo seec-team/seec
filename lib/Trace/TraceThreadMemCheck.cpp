@@ -278,51 +278,6 @@ bool checkCStringRead(TraceThreadListener &Listener,
 }
 
 //===------------------------------------------------------------------------===
-// checkLimitedCStringRead()
-//===------------------------------------------------------------------------===
-
-bool checkLimitedCStringRead(
-                      TraceThreadListener &Listener,
-                      uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::CStdFunction Func,
-                      uint64_t ParameterIndex,
-                      char const *Str,
-                      std::size_t Limit) {
-  using namespace seec::runtime_errors;
-
-  auto StrAddr = reinterpret_cast<uintptr_t>(Str);
-
-  // Check if Str points to owned memory.
-  auto const Area = getContainingMemoryArea(Listener, StrAddr);
-  if (checkMemoryOwnership(Listener,
-                           InstructionIndex,
-                           StrAddr,
-                           1, // Read size.
-                           format_selects::MemoryAccess::Read,
-                           Area)) {
-    return true;
-  }
-
-  // Check if Str points to a valid C string.
-  auto const MaybeStrArea = getCStringInArea(Str, Area.get<0>());
-  
-  auto const StrArea = MaybeStrArea.assigned() ? MaybeStrArea.get<0>()
-                                               : MemoryArea(Str, Limit);
-
-  auto const StrLength = StrArea.length();
-
-  // Check if the read from Str is OK.
-  checkMemoryAccess(Listener,
-                    InstructionIndex,
-                    StrAddr,
-                    StrLength,
-                    format_selects::MemoryAccess::Read,
-                    StrArea);
-
-  return false;
-}
-
-//===------------------------------------------------------------------------===
 // CStdLibChecker
 //===------------------------------------------------------------------------===
 
@@ -340,10 +295,52 @@ MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
   return MemoryArea(String, Limit);
 }
 
-std::size_t
-CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
-                                        char const *String,
-                                        std::size_t Limit)
+std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
+                                             char const *String)
+{
+  auto StrAddr = reinterpret_cast<uintptr_t>(String);
+
+  // Check if String points to owned memory.
+  auto const Area = getContainingMemoryArea(Thread, StrAddr);
+  if (checkMemoryOwnership(Thread,
+                           Instruction,
+                           StrAddr,
+                           1, // Read size.
+                           format_selects::MemoryAccess::Read,
+                           Area))
+    return 0;
+  
+
+  // Check if Str points to a valid C string.
+  auto const StrArea = getCStringInArea(String, Area.get<0>());
+  
+  if (checkCStringIsValid(Thread,
+                          Instruction,
+                          StrAddr,
+                          Parameter,
+                          Function,
+                          StrArea)) {
+    return 0;
+  }
+
+  auto const StrLength = StrArea.get<0>().length();
+
+  // Check if the read from Str is OK. We already know that the size of the
+  // read is valid, from using getCStringInArea, but this will check if the
+  // memory is initialized.
+  checkMemoryAccess(Thread,
+                    Instruction,
+                    StrAddr,
+                    StrLength,
+                    format_selects::MemoryAccess::Read,
+                    StrArea.get<0>());
+
+  return StrLength;
+}
+
+std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
+                                                    char const *String,
+                                                    std::size_t Limit)
 {
   auto StrAddr = reinterpret_cast<uintptr_t>(String);
   

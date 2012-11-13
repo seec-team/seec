@@ -26,15 +26,11 @@ namespace trace {
 void TraceThreadListener::preCatof(llvm::CallInst const *Call,
                                    uint32_t Index,
                                    char const *Str) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Atof,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Atof;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -45,15 +41,11 @@ void TraceThreadListener::preCatof(llvm::CallInst const *Call,
 void TraceThreadListener::preCatoi(llvm::CallInst const *Call,
                                    uint32_t Index,
                                    char const *Str) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Atoi,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Atoi;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -64,15 +56,11 @@ void TraceThreadListener::preCatoi(llvm::CallInst const *Call,
 void TraceThreadListener::preCatol(llvm::CallInst const *Call,
                                    uint32_t Index,
                                    char const *Str) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
 
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Atol,
-                   0, // Parameter Index for Str.
-                   Str);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Atol;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -84,15 +72,11 @@ void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str,
                                      char **EndPtr) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strtod,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtod;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
   
   if (EndPtr) {
     // TODO: Check if EndPtr is valid.
@@ -109,15 +93,11 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
                                      char const *Str,
                                      char **EndPtr,
                                      int Base) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strtol,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtol;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
   
   if (EndPtr) {
     // TODO: Check if EndPtr is valid.
@@ -134,15 +114,11 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
                                       char const *Str,
                                       char **EndPtr,
                                       int Base) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strtoul,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtoul;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
   
   if (EndPtr) {
     // TODO: Check if EndPtr is valid.
@@ -331,15 +307,11 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
 void TraceThreadListener::preCgetenv(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Name) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Getenv,
-                   0, // Parameter Index for Name.
-                   Name);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Getenv;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Name);
 }
 
 void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
@@ -378,17 +350,13 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
 void TraceThreadListener::preCsystem(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Command) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
 
   // A NULL Command is valid, so only check if it is non-null.
   if (Command) {
-    checkCStringRead(*this,
-                     Index,
-                     format_selects::CStdFunction::System,
-                     0, // Parameter Index for Command.
-                     Command);
+    auto const Fn = seec::runtime_errors::format_selects::CStdFunction::System;
+    CStdLibChecker Checker(*this, Index, Fn);
+    Checker.checkCStringRead(0, Command);
   }
 }
 
@@ -695,15 +663,11 @@ void TraceThreadListener::preCstrchr(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str,
                                      int Character) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strchr,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strchr;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -715,21 +679,12 @@ void TraceThreadListener::preCstrcmp(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str1,
                                      char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strcmp,
-                   0, // Parameter Index for Str1.
-                   Str1);
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strcmp,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strcmp;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(1, Str2);
 }
 
 
@@ -741,21 +696,12 @@ void TraceThreadListener::preCstrcoll(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char const *Str1,
                                       char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strcoll,
-                   0, // Parameter Index for Str1.
-                   Str1);
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strcoll,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strcoll;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(1, Str2);
 }
 
 
@@ -840,21 +786,12 @@ void TraceThreadListener::preCstrcspn(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char const *Str1,
                                       char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strspn,
-                   0, // Parameter Index for Str1.
-                   Str1);
   
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strspn,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strspn;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(1, Str2);
 }
 
 
@@ -901,15 +838,11 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
 void TraceThreadListener::preCstrlen(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strlen,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strlen;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -923,6 +856,8 @@ void TraceThreadListener::preCstrncat(llvm::CallInst const *Call,
                                       char const *Source,
                                       size_t Size) {
   acquireGlobalMemoryWriteLock();
+  
+  // TODO.
 }
 
 void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
@@ -930,6 +865,7 @@ void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
+  // TODO.
 }
 
 
@@ -946,7 +882,6 @@ void TraceThreadListener::preCstrncmp(llvm::CallInst const *Call,
   
   auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strncmp;
   CStdLibChecker Checker(*this, Index, Fn);
-  
   Checker.checkLimitedCStringRead(0, Str1, Num);
   Checker.checkLimitedCStringRead(1, Str2, Num);
 }
@@ -979,6 +914,7 @@ void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
+  // TODO.
 }
 
 
@@ -990,21 +926,12 @@ void TraceThreadListener::preCstrpbrk(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char const *Str1,
                                       char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strpbrk,
-                   0, // Parameter Index for Str1.
-                   Str1);
   
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strpbrk,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strpbrk;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(0, Str2);
 }
 
 
@@ -1016,15 +943,11 @@ void TraceThreadListener::preCstrrchr(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char const *Str,
                                       int Character) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strrchr,
-                   0, // Parameter Index for Str.
-                   Str);
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strrchr;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str);
 }
 
 
@@ -1036,21 +959,12 @@ void TraceThreadListener::preCstrspn(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str1,
                                      char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strspn,
-                   0, // Parameter Index for Str1.
-                   Str1);
   
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strspn,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strspn;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(1, Str2);
 }
 
 
@@ -1062,21 +976,12 @@ void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Str1,
                                      char const *Str2) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
-
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strstr,
-                   0, // Parameter Index for Str1.
-                   Str1);
   
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strstr,
-                   1, // Parameter Index for Str2.
-                   Str2);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strstr;
+  CStdLibChecker Checker(*this, Index, Fn);
+  Checker.checkCStringRead(0, Str1);
+  Checker.checkCStringRead(1, Str2);
 }
 
 
@@ -1088,7 +993,7 @@ void TraceThreadListener::preCstrtok(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char *Str,
                                      char const *Delimiters) {
-  llvm::errs() << "strtok is not supported\n";
+  llvm::errs() << "\n\nstrtok is not supported\n";
   exit(EXIT_FAILURE);
   
 #if 0
@@ -1128,7 +1033,7 @@ void TraceThreadListener::preCstrxfrm(llvm::CallInst const *Call,
                                       char *Destination,
                                       char const *Source,
                                       size_t Num) {
-  llvm::errs() << "strxfrm is not supported\n";
+  llvm::errs() << "\n\nstrxfrm is not supported\n";
   exit(EXIT_FAILURE);
 }
 
