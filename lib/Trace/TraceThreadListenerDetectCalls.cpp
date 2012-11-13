@@ -439,6 +439,9 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
   using namespace seec::runtime_errors;
 
   acquireGlobalMemoryWriteLock();
+  
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Memcpy;
+  CStdLibChecker Checker(*this, Index, Fn);
 
   auto DestAddr = reinterpret_cast<uintptr_t>(Destination);
   auto SrcAddr = reinterpret_cast<uintptr_t>(Source);
@@ -459,11 +462,8 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
                                DestAddr,
                                Size);
 
-  checkMemoryOverlap<format_selects::CStdFunction::Memcpy>(
-    *this,
-    Index,
-    MemoryArea(DestAddr, Size),
-    MemoryArea(SrcAddr, Size));
+  Checker.checkMemoryDoesNotOverlap(MemoryArea(DestAddr, Size),
+                                    MemoryArea(SrcAddr, Size));
 }
 
 void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
@@ -903,17 +903,13 @@ void TraceThreadListener::preCstrncpy(llvm::CallInst const *Call,
                                       char *Destination,
                                       char const *Source,
                                       size_t Size) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryWriteLock();
   
-  MemoryArea DestArea (Destination, Size);
-  MemoryArea SrcArea (Source, Size);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strncpy;
+  CStdLibChecker Checker(*this, Index, Fn);
   
-  checkMemoryOverlap<format_selects::CStdFunction::Strncpy>(*this,
-                                                            Index,
-                                                            DestArea,
-                                                            SrcArea);
+  Checker.checkMemoryDoesNotOverlap(MemoryArea(Destination, Size),
+                                    MemoryArea(Source, Size));
 }
 
 void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,

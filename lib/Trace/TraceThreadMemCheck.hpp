@@ -136,26 +136,6 @@ inline void checkMemoryAccessOfParameter(
                                MaybeArea.get<0>());
 }
 
-///
-template<seec::runtime_errors::format_selects::CStdFunction FuncT>
-void checkMemoryOverlap(TraceThreadListener &Listener,
-                        uint32_t InstructionIndex,
-                        MemoryArea Area1,
-                        MemoryArea Area2) {
-  using namespace seec::runtime_errors;
-
-  auto OverlapArea = Area1.intersection(Area2);
-  if (!OverlapArea.length())
-    return;
-
-  Listener.handleRunError(
-    createRunError<RunErrorType::OverlappingSourceDest>(FuncT,
-                                                        OverlapArea.start(),
-                                                        OverlapArea.length()),
-    RunErrorSeverity::Warning,
-    InstructionIndex);
-}
-
 /// \brief Helps detect and report run-time errors with C stdlib usage.
 class CStdLibChecker {
   /// The listener for the thread we are checking.
@@ -224,6 +204,11 @@ public:
                     uintptr_t Address,
                     std::size_t Size,
                     seec::runtime_errors::format_selects::MemoryAccess Access);
+  
+  /// \brief Create a runtime error if two memory areas overlap.
+  ///
+  /// \return true iff the memory areas do not overlap.
+  bool checkMemoryDoesNotOverlap(MemoryArea Area1, MemoryArea Area2);
   
   /// \brief Find the area of the C string referenced by String.
   seec::util::Maybe<MemoryArea> getCStringInArea(char const *String,

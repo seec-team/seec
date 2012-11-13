@@ -232,6 +232,23 @@ bool CStdLibChecker::checkMemoryExistsAndAccessible(
   return checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
+bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
+                                               MemoryArea Area2)
+{
+  auto const Overlap = Area1.intersection(Area2);
+  if (!Overlap.length())
+    return true;
+
+  Thread.handleRunError(createRunError<RunErrorType::OverlappingSourceDest>
+                                      (Function.get<0>(),
+                                       Overlap.start(),
+                                       Overlap.length()),
+                        RunErrorSeverity::Warning,
+                        Instruction);
+  
+  return false;
+}
+
 seec::util::Maybe<MemoryArea>
 CStdLibChecker::getCStringInArea(char const *String, MemoryArea Area)
 {
