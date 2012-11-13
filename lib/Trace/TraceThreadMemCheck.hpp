@@ -22,16 +22,6 @@ namespace trace {
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
-/// \brief Raise an InvalidCString error if the CStringArea is unassigned.
-bool checkCStringIsValid(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        uintptr_t Address,
-        uint64_t ParameterIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        seec::util::Maybe<MemoryArea> CStringArea
-        );
-
 /// \brief Raise a MemoryUnowned error if the ContainingArea is unassigned.
 ///
 /// \param Listener the listener for the thread that this check is occuring in.
@@ -222,6 +212,13 @@ public:
   MemoryArea getLimitedCStringInArea(char const *String,
                                      MemoryArea Area,
                                      std::size_t Limit);
+  
+  /// \brief Create an InvalidCString error if Area is unassigned.
+  ///
+  /// \return true iff there were no errors.
+  bool checkCStringIsValid(uintptr_t Address,
+                           unsigned Parameter,
+                           seec::util::Maybe<MemoryArea> Area);
   
   /// \brief Check a read from a C String.
   ///

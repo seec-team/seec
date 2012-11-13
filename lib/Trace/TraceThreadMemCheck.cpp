@@ -27,33 +27,6 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 }
 
 //===------------------------------------------------------------------------===
-// checkCStringIsValid()
-//===------------------------------------------------------------------------===
-
-bool checkCStringIsValid(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        uintptr_t Address,
-        uint64_t ParameterIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        seec::util::Maybe<MemoryArea> CStringArea
-        ) {
-  using namespace seec::runtime_errors;
-
-  if (CStringArea.assigned())
-    return false;
-
-  Listener.handleRunError(
-    createRunError<RunErrorType::InvalidCString>(Function,
-                                                 Address,
-                                                 ParameterIndex),
-    RunErrorSeverity::Fatal,
-    InstructionIndex);
-
-  return true;
-}
-
-//===------------------------------------------------------------------------===
 // checkMemoryOwnership()
 //===------------------------------------------------------------------------===
 
@@ -279,6 +252,23 @@ MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
   return MemoryArea(String, Limit);
 }
 
+bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
+                                         unsigned Parameter,
+                                         seec::util::Maybe<MemoryArea> Area)
+{
+  if (Area.assigned())
+    return true;
+  
+  Thread.handleRunError(createRunError<RunErrorType::InvalidCString>
+                                      (Function.get<0>(),
+                                       Address,
+                                       Parameter),
+                        RunErrorSeverity::Fatal,
+                        Instruction);
+
+  return false;
+}
+
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                              char const *String)
 {
@@ -291,15 +281,8 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
 
   // Check if Str points to a valid C string.
   auto const StrArea = getCStringInArea(String, Area.get<0>());
-  
-  if (checkCStringIsValid(Thread,
-                          Instruction,
-                          StrAddr,
-                          Parameter,
-                          Function.get<0>(),
-                          StrArea)) {
+  if (!checkCStringIsValid(StrAddr, Parameter, StrArea))
     return 0;
-  }
 
   auto const StrLength = StrArea.get<0>().length();
 

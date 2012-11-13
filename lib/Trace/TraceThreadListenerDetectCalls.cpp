@@ -587,12 +587,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
 
   // Check if Source points to a valid C string.
   auto const SrcStrArea = Checker.getCStringInArea(Source, SrcArea.get<0>());
-  if (checkCStringIsValid(*this,
-                          Index,
-                          SrcAddr,
-                          1, // Parameter Index for Source.
-                          format_selects::CStdFunction::Strcat,
-                          SrcStrArea)) {
+  if (!Checker.checkCStringIsValid(SrcAddr, 1, SrcStrArea)) {
     return;
   }
 
@@ -626,12 +621,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   // Check if Destination points to a valid C string.
   auto const DestStrArea = Checker.getCStringInArea(Destination,
                                                     DestArea.get<0>());
-  if (checkCStringIsValid(*this,
-                          Index,
-                          DestAddr,
-                          0, // Parameter Index for Destination.
-                          format_selects::CStdFunction::Strcat,
-                          DestStrArea)) {
+  if (!Checker.checkCStringIsValid(DestAddr, 0, DestStrArea)) {
     return;
   }
 
@@ -742,12 +732,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
 
   // Check if Source points to a valid C string.
   auto const SrcStrArea = Checker.getCStringInArea(Source, SrcArea.get<0>());
-  if (checkCStringIsValid(*this,
-                          Index,
-                          SrcAddr,
-                          1, // Parameter Index for Source.
-                          format_selects::CStdFunction::Strcpy,
-                          SrcStrArea)) {
+  if (!Checker.checkCStringIsValid(SrcAddr, 1, SrcStrArea)) {
     return;
   }
 
