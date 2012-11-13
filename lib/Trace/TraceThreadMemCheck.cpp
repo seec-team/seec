@@ -281,6 +281,23 @@ bool checkCStringRead(TraceThreadListener &Listener,
 // CStdLibChecker
 //===------------------------------------------------------------------------===
 
+bool CStdLibChecker::memoryExists(uintptr_t Address,
+                                  std::size_t Size,
+                                  format_selects::MemoryAccess Access,
+                                  seec::util::Maybe<MemoryArea> const &Area)
+{
+  if (Area.assigned())
+    return true;
+  
+  Thread.handleRunError(createRunError<RunErrorType::MemoryUnowned>(Access,
+                                                                    Address,
+                                                                    Size),
+                        RunErrorSeverity::Fatal,
+                        Instruction);
+  
+  return false;
+}
+
 MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
                                                    MemoryArea Area,
                                                    std::size_t Limit)
@@ -302,14 +319,8 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
 
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (checkMemoryOwnership(Thread,
-                           Instruction,
-                           StrAddr,
-                           1, // Read size.
-                           format_selects::MemoryAccess::Read,
-                           Area))
+  if (!memoryExists(StrAddr, 1, format_selects::MemoryAccess::Read, Area))
     return 0;
-  
 
   // Check if Str points to a valid C string.
   auto const StrArea = getCStringInArea(String, Area.get<0>());
@@ -346,12 +357,7 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (checkMemoryOwnership(Thread,
-                           Instruction,
-                           StrAddr,
-                           1, // Read size.
-                           format_selects::MemoryAccess::Read,
-                           Area))
+  if (!memoryExists(StrAddr, 1, format_selects::MemoryAccess::Read, Area))
     return 0;
   
   // Find the C string that String refers to, within Limit.

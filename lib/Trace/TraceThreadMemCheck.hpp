@@ -262,6 +262,14 @@ public:
     Function(Function)
   {}
   
+  /// \brief Create a MemoryUnowned runtime error if Area is unassigned.
+  ///
+  /// \return true if Area is assigned (no runtime error was created).
+  bool memoryExists(uintptr_t Address,
+                    std::size_t Size,
+                    seec::runtime_errors::format_selects::MemoryAccess Access,
+                    seec::util::Maybe<MemoryArea> const &Area);
+  
   /// \brief Find the limited C string referenced by String.
   /// If String points to a C string that fits within Area, then get the
   /// area of that C string, including the terminating nul character. If
