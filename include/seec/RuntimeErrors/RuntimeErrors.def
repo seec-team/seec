@@ -46,7 +46,7 @@ SEEC_RUNERR(MemoryOverflow,
 SEEC_RUNERR(BadDynamicMemoryAddress,
   SEEC_PP_QUOTE(
     (function, seec::runtime_errors::ArgSelect
-                 <seec::runtime_errors::format_selects::DynamicMemoryFunction>),
+                 <seec::runtime_errors::format_selects::CStdFunction>),
     (address,  seec::runtime_errors::ArgAddress)
   ))
 
@@ -56,7 +56,7 @@ SEEC_RUNERR(BadDynamicMemoryAddress,
 SEEC_RUNERR(OverlappingSourceDest,
   SEEC_PP_QUOTE(
     (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::MemCopyFunction>),
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (address,   seec::runtime_errors::ArgAddress),
     (size,      seec::runtime_errors::ArgSize)
   ))
@@ -67,7 +67,7 @@ SEEC_RUNERR(OverlappingSourceDest,
 SEEC_RUNERR(InvalidCString,
   SEEC_PP_QUOTE(
     (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::StringFunction>),
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (address,   seec::runtime_errors::ArgAddress),
     (parameter, seec::runtime_errors::ArgParameter)
   ))
@@ -102,7 +102,7 @@ SEEC_RUNERR(IntegerUnderflow,
 SEEC_RUNERR(PassPointerToUnowned,
   SEEC_PP_QUOTE(
     (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::StandardFunction>),
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (address,   seec::runtime_errors::ArgAddress),
     (parameter, seec::runtime_errors::ArgParameter)
   ))
@@ -113,7 +113,7 @@ SEEC_RUNERR(PassPointerToUnowned,
 SEEC_RUNERR(PassPointerToUninitialized,
   SEEC_PP_QUOTE(
     (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::StandardFunction>),
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (address,   seec::runtime_errors::ArgAddress),
     (parameter, seec::runtime_errors::ArgParameter)
   ))
@@ -124,7 +124,7 @@ SEEC_RUNERR(PassPointerToUninitialized,
 SEEC_RUNERR(PassPointerToInsufficient,
   SEEC_PP_QUOTE(
     (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::StandardFunction>),
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (access_address, seec::runtime_errors::ArgAddress),
     (access_size,    seec::runtime_errors::ArgSize),
     (object,         seec::runtime_errors::ArgObject),

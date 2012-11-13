@@ -32,7 +32,7 @@ void TraceThreadListener::preCatof(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Atof,
+                   format_selects::CStdFunction::Atof,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -51,7 +51,7 @@ void TraceThreadListener::preCatoi(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Atoi,
+                   format_selects::CStdFunction::Atoi,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -70,7 +70,7 @@ void TraceThreadListener::preCatol(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Atol,
+                   format_selects::CStdFunction::Atol,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -90,7 +90,7 @@ void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strtod,
+                   format_selects::CStdFunction::Strtod,
                    0, // Parameter Index for Str.
                    Str);
   
@@ -115,7 +115,7 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strtol,
+                   format_selects::CStdFunction::Strtol,
                    0, // Parameter Index for Str.
                    Str);
   
@@ -140,7 +140,7 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strtoul,
+                   format_selects::CStdFunction::Strtoul,
                    0, // Parameter Index for Str.
                    Str);
   
@@ -203,7 +203,7 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
 
     handleRunError(
       createRunError<RunErrorType::BadDynamicMemoryAddress>(
-        format_selects::DynamicMemoryFunction::Free,
+        format_selects::CStdFunction::Free,
         AddressInt),
       RunErrorSeverity::Fatal,
       Index);
@@ -264,7 +264,7 @@ void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
 
     handleRunError(
       createRunError<RunErrorType::BadDynamicMemoryAddress>(
-        format_selects::DynamicMemoryFunction::Realloc,
+        format_selects::CStdFunction::Realloc,
         AddressInt),
       RunErrorSeverity::Fatal,
       Index);
@@ -337,7 +337,7 @@ void TraceThreadListener::preCgetenv(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Getenv,
+                   format_selects::CStdFunction::Getenv,
                    0, // Parameter Index for Name.
                    Name);
 }
@@ -386,7 +386,7 @@ void TraceThreadListener::preCsystem(llvm::CallInst const *Call,
   if (Command) {
     checkCStringRead(*this,
                      Index,
-                     format_selects::StringFunction::System,
+                     format_selects::CStdFunction::System,
                      0, // Parameter Index for Command.
                      Command);
   }
@@ -410,7 +410,7 @@ void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
   
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memchr,
+                               format_selects::CStdFunction::Memchr,
                                0, // Ptr is parameter 0
                                format_selects::MemoryAccess::Read,
                                Address,
@@ -436,7 +436,7 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
 
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memcmp,
+                               format_selects::CStdFunction::Memcmp,
                                0, // Address1 is parameter 0
                                format_selects::MemoryAccess::Read,
                                Address1Int,
@@ -444,7 +444,7 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
 
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memcmp,
+                               format_selects::CStdFunction::Memcmp,
                                1, // Address2 is parameter 1
                                format_selects::MemoryAccess::Read,
                                Address2Int,
@@ -477,7 +477,7 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
 
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memcpy,
+                               format_selects::CStdFunction::Memcpy,
                                1, // Source is parameter 1
                                format_selects::MemoryAccess::Read,
                                SrcAddr,
@@ -485,13 +485,13 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
   
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memcpy,
+                               format_selects::CStdFunction::Memcpy,
                                0, // Destination is parameter 0
                                format_selects::MemoryAccess::Write,
                                DestAddr,
                                Size);
 
-  checkMemoryOverlap<format_selects::MemCopyFunction::Memcpy>(
+  checkMemoryOverlap<format_selects::CStdFunction::Memcpy>(
     *this,
     Index,
     MemoryArea(DestAddr, Size),
@@ -527,7 +527,7 @@ void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
 
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memmove,
+                               format_selects::CStdFunction::Memmove,
                                1, // Source is parameter 1
                                format_selects::MemoryAccess::Read,
                                SrcAddr,
@@ -535,7 +535,7 @@ void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
   
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memmove,
+                               format_selects::CStdFunction::Memmove,
                                0, // Destination is parameter 0
                                format_selects::MemoryAccess::Write,
                                DestAddr,
@@ -570,7 +570,7 @@ void TraceThreadListener::preCmemset(llvm::CallInst const *Call,
 
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Memset,
+                               format_selects::CStdFunction::Memset,
                                0, // Destination is parameter 0
                                format_selects::MemoryAccess::Write,
                                Address,
@@ -605,7 +605,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);
   if (checkMemoryOwnershipOfParameter(*this,
                                       Index,
-                                      format_selects::StandardFunction::Strcat,
+                                      format_selects::CStdFunction::Strcat,
                                       1, // Source is parameter 1
                                       format_selects::MemoryAccess::Read,
                                       SrcAddr,
@@ -620,7 +620,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
                           Index,
                           SrcAddr,
                           1, // Parameter Index for Source.
-                          format_selects::StringFunction::Strcat,
+                          format_selects::CStdFunction::Strcat,
                           SrcStrArea)) {
     return;
   }
@@ -632,7 +632,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   // memory is initialized.
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Strcat,
+                               format_selects::CStdFunction::Strcat,
                                1, // Source is parameter 1
                                format_selects::MemoryAccess::Read,
                                SrcAddr,
@@ -643,7 +643,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   auto const DestArea = seec::trace::getContainingMemoryArea(*this, DestAddr);
   if (checkMemoryOwnershipOfParameter(*this,
                                       Index,
-                                      format_selects::StandardFunction::Strcat,
+                                      format_selects::CStdFunction::Strcat,
                                       0, // Destination is parameter 0
                                       format_selects::MemoryAccess::Write,
                                       DestAddr,
@@ -658,7 +658,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
                           Index,
                           DestAddr,
                           0, // Parameter Index for Destination.
-                          format_selects::StringFunction::Strcat,
+                          format_selects::CStdFunction::Strcat,
                           DestStrArea)) {
     return;
   }
@@ -667,7 +667,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
   // string.
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Strcat,
+                               format_selects::CStdFunction::Strcat,
                                0, // Destination is parameter 0
                                format_selects::MemoryAccess::Write,
                                DestStrArea.get<0>().last(),
@@ -701,7 +701,7 @@ void TraceThreadListener::preCstrchr(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strchr,
+                   format_selects::CStdFunction::Strchr,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -721,13 +721,13 @@ void TraceThreadListener::preCstrcmp(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strcmp,
+                   format_selects::CStdFunction::Strcmp,
                    0, // Parameter Index for Str1.
                    Str1);
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strcmp,
+                   format_selects::CStdFunction::Strcmp,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -747,13 +747,13 @@ void TraceThreadListener::preCstrcoll(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strcoll,
+                   format_selects::CStdFunction::Strcoll,
                    0, // Parameter Index for Str1.
                    Str1);
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strcoll,
+                   format_selects::CStdFunction::Strcoll,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -778,7 +778,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   auto const SrcArea = seec::trace::getContainingMemoryArea(*this, SrcAddr);
   if (checkMemoryOwnershipOfParameter(*this,
                                       Index,
-                                      format_selects::StandardFunction::Strcpy,
+                                      format_selects::CStdFunction::Strcpy,
                                       1, // Source is parameter 1
                                       format_selects::MemoryAccess::Read,
                                       SrcAddr,
@@ -793,7 +793,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
                           Index,
                           SrcAddr,
                           1, // Parameter Index for Source.
-                          format_selects::StringFunction::Strcpy,
+                          format_selects::CStdFunction::Strcpy,
                           SrcStrArea)) {
     return;
   }
@@ -805,7 +805,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   // memory is initialized.
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Strcpy,
+                               format_selects::CStdFunction::Strcpy,
                                1, // Source is parameter 1
                                format_selects::MemoryAccess::Read,
                                SrcAddr,
@@ -815,7 +815,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   // Check if writing to Destination is OK.
   checkMemoryAccessOfParameter(*this,
                                Index,
-                               format_selects::StandardFunction::Strcpy,
+                               format_selects::CStdFunction::Strcpy,
                                0, // Destination is parameter 0
                                format_selects::MemoryAccess::Write,
                                DestAddr,
@@ -846,13 +846,13 @@ void TraceThreadListener::preCstrcspn(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strspn,
+                   format_selects::CStdFunction::Strspn,
                    0, // Parameter Index for Str1.
                    Str1);
   
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strspn,
+                   format_selects::CStdFunction::Strspn,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -907,7 +907,7 @@ void TraceThreadListener::preCstrlen(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strlen,
+                   format_selects::CStdFunction::Strlen,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -948,12 +948,12 @@ void TraceThreadListener::preCstrncmp(llvm::CallInst const *Call,
   
   CStdLibChecker Checker(*this, Index);
   
-  Checker.checkLimitedCStringRead(format_selects::StringFunction::Strncmp,
+  Checker.checkLimitedCStringRead(format_selects::CStdFunction::Strncmp,
                                   0, // Parameter Index for Str1.
                                   Str1,
                                   Num);
 
-  Checker.checkLimitedCStringRead(format_selects::StringFunction::Strncmp,
+  Checker.checkLimitedCStringRead(format_selects::CStdFunction::Strncmp,
                                   1, // Parameter Index for Str2.
                                   Str2,
                                   Num);
@@ -976,10 +976,10 @@ void TraceThreadListener::preCstrncpy(llvm::CallInst const *Call,
   MemoryArea DestArea (Destination, Size);
   MemoryArea SrcArea (Source, Size);
   
-  checkMemoryOverlap<format_selects::MemCopyFunction::Strncpy>(*this,
-                                                               Index,
-                                                               DestArea,
-                                                               SrcArea);
+  checkMemoryOverlap<format_selects::CStdFunction::Strncpy>(*this,
+                                                            Index,
+                                                            DestArea,
+                                                            SrcArea);
 }
 
 void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
@@ -1004,13 +1004,13 @@ void TraceThreadListener::preCstrpbrk(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strpbrk,
+                   format_selects::CStdFunction::Strpbrk,
                    0, // Parameter Index for Str1.
                    Str1);
   
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strpbrk,
+                   format_selects::CStdFunction::Strpbrk,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -1030,7 +1030,7 @@ void TraceThreadListener::preCstrrchr(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strrchr,
+                   format_selects::CStdFunction::Strrchr,
                    0, // Parameter Index for Str.
                    Str);
 }
@@ -1050,13 +1050,13 @@ void TraceThreadListener::preCstrspn(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strspn,
+                   format_selects::CStdFunction::Strspn,
                    0, // Parameter Index for Str1.
                    Str1);
   
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strspn,
+                   format_selects::CStdFunction::Strspn,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -1076,13 +1076,13 @@ void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
 
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strstr,
+                   format_selects::CStdFunction::Strstr,
                    0, // Parameter Index for Str1.
                    Str1);
   
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strstr,
+                   format_selects::CStdFunction::Strstr,
                    1, // Parameter Index for Str2.
                    Str2);
 }
@@ -1113,7 +1113,7 @@ void TraceThreadListener::preCstrtok(llvm::CallInst const *Call,
   
   checkCStringRead(*this,
                    Index,
-                   format_selects::StringFunction::Strtok,
+                   format_selects::CStdFunction::Strtok,
                    1, // Parameter Index for Delimiters.
                    Str);
 #endif

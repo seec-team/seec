@@ -33,7 +33,7 @@ bool checkCStringIsValid(
         uint32_t InstructionIndex,
         uintptr_t Address,
         uint64_t ParameterIndex,
-        seec::runtime_errors::format_selects::StringFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         seec::util::Maybe<MemoryArea> CStringArea
         );
 
@@ -69,7 +69,7 @@ bool checkMemoryOwnership(
 bool checkMemoryOwnershipOfParameter(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::StandardFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         uintptr_t Address,
@@ -114,7 +114,7 @@ bool checkMemoryAccess(
 bool checkMemoryAccessOfParameter(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::StandardFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         uintptr_t Address,
@@ -170,7 +170,7 @@ void checkMemoryAccess(TraceThreadListener &Listener,
 inline void checkMemoryAccessOfParameter(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::StandardFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         uintptr_t Address,
@@ -199,7 +199,7 @@ inline void checkMemoryAccessOfParameter(
 }
 
 ///
-template<seec::runtime_errors::format_selects::MemCopyFunction FuncT>
+template<seec::runtime_errors::format_selects::CStdFunction FuncT>
 void checkMemoryOverlap(TraceThreadListener &Listener,
                         uint32_t InstructionIndex,
                         MemoryArea Area1,
@@ -235,7 +235,7 @@ void checkMemoryOverlap(TraceThreadListener &Listener,
 ///
 bool checkCStringRead(TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::StringFunction Func,
+                      seec::runtime_errors::format_selects::CStdFunction Func,
                       uint64_t ParameterIndex,
                       char const *Str);
 
@@ -243,7 +243,7 @@ bool checkCStringRead(TraceThreadListener &Listener,
 bool checkLimitedCStringRead(
                       TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::StringFunction Func,
+                      seec::runtime_errors::format_selects::CStdFunction Func,
                       uint64_t ParameterIndex,
                       char const *Str,
                       std::size_t Limit);
@@ -279,7 +279,7 @@ public:
   ///
   /// \return The number of characters in the string that can be read.
   std::size_t checkLimitedCStringRead(
-                seec::runtime_errors::format_selects::StringFunction Function,
+                seec::runtime_errors::format_selects::CStdFunction Function,
                 unsigned Parameter,
                 char const *String,
                 std::size_t Limit);

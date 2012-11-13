@@ -55,7 +55,7 @@ bool checkCStringIsValid(
         uint32_t InstructionIndex,
         uintptr_t Address,
         uint64_t ParameterIndex,
-        seec::runtime_errors::format_selects::StringFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         seec::util::Maybe<MemoryArea> CStringArea
         ) {
   using namespace seec::runtime_errors;
@@ -105,7 +105,7 @@ bool checkMemoryOwnership(
 bool checkMemoryOwnershipOfParameter(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::StandardFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         uintptr_t Address,
@@ -182,7 +182,7 @@ bool checkMemoryAccess(
 bool checkMemoryAccessOfParameter(
         TraceThreadListener &Listener,
         uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::StandardFunction Function,
+        seec::runtime_errors::format_selects::CStdFunction Function,
         std::size_t ParameterIndex,
         seec::runtime_errors::format_selects::MemoryAccess Access,
         uintptr_t Address,
@@ -233,7 +233,7 @@ bool checkMemoryAccessOfParameter(
 
 bool checkCStringRead(TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::StringFunction Func,
+                      seec::runtime_errors::format_selects::CStdFunction Func,
                       uint64_t ParameterIndex,
                       char const *Str) {
   using namespace seec::runtime_errors;
@@ -284,7 +284,7 @@ bool checkCStringRead(TraceThreadListener &Listener,
 bool checkLimitedCStringRead(
                       TraceThreadListener &Listener,
                       uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::StringFunction Func,
+                      seec::runtime_errors::format_selects::CStdFunction Func,
                       uint64_t ParameterIndex,
                       char const *Str,
                       std::size_t Limit) {
@@ -341,7 +341,7 @@ MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
 }
 
 std::size_t
-CStdLibChecker::checkLimitedCStringRead(format_selects::StringFunction Function,
+CStdLibChecker::checkLimitedCStringRead(format_selects::CStdFunction Function,
                                         unsigned Parameter,
                                         char const *String,
                                         std::size_t Limit)
