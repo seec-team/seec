@@ -100,6 +100,17 @@ public:
   }
   
   /// @}
+  
+  
+  /// \name Mutators
+  /// @{
+  
+  /// \brief Get a copy of this MemoryArea with a new Length.
+  MemoryArea withLength(std::size_t Length) const {
+    return MemoryArea(start(), Length, Access);
+  }
+  
+  /// @}
 };
 
 
