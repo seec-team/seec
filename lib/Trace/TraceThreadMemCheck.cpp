@@ -227,55 +227,6 @@ bool checkMemoryAccessOfParameter(
   return false;
 }
 
-//===------------------------------------------------------------------------===
-// checkCStringRead()
-//===------------------------------------------------------------------------===
-
-bool checkCStringRead(TraceThreadListener &Listener,
-                      uint32_t InstructionIndex,
-                      seec::runtime_errors::format_selects::CStdFunction Func,
-                      uint64_t ParameterIndex,
-                      char const *Str) {
-  using namespace seec::runtime_errors;
-
-  auto StrAddr = reinterpret_cast<uintptr_t>(Str);
-
-  // Check if Str points to owned memory.
-  auto const Area = getContainingMemoryArea(Listener, StrAddr);
-  if (checkMemoryOwnership(Listener,
-                           InstructionIndex,
-                           StrAddr,
-                           1, // Read size.
-                           format_selects::MemoryAccess::Read,
-                           Area)) {
-    return true;
-  }
-
-  // Check if Str points to a valid C string.
-  auto const StrArea = getCStringInArea(Str, Area.get<0>());
-  if (checkCStringIsValid(Listener,
-                          InstructionIndex,
-                          StrAddr,
-                          ParameterIndex,
-                          Func,
-                          StrArea)) {
-    return true;
-  }
-
-  auto const StrLength = StrArea.get<0>().length();
-
-  // Check if the read from Str is OK. We already know that the size of the
-  // read is valid, from using getCStringInArea, but this will check if the
-  // memory is initialized.
-  checkMemoryAccess(Listener,
-                    InstructionIndex,
-                    StrAddr,
-                    StrLength,
-                    format_selects::MemoryAccess::Read,
-                    StrArea.get<0>());
-
-  return false;
-}
 
 //===------------------------------------------------------------------------===
 // CStdLibChecker
