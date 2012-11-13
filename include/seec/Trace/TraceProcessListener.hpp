@@ -131,6 +131,10 @@ class TraceProcessListener {
   /// Shared index for the uninstrumented Module.
   ModuleIndex &MIndex;
 
+  /// Lookup for detecting calls to C standard library functions.
+  seec::trace::detect_calls::Lookup DetectCallsLookup;
+
+
   /// Lookup GlobalVariable's run-time addresses by index.
   std::vector<uintptr_t> GlobalVariableAddresses;
 
@@ -141,14 +145,13 @@ class TraceProcessListener {
   /// Offsets of data for the initial state of GlobalVariables.
   std::vector<offset_uint> GlobalVariableInitialData;
 
-  /// Lookup for detecting calls to C standard library functions.
-  seec::trace::detect_calls::Lookup DetectCallsLookup;
 
   /// Lookup Function's run-time addresses by index.
   std::vector<uintptr_t> FunctionAddresses;
 
   /// Find Functions by their run-time addresses.
   llvm::DenseMap<uintptr_t, llvm::Function const *> FunctionLookup;
+
 
   /// Output stream for this process' data.
   std::unique_ptr<llvm::raw_ostream> DataOut;
@@ -159,9 +162,10 @@ class TraceProcessListener {
   /// Controls access to the DataOut stream.
   std::mutex DataOutMutex;
 
+
   /// Synthetic ``process time'' for this process.
-  // std::atomic_uint_fast64_t Time;
   uint64_t Time;
+
 
   /// Integer ID given to the next requesting thread.
   uint32_t NextThreadID;
@@ -196,33 +200,33 @@ class TraceProcessListener {
   mutable std::mutex DynamicMemoryAllocationsMutex;
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
   /// \param Module a copy of the original, uninstrumented Module.
   TraceProcessListener(llvm::Module &Module,
                        ModuleIndex &MIndex,
                        OutputStreamAllocator &StreamAllocator,
                        SynchronizedExit &SyncExit);
 
-  /// Destructor.
+  /// \brief Destructor.
   ~TraceProcessListener();
 
 
   /// \name Accessors
   /// @{
   
-  /// Get the shared SynchronizedExit object.
+  /// \brief Get the shared SynchronizedExit object.
   SynchronizedExit &syncExit() { return SyncExit; }
 
-  /// Get the uninstrumented Module.
+  /// \brief Get the uninstrumented Module.
   llvm::Module &module() { return Module; }
 
-  /// Get the DataLayout for this Module.
+  /// \brief Get the DataLayout for this Module.
   llvm::DataLayout &dataLayout() { return DL; }
 
-  /// Get the shared module index.
+  /// \brief Get the shared module index.
   ModuleIndex &moduleIndex() { return MIndex; }
 
-  /// Get the run-time address of a GlobalVariable.
+  /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
   uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) {
@@ -237,7 +241,7 @@ public:
     return GlobalVariableAddresses[Index];
   }
 
-  /// Get the run-time address of a Function.
+  /// \brief Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
   uintptr_t getRuntimeAddress(llvm::Function const *F) {
@@ -259,6 +263,11 @@ public:
   /// information. This method is thread safe.
   seec::util::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address, uint32_t RequestingThreadID) const;
+  
+  /// \brief Get the detect calls Lookup.
+  seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {
+    return DetectCallsLookup;
+  }
 
   /// @} (Accessors)
   
@@ -266,36 +275,23 @@ public:
   /// \name Synthetic process time
   /// @{
   
-  /// Get the current process time.
+  /// \brief Get the current process time.
   uint64_t getTime() const {
-    // return Time.load();
     return Time;
   }
   
-  /// Increment the process time and get the new value.
+  /// \brief Increment the process time and get the new value.
   uint64_t getNewTime() {
-    // return ++Time;
     return ++Time;
   }
   
   /// @}
-
-
-  /// \name Mutators
-  /// @{
-
-  /// Get the detect calls Lookup.
-  seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {
-    return DetectCallsLookup;
-  }
-
-  /// @} (Mutators)
   
   
   /// \name TraceThreadListener registration
   /// @{
   
-  /// Register a new TraceThreadListener with this process.
+  /// \brief Register a new TraceThreadListener with this process.
   /// \return a new integer ThreadID for the TraceThreadListener.
   uint32_t registerThreadListener(TraceThreadListener const *Listener) {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
@@ -306,7 +302,8 @@ public:
     return ThreadID;
   }
   
-  /// Deregister the TraceThreadListener associated with the specified ThreadID.
+  /// \brief Deregister the TraceThreadListener for ThreadID.
+  /// \param ThreadID A ThreadID associated with an active TraceThreadListener.
   void deregisterThreadListener(uint32_t ThreadID) {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
@@ -319,10 +316,10 @@ public:
   /// \name Memory state tracking
   /// @{
 
-  /// Record a block of data, and return the offset of the record.
+  /// \brief Record a block of data, and return the offset of the record.
   offset_uint recordData(char const *Data, size_t Size);
 
-  /// Lock a region of memory.
+  /// \brief Lock a region of memory.
   std::unique_lock<std::mutex> lockMemory() {
     return std::unique_lock<std::mutex>(GlobalMemoryMutex);
   }
@@ -339,14 +336,14 @@ public:
     return makeLockedObjectAccessor(TraceMemoryMutex, TraceMemory);
   }
   
-  /// Add a region of known, but unowned, memory.
+  /// \brief Add a region of known, but unowned, memory.
   void addKnownMemoryRegion(uintptr_t Address,
                             std::size_t Length,
                             MemoryPermission Access) {
     KnownMemory.insert(Address, Address + (Length - 1), Access);
   }
   
-  ///
+  /// \brief Remove the region of known memory starting at Address.
   bool removeKnownMemoryRegion(uintptr_t Address) {
     return KnownMemory.erase(Address) != 0;
   }
