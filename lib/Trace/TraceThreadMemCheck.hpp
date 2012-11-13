@@ -256,14 +256,19 @@ class CStdLibChecker {
   /// The index of the llvm::Instruction we are checking.
   uint32_t Instruction;
   
+  /// The function that we are checking.
+  seec::runtime_errors::format_selects::CStdFunction Function;
+  
 public:
   /// \brief Constructor.
   /// \param InThread The listener for the thread we are checking.
   /// \param InstructionIndex Index of the llvm::Instruction we are checking.
   CStdLibChecker(TraceThreadListener &InThread,
-                 uint32_t InstructionIndex)
+                 uint32_t InstructionIndex,
+                 seec::runtime_errors::format_selects::CStdFunction Function)
   : Thread(InThread),
-    Instruction(InstructionIndex)
+    Instruction(InstructionIndex),
+    Function(Function)
   {}
   
   /// \brief Find the limited C string referenced by String.
@@ -278,11 +283,9 @@ public:
   /// \brief Check a size-limited read from a C String.
   ///
   /// \return The number of characters in the string that can be read.
-  std::size_t checkLimitedCStringRead(
-                seec::runtime_errors::format_selects::CStdFunction Function,
-                unsigned Parameter,
-                char const *String,
-                std::size_t Limit);
+  std::size_t checkLimitedCStringRead(unsigned Parameter,
+                                      char const *String,
+                                      std::size_t Limit);
 };
 
 } // namespace trace (in seec)

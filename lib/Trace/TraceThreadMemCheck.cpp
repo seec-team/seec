@@ -341,8 +341,7 @@ MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
 }
 
 std::size_t
-CStdLibChecker::checkLimitedCStringRead(format_selects::CStdFunction Function,
-                                        unsigned Parameter,
+CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                         char const *String,
                                         std::size_t Limit)
 {

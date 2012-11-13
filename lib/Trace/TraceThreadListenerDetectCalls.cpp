@@ -942,21 +942,13 @@ void TraceThreadListener::preCstrncmp(llvm::CallInst const *Call,
                                       char const *Str1,
                                       char const *Str2,
                                       size_t Num) {
-  using namespace seec::runtime_errors;
-  
   acquireGlobalMemoryReadLock();
   
-  CStdLibChecker Checker(*this, Index);
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strncmp;
+  CStdLibChecker Checker(*this, Index, Fn);
   
-  Checker.checkLimitedCStringRead(format_selects::CStdFunction::Strncmp,
-                                  0, // Parameter Index for Str1.
-                                  Str1,
-                                  Num);
-
-  Checker.checkLimitedCStringRead(format_selects::CStdFunction::Strncmp,
-                                  1, // Parameter Index for Str2.
-                                  Str2,
-                                  Num);
+  Checker.checkLimitedCStringRead(0, Str1, Num);
+  Checker.checkLimitedCStringRead(1, Str2, Num);
 }
 
 
