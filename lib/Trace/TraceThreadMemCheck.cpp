@@ -27,31 +27,6 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 }
 
 //===------------------------------------------------------------------------===
-// checkMemoryOwnership()
-//===------------------------------------------------------------------------===
-
-bool checkMemoryOwnership(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        uintptr_t Address,
-        std::size_t Size,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        seec::util::Maybe<MemoryArea> ContainingArea) {
-  using namespace seec::runtime_errors;
-
-  if (!ContainingArea.assigned()) {
-    Listener.handleRunError(
-      createRunError<RunErrorType::MemoryUnowned>(Access, Address, Size),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
-
-    return true;
-  }
-
-  return false;
-}
-
-//===------------------------------------------------------------------------===
 // checkMemoryOwnershipOfParameter()
 //===------------------------------------------------------------------------===
 

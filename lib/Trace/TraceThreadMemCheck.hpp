@@ -22,23 +22,6 @@ namespace trace {
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
-/// \brief Raise a MemoryUnowned error if the ContainingArea is unassigned.
-///
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-/// \param Access the type of memory access that we're checking.
-/// \param ContainingArea the memory area containing Address, if any.
-/// \return true iff the memory was unowned (ContainingArea was not assigned).
-bool checkMemoryOwnership(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        uintptr_t Address,
-        std::size_t Size,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        seec::util::Maybe<MemoryArea> ContainingArea);
-
 /// \brief Raise a PassPointerToUnowned error if the ContainingArea is
 ///        unassigned.
 ///
