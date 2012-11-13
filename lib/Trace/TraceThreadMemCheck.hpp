@@ -248,6 +248,43 @@ bool checkLimitedCStringRead(
                       char const *Str,
                       std::size_t Limit);
 
+/// \brief Helps detect and report run-time errors with C stdlib usage.
+class CStdLibChecker {
+  /// The listener for the thread we are checking.
+  TraceThreadListener &Thread;
+  
+  /// The index of the llvm::Instruction we are checking.
+  uint32_t Instruction;
+  
+public:
+  /// \brief Constructor.
+  /// \param InThread The listener for the thread we are checking.
+  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
+  CStdLibChecker(TraceThreadListener &InThread,
+                 uint32_t InstructionIndex)
+  : Thread(InThread),
+    Instruction(InstructionIndex)
+  {}
+  
+  /// \brief Find the limited C string referenced by String.
+  /// If String points to a C string that fits within Area, then get the
+  /// area of that C string, including the terminating nul character. If
+  /// there is no C string in the Area, or the string is longer than
+  /// Limit, then return the area [String, String + Limit).
+  MemoryArea getLimitedCStringInArea(char const *String,
+                                     MemoryArea Area,
+                                     std::size_t Limit);
+  
+  /// \brief Check a size-limited read from a C String.
+  ///
+  /// \return The number of characters in the string that can be read.
+  std::size_t checkLimitedCStringRead(
+                seec::runtime_errors::format_selects::StringFunction Function,
+                unsigned Parameter,
+                char const *String,
+                std::size_t Limit);
+};
+
 } // namespace trace (in seec)
 
 } // namespace seec

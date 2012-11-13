@@ -5,6 +5,8 @@ namespace seec {
 namespace trace {
 
 
+using namespace seec::runtime_errors;
+
 //===------------------------------------------------------------------------===
 // getContainingMemoryArea()
 //===------------------------------------------------------------------------===
@@ -318,6 +320,56 @@ bool checkLimitedCStringRead(
                     StrArea);
 
   return false;
+}
+
+//===------------------------------------------------------------------------===
+// CStdLibChecker
+//===------------------------------------------------------------------------===
+
+MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
+                                                   MemoryArea Area,
+                                                   std::size_t Limit)
+{
+  auto const MaybeStrArea = getCStringInArea(String, Area);
+  
+  if (MaybeStrArea.assigned()) {
+    auto const Length = std::min(MaybeStrArea.get<0>().length(), Limit);
+    return MaybeStrArea.get<0>().withLength(Length);
+  }
+  
+  return MemoryArea(String, Limit);
+}
+
+std::size_t
+CStdLibChecker::checkLimitedCStringRead(format_selects::StringFunction Function,
+                                        unsigned Parameter,
+                                        char const *String,
+                                        std::size_t Limit)
+{
+  auto StrAddr = reinterpret_cast<uintptr_t>(String);
+  
+  // Check if String points to owned memory.
+  auto const Area = getContainingMemoryArea(Thread, StrAddr);
+  if (checkMemoryOwnership(Thread,
+                           Instruction,
+                           StrAddr,
+                           1, // Read size.
+                           format_selects::MemoryAccess::Read,
+                           Area))
+    return 0;
+  
+  // Find the C string that String refers to, within Limit.
+  auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
+
+  // Check if the read from Str is OK.
+  checkMemoryAccess(Thread,
+                    Instruction,
+                    StrAddr,
+                    StrArea.length(),
+                    format_selects::MemoryAccess::Read,
+                    StrArea);
+
+  return StrArea.length();
 }
 
 
