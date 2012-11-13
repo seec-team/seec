@@ -126,38 +126,22 @@ inline void checkMemoryAccessOfParameter(
                                MaybeArea.get<0>());
 }
 
-/// \brief Helps detect and report run-time errors with C stdlib usage.
-class CStdLibChecker {
+/// \brief Helps detect and report run-time errors with memory usage.
+class RuntimeErrorChecker {
+public:
   /// The listener for the thread we are checking.
   TraceThreadListener &Thread;
   
   /// The index of the llvm::Instruction we are checking.
-  uint32_t Instruction;
-  
-  /// The function that we are checking.
-  seec::util::Maybe<seec::runtime_errors::format_selects::CStdFunction>
-    Function;
-  
-public:
-  /// \brief Constructor.
-  /// \param InThread The listener for the thread we are checking.
-  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
-  CStdLibChecker(TraceThreadListener &InThread,
-                 uint32_t InstructionIndex)
-  : Thread(InThread),
-    Instruction(InstructionIndex)
-  {}
+  uint32_t const Instruction;
   
   /// \brief Constructor.
-  /// \param InThread The listener for the thread we are checking.
-  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
-  /// \param Function the function we are checking.
-  CStdLibChecker(TraceThreadListener &InThread,
-                 uint32_t InstructionIndex,
-                 seec::runtime_errors::format_selects::CStdFunction Function)
-  : Thread(InThread),
-    Instruction(InstructionIndex),
-    Function(Function)
+  /// \param ForThread The thread we are checking.
+  /// \param ForInstruction Index of the llvm::Instruction we are checking.
+  RuntimeErrorChecker(TraceThreadListener &ForThread,
+                      uint32_t ForInstruction)
+  : Thread(ForThread),
+    Instruction(ForInstruction)
   {}
   
   /// \brief Create a MemoryUnowned runtime error if Area is unassigned.
@@ -195,11 +179,6 @@ public:
                     std::size_t Size,
                     seec::runtime_errors::format_selects::MemoryAccess Access);
   
-  /// \brief Create a runtime error if two memory areas overlap.
-  ///
-  /// \return true iff the memory areas do not overlap.
-  bool checkMemoryDoesNotOverlap(MemoryArea Area1, MemoryArea Area2);
-  
   /// \brief Find the area of the C string referenced by String.
   seec::util::Maybe<MemoryArea> getCStringInArea(char const *String,
                                                  MemoryArea Area);
@@ -212,6 +191,29 @@ public:
   MemoryArea getLimitedCStringInArea(char const *String,
                                      MemoryArea Area,
                                      std::size_t Limit);
+};
+
+/// \brief Helps detect and report run-time errors with C stdlib usage.
+class CStdLibChecker : public RuntimeErrorChecker {
+public:
+  /// The function that we are checking.
+  seec::runtime_errors::format_selects::CStdFunction const Function;
+  
+  /// \brief Constructor.
+  /// \param InThread The listener for the thread we are checking.
+  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
+  /// \param Function the function we are checking.
+  CStdLibChecker(TraceThreadListener &InThread,
+                 uint32_t InstructionIndex,
+                 seec::runtime_errors::format_selects::CStdFunction Function)
+  : RuntimeErrorChecker(InThread, InstructionIndex),
+    Function(Function)
+  {}
+  
+  /// \brief Create a runtime error if two memory areas overlap.
+  ///
+  /// \return true iff the memory areas do not overlap.
+  bool checkMemoryDoesNotOverlap(MemoryArea Area1, MemoryArea Area2);
   
   /// \brief Create an InvalidCString error if Area is unassigned.
   ///

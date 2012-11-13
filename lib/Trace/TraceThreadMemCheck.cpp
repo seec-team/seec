@@ -134,10 +134,11 @@ bool checkMemoryAccessOfParameter(
 
 
 //===------------------------------------------------------------------------===
-// CStdLibChecker
+// RuntimeErrorChecker
 //===------------------------------------------------------------------------===
 
-bool CStdLibChecker::memoryExists(uintptr_t Address,
+bool
+RuntimeErrorChecker::memoryExists(uintptr_t Address,
                                   std::size_t Size,
                                   format_selects::MemoryAccess Access,
                                   seec::util::Maybe<MemoryArea> const &Area)
@@ -154,10 +155,11 @@ bool CStdLibChecker::memoryExists(uintptr_t Address,
   return false;
 }
 
-bool CStdLibChecker::checkMemoryAccess(uintptr_t Address,
-                                       std::size_t Size,
-                                       format_selects::MemoryAccess Access,
-                                       MemoryArea ContainingArea) {
+bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
+                                            std::size_t Size,
+                                            format_selects::MemoryAccess Access,
+                                            MemoryArea ContainingArea)
+{
   // Check that the owned memory area contains the entire load.
   MemoryArea AccessArea(Address, Size);
 
@@ -192,10 +194,10 @@ bool CStdLibChecker::checkMemoryAccess(uintptr_t Address,
   return true;
 }
 
-bool CStdLibChecker::checkMemoryExistsAndAccessible(
-                        uintptr_t Address,
-                        std::size_t Size,
-                        format_selects::MemoryAccess Access)
+bool RuntimeErrorChecker::checkMemoryExistsAndAccessible(
+                            uintptr_t Address,
+                            std::size_t Size,
+                            format_selects::MemoryAccess Access)
 {
   auto MaybeArea = getContainingMemoryArea(Thread, Address);
 
@@ -205,25 +207,8 @@ bool CStdLibChecker::checkMemoryExistsAndAccessible(
   return checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
-bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
-                                               MemoryArea Area2)
-{
-  auto const Overlap = Area1.intersection(Area2);
-  if (!Overlap.length())
-    return true;
-
-  Thread.handleRunError(createRunError<RunErrorType::OverlappingSourceDest>
-                                      (Function.get<0>(),
-                                       Overlap.start(),
-                                       Overlap.length()),
-                        RunErrorSeverity::Warning,
-                        Instruction);
-  
-  return false;
-}
-
 seec::util::Maybe<MemoryArea>
-CStdLibChecker::getCStringInArea(char const *String, MemoryArea Area)
+RuntimeErrorChecker::getCStringInArea(char const *String, MemoryArea Area)
 {
   auto const StrAddress = reinterpret_cast<uintptr_t>(String);
   auto const MaxLength = Area.withStart(StrAddress).length();
@@ -238,9 +223,9 @@ CStdLibChecker::getCStringInArea(char const *String, MemoryArea Area)
   return seec::util::Maybe<MemoryArea>();
 }
 
-MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
-                                                   MemoryArea Area,
-                                                   std::size_t Limit)
+MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
+                                                        MemoryArea Area,
+                                                        std::size_t Limit)
 {
   auto const MaybeStrArea = getCStringInArea(String, Area);
   
@@ -252,6 +237,28 @@ MemoryArea CStdLibChecker::getLimitedCStringInArea(char const *String,
   return MemoryArea(String, Limit);
 }
 
+
+//===------------------------------------------------------------------------===
+// RuntimeErrorChecker
+//===------------------------------------------------------------------------===
+
+bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
+                                               MemoryArea Area2)
+{
+  auto const Overlap = Area1.intersection(Area2);
+  if (!Overlap.length())
+    return true;
+
+  Thread.handleRunError(createRunError<RunErrorType::OverlappingSourceDest>
+                                      (Function,
+                                       Overlap.start(),
+                                       Overlap.length()),
+                        RunErrorSeverity::Warning,
+                        Instruction);
+  
+  return false;
+}
+
 bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
                                          unsigned Parameter,
                                          seec::util::Maybe<MemoryArea> Area)
@@ -260,7 +267,7 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
     return true;
   
   Thread.handleRunError(createRunError<RunErrorType::InvalidCString>
-                                      (Function.get<0>(),
+                                      (Function,
                                        Address,
                                        Parameter),
                         RunErrorSeverity::Fatal,
@@ -289,6 +296,7 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
   // Check if the read from Str is OK. We already know that the size of the
   // read is valid, from using getCStringInArea, but this will check if the
   // memory is initialized.
+  // TODO: Use a check that takes Parameter and Function into consideration.
   checkMemoryAccess(StrAddr,
                     StrLength,
                     format_selects::MemoryAccess::Read,
@@ -312,6 +320,7 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
 
   // Check if the read from Str is OK.
+  // TODO: Use a check that takes Parameter and Function into consideration.
   checkMemoryAccess(StrAddr,
                     StrArea.length(),
                     format_selects::MemoryAccess::Read,
