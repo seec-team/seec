@@ -27,35 +27,6 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 }
 
 //===------------------------------------------------------------------------===
-// checkMemoryOwnershipOfParameter()
-//===------------------------------------------------------------------------===
-
-bool checkMemoryOwnershipOfParameter(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        std::size_t ParameterIndex,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        uintptr_t Address,
-        std::size_t Size,
-        seec::util::Maybe<MemoryArea> ContainingArea) {
-  using namespace seec::runtime_errors;
-
-  if (!ContainingArea.assigned()) {
-    Listener.handleRunError(
-      createRunError<RunErrorType::PassPointerToUnowned>(Function,
-                                                         Address,
-                                                         ParameterIndex),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
-
-    return true;
-  }
-
-  return false;
-}
-
-//===------------------------------------------------------------------------===
 // checkMemoryAccessOfParameter()
 //===------------------------------------------------------------------------===
 
@@ -217,6 +188,90 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
 // RuntimeErrorChecker
 //===------------------------------------------------------------------------===
 
+bool
+CStdLibChecker::memoryExistsForParameter(
+                  unsigned Parameter,
+                  uintptr_t Address,
+                  std::size_t Size,
+                  format_selects::MemoryAccess Access,
+                  seec::util::Maybe<MemoryArea> const &Area)
+{
+  if (Area.assigned())
+    return true;
+  
+  Thread.handleRunError(createRunError<RunErrorType::PassPointerToUnowned>
+                                      (Function,
+                                       Address,
+                                       Parameter),
+                        RunErrorSeverity::Fatal,
+                        Instruction);
+  
+  return false;
+}
+
+bool
+CStdLibChecker::checkMemoryAccessForParameter(
+                  unsigned Parameter,
+                  uintptr_t Address,
+                  std::size_t Size,
+                  format_selects::MemoryAccess Access,
+                  MemoryArea ContainingArea)
+{
+  // Check that the owned memory area contains the entire load.
+  MemoryArea AccessArea(Address, Size);
+
+  if (!ContainingArea.contains(AccessArea)) {
+    Thread.handleRunError(
+              createRunError<RunErrorType::PassPointerToInsufficient>
+                            (Function,
+                             Address,
+                             Size,
+                             ArgObject{},
+                             ContainingArea.address(),
+                             ContainingArea.length()),
+              RunErrorSeverity::Fatal,
+              Instruction);
+    
+    return false;
+  }
+
+  // If this is a read, check that the memory is initialized.
+  if (Access == format_selects::MemoryAccess::Read) {
+    auto const &ProcListener = Thread.getProcessListener();
+    auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
+    
+    if (!MemoryState->hasKnownState(Address, Size)) {
+      Thread.handleRunError(
+                createRunError<RunErrorType::PassPointerToUninitialized>
+                              (Function, Address, Parameter),
+                RunErrorSeverity::Warning,
+                Instruction);
+      
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
+                        unsigned Parameter,
+                        uintptr_t Address,
+                        std::size_t Size,
+                        format_selects::MemoryAccess Access)
+{
+  auto MaybeArea = getContainingMemoryArea(Thread, Address);
+
+  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea))
+    return false;
+  
+  return checkMemoryAccessForParameter(Parameter,
+                                       Address,
+                                       Size,
+                                       Access,
+                                       MaybeArea.get<0>());
+}
+
 bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
                                                MemoryArea Area2)
 {
@@ -271,12 +326,12 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
   // Check if the read from Str is OK. We already know that the size of the
   // read is valid, from using getCStringInArea, but this will check if the
   // memory is initialized.
-  // TODO: Use a check that takes Parameter and Function into consideration.
-  checkMemoryAccess(StrAddr,
-                    StrLength,
-                    format_selects::MemoryAccess::Read,
-                    StrArea.get<0>());
-
+  checkMemoryAccessForParameter(Parameter,
+                                StrAddr,
+                                StrLength,
+                                format_selects::MemoryAccess::Read,
+                                StrArea.get<0>());
+  
   return StrLength;
 }
 
@@ -295,11 +350,11 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
 
   // Check if the read from Str is OK.
-  // TODO: Use a check that takes Parameter and Function into consideration.
-  checkMemoryAccess(StrAddr,
-                    StrArea.length(),
-                    format_selects::MemoryAccess::Read,
-                    StrArea);
+  checkMemoryAccessForParameter(Parameter,
+                                StrAddr,
+                                StrArea.length(),
+                                format_selects::MemoryAccess::Read,
+                                StrArea);
 
   return StrArea.length();
 }

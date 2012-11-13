@@ -22,93 +22,6 @@ namespace trace {
 seec::util::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
-/// \brief Raise a PassPointerToUnowned error if the ContainingArea is
-///        unassigned.
-///
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-/// \param Function the function that is being passed a pointer to Address.
-/// \param ParameterIndex the parameter that the pointer was passed in.
-/// \param Access the type of memory access that we're checking.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-/// \param ContainingArea the memory area containing Address, if any.
-/// \return true iff the memory was unowned (ContainingArea was not assigned).
-bool checkMemoryOwnershipOfParameter(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        std::size_t ParameterIndex,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        uintptr_t Address,
-        std::size_t Size,
-        seec::util::Maybe<MemoryArea> ContainingArea);
-
-/// \brief Check whether or not dereferencing a parameter to a standard
-///        function would be valid.
-///
-/// Checks whether the size of the ContainingArea is sufficient for the memory
-/// access. If the Access is a read, checks whether the memory is initialized.
-///
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-/// \param Function the function that is being passed a pointer to Address.
-/// \param ParameterIndex the parameter that the pointer was passed in.
-/// \param Access the type of memory access that we're checking.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-/// \param ContainingArea the memory area containing Address.
-/// \return true iff an error was detected.
-bool checkMemoryAccessOfParameter(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        std::size_t ParameterIndex,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        uintptr_t Address,
-        std::size_t Size,
-        MemoryArea ContainingArea);
-
-/// \brief Check if the pointer passed to a standard function is valid.
-///
-/// \param Listener the listener for the thread that this check is occuring in.
-/// \param InstructionIndex the index of the current llvm::Instruction.
-/// \param Function the function that is being passed a pointer to Address.
-/// \param ParameterIndex the parameter that the pointer was passed in.
-/// \param Access the type of memory access that we're checking.
-/// \param Address the start address of the memory access that we're checking.
-/// \param Size the size of the memory access that we're checking.
-inline void checkMemoryAccessOfParameter(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        std::size_t ParameterIndex,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        uintptr_t Address,
-        std::size_t Size) {
-  auto MaybeArea = getContainingMemoryArea(Listener, Address);
-  
-  if (checkMemoryOwnershipOfParameter(Listener,
-                                      InstructionIndex,
-                                      Function,
-                                      ParameterIndex,
-                                      Access,
-                                      Address,
-                                      Size,
-                                      MaybeArea)) {
-    return;
-  }
-
-  checkMemoryAccessOfParameter(Listener,
-                               InstructionIndex,
-                               Function,
-                               ParameterIndex,
-                               Access,
-                               Address,
-                               Size,
-                               MaybeArea.get<0>());
-}
-
 /// \brief Helps detect and report run-time errors with memory usage.
 class RuntimeErrorChecker {
 public:
@@ -192,6 +105,44 @@ public:
   : RuntimeErrorChecker(InThread, InstructionIndex),
     Function(Function)
   {}
+  
+  /// \brief Create a PassPointerToUnowned runtime error if Area is unassigned.
+  ///
+  /// \return true if Area is assigned (no runtime error was created).
+  bool memoryExistsForParameter(
+          unsigned Parameter,
+          uintptr_t Address,
+          std::size_t Size,
+          seec::runtime_errors::format_selects::MemoryAccess Access,
+          seec::util::Maybe<MemoryArea> const &Area);
+  
+  /// \brief Check whether or not a memory access is valid.
+  ///
+  /// Checks whether the size of the ContainingArea is sufficient for the
+  /// memory access. If the Access is a read, checks whether the memory is
+  /// initialized.
+  ///
+  /// \param Address the start address of the memory access that we're checking.
+  /// \param Size the size of the memory access that we're checking.
+  /// \param Access the type of memory access that we're checking.
+  /// \param ContainingArea the memory area containing Address.
+  ///
+  /// \return true iff there were no errors.
+  bool checkMemoryAccessForParameter(
+          unsigned Parameter,
+          uintptr_t Address,
+          std::size_t Size,
+          seec::runtime_errors::format_selects::MemoryAccess Access,
+          MemoryArea ContainingArea);
+  
+  /// \brief Check if memory is known and accessible.
+  ///
+  /// \return true iff there were no errors.
+  bool checkMemoryExistsAndAccessibleForParameter(
+          unsigned Parameter,
+          uintptr_t Address,
+          std::size_t Size,
+          seec::runtime_errors::format_selects::MemoryAccess Access);
   
   /// \brief Create a runtime error if two memory areas overlap.
   ///
