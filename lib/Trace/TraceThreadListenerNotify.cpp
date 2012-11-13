@@ -523,15 +523,15 @@ void TraceThreadListener::notifyPreDivide(
 
   // Check that the division is safe
   switch (Instruction->getOpcode()) {
-    case llvm::Instruction::BinaryOps::UDiv: // Fall-through intentional.
+    case llvm::Instruction::BinaryOps::UDiv: // [[clang::fallthrough]];
     case llvm::Instruction::BinaryOps::URem:
       checkIntegerDivision<false>(*this, Instruction, Index);
       break;
-    case llvm::Instruction::BinaryOps::SDiv: // Fall-through intentional.
+    case llvm::Instruction::BinaryOps::SDiv: // [[clang::fallthrough]];
     case llvm::Instruction::BinaryOps::SRem:
       checkIntegerDivision<true>(*this, Instruction, Index);
       break;
-    case llvm::Instruction::BinaryOps::FDiv: // Fall-through intentional.
+    case llvm::Instruction::BinaryOps::FDiv: // [[clang::fallthrough]];
     case llvm::Instruction::BinaryOps::FRem:
       checkFloatDivision(*this, Instruction, Index);
       break;
@@ -592,11 +592,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithValue>(
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset(),
-                                  Value);
+  auto Offset = EventsOut.write<EventType::InstructionWithValue>
+                               (Index,
+                                ++Time,
+                                RTValue.getRecordOffset(),
+                                Value);
 
   RTValue.set(Offset, Value);
 }
@@ -610,11 +610,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithValue>(
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset(),
-                                  Value);
+  auto Offset = EventsOut.write<EventType::InstructionWithValue>
+                               (Index,
+                                ++Time,
+                                RTValue.getRecordOffset(),
+                                Value);
 
   RTValue.set(Offset, Value);
 }
@@ -628,11 +628,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>(
-                                  Value,
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset());
+  auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>
+                               (Value,
+                                Index,
+                                ++Time,
+                                RTValue.getRecordOffset());
 
   RTValue.set(Offset, Value);
 }
@@ -646,11 +646,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>(
-                                  Value,
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset());
+  auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>
+                               (Value,
+                                Index,
+                                ++Time,
+                                RTValue.getRecordOffset());
 
   RTValue.set(Offset, Value);
 }
@@ -664,11 +664,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithValue>(
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset(),
-                                  RuntimeValueRecord(Value));
+  auto Offset = EventsOut.write<EventType::InstructionWithValue>
+                               (Index,
+                                ++Time,
+                                RTValue.getRecordOffset(),
+                                RuntimeValueRecord(Value));
 
   RTValue.set(Offset, Value);
 }
@@ -682,11 +682,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
-  auto Offset = EventsOut.write<EventType::InstructionWithValue>(
-                                  Index,
-                                  ++Time,
-                                  RTValue.getRecordOffset(),
-                                  RuntimeValueRecord(Value));
+  auto Offset = EventsOut.write<EventType::InstructionWithValue>
+                               (Index,
+                                ++Time,
+                                RTValue.getRecordOffset(),
+                                RuntimeValueRecord(Value));
 
   RTValue.set(Offset, Value);
 }
