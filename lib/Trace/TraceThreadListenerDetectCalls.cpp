@@ -65,22 +65,17 @@ void TraceThreadListener::preCatol(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
-// strtod
+// atoll
 //===------------------------------------------------------------------------===
 
-void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
-                                     uint32_t Index,
-                                     char const *Str,
-                                     char **EndPtr) {
+void TraceThreadListener::preCatoll(llvm::CallInst const *Call,
+                                    uint32_t Index,
+                                    char const *Str) {
   acquireGlobalMemoryReadLock();
-  
-  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtod;
+
+  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Atol;
   CStdLibChecker Checker(*this, Index, Fn);
   Checker.checkCStringRead(0, Str);
-  
-  if (EndPtr) {
-    // TODO: Check if EndPtr is valid.
-  }
 }
 
 
@@ -93,14 +88,47 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
                                      char const *Str,
                                      char **EndPtr,
                                      int Base) {
+  using namespace seec::runtime_errors::format_selects;
+  
   acquireGlobalMemoryReadLock();
   
-  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtol;
-  CStdLibChecker Checker(*this, Index, Fn);
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtol);
   Checker.checkCStringRead(0, Str);
   
   if (EndPtr) {
-    // TODO: Check if EndPtr is valid.
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtoll
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtoll(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      char **EndPtr,
+                                      int Base) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtol);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
   }
 }
 
@@ -114,14 +142,177 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
                                       char const *Str,
                                       char **EndPtr,
                                       int Base) {
+  using namespace seec::runtime_errors::format_selects;
+  
   acquireGlobalMemoryReadLock();
   
-  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strtoul;
-  CStdLibChecker Checker(*this, Index, Fn);
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtoul);
   Checker.checkCStringRead(0, Str);
   
   if (EndPtr) {
-    // TODO: Check if EndPtr is valid.
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtoull
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtoull(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str,
+                                       char **EndPtr,
+                                       int Base) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtoul);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtof
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtof(llvm::CallInst const *Call,
+                                     uint32_t Index,
+                                     char const *Str,
+                                     char **EndPtr) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtod
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
+                                     uint32_t Index,
+                                     char const *Str,
+                                     char **EndPtr) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtold
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtold(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      char **EndPtr) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtoimax
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtoimax(llvm::CallInst const *Call,
+                                        uint32_t Index,
+                                        char const *Str,
+                                        char **EndPtr) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// strtoumax
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCstrtoumax(llvm::CallInst const *Call,
+                                        uint32_t Index,
+                                        char const *Str,
+                                        char **EndPtr) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
+  Checker.checkCStringRead(0, Str);
+  
+  if (EndPtr) {
+    // Check if we can write to *EndPtr.
+    auto const End = reinterpret_cast<uintptr_t>(EndPtr);
+    Checker.checkMemoryExistsAndAccessibleForParameter(1,
+                                                       End,
+                                                       sizeof(char *),
+                                                       MemoryAccess::Write);
   }
 }
 

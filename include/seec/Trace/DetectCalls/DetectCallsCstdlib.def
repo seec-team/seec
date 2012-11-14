@@ -4,33 +4,66 @@
 //
 //===----------------------------------------------------------------------===//
 
-// String functions
+// Conversions to numeric formats.
 DETECT_CALL(C, atof,
   DCQ(char const *str;),
   DCQ(, str))
+
 DETECT_CALL(C, atoi,
   DCQ(char const *str;),
   DCQ(, str))
 DETECT_CALL(C, atol,
   DCQ(char const *str;),
   DCQ(, str))
-DETECT_CALL(C, strtod,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+DETECT_CALL(C, atoll,
+  DCQ(char const *str;),
+  DCQ(, str))
+
 DETECT_CALL(C, strtol,
   DCQ(char const *str; char **endptr; int base;),
   DCQ(, str, endptr, base))
+DETECT_CALL(C, strtoll,
+  DCQ(char const *str; char **endptr; int base;),
+  DCQ(, str, endptr, base))
+
 DETECT_CALL(C, strtoul,
   DCQ(char const *str; char **endptr; int base;),
   DCQ(, str, endptr, base))
+DETECT_CALL(C, strtoull,
+  DCQ(char const *str; char **endptr; int base;),
+  DCQ(, str, endptr, base))
+
+DETECT_CALL(C, strtof,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
+DETECT_CALL(C, strtod,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
+DETECT_CALL(C, strtold,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
+
+DETECT_CALL(C, strtoimax,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
+DETECT_CALL(C, strtoumax,
+  DCQ(char const *str; char **endptr;),
+  DCQ(, str, endptr))
 
 DETECT_CALL_GROUP(C, stdlib_h_string,
   DETECT_CALL_PREFIXIFY(C, atof),
   DETECT_CALL_PREFIXIFY(C, atoi),
   DETECT_CALL_PREFIXIFY(C, atol),
-  DETECT_CALL_PREFIXIFY(C, strtod),
+  DETECT_CALL_PREFIXIFY(C, atoll),
   DETECT_CALL_PREFIXIFY(C, strtol),
-  DETECT_CALL_PREFIXIFY(C, strtoul)
+  DETECT_CALL_PREFIXIFY(C, strtoll),
+  DETECT_CALL_PREFIXIFY(C, strtoul),
+  DETECT_CALL_PREFIXIFY(C, strtoull),
+  DETECT_CALL_PREFIXIFY(C, strtof),
+  DETECT_CALL_PREFIXIFY(C, strtod),
+  DETECT_CALL_PREFIXIFY(C, strtold),
+  DETECT_CALL_PREFIXIFY(C, strtoimax),
+  DETECT_CALL_PREFIXIFY(C, strtoumax)
   )
 
 // Memory functions

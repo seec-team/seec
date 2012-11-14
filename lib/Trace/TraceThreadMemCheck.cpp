@@ -26,58 +26,6 @@ getContainingMemoryArea(TraceThreadListener &Listener,
   return MaybeArea;
 }
 
-//===------------------------------------------------------------------------===
-// checkMemoryAccessOfParameter()
-//===------------------------------------------------------------------------===
-
-bool checkMemoryAccessOfParameter(
-        TraceThreadListener &Listener,
-        uint32_t InstructionIndex,
-        seec::runtime_errors::format_selects::CStdFunction Function,
-        std::size_t ParameterIndex,
-        seec::runtime_errors::format_selects::MemoryAccess Access,
-        uintptr_t Address,
-        std::size_t Size,
-        MemoryArea ContainingArea) {
-  using namespace seec::runtime_errors;
-
-  auto const &ProcListener = Listener.getProcessListener();
-
-  // Check that the owned memory area contains the entire access size.
-  MemoryArea AccessArea(Address, Size);
-
-  if (!ContainingArea.contains(AccessArea)) {
-    Listener.handleRunError(
-      createRunError<RunErrorType::PassPointerToInsufficient>
-                    (Function,
-                     Address,
-                     Size,
-                     ArgObject{},
-                     ContainingArea.address(),
-                     ContainingArea.length()),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
-
-    return true;
-  }
-
-  // If this is a read, check that the memory is initialized.
-  if (Access == format_selects::MemoryAccess::Read) {
-    auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
-    if (!MemoryState->hasKnownState(Address, Size)) {
-      Listener.handleRunError(
-        createRunError<RunErrorType::PassPointerToUninitialized>
-                      (Function, Address, ParameterIndex),
-        RunErrorSeverity::Warning,
-        InstructionIndex);
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
 
 //===------------------------------------------------------------------------===
 // RuntimeErrorChecker
@@ -185,7 +133,7 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
 
 
 //===------------------------------------------------------------------------===
-// RuntimeErrorChecker
+// CStdLibChecker
 //===------------------------------------------------------------------------===
 
 bool

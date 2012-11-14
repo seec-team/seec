@@ -497,18 +497,31 @@ public:
   void preCatof(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   
   void preCatoi(llvm::CallInst const *Call, uint32_t Index, char const *Str);
-  
   void preCatol(llvm::CallInst const *Call, uint32_t Index, char const *Str);
-  
-  void preCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  char **EndPtr);
+  void preCatoll(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   
   void preCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                   char **EndPtr, int Base);
+  void preCstrtoll(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr, int Base);
 
   void preCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                    char **EndPtr, int Base);
-  
+  void preCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                    char **EndPtr, int Base);
+
+  void preCstrtof(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  char **EndPtr);  
+  void preCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  char **EndPtr);
+  void preCstrtold(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr);
+
+  void preCstrtoimax(llvm::CallInst const *Call, uint32_t Index,
+                     char const *Str, char **EndPtr);
+  void preCstrtoumax(llvm::CallInst const *Call, uint32_t Index,
+                     char const *Str, char **EndPtr);
+
   /// @}
   
   
