@@ -90,7 +90,7 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
                                      int Base) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtol);
   Checker.checkCStringRead(0, Str);
@@ -102,6 +102,16 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtol(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      char **EndPtr,
+                                      int Base) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -117,7 +127,7 @@ void TraceThreadListener::preCstrtoll(llvm::CallInst const *Call,
                                       int Base) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtol);
   Checker.checkCStringRead(0, Str);
@@ -129,6 +139,16 @@ void TraceThreadListener::preCstrtoll(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtoll(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str,
+                                       char **EndPtr,
+                                       int Base) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -144,7 +164,7 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
                                       int Base) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtoul);
   Checker.checkCStringRead(0, Str);
@@ -156,6 +176,16 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtoul(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str,
+                                       char **EndPtr,
+                                       int Base) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -171,7 +201,7 @@ void TraceThreadListener::preCstrtoull(llvm::CallInst const *Call,
                                        int Base) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtoul);
   Checker.checkCStringRead(0, Str);
@@ -186,6 +216,16 @@ void TraceThreadListener::preCstrtoull(llvm::CallInst const *Call,
   }
 }
 
+void TraceThreadListener::postCstrtoull(llvm::CallInst const *Call,
+                                        uint32_t Index,
+                                        char const *Str,
+                                        char **EndPtr,
+                                        int Base) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
+  }
+}
+
 
 //===------------------------------------------------------------------------===
 // strtof
@@ -197,7 +237,7 @@ void TraceThreadListener::preCstrtof(llvm::CallInst const *Call,
                                      char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
   Checker.checkCStringRead(0, Str);
@@ -209,6 +249,15 @@ void TraceThreadListener::preCstrtof(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtof(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      char **EndPtr) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -223,7 +272,7 @@ void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
                                      char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
   Checker.checkCStringRead(0, Str);
@@ -235,6 +284,15 @@ void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtod(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      char **EndPtr) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -249,7 +307,7 @@ void TraceThreadListener::preCstrtold(llvm::CallInst const *Call,
                                       char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
   Checker.checkCStringRead(0, Str);
@@ -261,6 +319,15 @@ void TraceThreadListener::preCstrtold(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtold(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str,
+                                       char **EndPtr) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 
@@ -275,7 +342,7 @@ void TraceThreadListener::preCstrtoimax(llvm::CallInst const *Call,
                                         char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
   Checker.checkCStringRead(0, Str);
@@ -290,6 +357,15 @@ void TraceThreadListener::preCstrtoimax(llvm::CallInst const *Call,
   }
 }
 
+void TraceThreadListener::postCstrtoimax(llvm::CallInst const *Call,
+                                         uint32_t Index,
+                                         char const *Str,
+                                         char **EndPtr) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
+  }
+}
+
 
 //===------------------------------------------------------------------------===
 // strtoumax
@@ -301,7 +377,7 @@ void TraceThreadListener::preCstrtoumax(llvm::CallInst const *Call,
                                         char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryReadLock();
+  acquireGlobalMemoryWriteLock();
   
   CStdLibChecker Checker(*this, Index, CStdFunction::Strtod);
   Checker.checkCStringRead(0, Str);
@@ -313,6 +389,15 @@ void TraceThreadListener::preCstrtoumax(llvm::CallInst const *Call,
                                                        End,
                                                        sizeof(char *),
                                                        MemoryAccess::Write);
+  }
+}
+
+void TraceThreadListener::postCstrtoumax(llvm::CallInst const *Call,
+                                         uint32_t Index,
+                                         char const *Str,
+                                         char **EndPtr) {
+  if (EndPtr) {
+    recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
 

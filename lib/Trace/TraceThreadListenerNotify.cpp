@@ -254,6 +254,15 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
 
   detectPostCalls<TraceThreadListener,
                   // stdlib.h
+                  Call::Cstrtol,
+                  Call::Cstrtoll,
+                  Call::Cstrtoul,
+                  Call::Cstrtoull,
+                  Call::Cstrtof,
+                  Call::Cstrtod,
+                  Call::Cstrtold,
+                  Call::Cstrtoimax,
+                  Call::Cstrtoumax,
                   Call::Cstdlib_h_memory,
                   Call::Cgetenv,
                   // string.h

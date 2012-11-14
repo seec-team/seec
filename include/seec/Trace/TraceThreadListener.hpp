@@ -500,27 +500,59 @@ public:
   void preCatol(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   void preCatoll(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   
+  // strtol
   void preCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                   char **EndPtr, int Base);
+  void postCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr, int Base);
+  
+  // strtoll
   void preCstrtoll(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                    char **EndPtr, int Base);
-
-  void preCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr, int Base);
-  void preCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+  void postCstrtoll(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                     char **EndPtr, int Base);
 
+  // strtoul
+  void preCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr, int Base);
+  void postCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                    char **EndPtr, int Base);
+  
+  // strtoull
+  void preCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                    char **EndPtr, int Base);
+  void postCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                     char **EndPtr, int Base);
+
+  // strtof
   void preCstrtof(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  char **EndPtr);  
+                  char **EndPtr);
+  void postCstrtof(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr);
+  
+  // strtod
   void preCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                   char **EndPtr);
+  void postCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                   char **EndPtr);
+  
+  // strtold
   void preCstrtold(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                    char **EndPtr);
+  void postCstrtold(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                    char **EndPtr);
 
+  // strtoimax
   void preCstrtoimax(llvm::CallInst const *Call, uint32_t Index,
                      char const *Str, char **EndPtr);
+  void postCstrtoimax(llvm::CallInst const *Call, uint32_t Index,
+                      char const *Str, char **EndPtr);
+  
+  // strtoumax
   void preCstrtoumax(llvm::CallInst const *Call, uint32_t Index,
                      char const *Str, char **EndPtr);
+  void postCstrtoumax(llvm::CallInst const *Call, uint32_t Index,
+                      char const *Str, char **EndPtr);
 
   /// @}
   
