@@ -511,7 +511,8 @@ void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
 
   auto AddressInt = reinterpret_cast<uintptr_t>(Address);
 
-  if (!ProcessListener.isCurrentDynamicMemoryAllocation(AddressInt)) {
+  if (Address
+      && !ProcessListener.isCurrentDynamicMemoryAllocation(AddressInt)) {
     using namespace seec::runtime_errors;
 
     handleRunError(
@@ -556,9 +557,9 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
           // Malloc new address.
           recordMalloc(NewAddress, Size);
 
-          // TODO: Change to memcpy when implemented.
-          recordUntypedState(reinterpret_cast<char const *>(NewAddress), Size);
-
+          // Record the state that was copied to the new address.
+          recordMemmove(OldAddress, NewAddress, Size);
+          
           // Free previous address and clear the memory.
           recordFreeAndClear(OldAddress);
         }
