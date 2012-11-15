@@ -6,6 +6,18 @@ namespace seec {
 
 namespace runtime_errors {
 
+char const *describe(ArgType Type) {
+  switch(Type) {
+    case ArgType::None: return "None";
+#define SEEC_RUNERR_ARG(TYPE) \
+    case ArgType::TYPE: return #TYPE;
+#include "seec/RuntimeErrors/ArgumentTypes.def"
+  }
+  
+  llvm_unreachable("Unknown type");
+  return nullptr;
+}
+
 Arg::~Arg() {}
 
 std::unique_ptr<Arg> Arg::deserialize(uint8_t Type, uint64_t Data) {

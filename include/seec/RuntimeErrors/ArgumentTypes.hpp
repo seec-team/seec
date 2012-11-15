@@ -21,6 +21,8 @@ enum class ArgType : uint8_t {
 #include "seec/RuntimeErrors/ArgumentTypes.def"
 };
 
+char const *describe(ArgType Type);
+
 /// \brief Base class for all runtime error arguments.
 ///
 /// This class can not be constructed directly, but holds functionality common
