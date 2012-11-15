@@ -962,17 +962,17 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue.assigned() && "Expected assigned RTValue.");
   
-  auto Address64 = RTValue.getUInt64();
-  auto Str = reinterpret_cast<char const *>(static_cast<uintptr_t>(Address64));
+  auto Address = RTValue.getUIntPtr();
+  auto Str = reinterpret_cast<char const *>(Address);
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   
   // Remove knowledge of the existing strerror string (if any).
-  ProcessListener.removeKnownMemoryRegion(Address64);
+  ProcessListener.removeKnownMemoryRegion(Address);
   
   // TODO: Delete any existing memory states at this address.
   
   // Set knowledge of the new string area.
-  ProcessListener.addKnownMemoryRegion(Address64,
+  ProcessListener.addKnownMemoryRegion(Address,
                                        Length,
                                        MemoryPermission::ReadOnly);
   
