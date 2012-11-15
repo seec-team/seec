@@ -275,7 +275,8 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
                   Call::Cstrerror,
                   Call::Cstrncat,
                   Call::Cstrncpy,
-                  Call::Cstrtok>
+                  Call::Cstrtok,
+                  Call::Cstrxfrm>
                   (Lookup, *this, CallInst, Index, Address);
 }
 

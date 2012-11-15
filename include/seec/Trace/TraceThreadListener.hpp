@@ -694,6 +694,10 @@ public:
 
   void preCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
                    char *Destination, char const *Source, size_t Num);
+  
+  void postCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
+                    char *Destination, char const *Source, size_t Num);
+  
   /// @}
 };
 

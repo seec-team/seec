@@ -1218,8 +1218,35 @@ void TraceThreadListener::preCstrxfrm(llvm::CallInst const *Call,
                                       char *Destination,
                                       char const *Source,
                                       size_t Num) {
-  llvm::errs() << "\n\nstrxfrm is not supported\n";
-  exit(EXIT_FAILURE);
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strxfrm);
+  
+  if (Destination) {
+    Checker.checkLimitedCStringRead(1, Source, Num);
+    
+    auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
+    Checker.checkMemoryExistsAndAccessibleForParameter(0,
+                                                       DestAddr,
+                                                       Num,
+                                                       MemoryAccess::Write);
+  }
+  else {
+    Checker.checkCStringRead(1, Source);
+  }
+}
+
+void TraceThreadListener::postCstrxfrm(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char *Destination,
+                                       char const *Source,
+                                       size_t Num) {
+  if (Destination) {
+    auto const Length = std::strlen(Destination + 1);
+    recordUntypedState(Destination, Length);
+  }
 }
 
 
