@@ -325,6 +325,23 @@ public:
 };
 
 
+template<>
+class MemberFormatter<EventType::RuntimeErrorArgument>
+: public MemberFormatterBase<EventType::RuntimeErrorArgument> {
+public:
+  MemberFormatter(EventPrinter &Out)
+  : MemberFormatterBase<EventType::RuntimeErrorArgument>(Out)
+  {}
+  
+  void printArgumentType(
+          EventRecord<EventType::RuntimeErrorArgument> const &Event) {
+    Out.printMember("ArgumentType",
+                    describe(static_cast<seec::runtime_errors::ArgType>
+                                        (Event.getArgumentType())));
+  }
+};
+
+
 //------------------------------------------------------------------------------
 // Default printing for events.
 //------------------------------------------------------------------------------
