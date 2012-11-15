@@ -1005,9 +1005,28 @@ void TraceThreadListener::preCstrncat(llvm::CallInst const *Call,
                                       char *Destination,
                                       char const *Source,
                                       size_t Size) {
+  using namespace seec::runtime_errors::format_selects;
+  
   acquireGlobalMemoryWriteLock();
   
-  // TODO.
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strncat);
+  
+  // Check that Source is readable for at most Size characters.
+  auto const SrcLength = Checker.checkLimitedCStringRead(1, Source, Size);
+  if (!SrcLength)
+    return;
+  
+  // Check that Destination is a valid C string and find its length.
+  auto const DestLength = Checker.checkCStringRead(0, Destination);
+  if (!DestLength)
+    return;
+
+  // Check if it is OK to copy Source to the end of the Destination.
+  auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  Checker.checkMemoryExistsAndAccessibleForParameter(0,
+                                                     DestAddr + DestLength - 1,
+                                                     SrcLength,
+                                                     MemoryAccess::Write);
 }
 
 void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
@@ -1015,7 +1034,15 @@ void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
-  // TODO.
+  auto const SrcStrNullChar = std::memchr(Source, '\0', Size);
+  auto const SrcStrEnd = SrcStrNullChar
+                       ? static_cast<char const *>(SrcStrNullChar)
+                       : (Source + Size);
+  auto const SrcStrLength = (SrcStrEnd - Source) + 1;
+  // Memory has been locked since the pre, so strlen should be safe.
+  auto const DestStrLength = std::strlen(Destination) + 1;
+  auto const UnchangedChars = DestStrLength - SrcStrLength;
+  recordUntypedState(Destination + UnchangedChars, SrcStrLength);
 }
 
 
