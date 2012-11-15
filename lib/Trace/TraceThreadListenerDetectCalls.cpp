@@ -1073,13 +1073,25 @@ void TraceThreadListener::preCstrncpy(llvm::CallInst const *Call,
                                       char *Destination,
                                       char const *Source,
                                       size_t Size) {
+  using namespace seec::runtime_errors::format_selects;
+  
   acquireGlobalMemoryWriteLock();
   
-  auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strncpy;
-  CStdLibChecker Checker(*this, Index, Fn);
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strncpy);
   
+  // Check that we can write to the destination.
+  auto const DestAddr = reinterpret_cast<uintptr_t>(Destination);
+  Checker.checkMemoryExistsAndAccessibleForParameter(0,
+                                                     DestAddr,
+                                                     Size,
+                                                     MemoryAccess::Write);
+  
+  // Check that we can read from the source.
+  auto const SrcSize = Checker.checkLimitedCStringRead(1, Source, Size);
+  
+  // Check that the destination and source do not overlap.
   Checker.checkMemoryDoesNotOverlap(MemoryArea(Destination, Size),
-                                    MemoryArea(Source, Size));
+                                    MemoryArea(Source, SrcSize));
 }
 
 void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
@@ -1087,7 +1099,7 @@ void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
-  // TODO.
+  recordUntypedState(Destination, Size);
 }
 
 
