@@ -720,9 +720,14 @@ void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
                                       void *Destination,
                                       void const *Source,
                                       size_t Size) {
-  recordMemmove(reinterpret_cast<uintptr_t>(Source),
-                reinterpret_cast<uintptr_t>(Destination),
-                Size);
+  if (MemoryArea(Destination, Size).intersects(MemoryArea(Source, Size))) {
+    recordUntypedState(reinterpret_cast<char const *>(Destination), Size);
+  }
+  else {
+    recordMemmove(reinterpret_cast<uintptr_t>(Source),
+                  reinterpret_cast<uintptr_t>(Destination),
+                  Size);
+  }
 }
 
 
