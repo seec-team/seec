@@ -20,6 +20,45 @@ namespace trace {
 
 
 //===------------------------------------------------------------------------===
+// fopen
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCfopen(llvm::CallInst const *Call,
+                                    uint32_t Index,
+                                    char const *Filename,
+                                    char const *Mode) {
+}
+
+void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
+                                     uint32_t Index,
+                                     char const *Filename,
+                                     char const *Mode) {
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue.assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue.getUIntPtr();
+  
+  ProcessListener.getStreams().streamOpened(reinterpret_cast<FILE *>(Address));
+}
+
+
+//===------------------------------------------------------------------------===
+// fclose
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
+                                     uint32_t Index,
+                                     FILE *Stream) {
+  ProcessListener.getStreams().streamWillClose(Stream);
+}
+
+void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      FILE *Stream) {
+  ProcessListener.getStreams().streamClosed(Stream);
+}
+
+
+//===------------------------------------------------------------------------===
 // atof
 //===------------------------------------------------------------------------===
 
@@ -419,17 +458,14 @@ void TraceThreadListener::postCcalloc(llvm::CallInst const *Call,
                                       size_t Num,
                                       size_t Size) {
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-
   assert(RTValue.assigned() && "Expected assigned RTValue.");
-
-  auto Address = RTValue.getUInt64();
+  auto Address = RTValue.getUIntPtr();
 
   if (Address) {
     recordMalloc(Address, Num * Size);
 
     // Record memset 0 because calloc will clear the memory.
-    auto AddressUIntPtr = static_cast<uintptr_t>(Address);
-    recordUntypedState(reinterpret_cast<char const *>(AddressUIntPtr),
+    recordUntypedState(reinterpret_cast<char const *>(Address),
                        Num * Size);
   }
 
@@ -487,10 +523,8 @@ void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       size_t Size) {
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-
   assert(RTValue.assigned() && "Expected assigned RTValue.");
-
-  auto Address = RTValue.getUInt64();
+  auto Address = RTValue.getUIntPtr();
 
   if (Address) {
     recordMalloc(Address, Size);
@@ -529,10 +563,8 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
                                        void *Address,
                                        size_t Size) {
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-
   assert(RTValue.assigned() && "Expected assigned RTValue.");
-
-  auto NewAddress = RTValue.getUInt64();
+  auto NewAddress = RTValue.getUIntPtr();
 
   auto OldAddress = reinterpret_cast<uintptr_t>(Address);
 
@@ -598,20 +630,20 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue.assigned() && "Expected assigned RTValue.");
   
-  auto Address64 = RTValue.getUInt64();
-  if (!Address64)
+  auto Address = RTValue.getUIntPtr();
+  if (!Address)
     return;
   
-  auto Str = reinterpret_cast<char const *>(static_cast<uintptr_t>(Address64));
+  auto Str = reinterpret_cast<char const *>(Address);
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   
   // Remove knowledge of the existing getenv string at this position (if any).
-  ProcessListener.removeKnownMemoryRegion(Address64);
+  ProcessListener.removeKnownMemoryRegion(Address);
   
   // TODO: Delete any existing memory states at this address.
   
   // Set knowledge of the new string area.
-  ProcessListener.addKnownMemoryRegion(Address64,
+  ProcessListener.addKnownMemoryRegion(Address,
                                        Length,
                                        MemoryPermission::ReadOnly);
   

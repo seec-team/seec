@@ -211,6 +211,9 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   auto const &Lookup = ProcessListener.getDetectCallsLookup();
 
   detectPreCalls<TraceThreadListener,
+                 // stdio.h
+                 Call::Cfopen,
+                 Call::Cfclose,
                  // stdlib.h
                  Call::Cstdlib_h_string,
                  Call::Cstdlib_h_memory,
@@ -253,6 +256,9 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
   auto const &Lookup = ProcessListener.getDetectCallsLookup();
 
   detectPostCalls<TraceThreadListener,
+                  // stdio.h
+                  Call::Cfopen,
+                  Call::Cfclose,
                   // stdlib.h
                   Call::Cstrtol,
                   Call::Cstrtoll,

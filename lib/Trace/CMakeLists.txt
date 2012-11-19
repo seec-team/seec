@@ -50,6 +50,7 @@ set(EXECUTION_TRACER_SOURCES
   TracedFunction.cpp
   TraceMemory.cpp
   TraceProcessListener.cpp
+  TraceStreams.cpp
   TraceThreadListener.cpp
   TraceThreadListenerDetectCalls.cpp
   TraceThreadListenerNotify.cpp

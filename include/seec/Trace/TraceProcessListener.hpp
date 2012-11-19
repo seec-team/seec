@@ -274,6 +274,12 @@ public:
   seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {
     return DetectCallsLookup;
   }
+  
+  /// \brief Get the streams information.
+  TraceStreams &getStreams() { return Streams; }
+  
+  /// \brief Get the streams information.
+  TraceStreams const &getStreams() const { return Streams; }
 
   /// @} (Accessors)
   

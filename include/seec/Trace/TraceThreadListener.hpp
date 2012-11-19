@@ -491,6 +491,22 @@ public:
   /// @} (Thread Listener Notifications)
 
 
+  /// \name Detect Calls - stdio.h file access
+  /// @{
+  
+  // fopen
+  void preCfopen(llvm::CallInst const *Call, uint32_t Index,
+                 char const *Filename, char const *Mode);
+  void postCfopen(llvm::CallInst const *Call, uint32_t Index,
+                  char const *Filename, char const *Mode);
+  
+  // fclose
+  void preCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  void postCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  
+  /// @}
+  
+  
   /// \name Detect Calls - stdlib.h string
   /// @{
   
