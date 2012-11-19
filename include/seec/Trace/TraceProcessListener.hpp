@@ -17,6 +17,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceMemory.hpp"
 #include "seec/Trace/TraceStorage.hpp"
+#include "seec/Trace/TraceStreams.hpp"
 #include "seec/Util/LockedObjectAccessor.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ModuleIndex.hpp"
@@ -198,6 +199,11 @@ class TraceProcessListener {
 
   /// Controls internal access to DynamicMemoryAllocations.
   mutable std::mutex DynamicMemoryAllocationsMutex;
+  
+  
+  /// I/O stream information.
+  TraceStreams Streams;
+
 
 public:
   /// \brief Constructor.

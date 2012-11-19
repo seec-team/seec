@@ -40,6 +40,7 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceEventWriter.hpp
   ../../include/seec/Trace/TraceMemory.hpp
   ../../include/seec/Trace/TraceProcessListener.hpp
+  ../../include/seec/Trace/TraceStreams.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
   TraceThreadMemCheck.hpp
   )

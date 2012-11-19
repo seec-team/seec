@@ -38,7 +38,8 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   TraceMemory(),
   KnownMemory(),
   DynamicMemoryAllocations(),
-  DynamicMemoryAllocationsMutex()
+  DynamicMemoryAllocationsMutex(),
+  Streams()
 {}
 
 TraceProcessListener::~TraceProcessListener() {
