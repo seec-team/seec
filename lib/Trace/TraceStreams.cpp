@@ -33,18 +33,25 @@ namespace trace {
 
 void TraceStreams::streamOpened(FILE *stream) {
   std::lock_guard<std::mutex> Lock(StreamsMutex);
-  llvm::outs() << "\nStream opened.\n";
+  
+  Streams.insert(std::make_pair(stream, TraceStream{}));
 }
   
-bool TraceStreams::streamWillClose(FILE *stream) {
+bool TraceStreams::streamWillClose(FILE *stream) const {
   std::lock_guard<std::mutex> Lock(StreamsMutex);
-  llvm::outs() << "\nStream will close.\n";
-  return true;
+  
+  auto It = Streams.find(stream);
+  
+  return It != Streams.end();
 }
 
 void TraceStreams::streamClosed(FILE *stream) {
   std::lock_guard<std::mutex> Lock(StreamsMutex);
-  llvm::outs() << "\nStream closed.\n";
+  
+  auto It = Streams.find(stream);
+  assert(It != Streams.end());
+  
+  Streams.erase(It);
 }
 
 

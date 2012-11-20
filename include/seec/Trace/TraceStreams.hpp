@@ -69,7 +69,7 @@ class TraceStreams {
   std::map<FILE *, TraceStream> Streams;
   
   /// Control access to Streams.
-  std::mutex StreamsMutex;
+  mutable std::mutex StreamsMutex;
   
 public:
   /// \brief Default constructor.
@@ -77,13 +77,19 @@ public:
   : Streams()
   {}
   
+  /// \brief Lock this object.
+  /// This will block all writes and reads until the lock is released.
+  std::unique_lock<std::mutex> lock() const {
+    return std::unique_lock<std::mutex>(StreamsMutex);
+  }
+  
   /// \brief Notify that a stream has been opened.
   void streamOpened(FILE *stream);
   
   /// \brief Notify that a stream will be closed.
   ///
   /// \return true iff this stream exists and can be closed successfully.
-  bool streamWillClose(FILE *stream);
+  bool streamWillClose(FILE *stream) const;
   
   /// \brief Notify that a stream was closed.
   void streamClosed(FILE *stream);
