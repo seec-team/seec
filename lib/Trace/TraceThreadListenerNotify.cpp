@@ -211,43 +211,7 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   enterNotification();
   ScopeExit OnExit([=](){exitPreNotification();});
 
-  auto const &Lookup = ProcessListener.getDetectCallsLookup();
-
-  detectPreCalls<TraceThreadListener,
-                 // stdio.h
-                 Call::Cfopen,
-                 Call::Cfreopen,
-                 Call::Cfclose,
-                 Call::Cfflush,
-                 Call::Cfwide,
-                 // stdlib.h
-                 Call::Cstdlib_h_string,
-                 Call::Cstdlib_h_memory,
-                 Call::Cgetenv,
-                 Call::Csystem,
-                 // string.h
-                 Call::Cmemchr,
-                 Call::Cmemcmp,
-                 Call::Cmemcpy,
-                 Call::Cmemmove,
-                 Call::Cmemset,
-                 Call::Cstrcat,
-                 Call::Cstrchr,
-                 Call::Cstrcmp,
-                 Call::Cstrcoll,
-                 Call::Cstrcpy,
-                 Call::Cstrcspn,
-                 Call::Cstrerror,
-                 Call::Cstrlen,
-                 Call::Cstrncat,
-                 Call::Cstrncpy,
-                 Call::Cstrpbrk,
-                 Call::Cstrrchr,
-                 Call::Cstrspn,
-                 Call::Cstrstr,
-                 Call::Cstrtok,
-                 Call::Cstrxfrm>
-                 (Lookup, *this, CallInst, Index, Address);
+  detectPreCall(CallInst, Index, Address);
 }
 
 void TraceThreadListener::notifyPostCall(uint32_t Index,
@@ -258,39 +222,8 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   ScopeExit OnExit([=](){exitPostNotification();});
-
-  auto const &Lookup = ProcessListener.getDetectCallsLookup();
-
-  detectPostCalls<TraceThreadListener,
-                  // stdio.h
-                  Call::Cfopen,
-                  Call::Cfreopen,
-                  Call::Cfclose,
-                  // stdlib.h
-                  Call::Cstrtol,
-                  Call::Cstrtoll,
-                  Call::Cstrtoul,
-                  Call::Cstrtoull,
-                  Call::Cstrtof,
-                  Call::Cstrtod,
-                  Call::Cstrtold,
-                  Call::Cstrtoimax,
-                  Call::Cstrtoumax,
-                  Call::Cstdlib_h_memory,
-                  Call::Cgetenv,
-                  // string.h
-                  Call::Cmemcmp,
-                  Call::Cmemcpy,
-                  Call::Cmemmove,
-                  Call::Cmemset,
-                  Call::Cstrcat,
-                  Call::Cstrcpy,
-                  Call::Cstrerror,
-                  Call::Cstrncat,
-                  Call::Cstrncpy,
-                  Call::Cstrtok,
-                  Call::Cstrxfrm>
-                  (Lookup, *this, CallInst, Index, Address);
+  
+  detectPostCall(CallInst, Index, Address);
 }
 
 void TraceThreadListener::notifyPreCallIntrinsic(uint32_t Index,

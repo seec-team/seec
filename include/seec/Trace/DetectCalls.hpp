@@ -28,8 +28,8 @@
 #include "llvm/Instructions.h"
 #include "llvm/Intrinsics.h"
 
-#include <cstdio> // for fpos_t, size_t
-#include <ctime> // for time_t, struct tm
+#include <cstdio> // for fpos_t, size_t, FILE *.
+#include <ctime> // for time_t, struct tm.
 
 /// SeeC's root namespace.
 namespace seec {
@@ -299,6 +299,71 @@ struct DetectAndForwardIntrinsicImpl<Pre, LT, llvm::Intrinsic::ID::INTRINSIC> {\
 /// \endcond
 
 } // namespace detect_calls
+
+
+template<class SubclassT>
+class CallDetector {
+  seec::trace::detect_calls::Lookup const &CallLookup;
+  
+public:
+  CallDetector(seec::trace::detect_calls::Lookup const &WithLookup)
+  : CallLookup(WithLookup)
+  {}
+  
+  bool detectPreCall(llvm::CallInst const *Instruction,
+                     uint32_t Index,
+                     void const *Address) {
+    return
+    seec::trace::detect_calls::detectPreCalls<SubclassT,
+                                              detect_calls::Call::Ctype_h,
+                                              detect_calls::Call::Clocale_h,
+                                              detect_calls::Call::Cmath_h,
+                                              detect_calls::Call::Csignal_h,
+                                              detect_calls::Call::Cstdio_h,
+                                              detect_calls::Call::Cstdlib_h,
+                                              detect_calls::Call::Cstring_h,
+                                              detect_calls::Call::Ctime_h>
+                                             (CallLookup,
+                                              *static_cast<SubclassT *>(this),
+                                              Instruction,
+                                              Index,
+                                              Address);
+  }
+  
+  bool detectPostCall(llvm::CallInst const *Instruction,
+                      uint32_t Index,
+                      void const *Address) {
+    return
+    seec::trace::detect_calls::detectPostCalls<SubclassT,
+                                               detect_calls::Call::Ctype_h,
+                                               detect_calls::Call::Clocale_h,
+                                               detect_calls::Call::Cmath_h,
+                                               detect_calls::Call::Csignal_h,
+                                               detect_calls::Call::Cstdio_h,
+                                               detect_calls::Call::Cstdlib_h,
+                                               detect_calls::Call::Cstring_h,
+                                               detect_calls::Call::Ctime_h>
+                                              (CallLookup,
+                                               *static_cast<SubclassT *>(this),
+                                               Instruction,
+                                               Index,
+                                               Address);
+  }
+  
+  // Define empty notification functions that will be called if SubclassT does
+  // not implement a notification function.
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+  template<typename... ArgTs>                                                  \
+  void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index,    \
+                         ArgTs &&...Args) {}                                   \
+  template<typename... ArgTs>                                                  \
+  void post##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index,   \
+                          ArgTs &&...Args) {}
+/// \cond
+#include "DetectCallsAll.def"
+/// \endcond
+};
+
 
 } // namespace trace
 

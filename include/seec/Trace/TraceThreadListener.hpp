@@ -13,6 +13,7 @@
 
 #include "seec/DSA/MemoryBlock.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
+#include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TracedFunction.hpp"
 #include "seec/Trace/TraceEventWriter.hpp"
@@ -61,7 +62,9 @@ enum class RunErrorSeverity {
 /// \brief Records thread-specific execution events.
 ///
 ///
-class TraceThreadListener {
+class TraceThreadListener
+: public seec::trace::CallDetector<TraceThreadListener>
+{
   friend class CStdLibChecker;
   
   // Don't allow copying.
@@ -294,7 +297,9 @@ public:
   /// Constructor.
   TraceThreadListener(TraceProcessListener &ProcessListener,
                       OutputStreamAllocator &StreamAllocator)
-  : ProcessListener(ProcessListener),
+  : seec::trace::CallDetector<TraceThreadListener>
+                             (ProcessListener.getDetectCallsLookup()),
+    ProcessListener(ProcessListener),
     SupportSyncExit(ProcessListener.syncExit()),
     ThreadID(ProcessListener.registerThreadListener(this)),
     TraceOut(StreamAllocator.getThreadStream(ThreadID, ThreadSegment::Trace)),
