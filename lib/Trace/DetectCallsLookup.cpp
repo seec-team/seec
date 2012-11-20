@@ -42,15 +42,6 @@ bool Lookup::Check(Call C, void const *Address) const {
   return It->second == C;
 }
 
-bool Lookup::Check(llvm::StringRef Name, void const *Address) const {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
-  if (Name.equals(#NAME)) \
-    return Check(Call::PREFIX##NAME, Address);
-#include "seec/Trace/DetectCallsAll.def"
-  
-  return false;
-}
-
 bool Lookup::Set(llvm::StringRef Name, void const *Address) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
   if (Name.equals(#NAME)) { \

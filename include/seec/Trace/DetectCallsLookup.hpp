@@ -54,12 +54,6 @@ public:
   /// \return true iff the function represented by C is located at Address.
   bool Check(Call C, void const *Address) const;
   
-  /// Check if a function is located at a certain address.
-  /// \param Name the name of the function to check for.
-  /// \param Address the address to check.
-  /// \return true iff the function located at Address is named Name.
-  bool Check(llvm::StringRef Name, void const *Address) const;
-
   /// Set the run-time location of a function, if it is detectable by
   /// DetectCall.
   /// \param Name the name of the function.
