@@ -313,41 +313,53 @@ public:
   bool detectPreCall(llvm::CallInst const *Instruction,
                      uint32_t Index,
                      void const *Address) {
-    return
-    seec::trace::detect_calls::detectPreCalls<SubclassT,
-                                              detect_calls::Call::Ctype_h,
-                                              detect_calls::Call::Clocale_h,
-                                              detect_calls::Call::Cmath_h,
-                                              detect_calls::Call::Csignal_h,
-                                              detect_calls::Call::Cstdio_h,
-                                              detect_calls::Call::Cstdlib_h,
-                                              detect_calls::Call::Cstring_h,
-                                              detect_calls::Call::Ctime_h>
-                                             (CallLookup,
-                                              *static_cast<SubclassT *>(this),
-                                              Instruction,
-                                              Index,
-                                              Address);
+    using namespace seec::trace::detect_calls;
+    
+    auto MaybeCall = CallLookup.Check(Address);
+    if (!MaybeCall.assigned())
+      return false;
+    
+    switch (MaybeCall.get<0>()) {
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+      case Call::PREFIX##NAME:                                                 \
+        return ExtractAndNotifyImpl<true, SubclassT, Call::PREFIX##NAME>       \
+                  ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
+#define DETECT_CALL_GROUP(PREFIX, GROUP, ...)                                  \
+      case Call::PREFIX##GROUP: return false;
+#include "DetectCallsAll.def"
+      
+      case Call::highest:
+        llvm_unreachable("Detected invalid Call.");
+        return false;
+    }
+    
+    return false;
   }
   
   bool detectPostCall(llvm::CallInst const *Instruction,
                       uint32_t Index,
                       void const *Address) {
-    return
-    seec::trace::detect_calls::detectPostCalls<SubclassT,
-                                               detect_calls::Call::Ctype_h,
-                                               detect_calls::Call::Clocale_h,
-                                               detect_calls::Call::Cmath_h,
-                                               detect_calls::Call::Csignal_h,
-                                               detect_calls::Call::Cstdio_h,
-                                               detect_calls::Call::Cstdlib_h,
-                                               detect_calls::Call::Cstring_h,
-                                               detect_calls::Call::Ctime_h>
-                                              (CallLookup,
-                                               *static_cast<SubclassT *>(this),
-                                               Instruction,
-                                               Index,
-                                               Address);
+    using namespace seec::trace::detect_calls;
+    
+    auto MaybeCall = CallLookup.Check(Address);
+    if (!MaybeCall.assigned())
+      return false;
+    
+    switch (MaybeCall.get<0>()) {
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+      case Call::PREFIX##NAME:                                                 \
+        return ExtractAndNotifyImpl<false, SubclassT, Call::PREFIX##NAME>      \
+                  ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
+#define DETECT_CALL_GROUP(PREFIX, GROUP, ...)                                  \
+      case Call::PREFIX##GROUP: return false;
+#include "DetectCallsAll.def"
+      
+      case Call::highest:
+        llvm_unreachable("Detected invalid Call.");
+        return false;
+    }
+    
+    return false;
   }
   
   // Define empty notification functions that will be called if SubclassT does
