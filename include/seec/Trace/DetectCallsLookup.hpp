@@ -13,6 +13,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 
+#include "seec/Util/Maybe.hpp"
+
 /// SeeC's root namespace.
 namespace seec {
 
@@ -53,6 +55,10 @@ public:
   /// \param Address the address to check.
   /// \return true iff the function represented by C is located at Address.
   bool Check(Call C, void const *Address) const;
+  
+  /// Check if there is a known function at a certain address.
+  /// \param Address the address to check.
+  seec::util::Maybe<Call> Check(void const *Address) const;
   
   /// Set the run-time location of a function, if it is detectable by
   /// DetectCall.
