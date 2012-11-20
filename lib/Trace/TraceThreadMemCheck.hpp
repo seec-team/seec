@@ -24,13 +24,14 @@ getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
 /// \brief Helps detect and report run-time errors with memory usage.
 class RuntimeErrorChecker {
-public:
+protected:
   /// The listener for the thread we are checking.
   TraceThreadListener &Thread;
   
   /// The index of the llvm::Instruction we are checking.
   uint32_t const Instruction;
   
+public:
   /// \brief Constructor.
   /// \param ForThread The thread we are checking.
   /// \param ForInstruction Index of the llvm::Instruction we are checking.
@@ -91,10 +92,11 @@ public:
 
 /// \brief Helps detect and report run-time errors with C stdlib usage.
 class CStdLibChecker : public RuntimeErrorChecker {
-public:
+protected:
   /// The function that we are checking.
   seec::runtime_errors::format_selects::CStdFunction const Function;
   
+public:
   /// \brief Constructor.
   /// \param InThread The listener for the thread we are checking.
   /// \param InstructionIndex Index of the llvm::Instruction we are checking.
@@ -172,6 +174,20 @@ public:
   std::size_t checkLimitedCStringRead(unsigned Parameter,
                                       char const *String,
                                       std::size_t Limit);
+};
+
+
+class CIOChecker : public CStdLibChecker {
+  TraceStreams const &Streams;
+
+public:
+  CIOChecker(TraceThreadListener &InThread,
+             uint32_t InstructionIndex,
+             seec::runtime_errors::format_selects::CStdFunction Function,
+             TraceStreams const &StreamsInfo)
+  : CStdLibChecker(InThread, InstructionIndex, Function),
+    Streams(StreamsInfo)
+  {}
   
   /// \brief Check if a FILE * is valid.
   ///
@@ -179,6 +195,7 @@ public:
   bool checkStreamIsValid(unsigned Parameter,
                           FILE *Stream);
 };
+
 
 } // namespace trace (in seec)
 

@@ -307,10 +307,8 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   return StrArea.length();
 }
 
-bool CStdLibChecker::checkStreamIsValid(unsigned int Parameter,
-                                        FILE *Stream) {
-  auto &Streams = Thread.getProcessListener().getStreams(Thread.StreamsLock);
-  
+bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
+                                    FILE *Stream) {
   if (!Streams.streamWillClose(Stream)) {
     Thread.handleRunError(
       seec::runtime_errors::createRunError

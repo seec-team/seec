@@ -63,8 +63,11 @@ void TraceThreadListener::preCfreopen(llvm::CallInst const *Call,
   using namespace seec::runtime_errors::format_selects;
   
   acquireGlobalMemoryReadLock();
+  acquireStreamsLock();
   
-  CStdLibChecker Checker(*this, Index, CStdFunction::fopen);
+  CIOChecker Checker(*this, Index, CStdFunction::fopen,
+                     ProcessListener.getStreams(StreamsLock));
+  
   Checker.checkCStringRead(0, Filename);
   Checker.checkCStringRead(1, Mode);
   Checker.checkStreamIsValid(2, Stream);
@@ -80,9 +83,9 @@ void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
   auto Address = RTValue.getUIntPtr();
   
   if (Address) {
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    StreamsAccessor->streamClosed(Stream);
-    StreamsAccessor->streamOpened(reinterpret_cast<FILE *>(Address));
+    auto &Streams = ProcessListener.getStreams(StreamsLock);
+    Streams.streamClosed(Stream);
+    Streams.streamOpened(reinterpret_cast<FILE *>(Address));
   }
 }
 
@@ -98,7 +101,9 @@ void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
   
   acquireStreamsLock();
   
-  CStdLibChecker Checker(*this, Index, CStdFunction::fclose);
+  CIOChecker Checker(*this, Index, CStdFunction::fclose,
+                     ProcessListener.getStreams(StreamsLock));
+  
   Checker.checkStreamIsValid(0, Stream);
 }
 
