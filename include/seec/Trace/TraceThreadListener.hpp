@@ -62,6 +62,9 @@ enum class RunErrorSeverity {
 ///
 ///
 class TraceThreadListener {
+  friend class CStdLibChecker;
+  
+  // Don't allow copying.
   TraceThreadListener(TraceThreadListener const &) = delete;
   TraceThreadListener &operator=(TraceThreadListener const &) = delete;
 
@@ -510,6 +513,12 @@ public:
                  char const *Filename, char const *Mode);
   void postCfopen(llvm::CallInst const *Call, uint32_t Index,
                   char const *Filename, char const *Mode);
+  
+  // freopen
+  void preCfreopen(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Filename, char const *Mode, FILE *Stream);
+  void postCfreopen(llvm::CallInst const *Call, uint32_t Index,
+                    char const *Filename, char const *Mode, FILE *Stream);
   
   // fclose
   void preCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);

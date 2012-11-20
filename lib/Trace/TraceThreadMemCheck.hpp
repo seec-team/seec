@@ -172,6 +172,12 @@ public:
   std::size_t checkLimitedCStringRead(unsigned Parameter,
                                       char const *String,
                                       std::size_t Limit);
+  
+  /// \brief Check if a FILE * is valid.
+  ///
+  /// \return true iff there were no errors.
+  bool checkStreamIsValid(unsigned Parameter,
+                          FILE *Stream);
 };
 
 } // namespace trace (in seec)

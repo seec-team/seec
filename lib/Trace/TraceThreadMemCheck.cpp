@@ -307,6 +307,24 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   return StrArea.length();
 }
 
+bool CStdLibChecker::checkStreamIsValid(unsigned int Parameter,
+                                        FILE *Stream) {
+  auto &Streams = Thread.getProcessListener().getStreams(Thread.StreamsLock);
+  
+  if (!Streams.streamWillClose(Stream)) {
+    Thread.handleRunError(
+      seec::runtime_errors::createRunError
+        <seec::runtime_errors::RunErrorType::PassInvalidStream>(Function,
+                                                                Parameter),
+      seec::trace::RunErrorSeverity::Fatal,
+      Instruction);
+    
+    return false;
+  }
+
+  return true;
+}
+
 
 } // namespace trace (in seec)
 
