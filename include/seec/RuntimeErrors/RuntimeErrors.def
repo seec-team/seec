@@ -123,8 +123,8 @@ SEEC_RUNERR(PassPointerToUninitialized,
 //
 SEEC_RUNERR(PassPointerToInsufficient,
   SEEC_PP_QUOTE(
-    (function,  seec::runtime_errors::ArgSelect
-                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (function,       seec::runtime_errors::ArgSelect
+                       <seec::runtime_errors::format_selects::CStdFunction>),
     (access_address, seec::runtime_errors::ArgAddress),
     (access_size,    seec::runtime_errors::ArgSize),
     (object,         seec::runtime_errors::ArgObject),
@@ -137,8 +137,8 @@ SEEC_RUNERR(PassPointerToInsufficient,
 //
 SEEC_RUNERR(PassInvalidStream,
   SEEC_PP_QUOTE(
-    (function, seec::runtime_errors::ArgSelect
-               <seec::runtime_errors::format_selects::CStdFunction>),
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
     (parameter, seec::runtime_errors::ArgParameter)
   ))
 
