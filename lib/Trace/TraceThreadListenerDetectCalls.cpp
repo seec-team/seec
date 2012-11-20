@@ -27,7 +27,6 @@ void TraceThreadListener::preCfopen(llvm::CallInst const *Call,
                                     uint32_t Index,
                                     char const *Filename,
                                     char const *Mode) {
-  acquireStreamsLock();
 }
 
 void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
@@ -38,7 +37,8 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
   assert(RTValue.assigned() && "Expected assigned RTValue.");
   auto Address = RTValue.getUIntPtr();
   
-  ProcessListener.getStreams().streamOpened(reinterpret_cast<FILE *>(Address));
+  auto StreamsAccessor = ProcessListener.getStreamsAccessor();
+  StreamsAccessor->streamOpened(reinterpret_cast<FILE *>(Address));
 }
 
 
@@ -51,13 +51,23 @@ void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
                                      FILE *Stream) {
   acquireStreamsLock();
   
-  ProcessListener.getStreams().streamWillClose(Stream);
+  auto &Streams = ProcessListener.getStreams(StreamsLock);
+  
+  if (!Streams.streamWillClose(Stream)) {
+    handleRunError(seec::runtime_errors::createRunError
+                   <seec::runtime_errors::RunErrorType::PassInvalidStream>
+                   (seec::runtime_errors::format_selects::CStdFunction::fclose,
+                    0 // Stream is parameter 0.
+                   ),
+                   seec::trace::RunErrorSeverity::Fatal);
+  }
 }
 
 void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       FILE *Stream) {
-  ProcessListener.getStreams().streamClosed(Stream);
+  auto &Streams = ProcessListener.getStreams(StreamsLock);
+  Streams.streamClosed(Stream);
 }
 
 

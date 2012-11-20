@@ -174,7 +174,7 @@ class TraceThreadListener {
   /// \brief Acquire the StreamsLock, if we don't have it already.
   void acquireStreamsLock() {
     if (!StreamsLock) {
-      StreamsLock = ProcessListener.getStreams().lock();
+      StreamsLock = ProcessListener.getStreamsLock();
     }
   }
 

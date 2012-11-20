@@ -201,6 +201,9 @@ class TraceProcessListener {
   mutable std::mutex DynamicMemoryAllocationsMutex;
   
   
+  /// I/O stream mutex.
+  mutable std::mutex StreamsMutex;
+  
   /// I/O stream information.
   TraceStreams Streams;
 
@@ -274,12 +277,6 @@ public:
   seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {
     return DetectCallsLookup;
   }
-  
-  /// \brief Get the streams information.
-  TraceStreams &getStreams() { return Streams; }
-  
-  /// \brief Get the streams information.
-  TraceStreams const &getStreams() const { return Streams; }
 
   /// @} (Accessors)
   
@@ -423,6 +420,43 @@ public:
   }
 
   /// @} (Dynamic memory allocation tracking)
+  
+  
+  /// \name I/O streams tracking.
+  /// @{
+  
+  /// \brief Lock the I/O streams.
+  std::unique_lock<std::mutex> getStreamsLock() const {
+    return std::unique_lock<std::mutex>(StreamsMutex);
+  }
+  
+  /// \brief Get an accessor to the streams information.
+  LockedObjectAccessor<TraceStreams, std::mutex>
+  getStreamsAccessor() {
+    return makeLockedObjectAccessor(StreamsMutex, Streams);
+  }
+  
+  /// \brief Get an accessor to the streams information.
+  LockedObjectAccessor<TraceStreams const, std::mutex>
+  getStreamsAccessor() const {
+    return makeLockedObjectAccessor(StreamsMutex, Streams);
+  }
+  
+  /// \brief Get the streams information.
+  TraceStreams &
+  getStreams(std::unique_lock<std::mutex> const &Lock) {
+    assert(Lock.mutex() == &StreamsMutex && Lock.owns_lock());
+    return Streams;
+  }
+  
+  /// \brief Get the streams information.
+  TraceStreams const &
+  getStreams(std::unique_lock<std::mutex> const &Lock) const {
+    assert(Lock.mutex() == &StreamsMutex && Lock.owns_lock());
+    return Streams;
+  }
+  
+  /// @} (I/O streams tracking)
 
 
   /// \name Notifications
