@@ -36,9 +36,10 @@ void TraceStreams::streamOpened(FILE *stream) {
   llvm::outs() << "\nStream opened.\n";
 }
   
-void TraceStreams::streamWillClose(FILE *stream) {
+bool TraceStreams::streamWillClose(FILE *stream) {
   std::lock_guard<std::mutex> Lock(StreamsMutex);
   llvm::outs() << "\nStream will close.\n";
+  return true;
 }
 
 void TraceStreams::streamClosed(FILE *stream) {
