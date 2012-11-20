@@ -13,7 +13,8 @@
 
 namespace seec {
 
-namespace compile_time {
+/// Compile-time utilities.
+namespace ct {
 
 /// \brief A compile-time sequence of ints.
 template<int ...>
@@ -34,7 +35,7 @@ struct generate_sequence_int<StartEnd, StartEnd, Sequence...> {
   typedef sequence_int<Sequence...> type;
 };
 
-} // namespace compile_time
+} // namespace ct
 
 } // namespace seec
 
