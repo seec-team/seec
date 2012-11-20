@@ -56,29 +56,6 @@ struct ExtractAndNotifyImpl {
   }
 };
 
-/// Implements the detectCall functionality for a single known Call.
-/// \tparam Pre Use PreCall notification. If true, the PreCall notification will
-///             be used, otherwise the PostCall notification will be used.
-/// \tparam LT The type of the listener object that will be notified if a Call
-///            is detected.
-/// \tparam C The type of call that this template instantiation will detect.
-template<bool Pre, typename LT, Call C>
-struct DetectCallImpl {
-  /// Implementation of detectCall for Call C.
-  /// \param Lk the Lookup used to find the run-time location of C.
-  /// \param Listener the object that will be notified if the call matches.
-  /// \param I the CallInst representing this call.
-  /// \param Addr the run-time location being called to.
-  /// \return true iff the call matched.
-  static bool impl(Lookup const &Lk,
-                   LT &Listener,
-                   llvm::CallInst const *I,
-                   uint32_t Index,
-                   void const *Addr) {
-    return false;
-  }
-};
-
 template<bool Pre, typename LT, llvm::Intrinsic::ID Intr>
 struct DetectAndForwardIntrinsicImpl {
   static bool impl(LT &Lstn,
@@ -88,88 +65,6 @@ struct DetectAndForwardIntrinsicImpl {
     return false;
   }
 };
-
-/// The base case for the recursion of detectCalls. No more calls to check, so
-/// return false.
-/// \tparam Pre Use PreCall notification.
-/// \tparam LT The type of the listener object that will be notified if a Call
-///            is detected.
-/// \param Lk the Lookup used to find the run-time location of calls.
-/// \param Listener the object that would be notified if a call matched.
-/// \param I the CallInst representing this call.
-/// \param Addr the run-time location being called to.
-/// \return false.
-template<bool Pre, typename LT>
-bool detectCalls(Lookup const &Lk,
-                 LT &Listener,
-                 llvm::CallInst const *I,
-                 uint32_t Index,
-                 void const *Addr) {
-  return false;
-}
-
-/// Detect a known Call and notify the PreCall or PostCall member function,
-/// depending on the value of the template parameter Pre. This variadic
-/// template takes a list of Calls to match against, e.g.:
-/// detectCalls<true, LT, Call::Cmalloc, Call::Cfree>(...);
-/// One can also use groups of Calls, e.g.:
-/// detectCalls<true, LT, Call::Cstdlib_memory>(...);
-/// \param Lk the Lookup used to find the run-time locations of Calls.
-/// \param Listener the object that will be notified if the call matches.
-/// \param I the CallInst representing this call.
-/// \param Addr the run-time location being called to.
-/// \return true iff the call was matched.
-template<bool Pre, typename LT, Call C, Call... CS>
-bool detectCalls(Lookup const &Lk,
-                 LT &Listener,
-                 llvm::CallInst const *I,
-                 uint32_t Index,
-                 void const *Addr) {
-  // Try to detect the first Call from the variadic list of Calls.
-  if (DetectCallImpl<Pre, LT, C>::impl(Lk, Listener, I, Index, Addr))
-    return true;
-
-  // Recursively try to detect all remaining Calls.
-  return detectCalls<Pre, LT, CS...>(Lk, Listener, I, Index, Addr);
-}
-
-/// Detect a known Call and notify the PreCall member function. This variadic
-/// template takes a list of Calls to match against, e.g.:
-/// detectPreCalls<LT, Call::Cmalloc, Call::Cfree>(...);
-/// One can also use groups of Calls, e.g.:
-/// detectPreCalls<LT, Call::Cstdlib_memory>(...);
-/// \param Lk the Lookup used to find the run-time locations of Calls.
-/// \param Listener the object that will be notified if the call matches.
-/// \param I the CallInst representing this call.
-/// \param Addr the run-time location being called to.
-/// \return true iff the call was matched.
-template<typename LT, Call C, Call... CS>
-bool detectPreCalls(Lookup const &Lk,
-                    LT &Listener,
-                    llvm::CallInst const *I,
-                    uint32_t Index,
-                    void const *Addr) {
-  return detectCalls<true, LT, C, CS...>(Lk, Listener, I, Index, Addr);
-}
-
-/// Detect a known Call and notify the PostCall member function. This variadic
-/// template takes a list of Calls to match against, e.g.:
-/// detectPostCalls<LT, Call::Cmalloc, Call::Cfree>(...);
-/// One can also use groups of Calls, e.g.:
-/// detectPostCalls<LT, Call::Cstdlib_memory>(...);
-/// \param Lk the Lookup used to find the run-time locations of Calls.
-/// \param Listener the object that will be notified if the call matches.
-/// \param I the CallInst representing this call.
-/// \param Addr the run-time location being called to.
-/// \return true iff the call was matched.
-template<typename LT, Call C, Call... CS>
-bool detectPostCalls(Lookup const &Lk,
-                     LT &Listener,
-                     llvm::CallInst const *I,
-                     uint32_t Index,
-                     void const *Addr) {
-  return detectCalls<false, LT, C, CS...>(Lk, Listener, I, Index, Addr);
-}
 
 template<bool Pre, typename LT>
 bool detectAndForwardIntrinsics(LT &Listener,
@@ -217,19 +112,6 @@ bool detectAndForwardPostIntrinsics(LT &Listener,
 }
 
 // X-macro to generate specializations for the known calls
-// generate call groups
-#define DETECT_CALL_PREFIXIFY(PREFIX, CALL) Call::PREFIX ## CALL
-#define DETECT_CALL_GROUP(PREFIX, GROUP, ...)                                  \
-template<bool Pre, typename LT>                                                \
-struct DetectCallImpl<Pre, LT, Call::PREFIX ## GROUP> {                        \
-  static bool impl(Lookup const &Lk,                                           \
-                   LT &L,                                                      \
-                   llvm::CallInst const *I,                                    \
-                   uint32_t Index,                                             \
-                   void const *Addr) {                                         \
-    return detectCalls<Pre, LT, __VA_ARGS__>(Lk, L, I, Index, Addr);           \
-  }                                                                            \
-};
 
 // generate pre/post call notification (NotifyImpl), argument lookup
 // (ExtractAndNotifyImpl), and detection (DetectCallImpl).
@@ -262,20 +144,6 @@ struct ExtractAndNotifyImpl<Pre, LT, Call::PREFIX ## NAME> {                   \
       return false;                                                            \
     NotifyImpl<Pre, LT, Call::PREFIX ## NAME>::impl(Listener, I, Index ARGS);  \
     return true;                                                               \
-  }                                                                            \
-};                                                                             \
-template<bool Pre, typename LT>                                                \
-struct DetectCallImpl<Pre, LT, Call::PREFIX ## NAME> {                         \
-  static bool impl(Lookup const &Lk,                                           \
-                   LT &Lstn,                                                   \
-                   llvm::CallInst const *I,                                    \
-                   uint32_t Index,                                             \
-                   void const *Addr) {                                         \
-    if (!Lk.Check(Call::PREFIX ## NAME, Addr))                                 \
-      return false;                                                            \
-    return ExtractAndNotifyImpl<Pre, LT, Call::PREFIX##NAME>::impl(Lstn,       \
-                                                                   I,          \
-                                                                   Index);     \
   }                                                                            \
 };
 
