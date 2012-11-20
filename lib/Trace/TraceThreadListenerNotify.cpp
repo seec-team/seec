@@ -35,6 +35,9 @@ void TraceThreadListener::exitPostNotification() {
   if (DynamicMemoryLock)
     DynamicMemoryLock.unlock();
   
+  if (StreamsLock)
+    StreamsLock.unlock();
+  
   clearCI();
   
   exitNotification();

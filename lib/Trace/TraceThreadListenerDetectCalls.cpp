@@ -27,6 +27,7 @@ void TraceThreadListener::preCfopen(llvm::CallInst const *Call,
                                     uint32_t Index,
                                     char const *Filename,
                                     char const *Mode) {
+  acquireStreamsLock();
 }
 
 void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
@@ -48,6 +49,8 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
 void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      FILE *Stream) {
+  acquireStreamsLock();
+  
   ProcessListener.getStreams().streamWillClose(Stream);
 }
 

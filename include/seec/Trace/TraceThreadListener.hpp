@@ -121,6 +121,9 @@ class TraceThreadListener {
 
   /// Dynamic memory lock owned by this thread.
   std::unique_lock<std::mutex> DynamicMemoryLock;
+  
+  /// I/O streams lock owned by this thread.
+  std::unique_lock<std::mutex> StreamsLock;
 
 
   /// \name Current instruction information.
@@ -167,6 +170,13 @@ class TraceThreadListener {
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
+  
+  /// \brief Acquire the StreamsLock, if we don't have it already.
+  void acquireStreamsLock() {
+    if (!StreamsLock) {
+      StreamsLock = ProcessListener.getStreams().lock();
+    }
+  }
 
   /// @} (Helper methods)
 
@@ -294,7 +304,8 @@ public:
     FunctionStackMutex(),
     ActiveFunction(nullptr),
     GlobalMemoryLock(),
-    DynamicMemoryLock()
+    DynamicMemoryLock(),
+    StreamsLock()
   {}
 
   /// Destructor.
