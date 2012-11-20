@@ -9,10 +9,3 @@ DETECT_CALL(C, setlocale,
   DCQ(, category, locale))
 
 DETECT_CALL(C, localeconv, DCQ(), DCQ())
-
-// group for all <locale.h> functions
-
-DETECT_CALL_GROUP(C, locale_h,
-  DETECT_CALL_PREFIXIFY(C, setlocale),
-  DETECT_CALL_PREFIXIFY(C, localeconv)
-  )

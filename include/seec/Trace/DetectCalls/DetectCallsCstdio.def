@@ -23,16 +23,6 @@ DETECT_CALL(C, setvbuf,
   DCQ(FILE *stream; char *buffer; int mode; size_t size;),
   DCQ(, stream, buffer, mode, size))
 
-DETECT_CALL_GROUP(C, stdio_h_file_access,
-  DETECT_CALL_PREFIXIFY(C, fopen),
-  DETECT_CALL_PREFIXIFY(C, freopen),
-  DETECT_CALL_PREFIXIFY(C, fclose),
-  DETECT_CALL_PREFIXIFY(C, fflush),
-  DETECT_CALL_PREFIXIFY(C, fwide),
-  DETECT_CALL_PREFIXIFY(C, setbuf),
-  DETECT_CALL_PREFIXIFY(C, setvbuf)
-  )
-
 
 // Direct input/output.
 
@@ -43,11 +33,6 @@ DETECT_CALL(C, fread,
 DETECT_CALL(C, fwrite,
   DCQ(void *ptr; size_t size; size_t nmemb; FILE *stream;),
   DCQ(, ptr, size, nmemb, stream))
-
-DETECT_CALL_GROUP(C, stdio_h_direct_io,
-  DETECT_CALL_PREFIXIFY(C, fread),
-  DETECT_CALL_PREFIXIFY(C, fwrite)
-  )
 
 
 // Unformatted input/output.
@@ -89,20 +74,6 @@ DETECT_CALL(C, ungetc,
   DCQ(int character; FILE *stream;),
   DCQ(, character, stream))
 
-DETECT_CALL_GROUP(C, stdio_h_unformatted_io,
-  DETECT_CALL_PREFIXIFY(C, fgetc),
-  DETECT_CALL_PREFIXIFY(C, getc),
-  DETECT_CALL_PREFIXIFY(C, fgets),
-  DETECT_CALL_PREFIXIFY(C, fputc),
-  DETECT_CALL_PREFIXIFY(C, putc),
-  DETECT_CALL_PREFIXIFY(C, fputs),
-  DETECT_CALL_PREFIXIFY(C, getchar),
-  DETECT_CALL_PREFIXIFY(C, gets),
-  DETECT_CALL_PREFIXIFY(C, putchar),
-  DETECT_CALL_PREFIXIFY(C, puts),
-  DETECT_CALL_PREFIXIFY(C, ungetc)
-  )
-
 
 // Formatted input/output.
 
@@ -123,14 +94,6 @@ DETECT_CALL(C, fsetpos,
 
 DETECT_CALL(C, rewind, DCQ(FILE *stream;), DCQ(, stream))
 
-DETECT_CALL_GROUP(C, stdio_h_file_positioning,
-  DETECT_CALL_PREFIXIFY(C, ftell),
-  DETECT_CALL_PREFIXIFY(C, fgetpos),
-  DETECT_CALL_PREFIXIFY(C, fseek),
-  DETECT_CALL_PREFIXIFY(C, fsetpos),
-  DETECT_CALL_PREFIXIFY(C, rewind)
-  )
-
 
 // Error handling.
 
@@ -138,13 +101,6 @@ DETECT_CALL(C, clearerr, DCQ(FILE *stream;), DCQ(, stream))
 DETECT_CALL(C, feof, DCQ(FILE *stream;), DCQ(, stream))
 DETECT_CALL(C, ferror, DCQ(FILE *stream;), DCQ(, stream))
 DETECT_CALL(C, perror, DCQ(char const *str;), DCQ(, str))
-
-DETECT_CALL_GROUP(C, stdio_h_error_handling,
-  DETECT_CALL_PREFIXIFY(C, clearerr),
-  DETECT_CALL_PREFIXIFY(C, feof),
-  DETECT_CALL_PREFIXIFY(C, ferror),
-  DETECT_CALL_PREFIXIFY(C, perror)
-  )
 
 
 // Operations on files.
@@ -158,22 +114,3 @@ DETECT_CALL(C, rename,
 DETECT_CALL(C, tmpfile, DCQ(), DCQ())
 
 DETECT_CALL(C, tmpnam, DCQ(char *str;), DCQ(, str))
-
-DETECT_CALL_GROUP(C, stdio_h_file_operations,
-  DETECT_CALL_PREFIXIFY(C, remove),
-  DETECT_CALL_PREFIXIFY(C, rename),
-  DETECT_CALL_PREFIXIFY(C, tmpfile),
-  DETECT_CALL_PREFIXIFY(C, tmpnam)
-  )
-
-
-// Group for all <stdio.h> functions.
-
-DETECT_CALL_GROUP(C, stdio_h,
-  DETECT_CALL_PREFIXIFY(C, stdio_h_file_access),
-  DETECT_CALL_PREFIXIFY(C, stdio_h_direct_io),
-  DETECT_CALL_PREFIXIFY(C, stdio_h_unformatted_io),
-  DETECT_CALL_PREFIXIFY(C, stdio_h_file_positioning),
-  DETECT_CALL_PREFIXIFY(C, stdio_h_error_handling),
-  DETECT_CALL_PREFIXIFY(C, stdio_h_file_operations)
-  )

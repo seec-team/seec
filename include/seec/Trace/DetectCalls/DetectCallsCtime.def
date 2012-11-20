@@ -39,17 +39,3 @@ DETECT_CALL(C, strftime,
 DETECT_CALL(C, time,
   DCQ(time_t *timer;),
   DCQ(, timer))
-
-// group for all <time.h> functions
-
-DETECT_CALL_GROUP(C, time_h,
-  DETECT_CALL_PREFIXIFY(C, asctime),
-  DETECT_CALL_PREFIXIFY(C, clock),
-  DETECT_CALL_PREFIXIFY(C, ctime),
-  DETECT_CALL_PREFIXIFY(C, difftime),
-  DETECT_CALL_PREFIXIFY(C, gmtime),
-  DETECT_CALL_PREFIXIFY(C, localtime),
-  DETECT_CALL_PREFIXIFY(C, mktime),
-  DETECT_CALL_PREFIXIFY(C, strftime),
-  DETECT_CALL_PREFIXIFY(C, time)
-  )

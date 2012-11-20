@@ -18,33 +18,8 @@ DETECT_CALL(C, isspace, DCQ(int character;), DCQ(, character))
 DETECT_CALL(C, isupper, DCQ(int character;), DCQ(, character))
 DETECT_CALL(C, isxdigit, DCQ(int character;), DCQ(, character))
 
-DETECT_CALL_GROUP(C, type_h_is,
-  DETECT_CALL_PREFIXIFY(C, isalnum),
-  DETECT_CALL_PREFIXIFY(C, isalpha),
-  DETECT_CALL_PREFIXIFY(C, iscntrl),
-  DETECT_CALL_PREFIXIFY(C, isdigit),
-  DETECT_CALL_PREFIXIFY(C, isgraph),
-  DETECT_CALL_PREFIXIFY(C, islower),
-  DETECT_CALL_PREFIXIFY(C, isprint),
-  DETECT_CALL_PREFIXIFY(C, ispunct),
-  DETECT_CALL_PREFIXIFY(C, isspace),
-  DETECT_CALL_PREFIXIFY(C, isupper),
-  DETECT_CALL_PREFIXIFY(C, isxdigit)
-  )
 
 // to... functions
 
 DETECT_CALL(C, tolower, DCQ(int character;), DCQ(, character))
 DETECT_CALL(C, toupper, DCQ(int character;), DCQ(, character))
-
-DETECT_CALL_GROUP(C, type_h_to,
-  DETECT_CALL_PREFIXIFY(C, tolower),
-  DETECT_CALL_PREFIXIFY(C, toupper)
-  )
-
-// group for all <ctype.h> functions
-
-DETECT_CALL_GROUP(C, type_h,
-  DETECT_CALL_PREFIXIFY(C, type_h_is),
-  DETECT_CALL_PREFIXIFY(C, type_h_to)
-  )

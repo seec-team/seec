@@ -97,30 +97,3 @@ DETECT_CALL(C, strtok,
 DETECT_CALL(C, strxfrm,
   DCQ(char *str1; char const *str2; size_t n;),
   DCQ(, str1, str2, n))
-
-// group for all <string.h> functions
-
-DETECT_CALL_GROUP(C, string_h,
-  DETECT_CALL_PREFIXIFY(C, memchr),
-  DETECT_CALL_PREFIXIFY(C, memcmp),
-  DETECT_CALL_PREFIXIFY(C, memcpy),
-  DETECT_CALL_PREFIXIFY(C, memmove),
-  DETECT_CALL_PREFIXIFY(C, memset),
-  DETECT_CALL_PREFIXIFY(C, strcat),
-  DETECT_CALL_PREFIXIFY(C, strncat),
-  DETECT_CALL_PREFIXIFY(C, strchr),
-  DETECT_CALL_PREFIXIFY(C, strcmp),
-  DETECT_CALL_PREFIXIFY(C, strncmp),
-  DETECT_CALL_PREFIXIFY(C, strcoll),
-  DETECT_CALL_PREFIXIFY(C, strcpy),
-  DETECT_CALL_PREFIXIFY(C, strncpy),
-  DETECT_CALL_PREFIXIFY(C, strcspn),
-  DETECT_CALL_PREFIXIFY(C, strerror),
-  DETECT_CALL_PREFIXIFY(C, strlen),
-  DETECT_CALL_PREFIXIFY(C, strpbrk),
-  DETECT_CALL_PREFIXIFY(C, strrchr),
-  DETECT_CALL_PREFIXIFY(C, strspn),
-  DETECT_CALL_PREFIXIFY(C, strstr),
-  DETECT_CALL_PREFIXIFY(C, strtok),
-  DETECT_CALL_PREFIXIFY(C, strxfrm)
-  )
