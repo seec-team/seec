@@ -59,7 +59,8 @@ void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
                    (seec::runtime_errors::format_selects::CStdFunction::fclose,
                     0 // Stream is parameter 0.
                    ),
-                   seec::trace::RunErrorSeverity::Fatal);
+                   seec::trace::RunErrorSeverity::Fatal,
+                   Index);
   }
 }
 
