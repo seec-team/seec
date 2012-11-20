@@ -16,6 +16,7 @@ set(HEADERS
   ../../include/seec/Util/ScopeExit.hpp
   ../../include/seec/Util/Serialization.hpp
   ../../include/seec/Util/SynchronizedExit.hpp
+  ../../include/seec/Util/TemplateSequence.hpp
   ../../include/seec/Util/ValueConversion.hpp
   )
 
