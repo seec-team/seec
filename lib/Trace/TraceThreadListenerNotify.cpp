@@ -216,7 +216,10 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   detectPreCalls<TraceThreadListener,
                  // stdio.h
                  Call::Cfopen,
+                 Call::Cfreopen,
                  Call::Cfclose,
+                 Call::Cfflush,
+                 Call::Cfwide,
                  // stdlib.h
                  Call::Cstdlib_h_string,
                  Call::Cstdlib_h_memory,
@@ -261,6 +264,7 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
   detectPostCalls<TraceThreadListener,
                   // stdio.h
                   Call::Cfopen,
+                  Call::Cfreopen,
                   Call::Cfclose,
                   // stdlib.h
                   Call::Cstrtol,

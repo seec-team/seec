@@ -116,6 +116,43 @@ void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
+// fflush
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCfflush(llvm::CallInst const *Call,
+                                     uint32_t Index,
+                                     FILE *Stream) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fflush,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(0, Stream);
+}
+
+
+//===------------------------------------------------------------------------===
+// fwide
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
+                                    uint32_t Index,
+                                    FILE *Stream,
+                                    int Mode) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fwide,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(0, Stream);
+}
+
+
+//===------------------------------------------------------------------------===
 // atof
 //===------------------------------------------------------------------------===
 

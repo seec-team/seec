@@ -524,6 +524,13 @@ public:
   void preCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
   void postCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
   
+  // fflush
+  void preCfflush(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  
+  // fwide
+  void preCfwide(llvm::CallInst const *Call, uint32_t Index, FILE *Stream,
+                 int Mode);
+  
   /// @}
   
   
