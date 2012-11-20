@@ -192,8 +192,6 @@ public:
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<true, SubclassT, Call::PREFIX##NAME>       \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
-#define DETECT_CALL_GROUP(PREFIX, GROUP, ...)                                  \
-      case Call::PREFIX##GROUP: return false;
 #include "DetectCallsAll.def"
       
       case Call::highest:
@@ -218,8 +216,6 @@ public:
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<false, SubclassT, Call::PREFIX##NAME>      \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
-#define DETECT_CALL_GROUP(PREFIX, GROUP, ...)                                  \
-      case Call::PREFIX##GROUP: return false;
 #include "DetectCallsAll.def"
       
       case Call::highest:
