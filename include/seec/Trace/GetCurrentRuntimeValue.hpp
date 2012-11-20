@@ -35,70 +35,11 @@ namespace trace {
 template<typename SrcTy, typename T, typename Enable = void>
 struct GetCurrentRuntimeValueAsImpl;
 
-/// \brief Specialization of getCurrentRuntimeValueAs to extract pointer types.
+/// \brief Specialization of getCurrentRuntimeValueAs to extract uintptr_t.
 ///
-/// Pointer types additionally require that the following member functions are
-/// present in the source type SrcTy:
-///
-///   uintptr_t getRuntimeAddress(Function const *);
-///   uintptr_t getRuntimeAddress(GlobalVariable const *);
-///
-/// Which return the run-time addresses of the objects passed to them, or 0 if
-/// the run-time addresses cannot be found.
-///
-/// \tparam SrcTy The type of object to get raw GenericValue values from.
-/// \tparam T The base type to try and extract the value as a pointer to.
-template<typename SrcTy, typename T>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, T *, void> {
-  static seec::util::Maybe<T *>
-  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    auto Ty = V->getType();
-    
-    assert(Ty->isPointerTy() && "Can't get pointer from non-pointer Value.");
-
-    // If the Value is an Instruction, get its recorded runtime value
-    if (auto I = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(I)) {
-        auto IntVal = static_cast<uintptr_t>(RTValue->getUInt64());
-        return reinterpret_cast<T *>(IntVal);
-      }
-
-      return seec::util::Maybe<T *>();
-    }
-
-    auto StrippedValue = V->stripPointerCasts();
-
-    if (auto Global = llvm::dyn_cast<llvm::GlobalValue>(StrippedValue)) {
-      if (auto Function = llvm::dyn_cast<llvm::Function>(Global)) {
-        auto Addr = Source.getRuntimeAddress(Function);
-        return Addr ? seec::util::Maybe<T *>(reinterpret_cast<T *>(Addr))
-                    : seec::util::Maybe<T *>();
-      }
-      else if (auto GV = llvm::dyn_cast<llvm::GlobalVariable>(StrippedValue)) {
-        auto Addr = Source.getRuntimeAddress(GV);
-        return Addr ? seec::util::Maybe<T *>(reinterpret_cast<T *>(Addr))
-                    : seec::util::Maybe<T *>();
-      }
-      
-      llvm::errs() << "Value = " << *V << "\n";
-      llvm_unreachable("Don't know how to get pointer from global value.");
-    }
-    else if (llvm::isa<llvm::ConstantPointerNull>(StrippedValue)) {
-      return static_cast<T *>(nullptr);
-    }
-    
-    llvm::errs() << "Value = " << *V << "\n";
-    llvm_unreachable("Don't know how to get runtime value of pointer.");
-    
-    return seec::util::Maybe<T *>();
-  }
-};
-
-/// \brief Specialization of getCurrentRuntimeValueAs to extract uint64_t types.
-///
-/// Because we store all pointers as uint64_t, this specialization also requires
-/// the additional requirements of pointer types, namely that the following
-/// member functions are present in the source type SrcTy:
+/// Because we store all pointers as uintptr_t, this specialization also
+/// requires the additional requirements of pointer types, namely that the
+/// following member functions are present in the source type SrcTy:
 ///
 ///   uintptr_t getRuntimeAddress(Function const *);
 ///   uintptr_t getRuntimeAddress(GlobalVariable const *);
@@ -160,6 +101,33 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, uintptr_t, void> {
     }
     
     return seec::util::Maybe<uintptr_t>();
+  }
+};
+
+/// \brief Specialization of getCurrentRuntimeValueAs to extract pointer types.
+///
+/// Pointer types additionally require that the following member functions are
+/// present in the source type SrcTy:
+///
+///   uintptr_t getRuntimeAddress(Function const *);
+///   uintptr_t getRuntimeAddress(GlobalVariable const *);
+///
+/// Which return the run-time addresses of the objects passed to them, or 0 if
+/// the run-time addresses cannot be found.
+///
+/// \tparam SrcTy The type of object to get raw GenericValue values from.
+/// \tparam T The base type to try and extract the value as a pointer to.
+template<typename SrcTy, typename T>
+struct GetCurrentRuntimeValueAsImpl<SrcTy, T *, void> {
+  static seec::util::Maybe<T *>
+  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
+    auto Addr = GetCurrentRuntimeValueAsImpl<SrcTy, uintptr_t>::
+                  getCurrentRuntimeValueAs(Source, V);
+    
+    if (Addr.assigned())
+      return reinterpret_cast<T *>(Addr.template get<0>());
+    
+    return seec::util::Maybe<T *>();
   }
 };
 
