@@ -260,43 +260,6 @@ getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *Value) {
           ::getCurrentRuntimeValueAs(Source, Value);
 }
 
-/// Find the values of arguments of a CallInst using getCurrentRuntimeValueAs.
-// This is the base case for the variadic template below.
-template<typename SrcTy>
-bool getArgumentValues(SrcTy &Source,
-                       llvm::CallInst const *Call,
-                       size_t Offset) {
-  return true;
-}
-
-/// Find the values of arguments of a CallInst using getCurrentRuntimeValueAs.
-/// \tparam SrcTy The type of source object to extract run-time values from.
-/// \tparam T The type to get the first argument as.
-/// \tparam TS The types to get the remaining arguments as.
-/// \param Source The source object to get raw RuntimeValues from.
-/// \param Call The CallInst to extract the arguments of.
-/// \param Offset The index into the CallInst's argument list to start
-///               extracting arguments from.
-/// \param Arg A reference to the object that will hold the first extracted
-///            argument.
-/// \param Args References to the objects that will hold the remaining extracted
-///             arguments.
-/// \return true if all arguments were extracted successfully.
-template<typename SrcTy, typename T, typename... TS>
-bool getArgumentValues(SrcTy &Source,
-                       llvm::CallInst const *Call,
-                       size_t Offset,
-                       T& Arg,
-                       TS&... Args) {  
-  auto Value = getCurrentRuntimeValueAs<T>(Source, Call->getArgOperand(Offset));
-  if (!Value.assigned())
-    return false;
-    
-  Arg = Value.template get<0>();
-  
-  return getArgumentValues(Source, Call, Offset + 1, Args...);
-}
-
 }
 
 }
