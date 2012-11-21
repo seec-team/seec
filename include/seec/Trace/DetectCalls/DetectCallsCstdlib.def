@@ -5,161 +5,63 @@
 //===----------------------------------------------------------------------===//
 
 // Conversions to numeric formats.
-DETECT_CALL(C, atof,
-  SEEC_PP_QUOTE(char const *str;),
-  SEEC_PP_QUOTE(, str),
-  SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, atof, SEEC_PP_QUOTE(char const *))
 
-DETECT_CALL(C, atoi,
-  SEEC_PP_QUOTE(char const *str;),
-  SEEC_PP_QUOTE(, str),
-  SEEC_PP_QUOTE(char const *))
-DETECT_CALL(C, atol,
-  SEEC_PP_QUOTE(char const *str;),
-  SEEC_PP_QUOTE(, str),
-  SEEC_PP_QUOTE(char const *))
-DETECT_CALL(C, atoll,
-  SEEC_PP_QUOTE(char const *str;),
-  SEEC_PP_QUOTE(, str),
-  SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, atoi, SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, atol, SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, atoll, SEEC_PP_QUOTE(char const *))
 
-DETECT_CALL(C, strtol,
-  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
-  SEEC_PP_QUOTE(, str, endptr, base),
-  SEEC_PP_QUOTE(char const *, char **, int))
-DETECT_CALL(C, strtoll,
-  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
-  SEEC_PP_QUOTE(, str, endptr, base),
-  SEEC_PP_QUOTE(char const *, char **, int))
+DETECT_CALL(C, strtol, SEEC_PP_QUOTE(char const *, char **, int))
+DETECT_CALL(C, strtoll, SEEC_PP_QUOTE(char const *, char **, int))
 
-DETECT_CALL(C, strtoul,
-  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
-  SEEC_PP_QUOTE(, str, endptr, base),
-  SEEC_PP_QUOTE(char const *, char **, int))
-DETECT_CALL(C, strtoull,
-  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
-  SEEC_PP_QUOTE(, str, endptr, base),
-  SEEC_PP_QUOTE(char const *, char **, int))
+DETECT_CALL(C, strtoul, SEEC_PP_QUOTE(char const *, char **, int))
+DETECT_CALL(C, strtoull, SEEC_PP_QUOTE(char const *, char **, int))
 
-DETECT_CALL(C, strtof,
-  SEEC_PP_QUOTE(char const *str; char **endptr;),
-  SEEC_PP_QUOTE(, str, endptr),
-  SEEC_PP_QUOTE(char const *, char **))
-DETECT_CALL(C, strtod,
-  SEEC_PP_QUOTE(char const *str; char **endptr;),
-  SEEC_PP_QUOTE(, str, endptr),
-  SEEC_PP_QUOTE(char const *, char **))
-DETECT_CALL(C, strtold,
-  SEEC_PP_QUOTE(char const *str; char **endptr;),
-  SEEC_PP_QUOTE(, str, endptr),
-  SEEC_PP_QUOTE(char const *, char **))
+DETECT_CALL(C, strtof, SEEC_PP_QUOTE(char const *, char **))
+DETECT_CALL(C, strtod, SEEC_PP_QUOTE(char const *, char **))
+DETECT_CALL(C, strtold, SEEC_PP_QUOTE(char const *, char **))
 
-DETECT_CALL(C, strtoimax,
-  SEEC_PP_QUOTE(char const *str; char **endptr;),
-  SEEC_PP_QUOTE(, str, endptr),
-  SEEC_PP_QUOTE(char const *, char **))
-DETECT_CALL(C, strtoumax,
-  SEEC_PP_QUOTE(char const *str; char **endptr;),
-  SEEC_PP_QUOTE(, str, endptr),
-  SEEC_PP_QUOTE(char const *, char **))
+DETECT_CALL(C, strtoimax, SEEC_PP_QUOTE(char const *, char **))
+DETECT_CALL(C, strtoumax, SEEC_PP_QUOTE(char const *, char **))
 
 
 // Memory functions
-DETECT_CALL(C, calloc,
-  SEEC_PP_QUOTE(size_t Num, Size;),
-  SEEC_PP_QUOTE(, Num, Size),
-  SEEC_PP_QUOTE(size_t, size_t))
-DETECT_CALL(C, free,
-  SEEC_PP_QUOTE(void *Address;),
-  SEEC_PP_QUOTE(, Address),
-  SEEC_PP_QUOTE(void *))
-DETECT_CALL(C, malloc,
-  SEEC_PP_QUOTE(size_t Size;),
-  SEEC_PP_QUOTE(, Size),
-  SEEC_PP_QUOTE(size_t))
-DETECT_CALL(C, realloc,
-  SEEC_PP_QUOTE(void *Address; size_t Size;),
-  SEEC_PP_QUOTE(, Address, Size),
-  SEEC_PP_QUOTE(void *, size_t))
+DETECT_CALL(C, calloc, SEEC_PP_QUOTE(size_t, size_t))
+DETECT_CALL(C, free, SEEC_PP_QUOTE(void *))
+DETECT_CALL(C, malloc, SEEC_PP_QUOTE(size_t))
+DETECT_CALL(C, realloc, SEEC_PP_QUOTE(void *, size_t))
 
 
 // Environment
-DETECT_CALL(C, abort, , , )
-DETECT_CALL(C, atexit,
-  SEEC_PP_QUOTE(void (*function) (void);),
-  SEEC_PP_QUOTE(, function),
-  SEEC_PP_QUOTE(void (*)(void)))
-DETECT_CALL(C, exit,
-  SEEC_PP_QUOTE(int status;),
-  SEEC_PP_QUOTE(, status),
-  SEEC_PP_QUOTE(int))
-DETECT_CALL(C, getenv,
-  SEEC_PP_QUOTE(char const *name;),
-  SEEC_PP_QUOTE(, name),
-  SEEC_PP_QUOTE(char const *))
-DETECT_CALL(C, system,
-  SEEC_PP_QUOTE(char const *command;),
-  SEEC_PP_QUOTE(, command),
-  SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, abort, )
+DETECT_CALL(C, atexit, SEEC_PP_QUOTE(void (*)(void)))
+DETECT_CALL(C, exit, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, getenv, SEEC_PP_QUOTE(char const *))
+DETECT_CALL(C, system, SEEC_PP_QUOTE(char const *))
 
 
 // Searching and sorting
 DETECT_CALL(C, bsearch,
-  SEEC_PP_QUOTE(void const *key, *base;
-      size_t num, size;
-      int (*comparator)(void const *, void const *);),
-  SEEC_PP_QUOTE(, key, base, num, size, comparator),
-  SEEC_PP_QUOTE(void const *, void const *, size_t, size_t, int (*)(void const *, void const *)))
+            SEEC_PP_QUOTE(void const *, void const *, size_t, size_t,
+                          int (*)(void const *, void const *)))
+
 DETECT_CALL(C, qsort,
-  SEEC_PP_QUOTE(void *base;
-      size_t num, size;
-      int (*comparator)(void const *, void const *);),
-  SEEC_PP_QUOTE(, base, num, size, comparator),
-  SEEC_PP_QUOTE(void *, size_t, size_t, int (*)(void const *, void const *)))
+            SEEC_PP_QUOTE(void *, size_t, size_t,
+                          int (*)(void const *, void const *)))
 
 
 // Math functions
-DETECT_CALL(C, abs,
-  SEEC_PP_QUOTE(int X;),
-  SEEC_PP_QUOTE(, X),
-  SEEC_PP_QUOTE(int))
-DETECT_CALL(C, div,
-  SEEC_PP_QUOTE(int numer, denom;),
-  SEEC_PP_QUOTE(, numer, denom),
-  SEEC_PP_QUOTE(int, int))
-DETECT_CALL(C, labs,
-  SEEC_PP_QUOTE(long int X;),
-  SEEC_PP_QUOTE(, X),
-  SEEC_PP_QUOTE(long int))
-DETECT_CALL(C, ldiv,
-  SEEC_PP_QUOTE(long int numer, denom;),
-  SEEC_PP_QUOTE(, numer, denom),
-  SEEC_PP_QUOTE(long int, long int))
-DETECT_CALL(C, rand, , , )
-DETECT_CALL(C, srand,
-  SEEC_PP_QUOTE(unsigned int seed;),
-  SEEC_PP_QUOTE(, seed),
-  SEEC_PP_QUOTE(unsigned int))
+DETECT_CALL(C, abs, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, div, SEEC_PP_QUOTE(int, int))
+DETECT_CALL(C, labs, SEEC_PP_QUOTE(long int))
+DETECT_CALL(C, ldiv, SEEC_PP_QUOTE(long int, long int))
+DETECT_CALL(C, rand, )
+DETECT_CALL(C, srand, SEEC_PP_QUOTE(unsigned int))
 
 
 // Multibyte characters
-DETECT_CALL(C, mblen,
-  SEEC_PP_QUOTE(char const *str; size_t n;),
-  SEEC_PP_QUOTE(, str, n),
-  SEEC_PP_QUOTE(char const *, size_t))
-DETECT_CALL(C, mbstowcs,
-  SEEC_PP_QUOTE(wchar_t *pwcs; char const *str; size_t n;),
-  SEEC_PP_QUOTE(, pwcs, str, n),
-  SEEC_PP_QUOTE(wchar_t *, char const *, size_t))
-DETECT_CALL(C, mbtowc,
-  SEEC_PP_QUOTE(wchar_t *pwc; char const *str; size_t n;),
-  SEEC_PP_QUOTE(, pwc, str, n),
-  SEEC_PP_QUOTE(wchar_t *, char const *, size_t))
-DETECT_CALL(C, wcstombs,
-  SEEC_PP_QUOTE(char *str; wchar_t const *pwcs; size_t n;),
-  SEEC_PP_QUOTE(, str, pwcs, n),
-  SEEC_PP_QUOTE(char *, wchar_t const *, size_t))
-DETECT_CALL(C, wctomb,
-  SEEC_PP_QUOTE(char *str; wchar_t wchar;),
-  SEEC_PP_QUOTE(, str, wchar),
-  SEEC_PP_QUOTE(char *, wchar_t))
+DETECT_CALL(C, mblen, SEEC_PP_QUOTE(char const *, size_t))
+DETECT_CALL(C, mbstowcs, SEEC_PP_QUOTE(wchar_t *, char const *, size_t))
+DETECT_CALL(C, mbtowc, SEEC_PP_QUOTE(wchar_t *, char const *, size_t))
+DETECT_CALL(C, wcstombs, SEEC_PP_QUOTE(char *, wchar_t const *, size_t))
+DETECT_CALL(C, wctomb, SEEC_PP_QUOTE(char *, wchar_t))

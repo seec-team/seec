@@ -200,7 +200,7 @@ bool detectAndForwardPostIntrinsics(LT &Listener,
 //===------------------------------------------------------------------------===
 
 // Generate pre/post call notification (NotifyImpl).
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
+#define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
 template<>                                                                     \
 struct NotifyImpl<true, Call::PREFIX ## NAME> {                                \
   template<typename LT, typename... PTs>                                       \
@@ -277,7 +277,7 @@ public:
       return false;
     
     switch (MaybeCall.template get<0>()) {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
+#define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotify<true, Call::PREFIX##NAME>                      \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
@@ -301,7 +301,7 @@ public:
       return false;
     
     switch (MaybeCall.template get<0>()) {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
+#define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotify<false, Call::PREFIX##NAME>                     \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
@@ -317,7 +317,7 @@ public:
   
   // Define empty notification functions that will be called if SubclassT does
   // not implement a notification function.
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
+#define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
   void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index     \
                          SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)) {}      \
   void post##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index    \

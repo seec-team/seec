@@ -4,9 +4,5 @@
 //
 //===----------------------------------------------------------------------===//
 
-DETECT_CALL(C, setlocale,
-  SEEC_PP_QUOTE(int category; char const *locale;),
-  SEEC_PP_QUOTE(, category, locale),
-  SEEC_PP_QUOTE(int, char const *))
-
-DETECT_CALL(C, localeconv, SEEC_PP_QUOTE(), SEEC_PP_QUOTE(), SEEC_PP_QUOTE())
+DETECT_CALL(C, setlocale, SEEC_PP_QUOTE(int, char const *))
+DETECT_CALL(C, localeconv, SEEC_PP_QUOTE())

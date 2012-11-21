@@ -6,20 +6,20 @@
 
 // is... functions
 
-DETECT_CALL(C, isalnum, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isalpha, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, iscntrl, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isdigit, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isgraph, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, islower, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isprint, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, ispunct, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isspace, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isupper, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, isxdigit, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isalnum, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isalpha, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, iscntrl, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isdigit, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isgraph, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, islower, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isprint, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, ispunct, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isspace, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isupper, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, isxdigit, SEEC_PP_QUOTE(int))
 
 
 // to... functions
 
-DETECT_CALL(C, tolower, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
-DETECT_CALL(C, toupper, SEEC_PP_QUOTE(int character;), SEEC_PP_QUOTE(, character), SEEC_PP_QUOTE(int))
+DETECT_CALL(C, tolower, SEEC_PP_QUOTE(int))
+DETECT_CALL(C, toupper, SEEC_PP_QUOTE(int))
