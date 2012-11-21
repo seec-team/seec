@@ -7,7 +7,7 @@
 #include "seec/Preprocessor/Quote.h"
 
 #ifndef DETECT_CALL
-#define DETECT_CALL(PREFIX, CALL, LOCALS, ARGS)
+#define DETECT_CALL(PREFIX, CALL, LOCALS, ARGS, ARGTYPES)
 #endif
 
 #ifndef DETECT_CALL_FORWARD_INTRINSIC

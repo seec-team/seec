@@ -27,7 +27,7 @@ Lookup::Lookup()
   // Find all the standard library functions we know about.
   void *Ptr;
   
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES) \
   if ((Ptr = dlsym(RTLD_DEFAULT, #NAME))) \
     AddressMap.insert(std::make_pair(Ptr, Call::PREFIX##NAME));
 #include "seec/Trace/DetectCallsAll.def"
@@ -51,7 +51,7 @@ seec::util::Maybe<Call> Lookup::Check(void const *Address) const {
 }
 
 bool Lookup::Set(llvm::StringRef Name, void const *Address) {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES) \
   if (Name.equals(#NAME)) { \
     AddressMap.insert(std::make_pair(Address, Call::PREFIX##NAME)); \
     return true; \

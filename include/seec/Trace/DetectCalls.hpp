@@ -115,7 +115,7 @@ bool detectAndForwardPostIntrinsics(LT &Listener,
 
 // generate pre/post call notification (NotifyImpl), argument lookup
 // (ExtractAndNotifyImpl), and detection (DetectCallImpl).
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
 template<typename LT>                                                          \
 struct NotifyImpl<true, LT, Call::PREFIX ## NAME> {                            \
   template<typename... PTs>                                                    \
@@ -188,7 +188,7 @@ public:
       return false;
     
     switch (MaybeCall.template get<0>()) {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<true, SubclassT, Call::PREFIX##NAME>       \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
@@ -212,7 +212,7 @@ public:
       return false;
     
     switch (MaybeCall.template get<0>()) {
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<false, SubclassT, Call::PREFIX##NAME>      \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
@@ -228,7 +228,7 @@ public:
   
   // Define empty notification functions that will be called if SubclassT does
   // not implement a notification function.
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
   template<typename... ArgTs>                                                  \
   void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index,    \
                          ArgTs &&...Args) {}                                   \

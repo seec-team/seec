@@ -29,7 +29,7 @@ namespace detect_calls {
 enum class Call : std::size_t {
   /// @{
   /// Detectable C function call or group.
-#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS) PREFIX ## NAME,
+#define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES) PREFIX ## NAME,
 #include "DetectCallsAll.def"
   highest
   /// @}

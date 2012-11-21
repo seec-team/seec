@@ -6,94 +6,116 @@
 
 DETECT_CALL(C, memchr,
   SEEC_PP_QUOTE(void const *str; int c; size_t n;),
-  SEEC_PP_QUOTE(, str, c, n))
+  SEEC_PP_QUOTE(, str, c, n),
+  SEEC_PP_QUOTE(void const *, int, size_t))
 
 DETECT_CALL(C, memcmp,
   SEEC_PP_QUOTE(void const *str1; void const *str2; size_t n;),
-  SEEC_PP_QUOTE(, str1, str2, n))
+  SEEC_PP_QUOTE(, str1, str2, n),
+  SEEC_PP_QUOTE(void const *, void const *, size_t))
 
 DETECT_CALL(C, memcpy,
   SEEC_PP_QUOTE(void *dest; void const *src; size_t n;),
-  SEEC_PP_QUOTE(, dest, src, n))
+  SEEC_PP_QUOTE(, dest, src, n),
+  SEEC_PP_QUOTE(void *, void const *, size_t))
 
 DETECT_CALL_FORWARD_INTRINSIC(memcpy, C, memcpy)
 
 DETECT_CALL(C, memmove,
   SEEC_PP_QUOTE(void *dest; void const *src; size_t n;),
-  SEEC_PP_QUOTE(, dest, src, n))
+  SEEC_PP_QUOTE(, dest, src, n),
+  SEEC_PP_QUOTE(void *, void const *, size_t))
 
 DETECT_CALL_FORWARD_INTRINSIC(memmove, C, memmove)
 
 DETECT_CALL(C, memset,
   SEEC_PP_QUOTE(void *str; int c; size_t n;),
-  SEEC_PP_QUOTE(, str, c, n))
+  SEEC_PP_QUOTE(, str, c, n),
+  SEEC_PP_QUOTE(void *, int, size_t))
 
 DETECT_CALL_FORWARD_INTRINSIC(memset, C, memset)
 
 DETECT_CALL(C, strcat,
   SEEC_PP_QUOTE(char *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char *, char const *))
 
 DETECT_CALL(C, strncat,
   SEEC_PP_QUOTE(char *str1; char const *str2; size_t n;),
-  SEEC_PP_QUOTE(, str1, str2, n))
+  SEEC_PP_QUOTE(, str1, str2, n),
+  SEEC_PP_QUOTE(char *, char const *, size_t))
 
 DETECT_CALL(C, strchr,
   SEEC_PP_QUOTE(char const *str; int c;),
-  SEEC_PP_QUOTE(, str, c))
+  SEEC_PP_QUOTE(, str, c),
+  SEEC_PP_QUOTE(char const *, int))
 
 DETECT_CALL(C, strcmp,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strncmp,
   SEEC_PP_QUOTE(char const *str1; char const *str2; size_t n;),
-  SEEC_PP_QUOTE(, str1, str2, n))
+  SEEC_PP_QUOTE(, str1, str2, n),
+  SEEC_PP_QUOTE(char const *, char const *, size_t))
 
 DETECT_CALL(C, strcoll,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strcpy,
   SEEC_PP_QUOTE(char *dest; char const *src;),
-  SEEC_PP_QUOTE(, dest, src))
+  SEEC_PP_QUOTE(, dest, src),
+  SEEC_PP_QUOTE(char *, char const *))
 
 DETECT_CALL(C, strncpy,
   SEEC_PP_QUOTE(char *dest; char const *src; size_t n;),
-  SEEC_PP_QUOTE(, dest, src, n))
+  SEEC_PP_QUOTE(, dest, src, n),
+  SEEC_PP_QUOTE(char *, char const *, size_t))
 
 DETECT_CALL(C, strcspn,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strerror,
   SEEC_PP_QUOTE(int errnum;),
-  SEEC_PP_QUOTE(, errnum))
+  SEEC_PP_QUOTE(, errnum),
+  SEEC_PP_QUOTE(int))
 
 DETECT_CALL(C, strlen,
   SEEC_PP_QUOTE(char const *str;),
-  SEEC_PP_QUOTE(, str))
+  SEEC_PP_QUOTE(, str),
+  SEEC_PP_QUOTE(char const *))
 
 DETECT_CALL(C, strpbrk,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strrchr,
   SEEC_PP_QUOTE(char const *str; int c;),
-  SEEC_PP_QUOTE(, str, c))
+  SEEC_PP_QUOTE(, str, c),
+  SEEC_PP_QUOTE(char const *, int))
 
 DETECT_CALL(C, strspn,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strstr,
   SEEC_PP_QUOTE(char const *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strtok,
   SEEC_PP_QUOTE(char *str1; char const *str2;),
-  SEEC_PP_QUOTE(, str1, str2))
+  SEEC_PP_QUOTE(, str1, str2),
+  SEEC_PP_QUOTE(char *, char const *))
 
 DETECT_CALL(C, strxfrm,
   SEEC_PP_QUOTE(char *str1; char const *str2; size_t n;),
-  SEEC_PP_QUOTE(, str1, str2, n))
+  SEEC_PP_QUOTE(, str1, str2, n),
+  SEEC_PP_QUOTE(char *, char const *, size_t))

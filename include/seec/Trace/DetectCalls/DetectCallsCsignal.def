@@ -6,6 +6,7 @@
 
 DETECT_CALL(C, signal,
   SEEC_PP_QUOTE(int sig; void (*func)(int);),
-  SEEC_PP_QUOTE(, sig, func))
+  SEEC_PP_QUOTE(, sig, func),
+  SEEC_PP_QUOTE(int, void (*)(int)))
 
-DETECT_CALL(C, raise, SEEC_PP_QUOTE(int sig;), SEEC_PP_QUOTE(, sig))
+DETECT_CALL(C, raise, SEEC_PP_QUOTE(int sig;), SEEC_PP_QUOTE(, sig), SEEC_PP_QUOTE(int))
