@@ -539,6 +539,16 @@ public:
   /// @}
   
   
+  /// \name Detect Calls - stdio.h formatted input/output.
+  /// @{
+  
+  // scanf
+  void preCscanf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                 detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
+  /// @}
+  
+  
   /// \name Detect Calls - stdlib.h string
   /// @{
   

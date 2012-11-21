@@ -38,6 +38,41 @@ DETECT_CALL(C, ungetc, SEEC_PP_QUOTE(int, FILE *))
 
 // Formatted input/output.
 
+DETECT_CALL(C, scanf,
+            SEEC_PP_QUOTE(char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+DETECT_CALL(C, fscanf,
+            SEEC_PP_QUOTE(FILE *,
+                          char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+DETECT_CALL(C, sscanf,
+            SEEC_PP_QUOTE(char const *,
+                          char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+// TODO: vscanf, vfscanf, vsscanf.
+
+DETECT_CALL(C, printf,
+            SEEC_PP_QUOTE(char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+DETECT_CALL(C, fprintf,
+            SEEC_PP_QUOTE(FILE *,
+                          char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+DETECT_CALL(C, sprintf,
+            SEEC_PP_QUOTE(char *,
+                          char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
+
+DETECT_CALL(C, snprintf,
+            SEEC_PP_QUOTE(char *,
+                          int,
+                          char const *,
+                          seec::trace::detect_calls::VarArgList<LT>))
 
 // File positioning.
 

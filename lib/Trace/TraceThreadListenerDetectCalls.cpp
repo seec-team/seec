@@ -153,6 +153,19 @@ void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
+// scanf
+//===------------------------------------------------------------------------===
+void TraceThreadListener::preCscanf(
+        llvm::CallInst const *Call,
+        uint32_t Index,
+        char const *Str,
+        detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  // TODO: Implement scanf() format string checking.
+}
+
+
+//===------------------------------------------------------------------------===
 // atof
 //===------------------------------------------------------------------------===
 

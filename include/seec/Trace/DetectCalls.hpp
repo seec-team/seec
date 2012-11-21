@@ -25,6 +25,7 @@
 #include "seec/Preprocessor/AddComma.h"
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Util/Maybe.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/Instructions.h"
@@ -45,6 +46,46 @@ namespace detect_calls {
 
 
 //===------------------------------------------------------------------------===
+// VarArgList
+//===------------------------------------------------------------------------===
+
+struct ExtractVarArgList {};
+
+/// \brief Used to detect variadic arguments.
+template<typename LT>
+class VarArgList {
+  LT &Listener;
+  
+  llvm::CallInst const *Instruction;
+  
+  unsigned Offset;
+
+public:
+  VarArgList(LT &TheListener,
+             llvm::CallInst const *TheInstruction,
+             unsigned TheOffset)
+  : Listener(TheListener),
+    Instruction(TheInstruction),
+    Offset(TheOffset)
+  {}
+  
+  unsigned size() const {
+    return Instruction->getNumArgOperands() - Offset;
+  }
+  
+  template<typename T>
+  seec::util::Maybe<T> getAs(unsigned Index) const {
+    if (Offset + Index < Instruction->getNumArgOperands()) {
+      auto Arg = Instruction->getArgOperand(Offset + Index);
+      return getCurrentRuntimeValueAs<T>(Listener, Arg);
+    }
+    
+    return seec::util::Maybe<T>();
+  }
+};
+
+
+//===------------------------------------------------------------------------===
 // getArgumentAs<T>
 //===------------------------------------------------------------------------===
 
@@ -60,7 +101,16 @@ struct GetArgumentImpl {
   }
 };
 
-// TODO: Specialize GetArgumentImpl for variadic argument lists.
+template<typename LT>
+struct GetArgumentImpl<VarArgList<LT>> {
+  static VarArgList<LT> impl(LT &Listener,
+                             llvm::CallInst const *Instr,
+                             std::size_t Arg)
+  {
+    return VarArgList<LT>(Listener, Instr, Arg);
+  }
+};
+
 template<typename T, typename LT>
 T getArgumentAs(LT &Listener, llvm::CallInst const *Instr, std::size_t Arg) {
   return GetArgumentImpl<T>::impl(Listener, Instr, Arg);
@@ -255,10 +305,10 @@ struct DetectAndForwardIntrinsicImpl<Pre, LT, llvm::Intrinsic::ID::INTRINSIC> {\
 
 
 //===------------------------------------------------------------------------===
-// CallDetector<SubclassT>
+// CallDetector<LT>
 //===------------------------------------------------------------------------===
 
-template<class SubclassT>
+template<class LT>
 class CallDetector {
   seec::trace::detect_calls::Lookup const &CallLookup;
   
@@ -280,7 +330,7 @@ public:
 #define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotify<true, Call::PREFIX##NAME>                      \
-                  ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
+                  ::impl(*static_cast<LT *>(this), Instruction, Index);
 #include "DetectCallsAll.def"
       
       case Call::highest:
@@ -304,7 +354,7 @@ public:
 #define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotify<false, Call::PREFIX##NAME>                     \
-                  ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
+                  ::impl(*static_cast<LT *>(this), Instruction, Index);
 #include "DetectCallsAll.def"
       
       case Call::highest:
