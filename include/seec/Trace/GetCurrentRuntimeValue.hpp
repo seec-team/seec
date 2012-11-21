@@ -30,9 +30,8 @@ namespace trace {
 ///
 /// This class is specialized for various types of T. If no specialization
 /// exists then getCurrentRuntimeValueAs will always return an unassigned Maybe.
-/// \tparam SrcTy Type of object to get raw GenericValue values from.
 /// \tparam T Type to try and extract the value as.
-template<typename SrcTy, typename T, typename Enable = void>
+template<typename T, typename Enable = void>
 struct GetCurrentRuntimeValueAsImpl;
 
 /// \brief Specialization of getCurrentRuntimeValueAs to extract uintptr_t.
@@ -48,8 +47,9 @@ struct GetCurrentRuntimeValueAsImpl;
 /// the run-time addresses cannot be found.
 ///
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
-template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, uintptr_t, void> {
+template<>
+struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
+  template<typename SrcTy>
   static seec::util::Maybe<uintptr_t>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     auto Ty = V->getType();
@@ -117,11 +117,12 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, uintptr_t, void> {
 ///
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
 /// \tparam T The base type to try and extract the value as a pointer to.
-template<typename SrcTy, typename T>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, T *, void> {
+template<typename T>
+struct GetCurrentRuntimeValueAsImpl<T *, void> {
+  template<typename SrcTy>
   static seec::util::Maybe<T *>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    auto Addr = GetCurrentRuntimeValueAsImpl<SrcTy, uintptr_t>::
+    auto Addr = GetCurrentRuntimeValueAsImpl<uintptr_t>::
                   getCurrentRuntimeValueAs(Source, V);
     
     if (Addr.assigned())
@@ -133,14 +134,14 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, T *, void> {
 
 /// \brief Specialization of getCurrentRuntimeValueAs to extract signed
 ///        integral types.
-template<typename SrcTy, typename T>
+template<typename T>
 struct GetCurrentRuntimeValueAsImpl
-  <SrcTy,
-   T,
+  <T,
    typename std::enable_if<std::is_integral<T>::value
                            && std::is_signed<T>::value
                           >::type>
 {
+  template<typename SrcTy>
   static seec::util::Maybe<T>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isIntegerTy()
@@ -162,14 +163,14 @@ struct GetCurrentRuntimeValueAsImpl
 
 /// \brief Specialization of getCurrentRuntimeValueAs to extract unsigned
 ///        integral types.
-template<typename SrcTy, typename T>
+template<typename T>
 struct GetCurrentRuntimeValueAsImpl
-  <SrcTy,
-   T,
+  <T,
    typename std::enable_if<std::is_integral<T>::value
                            && std::is_unsigned<T>::value
                           >::type>
 {
+  template<typename SrcTy>
   static seec::util::Maybe<T>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isIntegerTy()
@@ -190,8 +191,9 @@ struct GetCurrentRuntimeValueAsImpl
 };
 
 // Overload for float types.
-template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, float, void> {
+template<>
+struct GetCurrentRuntimeValueAsImpl<float, void> {
+  template<typename SrcTy>
   static seec::util::Maybe<float>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isFloatTy());
@@ -210,8 +212,9 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, float, void> {
 };
 
 // Overload for double types.
-template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, double, void> {
+template<>
+struct GetCurrentRuntimeValueAsImpl<double, void> {
+  template<typename SrcTy>
   static seec::util::Maybe<double>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     assert(V->getType()->isFloatTy());
@@ -230,8 +233,9 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, double, void> {
 };
 
 // Overload to extract the raw RuntimeValue
-template<typename SrcTy>
-struct GetCurrentRuntimeValueAsImpl<SrcTy, RuntimeValue const *, void> {
+template<>
+struct GetCurrentRuntimeValueAsImpl<RuntimeValue const *, void> {
+  template<typename SrcTy>
   static seec::util::Maybe<RuntimeValue const *>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
@@ -256,7 +260,7 @@ struct GetCurrentRuntimeValueAsImpl<SrcTy, RuntimeValue const *, void> {
 template<typename T, typename SrcTy>
 seec::util::Maybe<T>
 getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *Value) {
-  return GetCurrentRuntimeValueAsImpl<SrcTy, T>
+  return GetCurrentRuntimeValueAsImpl<T>
           ::getCurrentRuntimeValueAs(Source, Value);
 }
 
