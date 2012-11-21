@@ -187,7 +187,7 @@ public:
     if (!MaybeCall.assigned())
       return false;
     
-    switch (MaybeCall.get<0>()) {
+    switch (MaybeCall.template get<0>()) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<true, SubclassT, Call::PREFIX##NAME>       \
@@ -211,7 +211,7 @@ public:
     if (!MaybeCall.assigned())
       return false;
     
-    switch (MaybeCall.get<0>()) {
+    switch (MaybeCall.template get<0>()) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS)                                \
       case Call::PREFIX##NAME:                                                 \
         return ExtractAndNotifyImpl<false, SubclassT, Call::PREFIX##NAME>      \
