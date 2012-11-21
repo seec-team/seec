@@ -6,33 +6,33 @@
 
 // trigonometric functions
 
-DETECT_CALL(C, acos, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, asin, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, atan, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, atan2, DCQ(double Y, X;), DCQ(, Y, X))
-DETECT_CALL(C, cos, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, cosh, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, sin, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, sinh, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, tan, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, tanh, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, acos, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, asin, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, atan, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, atan2, SEEC_PP_QUOTE(double Y, X;), SEEC_PP_QUOTE(, Y, X))
+DETECT_CALL(C, cos, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, cosh, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, sin, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, sinh, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, tan, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, tanh, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
 
 
 // exponential, logarithmic, and power functions
 
-DETECT_CALL(C, exp, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, frexp, DCQ(double X; int *exponent;), DCQ(, X, exponent))
-DETECT_CALL(C, ldexp, DCQ(double X; int exponent;), DCQ(, X, exponent))
-DETECT_CALL(C, log, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, log10, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, modf, DCQ(double X; double *integer;), DCQ(, X, integer))
-DETECT_CALL(C, pow, DCQ(double X, Y;), DCQ(, X, Y))
-DETECT_CALL(C, sqrt, DCQ(double X;), DCQ(, X))
+DETECT_CALL(C, exp, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, frexp, SEEC_PP_QUOTE(double X; int *exponent;), SEEC_PP_QUOTE(, X, exponent))
+DETECT_CALL(C, ldexp, SEEC_PP_QUOTE(double X; int exponent;), SEEC_PP_QUOTE(, X, exponent))
+DETECT_CALL(C, log, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, log10, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, modf, SEEC_PP_QUOTE(double X; double *integer;), SEEC_PP_QUOTE(, X, integer))
+DETECT_CALL(C, pow, SEEC_PP_QUOTE(double X, Y;), SEEC_PP_QUOTE(, X, Y))
+DETECT_CALL(C, sqrt, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
 
 
 // other
 
-DETECT_CALL(C, ceil, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, fabs, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, floor, DCQ(double X;), DCQ(, X))
-DETECT_CALL(C, fmod, DCQ(double X, Y;), DCQ(, X, Y))
+DETECT_CALL(C, ceil, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, fabs, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, floor, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X))
+DETECT_CALL(C, fmod, SEEC_PP_QUOTE(double X, Y;), SEEC_PP_QUOTE(, X, Y))

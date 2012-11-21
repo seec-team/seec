@@ -7,72 +7,72 @@
 // File access.
 
 DETECT_CALL(C, fopen,
-  DCQ(char const *filename; char const *mode;),
-  DCQ(, filename, mode))
+  SEEC_PP_QUOTE(char const *filename; char const *mode;),
+  SEEC_PP_QUOTE(, filename, mode))
 
 DETECT_CALL(C, freopen,
-  DCQ(char const *filename; char const *mode; FILE *stream;),
-  DCQ(, filename, mode, stream))
+  SEEC_PP_QUOTE(char const *filename; char const *mode; FILE *stream;),
+  SEEC_PP_QUOTE(, filename, mode, stream))
 
-DETECT_CALL(C, fclose, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, fflush, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, fwide, DCQ(FILE *stream; int mode;), DCQ(, stream, mode))
-DETECT_CALL(C, setbuf, DCQ(FILE *stream; char *buffer;), DCQ(, stream, buffer))
+DETECT_CALL(C, fclose, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, fflush, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, fwide, SEEC_PP_QUOTE(FILE *stream; int mode;), SEEC_PP_QUOTE(, stream, mode))
+DETECT_CALL(C, setbuf, SEEC_PP_QUOTE(FILE *stream; char *buffer;), SEEC_PP_QUOTE(, stream, buffer))
 
 DETECT_CALL(C, setvbuf,
-  DCQ(FILE *stream; char *buffer; int mode; size_t size;),
-  DCQ(, stream, buffer, mode, size))
+  SEEC_PP_QUOTE(FILE *stream; char *buffer; int mode; size_t size;),
+  SEEC_PP_QUOTE(, stream, buffer, mode, size))
 
 
 // Direct input/output.
 
 DETECT_CALL(C, fread,
-  DCQ(void *ptr; size_t size; size_t nmemb; FILE *stream;),
-  DCQ(, ptr, size, nmemb, stream))
+  SEEC_PP_QUOTE(void *ptr; size_t size; size_t nmemb; FILE *stream;),
+  SEEC_PP_QUOTE(, ptr, size, nmemb, stream))
 
 DETECT_CALL(C, fwrite,
-  DCQ(void *ptr; size_t size; size_t nmemb; FILE *stream;),
-  DCQ(, ptr, size, nmemb, stream))
+  SEEC_PP_QUOTE(void *ptr; size_t size; size_t nmemb; FILE *stream;),
+  SEEC_PP_QUOTE(, ptr, size, nmemb, stream))
 
 
 // Unformatted input/output.
 
-DETECT_CALL(C, fgetc, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, getc, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, fgetc, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, getc, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
 
 DETECT_CALL(C, fgets,
-  DCQ(char *str; int count; FILE *stream;),
-  DCQ(, str, count, stream))
+  SEEC_PP_QUOTE(char *str; int count; FILE *stream;),
+  SEEC_PP_QUOTE(, str, count, stream))
 
 DETECT_CALL(C, fputc,
-  DCQ(int character; FILE *stream;),
-  DCQ(, character, stream))
+  SEEC_PP_QUOTE(int character; FILE *stream;),
+  SEEC_PP_QUOTE(, character, stream))
 
 DETECT_CALL(C, putc,
-  DCQ(int character; FILE *stream;),
-  DCQ(, character, stream))
+  SEEC_PP_QUOTE(int character; FILE *stream;),
+  SEEC_PP_QUOTE(, character, stream))
 
 DETECT_CALL(C, fputs,
-  DCQ(char const *str; FILE *stream;),
-  DCQ(, str, stream))
+  SEEC_PP_QUOTE(char const *str; FILE *stream;),
+  SEEC_PP_QUOTE(, str, stream))
 
-DETECT_CALL(C, getchar, DCQ(), DCQ())
+DETECT_CALL(C, getchar, SEEC_PP_QUOTE(), SEEC_PP_QUOTE())
 
 DETECT_CALL(C, gets,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 
 DETECT_CALL(C, putchar,
-  DCQ(int character;),
-  DCQ(, character))
+  SEEC_PP_QUOTE(int character;),
+  SEEC_PP_QUOTE(, character))
 
 DETECT_CALL(C, puts,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 
 DETECT_CALL(C, ungetc,
-  DCQ(int character; FILE *stream;),
-  DCQ(, character, stream))
+  SEEC_PP_QUOTE(int character; FILE *stream;),
+  SEEC_PP_QUOTE(, character, stream))
 
 
 // Formatted input/output.
@@ -80,37 +80,37 @@ DETECT_CALL(C, ungetc,
 
 // File positioning.
 
-DETECT_CALL(C, ftell, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, ftell, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
 
-DETECT_CALL(C, fgetpos, DCQ(FILE *stream; fpos_t *pos;), DCQ(, stream, pos))
+DETECT_CALL(C, fgetpos, SEEC_PP_QUOTE(FILE *stream; fpos_t *pos;), SEEC_PP_QUOTE(, stream, pos))
 
 DETECT_CALL(C, fseek,
-  DCQ(FILE *stream; long int offset; int whence;),
-  DCQ(, stream, offset, whence))
+  SEEC_PP_QUOTE(FILE *stream; long int offset; int whence;),
+  SEEC_PP_QUOTE(, stream, offset, whence))
 
 DETECT_CALL(C, fsetpos,
-  DCQ(FILE *stream; fpos_t const *pos;),
-  DCQ(, stream, pos))
+  SEEC_PP_QUOTE(FILE *stream; fpos_t const *pos;),
+  SEEC_PP_QUOTE(, stream, pos))
 
-DETECT_CALL(C, rewind, DCQ(FILE *stream;), DCQ(, stream))
+DETECT_CALL(C, rewind, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
 
 
 // Error handling.
 
-DETECT_CALL(C, clearerr, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, feof, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, ferror, DCQ(FILE *stream;), DCQ(, stream))
-DETECT_CALL(C, perror, DCQ(char const *str;), DCQ(, str))
+DETECT_CALL(C, clearerr, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, feof, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, ferror, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream))
+DETECT_CALL(C, perror, SEEC_PP_QUOTE(char const *str;), SEEC_PP_QUOTE(, str))
 
 
 // Operations on files.
 
-DETECT_CALL(C, remove, DCQ(char const *filename;), DCQ(, filename))
+DETECT_CALL(C, remove, SEEC_PP_QUOTE(char const *filename;), SEEC_PP_QUOTE(, filename))
 
 DETECT_CALL(C, rename,
-  DCQ(char const *old_filename; char const *new_filename;),
-  DCQ(, old_filename, new_filename))
+  SEEC_PP_QUOTE(char const *old_filename; char const *new_filename;),
+  SEEC_PP_QUOTE(, old_filename, new_filename))
 
-DETECT_CALL(C, tmpfile, DCQ(), DCQ())
+DETECT_CALL(C, tmpfile, SEEC_PP_QUOTE(), SEEC_PP_QUOTE())
 
-DETECT_CALL(C, tmpnam, DCQ(char *str;), DCQ(, str))
+DETECT_CALL(C, tmpnam, SEEC_PP_QUOTE(char *str;), SEEC_PP_QUOTE(, str))

@@ -5,95 +5,95 @@
 //===----------------------------------------------------------------------===//
 
 DETECT_CALL(C, memchr,
-  DCQ(void const *str; int c; size_t n;),
-  DCQ(, str, c, n))
+  SEEC_PP_QUOTE(void const *str; int c; size_t n;),
+  SEEC_PP_QUOTE(, str, c, n))
 
 DETECT_CALL(C, memcmp,
-  DCQ(void const *str1; void const *str2; size_t n;),
-  DCQ(, str1, str2, n))
+  SEEC_PP_QUOTE(void const *str1; void const *str2; size_t n;),
+  SEEC_PP_QUOTE(, str1, str2, n))
 
 DETECT_CALL(C, memcpy,
-  DCQ(void *dest; void const *src; size_t n;),
-  DCQ(, dest, src, n))
+  SEEC_PP_QUOTE(void *dest; void const *src; size_t n;),
+  SEEC_PP_QUOTE(, dest, src, n))
 
 DETECT_CALL_FORWARD_INTRINSIC(memcpy, C, memcpy)
 
 DETECT_CALL(C, memmove,
-  DCQ(void *dest; void const *src; size_t n;),
-  DCQ(, dest, src, n))
+  SEEC_PP_QUOTE(void *dest; void const *src; size_t n;),
+  SEEC_PP_QUOTE(, dest, src, n))
 
 DETECT_CALL_FORWARD_INTRINSIC(memmove, C, memmove)
 
 DETECT_CALL(C, memset,
-  DCQ(void *str; int c; size_t n;),
-  DCQ(, str, c, n))
+  SEEC_PP_QUOTE(void *str; int c; size_t n;),
+  SEEC_PP_QUOTE(, str, c, n))
 
 DETECT_CALL_FORWARD_INTRINSIC(memset, C, memset)
 
 DETECT_CALL(C, strcat,
-  DCQ(char *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strncat,
-  DCQ(char *str1; char const *str2; size_t n;),
-  DCQ(, str1, str2, n))
+  SEEC_PP_QUOTE(char *str1; char const *str2; size_t n;),
+  SEEC_PP_QUOTE(, str1, str2, n))
 
 DETECT_CALL(C, strchr,
-  DCQ(char const *str; int c;),
-  DCQ(, str, c))
+  SEEC_PP_QUOTE(char const *str; int c;),
+  SEEC_PP_QUOTE(, str, c))
 
 DETECT_CALL(C, strcmp,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strncmp,
-  DCQ(char const *str1; char const *str2; size_t n;),
-  DCQ(, str1, str2, n))
+  SEEC_PP_QUOTE(char const *str1; char const *str2; size_t n;),
+  SEEC_PP_QUOTE(, str1, str2, n))
 
 DETECT_CALL(C, strcoll,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strcpy,
-  DCQ(char *dest; char const *src;),
-  DCQ(, dest, src))
+  SEEC_PP_QUOTE(char *dest; char const *src;),
+  SEEC_PP_QUOTE(, dest, src))
 
 DETECT_CALL(C, strncpy,
-  DCQ(char *dest; char const *src; size_t n;),
-  DCQ(, dest, src, n))
+  SEEC_PP_QUOTE(char *dest; char const *src; size_t n;),
+  SEEC_PP_QUOTE(, dest, src, n))
 
 DETECT_CALL(C, strcspn,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strerror,
-  DCQ(int errnum;),
-  DCQ(, errnum))
+  SEEC_PP_QUOTE(int errnum;),
+  SEEC_PP_QUOTE(, errnum))
 
 DETECT_CALL(C, strlen,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 
 DETECT_CALL(C, strpbrk,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strrchr,
-  DCQ(char const *str; int c;),
-  DCQ(, str, c))
+  SEEC_PP_QUOTE(char const *str; int c;),
+  SEEC_PP_QUOTE(, str, c))
 
 DETECT_CALL(C, strspn,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strstr,
-  DCQ(char const *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char const *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strtok,
-  DCQ(char *str1; char const *str2;),
-  DCQ(, str1, str2))
+  SEEC_PP_QUOTE(char *str1; char const *str2;),
+  SEEC_PP_QUOTE(, str1, str2))
 
 DETECT_CALL(C, strxfrm,
-  DCQ(char *str1; char const *str2; size_t n;),
-  DCQ(, str1, str2, n))
+  SEEC_PP_QUOTE(char *str1; char const *str2; size_t n;),
+  SEEC_PP_QUOTE(, str1, str2, n))

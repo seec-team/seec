@@ -5,37 +5,37 @@
 //===----------------------------------------------------------------------===//
 
 DETECT_CALL(C, asctime,
-  DCQ(struct tm const *timeptr;),
-  DCQ(, timeptr))
+  SEEC_PP_QUOTE(struct tm const *timeptr;),
+  SEEC_PP_QUOTE(, timeptr))
 
 DETECT_CALL(C, clock,
-  DCQ(),
-  DCQ())
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 DETECT_CALL(C, ctime,
-  DCQ(time_t const *timer;),
-  DCQ(, timer))
+  SEEC_PP_QUOTE(time_t const *timer;),
+  SEEC_PP_QUOTE(, timer))
 
 DETECT_CALL(C, difftime,
-  DCQ(time_t time1, time2;),
-  DCQ(, time1, time2))
+  SEEC_PP_QUOTE(time_t time1, time2;),
+  SEEC_PP_QUOTE(, time1, time2))
 
 DETECT_CALL(C, gmtime,
-  DCQ(time_t const *timer;),
-  DCQ(, timer))
+  SEEC_PP_QUOTE(time_t const *timer;),
+  SEEC_PP_QUOTE(, timer))
 
 DETECT_CALL(C, localtime,
-  DCQ(time_t const *timer;),
-  DCQ(, timer))
+  SEEC_PP_QUOTE(time_t const *timer;),
+  SEEC_PP_QUOTE(, timer))
 
 DETECT_CALL(C, mktime,
-  DCQ(struct tm *timeptr;),
-  DCQ(, timeptr))
+  SEEC_PP_QUOTE(struct tm *timeptr;),
+  SEEC_PP_QUOTE(, timeptr))
 
 DETECT_CALL(C, strftime,
-  DCQ(char *str; size_t maxsize; char const *format; struct tm const *timeptr;),
-  DCQ(, str, maxsize, format, timeptr))
+  SEEC_PP_QUOTE(char *str; size_t maxsize; char const *format; struct tm const *timeptr;),
+  SEEC_PP_QUOTE(, str, maxsize, format, timeptr))
 
 DETECT_CALL(C, time,
-  DCQ(time_t *timer;),
-  DCQ(, timer))
+  SEEC_PP_QUOTE(time_t *timer;),
+  SEEC_PP_QUOTE(, timer))

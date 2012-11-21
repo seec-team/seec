@@ -6,127 +6,127 @@
 
 // Conversions to numeric formats.
 DETECT_CALL(C, atof,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 
 DETECT_CALL(C, atoi,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 DETECT_CALL(C, atol,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 DETECT_CALL(C, atoll,
-  DCQ(char const *str;),
-  DCQ(, str))
+  SEEC_PP_QUOTE(char const *str;),
+  SEEC_PP_QUOTE(, str))
 
 DETECT_CALL(C, strtol,
-  DCQ(char const *str; char **endptr; int base;),
-  DCQ(, str, endptr, base))
+  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
+  SEEC_PP_QUOTE(, str, endptr, base))
 DETECT_CALL(C, strtoll,
-  DCQ(char const *str; char **endptr; int base;),
-  DCQ(, str, endptr, base))
+  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
+  SEEC_PP_QUOTE(, str, endptr, base))
 
 DETECT_CALL(C, strtoul,
-  DCQ(char const *str; char **endptr; int base;),
-  DCQ(, str, endptr, base))
+  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
+  SEEC_PP_QUOTE(, str, endptr, base))
 DETECT_CALL(C, strtoull,
-  DCQ(char const *str; char **endptr; int base;),
-  DCQ(, str, endptr, base))
+  SEEC_PP_QUOTE(char const *str; char **endptr; int base;),
+  SEEC_PP_QUOTE(, str, endptr, base))
 
 DETECT_CALL(C, strtof,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+  SEEC_PP_QUOTE(char const *str; char **endptr;),
+  SEEC_PP_QUOTE(, str, endptr))
 DETECT_CALL(C, strtod,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+  SEEC_PP_QUOTE(char const *str; char **endptr;),
+  SEEC_PP_QUOTE(, str, endptr))
 DETECT_CALL(C, strtold,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+  SEEC_PP_QUOTE(char const *str; char **endptr;),
+  SEEC_PP_QUOTE(, str, endptr))
 
 DETECT_CALL(C, strtoimax,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+  SEEC_PP_QUOTE(char const *str; char **endptr;),
+  SEEC_PP_QUOTE(, str, endptr))
 DETECT_CALL(C, strtoumax,
-  DCQ(char const *str; char **endptr;),
-  DCQ(, str, endptr))
+  SEEC_PP_QUOTE(char const *str; char **endptr;),
+  SEEC_PP_QUOTE(, str, endptr))
 
 
 // Memory functions
 DETECT_CALL(C, calloc,
-  DCQ(size_t Num, Size;),
-  DCQ(, Num, Size))
+  SEEC_PP_QUOTE(size_t Num, Size;),
+  SEEC_PP_QUOTE(, Num, Size))
 DETECT_CALL(C, free,
-  DCQ(void *Address;),
-  DCQ(, Address))
+  SEEC_PP_QUOTE(void *Address;),
+  SEEC_PP_QUOTE(, Address))
 DETECT_CALL(C, malloc,
-  DCQ(size_t Size;),
-  DCQ(, Size))
+  SEEC_PP_QUOTE(size_t Size;),
+  SEEC_PP_QUOTE(, Size))
 DETECT_CALL(C, realloc,
-  DCQ(void *Address; size_t Size;),
-  DCQ(, Address, Size))
+  SEEC_PP_QUOTE(void *Address; size_t Size;),
+  SEEC_PP_QUOTE(, Address, Size))
 
 
 // Environment
 DETECT_CALL(C, abort, , )
 DETECT_CALL(C, atexit,
-  DCQ(void (*function) (void);),
-  DCQ(, function))
+  SEEC_PP_QUOTE(void (*function) (void);),
+  SEEC_PP_QUOTE(, function))
 DETECT_CALL(C, exit,
-  DCQ(int status;),
-  DCQ(, status))
+  SEEC_PP_QUOTE(int status;),
+  SEEC_PP_QUOTE(, status))
 DETECT_CALL(C, getenv,
-  DCQ(char const *name;),
-  DCQ(, name))
+  SEEC_PP_QUOTE(char const *name;),
+  SEEC_PP_QUOTE(, name))
 DETECT_CALL(C, system,
-  DCQ(char const *command;),
-  DCQ(, command))
+  SEEC_PP_QUOTE(char const *command;),
+  SEEC_PP_QUOTE(, command))
 
 
 // Searching and sorting
 DETECT_CALL(C, bsearch,
-  DCQ(void const *key, *base;
+  SEEC_PP_QUOTE(void const *key, *base;
       size_t num, size;
       int (*comparator)(void const *, void const *);),
-  DCQ(, key, base, num, size, comparator))
+  SEEC_PP_QUOTE(, key, base, num, size, comparator))
 DETECT_CALL(C, qsort,
-  DCQ(void *base;
+  SEEC_PP_QUOTE(void *base;
       size_t num, size;
       int (*comparator)(void const *, void const *);),
-  DCQ(, base, num, size, comparator))
+  SEEC_PP_QUOTE(, base, num, size, comparator))
 
 
 // Math functions
 DETECT_CALL(C, abs,
-  DCQ(int X;),
-  DCQ(, X))
+  SEEC_PP_QUOTE(int X;),
+  SEEC_PP_QUOTE(, X))
 DETECT_CALL(C, div,
-  DCQ(int numer, denom;),
-  DCQ(, numer, denom))
+  SEEC_PP_QUOTE(int numer, denom;),
+  SEEC_PP_QUOTE(, numer, denom))
 DETECT_CALL(C, labs,
-  DCQ(long int X;),
-  DCQ(, X))
+  SEEC_PP_QUOTE(long int X;),
+  SEEC_PP_QUOTE(, X))
 DETECT_CALL(C, ldiv,
-  DCQ(long int numer, denom;),
-  DCQ(, numer, denom))
+  SEEC_PP_QUOTE(long int numer, denom;),
+  SEEC_PP_QUOTE(, numer, denom))
 DETECT_CALL(C, rand, , )
 DETECT_CALL(C, srand,
-  DCQ(unsigned int seed;),
-  DCQ(, seed))
+  SEEC_PP_QUOTE(unsigned int seed;),
+  SEEC_PP_QUOTE(, seed))
 
 
 // Multibyte characters
 DETECT_CALL(C, mblen,
-  DCQ(char const *str; size_t n;),
-  DCQ(, str, n))
+  SEEC_PP_QUOTE(char const *str; size_t n;),
+  SEEC_PP_QUOTE(, str, n))
 DETECT_CALL(C, mbstowcs,
-  DCQ(wchar_t *pwcs; char const *str; size_t n;),
-  DCQ(, pwcs, str, n))
+  SEEC_PP_QUOTE(wchar_t *pwcs; char const *str; size_t n;),
+  SEEC_PP_QUOTE(, pwcs, str, n))
 DETECT_CALL(C, mbtowc,
-  DCQ(wchar_t *pwc; char const *str; size_t n;),
-  DCQ(, pwc, str, n))
+  SEEC_PP_QUOTE(wchar_t *pwc; char const *str; size_t n;),
+  SEEC_PP_QUOTE(, pwc, str, n))
 DETECT_CALL(C, wcstombs,
-  DCQ(char *str; wchar_t const *pwcs; size_t n;),
-  DCQ(, str, pwcs, n))
+  SEEC_PP_QUOTE(char *str; wchar_t const *pwcs; size_t n;),
+  SEEC_PP_QUOTE(, str, pwcs, n))
 DETECT_CALL(C, wctomb,
-  DCQ(char *str; wchar_t wchar;),
-  DCQ(, str, wchar))
+  SEEC_PP_QUOTE(char *str; wchar_t wchar;),
+  SEEC_PP_QUOTE(, str, wchar))

@@ -4,6 +4,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "seec/Preprocessor/Quote.h"
+
 #ifndef DETECT_CALL
 #define DETECT_CALL(PREFIX, CALL, LOCALS, ARGS)
 #endif
@@ -11,12 +13,6 @@
 #ifndef DETECT_CALL_FORWARD_INTRINSIC
 #define DETECT_CALL_FORWARD_INTRINSIC(INTRINSIC, PREFIX, CALL)
 #endif
-
-#ifdef DCQ
-#define SEEC_DETECT_CALL_DCQ_BACK DCQ
-#endif
-
-#define DCQ(...) __VA_ARGS__
 
 #include "DetectCalls/DetectCallsCctype.def"
 #include "DetectCalls/DetectCallsClocale.def"
@@ -26,13 +22,6 @@
 #include "DetectCalls/DetectCallsCstdlib.def"
 #include "DetectCalls/DetectCallsCstring.def"
 #include "DetectCalls/DetectCallsCtime.def"
-
-#ifdef SEEC_DETECT_CALL_DCQ_BACK
-#define DCQ SEEC_DETECT_CALL_DCQ_BACK
-#undef SEEC_DETECT_CALL_DCQ_BACK
-#else
-#undef DCQ
-#endif
 
 #undef DETECT_CALL_FORWARD_INTRINSIC
 #undef DETECT_CALL
