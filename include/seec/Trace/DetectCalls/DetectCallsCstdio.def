@@ -95,7 +95,7 @@ DETECT_CALL(C, ungetc,
 
 DETECT_CALL(C, ftell, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream), SEEC_PP_QUOTE(FILE *))
 
-DETECT_CALL(C, fgetpos, SEEC_PP_QUOTE(FILE *stream; fpos_t *pos;), SEEC_PP_QUOTE(, stream, pos), SEEC_PP_QUOTE(FILE *, fpos_t))
+DETECT_CALL(C, fgetpos, SEEC_PP_QUOTE(FILE *stream; fpos_t *pos;), SEEC_PP_QUOTE(, stream, pos), SEEC_PP_QUOTE(FILE *, fpos_t *))
 
 DETECT_CALL(C, fseek,
   SEEC_PP_QUOTE(FILE *stream; long int offset; int whence;),
@@ -105,7 +105,7 @@ DETECT_CALL(C, fseek,
 DETECT_CALL(C, fsetpos,
   SEEC_PP_QUOTE(FILE *stream; fpos_t const *pos;),
   SEEC_PP_QUOTE(, stream, pos),
-  SEEC_PP_QUOTE(FILE 8, fpos_t))
+  SEEC_PP_QUOTE(FILE *, fpos_t const *))
 
 DETECT_CALL(C, rewind, SEEC_PP_QUOTE(FILE *stream;), SEEC_PP_QUOTE(, stream), SEEC_PP_QUOTE(FILE *))
 

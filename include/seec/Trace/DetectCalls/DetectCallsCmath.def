@@ -25,7 +25,7 @@ DETECT_CALL(C, frexp, SEEC_PP_QUOTE(double X; int *exponent;), SEEC_PP_QUOTE(, X
 DETECT_CALL(C, ldexp, SEEC_PP_QUOTE(double X; int exponent;), SEEC_PP_QUOTE(, X, exponent), SEEC_PP_QUOTE(double, int))
 DETECT_CALL(C, log, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X), SEEC_PP_QUOTE(double))
 DETECT_CALL(C, log10, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X), SEEC_PP_QUOTE(double))
-DETECT_CALL(C, modf, SEEC_PP_QUOTE(double X; double *integer;), SEEC_PP_QUOTE(, X, integer), SEEC_PP_QUOTE(double, double))
+DETECT_CALL(C, modf, SEEC_PP_QUOTE(double X; double *integer;), SEEC_PP_QUOTE(, X, integer), SEEC_PP_QUOTE(double, double *))
 DETECT_CALL(C, pow, SEEC_PP_QUOTE(double X, Y;), SEEC_PP_QUOTE(, X, Y), SEEC_PP_QUOTE(double, double))
 DETECT_CALL(C, sqrt, SEEC_PP_QUOTE(double X;), SEEC_PP_QUOTE(, X), SEEC_PP_QUOTE(double))
 

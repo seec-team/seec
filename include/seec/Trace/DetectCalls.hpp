@@ -22,6 +22,7 @@
 #ifndef SEEC_TRACE_DETECT_CALLS_HPP
 #define SEEC_TRACE_DETECT_CALLS_HPP
 
+#include "seec/Preprocessor/AddComma.h"
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
 
@@ -229,12 +230,10 @@ public:
   // Define empty notification functions that will be called if SubclassT does
   // not implement a notification function.
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
-  template<typename... ArgTs>                                                  \
-  void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index,    \
-                         ArgTs &&...Args) {}                                   \
-  template<typename... ArgTs>                                                  \
-  void post##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index,   \
-                          ArgTs &&...Args) {}
+  void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index     \
+                         SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)) {}      \
+  void post##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index    \
+                          SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)) {}
 /// \cond
 #include "DetectCallsAll.def"
 /// \endcond
