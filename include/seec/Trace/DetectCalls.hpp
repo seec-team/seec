@@ -25,12 +25,14 @@
 #include "seec/Preprocessor/AddComma.h"
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/Instructions.h"
 #include "llvm/Intrinsics.h"
 
 #include <cstdio> // for fpos_t, size_t, FILE *.
 #include <ctime> // for time_t, struct tm.
+#include <tuple>
 
 /// SeeC's root namespace.
 namespace seec {
@@ -41,21 +43,95 @@ namespace trace {
 /// Holds implementation details for detectCalls.
 namespace detect_calls {
 
-template<bool Pre, typename LT, Call C>
-struct NotifyImpl {
-  template<typename... PTs>
-  static void impl(LT &Listener,
-                   llvm::CallInst const *I,
-                   uint32_t Index,
-                   PTs&&... Params) {}
+
+//===------------------------------------------------------------------------===
+// getArgumentAs<T>
+//===------------------------------------------------------------------------===
+
+/// \brief Get the runtime value of an argument as a specified type.
+template<typename T>
+struct GetArgumentImpl {
+  template<typename LT>
+  static T impl(LT &Listener, llvm::CallInst const *Instr, std::size_t Arg)
+  {
+    auto Value = getCurrentRuntimeValueAs<T>(Listener,
+                                             Instr->getArgOperand(Arg));
+    return Value.template get<0>();
+  }
 };
 
-template<bool Pre, typename LT, Call C>
+// TODO: Specialize GetArgumentImpl for variadic argument lists.
+template<typename T, typename LT>
+T getArgumentAs(LT &Listener, llvm::CallInst const *Instr, std::size_t Arg) {
+  return GetArgumentImpl<T>::impl(Listener, Instr, Arg);
+}
+
+
+//===------------------------------------------------------------------------===
+// NotifyImpl
+//===------------------------------------------------------------------------===
+
+/// This is specialized for each Call.
+template<bool Pre, Call C>
+struct NotifyImpl;
+
+
+//===------------------------------------------------------------------------===
+// ExtractAndNotify
+//===------------------------------------------------------------------------===
+
+/// \brief Extracts arguments and defers to NotifyImpl.
+template<bool Pre, Call C, typename... ArgTs>
 struct ExtractAndNotifyImpl {
+  typedef std::tuple<ArgTs...> TupleTy;
+  
+  template<typename LT, int... ArgIs>
+  static bool impl(LT &Listener,
+                   llvm::CallInst const *I,
+                   uint32_t Index,
+                   seec::ct::sequence_int<ArgIs...>) {
+    NotifyImpl<Pre, C>
+      ::impl(Listener,
+             I,
+             Index,
+             getArgumentAs<typename std::tuple_element<ArgIs, TupleTy>::type>
+                          (Listener, I, ArgIs)...
+            );
+    
+    return true;
+  }
+};
+
+/// This generates a compile-time sequence of ints holding the indices of all
+/// arguments to extract, and then defers to ExtractAndNotifyImpl.
+template<bool Pre, Call C, typename... ArgTs>
+struct ExtractAndNotifyForward {
+  typedef typename seec::ct::generate_sequence_int<0, sizeof...(ArgTs)>::type
+          SeqTy;
+  
+  template<typename LT>
+  static bool impl(LT &Listener, llvm::CallInst const *Instr, uint32_t Index) {
+    return ExtractAndNotifyImpl<Pre, C, ArgTs...>::impl(Listener,
+                                                        Instr,
+                                                        Index,
+                                                        SeqTy());
+  }
+};
+
+/// This is specialized for each Call, and simply defers to
+/// ExtractAndNotifyForward with the appropriate argument types for the Call.
+template<bool Pre, Call C>
+struct ExtractAndNotify {
+  template<typename LT>
   static bool impl(LT &Listener, llvm::CallInst const *I, uint32_t Index) {
     return false;
   }
 };
+
+
+//===------------------------------------------------------------------------===
+// DetectAndForwardIntrinsicImpl
+//===------------------------------------------------------------------------===
 
 template<bool Pre, typename LT, llvm::Intrinsic::ID Intr>
 struct DetectAndForwardIntrinsicImpl {
@@ -66,6 +142,11 @@ struct DetectAndForwardIntrinsicImpl {
     return false;
   }
 };
+
+
+//===------------------------------------------------------------------------===
+// detectAndForward*Intrinsics
+//===------------------------------------------------------------------------===
 
 template<bool Pre, typename LT>
 bool detectAndForwardIntrinsics(LT &Listener,
@@ -112,14 +193,17 @@ bool detectAndForwardPostIntrinsics(LT &Listener,
                                                          ID);
 }
 
-// X-macro to generate specializations for the known calls
 
-// generate pre/post call notification (NotifyImpl), argument lookup
-// (ExtractAndNotifyImpl), and detection (DetectCallImpl).
+//===------------------------------------------------------------------------===
+// Generate specializations of NotifyImpl, ExtractAndNotifyImpl, and
+// DetectAndForwardIntrinsicImpl for all known calls.
+//===------------------------------------------------------------------------===
+
+// Generate pre/post call notification (NotifyImpl).
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
-template<typename LT>                                                          \
-struct NotifyImpl<true, LT, Call::PREFIX ## NAME> {                            \
-  template<typename... PTs>                                                    \
+template<>                                                                     \
+struct NotifyImpl<true, Call::PREFIX ## NAME> {                                \
+  template<typename LT, typename... PTs>                                       \
   static void impl(LT &Listener,                                               \
                    llvm::CallInst const *I,                                    \
                    uint32_t Index,                                             \
@@ -127,9 +211,9 @@ struct NotifyImpl<true, LT, Call::PREFIX ## NAME> {                            \
     Listener.pre ## PREFIX ## NAME (I, Index, std::forward<PTs>(Params)...);   \
   }                                                                            \
 };                                                                             \
-template<typename LT>                                                          \
-struct NotifyImpl<false, LT, Call::PREFIX ## NAME> {                           \
-  template<typename... PTs>                                                    \
+template<>                                                                     \
+struct NotifyImpl<false, Call::PREFIX ## NAME> {                               \
+  template<typename LT, typename... PTs>                                       \
   static void impl(LT &Listener,                                               \
                    llvm::CallInst const *I,                                    \
                    uint32_t Index,                                             \
@@ -137,18 +221,18 @@ struct NotifyImpl<false, LT, Call::PREFIX ## NAME> {                           \
     Listener.post ## PREFIX ## NAME (I, Index, std::forward<PTs>(Params)...);  \
   }                                                                            \
 };                                                                             \
-template<bool Pre, typename LT>                                                \
-struct ExtractAndNotifyImpl<Pre, LT, Call::PREFIX ## NAME> {                   \
+template<bool Pre>                                                             \
+struct ExtractAndNotify<Pre, Call::PREFIX##NAME> {                             \
+  template<typename LT>                                                        \
   static bool impl(LT &Listener, llvm::CallInst const *I, uint32_t Index) {    \
-    LOCALS                                                                     \
-    if (!getArgumentValues(Listener, I, 0 ARGS))                               \
-      return false;                                                            \
-    NotifyImpl<Pre, LT, Call::PREFIX ## NAME>::impl(Listener, I, Index ARGS);  \
-    return true;                                                               \
+    return ExtractAndNotifyForward                                             \
+           <Pre, Call::PREFIX##NAME                                            \
+            SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)>                      \
+           ::impl(Listener, I, Index);                                         \
   }                                                                            \
 };
 
-// generate detection for intrinsics
+// Generate detection for intrinsics (DetectAndForwardIntrinsicImpl).
 #define DETECT_CALL_FORWARD_INTRINSIC(INTRINSIC, PREFIX, CALL)                 \
 template<bool Pre, typename LT>                                                \
 struct DetectAndForwardIntrinsicImpl<Pre, LT, llvm::Intrinsic::ID::INTRINSIC> {\
@@ -158,17 +242,21 @@ struct DetectAndForwardIntrinsicImpl<Pre, LT, llvm::Intrinsic::ID::INTRINSIC> {\
                    unsigned ID) {                                              \
     if (llvm::Intrinsic::ID::INTRINSIC != ID)                                  \
       return false;                                                            \
-    return ExtractAndNotifyImpl<Pre, LT, Call::PREFIX##CALL>::impl(Lstn,       \
-                                                                   I,          \
-                                                                   Index);     \
+    return ExtractAndNotify<Pre, Call::PREFIX##CALL>::impl(Lstn, I, Index);    \
   }                                                                            \
 };
+
 /// \cond
 #include "DetectCallsAll.def"
 /// \endcond
 
+
 } // namespace detect_calls
 
+
+//===------------------------------------------------------------------------===
+// CallDetector<SubclassT>
+//===------------------------------------------------------------------------===
 
 template<class SubclassT>
 class CallDetector {
@@ -191,7 +279,7 @@ public:
     switch (MaybeCall.template get<0>()) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
       case Call::PREFIX##NAME:                                                 \
-        return ExtractAndNotifyImpl<true, SubclassT, Call::PREFIX##NAME>       \
+        return ExtractAndNotify<true, Call::PREFIX##NAME>                      \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
 #include "DetectCallsAll.def"
       
@@ -215,7 +303,7 @@ public:
     switch (MaybeCall.template get<0>()) {
 #define DETECT_CALL(PREFIX, NAME, LOCALS, ARGS, ARGTYPES)                      \
       case Call::PREFIX##NAME:                                                 \
-        return ExtractAndNotifyImpl<false, SubclassT, Call::PREFIX##NAME>      \
+        return ExtractAndNotify<false, Call::PREFIX##NAME>                     \
                   ::impl(*static_cast<SubclassT *>(this), Instruction, Index);
 #include "DetectCallsAll.def"
       
