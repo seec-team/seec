@@ -73,6 +73,10 @@ public:
     return Instruction->getNumArgOperands() - Offset;
   }
   
+  unsigned offset() const {
+    return Offset;
+  }
+  
   template<typename T>
   seec::util::Maybe<T> getAs(unsigned Index) const {
     if (Offset + Index < Instruction->getNumArgOperands()) {

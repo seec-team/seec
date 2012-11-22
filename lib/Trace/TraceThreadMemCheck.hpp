@@ -174,9 +174,19 @@ public:
   std::size_t checkLimitedCStringRead(unsigned Parameter,
                                       char const *String,
                                       std::size_t Limit);
+  
+  /// \brief Check the validity of a print format string.
+  ///
+  /// \return true iff there were no errors.
+  ///
+  bool
+  checkPrintFormat(unsigned Parameter,
+                   char const *String,
+                   detect_calls::VarArgList<TraceThreadListener> const &Args);
 };
 
 
+/// \brief Helps detect and report run-time errors with I/O stream usage.
 class CIOChecker : public CStdLibChecker {
   TraceStreams const &Streams;
 

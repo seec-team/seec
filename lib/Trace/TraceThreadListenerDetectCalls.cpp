@@ -155,13 +155,36 @@ void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 // scanf
 //===------------------------------------------------------------------------===
-void TraceThreadListener::preCscanf(
-        llvm::CallInst const *Call,
-        uint32_t Index,
-        char const *Str,
-        detect_calls::VarArgList<TraceThreadListener> const &Args)
+void
+TraceThreadListener::
+preCscanf(llvm::CallInst const *Call,
+          uint32_t Index,
+          char const *Str,
+          detect_calls::VarArgList<TraceThreadListener> const &Args)
 {
   // TODO: Implement scanf() format string checking.
+}
+
+
+//===------------------------------------------------------------------------===
+// printf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCprintf(llvm::CallInst const *Call,
+           uint32_t Index,
+           char const *Str,
+           detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::printf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkPrintFormat(0, Str, Args);
 }
 
 

@@ -59,10 +59,14 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
         if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
           return RTValue->getUIntPtr();
         }
+        
+        return seec::util::Maybe<uintptr_t>();
       }
       else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) {
         return static_cast<uintptr_t>(ConstantInt->getZExtValue());
       }
+      
+      llvm_unreachable("Don't know how to extract integer.");
     }
     else if (Ty->isPointerTy()) {
       // If the Value is an Instruction, get its recorded runtime value
@@ -144,8 +148,8 @@ struct GetCurrentRuntimeValueAsImpl
   template<typename SrcTy>
   static seec::util::Maybe<T>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    assert(V->getType()->isIntegerTy()
-           && "Extracting integral type from non-integer value.");
+    if (!V->getType()->isIntegerTy())
+      return seec::util::Maybe<T>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
       if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
@@ -157,6 +161,7 @@ struct GetCurrentRuntimeValueAsImpl
       return static_cast<T>(ConstantInt->getSExtValue());
     }
     
+    llvm_unreachable("Don't know how to extract signed integral type.");
     return seec::util::Maybe<T>();
   }
 };
@@ -173,8 +178,8 @@ struct GetCurrentRuntimeValueAsImpl
   template<typename SrcTy>
   static seec::util::Maybe<T>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    assert(V->getType()->isIntegerTy()
-           && "Extracting integral type from non-integer value.");
+    if (!V->getType()->isIntegerTy())
+      return seec::util::Maybe<T>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
       if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
@@ -186,6 +191,7 @@ struct GetCurrentRuntimeValueAsImpl
       return static_cast<T>(ConstantInt->getZExtValue());
     }
     
+    llvm_unreachable("Don't know how to extract unsigned integral type.");
     return seec::util::Maybe<T>();
   }
 };
@@ -196,7 +202,8 @@ struct GetCurrentRuntimeValueAsImpl<float, void> {
   template<typename SrcTy>
   static seec::util::Maybe<float>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    assert(V->getType()->isFloatTy());
+    if (!V->getType()->isFloatTy())
+      return seec::util::Maybe<float>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
       if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
@@ -207,6 +214,7 @@ struct GetCurrentRuntimeValueAsImpl<float, void> {
       return ConstantFloat->getValueAPF().convertToFloat();
     }
     
+    llvm_unreachable("Don't know how to extract float!");
     return seec::util::Maybe<float>();
   }
 };
@@ -217,7 +225,8 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
   template<typename SrcTy>
   static seec::util::Maybe<double>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    assert(V->getType()->isFloatTy());
+    if (!V->getType()->isFloatTy())
+      return seec::util::Maybe<double>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
       if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
@@ -228,6 +237,7 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
       return ConstantFloat->getValueAPF().convertToDouble();
     }
     
+    llvm_unreachable("Don't know how to extract double!");
     return seec::util::Maybe<double>();
   }
 };
@@ -243,6 +253,8 @@ struct GetCurrentRuntimeValueAsImpl<RuntimeValue const *, void> {
         return RTValue;
       }
     }
+    
+    llvm_unreachable("Don't know how to extract RuntimeValue.");
     return seec::util::Maybe<RuntimeValue const *>();
   }
 };

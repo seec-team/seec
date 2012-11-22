@@ -546,6 +546,10 @@ public:
   void preCscanf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                  detect_calls::VarArgList<TraceThreadListener> const &Args);
   
+  // printf
+  void preCprintf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
   /// @}
   
   
