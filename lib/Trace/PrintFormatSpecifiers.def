@@ -1,0 +1,26 @@
+//===- lib/Trace/PrintFormatSpecifiers.def -------------------------- C++ -===//
+//
+// X-Macro system for checking print format specifiers.
+//
+// SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS)
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_PRINT_FORMAT_SPECIFIER
+#error "Must define SEEC_PRINT_FORMAT_SPECIFIER."
+#endif
+
+#include "seec/Preprocessor/Quote.h"
+
+SEEC_PRINT_FORMAT_SPECIFIER(percent, '%', "", false,
+                            (none, void))
+
+SEEC_PRINT_FORMAT_SPECIFIER(c, 'c', "-", false,
+                            SEEC_PP_QUOTE((none, char),
+                                          (   l, wchar_t)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(s, 's', "-", true,
+                            SEEC_PP_QUOTE((none, char const *),
+                                          (   l, wchar_t const *)))
+
+#undef SEEC_PRINT_FORMAT_SPECIFIER
