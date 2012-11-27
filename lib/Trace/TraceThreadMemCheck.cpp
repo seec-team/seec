@@ -303,7 +303,7 @@ struct PrintConversionSpecifier {
       }
       else if(isdigit(*Remainder)) {
         // Parse int from string. If it does not exist, then the precision is
-        // defined to be zero, which it is what strtoul will return on failure.
+        // defined to be zero, which is what strtoul will return on failure.
         char *ParseEnd;
         Result.Precision = std::strtoul(Remainder, &ParseEnd, 10);
         Remainder = ParseEnd;
@@ -350,10 +350,15 @@ struct PrintConversionSpecifier {
         break;
     }
     
-    // Read specifier.
+    // Read specifier and set the default precision is no precision was
+    // specified.
     switch (*Remainder) {
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
-      case CHR: Result.Conversion = Specifier::ID; break;
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)  \
+      case CHR:                                                                \
+        Result.Conversion = Specifier::ID;                                     \
+        if (!Result.PrecisionSpecified && PREC)                                \
+          Result.Precision = DPREC;                                            \
+        break;
 #include "PrintFormatSpecifiers.def"
       default:
         return Result;
@@ -733,14 +738,28 @@ checkPrintFormat(unsigned Parameter,
       return false;
     }
     
+    // If a width was specified, ensure that width is allowed.
     if (Conversion.WidthSpecified && !Conversion.allowedWidth()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nWidth not allowed!\n";
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierWidthDenied>
+                      (Function,
+                       Parameter,
+                       StartIndex),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
     }
     
+    // If a precision was specified, ensure that precision is allowed.
     if (Conversion.PrecisionSpecified && !Conversion.allowedPrecision()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nPrecision not allowed!\n";
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierPrecisionDenied>
+                      (Function,
+                       Parameter,
+                       StartIndex),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
     }
     
     if (!Conversion.allowedCurrentLength()) {

@@ -113,6 +113,20 @@ root:table {
     }
 
     // function
+    // parameter
+    // start
+    FormatSpecifierWidthDenied:string {
+      "In the format string provided to function {function} (as parameter {parameter}), a width was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a width to be specified."
+    }
+
+    // function
+    // parameter
+    // start
+    FormatSpecifierPrecisionDenied:string {
+      "In the format string provided to function {function} (as parameter {parameter}), a precision was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a precision to be specified."
+    }
+
+    // function
     // expected
     // received
     VarArgsSuperfluous:string {
