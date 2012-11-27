@@ -750,15 +750,12 @@ checkPrintFormat(unsigned Parameter,
     
     // If width is an argument, check that it is readable.
     if (Conversion.WidthAsArgument) {
-      if (NextArg >= Args.size()) {
-        llvm::errs() << "\nInsufficient args!\n";
-        return false;
-      }
-      
-      auto MaybeWidth = Args.getAs<int>(NextArg);
-      if (!MaybeWidth.assigned()) {
-        llvm::errs() << "\nWidth as argument but arg is not an int!\n";
-        return false;
+      if (NextArg < Args.size()) {
+        auto MaybeWidth = Args.getAs<int>(NextArg);
+        if (!MaybeWidth.assigned()) {
+          llvm::errs() << "\nWidth as argument but arg is not an int!\n";
+          return false;
+        }
       }
       
       ++NextArg;
@@ -766,15 +763,12 @@ checkPrintFormat(unsigned Parameter,
     
     // If precision is an argument, check that it is readable.
     if (Conversion.PrecisionAsArgument) {
-      if (NextArg >= Args.size()) {
-        llvm::errs() << "\nInsufficient args!\n";
-        return false;
-      }
-      
-      auto MaybePrecision = Args.getAs<int>(NextArg);
-      if (!MaybePrecision.assigned()) {
-        llvm::errs() << "\nPrecision as argument but arg is not an int!\n";
-        return false;
+      if (NextArg < Args.size()) {
+        auto MaybePrecision = Args.getAs<int>(NextArg);
+        if (!MaybePrecision.assigned()) {
+          llvm::errs() << "\nPrecision as argument but arg is not an int!\n";
+          return false;
+        }
       }
       
       ++NextArg;
@@ -783,20 +777,27 @@ checkPrintFormat(unsigned Parameter,
     // TODO: Check that the argument type matches the expected type.
     
     if (Conversion.Conversion != PrintConversionSpecifier::Specifier::percent) {
-      if (NextArg >= Args.size()) {
-        llvm::errs() << "\nInsufficient arguments!\n";
-        return false;
-      }
-      
       ++NextArg;
     }
     
     NextChar = Conversion.End;
   }
   
-  if (NextArg < Args.size()) {
-    // Too many arguments passed to format.
-    llvm::errs() << "\nToo many arguments!\n";
+  if (NextArg > Args.size()) {
+    Thread.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
+                                        (Function,
+                                         NextArg,
+                                         Args.size()),
+                          RunErrorSeverity::Fatal,
+                          Instruction);
+  }
+  else if (NextArg < Args.size()) {
+    Thread.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
+                                        (Function,
+                                         NextArg,
+                                         Args.size()),
+                          RunErrorSeverity::Warning,
+                          Instruction);
   }
   
   return true;

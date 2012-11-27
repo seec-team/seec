@@ -111,5 +111,25 @@ root:table {
     FormatSpecifierFlag:string {
       "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
     }
+
+    // function
+    // expected
+    // received
+    VarArgsSuperfluous:string {
+      "Superfluous arguments passed to function {function}. Expected "
+        "{expected, plural, =0 {no variadic arguments} =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
+        ", but received "
+        "{received, plural, =0 {none.} other {only {received}.}}"
+    }
+
+    // function
+    // expected
+    // received
+    VarArgsInsufficient:string {
+      "Insufficient arguments passed to function {function}. Expected "
+        "{expected, plural, =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
+        ", but received "
+        "{received, plural, =0 {none.} other {only {received}.}}"
+    }
   }
 }

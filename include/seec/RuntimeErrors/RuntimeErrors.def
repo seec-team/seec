@@ -174,4 +174,32 @@ SEEC_RUNERR(FormatSpecifierFlag,
     (flag,      seec::runtime_errors::ArgCharacter)
   ))
 
+//
+// Too many arguments supplied to variadic function.
+//   function: The function being called.
+//   expected: The number of variadic arguments expected.
+//   received: The number of variadic arguments received.
+//
+SEEC_RUNERR(VarArgsSuperfluous,
+  SEEC_PP_QUOTE(
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::CStdFunction>),
+    (expected, seec::runtime_errors::ArgSize),
+    (received, seec::runtime_errors::ArgSize)
+  ))
+
+//
+// Too few arguments supplied to variadic function.
+//   function: The function being called.
+//   expected: The number of variadic arguments expected.
+//   received: The number of variadic arguments received.
+//
+SEEC_RUNERR(VarArgsInsufficient,
+  SEEC_PP_QUOTE(
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::CStdFunction>),
+    (expected, seec::runtime_errors::ArgSize),
+    (received, seec::runtime_errors::ArgSize)
+  ))
+
 #undef SEEC_RUNERR
