@@ -805,7 +805,7 @@ checkPrintFormat(unsigned Parameter,
 
 
 //===------------------------------------------------------------------------===
-// CStdLibChecker
+// CIOChecker
 //===------------------------------------------------------------------------===
 
 bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
