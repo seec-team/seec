@@ -813,6 +813,7 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybeWidth = Args.getAs<int>(NextArg);
         if (!MaybeWidth.assigned()) {
+          // TODO: Raise a runtime error.
           llvm::errs() << "\nWidth as argument but arg is not an int!\n";
           return false;
         }
@@ -826,6 +827,7 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybePrecision = Args.getAs<int>(NextArg);
         if (!MaybePrecision.assigned()) {
+          // TODO: Raise a runtime error.
           llvm::errs() << "\nPrecision as argument but arg is not an int!\n";
           return false;
         }
