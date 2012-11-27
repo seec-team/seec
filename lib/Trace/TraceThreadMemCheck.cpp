@@ -665,41 +665,72 @@ checkPrintFormat(unsigned Parameter,
     if (!Conversion.Start)
       break;
     
+    auto const StartIndex = Conversion.Start - String;
+    
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
-      auto const StartPosition = Conversion.Start - String;
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierParse>
                                     (Function,
                                      Parameter,
-                                     StartPosition),
+                                     StartIndex),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
     }
     
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nJustifyLeft not allowed!\n";
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
+                                    (Function,
+                                     Parameter,
+                                     StartIndex,
+                                     '-'),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nSignAlwaysPrint not allowed!\n";
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
+                                    (Function,
+                                     Parameter,
+                                     StartIndex,
+                                     '+'),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nSignPrintSpace not allowed!\n";
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
+                                    (Function,
+                                     Parameter,
+                                     StartIndex,
+                                     ' '),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nAlternativeForm not allowed!\n";
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
+                                    (Function,
+                                     Parameter,
+                                     StartIndex,
+                                     '#'),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nPadWithZero not allowed!\n";
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
+                                    (Function,
+                                     Parameter,
+                                     StartIndex,
+                                     '0'),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.WidthSpecified && !Conversion.allowedWidth()) {

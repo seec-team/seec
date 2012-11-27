@@ -103,5 +103,13 @@ root:table {
     FormatSpecifierParse:string {
       "Failed to parse format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
     }
+
+    // function
+    // parameter
+    // start
+    // flag
+    FormatSpecifierFlag:string {
+      "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
+    }
   }
 }
