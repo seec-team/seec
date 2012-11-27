@@ -69,6 +69,8 @@ ArgOperand::~ArgOperand() {}
 
 ArgParameter::~ArgParameter() {}
 
+ArgCharacter::~ArgCharacter() {}
+
 } // namespace runtime_errors (in seec)
 
 } // namespace seec

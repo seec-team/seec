@@ -50,6 +50,11 @@ Formattable formatArg(ArgParameter const &A) {
   return Formattable(static_cast<int64_t>(A.index()));
 }
 
+Formattable formatArg(ArgCharacter const &A) {
+  char String[] = {A.character(), 0};
+  return Formattable(String);
+}
+
 Formattable formatArg(Arg const &A) {
   switch (A.type()) {
     case ArgType::None:

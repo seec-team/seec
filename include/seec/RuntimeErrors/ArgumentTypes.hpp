@@ -307,6 +307,39 @@ public:
   uint64_t index() const { return Index; }
 };
 
+/// \brief An argument that holds a single character.
+///
+class ArgCharacter : public Arg {
+  char Character;
+
+public:
+  ArgCharacter(char Character)
+  : Arg(ArgType::Character),
+    Character(Character)
+  {}
+
+  ArgCharacter(ArgCharacter const &Other) = default;
+
+  virtual ~ArgCharacter();
+
+  virtual uint64_t data() const { return Character; }
+
+  /// \brief Deserialize from data.
+  static std::unique_ptr<Arg> deserialize(uint64_t Data) {
+    return std::unique_ptr<Arg>(new ArgCharacter(static_cast<char>(Data)));
+  }
+
+  /// Support LLVM's dynamic casting.
+  /// \return true.
+  static bool classof(ArgCharacter const *A) { return true; }
+
+  /// Support LLVM's dynamic casting.
+  /// \return true iff *A is an ArgCharacter.
+  static bool classof(Arg const *A) { return A->type() == ArgType::Character; }
+
+  char character() const { return Character; }
+};
+
 } // namespace runtime_errors (in seec)
 
 } // namespace seec
