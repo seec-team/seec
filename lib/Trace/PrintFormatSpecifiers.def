@@ -2,7 +2,14 @@
 //
 // X-Macro system for checking print format specifiers.
 //
-// SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS)
+// SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)
+//   ID: Identifier for the specifier.
+//   CHR: The character for this specifier.
+//   FLAGS: The flags that this specifier supports.
+//   WIDTH: Whether or not this specifier supports width.
+//   PREC: Whether or not this specifier supports precision.
+//   DPREC: The default precision for this specifier.
+//   LENS: A list of pairs of form (length modifier, argument type).
 //
 //===----------------------------------------------------------------------===//
 
@@ -12,15 +19,121 @@
 
 #include "seec/Preprocessor/Quote.h"
 
-SEEC_PRINT_FORMAT_SPECIFIER(percent, '%', "", false,
+SEEC_PRINT_FORMAT_SPECIFIER(percent, '%', "", false, false, 0,
                             (none, void))
 
-SEEC_PRINT_FORMAT_SPECIFIER(c, 'c', "-", false,
-                            SEEC_PP_QUOTE((none, char),
+SEEC_PRINT_FORMAT_SPECIFIER(c, 'c', "-", true, false, 0,
+                            SEEC_PP_QUOTE((none, char   ),
                                           (   l, wchar_t)))
 
-SEEC_PRINT_FORMAT_SPECIFIER(s, 's', "-", true,
-                            SEEC_PP_QUOTE((none, char const *),
+SEEC_PRINT_FORMAT_SPECIFIER(s, 's', "-", true, true, 0,
+                            SEEC_PP_QUOTE((none, char const *   ),
                                           (   l, wchar_t const *)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(d, 'd', "-+ 0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, signed char     ),
+                                          (   h, signed short    ),
+                                          (none, signed int      ),
+                                          (   l, signed long     ),
+                                          (  ll, signed long long),
+                                          (   j, std::intmax_t   ),
+                                          (   z, std::size_t     ),
+                                          (   t, std::ptrdiff_t  )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(i, 'i', "-+ 0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, signed char     ),
+                                          (   h, signed short    ),
+                                          (none, signed int      ),
+                                          (   l, signed long     ),
+                                          (  ll, signed long long),
+                                          (   j, std::intmax_t   ),
+                                          (   z, std::size_t     ),
+                                          (   t, std::ptrdiff_t  )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(o, 'o', "-+ #0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, signed char     ),
+                                          (   h, signed short    ),
+                                          (none, signed int      ),
+                                          (   l, signed long     ),
+                                          (  ll, signed long long),
+                                          (   j, std::intmax_t   ),
+                                          (   z, std::size_t     ),
+                                          (   t, std::ptrdiff_t  )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(x, 'x', "-+ #0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, signed char     ),
+                                          (   h, signed short    ),
+                                          (none, signed int      ),
+                                          (   l, signed long     ),
+                                          (  ll, signed long long),
+                                          (   j, std::intmax_t   ),
+                                          (   z, std::size_t     ),
+                                          (   t, std::ptrdiff_t  )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(X, 'X', "-+ #0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, signed char     ),
+                                          (   h, signed short    ),
+                                          (none, signed int      ),
+                                          (   l, signed long     ),
+                                          (  ll, signed long long),
+                                          (   j, std::intmax_t   ),
+                                          (   z, std::size_t     ),
+                                          (   t, std::ptrdiff_t  )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(u, 'u', "-+ 0", true, true, 1,
+                            SEEC_PP_QUOTE((  hh, unsigned char     ),
+                                          (   h, unsigned short    ),
+                                          (none, unsigned int      ),
+                                          (   l, unsigned long     ),
+                                          (  ll, unsigned long long),
+                                          (   j, std::uintmax_t    ),
+                                          (   z, std::size_t       ),
+                                          (   t, std::ptrdiff_t    )))
+
+SEEC_PRINT_FORMAT_SPECIFIER(f, 'f', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(F, 'F', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(e, 'e', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(E, 'E', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(a, 'a', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(A, 'A', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(g, 'g', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(G, 'G', "-+ #0", true, true, 6,
+                            SEEC_PP_QUOTE((none, double     ),
+                                          (   l, double     ),
+                                          (   L, long double)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(n, 'n', "", false, false, 0,
+                            SEEC_PP_QUOTE((none, int *)))
+
+SEEC_PRINT_FORMAT_SPECIFIER(p, 'p', "-+ ", true, true, 0,
+                            SEEC_PP_QUOTE((none, void *)))
 
 #undef SEEC_PRINT_FORMAT_SPECIFIER

@@ -56,7 +56,7 @@ struct PrintConversionSpecifier {
   ///
   enum class Specifier {
     none, ///< Used when no specifier is found.
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
     ID,
 #include "PrintFormatSpecifiers.def"
   };
@@ -111,7 +111,7 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case Specifier::ID: return seec::const_strings::contains(FLAGS, '-');
 #include "PrintFormatSpecifiers.def"
     }
@@ -125,7 +125,7 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case Specifier::ID: return seec::const_strings::contains(FLAGS, '+');
 #include "PrintFormatSpecifiers.def"
     }
@@ -139,7 +139,7 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case Specifier::ID: return seec::const_strings::contains(FLAGS, ' ');
 #include "PrintFormatSpecifiers.def"
     }
@@ -153,7 +153,7 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case Specifier::ID: return seec::const_strings::contains(FLAGS, '#');
 #include "PrintFormatSpecifiers.def"
     }
@@ -167,8 +167,22 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case Specifier::ID: return seec::const_strings::contains(FLAGS, '0');
+#include "PrintFormatSpecifiers.def"
+    }
+    
+    llvm_unreachable("illegal conversion specifier");
+    return false;
+  }
+  
+  /// \brief Check if this specifier may have Width.
+  bool allowedWidth() const {
+    switch (Conversion) {
+      case Specifier::none: return false;
+      
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
+      case Specifier::ID: return WIDTH;
 #include "PrintFormatSpecifiers.def"
     }
     
@@ -181,8 +195,8 @@ struct PrintConversionSpecifier {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
-      case Specifier::ID: return PRECISION;
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
+      case Specifier::ID: return PREC;
 #include "PrintFormatSpecifiers.def"
     }
     
@@ -202,10 +216,10 @@ struct PrintConversionSpecifier {
 #define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE) \
         case LengthModifier::LENGTH: return true;
 
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS)        \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)  \
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
-          SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENGTHS)                         \
+          SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
           default: return false;                                               \
         }
 
@@ -338,7 +352,7 @@ struct PrintConversionSpecifier {
     
     // Read specifier.
     switch (*Remainder) {
-#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, PRECISION, LENGTHS) \
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS) \
       case CHR: Result.Conversion = Specifier::ID; break;
 #include "PrintFormatSpecifiers.def"
       default:
@@ -656,6 +670,46 @@ checkPrintFormat(unsigned Parameter,
       break;
     }
     
+    if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nJustifyLeft not allowed!\n";
+    }
+    
+    if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nSignAlwaysPrint not allowed!\n";
+    }
+    
+    if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nSignPrintSpace not allowed!\n";
+    }
+    
+    if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nAlternativeForm not allowed!\n";
+    }
+    
+    if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nPadWithZero not allowed!\n";
+    }
+    
+    if (Conversion.WidthSpecified && !Conversion.allowedWidth()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nWidth not allowed!\n";
+    }
+    
+    if (Conversion.PrecisionSpecified && !Conversion.allowedPrecision()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nPrecision not allowed!\n";
+    }
+    
+    if (!Conversion.allowedCurrentLength()) {
+      // TODO: Create runtime error.
+      llvm::errs() << "\nLength is incorrect for this specifier!\n";
+    }
+    
     // If width is an argument, check that it is readable.
     if (Conversion.WidthAsArgument) {
       if (NextArg >= Args.size()) {
@@ -686,41 +740,6 @@ checkPrintFormat(unsigned Parameter,
       }
       
       ++NextArg;
-    }
-    
-    if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nJustifyLeft not allowed!\n";
-    }
-    
-    if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nSignAlwaysPrint not allowed!\n";
-    }
-    
-    if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nSignPrintSpace not allowed!\n";
-    }
-    
-    if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nAlternativeForm not allowed!\n";
-    }
-    
-    if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nPadWithZero not allowed!\n";
-    }
-    
-    if (Conversion.PrecisionSpecified && !Conversion.allowedPrecision()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nPrecision not allowed!\n";
-    }
-    
-    if (!Conversion.allowedCurrentLength()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nLength is incorrect for this specifier!\n";
     }
     
     // TODO: Check that the argument type matches the expected type.

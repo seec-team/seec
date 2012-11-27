@@ -110,5 +110,13 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strxfrm, "strxfrm")
   )
 
+SEEC_FORMAT_SELECT(CFormatConversionFlag,
+  SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, JustifyLeft, "-")
+  SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, SignAlwaysPrint, "+")
+  SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, SignPrintSpace, " ")
+  SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, AlternativeForm, "#")
+  SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, PadWithZero, "0")
+  )
+
 #undef SEEC_FORMAT_SELECT_ITEM
 #undef SEEC_FORMAT_SELECT
