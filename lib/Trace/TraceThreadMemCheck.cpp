@@ -49,6 +49,28 @@ enum class LengthModifier {
   L
 };
 
+/// \brief Convert a LengthModifier to its format select representation.
+///
+seec::runtime_errors::format_selects::CFormatLengthModifier
+asCFormatLengthModifier(LengthModifier Modifier) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  switch (Modifier) {
+    case LengthModifier::hh:   return CFormatLengthModifier::hh;
+    case LengthModifier::h:    return CFormatLengthModifier::h;
+    case LengthModifier::none: return CFormatLengthModifier::none;
+    case LengthModifier::l:    return CFormatLengthModifier::l;
+    case LengthModifier::ll:   return CFormatLengthModifier::ll;
+    case LengthModifier::j:    return CFormatLengthModifier::j;
+    case LengthModifier::z:    return CFormatLengthModifier::z;
+    case LengthModifier::t:    return CFormatLengthModifier::t;
+    case LengthModifier::L:    return CFormatLengthModifier::L;
+  }
+  
+  llvm_unreachable("bad modifier.");
+  return CFormatLengthModifier::none;
+}
+
 /// \brief Represents a single conversion specifier for a print format.
 ///
 struct PrintConversionSpecifier {
@@ -683,11 +705,15 @@ checkPrintFormat(unsigned Parameter,
       return false;
     }
     
+    auto const EndIndex = Conversion.End - String;
+    
+    // Ensure that all the specified flags are allowed for this conversion.
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
                                     (Function,
                                      Parameter,
                                      StartIndex,
+                                     EndIndex,
                                      '-'),
                             RunErrorSeverity::Fatal,
                             Instruction);
@@ -699,6 +725,7 @@ checkPrintFormat(unsigned Parameter,
                                     (Function,
                                      Parameter,
                                      StartIndex,
+                                     EndIndex,
                                      '+'),
                             RunErrorSeverity::Fatal,
                             Instruction);
@@ -710,6 +737,7 @@ checkPrintFormat(unsigned Parameter,
                                     (Function,
                                      Parameter,
                                      StartIndex,
+                                     EndIndex,
                                      ' '),
                             RunErrorSeverity::Fatal,
                             Instruction);
@@ -721,6 +749,7 @@ checkPrintFormat(unsigned Parameter,
                                     (Function,
                                      Parameter,
                                      StartIndex,
+                                     EndIndex,
                                      '#'),
                             RunErrorSeverity::Fatal,
                             Instruction);
@@ -732,6 +761,7 @@ checkPrintFormat(unsigned Parameter,
                                     (Function,
                                      Parameter,
                                      StartIndex,
+                                     EndIndex,
                                      '0'),
                             RunErrorSeverity::Fatal,
                             Instruction);
@@ -744,7 +774,8 @@ checkPrintFormat(unsigned Parameter,
         createRunError<RunErrorType::FormatSpecifierWidthDenied>
                       (Function,
                        Parameter,
-                       StartIndex),
+                       StartIndex,
+                       EndIndex),
         RunErrorSeverity::Fatal,
         Instruction);
       return false;
@@ -756,15 +787,25 @@ checkPrintFormat(unsigned Parameter,
         createRunError<RunErrorType::FormatSpecifierPrecisionDenied>
                       (Function,
                        Parameter,
-                       StartIndex),
+                       StartIndex,
+                       EndIndex),
         RunErrorSeverity::Fatal,
         Instruction);
       return false;
     }
     
+    // Ensure that the length modifier (if any) is allowed.
     if (!Conversion.allowedCurrentLength()) {
-      // TODO: Create runtime error.
-      llvm::errs() << "\nLength is incorrect for this specifier!\n";
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierLengthDenied>
+                      (Function,
+                       Parameter,
+                       StartIndex,
+                       EndIndex,
+                       asCFormatLengthModifier(Conversion.Length)),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
     }
     
     // If width is an argument, check that it is readable.

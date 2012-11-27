@@ -118,5 +118,17 @@ SEEC_FORMAT_SELECT(CFormatConversionFlag,
   SEEC_FORMAT_SELECT_ITEM(CFormatConversionFlag, PadWithZero, "0")
   )
 
+SEEC_FORMAT_SELECT(CFormatLengthModifier,
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, hh,   "hh")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, h,    "hh")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, none, "(none)")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, l,    "l")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, ll,   "ll")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, j,    "j")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, z,    "z")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, t,    "t")
+  SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, L,    "L")
+  )
+
 #undef SEEC_FORMAT_SELECT_ITEM
 #undef SEEC_FORMAT_SELECT

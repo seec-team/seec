@@ -108,6 +108,7 @@ root:table {
     // parameter
     // start
     // flag
+    // end
     FormatSpecifierFlag:string {
       "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
     }
@@ -115,6 +116,7 @@ root:table {
     // function
     // parameter
     // start
+    // end
     FormatSpecifierWidthDenied:string {
       "In the format string provided to function {function} (as parameter {parameter}), a width was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a width to be specified."
     }
@@ -122,8 +124,18 @@ root:table {
     // function
     // parameter
     // start
+    // end
     FormatSpecifierPrecisionDenied:string {
       "In the format string provided to function {function} (as parameter {parameter}), a precision was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a precision to be specified."
+    }
+
+    // function
+    // parameter
+    // start
+    // end
+    // length
+    FormatSpecifierLengthDenied:string {
+      "In the format string provided to function {function} (as parameter {parameter}), the length modifier \"{length}\" was used for the conversion specifier starting at position {start}, but this conversion specifier does not support this length modifier."
     }
 
     // function

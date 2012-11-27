@@ -171,6 +171,7 @@ SEEC_RUNERR(FormatSpecifierFlag,
                   <seec::runtime_errors::format_selects::CStdFunction>),
     (parameter, seec::runtime_errors::ArgParameter),
     (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize),
     (flag,      seec::runtime_errors::ArgCharacter)
   ))
 
@@ -185,7 +186,8 @@ SEEC_RUNERR(FormatSpecifierWidthDenied,
     (function,  seec::runtime_errors::ArgSelect
                   <seec::runtime_errors::format_selects::CStdFunction>),
     (parameter, seec::runtime_errors::ArgParameter),
-    (start,     seec::runtime_errors::ArgSize)
+    (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize)
   ))
 
 //
@@ -200,7 +202,27 @@ SEEC_RUNERR(FormatSpecifierPrecisionDenied,
     (function,  seec::runtime_errors::ArgSelect
                   <seec::runtime_errors::format_selects::CStdFunction>),
     (parameter, seec::runtime_errors::ArgParameter),
-    (start,     seec::runtime_errors::ArgSize)
+    (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize)
+  ))
+
+//
+// An invalid length modifier was provided for a conversion specifier.
+//   function: The function being called.
+//   parameter: The parameter of the format string.
+//   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
+//   length: The length modifier.
+//
+SEEC_RUNERR(FormatSpecifierLengthDenied,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter),
+    (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize),
+    (length,    seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CFormatLengthModifier>)
   ))
 
 //
