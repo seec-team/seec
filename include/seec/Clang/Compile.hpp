@@ -183,7 +183,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 
 /// \brief Store all source files in SrcManager into the given llvm::Module.
 void StoreCompileInformationInModule(llvm::Module *Mod,
-                                     clang::CompilerInstance &Compiler);
+                                     clang::CompilerInstance &Compiler,
+                                     std::vector<std::string> const &Args);
 
 } // namespace clang (in seec)
 

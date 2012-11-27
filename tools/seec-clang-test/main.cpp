@@ -125,7 +125,8 @@ int main(int argc, char **argv, char * const *envp) {
                                InputFile);
   
   // Store all used source files into the LLVM Module.
-  StoreCompileInformationInModule(Mod, Compiler);
+  std::vector<std::string> Args;
+  StoreCompileInformationInModule(Mod, Compiler, Args);
 
   // Write the LLVM Module to a file.
   raw_fd_ostream ModOut(ModuleOutputFile.c_str(), FileError);

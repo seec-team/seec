@@ -371,7 +371,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 }
 
 void StoreCompileInformationInModule(llvm::Module *Mod,
-                                     ::clang::CompilerInstance &Compiler) {
+                                     ::clang::CompilerInstance &Compiler,
+                                     std::vector<std::string> const &Args) {
   assert(Mod && "No module?");
   
   auto &LLVMContext = Mod->getContext();
@@ -417,12 +418,7 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   }
   
   // Get all compile argument nodes.
-  auto &Invocation = Compiler.getInvocation();
-  
-  std::vector<std::string> InvocationArgs;
-  Invocation.toArgs(InvocationArgs);
-  
-  for (auto &Arg : InvocationArgs) {
+  for (auto &Arg : Args) {
     ArgNodes.push_back(llvm::MDString::get(LLVMContext, Arg));
   }
   
