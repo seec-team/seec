@@ -142,4 +142,19 @@ SEEC_RUNERR(PassInvalidStream,
     (parameter, seec::runtime_errors::ArgParameter)
   ))
 
+//
+// Error parsing a conversion specifier in a standard library string formatting
+// function.
+//   function: The function being called.
+//   parameter: The parameter of the format string.
+//   start: The position of the '%' that began the conversion specifier.
+//
+SEEC_RUNERR(FormatSpecifierParse,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter),
+    (start,     seec::runtime_errors::ArgSize)
+  ))
+
 #undef SEEC_RUNERR

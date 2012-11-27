@@ -665,9 +665,16 @@ checkPrintFormat(unsigned Parameter,
     if (!Conversion.Start)
       break;
     
+    // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
-      llvm::errs() << "\nConversion error!\n";
-      break;
+      auto const StartPosition = Conversion.Start - String;
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierParse>
+                                    (Function,
+                                     Parameter,
+                                     StartPosition),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
     }
     
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
