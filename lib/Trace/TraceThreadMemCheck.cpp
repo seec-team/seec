@@ -3,6 +3,8 @@
 
 #include "TraceThreadMemCheck.hpp"
 
+#include <type_traits>
+
 namespace seec {
 
 namespace trace {
@@ -70,6 +72,25 @@ asCFormatLengthModifier(LengthModifier Modifier) {
   llvm_unreachable("bad modifier.");
   return CFormatLengthModifier::none;
 }
+
+///
+template<typename T>
+struct default_arg_promotion_of { typedef T type; };
+
+template<>
+struct default_arg_promotion_of<unsigned char> { typedef unsigned type; };
+
+template<>
+struct default_arg_promotion_of<signed char> { typedef int type; };
+
+template<>
+struct default_arg_promotion_of<unsigned short> { typedef unsigned type; };
+
+template<>
+struct default_arg_promotion_of<signed short> { typedef int type; };
+
+template<>
+struct default_arg_promotion_of<float> { typedef double type; };
 
 /// \brief Represents a single conversion specifier for a print format.
 ///
@@ -246,6 +267,7 @@ struct PrintConversionSpecifier {
         }
 
 #include "PrintFormatSpecifiers.def"
+#undef SEEC_PP_CHECK_LENGTH
     }
     
     llvm_unreachable("illegal conversion specifier");
@@ -253,6 +275,66 @@ struct PrintConversionSpecifier {
   }
   
   /// @}
+  
+private:
+  /// \brief Check if the argument type matches the given type.
+  ///
+  template<typename T>
+  typename std::enable_if<!std::is_void<T>::value, bool>::type
+  checkArgumentType(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                    unsigned ArgIndex) const {
+    if (ArgIndex < Args.size()) {
+      typedef typename default_arg_promotion_of<T>::type PromotedT;
+      auto MaybeArg = Args.getAs<PromotedT>(ArgIndex);
+      return MaybeArg.assigned();
+    }
+    
+    return false;
+  }
+  
+  /// \brief Always accept conversions that require a void argument.
+  ///
+  /// This is used to represent conversions that take no argument, e.g. %%.
+  ///
+  template<typename T>
+  typename std::enable_if<std::is_void<T>::value, bool>::type
+  checkArgumentType(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                    unsigned ArgIndex) const {
+    return true;
+  }
+  
+public:
+  /// \brief Check if the argument type matches the required type.
+  ///
+  bool
+  isArgumentTypeOK(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                   unsigned ArgIndex) const {
+    // We use the X-Macro to generate a two levels of switching. The outer
+    // level matches the conversion, and the inner level gets the appropriate
+    // type given the current Length. If no appropriate type exists, then we
+    // return false.
+    
+    switch (Conversion) {
+      case Specifier::none: return false;
+
+#define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
+        case LengthModifier::LENGTH:                                           \
+          return checkArgumentType<TYPE>(Args, ArgIndex);
+
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)  \
+      case Specifier::ID:                                                      \
+        switch (Length) {                                                      \
+          SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
+          default: return false;                                               \
+        }
+
+#include "PrintFormatSpecifiers.def"
+#undef SEEC_PP_CHECK_LENGTH
+    }
+    
+    llvm_unreachable("illegal conversion specifier");
+    return false;
+  }
   
   /// \brief Find and read the first print conversion specified in String.
   ///
@@ -850,15 +932,36 @@ checkPrintFormat(unsigned Parameter,
       ++NextArg;
     }
     
-    // TODO: Check that the argument type matches the expected type.
+    // Check that the argument type matches the expected type. Don't check that
+    // the argument exists here, because some conversion specifiers don't
+    // require an argument (i.e. %%), so we check if it exists when needed, in
+    // the isArgumentTypeOK() implementation.
+    if (!Conversion.isArgumentTypeOK(Args, NextArg)) {
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierArgType>
+                      (Function,
+                       Parameter,
+                       StartIndex,
+                       EndIndex,
+                       asCFormatLengthModifier(Conversion.Length),
+                       Args.offset() + NextArg),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
+    }
     
+    // Move to the next argument (unless this conversion specifier doesn't
+    // consume an argument, which only occurs for %%).
     if (Conversion.Conversion != PrintConversionSpecifier::Specifier::percent) {
       ++NextArg;
     }
     
+    // The next position to search from should be the first character following
+    // this conversion specifier.
     NextChar = Conversion.End;
   }
   
+  // Ensure that we got exactly the right number of arguments.
   if (NextArg > Args.size()) {
     Thread.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
                                         (Function,

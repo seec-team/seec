@@ -281,6 +281,27 @@ SEEC_RUNERR(FormatSpecifierLengthDenied,
   ))
 
 //
+// An incorrectly typed argument was provided for a conversion specifier.
+//   function: The function being called.
+//   parameter: The parameter of the format string.
+//   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
+//   length: The length modifier.
+//   argument: The parameter index of the incorrectly-typed argument.
+//
+SEEC_RUNERR(FormatSpecifierArgType,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter),
+    (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize),
+    (length,    seec::runtime_errors::ArgSelect
+                <seec::runtime_errors::format_selects::CFormatLengthModifier>),
+    (argument,  seec::runtime_errors::ArgParameter)
+  ))
+
+//
 // Too many arguments supplied to variadic function.
 //   function: The function being called.
 //   expected: The number of variadic arguments expected.

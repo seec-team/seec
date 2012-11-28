@@ -163,6 +163,16 @@ root:table {
     }
 
     // function
+    // parameter
+    // start
+    // end
+    // length
+    // argument
+    FormatSpecifierArgType:string {
+      "The type of argument supplied as parameter {argument} to function \"{function}\" does not match the type required by the conversion specifier starting at position {start}."
+    }
+
+    // function
     // expected
     // received
     VarArgsSuperfluous:string {

@@ -225,7 +225,7 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
   template<typename SrcTy>
   static seec::util::Maybe<double>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
-    if (!V->getType()->isFloatTy())
+    if (!V->getType()->isDoubleTy())
       return seec::util::Maybe<double>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
@@ -239,6 +239,33 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
     
     llvm_unreachable("Don't know how to extract double!");
     return seec::util::Maybe<double>();
+  }
+};
+
+// Overload for long double types.
+// TODO: add support for long double in RuntimeValueRecord, recording, etc.
+template<>
+struct GetCurrentRuntimeValueAsImpl<long double, void> {
+  template<typename SrcTy>
+  static seec::util::Maybe<long double>
+  getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
+    // Ensure that V's type matches one of the "long double" types.
+    auto const VTy = V->getType();
+    if (!VTy->isX86_FP80Ty() && !VTy->isPPC_FP128Ty())
+      return seec::util::Maybe<long double>();
+    
+    if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+        return static_cast<long double>(RTValue->getDouble());
+      }
+    }
+    else if (auto ConstantFloat = llvm::dyn_cast<llvm::ConstantFP>(V)) {
+      auto const DoubleVal = ConstantFloat->getValueAPF().convertToDouble();
+      return static_cast<long double>(DoubleVal);
+    }
+    
+    llvm_unreachable("Don't know how to extract long double!");
+    return seec::util::Maybe<long double>();
   }
 };
 
