@@ -550,6 +550,21 @@ public:
   void preCprintf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                   detect_calls::VarArgList<TraceThreadListener> const &Args);
   
+  // fprintf
+  void preCfprintf(llvm::CallInst const *Call, uint32_t Index, FILE *Out,
+                   char const *Str,
+                   detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
+  // sprintf
+  void preCsprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
+                   char const *Str,
+                   detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
+  // snprintf
+  void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
+                    int BufSize, char const *Str,
+                    detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
   /// @}
   
   

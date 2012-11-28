@@ -189,6 +189,76 @@ preCprintf(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
+// fprintf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCfprintf(llvm::CallInst const *Call,
+            uint32_t Index,
+            FILE *Out,
+            char const *Str,
+            detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fprintf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkPrintFormat(1, Str, Args);
+}
+
+
+//===------------------------------------------------------------------------===
+// sprintf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCsprintf(llvm::CallInst const *Call,
+            uint32_t Index,
+            char *Buffer,
+            char const *Str,
+            detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::sprintf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkPrintFormat(1, Str, Args);
+}
+
+
+//===------------------------------------------------------------------------===
+// snprintf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCsnprintf(llvm::CallInst const *Call,
+             uint32_t Index,
+             char *Buffer,
+             int BufSize,
+             char const *Str,
+             detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::snprintf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkPrintFormat(2, Str, Args);
+}
+
+
+//===------------------------------------------------------------------------===
 // atof
 //===------------------------------------------------------------------------===
 
