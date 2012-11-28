@@ -336,6 +336,67 @@ public:
     return false;
   }
   
+private:
+  /// \brief For pointer types return the MemoryArea of the pointee.
+  ///
+  template<typename T>
+  typename std::enable_if<std::is_pointer<T>::value,
+                          seec::util::Maybe<MemoryArea>>::type
+  getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                     unsigned ArgIndex) const {
+    if (ArgIndex < Args.size()) {
+      auto MaybeArg = Args.getAs<T>(ArgIndex);
+      if (MaybeArg.assigned()) {
+        auto const Ptr = MaybeArg.template get<0>();
+        return MemoryArea(Ptr, sizeof(*Ptr));
+      }
+    }
+    
+    return seec::util::Maybe<MemoryArea>();
+  }
+  
+  /// \brief For non-pointer types return an uninitialized Maybe.
+  template<typename T>
+  typename std::enable_if<!std::is_pointer<T>::value,
+                          seec::util::Maybe<MemoryArea>>::type
+  getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                     unsigned ArgIndex) const {
+    return seec::util::Maybe<MemoryArea>();
+  }
+
+public:
+  /// \brief Get the address and size of the pointee of a pointer argument.
+  ///
+  seec::util::Maybe<MemoryArea>
+  getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                     unsigned ArgIndex) const {
+    // We use the X-Macro to generate a two levels of switching. The outer
+    // level matches the conversion, and the inner level gets the appropriate
+    // type given the current Length. If no appropriate type exists, then we
+    // return an unassigned Maybe.
+    
+    switch (Conversion) {
+      case Specifier::none: return seec::util::Maybe<MemoryArea>();
+
+#define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
+        case LengthModifier::LENGTH:                                           \
+          return getArgumentPointee<TYPE>(Args, ArgIndex);
+
+#define SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)  \
+      case Specifier::ID:                                                      \
+        switch (Length) {                                                      \
+          SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
+          default: return seec::util::Maybe<MemoryArea>();                     \
+        }
+
+#include "PrintFormatSpecifiers.def"
+#undef SEEC_PP_CHECK_LENGTH
+    }
+    
+    llvm_unreachable("illegal conversion specifier");
+    return seec::util::Maybe<MemoryArea>();
+  }
+  
   /// \brief Find and read the first print conversion specified in String.
   ///
   /// If no '%' is found, then the returned PrintConversionSpecifier will
@@ -948,6 +1009,33 @@ checkPrintFormat(unsigned Parameter,
         RunErrorSeverity::Fatal,
         Instruction);
       return false;
+    }
+    
+    // If the argument type is a pointer, check that the destination is
+    // readable. The conversion for strings is a special case.
+    if (Conversion.Conversion == PrintConversionSpecifier::Specifier::s) {
+      // Check string is readable.
+      if (NextArg < Args.size()) {
+        auto MaybePointer = Args.getAs<char const *>(NextArg);
+        if (!MaybePointer.assigned()) {
+          llvm_unreachable("unassigned char const * for string conversion.");
+          return false;
+        }
+        
+        if (!checkCStringRead(Args.offset() + NextArg, MaybePointer.get<0>()))
+          return false;
+      }
+    }
+    else {
+      auto MaybePointeeArea = Conversion.getArgumentPointee(Args, NextArg);
+      if (MaybePointeeArea.assigned()) {
+        auto Area = MaybePointeeArea.get<0>();
+        checkMemoryExistsAndAccessibleForParameter(
+          Args.offset() + NextArg,
+          Area.address(),
+          Area.length(),
+          format_selects::MemoryAccess::Write);
+      }
     }
     
     // Move to the next argument (unless this conversion specifier doesn't
