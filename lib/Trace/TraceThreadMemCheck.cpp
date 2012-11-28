@@ -834,8 +834,15 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybePrecision = Args.getAs<int>(NextArg);
         if (!MaybePrecision.assigned()) {
-          // TODO: Raise a runtime error.
-          llvm::errs() << "\nPrecision as argument but arg is not an int!\n";
+          Thread.handleRunError(
+            createRunError<RunErrorType::FormatSpecifierPrecisionArgType>
+                          (Function,
+                           Parameter,
+                           StartIndex,
+                           EndIndex,
+                           Args.offset() + NextArg),
+            RunErrorSeverity::Fatal,
+            Instruction);
           return false;
         }
       }
