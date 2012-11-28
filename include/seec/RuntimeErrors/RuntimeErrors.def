@@ -143,6 +143,18 @@ SEEC_RUNERR(PassInvalidStream,
   ))
 
 //
+// Using a standard library function which will read/write an invalid standard
+// stream (stdout, stderr, or stdin).
+//
+SEEC_RUNERR(UseInvalidStream,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (stream,    seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdStream>)
+  ))
+
+//
 // Error parsing a conversion specifier in a standard library string formatting
 // function.
 //   function: The function being called.

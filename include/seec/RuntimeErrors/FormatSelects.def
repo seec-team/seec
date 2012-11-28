@@ -130,5 +130,12 @@ SEEC_FORMAT_SELECT(CFormatLengthModifier,
   SEEC_FORMAT_SELECT_ITEM(CFormatLengthModifier, L,    "L")
   )
 
+SEEC_FORMAT_SELECT(CStdStream,
+  SEEC_FORMAT_SELECT_ITEM(CStdStream, Unknown, "unknown")
+  SEEC_FORMAT_SELECT_ITEM(CStdStream, Out, "stdout")
+  SEEC_FORMAT_SELECT_ITEM(CStdStream, Err, "stderr")
+  SEEC_FORMAT_SELECT_ITEM(CStdStream, In, "stdin")
+  )
+
 #undef SEEC_FORMAT_SELECT_ITEM
 #undef SEEC_FORMAT_SELECT

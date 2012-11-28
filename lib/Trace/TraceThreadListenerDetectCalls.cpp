@@ -184,6 +184,7 @@ preCprintf(llvm::CallInst const *Call,
   CIOChecker Checker(*this, Index, CStdFunction::printf,
                      ProcessListener.getStreams(StreamsLock));
   
+  Checker.checkStandardStreamIsValid(stdout);
   Checker.checkPrintFormat(0, Str, Args);
 }
 
@@ -207,6 +208,7 @@ preCfprintf(llvm::CallInst const *Call,
   CIOChecker Checker(*this, Index, CStdFunction::fprintf,
                      ProcessListener.getStreams(StreamsLock));
   
+  Checker.checkStreamIsValid(0, Out);
   Checker.checkPrintFormat(1, Str, Args);
 }
 
@@ -231,6 +233,8 @@ preCsprintf(llvm::CallInst const *Call,
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkPrintFormat(1, Str, Args);
+  // TODO: Check that size of Buffer is sufficient to contain size of the
+  // formatted string.
 }
 
 
@@ -255,6 +259,7 @@ preCsnprintf(llvm::CallInst const *Call,
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkPrintFormat(2, Str, Args);
+  // TODO: Check that Buffer and BufSize are valid.
 }
 
 

@@ -98,6 +98,12 @@ root:table {
     }
 
     // function
+    // stream
+    UseInvalidStream:string {
+      "Call to function \"{function}\" would use standard stream \"{stream}\", which is closed. Perhaps the program previously closed this stream by calling fclose({stream})?"
+    }
+
+    // function
     // parameter
     // start
     FormatSpecifierParse:string {

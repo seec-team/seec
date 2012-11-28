@@ -204,6 +204,11 @@ public:
   /// \return true iff there were no errors.
   bool checkStreamIsValid(unsigned Parameter,
                           FILE *Stream);
+  
+  /// \brief Check if a standard stream is valid.
+  ///
+  /// \return true iff there were no errors.
+  bool checkStandardStreamIsValid(FILE *Stream);
 };
 
 

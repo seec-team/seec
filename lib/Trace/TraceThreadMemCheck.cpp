@@ -887,6 +887,35 @@ bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
 }
 
 
+bool CIOChecker::checkStandardStreamIsValid(FILE *Stream) {
+  if (!Streams.streamWillClose(Stream)) {
+    using namespace seec::runtime_errors::format_selects;
+    
+    CStdStream StdStream = CStdStream::Unknown;
+    
+    if (Stream == stdout)
+      StdStream = CStdStream::Out;
+    else if (Stream == stdin)
+      StdStream = CStdStream::In;
+    else if (Stream == stderr)
+      StdStream = CStdStream::Err;
+    else
+      llvm_unreachable("non-standard stream!");
+    
+    Thread.handleRunError(
+      seec::runtime_errors::createRunError
+        <seec::runtime_errors::RunErrorType::UseInvalidStream>(Function,
+                                                               StdStream),
+      seec::trace::RunErrorSeverity::Fatal,
+      Instruction);
+    
+    return false;
+  }
+
+  return true;
+}
+
+
 } // namespace trace (in seec)
 
 } // namespace seec

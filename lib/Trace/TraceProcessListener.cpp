@@ -41,7 +41,11 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   DynamicMemoryAllocationsMutex(),
   StreamsMutex(),
   Streams()
-{}
+{
+  Streams.streamOpened(stdout);
+  Streams.streamOpened(stderr);
+  Streams.streamOpened(stdin);
+}
 
 TraceProcessListener::~TraceProcessListener() {
   auto Out = StreamAllocator.getProcessStream(ProcessSegment::Trace);
