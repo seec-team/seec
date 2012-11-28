@@ -42,12 +42,15 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceProcessListener.hpp
   ../../include/seec/Trace/TraceStreams.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
+  FormatSpecifiers.hpp
   PrintFormatSpecifiers.def
+  PrintFormatSpecifiers.hpp
   TraceThreadMemCheck.hpp
   )
 
 set(EXECUTION_TRACER_SOURCES
   DetectCallsLookup.cpp
+  PrintFormatSpecifiers.cpp
   TracedFunction.cpp
   TraceMemory.cpp
   TraceProcessListener.cpp
