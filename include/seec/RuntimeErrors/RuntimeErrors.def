@@ -175,6 +175,7 @@ SEEC_RUNERR(FormatSpecifierParse,
 //   function: The function being called.
 //   parameter: The parameter of the format string.
 //   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
 //   flag: The invalid flag character.
 //
 SEEC_RUNERR(FormatSpecifierFlag,
@@ -192,6 +193,7 @@ SEEC_RUNERR(FormatSpecifierFlag,
 //   function: The function being called.
 //   parameter: The parameter of the format string.
 //   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
 //
 SEEC_RUNERR(FormatSpecifierWidthDenied,
   SEEC_PP_QUOTE(
@@ -203,11 +205,31 @@ SEEC_RUNERR(FormatSpecifierWidthDenied,
   ))
 
 //
+// Width was specified to be passed as an argument, but the relevant argument
+// had an incorrect type (i.e. not int).
+//
+//   function: The function being called.
+//   parameter: The parameter of the format string.
+//   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
+//
+SEEC_RUNERR(FormatSpecifierWidthArgType,
+  SEEC_PP_QUOTE(
+    (function,        seec::runtime_errors::ArgSelect
+                        <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter,       seec::runtime_errors::ArgParameter),
+    (start,           seec::runtime_errors::ArgSize),
+    (end,             seec::runtime_errors::ArgSize),
+    (width_parameter, seec::runtime_errors::ArgParameter)
+  ))
+
+//
 // Precision was provided to a conversion specifier that does not allow
 // precision.
 //   function: The function being called.
 //   parameter: The parameter of the format string.
 //   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
 //
 SEEC_RUNERR(FormatSpecifierPrecisionDenied,
   SEEC_PP_QUOTE(

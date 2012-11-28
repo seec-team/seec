@@ -813,8 +813,15 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybeWidth = Args.getAs<int>(NextArg);
         if (!MaybeWidth.assigned()) {
-          // TODO: Raise a runtime error.
-          llvm::errs() << "\nWidth as argument but arg is not an int!\n";
+          Thread.handleRunError(
+            createRunError<RunErrorType::FormatSpecifierWidthArgType>
+                          (Function,
+                           Parameter,
+                           StartIndex,
+                           EndIndex,
+                           Args.offset() + NextArg),
+            RunErrorSeverity::Fatal,
+            Instruction);
           return false;
         }
       }
