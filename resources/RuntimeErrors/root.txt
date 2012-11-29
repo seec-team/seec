@@ -140,6 +140,14 @@ root:table {
     // parameter
     // start
     // end
+    FormatSpecifierWidthMissing:string {
+      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} did not provide a maximum field width. It is possible for this to lead to a buffer overflow (if the conversion matches more characters than can fit into the destination buffer). For safety, provide a maximum field width (as an integer written directly after the \"%\" character that begins the conversion specifier)."
+    }
+
+    // function
+    // parameter
+    // start
+    // end
     FormatSpecifierPrecisionDenied:string {
       "In the format string provided to function {function} (as parameter {parameter}), a precision was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a precision to be specified."
     }

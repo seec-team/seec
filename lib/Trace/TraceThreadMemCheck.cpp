@@ -610,7 +610,69 @@ checkScanFormat(unsigned Parameter,
       return false;
     }
     
-    // TODO: Error-checking.
+    // Check that the argument type matches the expected type. Don't check that
+    // the argument exists here, because some conversion specifiers don't
+    // require an argument (i.e. %%), so we check if it exists when needed, in
+    // the isArgumentTypeOK() implementation.
+    if (!Conversion.isArgumentTypeOK(Args, NextArg)) {
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierArgType>
+                      (Function,
+                       Parameter,
+                       StartIndex,
+                       EndIndex,
+                       asCFormatLengthModifier(Conversion.Length),
+                       Args.offset() + NextArg),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
+    }
+    
+    // If the argument type is a pointer, check that the destination is
+    // writable. The conversion for strings (and sets) is a special case.
+    if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
+        || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
+      if (NextArg < Args.size()) {
+        // Check that the field width is specified.
+        if (!Conversion.WidthSpecified) {
+          Thread.handleRunError(
+            createRunError<RunErrorType::FormatSpecifierWidthMissing>
+                          (Function,
+                           Parameter,
+                           StartIndex,
+                           EndIndex),
+            RunErrorSeverity::Fatal,
+            Instruction);
+          return false;
+        }
+        
+        // Check that the destination is writable and has sufficient space.
+        auto MaybePointeeArea = Conversion.getArgumentPointee(Args, NextArg);
+        if (!MaybePointeeArea.assigned()) {
+          llvm_unreachable("unassigned pointee for string conversion.");
+          return false;
+        }
+        
+        // TODO: This width may not be correct for wchar_t *.
+        if (!checkMemoryExistsAndAccessibleForParameter(
+                Args.offset() + NextArg,
+                MaybePointeeArea.get<0>().address(),
+                Conversion.Width,
+                format_selects::MemoryAccess::Write))
+          return false;
+      }
+    }
+    else {
+      auto MaybePointeeArea = Conversion.getArgumentPointee(Args, NextArg);
+      if (MaybePointeeArea.assigned()) {
+        auto Area = MaybePointeeArea.get<0>();
+        checkMemoryExistsAndAccessibleForParameter(
+          Args.offset() + NextArg,
+          Area.address(),
+          Area.length(),
+          format_selects::MemoryAccess::Write);
+      }
+    }
     
     // Move to the next argument (unless this conversion specifier doesn't
     // consume an argument).
