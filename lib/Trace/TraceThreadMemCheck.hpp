@@ -183,6 +183,15 @@ public:
   checkPrintFormat(unsigned Parameter,
                    char const *String,
                    detect_calls::VarArgList<TraceThreadListener> const &Args);
+  
+  /// \brief Check the validity of a scan format string.
+  ///
+  /// \return true iff there were no errors.
+  ///
+  bool
+  checkScanFormat(unsigned Parameter,
+                  char const *String,
+                  detect_calls::VarArgList<TraceThreadListener> const &Args);
 };
 
 

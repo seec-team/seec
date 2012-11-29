@@ -162,7 +162,16 @@ preCscanf(llvm::CallInst const *Call,
           char const *Str,
           detect_calls::VarArgList<TraceThreadListener> const &Args)
 {
-  // TODO: Implement scanf() format string checking.
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStandardStreamIsValid(stdin);
+  Checker.checkScanFormat(0, Str, Args);
 }
 
 

@@ -1,4 +1,5 @@
 #include "PrintFormatSpecifiers.hpp"
+#include "ScanFormatSpecifiers.hpp"
 #include "TraceThreadMemCheck.hpp"
 
 
@@ -333,9 +334,9 @@ checkPrintFormat(unsigned Parameter,
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierParse>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -346,11 +347,11 @@ checkPrintFormat(unsigned Parameter,
     // Ensure that all the specified flags are allowed for this conversion.
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex,
-                                     EndIndex,
-                                     '-'),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex,
+                                           EndIndex,
+                                           '-'),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -358,11 +359,11 @@ checkPrintFormat(unsigned Parameter,
     
     if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex,
-                                     EndIndex,
-                                     '+'),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex,
+                                           EndIndex,
+                                           '+'),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -370,11 +371,11 @@ checkPrintFormat(unsigned Parameter,
     
     if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex,
-                                     EndIndex,
-                                     ' '),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex,
+                                           EndIndex,
+                                           ' '),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -382,11 +383,11 @@ checkPrintFormat(unsigned Parameter,
     
     if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex,
-                                     EndIndex,
-                                     '#'),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex,
+                                           EndIndex,
+                                           '#'),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -394,11 +395,11 @@ checkPrintFormat(unsigned Parameter,
     
     if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
       Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                    (Function,
-                                     Parameter,
-                                     StartIndex,
-                                     EndIndex,
-                                     '0'),
+                                          (Function,
+                                           Parameter,
+                                           StartIndex,
+                                           EndIndex,
+                                           '0'),
                             RunErrorSeverity::Fatal,
                             Instruction);
       return false;
@@ -534,6 +535,71 @@ checkPrintFormat(unsigned Parameter,
     // Move to the next argument (unless this conversion specifier doesn't
     // consume an argument, which only occurs for %%).
     if (Conversion.Conversion != PrintConversionSpecifier::Specifier::percent) {
+      ++NextArg;
+    }
+    
+    // The next position to search from should be the first character following
+    // this conversion specifier.
+    NextChar = Conversion.End;
+  }
+  
+  // Ensure that we got exactly the right number of arguments.
+  if (NextArg > Args.size()) {
+    Thread.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
+                                        (Function,
+                                         NextArg,
+                                         Args.size()),
+                          RunErrorSeverity::Fatal,
+                          Instruction);
+  }
+  else if (NextArg < Args.size()) {
+    Thread.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
+                                        (Function,
+                                         NextArg,
+                                         Args.size()),
+                          RunErrorSeverity::Warning,
+                          Instruction);
+  }
+  
+  return true;
+}
+
+bool
+CStdLibChecker::
+checkScanFormat(unsigned Parameter,
+                char const *String,
+                detect_calls::VarArgList<TraceThreadListener> const &Args) {
+  auto Size = checkCStringRead(Parameter, String);
+  if (!Size)
+    return false;
+  
+  unsigned NextArg = 0;
+  const char *NextChar = String;
+  
+  while (true) {
+    auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
+    if (!Conversion.Start)
+      break;
+    
+    auto const StartIndex = Conversion.Start - String;
+    
+    // Ensure that the conversion specifier was parsed correctly.
+    if (!Conversion.End) {
+      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierParse>
+                                          (Function,
+                                           Parameter,
+                                           StartIndex),
+                            RunErrorSeverity::Fatal,
+                            Instruction);
+      return false;
+    }
+    
+    // TODO: Error-checking.
+    
+    // Move to the next argument (unless this conversion specifier doesn't
+    // consume an argument).
+    if (Conversion.Conversion != ScanConversionSpecifier::Specifier::percent
+        && Conversion.SuppressAssignment == false) {
       ++NextArg;
     }
     
