@@ -38,6 +38,23 @@ struct ConvertBuiltinToString {
 };
 
 template<>
+struct ConvertBuiltinToString<long double> {
+  static std::string impl(llvm::Instruction const *Instruction,
+                          seec::trace::RuntimeValue const &Value) {
+    auto const LDValue = Value.getLongDouble();
+    auto const StringLength = snprintf(nullptr, 0, "%Lf", LDValue);
+    if (StringLength < 0)
+      return std::string("<long double: snprintf failed>");
+    
+    char Buffer[StringLength + 1];
+    if (snprintf(Buffer, StringLength + 1, "%Lf", LDValue) < 0)
+      return std::string("<long double: snprintf failed>");
+    
+    return std::string(Buffer);
+  }
+};
+
+template<>
 struct ConvertBuiltinToString<void> {
   static std::string impl(llvm::Instruction const *Instruction,
                           seec::trace::RuntimeValue const &Value) {
@@ -96,7 +113,7 @@ toString(clang::BuiltinType const *Type,
     SEEC_UNHANDLED_BUILTIN(Half)
     SEEC_HANDLE_BUILTIN(Float, float)
     SEEC_HANDLE_BUILTIN(Double, double)
-    SEEC_UNHANDLED_BUILTIN(LongDouble)
+    SEEC_HANDLE_BUILTIN(LongDouble, long double)
 
     // Language-specific types
     SEEC_UNHANDLED_BUILTIN(NullPtr)

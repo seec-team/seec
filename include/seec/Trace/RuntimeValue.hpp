@@ -163,6 +163,14 @@ struct GetAsImpl<double> {
   }
 };
 
+template<>
+struct GetAsImpl<long double> {
+  static long double impl(RuntimeValue const &Value, llvm::Type const *Type) {
+    assert(Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty());
+    return Value.getLongDouble();
+  }
+};
+
 template<typename T>
 struct GetAsImpl<T *> {
   static T *impl(RuntimeValue const &Value, llvm::Type const *Type) {
