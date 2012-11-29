@@ -506,6 +506,10 @@ public:
   void notifyValue(uint32_t Index,
                    llvm::Instruction const *Instruction,
                    double Value);
+  
+  void notifyValue(uint32_t Index,
+                   llvm::Instruction const *Instruction,
+                   long double Value);
 
   /// @} (Thread Listener Notifications)
 

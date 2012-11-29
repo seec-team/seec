@@ -82,6 +82,12 @@ InsertExternalRecording::insertRecordUpdateForValue(Instruction &I,
     RecordFn = RecordUpdateFloat;
   else if (Ty->isDoubleTy())
     RecordFn = RecordUpdateDouble;
+  else if (Ty->isX86_FP80Ty())
+    RecordFn = RecordUpdateX86FP80;
+  else if (Ty->isFP128Ty())
+    RecordFn = RecordUpdateFP128;
+  else if (Ty->isPPC_FP128Ty())
+    RecordFn = RecordUpdatePPCFP128;
   else if (Ty->isVoidTy() || Ty->isLabelTy() || Ty->isMetadataTy())
     return nullptr;
   else

@@ -143,6 +143,8 @@ union RuntimeValueRecord {
   
   double Double;
   
+  long double LongDouble;
+  
   /// \brief Default construct.
   RuntimeValueRecord()
   {}
@@ -175,6 +177,11 @@ union RuntimeValueRecord {
   /// \brief Construct a new record holding a double.
   explicit RuntimeValueRecord(double Value)
   : Double(Value)
+  {}
+  
+  /// \brief Construct a new record holding a long double.
+  explicit RuntimeValueRecord(long double Value)
+  : LongDouble(Value)
   {}
   
   /// \brief Copy assign.

@@ -23,13 +23,16 @@ HANDLE_RECORD_POINT(PostCallIntrinsic, void (types::i<32>))
 
 HANDLE_RECORD_POINT(PreDivide, void (types::i<32>))
 
-HANDLE_RECORD_POINT(UpdatePointer, void (types::i<32>, types::i<8>*))
-HANDLE_RECORD_POINT(UpdateInt8, void (types::i<32>, types::i<8>))
-HANDLE_RECORD_POINT(UpdateInt16, void (types::i<32>, types::i<16>))
-HANDLE_RECORD_POINT(UpdateInt32, void (types::i<32>, types::i<32>))
-HANDLE_RECORD_POINT(UpdateInt64, void (types::i<32>, types::i<64>))
-HANDLE_RECORD_POINT(UpdateFloat, void (types::i<32>, types::ieee_float))
-HANDLE_RECORD_POINT(UpdateDouble, void (types::i<32>, types::ieee_double))
+HANDLE_RECORD_POINT(UpdatePointer,  void (types::i<32>, types::i<8>*))
+HANDLE_RECORD_POINT(UpdateInt8,     void (types::i<32>, types::i<8>))
+HANDLE_RECORD_POINT(UpdateInt16,    void (types::i<32>, types::i<16>))
+HANDLE_RECORD_POINT(UpdateInt32,    void (types::i<32>, types::i<32>))
+HANDLE_RECORD_POINT(UpdateInt64,    void (types::i<32>, types::i<64>))
+HANDLE_RECORD_POINT(UpdateFloat,    void (types::i<32>, types::ieee_float))
+HANDLE_RECORD_POINT(UpdateDouble,   void (types::i<32>, types::ieee_double))
+HANDLE_RECORD_POINT(UpdateX86FP80,  void (types::i<32>, types::x86_fp80))
+HANDLE_RECORD_POINT(UpdateFP128,    void (types::i<32>, types::fp128))
+HANDLE_RECORD_POINT(UpdatePPCFP128, void (types::i<32>, types::ppc_fp128))
 
 // Clean up
 #undef HANDLE_RECORD_POINT

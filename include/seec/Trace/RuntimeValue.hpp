@@ -75,6 +75,11 @@ public:
     Data.Double = Value;
   }
   
+  void set(offset_uint Offset, long double Value) {
+    RecordOffset = Offset;
+    Data.LongDouble = Value;
+  }
+  
   llvm::APInt getAPInt(llvm::IntegerType *Type, bool isSigned = false) const {
     auto BitWidth = Type->getBitWidth();
     
@@ -102,6 +107,8 @@ public:
   float getFloat() const { return Data.Float; }
 
   double getDouble() const { return Data.Double; }
+  
+  long double getLongDouble() const { return Data.LongDouble; }
 };
 
 template<typename T, typename Enable = void>

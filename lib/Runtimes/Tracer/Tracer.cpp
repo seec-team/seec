@@ -401,12 +401,16 @@ void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
 }
 
 SEEC_RECORD_UPDATE(Pointer, void *)
-SEEC_RECORD_UPDATE(Int64, uint64_t)
-SEEC_RECORD_UPDATE(Int32, uint32_t)
-SEEC_RECORD_UPDATE(Int16, uint16_t)
-SEEC_RECORD_UPDATE(Int8, uint8_t)
-SEEC_RECORD_UPDATE(Float, float)
-SEEC_RECORD_UPDATE(Double, double)
+SEEC_RECORD_UPDATE(Int64,   uint64_t)
+SEEC_RECORD_UPDATE(Int32,   uint32_t)
+SEEC_RECORD_UPDATE(Int16,   uint16_t)
+SEEC_RECORD_UPDATE(Int8,    uint8_t)
+SEEC_RECORD_UPDATE(Float,   float)
+SEEC_RECORD_UPDATE(Double,  double)
+SEEC_RECORD_UPDATE(X86FP80, long double)
+
+// UpdateFP128
+// UpdatePPC128
 
 #undef SEEC_RECORD_UPDATE
 

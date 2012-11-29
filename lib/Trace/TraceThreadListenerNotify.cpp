@@ -643,6 +643,24 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
+void TraceThreadListener::notifyValue(uint32_t Index,
+                                      llvm::Instruction const *Instruction,
+                                      long double Value) {
+  // Handle common behaviour when entering and exiting notifications.
+  enterNotification();
+  ScopeExit OnExit([=](){exitNotification();});
+
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+
+  auto Offset = EventsOut.write<EventType::InstructionWithValue>
+                               (Index,
+                                ++Time,
+                                RTValue.getRecordOffset(),
+                                RuntimeValueRecord(Value));
+  
+  RTValue.set(Offset, Value);
+}
+
 } // namespace trace (in seec)
 
 } // namespace seec

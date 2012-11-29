@@ -382,10 +382,11 @@ public:                                                                        \
 
 
 //------------------------------------------------------------------------------
-// Check that all event records meet the requirements.
+// Check that all event records meet the requirements (not active).
 //------------------------------------------------------------------------------
 
 #if 0
+
 static_assert(std::is_trivially_copyable<EventRecordBase>::value,
               "EventRecordBase is not trivially copyable!");
 
@@ -394,8 +395,6 @@ static_assert(std::is_trivially_copyable<EventRecordBase>::value,
 static_assert(std::is_trivially_copyable<EventRecord<EventType::NAME>>::value, \
               "EventRecord<" #NAME "> is not trivially copyable!");
 #include "seec/Trace/Events.def"
-#endif // 0
-
 
 // check the alignment requirements of event records
 constexpr std::size_t MaximumRecordAlignment() {
@@ -414,6 +413,7 @@ static_assert(                                                                 \
   "EventRecord<" #NAME "> size not divisible by MaximumRecordAlignment()");
 #include "seec/Trace/Events.def"
 
+#endif // 0
 
 //------------------------------------------------------------------------------
 // EventRecord output for llvm::raw_ostream
