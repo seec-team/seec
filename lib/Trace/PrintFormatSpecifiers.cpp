@@ -40,11 +40,15 @@ PrintConversionSpecifier::readNextFrom(char const * const String) {
     break; // Not a flag, so exit the flag-reading loop.
   }
   
+  if (*Remainder == '\0')
+    return Result;
+  
   // Read width.
   if (*Remainder == '*') {
     Result.WidthSpecified = true;
     Result.WidthAsArgument = true;
-    ++Remainder;
+    if (*++Remainder == '\0')
+      return Result;
   }
   else if(isdigit(*Remainder)){
     Result.WidthSpecified = true;
@@ -53,16 +57,21 @@ PrintConversionSpecifier::readNextFrom(char const * const String) {
     char *ParseEnd;
     Result.Width = std::strtoul(Remainder, &ParseEnd, 10);
     Remainder = ParseEnd;
+    
+    if (*Remainder == '\0')
+      return Result;
   }
   
   // Read precision.
   if (*Remainder == '.') {
     Result.PrecisionSpecified = true;
-    ++Remainder;
+    if (*++Remainder == '\0')
+      return Result;
     
     if (*Remainder == '*') {
       Result.PrecisionAsArgument = true;
-      ++Remainder;
+      if (*++Remainder == '\0')
+        return Result;
     }
     else if(isdigit(*Remainder)) {
       // Parse int from string. If it does not exist, then the precision is
@@ -70,48 +79,16 @@ PrintConversionSpecifier::readNextFrom(char const * const String) {
       char *ParseEnd;
       Result.Precision = std::strtoul(Remainder, &ParseEnd, 10);
       Remainder = ParseEnd;
+      
+      if (*Remainder == '\0')
+        return Result;
     }
   }
   
   // Read length modifier.
-  switch (*Remainder) {
-    case 'h':
-      if (*++Remainder == 'h') {
-        Result.Length = LengthModifier::hh;
-        ++Remainder;
-      }
-      else {
-        Result.Length = LengthModifier::h;
-      }
-      break;
-    case 'l':
-      if (*++Remainder == 'l') {
-        Result.Length = LengthModifier::ll;
-        ++Remainder;
-      }
-      else {
-        Result.Length = LengthModifier::l;
-      }
-      break;
-    case 'j':
-      Result.Length = LengthModifier::j;
-      ++Remainder;
-      break;
-    case 'z':
-      Result.Length = LengthModifier::z;
-      ++Remainder;
-      break;
-    case 't':
-      Result.Length = LengthModifier::t;
-      ++Remainder;
-      break;
-    case 'L':
-      Result.Length = LengthModifier::L;
-      ++Remainder;
-      break;
-    default:
-      break;
-  }
+  Result.Length = readLengthModifier(Remainder, &Remainder);
+  if (*Remainder == '\0')
+    return Result;
   
   // Read specifier and set the default precision is no precision was
   // specified.

@@ -51,6 +51,69 @@ asCFormatLengthModifier(LengthModifier Modifier) {
   return CFormatLengthModifier::none;
 }
 
+/// \brief Read a length modifier from a C string.
+inline
+LengthModifier
+readLengthModifier(char const *Remainder, char const **ParseEnd) {
+  LengthModifier Result = LengthModifier::none;
+  
+  switch (*Remainder) {
+    case 'h':
+      ++Remainder;
+      
+      if (*Remainder == 'h') {
+        ++Remainder;
+        Result = LengthModifier::hh;
+      }
+      else {
+        Result = LengthModifier::h;
+      }
+      
+      break;
+    
+    case 'l':
+      ++Remainder;
+      
+      if (*Remainder == 'l') {
+        ++Remainder;
+        Result = LengthModifier::ll;
+      }
+      else {
+        Result = LengthModifier::l;
+      }
+      
+      break;
+    
+    case 'j':
+      ++Remainder;
+      Result = LengthModifier::j;
+      break;
+    
+    case 'z':
+      ++Remainder;
+      Result = LengthModifier::z;
+      break;
+    
+    case 't':
+      ++Remainder;
+      Result = LengthModifier::t;
+      break;
+    
+    case 'L':
+      ++Remainder;
+      Result = LengthModifier::L;
+      break;
+    
+    default:
+      break;
+  }
+  
+  if (ParseEnd)
+    *ParseEnd = Remainder;
+  
+  return Result;
+}
+
 
 } // namespace trace (in seec)
 
