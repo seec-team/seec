@@ -176,6 +176,54 @@ preCscanf(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
+// fscanf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCfscanf(llvm::CallInst const *Call,
+           uint32_t Index,
+           FILE *In,
+           char const *Str,
+           detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(0, In);
+  Checker.checkScanFormat(1, Str, Args);
+}
+
+
+//===------------------------------------------------------------------------===
+// sscanf
+//===------------------------------------------------------------------------===
+void
+TraceThreadListener::
+preCsscanf(llvm::CallInst const *Call,
+           uint32_t Index,
+           char const *In,
+           char const *Str,
+           detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryWriteLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkCStringRead(0, In);
+  Checker.checkScanFormat(1, Str, Args);
+}
+
+
+//===------------------------------------------------------------------------===
 // printf
 //===------------------------------------------------------------------------===
 void
