@@ -45,12 +45,15 @@ set(EXECUTION_TRACER_HEADERS
   FormatSpecifiers.hpp
   PrintFormatSpecifiers.def
   PrintFormatSpecifiers.hpp
+  ScanFormatSpecifiers.def
+  ScanFormatSpecifiers.hpp
   TraceThreadMemCheck.hpp
   )
 
 set(EXECUTION_TRACER_SOURCES
   DetectCallsLookup.cpp
   PrintFormatSpecifiers.cpp
+  ScanFormatSpecifiers.cpp
   TracedFunction.cpp
   TraceMemory.cpp
   TraceProcessListener.cpp

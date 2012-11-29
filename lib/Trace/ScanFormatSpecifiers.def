@@ -1,0 +1,137 @@
+//===- lib/Trace/ScanFormatSpecifiers.def --------------------------- C++ -===//
+//
+// X-Macro system for checking scan format specifiers.
+//
+// SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)
+//   ID: Identifier for the specifier.
+//   CHR: The character for this specifier.
+//   SUPPRESS: Whether or not assignment suppression is allowed.
+//   LENS: A list of pairs of form (length modifier, argument type).
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_SCAN_FORMAT_SPECIFIER
+#error "Must define SEEC_SCAN_FORMAT_SPECIFIER."
+#endif
+
+#include "seec/Preprocessor/Quote.h"
+
+SEEC_SCAN_FORMAT_SPECIFIER(percent, '%', true,
+                           (none, void))
+
+SEEC_SCAN_FORMAT_SPECIFIER(c, 'c', true,
+                           SEEC_PP_QUOTE((none, char *   ),
+                                         (   l, wchar_t *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(s, 's', true,
+                           SEEC_PP_QUOTE((none, char *   ),
+                                         (   l, wchar_t *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(set, '[', true,
+                           SEEC_PP_QUOTE((none, char *   ),
+                                         (   l, wchar_t *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(d, 'd', true,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(i, 'i', true,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(u, 'u', true,
+                           SEEC_PP_QUOTE((  hh, unsigned char *     ),
+                                         (   h, unsigned short *    ),
+                                         (none, unsigned int *      ),
+                                         (   l, unsigned long *     ),
+                                         (  ll, unsigned long long *),
+                                         (   j, std::uintmax_t *   ),
+                                         (   z, std::size_t *      ),
+                                         (   t, std::ptrdiff_t *   )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(o, 'o', true,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(x, 'x', true,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(n, 'n', false,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
+SEEC_SCAN_FORMAT_SPECIFIER(a, 'a', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(A, 'A', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(e, 'e', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(E, 'E', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(f, 'f', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(F, 'F', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(g, 'g', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(G, 'G', true,
+                           SEEC_PP_QUOTE((none, float *      ),
+                                         (   l, double *     ),
+                                         (   L, long double *)))
+
+SEEC_SCAN_FORMAT_SPECIFIER(p, 'p', true,
+                           SEEC_PP_QUOTE((none, void **)))
+
+#undef SEEC_SCAN_FORMAT_SPECIFIER
