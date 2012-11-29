@@ -594,6 +594,22 @@ checkScanFormat(unsigned Parameter,
       return false;
     }
     
+    auto const EndIndex = Conversion.End - String;
+    
+    // If a precision was specified, ensure that precision is allowed.
+    if (Conversion.SuppressAssignment
+        && !Conversion.allowedSuppressAssignment()) {
+      Thread.handleRunError(
+        createRunError<RunErrorType::FormatSpecifierSuppressionDenied>
+                      (Function,
+                       Parameter,
+                       StartIndex,
+                       EndIndex),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      return false;
+    }
+    
     // TODO: Error-checking.
     
     // Move to the next argument (unless this conversion specifier doesn't

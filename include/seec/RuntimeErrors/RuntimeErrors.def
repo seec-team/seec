@@ -281,6 +281,24 @@ SEEC_RUNERR(FormatSpecifierLengthDenied,
   ))
 
 //
+// The assignment suppression indicator '*' was provided for a scan conversion
+// that does not allow assignment suppression.
+//
+//   function: The function being called.
+//   parameter: The parameter of the format string.
+//   start: The position of the '%' that began the conversion specifier.
+//   end: The position of the first character following the specifier.
+//
+SEEC_RUNERR(FormatSpecifierSuppressionDenied,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter),
+    (start,     seec::runtime_errors::ArgSize),
+    (end,       seec::runtime_errors::ArgSize)
+  ))
+
+//
 // An incorrectly typed argument was provided for a conversion specifier.
 //   function: The function being called.
 //   parameter: The parameter of the format string.

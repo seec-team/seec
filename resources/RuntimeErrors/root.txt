@@ -166,6 +166,14 @@ root:table {
     // parameter
     // start
     // end
+    FormatSpecifierSuppressionDenied:string {
+      "In the format string provided to function {function} (as parameter {parameter}), the assignment-suppressing character \"*\" was present in the conversion specifier starting at position {start}, but this conversion specifier does not support assignment suppression."
+    }
+
+    // function
+    // parameter
+    // start
+    // end
     // length
     // argument
     FormatSpecifierArgType:string {
