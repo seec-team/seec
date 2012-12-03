@@ -1,5 +1,6 @@
 #include "seec/ICU/Resources.hpp"
 
+#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace seec {
