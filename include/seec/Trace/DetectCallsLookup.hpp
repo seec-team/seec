@@ -13,6 +13,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 
+#include "seec/Util/ConstExprCString.hpp"
 #include "seec/Util/Maybe.hpp"
 
 /// SeeC's root namespace.
@@ -34,6 +35,21 @@ enum class Call : std::size_t {
   highest
   /// @}
 };
+
+
+/// \brief Check if a function name is known to the detect calls system.
+///
+constexpr bool isKnownToDetectCall(seec::const_strings::StringRef const Fn) {
+  // Check Fn against all known call names using chained ternary operators.
+  return
+  
+#define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
+  (seec::const_strings::StringRef(#NAME) == Fn)                                \
+  ? true :
+#include "DetectCallsAll.def"
+
+  false;
+}
 
 
 /// \brief Store the run-time locations of functions known to DetectCall.
