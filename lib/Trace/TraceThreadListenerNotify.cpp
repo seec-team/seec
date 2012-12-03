@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceThreadListenerNotify.cpp ----------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "TraceThreadMemCheck.hpp"
 
 #include "seec/Trace/DetectCalls.hpp"

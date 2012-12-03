@@ -1,13 +1,21 @@
-//===- lib/Trace/ScanFormatSpecifiers.def --------------------------- C++ -===//
+//===- lib/Trace/ScanFormatSpecifiers.def ---------------------------------===//
 //
-// X-Macro system for checking scan format specifiers.
+//                                    SeeC
 //
-// SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)
-//   ID: Identifier for the specifier.
-//   CHR: The character for this specifier.
-//   SUPPRESS: Whether or not assignment suppression is allowed.
-//   LENS: A list of pairs of form (length modifier, argument type).
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// X-Macro system for checking scan format specifiers.
+///
+/// SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)
+///   ID: Identifier for the specifier.
+///   CHR: The character for this specifier.
+///   SUPPRESS: Whether or not assignment suppression is allowed.
+///   LENS: A list of pairs of form (length modifier, argument type).
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_SCAN_FORMAT_SPECIFIER

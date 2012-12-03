@@ -1,3 +1,16 @@
+//===- lib/Clang/Compile.cpp ----------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MDNames.hpp"
 #include "seec/Util/ModuleIndex.hpp"

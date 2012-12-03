@@ -1,11 +1,14 @@
-//===- lib/Trace/StateMovement.cpp ---------------------------------- C++ -===//
+//===- lib/Trace/StateMovement.cpp ----------------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/ProcessState.hpp"

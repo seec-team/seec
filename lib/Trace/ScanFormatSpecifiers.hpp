@@ -1,3 +1,16 @@
+//===- lib/Trace/ScanFormatSpecifiers.hpp ---------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_TRACE_SCANFORMATSPECIFIERS_HPP
 #define SEEC_TRACE_SCANFORMATSPECIFIERS_HPP
 

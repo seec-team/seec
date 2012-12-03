@@ -1,11 +1,14 @@
-//===- RecordExternal.cpp - Insert execution tracing ---------------- C++ -===//
+//===- lib/Transforms/RecordExternal.cpp ----------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "seec"

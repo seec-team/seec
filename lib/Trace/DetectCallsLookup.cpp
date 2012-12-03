@@ -1,11 +1,14 @@
-//===- lib/Trace/DetectCalls.cpp ------------------------------------ C++ -===//
+//===- lib/Trace/DetectCallsLookup.cpp ------------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/DetectCalls.hpp"

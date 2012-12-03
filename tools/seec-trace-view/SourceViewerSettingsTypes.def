@@ -1,3 +1,16 @@
+//===- tools/seec-trace-view/SourceViewerSettingsTypes.def ----------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_SCI_TYPE
 #define SEEC_SCI_TYPE(NAME, ID) 
 #endif

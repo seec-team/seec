@@ -1,11 +1,14 @@
-//===- ThreadTimeControl.cpp ----------------------------------------------===//
+//===- tools/seec-trace-view/ThreadTimeControl.cpp ------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Format.hpp"

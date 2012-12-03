@@ -1,12 +1,16 @@
-//===- ReplaceCStdLibIntrinsics.hpp --------------------------------- C++ -===//
+// include/seec/Transforms/ReplaceCStdLibIntrinsics/ReplaceCStdLibIntrinsics.hpp
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This pass replaces LLVM's intrinsics for C standard library functions, with
-// normal calls to the standard library functions.
-//
+///
+/// \file
+/// This pass replaces LLVM's intrinsics for C standard library functions, with
+/// normal calls to the standard library functions.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef _SEEC_REPLACE_CSTDLIB_INTRINSICS_HPP_

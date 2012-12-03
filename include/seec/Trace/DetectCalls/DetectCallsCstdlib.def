@@ -1,7 +1,16 @@
-//===- include/seec/Trace/DetectCallsCstdlib.def -------------------- C++ -===//
+//===- include/seec/Trace/DetectCalls/DetectCallsCstdlib.def --------------===//
 //
-// Included from DetectCallsAll.def. Do not include this file directly!
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// Included by include/seec/Trace/DetectCallsAll.def. Do not include this file
+/// directly!
+///
 //===----------------------------------------------------------------------===//
 
 // Conversions to numeric formats.

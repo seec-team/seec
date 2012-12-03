@@ -1,13 +1,13 @@
-set(HEADERS
+set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/Compile.hpp
   ../../include/seec/Clang/MappedAST.hpp
   ../../include/seec/Clang/MappedFile.hpp
   ../../include/seec/Clang/MappedStmt.hpp
   ../../include/seec/Clang/RuntimeValueMapping.hpp
   ../../include/seec/Clang/StateMapping.hpp
-  )
+)
 
-set(SOURCES
+set(SEEC_CLANG_SOURCES
   Compile.cpp
   MappedAST.cpp
   MappedFile.cpp
@@ -17,12 +17,35 @@ set(SOURCES
 )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCClang ${HEADERS} ${SOURCES})
+  add_library(SeeCClang ${SEEC_CLANG_HEADERS} ${SEEC_CLANG_SOURCES})
 else()
-  add_library(SeeCClang ${SOURCES})
+  add_library(SeeCClang ${SEEC_CLANG_SOURCES})
 endif()
 
 INSTALL(TARGETS SeeCClang
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+
+
+set(SEEC_CLANG_MAPPED_TRACE_HEADERS
+  ../../include/seec/Clang/MappedProcessTrace.hpp
+  ../../include/seec/Clang/MappedProcessState.hpp
+)
+
+set(SEEC_CLANG_MAPPED_TRACE_SOURCES
+  MappedProcessTrace.cpp
+  MappedProcessState.cpp
+)
+
+if (${CMAKE_GENERATOR} MATCHES "Xcode")
+  add_library(SeeCClangMappedTrace ${SEEC_CLANG_MAPPED_TRACE_HEADERS} ${SEEC_CLANG_MAPPED_TRACE_SOURCES})
+else()
+  add_library(SeeCClangMappedTrace ${SEEC_CLANG_MAPPED_TRACE_SOURCES})
+endif()
+
+INSTALL(TARGETS SeeCClangMappedTrace
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

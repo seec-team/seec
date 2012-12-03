@@ -1,7 +1,15 @@
-//===- seec/Trace/DetectCallsAll.def -------------------------------- C++ -===//
+//===- include/seec/Trace/DetectCallsAll.def ------------------------------===//
 //
-// X-Macro system for functions detectable using DetectCalls.hpp.
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// X-Macro system for functions detectable using DetectCalls.hpp
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Preprocessor/Quote.h"

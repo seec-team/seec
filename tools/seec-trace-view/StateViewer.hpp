@@ -1,11 +1,14 @@
-//===- StateViewer.hpp ----------------------------------------------------===//
+//===- tools/seec-trace-view/StateViewer.hpp ------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_VIEW_STATEVIEWER_HPP

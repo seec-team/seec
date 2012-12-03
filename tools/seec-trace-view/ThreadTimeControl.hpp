@@ -1,11 +1,14 @@
-//===- ThreadTimeControl.hpp ----------------------------------------------===//
+//===- tools/seec-trace-view/ThreadTimeControl.hpp ------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_VIEW_THREADTIMECONTROL_HPP

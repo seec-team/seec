@@ -1,3 +1,16 @@
+//===- lib/wxWidgets/StringConversion.cpp ---------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/raw_ostream.h"

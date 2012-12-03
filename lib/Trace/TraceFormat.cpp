@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceFormat.cpp ------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Preprocessor/MakeMemberFnChecker.hpp"
 #include "seec/RuntimeErrors/ArgumentTypes.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"

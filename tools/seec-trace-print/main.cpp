@@ -1,11 +1,14 @@
-//===- main.cpp - SeeC Trace Printer --------------------------------------===//
+//===- tools/seec-trace-print/main.cpp ------------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedAST.hpp"

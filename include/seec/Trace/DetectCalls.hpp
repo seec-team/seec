@@ -1,22 +1,26 @@
 //===- seec/Trace/DetectCalls.hpp ----------------------------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This file implements a method to detect whether a CallInst is calling a
-// known function, and if it is, to get the live values of the arguments from
-// the Listener (using getCurrentRuntimeValue), and to pass those arguments to a
-// function-specific member function on the Listener. For example, if we were
-// to detect the call ``malloc'' from the C Standard Library, the size argument
-// would be extracted, and we would call the Listener's member function
-// preCmalloc or postCmalloc, depending on whether we were detecting Pre or Post
-// executing the CallInst.
-//
-// The functions that can be detected using this method are only those defined
-// in the file DetectCallsAll.def (this file includes other lists of functions,
-// e.g. DetectCallsCstdlib.def for C's <stdlib.h>).
-//
+///
+/// \file
+/// This file implements a method to detect whether a CallInst is calling a
+/// known function, and if it is, to get the live values of the arguments from
+/// the Listener (using getCurrentRuntimeValue), and to pass those arguments to
+/// a function-specific member function on the Listener. For example, if we were
+/// to detect the call ``malloc'' from the C Standard Library, the size argument
+/// would be extracted, and we would call the Listener's member function
+/// preCmalloc or postCmalloc, depending on whether we were detecting Pre or
+/// Post executing the CallInst.
+///
+/// The functions that can be detected using this method are only those defined
+/// in the file DetectCallsAll.def (this file includes other lists of functions,
+/// e.g. DetectCallsCstdlib.def for C's <stdlib.h>).
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_DETECT_CALLS_HPP

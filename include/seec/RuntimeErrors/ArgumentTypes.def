@@ -1,3 +1,16 @@
+//===- lib/RuntimeErrors/ArgumentTypes.def --------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_RUNERR_ARG
 #error "Must define SEEC_RUNERR_ARG before including ArgumentTypes.def"
 #endif

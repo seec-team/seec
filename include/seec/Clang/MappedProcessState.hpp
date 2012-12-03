@@ -1,4 +1,4 @@
-//===- lib/Util/Printing.cpp ----------------------------------------------===//
+//===- include/seec/Clang/MappedProcessState.hpp --------------------------===//
 //
 //                                    SeeC
 //
@@ -11,14 +11,3 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Util/Printing.hpp"
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/raw_ostream.h"
-
-namespace seec {
-
-namespace util {
-
-} // namespace util
-
-} // namespace seec

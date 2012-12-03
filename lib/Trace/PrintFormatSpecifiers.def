@@ -1,16 +1,24 @@
-//===- lib/Trace/PrintFormatSpecifiers.def -------------------------- C++ -===//
+//===- lib/Trace/PrintFormatSpecifiers.def --------------------------------===//
 //
-// X-Macro system for checking print format specifiers.
+//                                    SeeC
 //
-// SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)
-//   ID: Identifier for the specifier.
-//   CHR: The character for this specifier.
-//   FLAGS: The flags that this specifier supports.
-//   WIDTH: Whether or not this specifier supports width.
-//   PREC: Whether or not this specifier supports precision.
-//   DPREC: The default precision for this specifier.
-//   LENS: A list of pairs of form (length modifier, argument type).
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// X-Macro system for checking print format specifiers.
+///
+/// SEEC_PRINT_FORMAT_SPECIFIER(ID, CHR, FLAGS, WIDTH, PREC, DPREC, LENS)
+///   ID: Identifier for the specifier.
+///   CHR: The character for this specifier.
+///   FLAGS: The flags that this specifier supports.
+///   WIDTH: Whether or not this specifier supports width.
+///   PREC: Whether or not this specifier supports precision.
+///   DPREC: The default precision for this specifier.
+///   LENS: A list of pairs of form (length modifier, argument type).
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_PRINT_FORMAT_SPECIFIER

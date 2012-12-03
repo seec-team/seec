@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceThreadMemCheck.hpp ----------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_TRACE_TRACETHREADMEMCHECK_HPP
 #define SEEC_TRACE_TRACETHREADMEMCHECK_HPP
 

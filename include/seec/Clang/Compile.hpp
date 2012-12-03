@@ -1,5 +1,14 @@
-//===- Compile.hpp - SeeC Clang usage helpers -----------------------------===//
+//===- include/seec/Clang/Compile.hpp -------------------------------------===//
 //
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file SeeC Clang usage helpers.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_CLANG_COMPILE_HPP

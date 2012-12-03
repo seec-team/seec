@@ -1,11 +1,14 @@
 //===- include/seec/Util/Range.hpp ---------------------------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_UTIL_RANGE_HPP

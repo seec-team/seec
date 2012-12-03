@@ -1,3 +1,16 @@
+//===- tools/seec-instrument/seec-instrument.cpp --------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 
 #include "llvm/DataLayout.h"

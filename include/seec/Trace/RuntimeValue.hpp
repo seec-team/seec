@@ -1,11 +1,14 @@
 //===- seec/Trace/RuntimeValue.hpp ---------------------------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_RUNTIMEVALUE_HPP

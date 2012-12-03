@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceProcessListener.cpp ---------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 

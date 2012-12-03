@@ -1,6 +1,5 @@
 set(HEADERS
   ../../include/seec/Util/CheckNew.hpp
-  ../../include/seec/Util/ConstantIntPointer.hpp
   ../../include/seec/Util/ConstExprCString.hpp
   ../../include/seec/Util/ConstExprMath.hpp
   ../../include/seec/Util/DefaultArgPromotion.hpp

@@ -1,13 +1,17 @@
 //===- seec/Util/Dispatch.hpp ------------------------------------- C++11 -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// TODO: Add logic to:
-//  2) Check for a match to the same underlying type (e.g. change reference
-//      or add const).
-//
+///
+/// \file
+/// TODO: Add logic to:
+///  2) Check for a match to the same underlying type (e.g. change reference
+///      or add const).
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_UTIL_DISPATCH_HPP

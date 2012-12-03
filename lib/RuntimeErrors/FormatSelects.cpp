@@ -1,3 +1,16 @@
+//===- lib/RuntimeErrors/FormatSelects.cpp --------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/RuntimeErrors/FormatSelects.hpp"
 
 namespace seec {

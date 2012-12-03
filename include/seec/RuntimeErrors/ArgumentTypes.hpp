@@ -1,3 +1,16 @@
+//===- include/seec/RuntimeErrors/ArgumentTypes.hpp -----------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_RUNTIMEERRORS_ARGUMENTTYPES_HPP
 #define SEEC_RUNTIMEERRORS_ARGUMENTTYPES_HPP
 

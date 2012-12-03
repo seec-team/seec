@@ -1,17 +1,30 @@
+//===- include/seec/Trace/Events.def --------------------------------------===//
 //
-// SEEC_TRACE_EVENT(
-//  EventName,
-//  Properties---,
-//  Traits---
+//                                    SeeC
 //
-// Where Properties is a quoted list (created with SEEC_PP_QUOTE), and each
-// element in the list takes the form:
-//  (Type, Name)
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
-// And Traits is a quoted list (created with SEEC_PP_QUOTE), and each element
-// in the list takes the form:
-//  (Name)
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+/// SEEC_TRACE_EVENT(
+///  EventName,
+///  Properties---,
+///  Traits---
+///  )
+///
+/// Where Properties is a quoted list (created with SEEC_PP_QUOTE), and each
+/// element in the list takes the form:
+///  (Type, Name)
+///
+/// And Traits is a quoted list (created with SEEC_PP_QUOTE), and each element
+/// in the list takes the form:
+///  (Name)
+///
+///
+//===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_EVENT
 #error "Must define SEEC_TRACE_EVENT before including Events.def"

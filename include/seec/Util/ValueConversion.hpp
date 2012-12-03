@@ -1,11 +1,14 @@
 //===- ValueConversion.hpp ------------------------------------------ C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef _SEEC_UTIL_VALUE_CONVERSION_HPP_

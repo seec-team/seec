@@ -1,3 +1,16 @@
+//===- lib/ICU/Resources.cpp ----------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/ICU/Resources.hpp"
 
 #include "llvm/ADT/OwningPtr.h"

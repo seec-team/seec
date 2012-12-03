@@ -1,11 +1,14 @@
 //===- seec/Util/FunctionTraits.hpp --------------------------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef _SEEC_UTIL_FUNCTION_TRAITS_HPP_

@@ -1,12 +1,16 @@
 //===- Util/ConstExprCString.hpp ------------------------------------ C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// Much of this derives from Andrzej's C++ blog:
-//   http://akrzemi1.wordpress.com/2011/05/11/parsing-strings-at-compile-time-part-i/
-//
+///
+/// \file
+/// Much of this derives from Andrzej's C++ blog:
+///   http://akrzemi1.wordpress.com/2011/05/11/parsing-strings-at-compile-time-part-i/
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_UTIL_CONSTEXPRCSTRING_HPP

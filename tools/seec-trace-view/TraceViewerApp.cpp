@@ -1,11 +1,14 @@
-//===- main.cpp - SeeC Trace Viewer ---------------------------------------===//
+//===- tools/seec-trace-view/TraceViewerApp.cpp ---------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"

@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceThreadMemCheck.cpp ----------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "PrintFormatSpecifiers.hpp"
 #include "ScanFormatSpecifiers.hpp"
 #include "TraceThreadMemCheck.hpp"

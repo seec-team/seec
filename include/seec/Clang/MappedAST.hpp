@@ -1,5 +1,14 @@
-//===- MappedAST.hpp - Support SeeC's indexing of Clang ASTs --------------===//
+//===- include/seec/clang/MappedAST.hpp -----------------------------------===//
 //
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file Support SeeC's indexing of Clang ASTs.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_CLANG_MAPPEDAST_HPP

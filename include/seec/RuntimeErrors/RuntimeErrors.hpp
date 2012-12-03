@@ -1,3 +1,16 @@
+//===- include/seec/RuntimeErrors/RuntimeErrors.hpp -----------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
 #define SEEC_RUNTIMEERRORS_RUNTIMEERRORS_HPP
 

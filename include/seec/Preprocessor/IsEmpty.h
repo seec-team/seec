@@ -1,12 +1,16 @@
 //===- Preprocessor/IsEmpty.h ----------------------------------------- C -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This follows the implementation given by Jens Gustedt at:
-// http://gustedt.wordpress.com/2010/06/08/detect-empty-macro-arguments/
-//
+///
+/// \file
+/// This follows the implementation given by Jens Gustedt at:
+/// http://gustedt.wordpress.com/2010/06/08/detect-empty-macro-arguments/
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_PREPROCESSOR_ISEMPTY_H

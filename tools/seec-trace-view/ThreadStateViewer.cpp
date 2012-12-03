@@ -1,3 +1,16 @@
+//===- tools/seec-trace-view/ThreadStateViewer.cpp ------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Trace/ThreadState.hpp"
 
 #include "FunctionStateViewer.hpp"

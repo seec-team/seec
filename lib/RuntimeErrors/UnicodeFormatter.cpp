@@ -1,3 +1,16 @@
+//===- lib/RuntimeErrors/UnicodeFormatter.cpp -----------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"

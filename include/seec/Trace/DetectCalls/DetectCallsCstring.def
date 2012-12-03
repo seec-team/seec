@@ -1,7 +1,16 @@
-//===- include/seec/Trace/DetectCallsCstring.def -------------------- C++ -===//
+//===- include/seec/Trace/DetectCalls/DetectCallsCstring.def --------------===//
 //
-// Included from DetectCallsAll.def. Do not include this file directly!
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// Included by include/seec/Trace/DetectCallsAll.def. Do not include this file
+/// directly!
+///
 //===----------------------------------------------------------------------===//
 
 DETECT_CALL(C, memchr, SEEC_PP_QUOTE(void const *, int, size_t))

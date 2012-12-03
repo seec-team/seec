@@ -1,11 +1,14 @@
-//===- OpenTrace.hpp ------------------------------------------------------===//
+//===- tools/seec-trace-view/OpenTrace.hpp --------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_VIEW_OPENTRACE_HPP

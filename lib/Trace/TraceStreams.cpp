@@ -1,11 +1,14 @@
-//===- lib/Trace/TraceStreams.cpp ----------------------------------- C++ -===//
+//===- lib/Trace/TraceStreams.cpp -----------------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/TraceStreams.hpp"

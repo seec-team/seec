@@ -1,11 +1,14 @@
 //===- ModuleIndex.hpp - Allow Module lookups by index -------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_UTIL_MODULEINDEX_HPP

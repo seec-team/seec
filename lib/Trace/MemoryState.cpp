@@ -1,3 +1,16 @@
+//===- lib/Trace/MemoryState.cpp ------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Util/Printing.hpp"
 

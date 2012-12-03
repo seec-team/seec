@@ -1,11 +1,14 @@
 //===- Preprocessor/Apply.h ------------------------------------------- C -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_PREPROCESSOR_APPLY_H

@@ -1,11 +1,14 @@
-//===- TraceViewerFrame.hpp -----------------------------------------------===//
+//===- tools/seec-trace-view/TraceViewerFrame.hpp -------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP

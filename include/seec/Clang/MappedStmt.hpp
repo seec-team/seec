@@ -1,5 +1,14 @@
-//===- MappedStmt.hpp -----------------------------------------------------===//
+//===- include/seec/Clang/MappedStmt.hpp ----------------------------------===//
 //
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_CLANG_MAPPEDSTMT_HPP

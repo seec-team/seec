@@ -1,11 +1,14 @@
-//===- ProcessTimeControl.cpp ---------------------------------------------===//
+//===- tools/seec-trace-view/ProcessTimeControl.cpp -----------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "OpenTrace.hpp"

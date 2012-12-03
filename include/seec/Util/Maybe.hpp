@@ -1,6 +1,9 @@
 //===- seec/Util/Maybe.hpp ------------------------------------------ C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
 ///

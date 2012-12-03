@@ -1,12 +1,16 @@
-//===- ReplaceCStdLibIntrinsics.cpp --------------------------------- C++ -===//
+//==- lib/Transforms/ReplaceCStdLibIntrinsics/ReplaceCStdLibIntrinsics.cpp -==//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
+
 
 #define DEBUG_TYPE "seec"
 

@@ -1,5 +1,14 @@
-//===- StateMapping.hpp ---------------------------------------------------===//
+//===- include/seec/Clang/StateMapping.hpp --------------------------------===//
 //
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_CLANG_STATEMAPPING_HPP

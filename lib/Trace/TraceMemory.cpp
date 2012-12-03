@@ -1,11 +1,14 @@
-//===- lib/Trace/TraceMemory.cpp ------------------------------------ C++ -===//
+//===- lib/Trace/TraceMemory.cpp ------------------------------------------===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/TraceMemory.hpp"

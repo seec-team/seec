@@ -1,11 +1,14 @@
 //===- Preprocessor/MakeMemberFnChecker.hpp ----------------------- C++11 -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
+///
+/// \file
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_PREPROCESSOR_MAKEMEMBERFNCHECKER_H

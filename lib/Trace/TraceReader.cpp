@@ -1,3 +1,16 @@
+//===- lib/Trace/TraceReader.cpp ------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/RuntimeErrors/ArgumentTypes.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/TraceReader.hpp"

@@ -1,13 +1,17 @@
 //===- include/seec/Util/LockedObjectAccessor.hpp ------------------- C++ -===//
 //
+//                                    SeeC
 //
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This file implements a convenience class template for coupling a reference
-// to an object with a std::unique_lock that holds ownership to access that
-// object.
-//
+///
+/// \file
+/// This file implements a convenience class template for coupling a reference
+/// to an object with a std::unique_lock that holds ownership to access that
+/// object.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef SEEC_UTIL_LOCKEDOBJECTACCESSOR_HPP

@@ -1,3 +1,16 @@
+//===- include/seec/Transforms/RecordExternal/RecordInfo.h ----------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_TRANSFORMS_RECORDEXTERNAL_RECORDINFO_H
 #define SEEC_TRANSFORMS_RECORDEXTERNAL_RECORDINFO_H
 

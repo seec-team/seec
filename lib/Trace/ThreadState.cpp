@@ -1,3 +1,16 @@
+//===- lib/Trace/ThreadState.cpp ------------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceSearch.hpp"

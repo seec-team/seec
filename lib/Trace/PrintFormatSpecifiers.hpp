@@ -1,3 +1,16 @@
+//===- lib/Trace/PrintFormatSpecifiers.hpp --------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_TRACE_PRINTFORMATSPECIFIERS_HPP
 #define SEEC_TRACE_PRINTFORMATSPECIFIERS_HPP
 

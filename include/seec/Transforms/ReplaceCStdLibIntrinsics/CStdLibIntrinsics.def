@@ -1,3 +1,16 @@
+//=- include/seec/Transforms/ReplaceCStdLibIntrinsics/CStdLibIntrinsics.def -=//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef SEEC_CSTDLIB_INTRINSIC
 #error "CStdLibIntrinsics.def included but SEEC_CSTDLIB_INTRINSIC not defined!"
 // #define SEEC_CSTDLIB_INTRINSIC(INTRINSIC_NAME, C_NAME, LLVM_TYPE, NARGS, ...)

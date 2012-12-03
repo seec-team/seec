@@ -1,9 +1,21 @@
-// SEEC_FORMAT_SELECT(NAME, ITEMS)
+//===- lib/RuntimeErrors/FormatSelects.def --------------------------------===//
 //
-// SEEC_FORMAT_SELECT_ITEM(NAME, ID, STRING)
+//                                    SeeC
 //
-// Note that ITEMS is not variadic -- unpacking logic (if any) must be included
-// into SEEC_FORMAT_SELECT_ITEM.
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// SEEC_FORMAT_SELECT(NAME, ITEMS)
+///
+/// SEEC_FORMAT_SELECT_ITEM(NAME, ID, STRING)
+///
+/// Note that ITEMS is not variadic -- unpacking logic (if any) must be included
+/// into SEEC_FORMAT_SELECT_ITEM.
+///
+//===----------------------------------------------------------------------===//
 
 #ifndef SEEC_FORMAT_SELECT
 #error "Must define SEEC_FORMAT_SELECT (for FormatSelects.def)"

@@ -1,3 +1,16 @@
+//===- tools/seec-trace-view/SourceViewer.cpp -----------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/SourceMapping.hpp"
 #include "seec/Clang/RuntimeValueMapping.hpp"
