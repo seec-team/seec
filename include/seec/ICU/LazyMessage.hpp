@@ -58,6 +58,10 @@ public:
     
     return Message;
   }
+  
+  /// \brief Describe the message that would be loaded.
+  ///
+  virtual UnicodeString describe() const = 0;
 };
 
 
@@ -117,6 +121,41 @@ public:
                                   {Formattable(Arguments.second)...});
     
     return std::unique_ptr<LazyMessage>(Message);
+  }
+  
+  /// \brief Describe the message that would be loaded.
+  ///
+  virtual UnicodeString describe() const {
+    UnicodeString Description;
+    
+    Description += "<Package=";
+    Description += Package;
+    
+    if (Keys.size()) {
+      Description += ", Keys=";
+      Description += Keys[0];
+      for (std::size_t i = 1; i < Keys.size(); ++i) {
+        Description += "/";
+        Description += Keys[i];
+      }
+    }
+    
+    if (ArgumentNames.size()) {
+      Description += ", Arguments=";
+      Description += "(";
+      Description += ArgumentNames[0];
+      Description += ")";
+      
+      for (std::size_t i = 1; i < ArgumentNames.size(); ++i) {
+        Description += ",(";
+        Description += ArgumentNames[i];
+        Description += ")";
+      }
+    }
+    
+    Description += ">";
+    
+    return Description;
   }
 };
 

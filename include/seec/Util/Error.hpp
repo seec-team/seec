@@ -40,7 +40,16 @@ public:
   Error &operator=(Error &&) = default;
   
   UnicodeString getMessage(UErrorCode &Status, Locale const &GetLocale) const {
-    return Message->get(Status, GetLocale);
+    if (U_FAILURE(Status))
+      return UnicodeString();
+    
+    UnicodeString Msg = Message->get(Status, GetLocale);
+    if (U_FAILURE(Status)) {
+      return UnicodeString::fromUTF8("Couldn't load error message: ")
+             + Message->describe();
+    }
+    
+    return Msg;
   }
 };
 

@@ -87,7 +87,7 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
 // InputBufferAllocator
 //------------------------------------------------------------------------------
 
-std::unique_ptr<llvm::MemoryBuffer>
+seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
 InputBufferAllocator::getProcessData(ProcessSegment Segment) {
   auto Path = TraceDirectory;
   Path.appendComponent("st");
@@ -95,19 +95,23 @@ InputBufferAllocator::getProcessData(ProcessSegment Segment) {
 
   llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
 
-  auto Error = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  if (Error != llvm::error_code::success()) {
-    llvm::errs() << "\nFatal error: " << Error.message() << "\n"
-                 << "While opening '" << Path.str() << "'\n";
-    exit(EXIT_FAILURE);
+  auto ReadError = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
+  if (ReadError != llvm::error_code::success()) {
+    using namespace seec;
+    auto Message = UnicodeString::fromUTF8(ReadError.message());
+    return Error(LazyMessageByRef::create("Trace",
+                                          {"errors",
+                                           "InputBufferAllocationFail"},
+                                          std::make_pair("file", Path.c_str()),
+                                          std::make_pair("error",
+                                                         std::move(Message))));
   }
 
   return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
 }
 
-std::unique_ptr<llvm::MemoryBuffer>
-InputBufferAllocator::getThreadData(uint32_t ThreadID,
-                                    ThreadSegment Segment) {
+seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment) {
   std::string Filename;
   llvm::raw_string_ostream FilenameStream (Filename);
   FilenameStream << "st.t" << ThreadID
@@ -119,11 +123,16 @@ InputBufferAllocator::getThreadData(uint32_t ThreadID,
 
   llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
 
-  auto Error = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  if (Error != llvm::error_code::success()) {
-    llvm::errs() << "\nFatal error: " << Error.message() << "\n"
-                 << "While opening '" << Path.str() << "'\n";
-    exit(EXIT_FAILURE);
+  auto ReadError = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
+  if (ReadError != llvm::error_code::success()) {
+    using namespace seec;
+    auto Message = UnicodeString::fromUTF8(ReadError.message());
+    return Error(LazyMessageByRef::create("Trace",
+                                          {"errors",
+                                           "InputBufferAllocationFail"},
+                                          std::make_pair("file", Path.c_str()),
+                                          std::make_pair("error",
+                                                         std::move(Message))));
   }
 
   return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());

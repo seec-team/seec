@@ -97,6 +97,11 @@ int main(int argc, char **argv, char * const *envp) {
     llvm::errs() << "failed to load resource 'SeeCClang'\n";
     exit(EXIT_FAILURE);
   }
+  
+  if (!Resources.loadResource("Trace")) {
+    llvm::errs() << "failed to load resource 'Trace'\n";
+    exit(EXIT_FAILURE);
+  }
 
 
 #if 0 // test clang-mapped trace interface.
@@ -125,8 +130,10 @@ int main(int argc, char **argv, char * const *envp) {
   seec::trace::InputBufferAllocator BufferAllocator;
   
   auto MaybeProcTrace = trace::ProcessTrace::readFrom(BufferAllocator);
-  if (!MaybeProcTrace.assigned<std::unique_ptr<trace::ProcessTrace>>()) {
-    llvm::errs() << "failed to load process trace\n";
+  if (MaybeProcTrace.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = std::move(MaybeProcTrace.get<seec::Error>());
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
   

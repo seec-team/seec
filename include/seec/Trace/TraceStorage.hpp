@@ -14,6 +14,9 @@
 #ifndef SEEC_TRACE_TRACESTORAGE_HPP
 #define SEEC_TRACE_TRACESTORAGE_HPP
 
+#include "seec/Util/Error.hpp"
+#include "seec/Util/Maybe.hpp"
+
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -91,12 +94,13 @@ public:
   llvm::sys::Path const &getTraceDirectory() const { return TraceDirectory; }
 
   /// Create a MemoryBuffer containing the process data for the given Segment.
-  std::unique_ptr<llvm::MemoryBuffer> getProcessData(ProcessSegment Segment);
+  seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  getProcessData(ProcessSegment Segment);
 
   /// Create a MemoryBuffer containing the data for the given thread's given
   /// Segment.
-  std::unique_ptr<llvm::MemoryBuffer> getThreadData(uint32_t ThreadID,
-                                                    ThreadSegment Segment);
+  seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  getThreadData(uint32_t ThreadID, ThreadSegment Segment);
 };
 
 } // namespace trace (in seec)

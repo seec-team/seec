@@ -1,0 +1,19 @@
+root:table {
+  // Contains textual descriptions of errors that can occur in the library.
+  errors:table {
+    // 
+    ProcessTraceVersionIncorrect:string {
+      "Process trace has version \"{version_found}\", but we can only open version \"{version_expected}\"."
+    }
+
+    //
+    ProcessTraceFailRead:string {
+      "Failed to read process trace."
+    }
+
+    //
+    InputBufferAllocationFail:string {
+      "Failed to read file \"{file}\": {error}"
+    }
+  }
+}

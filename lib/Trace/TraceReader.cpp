@@ -197,16 +197,31 @@ seec::util::Maybe<std::unique_ptr<ProcessTrace>,
                   seec::Error>
 ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
+  if (TraceBuffer.assigned<seec::Error>())
+    return std::move(TraceBuffer.get<seec::Error>());
+  
   auto DataBuffer = Allocator.getProcessData(ProcessSegment::Data);
-
-  BinaryReader TraceReader(TraceBuffer->getBufferStart(),
-                           TraceBuffer->getBufferEnd());
+  if (DataBuffer.assigned<seec::Error>())
+    return std::move(DataBuffer.get<seec::Error>());
+  
+  BinaryReader TraceReader(TraceBuffer.get<0>()->getBufferStart(),
+                           TraceBuffer.get<0>()->getBufferEnd());
 
   uint64_t Version = 0;
   TraceReader >> Version;
 
   if (Version != seec::trace::formatVersion()) {
-    return seec::Error(seec::LazyMessageByRef::create("PACKAGE", {"KEYS"}));
+    using namespace seec;
+    
+    auto const Expected = seec::trace::formatVersion();
+    
+    return Error(LazyMessageByRef::create("Trace",
+                                          {"errors",
+                                           "ProcessTraceVersionIncorrect"},
+                                          std::make_pair("version_found",
+                                                         int64_t(Version)),
+                                          std::make_pair("version_expected",
+                                                         int64_t(Expected))));
   }
 
   std::string ModuleIdentifier;
@@ -225,7 +240,9 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
               >> FunctionAddresses;
 
   if (TraceReader.error()) {
-    return seec::Error(seec::LazyMessageByRef::create("PACKAGE", {"KEYS"}));
+    using namespace seec;
+    return Error(LazyMessageByRef::create("Trace",
+                                          {"errors", "ProcessTraceFailRead"}));
   }
 
   for (uint32_t i = 0; i < NumThreads; ++i) {
@@ -234,8 +251,8 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
 
   return std::unique_ptr<ProcessTrace>(
             new ProcessTrace(Allocator,
-                             std::move(TraceBuffer),
-                             std::move(DataBuffer),
+                             std::move(TraceBuffer.get<0>()),
+                             std::move(DataBuffer.get<0>()),
                              Version,
                              std::move(ModuleIdentifier),
                              NumThreads,
