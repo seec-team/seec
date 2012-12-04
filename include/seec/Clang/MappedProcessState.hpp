@@ -34,6 +34,8 @@ namespace trace {
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
+class ThreadState;
+
 
 /// \brief SeeC-Clang-mapped process state.
 ///
@@ -43,6 +45,9 @@ class ProcessState {
   
   /// The base (unmapped) state.
   std::unique_ptr<seec::trace::ProcessState> UnmappedState;
+  
+  /// Thread states.
+  std::vector<std::unique_ptr<seec::cm::ThreadState>> ThreadStates;
   
 public:
   /// \brief Constructor.
@@ -75,6 +80,21 @@ public:
   uint64_t getProcessTime() const;
   
   /// @} (Access underlying information).
+  
+  
+  /// \name Threads.
+  /// @{
+  
+  /// \brief Get the number of threads.
+  std::size_t getThreadCount() const;
+  
+  /// \brief Get the state of a thread.
+  seec::cm::ThreadState &getThread(std::size_t Index);
+  
+  /// \brief Get the state of a thread.
+  seec::cm::ThreadState const &getThread(std::size_t Index) const;
+  
+  /// @}
   
   
   /// \name Dynamic memory allocations.

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -30,8 +31,12 @@ namespace cm {
 ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
 : Trace(ForTrace),
   UnmappedState(new seec::trace::ProcessState(ForTrace.getUnmappedTrace(),
-                                              ForTrace.getModuleIndex()))
-{}
+                                              ForTrace.getModuleIndex())),
+  ThreadStates()
+{
+  for (auto &StatePtr : UnmappedState->getThreadStates())
+    ThreadStates.emplace_back(new seec::cm::ThreadState());
+}
 
 ProcessState::~ProcessState() = default;
 
@@ -39,10 +44,20 @@ uint64_t ProcessState::getProcessTime() const {
   return UnmappedState->getProcessTime();
 }
 
+std::size_t ProcessState::getThreadCount() const {
+  return UnmappedState->getThreadStateCount();
+}
+
+// ThreadState &ProcessState::getThread(std::size_t Index) {}
+
+// ThreadState const &ProcessState::getThread(std::size_t Index) const {}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
 {
   Out << "Process State @" << State.getProcessTime() << "\n";
+  
+  Out << " Threads: " << State.getThreadCount() << "\n";
   
   return Out;
 }
