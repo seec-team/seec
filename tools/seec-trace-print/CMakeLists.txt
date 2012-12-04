@@ -18,6 +18,7 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 target_link_libraries(seec-trace-print
  # SeeC libraries
  SeeCClang
+ SeeCClangMappedTrace
  SeeCTrace
  SeeCRuntimeErrors
  SeeCUtil

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -21,6 +22,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/Basic/Diagnostic.h"
@@ -46,7 +48,6 @@
 #include <memory>
 
 using namespace seec;
-using namespace seec::trace;
 using namespace llvm;
 
 namespace {
@@ -78,7 +79,6 @@ int main(int argc, char **argv, char * const *envp) {
   sys::PrintStackTraceOnErrorSignal();
   PrettyStackTraceProgram X(argc, argv);
 
-  LLVMContext &Context = getGlobalContext();
   atexit(llvm_shutdown);
 
   cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
@@ -92,16 +92,45 @@ int main(int argc, char **argv, char * const *envp) {
     llvm::errs() << "failed to load resource 'RuntimeErrors'\n";
     exit(EXIT_FAILURE);
   }
+  
+  if (!Resources.loadResource("SeeCClang")) {
+    llvm::errs() << "failed to load resource 'SeeCClang'\n";
+    exit(EXIT_FAILURE);
+  }
+
+
+#if 0 // test clang-mapped trace interface.
 
   // Read the trace.
-  InputBufferAllocator BufferAllocator;
-  auto MaybeProcTrace = ProcessTrace::readFrom(BufferAllocator);
-  if (!MaybeProcTrace.assigned<std::unique_ptr<ProcessTrace>>()) {
+  auto CMProcessTraceLoad
+    = cm::ProcessTrace::load(ExecutablePath.str(),
+                             seec::makeUnique<trace::InputBufferAllocator>());
+  
+  if (CMProcessTraceLoad.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = std::move(CMProcessTraceLoad.get<seec::Error>());
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  auto CMProcessTrace = std::move(CMProcessTraceLoad.get<0>());
+  
+  // Print the trace.
+  
+#else // raw printing (not clang-mapped)
+
+  auto &Context = llvm::getGlobalContext();
+
+  // Read the trace.
+  seec::trace::InputBufferAllocator BufferAllocator;
+  
+  auto MaybeProcTrace = trace::ProcessTrace::readFrom(BufferAllocator);
+  if (!MaybeProcTrace.assigned<std::unique_ptr<trace::ProcessTrace>>()) {
     llvm::errs() << "failed to load process trace\n";
     exit(EXIT_FAILURE);
   }
   
-  std::shared_ptr<ProcessTrace> Trace (MaybeProcTrace.get<0>().release());
+  std::shared_ptr<trace::ProcessTrace> Trace(MaybeProcTrace.get<0>().release());
 
   // Load the bitcode.
   llvm::SMDiagnostic ParseError;
@@ -170,7 +199,7 @@ int main(int argc, char **argv, char * const *envp) {
   if (ShowStates) {
     outs() << "Recreating states:\n";
 
-    ProcessState ProcState{Trace, ModIndexPtr};
+    trace::ProcessState ProcState{Trace, ModIndexPtr};
     outs() << ProcState << "\n";
 
     while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
@@ -200,16 +229,16 @@ int main(int argc, char **argv, char * const *envp) {
       outs() << "Thread #" << i << ":\n";
 
       for (auto &&Ev: Thread.events()) {
-        if (Ev.getType() == EventType::FunctionStart) {
-          auto const &Record = Ev.as<EventType::FunctionStart>();
+        if (Ev.getType() == trace::EventType::FunctionStart) {
+          auto const &Record = Ev.as<trace::EventType::FunctionStart>();
           auto const Info = Thread.getFunctionTrace(Record.getRecord());
           FunctionStack.push_back(Info.getIndex());
         }
-        else if (Ev.getType() == EventType::FunctionEnd) {
+        else if (Ev.getType() == trace::EventType::FunctionEnd) {
           assert(!FunctionStack.empty());
           FunctionStack.pop_back();
         }
-        else if (Ev.getType() == EventType::RuntimeError) {
+        else if (Ev.getType() == trace::EventType::RuntimeError) {
           assert(!FunctionStack.empty());
           // Print a textual description of the error.
           auto ErrRange = rangeAfterIncluding(Thread.events(), Ev);
@@ -220,7 +249,7 @@ int main(int argc, char **argv, char * const *envp) {
           }
 
           // Find the Instruction responsible for this error.
-          auto const Prev = rfind<EventType::PreInstruction>
+          auto const Prev = trace::rfind<trace::EventType::PreInstruction>
                                  (rangeBefore(Thread.events(), Ev));
           assert(Prev.assigned());
 
@@ -259,6 +288,9 @@ int main(int argc, char **argv, char * const *envp) {
       }
     }
   }
+
+#endif
+
 
   return EXIT_SUCCESS;
 }

@@ -73,22 +73,51 @@ class LazyMessageByRef : public LazyMessage {
   
   std::vector<Formattable> ArgumentValues;
   
-protected:
-  virtual UnicodeString create(UErrorCode &Status,
-                               Locale const &GetLocale) const;
-  
-public:
   /// \brief Constructor.
   ///
+  LazyMessageByRef(char const *ThePackage,
+                   std::vector<char const *> TheKeys,
+                   std::vector<UnicodeString> TheArgumentNames,
+                   std::vector<Formattable> TheArgumentValues)
+  : Package(ThePackage),
+    Keys(std::move(TheKeys)),
+    ArgumentNames(std::move(TheArgumentNames)),
+    ArgumentValues(std::move(TheArgumentValues))
+  {}
+  
   template<typename ...T>
   LazyMessageByRef(char const *ThePackage,
                    std::vector<char const *> TheKeys,
                    std::pair<char const *, T> &&...Arguments)
   : Package(ThePackage),
     Keys(std::move(TheKeys)),
-    ArgumentNames{UnicodeString::fromUTF8(Arguments.first)...},
-    ArgumentValues{Formattable(Arguments.second)...}
+    ArgumentNames{},
+    ArgumentValues{}
   {}
+  
+protected:
+  virtual UnicodeString create(UErrorCode &Status,
+                               Locale const &GetLocale) const;
+  
+public:
+  /// \brief Create a new LazyMessageByRef.
+  ///
+  template<typename ...T>
+  static std::unique_ptr<LazyMessage>
+  create(char const *ThePackage,
+         std::vector<char const *> TheKeys,
+         std::pair<char const *, T> &&...Arguments)
+  {
+    auto Message
+      = new LazyMessageByRef(ThePackage,
+                             std::move(TheKeys),
+                             std::vector<UnicodeString>
+                                  {UnicodeString::fromUTF8(Arguments.first)...},
+                             std::vector<Formattable>
+                                  {Formattable(Arguments.second)...});
+    
+    return std::unique_ptr<LazyMessage>(Message);
+  }
 };
 
 

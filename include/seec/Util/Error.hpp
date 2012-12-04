@@ -14,15 +14,38 @@
 #ifndef SEEC_UTIL_ERROR_HPP
 #define SEEC_UTIL_ERROR_HPP
 
+#include "seec/ICU/LazyMessage.hpp"
+
+#include <memory>
+
+
 namespace seec {
-  
+
+
 class Error {
-public:
-  Error() {}
+private:
+  std::unique_ptr<seec::LazyMessage> Message;
   
-  virtual ~Error() {}
+public:
+  Error(std::unique_ptr<seec::LazyMessage> WithMessage)
+  : Message(std::move(WithMessage))
+  {}
+  
+  Error(Error const &) = delete;
+  
+  Error(Error &&) = default;
+  
+  Error &operator=(Error const &) = delete;
+  
+  Error &operator=(Error &&) = default;
+  
+  UnicodeString getMessage(UErrorCode &Status, Locale const &GetLocale) const {
+    return Message->get(Status, GetLocale);
+  }
 };
 
+
 } // namespace seec
+
 
 #endif // SEEC_UTIL_ERROR_HPP

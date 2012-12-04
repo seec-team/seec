@@ -194,7 +194,7 @@ ProcessTrace::ProcessTrace(InputBufferAllocator &Allocator,
 {}
 
 seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                  std::unique_ptr<seec::Error>>
+                  seec::Error>
 ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
   auto DataBuffer = Allocator.getProcessData(ProcessSegment::Data);
@@ -206,7 +206,7 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   TraceReader >> Version;
 
   if (Version != seec::trace::formatVersion()) {
-    return makeUnique<seec::Error>();
+    return seec::Error(seec::LazyMessageByRef::create("PACKAGE", {"KEYS"}));
   }
 
   std::string ModuleIdentifier;
@@ -225,7 +225,7 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
               >> FunctionAddresses;
 
   if (TraceReader.error()) {
-    return makeUnique<seec::Error>();
+    return seec::Error(seec::LazyMessageByRef::create("PACKAGE", {"KEYS"}));
   }
 
   for (uint32_t i = 0; i < NumThreads; ++i) {

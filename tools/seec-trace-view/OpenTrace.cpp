@@ -40,6 +40,7 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
   // Read the process trace using the InputBufferAllocator.
   auto MaybeProcTrace = seec::trace::ProcessTrace::readFrom(*BufferAllocator);
   if (!MaybeProcTrace.assigned(0)) {
+    // TODO: Display the message from the error in MaybeProcTrace.get<1>().
     UErrorCode Status = U_ZERO_ERROR;
     auto TextTable = seec::getResource("TraceViewer",
                                        Locale::getDefault(),

@@ -515,7 +515,7 @@ public:
   /// Read a ProcessTrace using an InputBufferAllocator.
   static
   seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                    std::unique_ptr<seec::Error>>
+                    seec::Error>
   readFrom(InputBufferAllocator &Allocator);
 
   /// \name Accessors
