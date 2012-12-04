@@ -85,6 +85,10 @@ public:
     TraceDirectory = std::move(RHS.TraceDirectory);
     return *this;
   }
+  
+  /// \brief Get the path of the directory containing the trace files.
+  ///
+  llvm::sys::Path const &getTraceDirectory() const { return TraceDirectory; }
 
   /// Create a MemoryBuffer containing the process data for the given Segment.
   std::unique_ptr<llvm::MemoryBuffer> getProcessData(ProcessSegment Segment);
