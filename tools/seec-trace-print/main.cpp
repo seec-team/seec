@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedProcessState.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -120,7 +121,10 @@ int main(int argc, char **argv, char * const *envp) {
   
   auto CMProcessTrace = std::move(CMProcessTraceLoad.get<0>());
   
-  // Print the trace.
+  // Print the states.
+  if (ShowStates) {
+    seec::cm::ProcessState State(*CMProcessTrace);
+  }
   
 #else // raw printing (not clang-mapped)
 

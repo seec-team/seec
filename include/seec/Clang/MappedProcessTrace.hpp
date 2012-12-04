@@ -13,6 +13,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#ifndef SEEC_CLANG_MAPPEDPROCESSTRACE_HPP
+#define SEEC_CLANG_MAPPEDPROCESSTRACE_HPP
+
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/TraceReader.hpp"
@@ -34,24 +37,35 @@ namespace seec {
 namespace cm {
 
 
+/// \brief A SeeC-Clang-mapped process trace.
+///
 class ProcessTrace {
+  /// The input buffer allocator for this process trace.
   std::unique_ptr<seec::trace::InputBufferAllocator> BufferAllocator;
   
-  std::unique_ptr<seec::trace::ProcessTrace> UnmappedTrace;
+  /// The base (unmapped) process trace.
+  std::shared_ptr<seec::trace::ProcessTrace> UnmappedTrace;
   
+  /// Indexed view of the llvm::Module.
   std::shared_ptr<seec::ModuleIndex> ModuleIndex;
   
+  /// Diagnostic options for Clang.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts;
   
+  /// Diagnostic consumer for Clang.
   clang::IgnoringDiagConsumer DiagConsumer;
   
+  /// Diagnostics engine for Clang.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics;
   
+  /// SeeC-Clang mapping.
   seec::seec_clang::MappedModule Mapping;
   
+  /// \brief Constructor.
+  ///
   ProcessTrace(llvm::StringRef ExecutablePath,
                std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator,
-               std::unique_ptr<seec::trace::ProcessTrace> &&Trace,
+               std::shared_ptr<seec::trace::ProcessTrace> &&Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
   : BufferAllocator(std::move(Allocator)),
     UnmappedTrace(std::move(Trace)),
@@ -68,14 +82,36 @@ class ProcessTrace {
   {}
   
 public:
+  /// \brief Attempt to load a SeeC-Clang-mapped process trace.
+  ///
   static
   seec::util::Maybe<std::unique_ptr<ProcessTrace>,
                     seec::Error>
   load(llvm::StringRef ExecutablePath,
        std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator);
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the base (unmapped) process trace.
+  ///
+  std::shared_ptr<seec::trace::ProcessTrace> getUnmappedTrace() const {
+    return UnmappedTrace;
+  };
+  
+  /// \brief Get the indexed view of the llvm::Module.
+  ///
+  std::shared_ptr<seec::ModuleIndex> getModuleIndex() const {
+    return ModuleIndex;
+  }
+  
+  /// @} (Accessors)
 };
 
 
 } // namespace cm (in seec)
 
 } // namespace seec
+
+#endif // SEEC_CLANG_MAPPEDPROCESSTRACE_HPP
