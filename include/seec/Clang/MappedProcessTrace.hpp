@@ -91,7 +91,7 @@ public:
        std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator);
   
   
-  /// \name Accessors.
+  /// \name Access underlying information.
   /// @{
   
   /// \brief Get the base (unmapped) process trace.
@@ -106,7 +106,7 @@ public:
     return ModuleIndex;
   }
   
-  /// @} (Accessors)
+  /// @} (Access underlying information)
 };
 
 

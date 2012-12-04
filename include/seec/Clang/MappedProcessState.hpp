@@ -21,6 +21,10 @@
 #include <memory>
 
 
+namespace llvm {
+  class raw_ostream;
+}
+
 namespace seec {
 
 namespace trace {
@@ -62,7 +66,33 @@ public:
   /// \brief Destructor.
   ///
   ~ProcessState();
+  
+  
+  /// \name Access underlying information.
+  /// @{
+  
+  /// \brief Get the synthetic process time for this state.
+  uint64_t getProcessTime() const;
+  
+  /// @} (Access underlying information).
+  
+  
+  /// \name Dynamic memory allocations.
+  /// @{
+  
+  /// @}
+  
+  
+  /// \name Memory state.
+  /// @{
+  
+  /// @}
 };
+
+
+/// Print a textual description of a ProcessState.
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              ProcessState const &State);
 
 
 } // namespace cm (in seec)

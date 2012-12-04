@@ -14,6 +14,8 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
 
 namespace seec {
 
@@ -32,6 +34,18 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
 {}
 
 ProcessState::~ProcessState() = default;
+
+uint64_t ProcessState::getProcessTime() const {
+  return UnmappedState->getProcessTime();
+}
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              ProcessState const &State)
+{
+  Out << "Process State @" << State.getProcessTime() << "\n";
+  
+  return Out;
+}
 
 
 } // namespace cm (in seec)
