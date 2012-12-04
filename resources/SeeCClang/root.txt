@@ -1,0 +1,14 @@
+root:table {
+  // Contains textual descriptions of errors that can occur in the library.
+  errors:table {
+    // 
+    ProcessTraceReadFail:string {
+      "Couldn't read process trace from directory \"{path}\""
+    }
+
+    //
+    ParseModuleFail:string {
+      "Couldn't parse module file \"{path}\". Received the following error: {error}"
+    }
+  }
+}
