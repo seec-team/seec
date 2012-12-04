@@ -266,15 +266,10 @@ MappedModule::MappedModule(
   // Load clang::Stmt to llvm::Value mapping from the Module.
   auto GlobalStmtMaps = Module.getNamedMetadata(MDGlobalValueMapStr);
   if (GlobalStmtMaps) {
-    llvm::errs() << "Loading global clang::Stmt maps.\n";
-    
     for (std::size_t i = 0u; i < GlobalStmtMaps->getNumOperands(); ++i) {
       auto Mapping = MappedStmt::fromMetadata(GlobalStmtMaps->getOperand(i),
                                               *this);
-      if (!Mapping) {
-        llvm::errs() << "Couldn't get MappedStmt from metadata.\n";
-        continue;
-      }
+      assert(Mapping && "couldn't get mapping from metadata.");
       
       auto RawPtr = Mapping.get();
       auto Values = RawPtr->getValues();
@@ -283,19 +278,13 @@ MappedModule::MappedModule(
                                              std::move(Mapping)));
       
       if (Values.first) {
-        llvm::errs() << "Mapping " << Values.first << ": "
-                     << *(Values.first) << "\n";
         ValueToMappedStmt.insert(std::make_pair(Values.first, RawPtr));
       }
       
       if (Values.second) {
-        llvm::errs() << "Mapping " << Values.second << ": "
-                     << *(Values.second) << "\n";
         ValueToMappedStmt.insert(std::make_pair(Values.second, RawPtr));
       }
     }
-    
-    llvm::errs() << "Value mappings: " << ValueToMappedStmt.size() << "\n";
   }
 }
 
