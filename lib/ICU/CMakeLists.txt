@@ -1,10 +1,12 @@
 set(HEADERS
   ../../include/seec/ICU/Format.hpp
+  ../../include/seec/ICU/LazyMessage.hpp
   ../../include/seec/ICU/Output.hpp
   ../../include/seec/ICU/Resources.hpp
   )
 
 set(SOURCES
+  LazyMessage.cpp
   Output.cpp
   Resources.cpp
   )

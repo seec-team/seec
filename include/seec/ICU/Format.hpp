@@ -15,7 +15,7 @@
 #define SEEC_ICU_FORMAT_HPP
 
 #include "unicode/fmtable.h"
-#include "unicode/unistr.h"
+#include "unicode/msgfmt.h"
 #include "unicode/msgfmt.h"
 
 namespace seec {
