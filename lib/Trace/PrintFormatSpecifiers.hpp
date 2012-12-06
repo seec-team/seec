@@ -279,11 +279,13 @@ public:
   }
   
 private:
-  /// \brief For pointer types return the MemoryArea of the pointee.
+  /// \brief For non-void pointer types return the MemoryArea of the pointee.
   ///
   template<typename T>
-  typename std::enable_if<std::is_pointer<T>::value,
-                          seec::util::Maybe<MemoryArea>>::type
+  typename std::enable_if
+           <std::is_pointer<T>::value
+            && !std::is_void<typename std::remove_pointer<T>::type>::value,
+            seec::util::Maybe<MemoryArea>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     if (ArgIndex < Args.size()) {
@@ -299,8 +301,10 @@ private:
   
   /// \brief For non-pointer types return an uninitialized Maybe.
   template<typename T>
-  typename std::enable_if<!std::is_pointer<T>::value,
-                          seec::util::Maybe<MemoryArea>>::type
+  typename std::enable_if
+           <!std::is_pointer<T>::value
+            || std::is_void<typename std::remove_pointer<T>::type>::value,
+            seec::util::Maybe<MemoryArea>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     return seec::util::Maybe<MemoryArea>();

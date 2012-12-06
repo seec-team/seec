@@ -18,6 +18,7 @@
 #include "unicode/fmtable.h"
 #include "unicode/unistr.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 

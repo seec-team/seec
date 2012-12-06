@@ -14,6 +14,7 @@
 #include "seec/Clang/RuntimeValueMapping.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 
+#include "clang/AST/CanonicalType.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 

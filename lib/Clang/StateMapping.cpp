@@ -13,6 +13,7 @@
 
 #include "seec/Clang/StateMapping.hpp"
 
+#include "clang/AST/CanonicalType.h"
 #include "clang/AST/Decl.h"
 
 #include "llvm/Support/raw_ostream.h"

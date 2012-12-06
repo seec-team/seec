@@ -100,7 +100,6 @@ GetCompileForSourceFile(char const *Filename,
   driver::Driver Driver(ExecutablePath.str(),
                         llvm::sys::getDefaultTargetTriple(),
                         "a.out",
-                        true, // IsProduction
                         *Diagnostics);
 
   // Find the location of the Clang resources, which should be fixed relative
