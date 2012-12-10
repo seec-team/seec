@@ -2,13 +2,24 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-set(SOURCES
-  Tracer.cpp
+set(HEADERS
+  ../../../include/seec/Runtimes/MangleFunction.h
+  ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
+  Tracer.hpp
   )
 
-add_library(SeeCRuntimeTracer SHARED ${SOURCES})
+set(SOURCES
+  Tracer.cpp
+  WrapCstdio_h.cpp
+  )
 
-add_library(SeeCRuntimeTracer-static ${SOURCES})
+if (${CMAKE_GENERATOR} MATCHES "Xcode")
+ add_library(SeeCRuntimeTracer SHARED ${HEADERS} ${SOURCES})
+ add_library(SeeCRuntimeTracer-static ${HEADERS} ${SOURCES})
+else()
+ add_library(SeeCRuntimeTracer SHARED ${SOURCES})
+ add_library(SeeCRuntimeTracer-static ${SOURCES})
+endif()
 
 SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES OUTPUT_NAME "SeeCRuntimeTracer")
 SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES PREFIX "lib")

@@ -11,9 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "Tracer.hpp"
+
 #include "seec/Trace/TraceFormat.hpp"
-#include "seec/Trace/TraceProcessListener.hpp"
-#include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
@@ -21,7 +21,6 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
-#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Type.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -31,144 +30,74 @@
 
 #include <cassert>
 #include <cstdint>
-#include <memory>
-#include <vector>
 #include <thread>
-
-#include <signal.h>
 
 #include "seec/Transforms/RecordExternal/RecordInfo.h" // needs <cstdint>
 
-using namespace llvm;
-using namespace seec;
-using namespace seec::trace;
 
 namespace seec {
 
 namespace trace {
 
-// Forward-declaration.
-class ProcessEnvironment;
 
+//------------------------------------------------------------------------------
+// ThreadEnvironment
+//------------------------------------------------------------------------------
 
-/// \brief ThreadEnvironment.
-///
-class ThreadEnvironment {
-  ProcessEnvironment &Process;
+ProcessEnvironment::ProcessEnvironment()
+: Context(),
+  Mod(),
+  ModIndex(),
+  StreamAllocator(),
+  SyncExit(),
+  ProcessTracer(),
+  ThreadLookup()
+{
+  llvm::llvm_start_multithreaded();
   
-  TraceThreadListener ThreadTracer;
+  // Load Mod
+  llvm::SMDiagnostic Err;
+  Mod.reset(llvm::ParseIRFile(SeeCInfoModuleIdentifier, Err, Context));
   
-  FunctionIndex *FunIndex;
-  
-  std::vector<Function *> Stack;
-  
-public:
-  ThreadEnvironment(ProcessEnvironment &PE);
-  
-  ~ThreadEnvironment() {}
-  
-  TraceThreadListener &getThreadListener() { return ThreadTracer; }
-  
-  FunctionIndex &getFunctionIndex() {
-    assert(FunIndex);
-    return *FunIndex;
+  if (!Mod) {
+    llvm::errs() << "\nFailed to load module '" 
+                 << SeeCInfoModuleIdentifier
+                 << "'\n";
+    exit(EXIT_FAILURE);
   }
   
-  void pushFunction(llvm::Function *Fun);
+  // Build ModIndex
+  ModIndex.reset(new ModuleIndex(*Mod));
   
-  llvm::Function *popFunction();
-};
+  // Create the process tracer
+  ProcessTracer.reset(new TraceProcessListener(*Mod, 
+                                               *ModIndex, 
+                                               StreamAllocator,
+                                               SyncExit));
 
+  // Give the listener the run-time locations of functions
+  uint32_t FunIndex = 0;
+  for (auto &Fun: *Mod) {
+    if (Fun.isIntrinsic())
+      continue;
 
-/// \brief ProcessEnvironment.
-///
-class ProcessEnvironment {
-  llvm::LLVMContext Context;
-  
-  std::unique_ptr<llvm::Module> Mod;
-  
-  std::unique_ptr<ModuleIndex> ModIndex;
-  
-  OutputStreamAllocator StreamAllocator;
-  
-  seec::SynchronizedExit SyncExit;
-  
-  std::unique_ptr<TraceProcessListener> ProcessTracer;
-  
-  std::map<std::thread::id, std::unique_ptr<ThreadEnvironment>> ThreadLookup;
-  
-public:
-  ProcessEnvironment()
-  : Context(),
-    Mod(),
-    ModIndex(),
-    StreamAllocator(),
-    SyncExit(),
-    ProcessTracer(),
-    ThreadLookup()
-  {
-    llvm::llvm_start_multithreaded();
+    ProcessTracer->notifyFunction(FunIndex,
+                                  &Fun,
+                                  SeeCInfoFunctions[FunIndex]);
     
-    // Load Mod
-    SMDiagnostic Err;
-    Mod.reset(ParseIRFile(SeeCInfoModuleIdentifier, Err, Context));
-    
-    if (!Mod) {
-      llvm::errs() << "\nFailed to load module '" 
-                   << SeeCInfoModuleIdentifier
-                   << "'\n";
-      exit(EXIT_FAILURE);
-    }
-    
-    // Build ModIndex
-    ModIndex.reset(new ModuleIndex(*Mod));
-    
-    // Create the process tracer
-    ProcessTracer.reset(new TraceProcessListener(*Mod, 
-                                                 *ModIndex, 
-                                                 StreamAllocator,
-                                                 SyncExit));
-
-    // Give the listener the run-time locations of functions
-    uint32_t FunIndex = 0;
-    for (auto &Fun: *Mod) {
-      if (Fun.isIntrinsic())
-        continue;
-
-      ProcessTracer->notifyFunction(FunIndex,
-                                    &Fun,
-                                    SeeCInfoFunctions[FunIndex]);
-      
-      ++FunIndex;
-    }
-
-    // Give the listener the run-time locations of globals
-    uint32_t GlobalIndex = 0;
-    for (auto GlobalIt = Mod->global_begin(), GlobalEnd = Mod->global_end();
-         GlobalIt != GlobalEnd; ++GlobalIt) {
-      ProcessTracer->notifyGlobalVariable(GlobalIndex,
-                                          &*GlobalIt,
-                                          SeeCInfoGlobals[GlobalIndex]);
-      ++GlobalIndex;
-    }
+    ++FunIndex;
   }
-  
-  ~ProcessEnvironment() {}
-  
-  decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
-  
-  llvm::LLVMContext &getContext() { return Context; }
-  
-  llvm::Module const &getModule() const { return *Mod; }
-  
-  ModuleIndex &getModuleIndex() { return *ModIndex; }
-  
-  OutputStreamAllocator &getStreamAllocator() { return StreamAllocator; }
-  
-  SynchronizedExit &getSynchronizedExit() { return SyncExit; }
-  
-  TraceProcessListener &getProcessListener() { return *ProcessTracer; }
-};
+
+  // Give the listener the run-time locations of globals
+  uint32_t GlobalIndex = 0;
+  for (auto GlobalIt = Mod->global_begin(), GlobalEnd = Mod->global_end();
+       GlobalIt != GlobalEnd; ++GlobalIt) {
+    ProcessTracer->notifyGlobalVariable(GlobalIndex,
+                                        &*GlobalIt,
+                                        SeeCInfoGlobals[GlobalIndex]);
+    ++GlobalIndex;
+  }
+}
 
 
 //------------------------------------------------------------------------------
@@ -199,6 +128,10 @@ llvm::Function *ThreadEnvironment::popFunction() {
 }
 
 
+//------------------------------------------------------------------------------
+// getProcessEnvironment()
+//------------------------------------------------------------------------------
+
 ProcessEnvironment &getProcessEnvironment() {
   static bool Initialized = false;
   static std::mutex InitializationMutex {};
@@ -217,6 +150,11 @@ ProcessEnvironment &getProcessEnvironment() {
   return *ProcessEnv;
 }
 
+
+//------------------------------------------------------------------------------
+// getThreadEnvironment()
+//------------------------------------------------------------------------------
+
 ThreadEnvironment &getThreadEnvironment() {
   // Yes, this is a terrible bottleneck. When thread_local support is available,
   // we'll be using that instead.
@@ -233,15 +171,17 @@ ThreadEnvironment &getThreadEnvironment() {
   return *ThreadEnvPtr;
 }
 
+
 } // namespace trace (in seec)
 
 } // namespace seec
 
+
 extern "C" {
 
 void SeeCRecordFunctionBegin(uint32_t Index) {
-  auto &ThreadEnv = getThreadEnvironment();
-  auto &ModIndex = getProcessEnvironment().getModuleIndex();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &ModIndex = seec::trace::getProcessEnvironment().getModuleIndex();
   auto &Listener = ThreadEnv.getThreadListener();
   auto F = ModIndex.getFunction(Index);
   Listener.notifyFunctionBegin(Index, F);
@@ -250,7 +190,7 @@ void SeeCRecordFunctionBegin(uint32_t Index) {
 
 void SeeCRecordFunctionEnd(uint32_t Index) {
   // auto &ModIndex = Environment::getModuleIndex();
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   auto F = ThreadEnv.popFunction();
   // Check F matches Index?
@@ -266,138 +206,138 @@ void SeeCRecordSetWritable(void *Address, uint64_t Size) {
 }
 
 void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyArgs(ArgC, ArgV);
 }
 
 void SeeCRecordEnv(char **EnvP) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyEnv(EnvP);
 }
 
 void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Load = dyn_cast<LoadInst>(Inst);
+  auto Load = llvm::dyn_cast<llvm::LoadInst>(Inst);
   assert(Load && "Expected LoadInst");
 
   Listener.notifyPreLoad(Index, Load, Address, Size);
 }
 
 void SeeCRecordPostLoad(uint32_t Index, void *Address, uint64_t Size) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Load = dyn_cast<LoadInst>(Inst);
+  auto Load = llvm::dyn_cast<llvm::LoadInst>(Inst);
   assert(Load && "Expected LoadInst");
 
   Listener.notifyPostLoad(Index, Load, Address, Size);
 }
 
 void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Store = dyn_cast<StoreInst>(Inst);
+  auto Store = llvm::dyn_cast<llvm::StoreInst>(Inst);
   assert(Store && "Expected StoreInst");
 
   Listener.notifyPreStore(Index, Store, Address, Size);
 }
 
 void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Store = dyn_cast<StoreInst>(Inst);
+  auto Store = llvm::dyn_cast<llvm::StoreInst>(Inst);
   assert(Store && "Expected StoreInst");
 
   Listener.notifyPostStore(Index, Store, Address, Size);
 }
 
 void SeeCRecordPreCall(uint32_t Index, void *Address) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Call = dyn_cast<CallInst>(Inst);
+  auto Call = llvm::dyn_cast<llvm::CallInst>(Inst);
   assert(Call && "Expected CallInst");
 
   Listener.notifyPreCall(Index, Call, Address);
 }
 
 void SeeCRecordPostCall(uint32_t Index, void *Address) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Call = dyn_cast<CallInst>(Inst);
+  auto Call = llvm::dyn_cast<llvm::CallInst>(Inst);
   assert(Call && "Expected CallInst");
 
   Listener.notifyPostCall(Index, Call, Address);
 }
 
 void SeeCRecordPreCallIntrinsic(uint32_t Index) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Call = dyn_cast<CallInst>(Inst);
+  auto Call = llvm::dyn_cast<llvm::CallInst>(Inst);
   assert(Call && "Expected CallInst");
 
   Listener.notifyPreCallIntrinsic(Index, Call);
 }
 
 void SeeCRecordPostCallIntrinsic(uint32_t Index) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
 
-  auto Call = dyn_cast<CallInst>(Inst);
+  auto Call = llvm::dyn_cast<llvm::CallInst>(Inst);
   assert(Call && "Expected CallInst");
 
   Listener.notifyPostCallIntrinsic(Index, Call);
 }
 
 void SeeCRecordPreDivide(uint32_t Index) {
-  auto &ThreadEnv = getThreadEnvironment();
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
 
   auto Inst = FunIndex.getInstruction(Index);
   assert(Inst && "Bad Index");
   
-  auto BinOp = dyn_cast<BinaryOperator>(Inst);
+  auto BinOp = llvm::dyn_cast<llvm::BinaryOperator>(Inst);
   assert(BinOp && "Expected BinaryOperator");
 
   Listener.notifyPreDivide(Index, BinOp);
@@ -405,7 +345,7 @@ void SeeCRecordPreDivide(uint32_t Index) {
 
 #define SEEC_RECORD_UPDATE(NAME, TYPE)                                         \
 void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
-  auto &ThreadEnv = getThreadEnvironment();                                    \
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();                                    \
   auto &FunIndex = ThreadEnv.getFunctionIndex();                               \
   auto &Listener = ThreadEnv.getThreadListener();                              \
   auto Inst = FunIndex.getInstruction(Index);                                  \
