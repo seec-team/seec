@@ -18,6 +18,7 @@
 
 #include "llvm/DataLayout.h"
 #include "llvm/Pass.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstVisitor.h"
 
@@ -34,9 +35,15 @@ class InsertExternalRecording
   public InstVisitor<InsertExternalRecording>
 {
 private:
+  /// \name Members.
+  /// @{
+  
 #define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE) \
   Function *Record##POINT;
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
+
+  /// Map from standard functions to the SeeC interceptors.
+  llvm::DenseMap<llvm::Function *, llvm::Function *> FunctionInterceptions;
 
   /// Original Instructions of the current Function
   std::vector<Instruction *> FunctionInstructions;
@@ -44,21 +51,34 @@ private:
   /// Index of instruction currently being instrumented
   uint32_t InstructionIndex;
 
-  /// Type of i32 in the context of the Module being instrumented.
-  Type *Int32Ty;
-  Type *Int64Ty;
-  Type *Int8PtrTy;
+  Type *Int32Ty;   ///< Type of i32.
+  Type *Int64Ty;   ///< Type of i64.
+  Type *Int8PtrTy; ///< Type of i8 *.
 
   /// DataLayout for the Module.
   DataLayout *DL;
 
   /// Index of the Module.
   std::unique_ptr<seec::ModuleIndex> ModIndex;
+  
+  /// @}
+  
 
-  /// Insert a call to update an Instruction's runtime value.
+  /// \name Helper methods.
+  /// @{
+  
+  /// \brief Add a prototype for an interceptor function.
+  ///
+  llvm::Function *createFunctionInterceptorPrototype(llvm::Function *ForFn,
+                                                     llvm::StringRef NewName);
+  
+  /// \brief Insert a call to update an Instruction's runtime value.
+  ///
   CallInst *insertRecordUpdateForValue(Instruction &I,
                                        Instruction *Before = nullptr);
 
+  /// @}
+  
 public:
   static char ID; ///< For LLVM's RTTI
 
@@ -67,6 +87,7 @@ public:
   ///        events during execution of the instrumented Module.
   InsertExternalRecording()
   : FunctionPass(ID),
+    FunctionInterceptions(),
     FunctionInstructions(),
     InstructionIndex(),
     Int32Ty(nullptr),

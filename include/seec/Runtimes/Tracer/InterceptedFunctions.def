@@ -1,0 +1,21 @@
+//===- include/seec/Runtimes/Tracer/InterceptedFunctions.def --------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// SEEC_INTERCEPTED_FUNCTION(NAME)
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_INTERCEPTED_FUNCTION
+#error "Must define SEEC_INTERCEPTED_FUNCTION."
+#endif
+
+SEEC_INTERCEPTED_FUNCTION(scanf)
+SEEC_INTERCEPTED_FUNCTION(fscanf)
+SEEC_INTERCEPTED_FUNCTION(sscanf)

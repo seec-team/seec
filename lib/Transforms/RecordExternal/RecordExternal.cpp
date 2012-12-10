@@ -13,6 +13,7 @@
 
 #define DEBUG_TYPE "seec"
 
+#include "seec/Runtimes/MangleFunction.h"
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/Maybe.hpp"
 
@@ -37,10 +38,41 @@ namespace llvm {
 
 char InsertExternalRecording::ID = 0;
 
+llvm::Function *
+InsertExternalRecording::
+createFunctionInterceptorPrototype(llvm::Function *ForFn,
+                                   llvm::StringRef NewName)
+{
+  auto ForFnType = ForFn->getFunctionType();
+  auto NumParams = ForFnType->getNumParams();
+  
+  llvm::SmallVector<llvm::Type *, 10> ParamTypes;
+  
+  ParamTypes.push_back(Int32Ty);
+  
+  for (unsigned i = 0; i < NumParams; ++i)
+    ParamTypes.push_back(ForFnType->getParamType(i));
+  
+  auto NewFnType = FunctionType::get(ForFnType->getReturnType(),
+                                     ParamTypes,
+                                     ForFnType->isVarArg());
+  
+  auto Mod = ForFn->getParent();
+  if (auto ExistingFn = Mod->getFunction(NewName)) {
+    // TODO: Check type.
+    return ExistingFn;
+  }
+  
+  auto Attributes = ForFn->getAttributes();
+  auto NewFn = Mod->getOrInsertFunction(NewName, NewFnType, Attributes);
+  
+  return dyn_cast<Function>(NewFn);
+}
+
 /// Insert a call to notify SeeC of the new run-time value of I.
 /// \param I the Instruction whose new run-time value is being recorded.
 /// \return The Instruction which calls the notification function.
-
+///
 CallInst *
 InsertExternalRecording::insertRecordUpdateForValue(Instruction &I,
                                                     Instruction *Before) {
@@ -168,13 +200,13 @@ bool InsertExternalRecording::doInitialization(Module &M) {
                      ConstantInt::get(Int64Ty, Globals.size()),
                      StringRef("SeeCInfoGlobalsLength"));
 
-  // Build a list of all the functions used in the module
+  // Build a list of all the functions used in the module.
   std::vector<Constant *> Functions;
   for (auto &F: M) {
     if (F.isIntrinsic()) {
       continue;
     }
-
+    
     Functions.push_back(ConstantExpr::getPointerCast(&F, Int8PtrTy));
   }
 
@@ -210,6 +242,29 @@ bool InsertExternalRecording::doInitialization(Module &M) {
     M.getOrInsertFunction("SeeCRecord" #POINT, \
       TypeBuilder<LLVM_FUNCTION_TYPE, true>::get(Context)));
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
+
+  // check for any functions which will be replaced by SeeC interceptor
+  // functions.
+  for (auto &F : M) {
+    auto Name = F.getName();
+    llvm::Function *Intercept = nullptr;
+    
+#define SEEC_STRINGIZE2(STR) #STR
+#define SEEC_STRINGIZE(STR) SEEC_STRINGIZE2(STR)
+
+#define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
+    if (Name.equals(#NAME)) {                                                  \
+      auto NewName = SEEC_STRINGIZE(SEEC_MANGLE_FUNCTION(NAME));               \
+      Intercept = createFunctionInterceptorPrototype(&F, NewName);             \
+    }
+#include "seec/Runtimes/Tracer/InterceptedFunctions.def"
+
+#undef SEEC_STRINGIZE
+#undef SEEC_STRINGIZE2
+    
+    if (Intercept)
+      FunctionInterceptions.insert(std::make_pair(&F, Intercept));
+  }
 
   return true;
 }
@@ -440,6 +495,11 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
 /// \param I a reference to the instruction.
 void InsertExternalRecording::visitCallInst(CallInst &CI) {
   Function *CalledFunction = CI.getCalledFunction();
+  
+  // Rewrite this call as a call to SeeC's interception function.
+  if (FunctionInterceptions.count(CalledFunction)) {
+    
+  }
 
   // Get the called Value or Function
   Value *CalledValue;
