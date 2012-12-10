@@ -498,7 +498,19 @@ void InsertExternalRecording::visitCallInst(CallInst &CI) {
   
   // Rewrite this call as a call to SeeC's interception function.
   if (FunctionInterceptions.count(CalledFunction)) {
+    SmallVector<Value *, 10> Args;
     
+    Args.push_back(ConstantInt::get(Int32Ty, InstructionIndex));
+    unsigned NumArgs = CI.getNumArgOperands();
+    for (unsigned i = 0; i < NumArgs; ++i)
+      Args.push_back(CI.getArgOperand(i));
+    
+    auto Interceptor = FunctionInterceptions[CalledFunction];
+    
+    CallInst::Create(Interceptor, Args, CI.getName(), &CI);
+    CI.eraseFromParent();
+    
+    return;
   }
 
   // Get the called Value or Function
