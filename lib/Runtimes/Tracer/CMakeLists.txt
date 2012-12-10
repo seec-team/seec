@@ -36,6 +36,7 @@ target_link_libraries(SeeCRuntimeTracer
  SeeCTrace
  SeeCUtil
  SeeCRuntimeErrors
+ SeeCICU
  ${REQ_LLVM_LIBRARIES}
 )
 
@@ -44,6 +45,7 @@ target_link_libraries(SeeCRuntimeTracer-static
  SeeCTrace
  SeeCUtil
  SeeCRuntimeErrors
+ SeeCICU
  ${REQ_LLVM_LIBRARIES}
 )
 
