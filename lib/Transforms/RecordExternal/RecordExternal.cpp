@@ -43,28 +43,15 @@ InsertExternalRecording::
 createFunctionInterceptorPrototype(llvm::Function *ForFn,
                                    llvm::StringRef NewName)
 {
-  auto ForFnType = ForFn->getFunctionType();
-  auto NumParams = ForFnType->getNumParams();
-  
-  llvm::SmallVector<llvm::Type *, 10> ParamTypes;
-  
-  ParamTypes.push_back(Int32Ty);
-  
-  for (unsigned i = 0; i < NumParams; ++i)
-    ParamTypes.push_back(ForFnType->getParamType(i));
-  
-  auto NewFnType = FunctionType::get(ForFnType->getReturnType(),
-                                     ParamTypes,
-                                     ForFnType->isVarArg());
-  
   auto Mod = ForFn->getParent();
   if (auto ExistingFn = Mod->getFunction(NewName)) {
     // TODO: Check type.
     return ExistingFn;
   }
   
-  auto Attributes = ForFn->getAttributes();
-  auto NewFn = Mod->getOrInsertFunction(NewName, NewFnType, Attributes);
+  auto NewFn = Mod->getOrInsertFunction(NewName,
+                                        ForFn->getFunctionType(),
+                                        ForFn->getAttributes());
   
   return dyn_cast<Function>(NewFn);
 }
@@ -243,35 +230,33 @@ bool InsertExternalRecording::doInitialization(Module &M) {
       TypeBuilder<LLVM_FUNCTION_TYPE, true>::get(Context)));
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
 
-  // check for any functions which will be replaced by SeeC interceptor
-  // functions.
+  // Perform SeeC's function interception.
   for (auto &F : M) {
     auto Name = F.getName();
     llvm::Function *Intercept = nullptr;
     
-#define SEEC_STRINGIZE2(STR) #STR
-#define SEEC_STRINGIZE(STR) SEEC_STRINGIZE2(STR)
+#define SEEC__STRINGIZE2(STR) #STR
+#define SEEC__STRINGIZE(STR) SEEC__STRINGIZE2(STR)
 
 #define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
     if (Name.equals(#NAME)) {                                                  \
-      auto NewName = SEEC_STRINGIZE(SEEC_MANGLE_FUNCTION(NAME));               \
+      auto NewName = SEEC__STRINGIZE(SEEC_MANGLE_FUNCTION(NAME));              \
       Intercept = createFunctionInterceptorPrototype(&F, NewName);             \
     }
 #include "seec/Runtimes/Tracer/InterceptedFunctions.def"
 
-#undef SEEC_STRINGIZE
-#undef SEEC_STRINGIZE2
+#undef SEEC__STRINGIZE
+#undef SEEC__STRINGIZE2
     
-    if (Intercept)
-      FunctionInterceptions.insert(std::make_pair(&F, Intercept));
+    if (Intercept) {
+      F.replaceAllUsesWith(Intercept);
+      Interceptors.insert(Intercept);
+    }
   }
-
+  
   return true;
 }
 
-/// Instrument a single function.
-/// \param F the function to instrument.
-/// \return true if the function was modified.
 bool InsertExternalRecording::runOnFunction(Function &F) {
   if (!DL)
     return false;
@@ -375,12 +360,10 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
   return true;
 }
 
-/// Determine whether or not this pass will invalidate any analyses.
 void InsertExternalRecording::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesCFG();
 }
 
-///
 void InsertExternalRecording::visitBinaryOperator(BinaryOperator &I) {
   switch (I.getOpcode()) {
     case llvm::Instruction::BinaryOps::UDiv: // Fall-through intentional.
@@ -496,20 +479,12 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
 void InsertExternalRecording::visitCallInst(CallInst &CI) {
   Function *CalledFunction = CI.getCalledFunction();
   
-  // Rewrite this call as a call to SeeC's interception function.
-  if (FunctionInterceptions.count(CalledFunction)) {
-    SmallVector<Value *, 10> Args;
-    
-    Args.push_back(ConstantInt::get(Int32Ty, InstructionIndex));
-    unsigned NumArgs = CI.getNumArgOperands();
-    for (unsigned i = 0; i < NumArgs; ++i)
-      Args.push_back(CI.getArgOperand(i));
-    
-    auto Interceptor = FunctionInterceptions[CalledFunction];
-    
-    CallInst::Create(Interceptor, Args, CI.getName(), &CI);
-    CI.eraseFromParent();
-    
+  // If this is a call to one of SeeC's interception functions, then we only
+  // need to notify the instruction index before the call. Checking, recording
+  // and value updating will happen in the intercepted function.
+  if (Interceptors.count(CalledFunction)) {
+    Value *Args[] = {ConstantInt::get(Int32Ty, InstructionIndex)};
+    CallInst::Create(RecordSetInstruction, Args, "", &CI);
     return;
   }
 

@@ -19,6 +19,7 @@
 #include "llvm/DataLayout.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstVisitor.h"
 
@@ -42,9 +43,9 @@ private:
   Function *Record##POINT;
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
 
-  /// Map from standard functions to the SeeC interceptors.
-  llvm::DenseMap<llvm::Function *, llvm::Function *> FunctionInterceptions;
-
+  /// Set of all SeeC interceptor functions used by this Module.
+  llvm::SmallPtrSet<llvm::Function *, 16> Interceptors;
+  
   /// Original Instructions of the current Function
   std::vector<Instruction *> FunctionInstructions;
 
@@ -87,7 +88,7 @@ public:
   ///        events during execution of the instrumented Module.
   InsertExternalRecording()
   : FunctionPass(ID),
-    FunctionInterceptions(),
+    Interceptors(),
     FunctionInstructions(),
     InstructionIndex(),
     Int32Ty(nullptr),
@@ -105,8 +106,15 @@ public:
 
   virtual bool doInitialization(Module &M);
 
+  /// \brief Instrument a single function.
+  ///
+  /// \param F the function to instrument.
+  /// \return true if the function was modified.
+  ///
   virtual bool runOnFunction(Function &F);
 
+  /// \brief Determine whether or not this pass will invalidate any analyses.
+  ///
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
   /// \name InstVisitor methods

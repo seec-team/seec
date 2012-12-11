@@ -15,6 +15,8 @@
 
 #include "seec/Runtimes/MangleFunction.h"
 
+#include "llvm/Support/CallSite.h"
+
 #include <cstdio>
 
 
@@ -22,16 +24,14 @@ extern "C" {
 
 int
 SEEC_MANGLE_FUNCTION(scanf)
-(uint32_t Index, char const *Format, ...)
+(char const *Format, ...)
 {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
+  auto Call = llvm::CallSite(ThreadEnv.getInstruction());
+  assert(Call && "expected call or invoke instruction.");
   
-  auto Call = llvm::dyn_cast<llvm::CallInst>(FunIndex.getInstruction(Index));
-  assert(Call && "Expected CallInst");
-  
-  // Check.
+  // TODO: Check and do.
   
   // Do.
   llvm_unreachable("scanf: not implemented.");
@@ -44,16 +44,14 @@ SEEC_MANGLE_FUNCTION(scanf)
 
 int
 SEEC_MANGLE_FUNCTION(fscanf)
-(uint32_t Index, FILE *Stream, char const *Format, ...)
+(FILE *Stream, char const *Format, ...)
 {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(FunIndex.getInstruction(Index));
-  assert(Call && "Expected CallInst");
-  
-  // Check.
+  auto Call = llvm::CallSite(ThreadEnv.getInstruction());
+  assert(Call && "expected call or invoke instruction.");
+    
+  // TODO: Check and do.
   
   // Do.
   llvm_unreachable("fscanf: not implemented.");
@@ -66,16 +64,14 @@ SEEC_MANGLE_FUNCTION(fscanf)
 
 int
 SEEC_MANGLE_FUNCTION(sscanf)
-(uint32_t Index, char const *Buffer, char const *Format, ...)
+(char const *Buffer, char const *Format, ...)
 {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  auto &FunIndex = ThreadEnv.getFunctionIndex();
   auto &Listener = ThreadEnv.getThreadListener();
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(FunIndex.getInstruction(Index));
-  assert(Call && "Expected CallInst");
-  
-  // Check.
+  auto Call = llvm::CallSite(ThreadEnv.getInstruction());
+  assert(Call && "expected call or invoke instruction.");
+    
+  // TODO: Check and do.
   
   // Do.
   llvm_unreachable("sscanf: not implemented.");
