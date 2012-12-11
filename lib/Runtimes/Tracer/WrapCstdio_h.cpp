@@ -34,8 +34,9 @@ extern "C" {
 //===----------------------------------------------------------------------===//
 
 //
-bool matchNonConversionCharacters(FILE *Stream,
-                                  char const *&Start,
+bool matchNonConversionCharacters(int &CharactersRead,
+                                  FILE *Stream,
+                                  char const *Start,
                                   char const *End = nullptr)
 {
   while(*Start && (End == nullptr || Start < End)) {
@@ -48,6 +49,8 @@ bool matchNonConversionCharacters(FILE *Stream,
           std::ungetc(ReadChar, Stream);
           break;
         }
+        
+        ++CharactersRead;
       }
     }
     else {
@@ -60,6 +63,8 @@ bool matchNonConversionCharacters(FILE *Stream,
         std::ungetc(ReadChar, Stream);
         return false;
       }
+      
+      ++CharactersRead;
     }
     
     ++Start;
@@ -123,6 +128,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     return 0;
   
   int Result = 0;
+  int NumCharsRead = 0;
   unsigned NextArg = 0;
   char const *NextChar = Format;
   
@@ -130,12 +136,13 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
     if (!Conversion.Start) {
       // Attempt to match and consume remaining characters.
-      matchNonConversionCharacters(Stream, NextChar);
+      matchNonConversionCharacters(NumCharsRead, Stream, NextChar);
       break;
     }
     
     // Attempt to match and consume [NextChar, Conversion.Start).
-    if (!matchNonConversionCharacters(Stream, NextChar, Conversion.Start))
+    if (!matchNonConversionCharacters(NumCharsRead, Stream, NextChar,
+                                      Conversion.Start))
       break;
     
     auto const StartIndex = Conversion.Start - Format;
@@ -183,7 +190,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         InstructionIndex);
       return false;
     }
-    
+
     // If the argument type is a pointer, check that the destination is
     // writable. The conversion for strings (and sets) is a special case.
     if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
@@ -231,6 +238,50 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       }
     }
     
+    switch (Conversion.Conversion) {
+      case ScanConversionSpecifier::Specifier::none:
+        llvm_unreachable("encountered scan conversion specifier \"none\"");
+        break;
+      case ScanConversionSpecifier::Specifier::percent:
+        break;
+      case ScanConversionSpecifier::Specifier::c:
+        break;
+      case ScanConversionSpecifier::Specifier::s:
+        break;
+      case ScanConversionSpecifier::Specifier::set:
+        break;
+      case ScanConversionSpecifier::Specifier::d:
+        break;
+      case ScanConversionSpecifier::Specifier::i:
+        break;
+      case ScanConversionSpecifier::Specifier::u:
+        break;
+      case ScanConversionSpecifier::Specifier::o:
+        break;
+      case ScanConversionSpecifier::Specifier::x:
+        break;
+      case ScanConversionSpecifier::Specifier::n:
+        break;
+      case ScanConversionSpecifier::Specifier::a:
+        break;
+      case ScanConversionSpecifier::Specifier::A:
+        break;
+      case ScanConversionSpecifier::Specifier::e:
+        break;
+      case ScanConversionSpecifier::Specifier::E:
+        break;
+      case ScanConversionSpecifier::Specifier::f:
+        break;
+      case ScanConversionSpecifier::Specifier::F:
+        break;
+      case ScanConversionSpecifier::Specifier::g:
+        break;
+      case ScanConversionSpecifier::Specifier::G:
+        break;
+      case ScanConversionSpecifier::Specifier::p:
+        break;
+    }
+        
     // Move to the next argument (unless this conversion specifier doesn't
     // consume an argument).
     if (Conversion.Conversion != ScanConversionSpecifier::Specifier::percent
