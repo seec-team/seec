@@ -11,7 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "PrintFormatSpecifiers.hpp"
+#include "seec/Trace/PrintFormatSpecifiers.hpp"
 
 namespace seec {
 
@@ -112,7 +112,7 @@ PrintConversionSpecifier::readNextFrom(char const * const String) {
       if (!Result.PrecisionSpecified && PREC)                                  \
         Result.Precision = DPREC;                                              \
       break;
-#include "PrintFormatSpecifiers.def"
+#include "seec/Trace/PrintFormatSpecifiers.def"
     default:
       return Result;
   }

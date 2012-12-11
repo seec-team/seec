@@ -11,8 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "PrintFormatSpecifiers.hpp"
-#include "ScanFormatSpecifiers.hpp"
+#include "seec/Trace/PrintFormatSpecifiers.hpp"
+#include "seec/Trace/ScanFormatSpecifiers.hpp"
 
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 

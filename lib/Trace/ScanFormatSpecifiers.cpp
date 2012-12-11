@@ -11,7 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "ScanFormatSpecifiers.hpp"
+#include "seec/Trace/ScanFormatSpecifiers.hpp"
 
 namespace seec {
 
@@ -61,7 +61,7 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     case CHR:                                                                  \
       Result.Conversion = Specifier::ID;                                       \
       break;
-#include "ScanFormatSpecifiers.def"
+#include "seec/Trace/ScanFormatSpecifiers.def"
     default:
       return Result;
   }

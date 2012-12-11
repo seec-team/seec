@@ -43,11 +43,11 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceStreams.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
   ../../include/seec/Trace/TraceThreadMemCheck.hpp
-  FormatSpecifiers.hpp
-  PrintFormatSpecifiers.def
-  PrintFormatSpecifiers.hpp
-  ScanFormatSpecifiers.def
-  ScanFormatSpecifiers.hpp
+  ../../include/seec/Trace/FormatSpecifiers.hpp
+  ../../include/seec/Trace/PrintFormatSpecifiers.def
+  ../../include/seec/Trace/PrintFormatSpecifiers.hpp
+  ../../include/seec/Trace/ScanFormatSpecifiers.def
+  ../../include/seec/Trace/ScanFormatSpecifiers.hpp
   )
 
 set(EXECUTION_TRACER_SOURCES
