@@ -34,6 +34,7 @@
 
 #include "llvm/Instructions.h"
 #include "llvm/Intrinsics.h"
+#include "llvm/Support/CallSite.h"
 
 #include <cstdio> // for fpos_t, size_t, FILE *.
 #include <ctime> // for time_t, struct tm.
@@ -60,13 +61,13 @@ template<typename LT>
 class VarArgList {
   LT &Listener;
   
-  llvm::CallInst const *Instruction;
+  llvm::ImmutableCallSite Instruction;
   
   unsigned Offset;
 
 public:
   VarArgList(LT &TheListener,
-             llvm::CallInst const *TheInstruction,
+             llvm::ImmutableCallSite TheInstruction,
              unsigned TheOffset)
   : Listener(TheListener),
     Instruction(TheInstruction),
@@ -74,7 +75,7 @@ public:
   {}
   
   unsigned size() const {
-    return Instruction->getNumArgOperands() - Offset;
+    return Instruction.arg_size() - Offset;
   }
   
   unsigned offset() const {
@@ -83,8 +84,8 @@ public:
   
   template<typename T>
   seec::util::Maybe<T> getAs(unsigned Index) const {
-    if (Offset + Index < Instruction->getNumArgOperands()) {
-      auto Arg = Instruction->getArgOperand(Offset + Index);
+    if (Offset + Index < Instruction.arg_size()) {
+      auto Arg = Instruction.getArgument(Offset + Index);
       return getCurrentRuntimeValueAs<T>(Listener, Arg);
     }
     
@@ -115,7 +116,7 @@ struct GetArgumentImpl<VarArgList<LT>> {
                              llvm::CallInst const *Instr,
                              std::size_t Arg)
   {
-    return VarArgList<LT>(Listener, Instr, Arg);
+    return VarArgList<LT>(Listener, llvm::ImmutableCallSite{Instr}, Arg);
   }
 };
 
