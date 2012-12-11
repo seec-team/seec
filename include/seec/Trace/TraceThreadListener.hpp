@@ -179,7 +179,8 @@ class TraceThreadListener
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
-  
+
+public:  
   /// \brief Acquire the StreamsLock, if we don't have it already.
   void acquireStreamsLock() {
     if (!StreamsLock) {
@@ -190,6 +191,7 @@ class TraceThreadListener
   /// @} (Helper methods)
 
 
+public:
   /// \name Dynamic memory
   /// @{
   
@@ -214,6 +216,7 @@ class TraceThreadListener
   /// @} (Dynamic memory)
 
 
+public:
   /// \name Memory states
   /// @{
   
@@ -429,7 +432,7 @@ public:
   /// \name Thread Listener Notifications
   /// @{
 
-private:
+public:
   void enterNotification();
 
   void exitNotification();

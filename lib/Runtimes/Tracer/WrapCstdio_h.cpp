@@ -14,6 +14,7 @@
 #include "Tracer.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"
+#include "seec/Trace/TraceThreadListener.hpp"
 
 #include "llvm/Support/CallSite.h"
 
@@ -31,15 +32,22 @@ SEEC_MANGLE_FUNCTION(scanf)
   auto Call = llvm::CallSite(ThreadEnv.getInstruction());
   assert(Call && "expected call or invoke instruction.");
   
-  // TODO: Check and do.
+  Listener.enterNotification();
+  Listener.acquireGlobalMemoryWriteLock();
+  Listener.acquireStreamsLock();
   
-  // Do.
-  llvm_unreachable("scanf: not implemented.");
+  // Check and do the scanf.
+  int Result = 0;
   
-  // Record.
+  // Release memory and streams.
+  Listener.exitPostNotification();
   
-  // Return.
-  return 0;
+  // Record the produced value.
+  Listener.notifyValue(ThreadEnv.getInstructionIndex(),
+                       ThreadEnv.getInstruction(),
+                       unsigned(Result));
+  
+  return Result;
 }
 
 int
