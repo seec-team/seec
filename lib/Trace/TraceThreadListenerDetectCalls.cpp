@@ -13,6 +13,7 @@
 
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Trace/TraceThreadMemCheck.hpp"
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instruction.h"
@@ -21,7 +22,6 @@
 
 #include <cassert>
 
-#include "TraceThreadMemCheck.hpp"
 
 namespace seec {
 

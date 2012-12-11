@@ -11,10 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "TraceThreadMemCheck.hpp"
-
 #include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"

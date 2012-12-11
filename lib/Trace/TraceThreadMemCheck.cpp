@@ -13,7 +13,8 @@
 
 #include "PrintFormatSpecifiers.hpp"
 #include "ScanFormatSpecifiers.hpp"
-#include "TraceThreadMemCheck.hpp"
+
+#include "seec/Trace/TraceThreadMemCheck.hpp"
 
 
 namespace seec {

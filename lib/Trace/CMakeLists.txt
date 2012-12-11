@@ -42,12 +42,12 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceProcessListener.hpp
   ../../include/seec/Trace/TraceStreams.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
+  ../../include/seec/Trace/TraceThreadMemCheck.hpp
   FormatSpecifiers.hpp
   PrintFormatSpecifiers.def
   PrintFormatSpecifiers.hpp
   ScanFormatSpecifiers.def
   ScanFormatSpecifiers.hpp
-  TraceThreadMemCheck.hpp
   )
 
 set(EXECUTION_TRACER_SOURCES
