@@ -14,29 +14,48 @@
 #ifndef SEEC_UTIL_SCOPEEXIT_HPP
 #define SEEC_UTIL_SCOPEEXIT_HPP
 
-#include <functional>
-
 namespace seec {
-  
-class ScopeExit {
-  std::function<void()> Func;
-  
-  // don't allow copying
-  ScopeExit(ScopeExit const &) = delete;
-  ScopeExit &operator=(ScopeExit const &) = delete;
 
+
+template<typename FunT>
+class ScopeExit {
+  FunT Function;
+  
+  bool Active;
+  
 public:
-  explicit ScopeExit(std::function<void()> CallFunction)
-  : Func(CallFunction)
+  ScopeExit() = delete;
+  
+  explicit ScopeExit(FunT CallFunction)
+  : Function(std::move(CallFunction)),
+    Active(true)
   {}
   
-  ~ScopeExit() {
-    if (Func)
-      Func();
+  ScopeExit(ScopeExit const &) = delete;
+  
+  ScopeExit &operator=(ScopeExit const &) = delete;
+  
+  ScopeExit(ScopeExit &&Other)
+  : Function(std::move(Other.Function)),
+    Active(Other.Active)
+  {
+    Other.disable();
   }
   
-  void disable() { Func = nullptr; }
+  ~ScopeExit() {
+    if (Active)
+      Function();
+  }
+  
+  void disable() { Active = false; }
 };
+
+
+template<typename FunT>
+ScopeExit<FunT> scopeExit(FunT Function) {
+  return ScopeExit<FunT>(std::move(Function));
+}
+
 
 } // namespace seec
 

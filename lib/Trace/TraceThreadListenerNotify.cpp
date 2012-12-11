@@ -60,7 +60,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
                                               llvm::Function const *F) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   uint64_t Entered = ++Time;
 
@@ -107,7 +107,7 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // Note thatnotifyArgs has the exit behaviour of a post-notification, because
   // it effectively ends the FunctionStart block for main().
   enterNotification();
-  ScopeExit OnExit([=](){exitPostNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
   
   GlobalMemoryLock = ProcessListener.lockMemory();
   
@@ -140,7 +140,7 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
 void TraceThreadListener::notifyEnv(char **EnvP) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
   
   GlobalMemoryLock = ProcessListener.lockMemory();
   
@@ -184,7 +184,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
 
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   uint64_t Exited = ++Time;
   TracedFunction *TF;
@@ -222,7 +222,7 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
 
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPreNotification();});
+  auto OnExit = scopeExit([=](){exitPreNotification();});
 
   detectPreCall(CallInst, Index, Address);
 }
@@ -234,7 +234,7 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
 
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPostNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
   
   detectPostCall(CallInst, Index, Address);
 }
@@ -245,7 +245,7 @@ void TraceThreadListener::notifyPreCallIntrinsic(uint32_t Index,
 
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPreNotification();});
+  auto OnExit = scopeExit([=](){exitPreNotification();});
 
   auto Function = CI->getCalledFunction();
   auto ID = Function->getIntrinsicID();
@@ -270,7 +270,7 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
 
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPostNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
 
   auto Function = CI->getCalledFunction();
   auto ID = Function->getIntrinsicID();
@@ -333,7 +333,7 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
                                         std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPreNotification();});
+  auto OnExit = scopeExit([=](){exitPreNotification();});
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
@@ -350,7 +350,7 @@ void TraceThreadListener::notifyPostLoad(uint32_t Index,
                                          std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPostNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
 
   // auto MemoryStateEvent = ProcessListener.getMemoryStateEvent();
 }
@@ -361,7 +361,7 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
                                          std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPreNotification();});
+  auto OnExit = scopeExit([=](){exitPreNotification();});
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
@@ -378,7 +378,7 @@ void TraceThreadListener::notifyPostStore(uint32_t Index,
                                           std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPostNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
   
   EventsOut.write<EventType::Instruction>(Index, ++Time);
 
@@ -484,7 +484,7 @@ void TraceThreadListener::notifyPreDivide(
                             llvm::BinaryOperator const *Instruction) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitPreNotification();});
+  auto OnExit = scopeExit([=](){exitPreNotification();});
 
   // Check that the division is safe
   switch (Instruction->getOpcode()) {
@@ -510,7 +510,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       void *Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -553,7 +553,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       uint64_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -571,7 +571,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       uint32_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -589,7 +589,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       uint16_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -607,7 +607,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       uint8_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -625,7 +625,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       float Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -643,7 +643,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       double Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 
@@ -661,7 +661,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                       long double Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  ScopeExit OnExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitNotification();});
 
   auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
 

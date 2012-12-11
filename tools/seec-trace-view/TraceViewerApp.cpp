@@ -197,7 +197,7 @@ void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
                        wxDefaultPosition);
 
   // Destroy the dialog when we leave this scope.
-  seec::ScopeExit DestroyDialog([=](){OpenDialog->Destroy();});
+  auto DestroyDialog = seec::scopeExit([=](){OpenDialog->Destroy();});
 
   // Show the dialog and exit if the user didn't select a file.
   if (OpenDialog->ShowModal() != wxID_OK)
