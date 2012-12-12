@@ -49,6 +49,33 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 // RuntimeErrorChecker
 //===------------------------------------------------------------------------===
 
+std::ptrdiff_t
+RuntimeErrorChecker::getSizeOfAreaStartingAt(uintptr_t Address)
+{
+  auto MaybeArea = getContainingMemoryArea(Thread, Address);
+  if (!MaybeArea.assigned())
+    return 0;
+    
+  auto const &Area = MaybeArea.get<0>();
+  
+  return Area.withStart(Address).length();
+}
+
+std::ptrdiff_t
+RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
+{
+  auto MaybeArea = getContainingMemoryArea(Thread, Address);
+  if (!MaybeArea.assigned())
+    return 0;
+    
+  auto const &Area = MaybeArea.get<0>();
+  if (Area.getAccess() != seec::MemoryPermission::ReadWrite
+      && Area.getAccess() != seec::MemoryPermission::WriteOnly)
+    return 0;
+  
+  return Area.withStart(Address).length();
+}
+
 bool
 RuntimeErrorChecker::memoryExists(uintptr_t Address,
                                   std::size_t Size,

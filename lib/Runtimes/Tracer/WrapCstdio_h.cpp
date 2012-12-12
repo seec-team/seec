@@ -78,8 +78,6 @@ bool matchNonConversionCharacters(int &CharactersRead,
 
 // ParseFloat
 
-// ParseString
-
 // ParseCharacterSet
 
 static int
@@ -290,7 +288,88 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         break;
         
       case ScanConversionSpecifier::Specifier::s:
-        // TODO: Read string.
+        // Read string.
+        {
+          auto Width = Conversion.Width;
+          if (Width == 0)
+            Width = std::numeric_limits<decltype(Width)>::max();
+          
+          bool InsufficientMemory = false;
+          
+          if (Conversion.Length == LengthModifier::l) {
+            llvm_unreachable("%ls not yet supported.");
+          }
+          else {
+            auto const Dest = NextArg < VarArgs.size()
+                            ? VarArgs.getAs<char *>(NextArg).get<0>()
+                            : nullptr;
+            
+            auto const DestAddr = reinterpret_cast<uintptr_t>(Dest);
+            
+            auto const Writable
+                          = DestAddr
+                          ? Checker.getSizeOfWritableAreaStartingAt(DestAddr)
+                          : 0;
+            
+            int MatchedChars = 0;
+            int WrittenChars = 0;
+            int ReadChar;
+            
+            for (; Width != 0; --Width) {
+              if ((ReadChar = std::fgetc(Stream)) == EOF) {
+                if (std::ferror(Stream))
+                  ConversionSuccessful = false;
+                break;
+              }
+              
+              if (std::isspace(ReadChar)) {
+                std::ungetc(ReadChar, Stream);
+                break;
+              }
+              else {
+                ++MatchedChars;
+                ++NumCharsRead;
+                
+                if (!Conversion.SuppressAssignment) {
+                  // Write character.
+                  if (WrittenChars < Writable)
+                    Dest[WrittenChars++] = static_cast<char>(ReadChar);
+                  else
+                    InsufficientMemory = true;
+                }
+              }
+            }
+            
+            if (ConversionSuccessful && !Conversion.SuppressAssignment) {
+              // Attempt to nul-terminate the string.
+              if (WrittenChars < Writable) {
+                Dest[WrittenChars] = '\0';
+                ++Result;
+              }
+              else
+                InsufficientMemory = true;
+            }
+            
+            if (InsufficientMemory) {
+              using namespace seec::runtime_errors;
+              
+              // Raise error for insufficient memory in destination buffer.
+              Listener.handleRunError(
+                createRunError<RunErrorType::ScanFormattedStringOverflow>
+                              (FSFunction,
+                               VarArgsStartIndex - 1,
+                               StartIndex,
+                               EndIndex,
+                               asCFormatLengthModifier(Conversion.Length),
+                               VarArgs.offset() + NextArg,
+                               Writable,
+                               MatchedChars),
+                seec::trace::RunErrorSeverity::Fatal,
+                InstructionIndex);
+              return Result;
+            }
+          }
+        }
         break;
       
       case ScanConversionSpecifier::Specifier::set:

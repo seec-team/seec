@@ -179,13 +179,24 @@ root:table {
     }
 
     // function
-    // parameter
-    // start
-    // end
-    // length
+    // format_index
+    // specifier_start
+    // specifier_end
+    // specifier_length
     // argument
-    FormatSpecifierArgType:string {
-      "The type of argument supplied as parameter {argument} to function \"{function}\" does not match the type required by the conversion specifier starting at position {start}."
+    // bytes_available
+    // bytes_required
+    //
+    ScanFormattedStringOverflow:string {
+      "An overflow occurred while matching the string conversion specifier at character {specifier_start} in the format string given to function {function}."
+      " There {bytes_available, plural, =0 {were no bytes available} =1 {was one byte available} other {were {bytes_available} bytes available}}"
+      " at the destination of the pointer given as argument {argument},"
+      " but the matched string required {bytes_required, plural, =1 {one byte} other {{bytes_required} bytes}}."
+      " To avoid potential overflows when using the various \"scan\" functions to match strings, one should always specify a \"maximum field width\" for the conversion."
+      " The maximum field width specifies the maximum number of characters that will be used to match a conversion."
+      " It is specified by placing an integer number, greater than zero, after the introductory \"%\" character."
+      " For example, if we were reading into a buffer that could hold 20 characters, we would specify the maximum field width to be 19 like so: \"%19s\""
+      " (note that the last character in the buffer is reserved for the terminating null character which will be placed at the end of the string by the scan function)."
     }
 
     // function

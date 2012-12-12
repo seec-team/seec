@@ -350,6 +350,24 @@ SEEC_RUNERR(FormatSpecifierArgType,
   ))
 
 //
+//
+//
+SEEC_RUNERR(ScanFormattedStringOverflow,
+  SEEC_PP_QUOTE(
+    (function,         seec::runtime_errors::ArgSelect
+                         <seec::runtime_errors::format_selects::CStdFunction>),
+    (format_index,     seec::runtime_errors::ArgParameter),
+    (specifier_start,  seec::runtime_errors::ArgSize),
+    (specifier_end,    seec::runtime_errors::ArgSize),
+    (specifier_length,
+       seec::runtime_errors::ArgSelect
+       <seec::runtime_errors::format_selects::CFormatLengthModifier>),
+    (argument,         seec::runtime_errors::ArgParameter),
+    (bytes_available,  seec::runtime_errors::ArgSize),
+    (bytes_required,   seec::runtime_errors::ArgSize)
+  ))
+
+//
 // Too many arguments supplied to variadic function.
 //   function: The function being called.
 //   expected: The number of variadic arguments expected.

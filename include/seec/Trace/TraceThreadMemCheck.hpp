@@ -54,6 +54,14 @@ public:
     Instruction(ForInstruction)
   {}
   
+  /// \brief Find the number of owned/known bytes starting at Address.
+  ///
+  std::ptrdiff_t getSizeOfAreaStartingAt(uintptr_t Address);
+  
+  /// \brief Find the number of writable owned/known bytes starting at Address.
+  ///
+  std::ptrdiff_t getSizeOfWritableAreaStartingAt(uintptr_t Address);
+  
   /// \brief Create a MemoryUnowned runtime error if Area is unassigned.
   ///
   /// \return true if Area is assigned (no runtime error was created).
