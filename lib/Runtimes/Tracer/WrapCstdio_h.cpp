@@ -75,6 +75,113 @@ bool matchNonConversionCharacters(int &CharactersRead,
 }
 
 // ParseInt
+bool parseInt(int &CharactersRead,
+              FILE *Stream,
+              char *Buffer,
+              std::size_t BufferSize,
+              seec::trace::ScanConversionSpecifier const &Conversion)
+{
+  using namespace seec::trace;
+  
+  auto Width = Conversion.Width;
+  if (Width == 0 || Width > sizeof(Buffer) - 1)
+    Width = sizeof(Buffer - 1);
+  
+  bool Unsigned     = false;
+  // bool SignOK       = true;
+  bool HexPrefixOK  = false;
+  // bool NoDigits     = true;
+  // bool NoZeroDigits = true;
+  
+  int Base = 0;
+  
+  switch (Conversion.Conversion) {
+    case ScanConversionSpecifier::Specifier::d:
+      Base = 10;
+      break;
+    case ScanConversionSpecifier::Specifier::i:
+      break;
+    case ScanConversionSpecifier::Specifier::o:
+      Base = 8;
+      Unsigned = true;
+      break;
+    case ScanConversionSpecifier::Specifier::u:
+      Base = 10;
+      Unsigned = true;
+      break;
+    case ScanConversionSpecifier::Specifier::x:
+      Base = 16;
+      Unsigned = true;
+      HexPrefixOK = true;
+      break;
+    default:
+      llvm_unreachable("invalid conversion specifier for parseInt()");
+      return false;
+  }
+  
+  for (char *BufferPtr = Buffer; Width != 0; --Width) {
+    int ReadChar = std::fgetc(Stream);
+    if (ReadChar == EOF) {
+      if (std::ferror(Stream))
+        return false;
+      break;
+    }
+    
+    switch (ReadChar) {
+      case '0':
+        // TODO.
+        break;
+      
+      // OK always.
+      case '1': [[clang::fallthrough]];
+      case '2': [[clang::fallthrough]];
+      case '3': [[clang::fallthrough]];
+      case '4': [[clang::fallthrough]];
+      case '5': [[clang::fallthrough]];
+      case '6': [[clang::fallthrough]];
+      case '7':
+        *BufferPtr++ = static_cast<char>(ReadChar);
+        ++CharactersRead;
+        break;
+      
+      // OK iff decimal or hexadecimal.
+      case '8': [[clang::fallthrough]];
+      case '9':
+        // TODO.
+        break;
+      
+      // OK iff hexadecimal.
+      case 'A': [[clang::fallthrough]];
+      case 'a': [[clang::fallthrough]];
+      case 'B': [[clang::fallthrough]];
+      case 'b': [[clang::fallthrough]];
+      case 'C': [[clang::fallthrough]];
+      case 'c': [[clang::fallthrough]];
+      case 'D': [[clang::fallthrough]];
+      case 'd': [[clang::fallthrough]];
+      case 'E': [[clang::fallthrough]];
+      case 'e': [[clang::fallthrough]];
+      case 'F': [[clang::fallthrough]];
+      case 'f':
+        // TODO.
+        break;
+      
+      // OK as first character.
+      case '+': [[clang::fallthrough]];
+      case '-':
+        // TODO.
+        break;
+      
+      // 
+      case 'X': [[clang::fallthrough]];
+      case 'x':
+        // TODO.
+        break;
+    }
+  }
+  
+  return true;
+}
 
 // ParseFloat
 
@@ -130,6 +237,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   int NumCharsRead = 0;
   unsigned NextArg = 0;
   char const *NextChar = Format;
+  char Buffer[64];
   
   while (true) {
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
@@ -376,12 +484,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         // TODO: Read set.
         break;
       
-      case ScanConversionSpecifier::Specifier::u:
-        // TODO: Read unsigned integer.
-        break;
-      case ScanConversionSpecifier::Specifier::d:
-      case ScanConversionSpecifier::Specifier::i:
-      case ScanConversionSpecifier::Specifier::o:
+      case ScanConversionSpecifier::Specifier::u: [[clang::fallthrough]];
+      case ScanConversionSpecifier::Specifier::d: [[clang::fallthrough]];
+      case ScanConversionSpecifier::Specifier::i: [[clang::fallthrough]];
+      case ScanConversionSpecifier::Specifier::o: [[clang::fallthrough]];
       case ScanConversionSpecifier::Specifier::x:
         // TODO: Read integer.
         break;
