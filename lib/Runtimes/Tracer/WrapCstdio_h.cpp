@@ -214,11 +214,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             // Check that the destination is writable and has sufficient space
             // for the field width specified by the programmer.
             auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-
+            auto const Size = (Conversion.Length == LengthModifier::l)
+                            ? (Conversion.Width + 1) * sizeof(wchar_t)
+                            : (Conversion.Width + 1) * sizeof(char);
+            
             if (!Checker.checkMemoryExistsAndAccessibleForParameter(
                     VarArgs.offset() + NextArg,
                     MaybeArea.get<0>().address(),
-                    Conversion.Width,
+                    Size,
                     seec::runtime_errors::format_selects::MemoryAccess::Write))
               return false;
           }
