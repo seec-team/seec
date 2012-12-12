@@ -33,7 +33,8 @@ extern "C" {
 // scanf, fscanf, sscanf
 //===----------------------------------------------------------------------===//
 
-//
+/// \brief Attempt to match a sequence of literal characters.
+///
 bool matchNonConversionCharacters(int &CharactersRead,
                                   FILE *Stream,
                                   char const *Start,
@@ -238,50 +239,62 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       }
     }
     
+    bool ConversionSuccessful = true;
+    
     switch (Conversion.Conversion) {
       case ScanConversionSpecifier::Specifier::none:
         llvm_unreachable("encountered scan conversion specifier \"none\"");
         break;
       case ScanConversionSpecifier::Specifier::percent:
+        if (!matchNonConversionCharacters(NumCharsRead,
+                                          Stream,
+                                          Conversion.End - 1,
+                                          Conversion.End)) {
+          ConversionSuccessful = false;
+        }
         break;
       case ScanConversionSpecifier::Specifier::c:
+        // TODO: Read char.
         break;
       case ScanConversionSpecifier::Specifier::s:
+        // TODO: Read string.
         break;
       case ScanConversionSpecifier::Specifier::set:
-        break;
-      case ScanConversionSpecifier::Specifier::d:
-        break;
-      case ScanConversionSpecifier::Specifier::i:
+        // TODO: Read set.
         break;
       case ScanConversionSpecifier::Specifier::u:
+        // TODO: Read unsigned integer.
         break;
+      case ScanConversionSpecifier::Specifier::d:
+      case ScanConversionSpecifier::Specifier::i:
       case ScanConversionSpecifier::Specifier::o:
-        break;
       case ScanConversionSpecifier::Specifier::x:
+        // TODO: Read integer.
         break;
       case ScanConversionSpecifier::Specifier::n:
+        if (!Conversion.SuppressAssignment) {
+          ConversionSuccessful
+            = Conversion.assignPointee(VarArgs, NextArg, NumCharsRead);
+        }
         break;
       case ScanConversionSpecifier::Specifier::a:
-        break;
       case ScanConversionSpecifier::Specifier::A:
-        break;
       case ScanConversionSpecifier::Specifier::e:
-        break;
       case ScanConversionSpecifier::Specifier::E:
-        break;
       case ScanConversionSpecifier::Specifier::f:
-        break;
       case ScanConversionSpecifier::Specifier::F:
-        break;
       case ScanConversionSpecifier::Specifier::g:
-        break;
       case ScanConversionSpecifier::Specifier::G:
+        // TODO: Read float.
         break;
       case ScanConversionSpecifier::Specifier::p:
+        // TODO: Read pointer.
         break;
     }
-        
+    
+    if (!ConversionSuccessful)
+      break;
+    
     // Move to the next argument (unless this conversion specifier doesn't
     // consume an argument).
     if (Conversion.Conversion != ScanConversionSpecifier::Specifier::percent

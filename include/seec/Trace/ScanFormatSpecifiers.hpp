@@ -213,12 +213,89 @@ public:
           default: return seec::util::Maybe<MemoryArea>();                     \
         }
 
-#include "ScanFormatSpecifiers.def"
+#include "seec/Trace/ScanFormatSpecifiers.def"
 #undef SEEC_PP_CHECK_LENGTH
     }
     
     llvm_unreachable("illegal conversion specifier");
     return seec::util::Maybe<MemoryArea>();
+  }
+  
+private:
+  template<typename DestT, typename SrcT>
+  typename std::enable_if<std::is_convertible<SrcT, DestT>::value,
+                          bool>::type
+  assignPointee(DestT &Dest, SrcT const &Src) const {
+    Dest = Src;
+    return true;
+  }
+  
+  template<typename DestT, typename SrcT>
+  typename std::enable_if<!std::is_convertible<SrcT, DestT>::value,
+                          bool>::type
+  assignPointee(DestT &Dest, SrcT const &Src) const {
+    llvm_unreachable("assignPointee() called with inconvertible type.");
+    return false;
+  }
+  
+  template<typename DestT, typename SrcT>
+  typename std::enable_if<!std::is_void<DestT>::value, bool>::type
+  assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                unsigned ArgIndex,
+                SrcT const &Src) const
+  {
+    auto MaybeArg = Args.getAs<DestT>(ArgIndex);
+    if (!MaybeArg.assigned())
+      return false;
+    
+    auto Ptr = MaybeArg.template get<0>();
+    return assignPointee(*Ptr, Src);
+  }
+  
+  template<typename DestT, typename SrcT>
+  typename std::enable_if<std::is_void<DestT>::value, bool>::type
+  assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                unsigned ArgIndex,
+                SrcT const &Src) const
+  {
+    llvm_unreachable("assignPointee() called with void destination.");
+    return false;
+  }
+
+public:
+  /// \brief Assign the given value to the pointee of a pointer argument.
+  ///
+  template<typename T>
+  bool assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+                     unsigned ArgIndex,
+                     T Value) const
+  {
+    if (ArgIndex >= Args.size())
+      return false;
+    
+    // We use the X-Macro to generate a two levels of switching. The outer
+    // level matches the conversion, and the inner level gets the appropriate
+    // type given the current Length.
+    switch (Conversion) {
+      case Specifier::none: return false;
+
+#define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
+        case LengthModifier::LENGTH:                                           \
+          return assignPointee<TYPE>(Args, ArgIndex, Value);
+
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
+      case Specifier::ID:                                                      \
+        switch (Length) {                                                      \
+          SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
+          default: return false;                                               \
+        }
+
+#include "seec/Trace/ScanFormatSpecifiers.def"
+#undef SEEC_PP_CHECK_LENGTH
+    }
+    
+    llvm_unreachable("illegal conversion specifier");
+    return false;
   }
   
   /// \brief Find and read the first scan conversion specified in String.
