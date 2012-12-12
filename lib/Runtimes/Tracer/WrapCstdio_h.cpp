@@ -254,7 +254,38 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         }
         break;
       case ScanConversionSpecifier::Specifier::c:
-        // TODO: Read char.
+        // Read a single char.
+        {
+          if (Conversion.Length == LengthModifier::none) {
+            if (Conversion.SuppressAssignment) {
+              if (std::fscanf(Stream, "%*c") == EOF)
+                ConversionSuccessful = false;
+            }
+            else {
+              auto Ptr = VarArgs.getAs<char *>(NextArg).get<0>();
+              if (std::fscanf(Stream, "%c", Ptr) == 1)
+                ++Result;
+              else
+                ConversionSuccessful = false;
+            }
+          }
+          else if (Conversion.Length == LengthModifier::l) {
+            if (Conversion.SuppressAssignment) {
+              if (std::fscanf(Stream, "&*lc") == EOF)
+                ConversionSuccessful = false;
+            }
+            else {
+              auto Ptr = VarArgs.getAs<wchar_t *>(NextArg).get<0>();
+              if (std::fscanf(Stream, "%lc", Ptr) == 1)
+                ++Result;
+              else
+                ConversionSuccessful = false;
+            }
+          }
+          else {
+            ConversionSuccessful = false;
+          }
+        }
         break;
       case ScanConversionSpecifier::Specifier::s:
         // TODO: Read string.
