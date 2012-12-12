@@ -156,86 +156,84 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           (FSFunction, VarArgsStartIndex - 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
-      return false;
+      return Result;
     }
     
     auto const EndIndex = Conversion.End - Format;
     
-    // If a precision was specified, ensure that precision is allowed.
-    if (Conversion.SuppressAssignment
-        && !Conversion.allowedSuppressAssignment()) {
-      Listener.handleRunError(
-        seec::runtime_errors::createRunError
+    // If assignment was suppressed, ensure that suppressing assignment is OK.
+    if (Conversion.SuppressAssignment) {
+      if (!Conversion.allowedSuppressAssignment()) {
+        Listener.handleRunError(
+          seec::runtime_errors::createRunError
           <seec::runtime_errors::RunErrorType::FormatSpecifierSuppressionDenied>
-          (FSFunction, VarArgsStartIndex - 1, StartIndex, EndIndex),
-        RunErrorSeverity::Fatal,
-        InstructionIndex);
-      return false;
-    }
-    
-    // Check that the argument type matches the expected type. Don't check that
-    // the argument exists here, because some conversion specifiers don't
-    // require an argument (i.e. %%), so we check if it exists when needed, in
-    // the isArgumentTypeOK() implementation.
-    if (!Conversion.isArgumentTypeOK(VarArgs, NextArg)) {
-      Listener.handleRunError(
-        seec::runtime_errors::createRunError
-          <seec::runtime_errors::RunErrorType::FormatSpecifierArgType>
-          (FSFunction,
-           VarArgsStartIndex - 1,
-           StartIndex,
-           EndIndex,
-           asCFormatLengthModifier(Conversion.Length),
-           VarArgs.offset() + NextArg),
-        RunErrorSeverity::Fatal,
-        InstructionIndex);
-      return false;
-    }
-
-    // If the argument type is a pointer, check that the destination is
-    // writable. The conversion for strings (and sets) is a special case.
-    if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
-        || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
-      if (NextArg < VarArgs.size()) {
-        // Check that the field width is specified.
-        if (!Conversion.WidthSpecified) {
-          Listener.handleRunError(
-            seec::runtime_errors::createRunError
-              <seec::runtime_errors::RunErrorType::FormatSpecifierWidthMissing>
-              (FSFunction,
-               VarArgsStartIndex - 1,
-               StartIndex,
-               EndIndex),
-            RunErrorSeverity::Fatal,
-            InstructionIndex);
-          return false;
-        }
-        
-        // Check that the destination is writable and has sufficient space.
-        auto MaybePointeeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-        if (!MaybePointeeArea.assigned()) {
-          llvm_unreachable("unassigned pointee for string conversion.");
-          return false;
-        }
-        
-        // TODO: This width may not be correct for wchar_t *.
-        if (!Checker.checkMemoryExistsAndAccessibleForParameter(
-                VarArgs.offset() + NextArg,
-                MaybePointeeArea.get<0>().address(),
-                Conversion.Width,
-                seec::runtime_errors::format_selects::MemoryAccess::Write))
-          return false;
+            (FSFunction, VarArgsStartIndex - 1, StartIndex, EndIndex),
+          RunErrorSeverity::Fatal,
+          InstructionIndex);
+        return Result;
       }
     }
     else {
-      auto MaybePointeeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-      if (MaybePointeeArea.assigned()) {
-        auto Area = MaybePointeeArea.get<0>();
-        Checker.checkMemoryExistsAndAccessibleForParameter(
-          VarArgs.offset() + NextArg,
-          Area.address(),
-          Area.length(),
-          seec::runtime_errors::format_selects::MemoryAccess::Write);
+      // Check that the argument type matches the expected type. Don't check
+      // that the argument exists here, because some conversion specifiers don't
+      // require an argument (i.e. %%), so we check if it exists when needed, in
+      // the isArgumentTypeOK() implementation.
+      if (!Conversion.isArgumentTypeOK(VarArgs, NextArg)) {
+        Listener.handleRunError(
+          seec::runtime_errors::createRunError
+            <seec::runtime_errors::RunErrorType::FormatSpecifierArgType>
+            (FSFunction,
+             VarArgsStartIndex - 1,
+             StartIndex,
+             EndIndex,
+             asCFormatLengthModifier(Conversion.Length),
+             VarArgs.offset() + NextArg),
+          RunErrorSeverity::Fatal,
+          InstructionIndex);
+        return Result;
+      }
+
+      // If the argument type is a pointer, check that the destination is
+      // writable. The conversion for strings (and sets) is a special case.
+      if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
+          || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
+        if (NextArg < VarArgs.size()) {
+          // Check that the field width is specified.
+          if (!Conversion.WidthSpecified) {
+            Listener.handleRunError(
+              seec::runtime_errors::createRunError
+                <seec::runtime_errors::RunErrorType::FormatSpecifierWidthMissing>
+                (FSFunction,
+                 VarArgsStartIndex - 1,
+                 StartIndex,
+                 EndIndex),
+              RunErrorSeverity::Warning,
+              InstructionIndex);
+          }
+          else {
+            // Check that the destination is writable and has sufficient space
+            // for the field width specified by the programmer.
+            auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
+
+            if (!Checker.checkMemoryExistsAndAccessibleForParameter(
+                    VarArgs.offset() + NextArg,
+                    MaybeArea.get<0>().address(),
+                    Conversion.Width,
+                    seec::runtime_errors::format_selects::MemoryAccess::Write))
+              return false;
+          }
+        }
+      }
+      else {
+        auto MaybePointeeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
+        if (MaybePointeeArea.assigned()) {
+          auto Area = MaybePointeeArea.get<0>();
+          Checker.checkMemoryExistsAndAccessibleForParameter(
+            VarArgs.offset() + NextArg,
+            Area.address(),
+            Area.length(),
+            seec::runtime_errors::format_selects::MemoryAccess::Write);
+        }
       }
     }
     
@@ -258,7 +256,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::c:
         // Read a single char.
         if (Conversion.Length == LengthModifier::none) {
-          if (Conversion.SuppressAssignment) {
+          if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
             if (std::fscanf(Stream, "%*c") == EOF)
               ConversionSuccessful = false;
           }
@@ -271,7 +269,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           }
         }
         else if (Conversion.Length == LengthModifier::l) {
-          if (Conversion.SuppressAssignment) {
+          if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
             if (std::fscanf(Stream, "&*lc") == EOF)
               ConversionSuccessful = false;
           }
@@ -326,7 +324,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       
       case ScanConversionSpecifier::Specifier::p:
         // Read pointer.
-        if (Conversion.SuppressAssignment) {
+        if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
           if (std::fscanf(Stream, "%*p") == EOF)
             ConversionSuccessful = false;
         }
@@ -353,6 +351,24 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     // The next position to search from should be the first character following
     // this conversion specifier.
     NextChar = Conversion.End;
+  }
+  
+  // Ensure that we got exactly the right number of arguments.
+  if (NextArg > VarArgs.size()) {
+    Listener.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
+                                          (FSFunction,
+                                           NextArg,
+                                           VarArgs.size()),
+                            RunErrorSeverity::Fatal,
+                            InstructionIndex);
+  }
+  else if (NextArg < VarArgs.size()) {
+    Listener.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
+                                          (FSFunction,
+                                           NextArg,
+                                           VarArgs.size()),
+                            RunErrorSeverity::Warning,
+                            InstructionIndex);
   }
   
   // Record the produced value.
