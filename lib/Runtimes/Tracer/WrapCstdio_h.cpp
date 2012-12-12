@@ -245,6 +245,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::none:
         llvm_unreachable("encountered scan conversion specifier \"none\"");
         break;
+      
       case ScanConversionSpecifier::Specifier::percent:
         if (!matchNonConversionCharacters(NumCharsRead,
                                           Stream,
@@ -253,46 +254,48 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           ConversionSuccessful = false;
         }
         break;
+      
       case ScanConversionSpecifier::Specifier::c:
         // Read a single char.
-        {
-          if (Conversion.Length == LengthModifier::none) {
-            if (Conversion.SuppressAssignment) {
-              if (std::fscanf(Stream, "%*c") == EOF)
-                ConversionSuccessful = false;
-            }
-            else {
-              auto Ptr = VarArgs.getAs<char *>(NextArg).get<0>();
-              if (std::fscanf(Stream, "%c", Ptr) == 1)
-                ++Result;
-              else
-                ConversionSuccessful = false;
-            }
-          }
-          else if (Conversion.Length == LengthModifier::l) {
-            if (Conversion.SuppressAssignment) {
-              if (std::fscanf(Stream, "&*lc") == EOF)
-                ConversionSuccessful = false;
-            }
-            else {
-              auto Ptr = VarArgs.getAs<wchar_t *>(NextArg).get<0>();
-              if (std::fscanf(Stream, "%lc", Ptr) == 1)
-                ++Result;
-              else
-                ConversionSuccessful = false;
-            }
+        if (Conversion.Length == LengthModifier::none) {
+          if (Conversion.SuppressAssignment) {
+            if (std::fscanf(Stream, "%*c") == EOF)
+              ConversionSuccessful = false;
           }
           else {
-            ConversionSuccessful = false;
+            auto Ptr = VarArgs.getAs<char *>(NextArg).get<0>();
+            if (std::fscanf(Stream, "%c", Ptr) == 1)
+              ++Result;
+            else
+              ConversionSuccessful = false;
           }
         }
+        else if (Conversion.Length == LengthModifier::l) {
+          if (Conversion.SuppressAssignment) {
+            if (std::fscanf(Stream, "&*lc") == EOF)
+              ConversionSuccessful = false;
+          }
+          else {
+            auto Ptr = VarArgs.getAs<wchar_t *>(NextArg).get<0>();
+            if (std::fscanf(Stream, "%lc", Ptr) == 1)
+              ++Result;
+            else
+              ConversionSuccessful = false;
+          }
+        }
+        else {
+          ConversionSuccessful = false;
+        }
         break;
+        
       case ScanConversionSpecifier::Specifier::s:
         // TODO: Read string.
         break;
+      
       case ScanConversionSpecifier::Specifier::set:
         // TODO: Read set.
         break;
+      
       case ScanConversionSpecifier::Specifier::u:
         // TODO: Read unsigned integer.
         break;
@@ -302,12 +305,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::x:
         // TODO: Read integer.
         break;
+      
       case ScanConversionSpecifier::Specifier::n:
         if (!Conversion.SuppressAssignment) {
           ConversionSuccessful
             = Conversion.assignPointee(VarArgs, NextArg, NumCharsRead);
         }
         break;
+      
       case ScanConversionSpecifier::Specifier::a:
       case ScanConversionSpecifier::Specifier::A:
       case ScanConversionSpecifier::Specifier::e:
@@ -318,8 +323,20 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::G:
         // TODO: Read float.
         break;
+      
       case ScanConversionSpecifier::Specifier::p:
-        // TODO: Read pointer.
+        // Read pointer.
+        if (Conversion.SuppressAssignment) {
+          if (std::fscanf(Stream, "%*p") == EOF)
+            ConversionSuccessful = false;
+        }
+        else {
+          auto Ptr = VarArgs.getAs<void **>(NextArg).get<0>();
+          if (std::fscanf(Stream, "%p", Ptr) == 1)
+            ++Result;
+          else
+            ConversionSuccessful = false;
+        }
         break;
     }
     
