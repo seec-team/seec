@@ -572,7 +572,74 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::F:
       case ScanConversionSpecifier::Specifier::g:
       case ScanConversionSpecifier::Specifier::G:
-        // TODO: Read float.
+        // Read float.
+        {
+          char Buffer[128];
+          int BufferIdx = 0;
+          int ReadChar;
+          
+          while ((ReadChar = std::fgetc(Stream)) != EOF) {
+            if (std::isspace(ReadChar)) {
+              std::ungetc(ReadChar, Stream);
+              break;
+            }
+            
+            Buffer[BufferIdx++] = static_cast<char>(ReadChar);
+            
+            if (BufferIdx >= sizeof(Buffer))
+              break;
+          }
+          
+          if (BufferIdx == 0)
+            break;
+          
+          Buffer[BufferIdx] = '\0';
+          
+          char *ParseEnd = nullptr;
+          
+          switch (Conversion.Length) {
+            case LengthModifier::none:
+              {
+                float Value = std::strtof(Buffer, &ParseEnd);
+                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
+                  ConversionSuccessful
+                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ++Result;
+                }
+              }
+              break;
+              
+            case LengthModifier::l:
+              {
+                double Value = std::strtod(Buffer, &ParseEnd);
+                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
+                  ConversionSuccessful
+                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ++Result;
+                }
+              }
+              break;
+              
+            case LengthModifier::L:
+              {
+                long double Value = std::strtold(Buffer, &ParseEnd);
+                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
+                  ConversionSuccessful
+                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ++Result;
+                }
+              }
+              break;
+            
+            default:
+              llvm_unreachable("unexpected length for float conversion.");
+              break;
+          }
+          
+          for (auto Push = &Buffer[BufferIdx - 1]; Push >= ParseEnd; --Push) {
+            std::ungetc(*Push, Stream);
+          }
+        }
         break;
       
       case ScanConversionSpecifier::Specifier::p:
