@@ -223,7 +223,8 @@ llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
     auto InstrAddr = ValueMapMD->getOperand(2u);
     auto Instr = GetPointerFromMetadata<llvm::Instruction>(InstrAddr);
     auto InstrIndex = FuncIndex->getIndexOfInstruction(Instr);
-    assert(InstrIndex.assigned());
+    if (!InstrIndex.assigned())
+      return nullptr;
     
     auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
     
@@ -369,6 +370,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       
       auto Val2 = MakeValueMapSerializable(MappingNode->getOperand(3),
                                            ModIndex);
+      
+      // It's possible that an Instruction is deleted after the mapping has
+      // been created for it. In this case, discard the entire mapping.
+      if (Val1 == nullptr)
+        continue;
       
       llvm::Value *MappingOps[] = {
         MappingNode->getOperand(0),
