@@ -13,6 +13,9 @@
 
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
 
+#include <cstring>
+#include <limits>
+
 namespace seec {
 
 namespace trace {
@@ -68,6 +71,12 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
   
   // Special case for parsing set specifier.
   if (Result.Conversion == Specifier::set) {
+    auto const UCharValues = std::numeric_limits<unsigned char>::max() + 1;
+    
+    Result.SetLookup.reset(new bool[UCharValues]);
+    for (std::size_t i = 0; i < UCharValues; ++i)
+      Result.SetLookup[i] = false;
+    
     if (*++Remainder == '\0')
       return Result;
     
@@ -81,6 +90,11 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     // Special case for including ']' in a set.
     if (*Remainder == ']') {
       Result.SetCharacters.push_back(']');
+      
+      auto const CharIdx = static_cast<unsigned char>(']');
+      assert(CharIdx < UCharValues);
+      Result.SetLookup[CharIdx] = true;
+      
       if (*++Remainder == '\0')
         return Result;
     }
@@ -88,8 +102,18 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     // Add all remaining characters to the set (until ']' is found).
     while (*Remainder != ']') {
       Result.SetCharacters.push_back(*Remainder);
+      
+      auto const CharIdx = static_cast<unsigned char>(*Remainder);
+      assert(CharIdx < UCharValues);
+      Result.SetLookup[CharIdx] = true;
+      
       if (*++Remainder == '\0')
         return Result;
+    }
+    
+    if (Result.SetNegation) {
+      for (std::size_t i = 0; i < UCharValues; ++i)
+        Result.SetLookup[i] = !Result.SetLookup[i];
     }
   }
   

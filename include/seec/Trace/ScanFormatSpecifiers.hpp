@@ -27,8 +27,10 @@
 
 #include "llvm/Support/ErrorHandling.h"
 
+#include <memory>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace seec {
 
@@ -66,6 +68,8 @@ struct ScanConversionSpecifier {
   
   std::string SetCharacters; ///< All characters in set.
   
+  std::unique_ptr<bool []> SetLookup; ///< Lookup for set characters.
+  
       
   /// \brief Default constructor.
   ///
@@ -78,13 +82,15 @@ struct ScanConversionSpecifier {
     WidthSpecified(false),
     SuppressAssignment(false),
     SetNegation(false),
-    SetCharacters()
+    SetCharacters(),
+    SetLookup()
   {}
   
   /// \name Query properties of the current Conversion.
   /// @{
   
   /// \brief Check if this specifier may have SuppressAssignment.
+  ///
   bool allowedSuppressAssignment() const {
     switch (Conversion) {
       case Specifier::none: return false;
@@ -96,6 +102,15 @@ struct ScanConversionSpecifier {
     
     llvm_unreachable("illegal conversion specifier");
     return false;
+  }
+  
+  /// \brief Check if a given character is in the set.
+  ///
+  bool hasSetCharacter(char C) const {
+    if (!SetLookup)
+      return false;
+    
+    return SetLookup[static_cast<unsigned char>(C)];
   }
   
   /// @}

@@ -52,7 +52,8 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
   ThreadTracer(PE.getProcessListener(), PE.getStreamAllocator()),
   FunIndex(nullptr),
   Stack(),
-  InstructionIndex(0)
+  InstructionIndex(0),
+  InstructionIsInterceptedCall(false)
 {}
 
 void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
