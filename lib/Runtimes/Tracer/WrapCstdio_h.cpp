@@ -24,6 +24,7 @@
 #include "llvm/Support/CallSite.h"
 
 #include <cctype>
+#include <cinttypes>
 #include <cstdio>
 
 
@@ -74,24 +75,24 @@ bool matchNonConversionCharacters(int &CharactersRead,
   return true;
 }
 
-// ParseInt
+/// \brief Attempt to match an integer from a stream.
+///
 bool parseInt(int &CharactersRead,
               FILE *Stream,
-              char *Buffer,
-              std::size_t BufferSize,
-              seec::trace::ScanConversionSpecifier const &Conversion)
+              seec::trace::ScanConversionSpecifier const &Conversion,
+              std::uintmax_t &Output)
 {
   using namespace seec::trace;
   
+  char Buffer[64];
+  auto const BufferSize = sizeof(Buffer);
+  
   auto Width = Conversion.Width;
-  if (Width == 0 || Width > sizeof(Buffer) - 1)
-    Width = sizeof(Buffer - 1);
+  if (Width == 0 || Width > BufferSize - 1)
+    Width = BufferSize - 1;
   
   bool Unsigned     = false;
-  // bool SignOK       = true;
   bool HexPrefixOK  = false;
-  // bool NoDigits     = true;
-  // bool NoZeroDigits = true;
   
   int Base = 0;
   
@@ -112,14 +113,15 @@ bool parseInt(int &CharactersRead,
     case ScanConversionSpecifier::Specifier::x:
       Base = 16;
       Unsigned = true;
-      HexPrefixOK = true;
       break;
     default:
       llvm_unreachable("invalid conversion specifier for parseInt()");
       return false;
   }
   
-  for (char *BufferPtr = Buffer; Width != 0; --Width) {
+  char *BufferPtr = Buffer;
+  
+  for (; Width != 0; --Width) {
     int ReadChar = std::fgetc(Stream);
     if (ReadChar == EOF) {
       if (std::ferror(Stream))
@@ -127,9 +129,17 @@ bool parseInt(int &CharactersRead,
       break;
     }
     
+    bool ReadOK = true;
+    
     switch (ReadChar) {
+      // OK always. For %i, this sets the base to octal, unless it is followed
+      // by 'x' or 'X', which will set the base to hexadecimal (we take care
+      // of that when encountering 'x' or 'X').
       case '0':
-        // TODO.
+        if (Base == 0) {
+          Base = 8;
+          HexPrefixOK = true;
+        }
         break;
       
       // OK always.
@@ -140,14 +150,17 @@ bool parseInt(int &CharactersRead,
       case '5': [[clang::fallthrough]];
       case '6': [[clang::fallthrough]];
       case '7':
-        *BufferPtr++ = static_cast<char>(ReadChar);
-        ++CharactersRead;
+        if (Base == 0)
+          Base = 10;
         break;
       
       // OK iff decimal or hexadecimal.
       case '8': [[clang::fallthrough]];
       case '9':
-        // TODO.
+        if (Base == 0)
+          Base = 10;
+        else if (Base < 10)
+          ReadOK = false;
         break;
       
       // OK iff hexadecimal.
@@ -163,24 +176,64 @@ bool parseInt(int &CharactersRead,
       case 'e': [[clang::fallthrough]];
       case 'F': [[clang::fallthrough]];
       case 'f':
-        // TODO.
+        if (Base < 16)
+          ReadOK = false;
         break;
       
       // OK as first character.
       case '+': [[clang::fallthrough]];
       case '-':
-        // TODO.
+        if (BufferPtr != Buffer)
+          ReadOK = false;
         break;
       
-      // 
+      // OK if part of the prefix "0x" or "0X".
       case 'X': [[clang::fallthrough]];
       case 'x':
-        // TODO.
+        if (HexPrefixOK) {
+          Base = 16;
+          HexPrefixOK = false;
+        }
+        else {
+          ReadOK = false;
+        }
         break;
+      
+      // Any other character is always invalid.
+      default:
+        ReadOK = false;
+    }
+    
+    if (ReadOK) {
+      *BufferPtr++ = static_cast<char>(ReadChar);
+      ++CharactersRead;
+    }
+    else {
+      // Push the character back into the stream.
+      std::ungetc(ReadChar, Stream);
+      break;
     }
   }
   
-  return true;
+  *BufferPtr = '\0';
+  
+  // Read the integer.
+  char *ParseEnd = nullptr;
+  
+  if (Unsigned)
+    Output = std::strtoumax(Buffer, &ParseEnd, Base);
+  else
+    Output = std::strtoimax(Buffer, &ParseEnd, Base);
+  
+  // Push unused characters back into the stream.
+  if (ParseEnd != BufferPtr) {
+    llvm::errs() << "\npushing characters back\n";
+    for (--BufferPtr; BufferPtr > ParseEnd; --BufferPtr) {
+      std::ungetc(*BufferPtr, Stream);
+    }
+  }
+  
+  return (ParseEnd != Buffer);
 }
 
 // ParseFloat
@@ -237,7 +290,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   int NumCharsRead = 0;
   unsigned NextArg = 0;
   char const *NextChar = Format;
-  char Buffer[64];
   
   while (true) {
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
@@ -489,7 +541,20 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::i: [[clang::fallthrough]];
       case ScanConversionSpecifier::Specifier::o: [[clang::fallthrough]];
       case ScanConversionSpecifier::Specifier::x:
-        // TODO: Read integer.
+        // Read integer.
+        {
+          std::uintmax_t ReadInt;
+          if (!parseInt(NumCharsRead, Stream, Conversion, ReadInt)) {
+            ConversionSuccessful = false;
+            break;
+          }
+          
+          if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
+            ConversionSuccessful
+              = Conversion.assignPointee(VarArgs, NextArg, ReadInt);
+            ++Result;
+          }
+        }
         break;
       
       case ScanConversionSpecifier::Specifier::n:
