@@ -422,8 +422,11 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           }
           else {
             auto Ptr = VarArgs.getAs<char *>(NextArg).get<0>();
-            if (std::fscanf(Stream, "%c", Ptr) == 1)
+            if (std::fscanf(Stream, "%c", Ptr) == 1) {
               ++Result;
+              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                          sizeof(*Ptr));
+            }
             else
               ConversionSuccessful = false;
           }
@@ -435,8 +438,11 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           }
           else {
             auto Ptr = VarArgs.getAs<wchar_t *>(NextArg).get<0>();
-            if (std::fscanf(Stream, "%lc", Ptr) == 1)
+            if (std::fscanf(Stream, "%lc", Ptr) == 1) {
               ++Result;
+              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                          sizeof(*Ptr));
+            }
             else
               ConversionSuccessful = false;
           }
@@ -502,7 +508,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             if (ConversionSuccessful && !Conversion.SuppressAssignment) {
               // Attempt to nul-terminate the string.
               if (WrittenChars < Writable) {
-                Dest[WrittenChars] = '\0';
+                Dest[WrittenChars++] = '\0';
                 ++Result;
               }
               else
@@ -527,6 +533,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 InstructionIndex);
               return Result;
             }
+            
+            if (WrittenChars)
+              Listener.recordUntypedState(Dest, WrittenChars);
           }
         }
         break;
@@ -587,7 +596,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             if (ConversionSuccessful && !Conversion.SuppressAssignment) {
               // Attempt to nul-terminate the string.
               if (WrittenChars < Writable) {
-                Dest[WrittenChars] = '\0';
+                Dest[WrittenChars++] = '\0';
                 ++Result;
               }
               else
@@ -612,6 +621,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 InstructionIndex);
               return Result;
             }
+            
+            if (WrittenChars)
+              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%l[ not yet supported.");
@@ -744,8 +756,11 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         }
         else {
           auto Ptr = VarArgs.getAs<void **>(NextArg).get<0>();
-          if (std::fscanf(Stream, "%p", Ptr) == 1)
+          if (std::fscanf(Stream, "%p", Ptr) == 1) {
             ++Result;
+            Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                        sizeof(*Ptr));
+          }
           else
             ConversionSuccessful = false;
         }
@@ -1074,7 +1089,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
             
             if (!Conversion.SuppressAssignment) {
               if (WrittenChars < Writable) {
-                Dest[WrittenChars] = '\0';
+                Dest[WrittenChars++] = '\0';
                 ++NumConversions;
               }
               else
@@ -1101,7 +1116,9 @@ SEEC_MANGLE_FUNCTION(sscanf)
               return NumConversions;
             }
             
-            // TODO: Update memory state.
+            // Update memory state.
+            if (WrittenChars)
+              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%ls not supported yet.");
@@ -1153,7 +1170,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
             
             if (!Conversion.SuppressAssignment) {
               if (WrittenChars < Writable) {
-                Dest[WrittenChars] = '\0';
+                Dest[WrittenChars++] = '\0';
                 ++NumConversions;
               }
               else
@@ -1180,7 +1197,9 @@ SEEC_MANGLE_FUNCTION(sscanf)
               return NumConversions;
             }
             
-            // TODO: Update memory state.
+            // Update memory state.
+            if (WrittenChars)
+              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%l[ not supported yet.");
