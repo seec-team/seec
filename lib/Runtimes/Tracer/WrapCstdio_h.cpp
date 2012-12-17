@@ -637,7 +637,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           
           if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
             ConversionSuccessful
-              = Conversion.assignPointee(VarArgs, NextArg, ReadInt);
+              = Conversion.assignPointee(Listener, VarArgs, NextArg, ReadInt);
             ++Result;
           }
         }
@@ -645,8 +645,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       
       case ScanConversionSpecifier::Specifier::n:
         if (!Conversion.SuppressAssignment) {
-          ConversionSuccessful
-            = Conversion.assignPointee(VarArgs, NextArg, NumCharsRead);
+          ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                          VarArgs,
+                                                          NextArg,
+                                                          NumCharsRead);
         }
         break;
       
@@ -688,8 +690,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               {
                 float Value = std::strtof(Buffer, &ParseEnd);
                 if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful
-                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                  VarArgs,
+                                                                  NextArg,
+                                                                  Value);
                   ++Result;
                 }
               }
@@ -699,8 +703,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               {
                 double Value = std::strtod(Buffer, &ParseEnd);
                 if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful
-                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                  VarArgs,
+                                                                  NextArg,
+                                                                  Value);
                   ++Result;
                 }
               }
@@ -710,8 +716,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               {
                 long double Value = std::strtold(Buffer, &ParseEnd);
                 if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful
-                    = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                  VarArgs,
+                                                                  NextArg,
+                                                                  Value);
                   ++Result;
                 }
               }
@@ -1003,8 +1011,10 @@ SEEC_MANGLE_FUNCTION(sscanf)
         if (Conversion.Length == LengthModifier::none) {
           if (*NextBufferChar) {
             if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
-              ConversionSuccessful
-                = Conversion.assignPointee(VarArgs, NextArg, *NextBufferChar);
+              ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                              VarArgs,
+                                                              NextArg,
+                                                              *NextBufferChar);
               ++NumConversions;
             }
             
@@ -1089,6 +1099,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
               
               return NumConversions;
             }
+            
+            // TODO: Update memory state.
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%ls not supported yet.");
@@ -1166,6 +1178,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
               
               return NumConversions;
             }
+            
+            // TODO: Update memory state.
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%l[ not supported yet.");
@@ -1203,8 +1217,10 @@ SEEC_MANGLE_FUNCTION(sscanf)
       case ScanConversionSpecifier::Specifier::n:
         if (!Conversion.SuppressAssignment) {
           auto NumCharsRead = NextBufferChar - Buffer;
-          ConversionSuccessful
-            = Conversion.assignPointee(VarArgs, NextArg, NumCharsRead);
+          ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                          VarArgs,
+                                                          NextArg,
+                                                          NumCharsRead);
         }
         break;
       
@@ -1226,7 +1242,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
               NextBufferChar = ParseEnd;
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
-                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
               }
             }
             else {
@@ -1241,7 +1257,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
               NextBufferChar = ParseEnd;
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
-                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
               }
             }
             else {
@@ -1256,7 +1272,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
               NextBufferChar = ParseEnd;
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
-                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+                  = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
               }
             }
             else {
@@ -1289,7 +1305,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
         
         if (!Conversion.SuppressAssignment) {
           ConversionSuccessful
-            = Conversion.assignPointee(VarArgs, NextArg, Value);
+            = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
         }
       }
       else {

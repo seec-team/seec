@@ -255,7 +255,8 @@ private:
   
   template<typename DestT, typename SrcT>
   typename std::enable_if<!std::is_void<DestT>::value, bool>::type
-  assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+  assignPointee(TraceThreadListener &Listener,
+                detect_calls::VarArgList<TraceThreadListener> const &Args,
                 unsigned ArgIndex,
                 SrcT const &Src) const
   {
@@ -264,12 +265,19 @@ private:
       return false;
     
     auto Ptr = MaybeArg.template get<0>();
-    return assignPointee(*Ptr, Src);
+    auto Result = assignPointee(*Ptr, Src);
+    
+    if (Result) {
+      Listener.recordUntypedState(reinterpret_cast<char *>(Ptr), sizeof(*Ptr));
+    }
+    
+    return Result;
   }
   
   template<typename DestT, typename SrcT>
   typename std::enable_if<std::is_void<DestT>::value, bool>::type
-  assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+  assignPointee(TraceThreadListener &Listener,
+                detect_calls::VarArgList<TraceThreadListener> const &Args,
                 unsigned ArgIndex,
                 SrcT const &Src) const
   {
@@ -281,7 +289,8 @@ public:
   /// \brief Assign the given value to the pointee of a pointer argument.
   ///
   template<typename T>
-  bool assignPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
+  bool assignPointee(TraceThreadListener &Listener,
+                     detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex,
                      T Value) const
   {
@@ -296,7 +305,7 @@ public:
 
 #define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
         case LengthModifier::LENGTH:                                           \
-          return assignPointee<TYPE>(Args, ArgIndex, Value);
+          return assignPointee<TYPE>(Listener, Args, ArgIndex, Value);
 
 #define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
       case Specifier::ID:                                                      \
