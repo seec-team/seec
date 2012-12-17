@@ -51,13 +51,11 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
 : Process(PE),
   ThreadTracer(PE.getProcessListener(), PE.getStreamAllocator()),
   FunIndex(nullptr),
-  Stack(),
-  InstructionIndex(0),
-  InstructionIsInterceptedCall(false)
+  Stack()
 {}
 
 void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
-  Stack.push_back(Fun);
+  Stack.push_back(FunctionEnvironment{Fun});
   FunIndex = Process.getModuleIndex().getFunctionIndex(Fun);
 }
 
@@ -67,13 +65,13 @@ llvm::Function *ThreadEnvironment::popFunction() {
   
   FunIndex = 
   Stack.empty() ? nullptr
-  : Process.getModuleIndex().getFunctionIndex(Stack.back());
+  : Process.getModuleIndex().getFunctionIndex(Stack.back().Function);
   
-  return Fun;
+  return Fun.Function;
 }
 
 llvm::Instruction *ThreadEnvironment::getInstruction() const {
-  return getFunctionIndex().getInstruction(InstructionIndex);
+  return getFunctionIndex().getInstruction(Stack.back().InstructionIndex);
 }
 
 

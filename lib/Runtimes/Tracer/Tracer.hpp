@@ -34,6 +34,22 @@ namespace trace {
 class ProcessEnvironment;
 
 
+struct FunctionEnvironment {
+  llvm::Function *Function;
+  
+  uint32_t InstructionIndex;
+  
+  /// Is the current instruction an intercepted call?
+  bool InstructionIsInterceptedCall;
+  
+  FunctionEnvironment(llvm::Function *Function)
+  : Function(Function),
+    InstructionIndex(0),
+    InstructionIsInterceptedCall(false)
+  {}
+};
+
+
 /// \brief ThreadEnvironment.
 ///
 class ThreadEnvironment {
@@ -47,13 +63,7 @@ class ThreadEnvironment {
   FunctionIndex *FunIndex;
   
   /// The call stack of functions.
-  std::vector<llvm::Function *> Stack;
-  
-  /// The index of the current instruction.
-  uint32_t InstructionIndex;
-  
-  /// Is the current instruction an intercepted call?
-  bool InstructionIsInterceptedCall;
+  std::vector<FunctionEnvironment> Stack;
   
 public:
   /// \brief Constructor.
@@ -96,17 +106,17 @@ public:
     // InstructionIsInterceptedCall, because this is happening in a value
     // update notification, but that notification depends on the correct value
     // of InstructionIsInterceptedCall.
-    if (InstructionIndex == Value)
+    if (Stack.back().InstructionIndex == Value)
       return;
     
-    InstructionIndex = Value;
-    InstructionIsInterceptedCall = false;
+    Stack.back().InstructionIndex = Value;
+    Stack.back().InstructionIsInterceptedCall = false;
   }
   
   /// \brief Get the current instruction index.
   ///
   uint32_t getInstructionIndex() const {
-    return InstructionIndex;
+    return Stack.back().InstructionIndex;
   }
   
   /// \brief Get the current llvm::Instruction.
@@ -116,13 +126,13 @@ public:
   /// \brief Set the current instruction to be an intercepted call.
   ///
   void setInstructionIsInterceptedCall() {
-    InstructionIsInterceptedCall = true;
+    Stack.back().InstructionIsInterceptedCall = true;
   }
   
   /// \brief Check if the current instruction is an intercepted call.
   ///
   bool getInstructionIsInterceptedCall() const {
-    return InstructionIsInterceptedCall;
+    return Stack.back().InstructionIsInterceptedCall;
   }
   
   /// @}
