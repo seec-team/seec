@@ -282,7 +282,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   // Check and perform the (f)scanf.
   auto FormatSize = Checker.checkCStringRead(VarArgsStartIndex - 1, Format);
   if (!FormatSize) {
-    // TODO: Raise error.
     return 0;
   }
   
@@ -840,30 +839,54 @@ SEEC_MANGLE_FUNCTION(sscanf)
   // Check that the buffer is valid.
   auto BufferSize = Checker.checkCStringRead(0, Buffer);
   if (!BufferSize) {
-    // TODO: Raise error.
     return 0;
   }
   
   // Check and perform the (f)scanf.
   auto FormatSize = Checker.checkCStringRead(1, Format);
   if (!FormatSize) {
-    // TODO: Raise error.
     return 0;
   }
   
-  int Result = 0;
-  int NumCharsRead = 0;
+  int NumConversions = 0;
+  
   unsigned NextArg = 0;
-  char const *NextChar = Format;
+  char const *NextFormatChar = Format;
+  char const *NextBufferChar = Buffer;
   
   while (true) {
-    auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
+    auto Conversion = ScanConversionSpecifier::readNextFrom(NextFormatChar);
     if (!Conversion.Start) {
-      // TODO: Attempt to match and consume remaining characters.
+      // We don't need to match and consume remaining characters, because it
+      // would make no difference to the program's behaviour.
       break;
     }
     
-    // TODO: Attempt to match and consume [NextChar, Conversion.Start).
+    bool ConversionSuccessful = true;
+    
+    // Attempt to match and consume [NextFormatChar, Conversion.Start).
+    while (NextFormatChar < Conversion.Start) {
+      if (std::isspace(*NextFormatChar)) {
+        // Consume any amount of whitespace.
+        while (*NextBufferChar && std::isspace(*NextBufferChar))
+          ++NextBufferChar;
+        ++NextFormatChar;
+      }
+      else if (*NextFormatChar == *NextBufferChar){
+        // Literal match.
+        ++NextFormatChar;
+        ++NextBufferChar;
+      }
+      else {
+        // Match failure.
+        ConversionSuccessful = false;
+        break;
+      }
+    }
+    
+    if (!ConversionSuccessful)
+      break;
+    
     auto const StartIndex = Conversion.Start - Format;
     
     // Ensure that the conversion specifier was parsed correctly.
@@ -874,7 +897,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
           (FSFunction, 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
-      return Result;
+      return NumConversions;
     }
     
     auto const EndIndex = Conversion.End - Format;
@@ -888,7 +911,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
             (FSFunction, 1, StartIndex, EndIndex),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return Result;
+        return NumConversions;
       }
     }
     else {
@@ -908,7 +931,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
              VarArgs.offset() + NextArg),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return Result;
+        return NumConversions;
       }
 
       // If the argument type is a pointer, check that the destination is
@@ -958,7 +981,10 @@ SEEC_MANGLE_FUNCTION(sscanf)
       }
     }
     
-    bool ConversionSuccessful = true;
+    // Perform the conversion.
+    bool IntConversion = false;
+    bool IntConversionUnsigned = false;
+    int IntConversionBase = 0;
     
     switch (Conversion.Conversion) {
       case ScanConversionSpecifier::Specifier::none:
@@ -966,35 +992,217 @@ SEEC_MANGLE_FUNCTION(sscanf)
         break;
       
       case ScanConversionSpecifier::Specifier::percent:
-        llvm_unreachable("not implemented");
+        if (*NextBufferChar == '%')
+          ++NextBufferChar;
+        else
+          ConversionSuccessful = false;
         break;
       
       case ScanConversionSpecifier::Specifier::c:
         // Read a single char.
-        llvm_unreachable("not implemented");
+        if (Conversion.Length == LengthModifier::none) {
+          if (*NextBufferChar) {
+            if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
+              ConversionSuccessful
+                = Conversion.assignPointee(VarArgs, NextArg, *NextBufferChar);
+              ++NumConversions;
+            }
+            
+            ++NextBufferChar;
+          }
+          else {
+            ConversionSuccessful = false;
+          }
+        }
+        else if (Conversion.Length == LengthModifier::l) {
+          llvm_unreachable("%lc not supported yet.");
+        }
+        else {
+          llvm_unreachable("unexpected length for c conversion.");
+        }
         break;
         
       case ScanConversionSpecifier::Specifier::s:
         // Read string.
-        llvm_unreachable("not implemented");
+        {
+          auto Width = Conversion.Width;
+          if (Width == 0)
+            Width = std::numeric_limits<decltype(Width)>::max();
+          
+          bool InsufficientMemory = false;
+          
+          if (Conversion.Length == LengthModifier::none) {
+            auto const Dest = NextArg < VarArgs.size()
+                            ? VarArgs.getAs<char *>(NextArg).get<0>()
+                            : nullptr;
+            
+            auto const DestAddr = reinterpret_cast<uintptr_t>(Dest);
+            
+            auto const Writable
+                          = DestAddr
+                          ? Checker.getSizeOfWritableAreaStartingAt(DestAddr)
+                          : 0;
+            
+            int MatchedChars = 0;
+            int WrittenChars = 0;
+            
+            for (; *NextBufferChar && Width != 0; --Width) {
+              if (std::isspace(*NextBufferChar))
+                break;
+              
+              if (!Conversion.SuppressAssignment) {
+                if (WrittenChars < Writable)
+                  Dest[WrittenChars++] = *NextBufferChar;
+                else
+                  InsufficientMemory = true;
+              }
+              
+              ++MatchedChars;
+              ++NextBufferChar;
+            }
+            
+            if (!Conversion.SuppressAssignment) {
+              if (WrittenChars < Writable) {
+                Dest[WrittenChars] = '\0';
+                ++NumConversions;
+              }
+              else
+                InsufficientMemory = true;
+            }
+            
+            if (InsufficientMemory) {
+              using namespace seec::runtime_errors;
+              
+              // Raise error for insufficient memory in destination buffer.
+              Listener.handleRunError(
+                createRunError<RunErrorType::ScanFormattedStringOverflow>
+                              (FSFunction,
+                               1, // Index of "Format" argument.
+                               StartIndex,
+                               EndIndex,
+                               asCFormatLengthModifier(Conversion.Length),
+                               VarArgs.offset() + NextArg,
+                               Writable,
+                               MatchedChars + 1),
+                seec::trace::RunErrorSeverity::Fatal,
+                InstructionIndex);
+              
+              return NumConversions;
+            }
+          }
+          else if (Conversion.Length == LengthModifier::l) {
+            llvm_unreachable("%ls not supported yet.");
+          }
+          else {
+            llvm_unreachable("unexpected length for s conversion.");
+          }
+        }
         break;
       
       case ScanConversionSpecifier::Specifier::set:
         // Read set.
-        llvm_unreachable("not implemented");
+        {
+          auto Width = Conversion.Width;
+          if (Width == 0)
+            Width = std::numeric_limits<decltype(Width)>::max();
+          
+          bool InsufficientMemory = false;
+          
+          if (Conversion.Length == LengthModifier::none) {
+            auto const Dest = NextArg < VarArgs.size()
+                            ? VarArgs.getAs<char *>(NextArg).get<0>()
+                            : nullptr;
+            
+            auto const DestAddr = reinterpret_cast<uintptr_t>(Dest);
+            
+            auto const Writable
+                          = DestAddr
+                          ? Checker.getSizeOfWritableAreaStartingAt(DestAddr)
+                          : 0;
+            
+            int MatchedChars = 0;
+            int WrittenChars = 0;
+            
+            for (; *NextBufferChar && Width != 0; --Width) {
+              if (!Conversion.hasSetCharacter(*NextBufferChar))
+                break;
+              
+              if (!Conversion.SuppressAssignment) {
+                if (WrittenChars < Writable)
+                  Dest[WrittenChars++] = *NextBufferChar;
+                else
+                  InsufficientMemory = true;
+              }
+              
+              ++MatchedChars;
+              ++NextBufferChar;
+            }
+            
+            if (!Conversion.SuppressAssignment) {
+              if (WrittenChars < Writable) {
+                Dest[WrittenChars] = '\0';
+                ++NumConversions;
+              }
+              else
+                InsufficientMemory = true;
+            }
+            
+            if (InsufficientMemory) {
+              using namespace seec::runtime_errors;
+              
+              // Raise error for insufficient memory in destination buffer.
+              Listener.handleRunError(
+                createRunError<RunErrorType::ScanFormattedStringOverflow>
+                              (FSFunction,
+                               1, // Index of "Format" argument.
+                               StartIndex,
+                               EndIndex,
+                               asCFormatLengthModifier(Conversion.Length),
+                               VarArgs.offset() + NextArg,
+                               Writable,
+                               MatchedChars + 1),
+                seec::trace::RunErrorSeverity::Fatal,
+                InstructionIndex);
+              
+              return NumConversions;
+            }
+          }
+          else if (Conversion.Length == LengthModifier::l) {
+            llvm_unreachable("%l[ not supported yet.");
+          }
+          else {
+            llvm_unreachable("unexpected length for set conversion.");
+          }
+        }
         break;
       
-      case ScanConversionSpecifier::Specifier::u: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::d: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::i: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::o: [[clang::fallthrough]];
+      case ScanConversionSpecifier::Specifier::u:
+        IntConversion = true;
+        IntConversionUnsigned = true;
+        break;
+      
+      case ScanConversionSpecifier::Specifier::d:
+        IntConversion = true;
+        IntConversionBase = 10;
+        break;
+      
+      case ScanConversionSpecifier::Specifier::i:
+        IntConversion = true;
+        break;
+      
+      case ScanConversionSpecifier::Specifier::o:
+        IntConversion = true;
+        IntConversionBase = 8;
+        break;
+      
       case ScanConversionSpecifier::Specifier::x:
-        // Read integer.
-        llvm_unreachable("not implemented");
+        IntConversion = true;
+        IntConversionBase = 16;
         break;
       
       case ScanConversionSpecifier::Specifier::n:
         if (!Conversion.SuppressAssignment) {
+          auto NumCharsRead = NextBufferChar - Buffer;
           ConversionSuccessful
             = Conversion.assignPointee(VarArgs, NextArg, NumCharsRead);
         }
@@ -1009,13 +1217,84 @@ SEEC_MANGLE_FUNCTION(sscanf)
       case ScanConversionSpecifier::Specifier::g:
       case ScanConversionSpecifier::Specifier::G:
         // Read float.
-        llvm_unreachable("not implemented");
+        {
+          if (Conversion.Length == LengthModifier::none) {
+            float Value = 0;
+            char *ParseEnd = nullptr;
+            Value = std::strtof(NextBufferChar, &ParseEnd);
+            if (ParseEnd != NextBufferChar) {
+              NextBufferChar = ParseEnd;
+              if (!Conversion.SuppressAssignment) {
+                ConversionSuccessful
+                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+              }
+            }
+            else {
+              ConversionSuccessful = false;
+            }
+          }
+          else if (Conversion.Length == LengthModifier::l) {
+            double Value = 0;
+            char *ParseEnd = nullptr;
+            Value = std::strtod(NextBufferChar, &ParseEnd);
+            if (ParseEnd != NextBufferChar) {
+              NextBufferChar = ParseEnd;
+              if (!Conversion.SuppressAssignment) {
+                ConversionSuccessful
+                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+              }
+            }
+            else {
+              ConversionSuccessful = false;
+            }
+          }
+          else if (Conversion.Length == LengthModifier::L) {
+            long double Value = 0;
+            char *ParseEnd = nullptr;
+            Value = std::strtold(NextBufferChar, &ParseEnd);
+            if (ParseEnd != NextBufferChar) {
+              NextBufferChar = ParseEnd;
+              if (!Conversion.SuppressAssignment) {
+                ConversionSuccessful
+                  = Conversion.assignPointee(VarArgs, NextArg, Value);
+              }
+            }
+            else {
+              ConversionSuccessful = false;
+            }
+          }
+          else {
+            llvm_unreachable("unexpected length for f conversion.");
+          }
+        }
         break;
       
       case ScanConversionSpecifier::Specifier::p:
         // TODO: Read pointer.
-        llvm_unreachable("not implemented");
+        llvm_unreachable("%p not yet implemented");
         break;
+    }
+    
+    if (IntConversion) {
+      unsigned long Value = 0;
+      char *ParseEnd = nullptr;
+      
+      if (IntConversionUnsigned)
+        Value = std::strtoul(NextBufferChar, &ParseEnd, IntConversionBase);
+      else
+        Value = std::strtol(NextBufferChar, &ParseEnd, IntConversionBase);
+      
+      if (ParseEnd != NextBufferChar) {
+        NextBufferChar = ParseEnd;
+        
+        if (!Conversion.SuppressAssignment) {
+          ConversionSuccessful
+            = Conversion.assignPointee(VarArgs, NextArg, Value);
+        }
+      }
+      else {
+        ConversionSuccessful = false;
+      }
     }
     
     if (!ConversionSuccessful)
@@ -1030,7 +1309,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
     
     // The next position to search from should be the first character following
     // this conversion specifier.
-    NextChar = Conversion.End;
+    NextFormatChar = Conversion.End;
   }
   
   // Ensure that we got exactly the right number of arguments.
@@ -1052,9 +1331,9 @@ SEEC_MANGLE_FUNCTION(sscanf)
   }
   
   // Record the produced value.
-  Listener.notifyValue(InstructionIndex, Instruction, unsigned(Result));
+  Listener.notifyValue(InstructionIndex, Instruction, unsigned(NumConversions));
   
-  return Result;
+  return NumConversions;
 }
 
 } // extern "C"
