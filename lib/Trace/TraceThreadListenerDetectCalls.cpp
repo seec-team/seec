@@ -166,79 +166,193 @@ void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
-// scanf
+// fgetc
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
-preCscanf(llvm::CallInst const *Call,
+preCfgetc(llvm::CallInst const *Call, uint32_t Index, FILE *Stream)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fgetc,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(0, Stream);
+}
+
+
+//===------------------------------------------------------------------------===
+// fgets
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::
+preCfgets(llvm::CallInst const *Call,
           uint32_t Index,
-          char const *Str,
-          detect_calls::VarArgList<TraceThreadListener> const &Args)
+          char *Str,
+          int Count,
+          FILE *Stream)
 {
   using namespace seec::runtime_errors::format_selects;
   
   acquireGlobalMemoryWriteLock();
   acquireStreamsLock();
   
-  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+  CIOChecker Checker(*this, Index, CStdFunction::fgets,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(2, Stream);
+  Checker.checkMemoryExistsAndAccessibleForParameter
+            (0, reinterpret_cast<uintptr_t>(Str), Count, MemoryAccess::Write);
+}
+
+void
+TraceThreadListener::
+postCfgets(llvm::CallInst const *Call,
+           uint32_t Index,
+           char *Str,
+           int Count,
+           FILE *Stream)
+{
+  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue.assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue.getUIntPtr();
+  
+  if (!Address)
+    return;
+  
+  recordUntypedState(Str, std::strlen(Str) + 1);
+}
+
+
+//===------------------------------------------------------------------------===
+// fputc
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::
+preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fputc,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(1, Stream);
+}
+
+
+//===------------------------------------------------------------------------===
+// fputs
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::
+preCfputs(llvm::CallInst const *Call,
+          uint32_t Index,
+          char const *Str,
+          FILE *Stream)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireGlobalMemoryReadLock();
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::fputs,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkCStringRead(0, Str);
+  Checker.checkStreamIsValid(1, Stream);
+}
+
+
+//===------------------------------------------------------------------------===
+// getchar
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::
+preCgetchar(llvm::CallInst const *Call, uint32_t Index)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::getchar,
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkStandardStreamIsValid(stdin);
-  Checker.checkScanFormat(0, Str, Args);
 }
 
 
 //===------------------------------------------------------------------------===
-// fscanf
+// putchar
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
-preCfscanf(llvm::CallInst const *Call,
-           uint32_t Index,
-           FILE *In,
-           char const *Str,
-           detect_calls::VarArgList<TraceThreadListener> const &Args)
+preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
 {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryWriteLock();
   acquireStreamsLock();
   
-  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+  CIOChecker Checker(*this, Index, CStdFunction::putchar,
                      ProcessListener.getStreams(StreamsLock));
   
-  Checker.checkStreamIsValid(0, In);
-  Checker.checkScanFormat(1, Str, Args);
+  Checker.checkStandardStreamIsValid(stdout);
 }
 
 
 //===------------------------------------------------------------------------===
-// sscanf
+// puts
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
-preCsscanf(llvm::CallInst const *Call,
-           uint32_t Index,
-           char const *In,
-           char const *Str,
-           detect_calls::VarArgList<TraceThreadListener> const &Args)
+preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
 {
   using namespace seec::runtime_errors::format_selects;
   
-  acquireGlobalMemoryWriteLock();
+  acquireGlobalMemoryReadLock();
   acquireStreamsLock();
   
-  CIOChecker Checker(*this, Index, CStdFunction::scanf,
+  CIOChecker Checker(*this, Index, CStdFunction::puts,
                      ProcessListener.getStreams(StreamsLock));
   
-  Checker.checkCStringRead(0, In);
-  Checker.checkScanFormat(1, Str, Args);
+  Checker.checkCStringRead(0, Str);
+  Checker.checkStandardStreamIsValid(stdout);
+}
+
+
+//===------------------------------------------------------------------------===
+// ungetc
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::
+preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+{
+  using namespace seec::runtime_errors::format_selects;
+  
+  acquireStreamsLock();
+  
+  CIOChecker Checker(*this, Index, CStdFunction::ungetc,
+                     ProcessListener.getStreams(StreamsLock));
+  
+  Checker.checkStreamIsValid(1, Stream);
 }
 
 
 //===------------------------------------------------------------------------===
 // printf
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
 preCprintf(llvm::CallInst const *Call,
@@ -262,6 +376,7 @@ preCprintf(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 // fprintf
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
 preCfprintf(llvm::CallInst const *Call,
@@ -286,6 +401,7 @@ preCfprintf(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 // sprintf
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
 preCsprintf(llvm::CallInst const *Call,
@@ -311,6 +427,7 @@ preCsprintf(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 // snprintf
 //===------------------------------------------------------------------------===
+
 void
 TraceThreadListener::
 preCsnprintf(llvm::CallInst const *Call,

@@ -549,22 +549,52 @@ public:
   /// @}
   
   
-  /// \name Detect Calls - stdio.h formatted input/output.
+  /// \name Detect Calls - stdio.h direct input/output.
   /// @{
   
-  // scanf
-  void preCscanf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                 detect_calls::VarArgList<TraceThreadListener> const &Args);
+  /// @}
   
-  // fscanf
-  void preCfscanf(llvm::CallInst const *Call, uint32_t Index, FILE *In,
-                  char const *Str,
-                  detect_calls::VarArgList<TraceThreadListener> const &Args);
   
-  // sscanf
-  void preCsscanf(llvm::CallInst const *Call, uint32_t Index, char const *In,
-                  char const *Str,
-                  detect_calls::VarArgList<TraceThreadListener> const &Args);
+  /// \name Detect Calls - stdio.h unformatted input/output.
+  /// @{
+  
+  // fgetc
+  void preCfgetc(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  
+  // fgets
+  void preCfgets(llvm::CallInst const *Call, uint32_t Index, char *Str,
+                 int Count, FILE *Stream);
+  void postCfgets(llvm::CallInst const *Call, uint32_t Index, char *Str,
+                  int Count, FILE *Stream);
+  
+  // fputc
+  void preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+                 FILE *Stream);
+  
+  // fputs
+  void preCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                 FILE *Stream);
+  
+  // getchar
+  void preCgetchar(llvm::CallInst const *Call, uint32_t Index);
+  
+  // gets - should never be used.
+  
+  // putchar
+  void preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
+  
+  // puts
+  void preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  
+  // ungetc
+  void preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+                  FILE *Stream);
+  
+  /// @}
+  
+  
+  /// \name Detect Calls - stdio.h formatted input/output.
+  /// @{
   
   // printf
   void preCprintf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
