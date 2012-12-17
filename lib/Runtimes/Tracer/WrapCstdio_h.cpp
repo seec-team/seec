@@ -1015,7 +1015,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
                                                               VarArgs,
                                                               NextArg,
                                                               *NextBufferChar);
-              ++NumConversions;
+              if (ConversionSuccessful)
+                ++NumConversions;
             }
             
             ++NextBufferChar;
@@ -1243,6 +1244,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
+                if (ConversionSuccessful)
+                  ++NumConversions;
               }
             }
             else {
@@ -1258,6 +1261,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
+                if (ConversionSuccessful)
+                  ++NumConversions;
               }
             }
             else {
@@ -1273,6 +1278,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
+                if (ConversionSuccessful)
+                  ++NumConversions;
               }
             }
             else {
@@ -1306,6 +1313,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
         if (!Conversion.SuppressAssignment) {
           ConversionSuccessful
             = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
+          if (ConversionSuccessful)
+            ++NumConversions;
         }
       }
       else {
