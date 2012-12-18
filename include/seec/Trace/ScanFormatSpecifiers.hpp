@@ -44,9 +44,9 @@ struct ScanConversionSpecifier {
   ///
   enum class Specifier {
     none, ///< Used when no specifier is found.
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS) \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS) \
     ID,
-#include "ScanFormatSpecifiers.def"
+#include "seec/Trace/ScanFormatSpecifiers.def"
   };
   
   
@@ -89,15 +89,30 @@ struct ScanConversionSpecifier {
   /// \name Query properties of the current Conversion.
   /// @{
   
+  /// \brief Check if this specifier consumes whitespace.
+  ///
+  bool consumesWhitespace() const {
+    switch (Conversion) {
+      case Specifier::none: return false;
+
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS) \
+      case Specifier::ID: return WSPACE;
+#include "seec/Trace/ScanFormatSpecifiers.def"
+    }
+    
+    llvm_unreachable("illegal conversion specifier");
+    return false;
+  }
+
   /// \brief Check if this specifier may have SuppressAssignment.
   ///
   bool allowedSuppressAssignment() const {
     switch (Conversion) {
       case Specifier::none: return false;
       
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS) \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS) \
       case Specifier::ID: return SUPPRESS;
-#include "ScanFormatSpecifiers.def"
+#include "seec/Trace/ScanFormatSpecifiers.def"
     }
     
     llvm_unreachable("illegal conversion specifier");
@@ -160,14 +175,14 @@ public:
         case LengthModifier::LENGTH:                                           \
           return checkArgumentType<TYPE>(Args, ArgIndex);
 
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS)            \
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
           SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
           default: return false;                                               \
         }
 
-#include "ScanFormatSpecifiers.def"
+#include "seec/Trace/ScanFormatSpecifiers.def"
 #undef SEEC_PP_CHECK_LENGTH
     }
     
@@ -221,7 +236,7 @@ public:
         case LengthModifier::LENGTH:                                           \
           return getArgumentPointee<TYPE>(Args, ArgIndex);
 
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS)            \
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
           SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
@@ -307,7 +322,7 @@ public:
         case LengthModifier::LENGTH:                                           \
           return assignPointee<TYPE>(Listener, Args, ArgIndex, Value);
 
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS)            \
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
           SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \

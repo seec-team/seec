@@ -285,10 +285,12 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     return 0;
   }
   
-  int Result = 0;
+  int NumConversions = 0;
+  int NumAssignments = 0;
   int NumCharsRead = 0;
   unsigned NextArg = 0;
   char const *NextChar = Format;
+  bool InputFailure = false;
   
   while (true) {
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
@@ -313,7 +315,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           (FSFunction, VarArgsStartIndex - 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
-      return Result;
+      return NumAssignments;
     }
     
     auto const EndIndex = Conversion.End - Format;
@@ -327,7 +329,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             (FSFunction, VarArgsStartIndex - 1, StartIndex, EndIndex),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return Result;
+        return NumAssignments;
       }
     }
     else {
@@ -347,7 +349,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
              VarArgs.offset() + NextArg),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return Result;
+        return NumAssignments;
       }
 
       // If the argument type is a pointer, check that the destination is
@@ -380,7 +382,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                     MaybeArea.get<0>().address(),
                     Size,
                     seec::runtime_errors::format_selects::MemoryAccess::Write))
-              return false;
+              return NumAssignments;
           }
         }
       }
@@ -397,6 +399,24 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       }
     }
     
+    // Consume leading whitespace (if this conversion allows it).
+    if (Conversion.consumesWhitespace()) {
+      int ReadChar = 0;
+      
+      while ((ReadChar = std::fgetc(Stream)) != EOF) {
+        if (!std::isspace(ReadChar)) {
+          std::ungetc(ReadChar, Stream);
+          break;
+        }
+      }
+      
+      if (ReadChar == EOF) {
+        InputFailure = true;
+        break;
+      }
+    }
+    
+    // Attempt the conversion.
     bool ConversionSuccessful = true;
     
     switch (Conversion.Conversion) {
@@ -409,7 +429,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                           Stream,
                                           Conversion.End - 1,
                                           Conversion.End)) {
-          ConversionSuccessful = false;
+          if (std::feof(Stream) || std::ferror(Stream))
+            InputFailure = true;
+          else
+            ConversionSuccessful = false;
         }
         break;
       
@@ -417,37 +440,66 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         // Read a single char.
         if (Conversion.Length == LengthModifier::none) {
           if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
-            if (std::fscanf(Stream, "%*c") == EOF)
-              ConversionSuccessful = false;
+            if (std::fscanf(Stream, "%*c") != EOF)
+              ++NumConversions;
+            else
+              InputFailure = true;
           }
           else {
             auto Ptr = VarArgs.getAs<char *>(NextArg).get<0>();
-            if (std::fscanf(Stream, "%c", Ptr) == 1) {
-              ++Result;
-              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                          sizeof(*Ptr));
+            auto Result = std::fscanf(Stream, "%c", Ptr);
+            
+            switch (Result) {
+              case 1:
+                ++NumConversions;
+                ++NumAssignments;
+                Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                            sizeof(*Ptr));
+                break;
+              case 0:
+                ConversionSuccessful = false;
+                break;
+              case EOF:
+                InputFailure = true;
+                break;
+              default:
+                llvm_unreachable("unexpected result from std::fscanf.");
+                break;
             }
-            else
-              ConversionSuccessful = false;
           }
         }
         else if (Conversion.Length == LengthModifier::l) {
           if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
-            if (std::fscanf(Stream, "&*lc") == EOF)
-              ConversionSuccessful = false;
+            if (std::fscanf(Stream, "&*lc") != EOF)
+              ++NumConversions;
+            else
+              InputFailure = true;
           }
           else {
             auto Ptr = VarArgs.getAs<wchar_t *>(NextArg).get<0>();
-            if (std::fscanf(Stream, "%lc", Ptr) == 1) {
-              ++Result;
-              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                          sizeof(*Ptr));
+            auto Result = std::fscanf(Stream, "%lc", Ptr);
+            
+            switch (Result) {
+              case 1:
+                ++NumConversions;
+                ++NumAssignments;
+                Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                            sizeof(*Ptr));
+                break;
+              case 0:
+                ConversionSuccessful = false;
+                break;
+              case EOF:
+                InputFailure = true;
+                break;
+              default:
+                llvm_unreachable("unexpected result from std::fscanf.");
+                break;
             }
-            else
-              ConversionSuccessful = false;
           }
         }
         else {
+          llvm_unreachable("unsupported length for 'c' conversion.");
           ConversionSuccessful = false;
         }
         break;
@@ -461,10 +513,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           
           bool InsufficientMemory = false;
           
-          if (Conversion.Length == LengthModifier::l) {
-            llvm_unreachable("%ls not yet supported.");
-          }
-          else {
+          if (Conversion.Length == LengthModifier::none) {
             auto const Dest = NextArg < VarArgs.size()
                             ? VarArgs.getAs<char *>(NextArg).get<0>()
                             : nullptr;
@@ -482,8 +531,8 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             
             for (; Width != 0; --Width) {
               if ((ReadChar = std::fgetc(Stream)) == EOF) {
-                if (std::ferror(Stream))
-                  ConversionSuccessful = false;
+                if (std::ferror(Stream) || (std::feof(Stream) && !WrittenChars))
+                  InputFailure = true;
                 break;
               }
               
@@ -491,28 +540,38 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 std::ungetc(ReadChar, Stream);
                 break;
               }
+              
+              ++MatchedChars;
+              ++NumCharsRead;
+              
+              if (!Conversion.SuppressAssignment) {
+                // Write character.
+                if (WrittenChars < Writable)
+                  Dest[WrittenChars++] = static_cast<char>(ReadChar);
+                else
+                  InsufficientMemory = true;
+              }
+            }
+            
+            if (!InputFailure) {
+              if (MatchedChars == 0) {
+                ConversionSuccessful = false;
+              }
               else {
-                ++MatchedChars;
-                ++NumCharsRead;
-                
+                ++NumConversions;
+                  
                 if (!Conversion.SuppressAssignment) {
-                  // Write character.
-                  if (WrittenChars < Writable)
-                    Dest[WrittenChars++] = static_cast<char>(ReadChar);
+                  // Attempt to nul-terminate the string. If this succeeds,
+                  // record the strings new state to the trace.
+                  if (WrittenChars < Writable) {
+                    Dest[WrittenChars++] = '\0';
+                    Listener.recordUntypedState(Dest, WrittenChars);
+                    ++NumAssignments;
+                  }
                   else
                     InsufficientMemory = true;
                 }
               }
-            }
-            
-            if (ConversionSuccessful && !Conversion.SuppressAssignment) {
-              // Attempt to nul-terminate the string.
-              if (WrittenChars < Writable) {
-                Dest[WrittenChars++] = '\0';
-                ++Result;
-              }
-              else
-                InsufficientMemory = true;
             }
             
             if (InsufficientMemory) {
@@ -531,11 +590,15 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                MatchedChars),
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
-              return Result;
+              
+              return NumAssignments;
             }
-            
-            if (WrittenChars)
-              Listener.recordUntypedState(Dest, WrittenChars);
+          }
+          else if (Conversion.Length == LengthModifier::l) {
+            llvm_unreachable("%ls not yet supported.");
+          }
+          else {
+            llvm_unreachable("unsupported length for 's' conversion.");
           }
         }
         break;
@@ -567,40 +630,47 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             
             for (; Width != 0; --Width) {
               if ((ReadChar = std::fgetc(Stream)) == EOF) {
-                if (std::ferror(Stream))
-                  ConversionSuccessful = false;
+                if (std::ferror(Stream) || (std::feof(Stream) && !WrittenChars))
+                  InputFailure = true;
                 break;
               }
               
               if (!Conversion.hasSetCharacter(static_cast<char>(ReadChar))) {
-                llvm::errs() << "\nchar " << static_cast<char>(ReadChar)
-                             << " is not in set\n";
-                             
                 std::ungetc(ReadChar, Stream);
                 break;
               }
+              
+              ++MatchedChars;
+              ++NumCharsRead;
+              
+              if (!Conversion.SuppressAssignment) {
+                // Write character.
+                if (WrittenChars < Writable)
+                  Dest[WrittenChars++] = static_cast<char>(ReadChar);
+                else
+                  InsufficientMemory = true;
+              }
+            }
+            
+            if (!InputFailure) {
+              if (MatchedChars == 0) {
+                ConversionSuccessful = false;
+              }
               else {
-                ++MatchedChars;
-                ++NumCharsRead;
-                
+                ++NumConversions;
+                  
                 if (!Conversion.SuppressAssignment) {
-                  // Write character.
-                  if (WrittenChars < Writable)
-                    Dest[WrittenChars++] = static_cast<char>(ReadChar);
+                  // Attempt to nul-terminate the string. If this succeeds,
+                  // record the strings new state to the trace.
+                  if (WrittenChars < Writable) {
+                    Dest[WrittenChars++] = '\0';
+                    Listener.recordUntypedState(Dest, WrittenChars);
+                    ++NumAssignments;
+                  }
                   else
                     InsufficientMemory = true;
                 }
               }
-            }
-            
-            if (ConversionSuccessful && !Conversion.SuppressAssignment) {
-              // Attempt to nul-terminate the string.
-              if (WrittenChars < Writable) {
-                Dest[WrittenChars++] = '\0';
-                ++Result;
-              }
-              else
-                InsufficientMemory = true;
             }
             
             if (InsufficientMemory) {
@@ -619,11 +689,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                MatchedChars),
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
-              return Result;
+              
+              return NumAssignments;
             }
-            
-            if (WrittenChars)
-              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%l[ not yet supported.");
@@ -647,21 +715,29 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             break;
           }
           
+          ++NumConversions;
+          
           if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
             ConversionSuccessful
               = Conversion.assignPointee(Listener, VarArgs, NextArg, ReadInt);
-            ++Result;
+            if (ConversionSuccessful)
+              ++NumAssignments;
           }
         }
         break;
       
       case ScanConversionSpecifier::Specifier::n:
+        ++NumConversions;
+        
         if (!Conversion.SuppressAssignment) {
           ConversionSuccessful = Conversion.assignPointee(Listener,
                                                           VarArgs,
                                                           NextArg,
                                                           NumCharsRead);
+          if (ConversionSuccessful)
+            ++NumAssignments;
         }
+        
         break;
       
       case ScanConversionSpecifier::Specifier::a:
@@ -690,8 +766,13 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               break;
           }
           
-          if (BufferIdx == 0)
+          if (BufferIdx == 0) {
+            if (ReadChar == EOF)
+              InputFailure = true;
+            else
+              ConversionSuccessful = false;
             break;
+          }
           
           Buffer[BufferIdx] = '\0';
           
@@ -701,12 +782,18 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             case LengthModifier::none:
               {
                 float Value = std::strtof(Buffer, &ParseEnd);
-                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful = Conversion.assignPointee(Listener,
-                                                                  VarArgs,
-                                                                  NextArg,
-                                                                  Value);
-                  ++Result;
+                if (ParseEnd == Buffer)
+                  ConversionSuccessful = false;
+                else {
+                  ++NumConversions;
+                  if (!Conversion.SuppressAssignment) {
+                    ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                    VarArgs,
+                                                                    NextArg,
+                                                                    Value);
+                    if (ConversionSuccessful)
+                      ++NumAssignments;
+                  }
                 }
               }
               break;
@@ -714,12 +801,18 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             case LengthModifier::l:
               {
                 double Value = std::strtod(Buffer, &ParseEnd);
-                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful = Conversion.assignPointee(Listener,
-                                                                  VarArgs,
-                                                                  NextArg,
-                                                                  Value);
-                  ++Result;
+                if (ParseEnd == Buffer)
+                  ConversionSuccessful = false;
+                else {
+                  ++NumConversions;
+                  if (!Conversion.SuppressAssignment) {
+                    ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                    VarArgs,
+                                                                    NextArg,
+                                                                    Value);
+                    if (ConversionSuccessful)
+                      ++NumAssignments;
+                  }
                 }
               }
               break;
@@ -727,12 +820,18 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             case LengthModifier::L:
               {
                 long double Value = std::strtold(Buffer, &ParseEnd);
-                if (ParseEnd != Buffer && !Conversion.SuppressAssignment) {
-                  ConversionSuccessful = Conversion.assignPointee(Listener,
-                                                                  VarArgs,
-                                                                  NextArg,
-                                                                  Value);
-                  ++Result;
+                if (ParseEnd == Buffer)
+                  ConversionSuccessful = false;
+                else {
+                  ++NumConversions;
+                  if (!Conversion.SuppressAssignment) {
+                    ConversionSuccessful = Conversion.assignPointee(Listener,
+                                                                    VarArgs,
+                                                                    NextArg,
+                                                                    Value);
+                    if (ConversionSuccessful)
+                      ++NumAssignments;
+                  }
                 }
               }
               break;
@@ -751,24 +850,39 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::p:
         // Read pointer.
         if (Conversion.SuppressAssignment || NextArg >= VarArgs.size()) {
-          if (std::fscanf(Stream, "%*p") == EOF)
-            ConversionSuccessful = false;
+          if (std::fscanf(Stream, "%*p") != EOF)
+            ++NumConversions;
+          else
+            InputFailure = true;
         }
         else {
           auto Ptr = VarArgs.getAs<void **>(NextArg).get<0>();
-          if (std::fscanf(Stream, "%p", Ptr) == 1) {
-            ++Result;
-            Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                        sizeof(*Ptr));
+          auto Result = std::fscanf(Stream, "%p", Ptr);
+          
+          switch (Result) {
+            case 1:
+              ++NumConversions;
+              ++NumAssignments;
+              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                          sizeof(*Ptr));
+              break;
+            case 0:
+              ConversionSuccessful = false;
+              break;
+            case EOF:
+              InputFailure = true;
+              break;
+            default:
+              llvm_unreachable("unexpected result from std::fscanf.");
+              break;
           }
-          else
-            ConversionSuccessful = false;
         }
         break;
     }
     
-    if (!ConversionSuccessful)
+    if (!ConversionSuccessful || InputFailure) {
       break;
+    }
     
     // Move to the next argument (unless this conversion specifier doesn't
     // consume an argument).
@@ -782,7 +896,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     NextChar = Conversion.End;
   }
   
-  // Ensure that we got exactly the right number of arguments.
+  // Ensure that we got a sufficient number of arguments.
   if (NextArg > VarArgs.size()) {
     Listener.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
                                           (FSFunction,
@@ -791,22 +905,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                             RunErrorSeverity::Fatal,
                             InstructionIndex);
   }
-  else if (NextArg < VarArgs.size()) {
-    Listener.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
-                                          (FSFunction,
-                                           NextArg,
-                                           VarArgs.size()),
-                            RunErrorSeverity::Warning,
-                            InstructionIndex);
-  }
   
   // Record the produced value.
-  Listener.notifyValue(InstructionIndex, Instruction, unsigned(Result));
+  Listener.notifyValue(InstructionIndex, Instruction, unsigned(NumAssignments));
   
-  if (NextChar == Format && (std::feof(Stream) || std::ferror(Stream)))
+  if (InputFailure && NumConversions == 0)
     return EOF;
   
-  return Result;
+  return NumAssignments;
 }
 
 int

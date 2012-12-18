@@ -60,7 +60,7 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     
   // Read specifier.
   switch (*Remainder) {
-#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, SUPPRESS, LENS)                    \
+#define SEEC_SCAN_FORMAT_SPECIFIER(ID, CHR, WSPACE, SUPPRESS, LENS)            \
     case CHR:                                                                  \
       Result.Conversion = Specifier::ID;                                       \
       break;
