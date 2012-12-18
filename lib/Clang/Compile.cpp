@@ -321,8 +321,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       auto D = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
 
       auto It = DeclMap.find(D);
-      assert(It != DeclMap.end() && "Couldn't map clang::Decl.");
-
+      if (It == DeclMap.end()) {
+        llvm::errs() << "couldn't map clang::Decl.\n";
+        continue;
+      }
+      
       llvm::Value *Ops[] = {
         MainFileNode,
         PtrNode->getOperand(0),
@@ -356,7 +359,10 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       assert(Stmt && "Couldn't get clang::Stmt pointer.");
       
       auto It = StmtMap.find(Stmt);
-      assert(It != StmtMap.end() && "Couldn't map clang::Stmt.");
+      if (It == StmtMap.end()) {
+        llvm::errs() << "couldn't map clang::Stmt.\n";
+        continue;
+      }
       
       llvm::Value *StmtIdentifierOps[] = {
         MainFileNode,
