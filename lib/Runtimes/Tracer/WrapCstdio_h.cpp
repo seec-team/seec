@@ -978,7 +978,6 @@ SEEC_MANGLE_FUNCTION(sscanf)
   }
   
   int NumConversions = 0;
-  
   unsigned NextArg = 0;
   char const *NextFormatChar = Format;
   char const *NextBufferChar = Buffer;
@@ -1110,6 +1109,12 @@ SEEC_MANGLE_FUNCTION(sscanf)
       }
     }
     
+    // Consume leading whitespace (if this conversion allows it).
+    if (Conversion.consumesWhitespace()) {
+      while (std::isspace(*NextBufferChar))
+        ++NextBufferChar;
+    }
+    
     // Perform the conversion.
     bool IntConversion = false;
     bool IntConversionUnsigned = false;
@@ -1193,38 +1198,39 @@ SEEC_MANGLE_FUNCTION(sscanf)
               ++NextBufferChar;
             }
             
-            if (!Conversion.SuppressAssignment) {
-              if (WrittenChars < Writable) {
-                Dest[WrittenChars++] = '\0';
-                ++NumConversions;
+            if (MatchedChars == 0)
+              ConversionSuccessful = false;
+            else {
+              if (!Conversion.SuppressAssignment) {
+                if (WrittenChars < Writable) {
+                  Dest[WrittenChars++] = '\0';
+                  Listener.recordUntypedState(Dest, WrittenChars);
+                  ++NumConversions;
+                }
+                else
+                  InsufficientMemory = true;
               }
-              else
-                InsufficientMemory = true;
-            }
-            
-            if (InsufficientMemory) {
-              using namespace seec::runtime_errors;
               
-              // Raise error for insufficient memory in destination buffer.
-              Listener.handleRunError(
-                createRunError<RunErrorType::ScanFormattedStringOverflow>
-                              (FSFunction,
-                               1, // Index of "Format" argument.
-                               StartIndex,
-                               EndIndex,
-                               asCFormatLengthModifier(Conversion.Length),
-                               VarArgs.offset() + NextArg,
-                               Writable,
-                               MatchedChars + 1),
-                seec::trace::RunErrorSeverity::Fatal,
-                InstructionIndex);
-              
-              return NumConversions;
+              if (InsufficientMemory) {
+                using namespace seec::runtime_errors;
+                
+                // Raise error for insufficient memory in destination buffer.
+                Listener.handleRunError(
+                  createRunError<RunErrorType::ScanFormattedStringOverflow>
+                                (FSFunction,
+                                 1, // Index of "Format" argument.
+                                 StartIndex,
+                                 EndIndex,
+                                 asCFormatLengthModifier(Conversion.Length),
+                                 VarArgs.offset() + NextArg,
+                                 Writable,
+                                 MatchedChars + 1),
+                  seec::trace::RunErrorSeverity::Fatal,
+                  InstructionIndex);
+                
+                return NumConversions;
+              }
             }
-            
-            // Update memory state.
-            if (WrittenChars)
-              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%ls not supported yet.");
@@ -1274,38 +1280,39 @@ SEEC_MANGLE_FUNCTION(sscanf)
               ++NextBufferChar;
             }
             
-            if (!Conversion.SuppressAssignment) {
-              if (WrittenChars < Writable) {
-                Dest[WrittenChars++] = '\0';
-                ++NumConversions;
+            if (MatchedChars == 0)
+              ConversionSuccessful = false;
+            else {
+              if (!Conversion.SuppressAssignment) {
+                if (WrittenChars < Writable) {
+                  Dest[WrittenChars++] = '\0';
+                  Listener.recordUntypedState(Dest, WrittenChars);
+                  ++NumConversions;
+                }
+                else
+                  InsufficientMemory = true;
               }
-              else
-                InsufficientMemory = true;
-            }
-            
-            if (InsufficientMemory) {
-              using namespace seec::runtime_errors;
               
-              // Raise error for insufficient memory in destination buffer.
-              Listener.handleRunError(
-                createRunError<RunErrorType::ScanFormattedStringOverflow>
-                              (FSFunction,
-                               1, // Index of "Format" argument.
-                               StartIndex,
-                               EndIndex,
-                               asCFormatLengthModifier(Conversion.Length),
-                               VarArgs.offset() + NextArg,
-                               Writable,
-                               MatchedChars + 1),
-                seec::trace::RunErrorSeverity::Fatal,
-                InstructionIndex);
-              
-              return NumConversions;
+              if (InsufficientMemory) {
+                using namespace seec::runtime_errors;
+                
+                // Raise error for insufficient memory in destination buffer.
+                Listener.handleRunError(
+                  createRunError<RunErrorType::ScanFormattedStringOverflow>
+                                (FSFunction,
+                                 1, // Index of "Format" argument.
+                                 StartIndex,
+                                 EndIndex,
+                                 asCFormatLengthModifier(Conversion.Length),
+                                 VarArgs.offset() + NextArg,
+                                 Writable,
+                                 MatchedChars + 1),
+                  seec::trace::RunErrorSeverity::Fatal,
+                  InstructionIndex);
+                
+                return NumConversions;
+              }
             }
-            
-            // Update memory state.
-            if (WrittenChars)
-              Listener.recordUntypedState(Dest, WrittenChars);
           }
           else if (Conversion.Length == LengthModifier::l) {
             llvm_unreachable("%l[ not supported yet.");
