@@ -110,8 +110,8 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   
   auto Val1 = getMappedValueFromMD(MapVal1MD, Module.getModuleIndex());
   auto Val2 = getMappedValueFromMD(MapVal2MD, Module.getModuleIndex());
-  
-  assert(Val1 && "MappedStmt with no primary Value.");
+  if (!Val1)
+    return nullptr;
   
   return std::unique_ptr<MappedStmt>(new MappedStmt(Type.get<0>(),
                                                     ASTAndStmt.first,

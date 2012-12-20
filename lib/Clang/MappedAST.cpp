@@ -269,7 +269,10 @@ MappedModule::MappedModule(
     for (std::size_t i = 0u; i < GlobalStmtMaps->getNumOperands(); ++i) {
       auto Mapping = MappedStmt::fromMetadata(GlobalStmtMaps->getOperand(i),
                                               *this);
-      assert(Mapping && "couldn't get mapping from metadata.");
+      if (!Mapping) {
+        llvm::errs() << "couldn't get mapping from metadata.\n";
+        continue;
+      }
       
       auto RawPtr = Mapping.get();
       auto Values = RawPtr->getValues();
