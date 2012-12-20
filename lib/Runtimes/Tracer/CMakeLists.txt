@@ -11,6 +11,7 @@ set(HEADERS
 set(SOURCES
   Tracer.cpp
   WrapCstdio_h.cpp
+  WrapPOSIXunistd_h.cpp
   )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
