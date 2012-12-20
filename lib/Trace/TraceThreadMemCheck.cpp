@@ -123,7 +123,7 @@ bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
     if (!MemoryState->hasKnownState(Address, Size)) {
       Thread.handleRunError(createRunError<RunErrorType::MemoryUninitialized>
                                           (Address, Size),
-                            RunErrorSeverity::Warning,
+                            RunErrorSeverity::Fatal,
                             Instruction);
       
       return false;
@@ -237,7 +237,7 @@ CStdLibChecker::checkMemoryAccessForParameter(
       Thread.handleRunError(
                 createRunError<RunErrorType::PassPointerToUninitialized>
                               (Function, Address, Parameter),
-                RunErrorSeverity::Warning,
+                RunErrorSeverity::Fatal,
                 Instruction);
       
       return false;
