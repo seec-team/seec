@@ -1327,7 +1327,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
   
   acquireGlobalMemoryWriteLock();
   
-  CStdLibChecker Checker(*this, Index, CStdFunction::Strcat);
+  CStdLibChecker Checker(*this, Index, CStdFunction::Strcpy);
   
   // Check that Source is a valid C string and find its length.
   auto const SrcLength = Checker.checkCStringRead(1, Source);
