@@ -356,34 +356,20 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       // writable. The conversion for strings (and sets) is a special case.
       if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
           || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
-        if (NextArg < VarArgs.size()) {
-          // Check that the field width is specified.
-          if (!Conversion.WidthSpecified) {
-            Listener.handleRunError(
-              seec::runtime_errors::createRunError
-                <seec::runtime_errors::RunErrorType::FormatSpecifierWidthMissing>
-                (FSFunction,
-                 VarArgsStartIndex - 1,
-                 StartIndex,
-                 EndIndex),
-              RunErrorSeverity::Warning,
-              InstructionIndex);
-          }
-          else {
-            // Check that the destination is writable and has sufficient space
-            // for the field width specified by the programmer.
-            auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-            auto const Size = (Conversion.Length == LengthModifier::l)
-                            ? (Conversion.Width + 1) * sizeof(wchar_t)
-                            : (Conversion.Width + 1) * sizeof(char);
-            
-            if (!Checker.checkMemoryExistsAndAccessibleForParameter(
-                    VarArgs.offset() + NextArg,
-                    MaybeArea.get<0>().address(),
-                    Size,
-                    seec::runtime_errors::format_selects::MemoryAccess::Write))
-              return NumAssignments;
-          }
+        if (NextArg < VarArgs.size() && Conversion.WidthSpecified) {
+          // Check that the destination is writable and has sufficient space
+          // for the field width specified by the programmer.
+          auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
+          auto const Size = (Conversion.Length == LengthModifier::l)
+                          ? (Conversion.Width + 1) * sizeof(wchar_t)
+                          : (Conversion.Width + 1) * sizeof(char);
+          
+          if (!Checker.checkMemoryExistsAndAccessibleForParameter(
+                  VarArgs.offset() + NextArg,
+                  MaybeArea.get<0>().address(),
+                  Size,
+                  seec::runtime_errors::format_selects::MemoryAccess::Write))
+            return NumAssignments;
         }
       }
       else {
@@ -1066,34 +1052,20 @@ SEEC_MANGLE_FUNCTION(sscanf)
       // writable. The conversion for strings (and sets) is a special case.
       if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
           || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
-        if (NextArg < VarArgs.size()) {
-          // Check that the field width is specified.
-          if (!Conversion.WidthSpecified) {
-            Listener.handleRunError(
-              seec::runtime_errors::createRunError
-                <seec::runtime_errors::RunErrorType::FormatSpecifierWidthMissing>
-                (FSFunction,
-                 1,
-                 StartIndex,
-                 EndIndex),
-              RunErrorSeverity::Warning,
-              InstructionIndex);
-          }
-          else {
-            // Check that the destination is writable and has sufficient space
-            // for the field width specified by the programmer.
-            auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-            auto const Size = (Conversion.Length == LengthModifier::l)
-                            ? (Conversion.Width + 1) * sizeof(wchar_t)
-                            : (Conversion.Width + 1) * sizeof(char);
-            
-            if (!Checker.checkMemoryExistsAndAccessibleForParameter(
-                    VarArgs.offset() + NextArg,
-                    MaybeArea.get<0>().address(),
-                    Size,
-                    seec::runtime_errors::format_selects::MemoryAccess::Write))
-              return false;
-          }
+        if (NextArg < VarArgs.size() && Conversion.WidthSpecified) {
+          // Check that the destination is writable and has sufficient space
+          // for the field width specified by the programmer.
+          auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
+          auto const Size = (Conversion.Length == LengthModifier::l)
+                          ? (Conversion.Width + 1) * sizeof(wchar_t)
+                          : (Conversion.Width + 1) * sizeof(char);
+          
+          if (!Checker.checkMemoryExistsAndAccessibleForParameter(
+                  VarArgs.offset() + NextArg,
+                  MaybeArea.get<0>().address(),
+                  Size,
+                  seec::runtime_errors::format_selects::MemoryAccess::Write))
+            return false;
         }
       }
       else {
@@ -1469,21 +1441,13 @@ SEEC_MANGLE_FUNCTION(sscanf)
     NextFormatChar = Conversion.End;
   }
   
-  // Ensure that we got exactly the right number of arguments.
+  // Ensure that we got a sufficient number of arguments.
   if (NextArg > VarArgs.size()) {
     Listener.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
                                           (FSFunction,
                                            NextArg,
                                            VarArgs.size()),
                             RunErrorSeverity::Fatal,
-                            InstructionIndex);
-  }
-  else if (NextArg < VarArgs.size()) {
-    Listener.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
-                                          (FSFunction,
-                                           NextArg,
-                                           VarArgs.size()),
-                            RunErrorSeverity::Warning,
                             InstructionIndex);
   }
   
