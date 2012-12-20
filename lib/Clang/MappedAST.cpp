@@ -212,7 +212,7 @@ MappedModule::MappedModule(
   StmtToMappedStmt(),
   ValueToMappedStmt()
 {
-  auto &Module = ModIndex.getModule();
+  auto const &Module = ModIndex.getModule();
   
   // Create the GlobalLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
