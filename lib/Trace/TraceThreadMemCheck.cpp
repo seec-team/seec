@@ -219,6 +219,7 @@ CStdLibChecker::checkMemoryAccessForParameter(
                             (Function,
                              Address,
                              Size,
+                             ContainingArea.withStart(Address).length(),
                              ArgObject{},
                              ContainingArea.address(),
                              ContainingArea.length()),
