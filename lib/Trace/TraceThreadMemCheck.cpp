@@ -217,6 +217,7 @@ CStdLibChecker::checkMemoryAccessForParameter(
     Thread.handleRunError(
               createRunError<RunErrorType::PassPointerToInsufficient>
                             (Function,
+                             Parameter,
                              Address,
                              Size,
                              ContainingArea.withStart(Address).length(),

@@ -82,6 +82,7 @@ root:table {
     }
 
     // function
+    // parameter
     // access_address
     // access_size
     // accessible_size
@@ -89,7 +90,7 @@ root:table {
     // object_address
     // object_size
     PassPointerToInsufficient:string {
-      "Insufficient memory at destination of pointer passed to {function}. Needed {access_size} bytes and received {accessible_size}."
+      "There was insufficient memory at the destination of the pointer passed to {function} as parameter {parameter}. In this case the function required {access_size} bytes, but only {accessible_size} were available."
     }
 
     // function
