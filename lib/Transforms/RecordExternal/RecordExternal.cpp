@@ -243,6 +243,13 @@ bool InsertExternalRecording::doInitialization(Module &M) {
       auto NewName = SEEC__STRINGIZE(SEEC_MANGLE_FUNCTION(NAME));              \
       Intercept = createFunctionInterceptorPrototype(&F, NewName);             \
     }
+
+#define SEEC_INTERCEPTED_FUNCTION_ALIAS(ALIAS, NAME)                           \
+    if (Name.equals(#ALIAS)) {                                                 \
+      auto NewName = SEEC__STRINGIZE(SEEC_MANGLE_FUNCTION(NAME));              \
+      Intercept = createFunctionInterceptorPrototype(&F, NewName);             \
+    }
+
 #include "seec/Runtimes/Tracer/InterceptedFunctions.def"
 
 #undef SEEC__STRINGIZE

@@ -1457,4 +1457,71 @@ SEEC_MANGLE_FUNCTION(sscanf)
   return NumConversions;
 }
 
+
+//===----------------------------------------------------------------------===//
+// tmpnam
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(tmpnam)
+(char *Buffer)
+{
+  using namespace seec::trace;
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = getProcessEnvironment().getProcessListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryWriteLock();
+  
+  // Use a CIOChecker to help check memory.
+  auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+  
+  // Ensure that writing to Buffer will be OK.
+  if (Buffer)
+    Checker.checkMemoryExistsAndAccessibleForParameter
+              (0,
+               reinterpret_cast<uintptr_t>(Buffer),
+               L_tmpnam,
+               seec::runtime_errors::format_selects::MemoryAccess::Write);
+  
+  auto Result = tmpnam(Buffer);
+  auto Length = std::strlen(Result) + 1;
+  
+  // Record the result.
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       Result);
+  
+  if (Buffer) {
+    // Record the write to Buffer.
+    Listener.recordUntypedState(Buffer, Length);
+  }
+  else {
+    // Record tmpnam's internal static array.
+    auto Address = reinterpret_cast<uintptr_t>(Result);
+    
+    // Remove knowledge of the existing getenv string at this position (if any).
+    ProcessListener.removeKnownMemoryRegion(Address);
+  
+    // TODO: Delete any existing memory states at this address.
+  
+    // Set knowledge of the new string area.
+    ProcessListener.addKnownMemoryRegion(Address,
+                                         Length,
+                                         seec::MemoryPermission::ReadOnly);
+  }
+  
+  return Result;
+}
+
+
 } // extern "C"

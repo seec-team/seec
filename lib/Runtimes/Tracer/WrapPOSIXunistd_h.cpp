@@ -20,6 +20,7 @@
 #include "llvm/Support/CallSite.h"
 
 #include <cinttypes>
+#include <type_traits>
 
 #include <unistd.h>
 
