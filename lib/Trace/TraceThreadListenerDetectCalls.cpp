@@ -423,6 +423,18 @@ preCsprintf(llvm::CallInst const *Call,
   // formatted string.
 }
 
+void
+TraceThreadListener::
+postCsprintf(llvm::CallInst const *Call,
+             uint32_t Index,
+             char *Buffer,
+             char const *Str,
+             detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  auto Length = std::strlen(Buffer) + 1;
+  recordUntypedState(Buffer, Length);
+}
+
 
 //===------------------------------------------------------------------------===
 // snprintf
@@ -447,6 +459,19 @@ preCsnprintf(llvm::CallInst const *Call,
   
   Checker.checkPrintFormat(2, Str, Args);
   // TODO: Check that Buffer and BufSize are valid.
+}
+
+void
+TraceThreadListener::
+postCsnprintf(llvm::CallInst const *Call,
+              uint32_t Index,
+              char *Buffer,
+              int BufSize,
+              char const *Str,
+              detect_calls::VarArgList<TraceThreadListener> const &Args)
+{
+  auto Length = std::strlen(Buffer) + 1;
+  recordUntypedState(Buffer, Length);
 }
 
 
@@ -1130,7 +1155,7 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
   auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
   
   Checker.checkMemoryExistsAndAccessibleForParameter(1, SrcAddr, Size,
-                                                     MemoryAccess::Read);
+                                                     MemoryAccess::Copy);
   
   Checker.checkMemoryExistsAndAccessibleForParameter(0, DestAddr, Size,
                                                      MemoryAccess::Write);
