@@ -26,8 +26,9 @@
 #endif
 
 SEEC_FORMAT_SELECT(MemoryAccess,
-  SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Read, "read")
+  SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Read,  "read" )
   SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Write, "write")
+  SEEC_FORMAT_SELECT_ITEM(MemoryAccess, Copy,  "copy" )
   )
 
 SEEC_FORMAT_SELECT(CStdFunction,
@@ -120,6 +121,8 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strstr, "strstr")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strtok, "strtok")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strxfrm, "strxfrm")
+  
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, wait, "wait")
   )
 
 SEEC_FORMAT_SELECT(CFormatConversionFlag,
