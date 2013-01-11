@@ -6,9 +6,9 @@ root:table {
     // size
     MemoryUnowned:string {
       "{access_type, select, "
-        "read {Attempt to read unowned memory at address {address} ({size} bytes).}"
-        "write {Attempt to write unowned memory at address {address} ({size} bytes).}"
-        "other {Attempt to {access_type} unowned memory at address {address} ({size} bytes).}"
+        "read {Attempt to read unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
+        "write {Attempt to write unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
+        "other {Attempt to {access_type} unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
       "}"
     }
 
