@@ -15,6 +15,7 @@
 #define SEEC_UTIL_MODULEINDEX_HPP
 
 #include "seec/Util/Maybe.hpp"
+#include "seec/Util/Range.hpp"
 
 #include "llvm/Module.h"
 #include "llvm/ADT/DenseMap.h"
@@ -91,6 +92,12 @@ public:
     if (Index < ArgumentPtrByIdx.size())
       return ArgumentPtrByIdx[Index];
     return nullptr;
+  }
+  
+  /// \brief Get a range containing all Arguments.
+  seec::Range<typename decltype(ArgumentPtrByIdx)::const_iterator>
+  getArguments() const {
+    return seec::range(ArgumentPtrByIdx.cbegin(), ArgumentPtrByIdx.cend());
   }
   
   /// @}
