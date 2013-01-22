@@ -222,6 +222,7 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitPreNotification();});
+  ActiveFunction->setActiveInstruction(CallInst);
 
   detectPreCall(CallInst, Index, Address);
 }
@@ -245,6 +246,7 @@ void TraceThreadListener::notifyPreCallIntrinsic(uint32_t Index,
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitPreNotification();});
+  ActiveFunction->setActiveInstruction(CI);
 
   auto Function = CI->getCalledFunction();
   auto ID = Function->getIntrinsicID();
@@ -333,6 +335,7 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitPreNotification();});
+  ActiveFunction->setActiveInstruction(Load);
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
@@ -361,6 +364,7 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitPreNotification();});
+  ActiveFunction->setActiveInstruction(Store);
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 

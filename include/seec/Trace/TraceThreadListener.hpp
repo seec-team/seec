@@ -153,6 +153,9 @@ class TraceThreadListener
   /// Clear current Instruction information.
   void clearCI() {
     CIProcessTime.reset();
+    
+    if (ActiveFunction)
+      ActiveFunction->clearActiveInstruction();
   }
   
   /// @} (Current instruction information)

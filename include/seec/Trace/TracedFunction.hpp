@@ -174,6 +174,9 @@ class TracedFunction {
   /// \name Active-only information.
   /// @{
   
+  /// Currently-active Instruction.
+  llvm::Instruction const *ActiveInstruction;
+  
   /// List of Allocas for this function.
   std::vector<TracedAlloca> Allocas;
   
@@ -212,6 +215,7 @@ public:
     ThreadTimeExited(0),
     Children(),
     NonLocalMemoryChanges(),
+    ActiveInstruction(nullptr),
     Allocas(),
     StackSaves(),
     StackLow(0),
@@ -253,6 +257,32 @@ public:
   }
 
   /// @} (Accessors for permanent information.)
+  
+  
+  /// \name Active llvm::Instruction tracking.
+  /// @{
+  
+  /// \brief Get the currently active llvm::Instruction, or nullptr if there
+  ///        is none.
+  ///
+  llvm::Instruction const *getActiveInstruction() const {
+    return ActiveInstruction;
+  }
+  
+  /// \brief Set the currently active llvm::Instruction.
+  ///
+  void
+  setActiveInstruction(llvm::Instruction const * const NewActiveInstruction) {
+    ActiveInstruction = NewActiveInstruction;
+  }
+  
+  /// \brief Clear the currently active llvm::Instruction.
+  ///
+  void clearActiveInstruction() {
+    ActiveInstruction = nullptr;
+  }
+  
+  /// @} (Active llvm::Instruction tracking.)
   
   
   /// \name Accessors for active-only information.
