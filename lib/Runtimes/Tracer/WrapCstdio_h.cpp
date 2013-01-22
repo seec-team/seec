@@ -1523,5 +1523,54 @@ SEEC_MANGLE_FUNCTION(tmpnam)
   return Result;
 }
 
+//===----------------------------------------------------------------------===//
+// fdopen
+//===----------------------------------------------------------------------===//
+
+FILE *
+SEEC_MANGLE_FUNCTION(fdopen)
+(int FileDescriptor, char const *Mode)
+{
+  using namespace seec::trace;
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = getProcessEnvironment().getProcessListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryWriteLock();
+  auto Streams = ProcessListener.getStreamsAccessor();
+  
+  // Use a CIOChecker to help check memory.
+  auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+  
+  // Ensure that Mode is accessible.
+  Checker.checkCStringRead(1, Mode);
+  
+  auto Result = fdopen(FileDescriptor, Mode);
+  
+  // Record the result.
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       Result);
+  
+  if (Result) {
+    Streams->streamOpened(Result);
+  }
+  else{
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
+  }
+  
+  return Result;
+}
+
 
 } // extern "C"

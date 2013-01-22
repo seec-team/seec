@@ -15,6 +15,7 @@
 
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/Support/CallSite.h"
@@ -71,6 +72,59 @@ SEEC_MANGLE_FUNCTION(fork)
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),
                        ThreadEnv.getInstruction(),
                        std::make_unsigned<pid_t>::type(Result));
+  
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// fork
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(pipe)
+(int pipefd[2])
+{
+  using namespace seec::trace;
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory and streams.
+  Listener.acquireGlobalMemoryWriteLock();
+  
+  // Use a CIOChecker to help check memory.
+  auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::pipe;
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+  
+  Checker.checkMemoryExistsAndAccessibleForParameter
+            (0,
+             reinterpret_cast<uintptr_t>(pipefd),
+             sizeof(int [2]),
+             seec::runtime_errors::format_selects::MemoryAccess::Write);
+  
+  auto Result = pipe(pipefd);
+  
+  // Record the result.
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<int>::type(Result));
+  
+  // Record the changes to pipefd.
+  if (Result == 0) {
+    Listener.recordUntypedState(reinterpret_cast<char const *>(pipefd),
+                                sizeof(int [2]));
+  }
+  else {
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
+  }
   
   return Result;
 }

@@ -123,6 +123,8 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strxfrm, "strxfrm")
   
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, wait, "wait")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strdup, "strdup")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, pipe, "pipe")
   )
 
 SEEC_FORMAT_SELECT(CFormatConversionFlag,

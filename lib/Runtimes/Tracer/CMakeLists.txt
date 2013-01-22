@@ -11,6 +11,7 @@ set(HEADERS
 set(SOURCES
   Tracer.cpp
   WrapCstdio_h.cpp
+  WrapCstring_h.cpp
   WrapPOSIXsys_wait_h.cpp
   WrapPOSIXunistd_h.cpp
   )
