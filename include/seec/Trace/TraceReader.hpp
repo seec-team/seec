@@ -305,11 +305,6 @@ class FunctionTrace {
     return ThreadTimeExitedOffset() + sizeof(uint64_t);
   }
 
-  /// Get the offset of NonLocalChangeList in a serialized FunctionTrace.
-  static constexpr std::size_t NonLocalChangeListOffset() {
-    return ChildListOffset() + sizeof(offset_uint);
-  }
-
   /// Create a new FunctionTrace using the given trace data.
   /// \param Thread the ThreadTrace that this FunctionTrace belongs to.
   /// \param Data pointer to the serialized FunctionTrace.
@@ -357,9 +352,6 @@ public:
 
   /// Get the list of child FunctionTraces.
   llvm::ArrayRef<offset_uint> getChildList() const;
-
-  /// Get the list of non-local memory changes.
-  llvm::ArrayRef<offset_uint> getNonLocalChangeList() const;
 };
 
 /// Write a description of a FunctionTrace to an llvm::raw_ostream.

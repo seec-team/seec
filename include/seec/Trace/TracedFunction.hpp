@@ -39,6 +39,8 @@ namespace seec {
 
 namespace trace {
 
+class TraceThreadListener;
+
 
 /// \brief Stores information about a single recorded alloca instruction.
 ///
@@ -135,6 +137,9 @@ class TracedFunction {
   
   /// \name Permanent information.
   /// @{
+  
+  /// The thread that this function belongs to.
+  TraceThreadListener const &ThreadListener;
 
   /// Indexed view of the Function.
   FunctionIndex &FIndex;
@@ -161,13 +166,6 @@ class TracedFunction {
   /// function trace.
   std::vector<offset_uint> Children;
   
-  /// \brief List of offsets of StateRecords that modify memory that is not
-  /// local to this function.
-  ///
-  /// This includes changes by child functions, but it does not include changes
-  /// by child functions to memory that is local to those child functions.
-  std::vector<offset_uint> NonLocalMemoryChanges;
-  
   /// @}
   
   
@@ -179,6 +177,9 @@ class TracedFunction {
   
   /// List of Allocas for this function.
   std::vector<TracedAlloca> Allocas;
+  
+  /// Areas occupied by byval arguments for this function.
+  std::vector<MemoryArea> ByValAreas;
   
   /// Stores stacksaved Allocas.
   llvm::DenseMap<uintptr_t, std::vector<TracedAlloca>> StackSaves;
@@ -201,12 +202,14 @@ class TracedFunction {
 
 public:
   /// Constructor.
-  TracedFunction(FunctionIndex &FIndex,
+  TracedFunction(TraceThreadListener const &ThreadListener,
+                 FunctionIndex &FIndex,
                  offset_uint RecordOffset,
                  uint32_t Index,
                  offset_uint EventOffsetStart,
                  uint64_t ThreadTimeEntered)
-  : FIndex(FIndex),
+  : ThreadListener(ThreadListener),
+    FIndex(FIndex),
     RecordOffset(RecordOffset),
     Index(Index),
     EventOffsetStart(EventOffsetStart),
@@ -214,9 +217,9 @@ public:
     ThreadTimeEntered(ThreadTimeEntered),
     ThreadTimeExited(0),
     Children(),
-    NonLocalMemoryChanges(),
     ActiveInstruction(nullptr),
     Allocas(),
+    ByValAreas(),
     StackSaves(),
     StackLow(0),
     StackHigh(0),
@@ -251,12 +254,23 @@ public:
   /// Get the offsets of the child FunctionRecords.
   std::vector<offset_uint> const &getChildren() const { return Children; }
 
-  /// Get the offsets of the non-local memory change events.
-  std::vector<offset_uint> const &getNonLocalMemoryChanges() const {
-    return NonLocalMemoryChanges;
-  }
-
   /// @} (Accessors for permanent information.)
+  
+  
+  /// \name Support getCurrentRuntimeValue.
+  /// @{
+  
+  /// Get the run-time address of a GlobalVariable.
+  /// \param GV the GlobalVariable.
+  /// \return the run-time address of GV, or 0 if it is not known.
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
+
+  /// Get the run-time address of a Function.
+  /// \param F the Function.
+  /// \return the run-time address of F, or 0 if it is not known.
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
+  
+  /// @} (Support getCurrentRuntimeValue.)
   
   
   /// \name Active llvm::Instruction tracking.
@@ -304,83 +318,73 @@ public:
   /// Get the stack-allocated area that contains an address. This method is
   /// thread safe.
   seec::util::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const {
-    std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    if (Address < StackLow || Address > StackHigh)
-      return seec::util::Maybe<MemoryArea>();
-      
-    for (auto const &Alloca : Allocas) {
-      auto AllocaArea = Alloca.area();
-      if (AllocaArea.contains(Address)) {
-        return AllocaArea;
-      }
-    }
-    
-    return seec::util::Maybe<MemoryArea>();
-  }
+  getContainingMemoryArea(uintptr_t Address) const;
   
   /// Get a reference to the current RuntimeValue for an Instruction.
   /// \param Idx the index of the Instruction in the Function.
   /// \return a reference to the RuntimeValue for the Instruction at Idx.
-  RuntimeValue &getCurrentRuntimeValue(uint32_t Idx) {
+  RuntimeValue *getCurrentRuntimeValue(uint32_t Idx) {
     assert(!EventOffsetEnd && "Function has finished recording!");
     assert(Idx < CurrentValues.size() && "Bad Idx!");
-    return CurrentValues[Idx];
+    return &CurrentValues[Idx];
   }
   
   /// Get a const reference to the current RuntimeValue for an Instruction.
   /// \param Idx the index of the Instruction in the Function.
   /// \return a const reference to the RuntimeValue for the Instruction at Idx.
-  RuntimeValue const &getCurrentRuntimeValue(uint32_t Idx) const {
+  RuntimeValue const *getCurrentRuntimeValue(uint32_t Idx) const {
     assert(!EventOffsetEnd && "Function has finished recording!");
     assert(Idx < CurrentValues.size() && "Bad Idx!");
-    return CurrentValues[Idx];
+    return &CurrentValues[Idx];
   }
 
   /// Get a reference to the current RuntimeValue for an Instruction.
   /// \param Instr the Instruction.
   /// \return a reference to the RuntimeValue for Instr.
-  RuntimeValue &getCurrentRuntimeValue(llvm::Instruction const *Instr) {
+  RuntimeValue *getCurrentRuntimeValue(llvm::Instruction const *Instr) {
     assert(!EventOffsetEnd && "Function has finished recording!");
     auto Idx = FIndex.getIndexOfInstruction(Instr);
     assert(Idx.assigned() && "Bad Instr!");
-    return CurrentValues[Idx.get<0>()];
+    return &CurrentValues[Idx.get<0>()];
   }
   
   /// Get a const reference to the current RuntimeValue for an Instruction.
   /// \param Instr the Instruction.
   /// \return a const reference to the RuntimeValue for Instr.
-  RuntimeValue const &
+  RuntimeValue const *
   getCurrentRuntimeValue(llvm::Instruction const *Instr) const {
     assert(!EventOffsetEnd && "Function has finished recording!");
     auto Idx = FIndex.getIndexOfInstruction(Instr);
     assert(Idx.assigned() && "Bad Instr!");
-    return CurrentValues[Idx.get<0>()];
+    return &CurrentValues[Idx.get<0>()];
   }
   
   /// @} (Accessors for active-only information.)
+  
+  
+  /// \name byval argument memory area tracking.
+  /// @{
+  
+  /// \brief Add a new area for a byval argument.
+  ///
+  void addByValArea(MemoryArea Area);
+  
+  /// \brief Get all byval memory areas.
+  ///
+  seec::Range<decltype(ByValAreas)::const_iterator> getByValAreas() const {
+    return seec::range(ByValAreas.cbegin(), ByValAreas.cend());
+  }
+  
+  /// @} (byval argument memory area tracking.)
 
 
   /// \name Mutators
   /// @{
   
   /// \brief 
+  ///
   void finishRecording(offset_uint EventOffsetEnd,
-                       uint64_t ThreadTimeExited) {
-    std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    assert(!this->EventOffsetEnd && "Function has finished recording!");
-    
-    this->EventOffsetEnd = EventOffsetEnd;
-    this->ThreadTimeExited = ThreadTimeExited;
-    
-    // clear active-only information
-    Allocas.clear();
-    StackLow = 0;
-    StackHigh = 0;
-    CurrentValues.clear();
-  }
+                       uint64_t ThreadTimeExited);
 
   /// \brief Add a new child TracedFunction.
   /// \param Child the child function call.
@@ -392,68 +396,17 @@ public:
   
   /// \brief Add a new TracedAlloca.
   /// \param Alloca the new TracedAlloca.
-  void addAlloca(TracedAlloca Alloca) {
-    std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    
-    Allocas.push_back(Alloca);
-    
-    auto Area = Alloca.area();
-    
-    if (Area.address() < StackLow || !StackLow)
-      StackLow = Area.address();
-    
-    if (Area.lastAddress() > StackHigh || !StackHigh)
-      StackHigh = Area.lastAddress();
-  }
+  ///
+  void addAlloca(TracedAlloca Alloca);
   
-  /// \brief
-  void stackSave(uintptr_t Key) {
-    std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    StackSaves[Key] = Allocas;
-  }
+  /// \brief Save the current stack state for the given Key.
+  ///
+  void stackSave(uintptr_t Key);
   
   /// \brief Restore a previous stack state.
   /// \return area of memory that was invalidated by this stackrestore.
-  MemoryArea stackRestore(uintptr_t Key) {
-    std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    auto const &RestoreAllocas = StackSaves[Key];
-    
-    // Calculate invalidated memory area. This is the area occupied by all
-    // allocas that are currently active, but will be removed by the restore.
-    uintptr_t ClearLow = 0;
-    uintptr_t ClearHigh = 0;
-    
-    for (std::size_t i = 0; i < Allocas.size(); ++i) {
-      if (i >= RestoreAllocas.size() || Allocas[i] != RestoreAllocas[i]) {
-        auto FirstArea = Allocas[i].area();
-        auto FinalArea = Allocas.back().area();
-        
-        ClearLow = std::min(FirstArea.address(), FinalArea.address());
-        ClearHigh = std::max(FirstArea.lastAddress(), FinalArea.lastAddress());
-        
-        break;
-      }
-    }
-    
-    // Restore saved allocas.
-    Allocas = RestoreAllocas;
-    
-    return MemoryArea(ClearLow, (ClearHigh - ClearLow) + 1);
-  }
-
-  /// \brief Add a new non-local memory change.
-  /// Non-local memory changes include memory events caused by this function or
-  /// any of its children.
-  /// \param EventOffset the offset of the memory event.
-  void addNonLocalMemoryChange(offset_uint EventOffset) {
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    
-    NonLocalMemoryChanges.push_back(EventOffset);
-  }
+  ///
+  MemoryArea stackRestore(uintptr_t Key);
 
   /// @} (Mutators)
 };

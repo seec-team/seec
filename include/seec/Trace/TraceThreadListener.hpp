@@ -170,7 +170,7 @@ class TraceThreadListener
       = sizeof(uint32_t) // index
       + (2*sizeof(offset_uint)) // event start, end
       + (2*sizeof(uint64_t)) // thread entered, exited
-      + (2*sizeof(offset_uint)) // child list, non-local change list
+      + (1*sizeof(offset_uint)) // child list, non-local change list
       ;
 
     return sizeof(offset_uint) // For top-level function list offset
@@ -387,7 +387,7 @@ public:
     if (!MaybeIndex.assigned())
       return nullptr;
 
-    return &(ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>()));
+    return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
   }
 
   /// Find the allocated range that owns an address, if it belongs to this
@@ -445,6 +445,10 @@ public:
   void notifyFunctionBegin(uint32_t Index, llvm::Function const *F);
 
   void notifyFunctionEnd(uint32_t Index, llvm::Function const *F);
+  
+  /// \brief Notify of a byval argument.
+  void notifyArgumentByVal(uint32_t Index, llvm::Argument const *Arg,
+                           void const *Address);
   
   /// \brief Receive the contents of argc and argv.
   void notifyArgs(uint64_t ArgC, char **ArgV);

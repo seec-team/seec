@@ -31,12 +31,13 @@ void TraceThreadListener::writeTrace() {
   
   offset_uint Written = 0;
 
-  // calculate the offset position of the first (top-level functions) list
+  // Calculate the offset position of the first (top-level functions) list.
   offset_uint ListOffset = getNewFunctionRecordOffset();
 
-  // write offset of top-level function list
+  // Write offset of top-level function list.
   Written += writeBinary(*TraceOut, ListOffset);
-
+  
+  // Calculate offset of the next function list.
   ListOffset += getWriteBinarySize(RecordedTopLevelFunctions);
 
   // write functions
@@ -46,21 +47,20 @@ void TraceThreadListener::writeTrace() {
     Written += writeBinary(*TraceOut, Function->getEventOffsetEnd());
     Written += writeBinary(*TraceOut, Function->getThreadTimeEntered());
     Written += writeBinary(*TraceOut, Function->getThreadTimeExited());
-    // child list offset
+    
+    // Write offset of the child function list.
     Written += writeBinary(*TraceOut, ListOffset);
+    
+    // Calculate offset of the next function list.
     ListOffset += getWriteBinarySize(Function->getChildren());
-    // non-local change list offset
-    Written += writeBinary(*TraceOut, ListOffset);
-    ListOffset += getWriteBinarySize(Function->getNonLocalMemoryChanges());
   }
 
-  // write the top-level function list
+  // Write the top-level function list.
   Written += writeBinary(*TraceOut, RecordedTopLevelFunctions);
 
-  // write child lists and non-local change lists
+  // Write the child lists.
   for (auto const &Function: RecordedFunctions) {
     Written += writeBinary(*TraceOut, Function->getChildren());
-    Written += writeBinary(*TraceOut, Function->getNonLocalMemoryChanges());
   }
 }
 

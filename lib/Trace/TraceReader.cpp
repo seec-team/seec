@@ -79,18 +79,11 @@ llvm::ArrayRef<offset_uint> FunctionTrace::getChildList() const {
   return Thread->getOffsetList(List);
 }
 
-llvm::ArrayRef<offset_uint> FunctionTrace::getNonLocalChangeList() const {
-  auto List
-    = *reinterpret_cast<offset_uint const *>(Data + NonLocalChangeListOffset());
-  return Thread->getOffsetList(List);
-}
-
 llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
   Out << "[Function Idx=" << T.getIndex()
       << ", [" << T.getThreadTimeEntered()
       << "," << T.getThreadTimeExited()
       << "] Children=" << T.getChildList().size()
-      << ", NLChanges=" << T.getNonLocalChangeList().size()
       << "]";
   return Out;
 }

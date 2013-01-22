@@ -309,9 +309,37 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
 
   CI->insertBefore(&*AllocaIt);
   
-  // If this is main(), insert notifications for the strings we can read (args,
-  // env).
-  if (F.getName().equals("main")) {
+  if (!F.getName().equals("main")) {
+    // F is not main(): insert notifications for all argument values.
+    uint32_t ArgIndex = 0;
+    
+    for (auto &Arg : seec::range(F.arg_begin(), F.arg_end())) {
+      if (Arg.hasByValAttr()) {
+        llvm::Value *ArgPtr = &Arg;
+        
+        if (ArgPtr->getType() != Int8PtrTy) {
+          auto Cast = new BitCastInst(ArgPtr, Int8PtrTy);
+          Cast->insertBefore(&*AllocaIt);
+          ArgPtr = Cast;
+        }
+        
+        Value * const CallArgs[] = {
+          ConstantInt::get(Int32Ty, ArgIndex),
+          ArgPtr
+        };
+        
+        auto Call = CallInst::Create(RecordArgumentByVal, CallArgs);
+        assert(Call && "Couldn't create call instruction.");
+        
+        Call->insertBefore(&*AllocaIt);
+      }
+      
+      ++ArgIndex;
+    }
+  }
+  else {
+    // F is main(): insert notifications for the strings we can read.
+    
     // Record env, if it is used.
     if (F.arg_size() >= 3) {
       llvm::Value *ArgEnvPtr = &*++(++(F.arg_begin()));

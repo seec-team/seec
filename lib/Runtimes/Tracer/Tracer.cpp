@@ -223,6 +223,16 @@ void SeeCRecordFunctionEnd(uint32_t Index) {
   Listener.notifyFunctionEnd(Index, F);
 }
 
+void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  
+  auto Arg = ThreadEnv.getFunctionIndex().getArgument(Index);
+  assert(Arg && "Expected Argument");
+  
+  Listener.notifyArgumentByVal(Index, Arg, Address);
+}
+
 void SeeCRecordSetReadable(void *Address, uint64_t Size) {
   llvm::errs() << "readable " << Address << ", " << Size << "\n";
 }

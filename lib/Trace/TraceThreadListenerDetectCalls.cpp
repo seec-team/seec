@@ -53,9 +53,9 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
                                      uint32_t Index,
                                      char const *Filename,
                                      char const *Mode) {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
   
   if (Address) {
     auto StreamsAccessor = ProcessListener.getStreamsAccessor();
@@ -91,9 +91,9 @@ void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
                                        char const *Filename,
                                        char const *Mode,
                                        FILE *Stream) {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
   
   if (Address) {
     auto &Streams = ProcessListener.getStreams(StreamsLock);
@@ -217,9 +217,9 @@ postCfgets(llvm::CallInst const *Call,
            int Count,
            FILE *Stream)
 {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
   
   if (!Address)
     return;
@@ -874,9 +874,9 @@ void TraceThreadListener::postCcalloc(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       size_t Num,
                                       size_t Size) {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
 
   if (Address) {
     recordMalloc(Address, Num * Size);
@@ -939,9 +939,9 @@ void TraceThreadListener::preCmalloc(llvm::CallInst const *Call,
 void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       size_t Size) {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
 
   if (Address) {
     recordMalloc(Address, Size);
@@ -979,9 +979,9 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
                                        uint32_t Index,
                                        void *Address,
                                        size_t Size) {
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  auto NewAddress = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto NewAddress = RTValue->getUIntPtr();
 
   auto OldAddress = reinterpret_cast<uintptr_t>(Address);
 
@@ -1044,10 +1044,9 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char const *Name) {
   // Get the pointer returned by getenv.
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
-  
-  auto Address = RTValue.getUIntPtr();
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
   if (!Address)
     return;
   
@@ -1408,10 +1407,10 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
                                         uint32_t Index,
                                         int Errnum) {
   // Get the pointer returned by strerror.
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
-  assert(RTValue.assigned() && "Expected assigned RTValue.");
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
   
-  auto Address = RTValue.getUIntPtr();
   auto Str = reinterpret_cast<char const *>(Address);
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   

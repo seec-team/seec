@@ -24,8 +24,12 @@
 
 namespace seec {
 
+
 /// \brief Index for an llvm::Function.
 class FunctionIndex {
+  /// Keep a reference to the llvm::Function.
+  llvm::Function &Function;
+  
   /// Lookup Instruction pointers by their index.
   std::vector<llvm::Instruction *> InstructionPtrByIdx;
   
@@ -38,7 +42,8 @@ class FunctionIndex {
 public:
   /// \brief Constructor.
   FunctionIndex(llvm::Function &Function)
-  : InstructionPtrByIdx(),
+  : Function(Function),
+    InstructionPtrByIdx(),
     InstructionIdxByPtr(),
     ArgumentPtrByIdx()
   {
@@ -54,6 +59,11 @@ public:
       ArgumentPtrByIdx.push_back(&Argument);
     }
   }
+  
+  
+  /// \brief Get a reference to the llvm::Function.
+  ///
+  llvm::Function &getFunction() const { return Function; }
   
   
   /// \name Instruction mapping.
@@ -102,6 +112,7 @@ public:
   
   /// @}
 };
+
 
 /// \brief Index for an llvm::Module.
 class ModuleIndex {
@@ -231,6 +242,7 @@ public:
     return getFunctionIndex(Idx.get<0>());
   }
 };
+
 
 }
 

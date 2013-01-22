@@ -73,7 +73,8 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   auto const &FIndex = ProcessListener.moduleIndex().getFunctionIndex(Index);
 
   // create function record
-  auto TF = new (std::nothrow) TracedFunction(*FIndex,
+  auto TF = new (std::nothrow) TracedFunction(*this,
+                                              *FIndex,
                                               RecordOffset,
                                               Index,
                                               StartOffset,
@@ -99,6 +100,68 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
 
     ActiveFunction = TF;
   }
+}
+
+void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
+                                              llvm::Argument const *Arg,
+                                              void const *Address) {
+  // Handle common behaviour when entering and exiting notifications.
+  enterNotification();
+  auto OnExit = scopeExit([=](){exitNotification();});
+
+  // Get general information about the argument.
+  auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
+  
+  auto const ArgType = Arg->getType();
+  if (!ArgType->isPointerTy())
+    return;
+  
+  auto const ArgPtrType = llvm::dyn_cast<llvm::PointerType>(ArgType);
+  assert(ArgPtrType);
+  
+  auto const PointeeType = ArgPtrType->getPointerElementType();
+  assert(PointeeType);
+  
+  auto const &DataLayout = ProcessListener.dataLayout();
+  auto const PointeeSize = DataLayout.getTypeStoreSize(PointeeType);
+  
+  // Lock global memory, and release when we exit scope.
+  acquireGlobalMemoryWriteLock();
+  auto UnlockGlobalMemory = scopeExit([=](){ GlobalMemoryLock.unlock(); });
+  
+  // Add the memory area of the argument.
+  ActiveFunction->addByValArea(MemoryArea(AddressInt, PointeeSize));
+  
+  // We need to query the parent's FunctionRecord.
+  TracedFunction const *ParentFunction = nullptr;
+  
+  {
+    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
+    if (FunctionStack.size() >= 2) {
+      auto ParentIdx = FunctionStack.size() - 2;
+      ParentFunction = FunctionStack[ParentIdx];
+    }
+  }
+  
+  // If we can find the original value, copy the memory from that.
+  if (ParentFunction) {
+    auto const ParentInstruction = ParentFunction->getActiveInstruction();
+    if (ParentInstruction) {
+      auto const ParentCall = llvm::dyn_cast<llvm::CallInst>(ParentInstruction);
+      if (ParentCall->getCalledFunction() == Arg->getParent()) {
+        auto const OrigOp = ParentCall->getOperand(Index);
+        auto const OrigRTV
+          = getCurrentRuntimeValueAs<uintptr_t>(*ParentFunction, OrigOp);
+        assert(OrigRTV.assigned() && "Couldn't get pointer.");
+        
+        recordMemmove(OrigRTV.get<0>(), AddressInt, PointeeSize);
+        return;
+      }
+    }
+  }
+  
+  // Assume that the argument is initialized.
+  recordUntypedState(reinterpret_cast<char const *>(Address), PointeeSize);
 }
 
 void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
@@ -202,13 +265,18 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
   auto EndOffset =
     EventsOut.write<EventType::FunctionEnd>(TF->getRecordOffset());
 
-  // Clear function's stack range.
-  GlobalMemoryLock = ProcessListener.lockMemory();
+  // Clear function's stack range and byval argument memory.
+  {
+    acquireGlobalMemoryWriteLock();
+    auto UnlockGlobalMemory = scopeExit([=](){GlobalMemoryLock.unlock();});
 
-  auto StackArea = TF->getStackArea();
-  recordStateClear(StackArea.address(), StackArea.length());
-
-  GlobalMemoryLock.unlock();
+    auto StackArea = TF->getStackArea();
+    recordStateClear(StackArea.address(), StackArea.length());
+    
+    for (auto const &Area : TF->getByValAreas()) {
+      recordStateClear(Area.address(), Area.length());
+    }
+  }
 
   // Update the function record with the end details.
   TF->finishRecording(EndOffset, Exited);
@@ -388,8 +456,10 @@ void TraceThreadListener::notifyPostStore(uint32_t Index,
   auto StoreValue = Store->getValueOperand();
 
   if (auto StoreValueInst = llvm::dyn_cast<llvm::Instruction>(StoreValue)) {
-    auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(StoreValueInst);
-    recordTypedState(Address, Size, RTValue.getRecordOffset());
+    auto RTValue = getActiveFunction()->getCurrentRuntimeValue(StoreValueInst);
+    assert(RTValue);
+    
+    recordTypedState(Address, Size, RTValue->getRecordOffset());
   }
   else {
     recordUntypedState(reinterpret_cast<char const *>(Address), Size);
@@ -515,8 +585,8 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
-
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  
   auto IntVal = reinterpret_cast<uintptr_t>(Value);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
@@ -558,7 +628,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>
                                (Index,
@@ -576,7 +646,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>
                                (Index,
@@ -594,7 +664,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>
                                (Value,
@@ -612,7 +682,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithSmallValue>
                                (Value,
@@ -630,7 +700,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>
                                (Index,
@@ -648,7 +718,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>
                                (Index,
@@ -666,7 +736,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>
                                (Index,
