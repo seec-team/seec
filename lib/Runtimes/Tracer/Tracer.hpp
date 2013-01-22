@@ -171,6 +171,13 @@ public:
   ///
   ProcessEnvironment();
   
+  /// \brief Destructor.
+  ///
+  /// Ensures that ThreadEnvironment objects, and thus ThreadListener objects,
+  /// are destroyed before the shared ProcessListener object.
+  ///
+  ~ProcessEnvironment();
+  
   decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
   
   llvm::LLVMContext &getContext() { return Context; }

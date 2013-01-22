@@ -324,11 +324,8 @@ public:
 
   /// Destructor.
   ~TraceThreadListener() {
-    // Don't implement until we have thread_local storage and can thus ensure
-    // that all TraceThreadListeners are destroyed before the ProcessListener.
-    // ProcessListener.deregisterThreadListener(ThreadID);
-
     writeTrace();
+    ProcessListener.deregisterThreadListener(ThreadID);
   }
 
 

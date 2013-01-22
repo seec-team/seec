@@ -76,7 +76,7 @@ llvm::Instruction *ThreadEnvironment::getInstruction() const {
 
 
 //------------------------------------------------------------------------------
-// ThreadEnvironment
+// ProcessEnvironment
 //------------------------------------------------------------------------------
 
 ProcessEnvironment::ProcessEnvironment()
@@ -145,6 +145,12 @@ ProcessEnvironment::ProcessEnvironment()
 
 #undef SEEC__STR2
 #undef SEEC__STR
+}
+
+ProcessEnvironment::~ProcessEnvironment()
+{
+  ThreadLookup.clear();
+  ProcessTracer.reset();
 }
 
 
