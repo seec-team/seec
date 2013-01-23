@@ -144,6 +144,14 @@ public:
   }
 
   bool loadResource(char const *Package);
+  
+  template<typename RangeT>
+  bool loadResources(RangeT const &Resources) {
+    for (auto const &Resource : Resources)
+      if (!loadResource(Resource))
+        return false;
+    return true;
+  }
 
   bool freeResource(llvm::StringRef Package) {
     return Resources.erase(Package.str()) != 0;
