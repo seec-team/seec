@@ -21,11 +21,14 @@
 
 #include <memory>
 
+
 namespace seec {
 
 namespace trace {
 
+
 /// \brief Handled writing trace events to an output stream.
+///
 class EventWriter {
   /// The output stream to write to.
   std::unique_ptr<llvm::raw_ostream> Out;
@@ -43,22 +46,27 @@ class EventWriter {
   EventWriter(EventWriter const &) = delete;
   EventWriter &operator=(EventWriter const &) = delete;
   
-  /// Write a block of data, and get the offset that it starts at.
+  /// \brief Write a block of data, and get the offset that it starts at.
   /// \param Bytes the array of bytes to be written.
   /// \return the offset that this block was written at.
+  ///
   offset_uint write(llvm::ArrayRef<char> Bytes) {
-    auto Size = Bytes.size();
+    // If the stream doesn't exist, silently ignore the write request.
+    if (!Out)
+      return 0;
     
+    auto const Size = Bytes.size();
     Out->write(Bytes.data(), Size);
 
     // Update the current offset and return the original value.
-    auto WrittenAt = Offset;
+    auto const WrittenAt = Offset;
     Offset += Size;
     return WrittenAt;
   }
   
 public:
-  /// Constructor.
+  /// \brief Constructor.
+  ///
   EventWriter(std::unique_ptr<llvm::raw_ostream> OutStream)
   : Out(std::move(OutStream)),
     Offset(0),
@@ -74,18 +82,30 @@ public:
   /// \name Accessors
   /// @{
   
+  /// \brief Get the number of bytes already written to the stream.
   offset_uint offset() const { return Offset; }
   
+  /// \brief Get the size of the last-written event.
   uint8_t previousEventSize() const { return PreviousEventSize; }
-  
-  /// @}
-  
-  offset_uint getPreviousOffsetOf(EventType Type) {
+
+  /// \brief Get the offset of the last-written event of type Type.
+  offset_uint getPreviousOffsetOf(EventType Type) const {
     assert(Type != EventType::Highest);
     return PreviousOffsets[static_cast<std::size_t>(Type)];
   }
-
-  /// Construct a record and then write it as a block of data.
+  
+  /// @} (Accessors)
+  
+  
+  /// \name Mutators
+  /// @{
+  
+  /// \brief Close this EventWriter's output stream.
+  void close() {
+    Out.reset(nullptr);
+  }
+  
+  /// \brief Construct a record and then write it as a block of data.
   /// \tparam ET the type of event to construct a record for.
   /// \tparam ArgTypes the types of arguments to pass to the record constructor.
   /// \param Args the arguments to pass to the record constructor.
@@ -105,7 +125,10 @@ public:
     
     return Offset;
   }
+  
+  /// @} (Mutators)
 };
+
 
 } // namespace trace (in seec)
 
