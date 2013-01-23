@@ -27,8 +27,7 @@ namespace cm {
 // ProcessTrace
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                  seec::Error>
+seec::util::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
 ProcessTrace::
 load(llvm::StringRef ExecutablePath,
      std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator) {
@@ -44,19 +43,13 @@ load(llvm::StringRef ExecutablePath,
   // Load the bitcode.
   auto &Context = llvm::getGlobalContext();
   
-  auto DirPath = Allocator->getTraceDirectory();
-  DirPath.appendComponent(ProcTrace->getModuleIdentifier());
-
-  llvm::SMDiagnostic ParseError;
-  llvm::Module *Mod = llvm::ParseIRFile(DirPath.str(), ParseError, Context);
-  if (!Mod) {
-    return seec::Error(LazyMessageByRef::create("SeeCClang",
-                      {"errors", "ParseModuleFail"},
-                      std::make_pair("path",
-                                     Allocator->getTraceDirectory().c_str()),
-                      std::make_pair("error",
-                                     ParseError.getMessage().c_str())));
+  auto MaybeMod = Allocator->getModule(Context);
+  if (MaybeMod.assigned<seec::Error>()) {
+    return std::move(MaybeMod.get<seec::Error>());
   }
+  
+  assert(MaybeMod.assigned<llvm::Module *>());
+  auto Mod = MaybeMod.get<llvm::Module *>();
   
   return std::unique_ptr<ProcessTrace>
                         (new ProcessTrace(ExecutablePath,

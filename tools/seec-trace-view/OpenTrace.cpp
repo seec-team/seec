@@ -34,8 +34,17 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
   llvm::sys::Path DirPath {FilePath.ToStdString()};
   DirPath.eraseComponent(); // Erase the filename from the path.
 
+  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(DirPath.str());
+  if (MaybeIBA.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Message = MaybeIBA.get<seec::Error>().getMessage(Status, Locale());
+    assert(U_SUCCESS(Status));
+    return RetTy(seec::towxString(Message));
+  }
+  
+  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
   auto BufferAllocator = seec::makeUnique<seec::trace::InputBufferAllocator>
-                                         (DirPath);
+                                         (MaybeIBA.get<seec::trace::InputBufferAllocator>());
 
   // Read the process trace using the InputBufferAllocator.
   auto MaybeProcTrace = seec::trace::ProcessTrace::readFrom(*BufferAllocator);
@@ -57,29 +66,19 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
 
   // Load the bitcode.
   llvm::LLVMContext &Context = llvm::getGlobalContext();
-
-  DirPath.appendComponent(ProcTrace->getModuleIdentifier());
-
-  llvm::SMDiagnostic ParseError;
-  llvm::Module *Mod = llvm::ParseIRFile(DirPath.str(),
-                                        ParseError,
-                                        Context);
-  if (!Mod) {
-    // TODO: Add the parse error to the returned error message.
-    //
-    // ParseError.print("seec-trace-view", llvm::errs());
-
+  
+  auto MaybeMod = BufferAllocator->getModule(Context);
+  if (MaybeMod.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
-    auto TextTable = seec::getResource("TraceViewer",
-                                       Locale::getDefault(),
-                                       Status,
-                                       "GUIText");
+    auto Message = MaybeMod.get<seec::Error>().getMessage(Status, Locale());
     assert(U_SUCCESS(Status));
-
-    return RetTy(seec::getwxStringExOrDie(TextTable,
-                                          "OpenTrace_Error_ParseIRFile"));
+    return RetTy(seec::towxString(Message));
   }
+  
+  assert(MaybeMod.assigned<llvm::Module *>());
+  auto Mod = MaybeMod.get<llvm::Module *>();
 
+  // Construct and return the OpenTrace object.
   return RetTy(std::unique_ptr<OpenTrace>(
                   new OpenTrace(ExecutablePath,
                                 Context,

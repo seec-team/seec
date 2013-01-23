@@ -15,5 +15,50 @@ root:table {
     InputBufferAllocationFail:string {
       "Failed to read file \"{file}\": {error}"
     }
+
+    //
+    CreateDirectoryFail:string {
+      "Failed to create directory at path: \"{path}\"."
+    }
+
+    //
+    CurrentPathFail:string {
+      "Failed to find the current path."
+    }
+
+    //
+    ExistsFail:string {
+      "Couldn't determine whether or not the output directory path already existed: \"{path\"."
+    }
+
+    //
+    FileOutputBufferFail {
+      "Couldn't create output buffer for file: \"{path}\"."
+    }
+
+    //
+    IsDirectoryFail:string {
+      "Couldn't determine whether or not a valid directory existed at output path: \"{path}\"."
+    }
+
+    //
+    ParseBitcodeFileFail:string {
+      "Error occurred while parsing bitcode: {error}"
+    }
+
+    //
+    PathIsNotDirectory:string {
+      "Path is not a directory: \"{path}\"."
+    }
+
+    //
+    OutDirectoryExists:string {
+      "Output directory path already exists: \"{path}\"."
+    }
+
+    //
+    OutputStreamAllocatorFail:string {
+      "Failed to construct new OutputStreamAllocator."
+    }
   }
 }

@@ -152,7 +152,7 @@ class ProcessEnvironment {
   std::unique_ptr<ModuleIndex> ModIndex;
   
   /// Allocator for the trace's output streams.
-  OutputStreamAllocator StreamAllocator;
+  std::unique_ptr<OutputStreamAllocator> StreamAllocator;
   
   /// Support synchronized exit of all threads.
   seec::SynchronizedExit SyncExit;
@@ -186,7 +186,7 @@ public:
   
   ModuleIndex &getModuleIndex() { return *ModIndex; }
   
-  OutputStreamAllocator &getStreamAllocator() { return StreamAllocator; }
+  OutputStreamAllocator &getStreamAllocator() { return *StreamAllocator; }
   
   SynchronizedExit &getSynchronizedExit() { return SyncExit; }
   

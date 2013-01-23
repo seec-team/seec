@@ -23,6 +23,7 @@
 #include "llvm/Type.h"
 #include "llvm/TypeBuilder.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/InstIterator.h"
@@ -158,9 +159,18 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   DL = getAnalysisIfAvailable<DataLayout>();
   if (!DL)
     return false;
-
+  
   // Index the module (prior to adding any functions)
   ModIndex.reset(new seec::ModuleIndex(M));
+  
+  // Get bitcode for the uninstrumented Module.
+  std::string ModuleBitcode;
+  
+  {
+    llvm::raw_string_ostream BitcodeStream {ModuleBitcode};
+    llvm::WriteBitcodeToFile(&M, BitcodeStream);
+    BitcodeStream.flush();
+  }
 
   // Build a list of all the global variables used in the module
   std::vector<Constant *> Globals;
@@ -215,6 +225,25 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   new GlobalVariable(M, Int64Ty, true, GlobalValue::ExternalLinkage,
                      ConstantInt::get(Int64Ty, Functions.size()),
                      StringRef("SeeCInfoFunctionsLength"));
+  
+  // Add the module's bitcode as a global.
+  if (auto Existing = M.getNamedGlobal("SeeCInfoModuleBitcode")) {
+    Existing->eraseFromParent();
+  }
+  
+  auto BitcodeConst = ConstantDataArray::getString(Context, ModuleBitcode);
+  new GlobalVariable(M, BitcodeConst->getType(), true,
+                     GlobalValue::ExternalLinkage, BitcodeConst,
+                     StringRef("SeeCInfoModuleBitcode"));
+  
+  // Add the size of the module's bitcode as a global.
+  if (auto Existing = M.getNamedGlobal("SeeCInfoModuleBitcodeLength")) {
+    Existing->eraseFromParent();
+  }
+  
+  new GlobalVariable(M, Int64Ty, true, GlobalVariable::ExternalLinkage,
+                     ConstantInt::get(Int64Ty, ModuleBitcode.size()),
+                     StringRef("SeeCInfoModuleBitcodeLength"));
 
   // Add the module's identifier as a global string
   Constant *IdentifierStrConst

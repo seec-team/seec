@@ -46,6 +46,7 @@
 
 #include "unicode/unistr.h"
 
+#include <array>
 #include <memory>
 
 using namespace seec;
@@ -53,7 +54,7 @@ using namespace llvm;
 
 namespace {
   static cl::opt<std::string>
-  InputFile(cl::desc("<input trace>"), cl::Positional, cl::init(""));
+  InputDirectory(cl::desc("<input trace>"), cl::Positional, cl::init(""));
 
   static cl::opt<bool>
   ShowRawEvents("R", cl::desc("show raw events"));
@@ -65,7 +66,7 @@ namespace {
   ShowErrors("E", cl::desc("show run-time errors"));
 }
 
-// from clang's driver.cpp
+// From clang's driver.cpp:
 llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
   if (!CanonicalPrefixes)
     return llvm::sys::Path(ArgV0);
@@ -88,19 +89,13 @@ int main(int argc, char **argv, char * const *envp) {
 
   // Setup resource loading.
   ResourceLoader Resources(ExecutablePath);
-
-  if (!Resources.loadResource("RuntimeErrors")) {
-    llvm::errs() << "failed to load resource 'RuntimeErrors'\n";
-    exit(EXIT_FAILURE);
-  }
   
-  if (!Resources.loadResource("SeeCClang")) {
-    llvm::errs() << "failed to load resource 'SeeCClang'\n";
-    exit(EXIT_FAILURE);
-  }
+  std::array<char const *, 3> ResourceList {
+    {"RuntimeErrors", "SeeCClang", "Trace"}
+  };
   
-  if (!Resources.loadResource("Trace")) {
-    llvm::errs() << "failed to load resource 'Trace'\n";
+  if (!Resources.loadResources(ResourceList)) {
+    llvm::errs() << "failed to load resources\n";
     exit(EXIT_FAILURE);
   }
 
@@ -130,9 +125,19 @@ int main(int argc, char **argv, char * const *envp) {
 
   auto &Context = llvm::getGlobalContext();
 
-  // Read the trace.
-  seec::trace::InputBufferAllocator BufferAllocator;
+  // Attempt to setup the trace reader.
+  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
+  if (MaybeIBA.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = std::move(MaybeIBA.get<seec::Error>());
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
+    exit(EXIT_FAILURE);
+  }
   
+  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
+  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
+  
+  // Attempt to read the trace.
   auto MaybeProcTrace = trace::ProcessTrace::readFrom(BufferAllocator);
   if (MaybeProcTrace.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -144,14 +149,16 @@ int main(int argc, char **argv, char * const *envp) {
   std::shared_ptr<trace::ProcessTrace> Trace(MaybeProcTrace.get<0>().release());
 
   // Load the bitcode.
-  llvm::SMDiagnostic ParseError;
-  llvm::Module *Mod = llvm::ParseIRFile(Trace->getModuleIdentifier(),
-                                        ParseError,
-                                        Context);
-  if (!Mod) {
-    ParseError.print(argv[0], errs());
+  auto MaybeMod = BufferAllocator.getModule(Context);
+  if (MaybeMod.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = std::move(MaybeMod.get<seec::Error>());
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
+  
+  assert(MaybeMod.assigned<llvm::Module *>());
+  auto Mod = MaybeMod.get<llvm::Module *>();
 
   // Index the llvm::Module.
   auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);

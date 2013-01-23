@@ -18,10 +18,13 @@ extern "C" {
 
 extern char const SeeCInfoModuleIdentifier[];
 
-extern void *SeeCInfoFunctions[];
+extern char const SeeCInfoModuleBitcode[];
+extern uint64_t   SeeCInfoModuleBitcodeLength;
+
+extern void    *SeeCInfoFunctions[];
 extern uint64_t SeeCInfoFunctionsLength;
 
-extern void *SeeCInfoGlobals[];
+extern void    *SeeCInfoGlobals[];
 extern uint64_t SeeCInfoGlobalsLength;
 
 }

@@ -50,6 +50,13 @@ Range<IterT> range(IterT Begin, IterT End) {
   return Range<IterT>(Begin, End);
 }
 
+/// \brief Get a range covering a C array.
+///
+template<typename ElemT, unsigned ElemN>
+Range<ElemT *> range(ElemT(&Array)[ElemN]) {
+  return Range<ElemT *>(Array[0], Array[ElemN]);
+}
+
 } // namespace seec
 
 #endif // SEEC_UTIL_RANGE_HPP

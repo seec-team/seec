@@ -91,16 +91,35 @@ ProcessEnvironment::ProcessEnvironment()
 {
   llvm::llvm_start_multithreaded();
   
-  // Load Mod.
-  llvm::SMDiagnostic Err;
-  Mod.reset(llvm::ParseIRFile(SeeCInfoModuleIdentifier, Err, Context));
-  
-  if (!Mod) {
-    llvm::errs() << "\nFailed to load module '" 
-                 << SeeCInfoModuleIdentifier
-                 << "'\n";
+  // Create the output stream allocator.
+  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
+  if (MaybeOutput.assigned(0)) {
+    StreamAllocator = std::move(MaybeOutput.get<0>());
+  }
+  else if (MaybeOutput.assigned(1)) {
+    llvm::errs() << "\nError returned from createOutputStreamAllocator().\n";
     exit(EXIT_FAILURE);
   }
+  else {
+    llvm::errs() << "\nNo return from createOutputStreamAllocator().\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  // Parse the Module bitcode, which is stored in a global variable.
+  llvm::StringRef BitcodeRef {SeeCInfoModuleBitcode,
+                              SeeCInfoModuleBitcodeLength};
+  
+  auto BitcodeBuffer = llvm::MemoryBuffer::getMemBuffer(BitcodeRef, "", false);
+  
+  Mod.reset(llvm::ParseBitcodeFile(BitcodeBuffer, Context));
+  
+  if (!Mod) {
+    llvm::errs() << "\nFailed to parse module bitcode.\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  // Write a copy of the Module's bitcode into the trace directory.
+  StreamAllocator->writeModule(BitcodeRef);
   
   // Build ModIndex.
   ModIndex.reset(new ModuleIndex(*Mod));
@@ -108,7 +127,7 @@ ProcessEnvironment::ProcessEnvironment()
   // Create the process tracer.
   ProcessTracer.reset(new TraceProcessListener(*Mod, 
                                                *ModIndex, 
-                                               StreamAllocator,
+                                               *StreamAllocator,
                                                SyncExit));
 
   // Give the listener the run-time locations of functions.
