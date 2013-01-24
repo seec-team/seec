@@ -26,44 +26,6 @@ namespace trace {
 // Helper methods
 //------------------------------------------------------------------------------
 
-void TraceThreadListener::writeTrace() {
-  EventsOut.write<EventType::TraceEnd>(0);
-  
-  offset_uint Written = 0;
-
-  // Calculate the offset position of the first (top-level functions) list.
-  offset_uint ListOffset = getNewFunctionRecordOffset();
-
-  // Write offset of top-level function list.
-  Written += writeBinary(*TraceOut, ListOffset);
-  
-  // Calculate offset of the next function list.
-  ListOffset += getWriteBinarySize(RecordedTopLevelFunctions);
-
-  // write functions
-  for (auto const &Function: RecordedFunctions) {
-    Written += writeBinary(*TraceOut, Function->getIndex());
-    Written += writeBinary(*TraceOut, Function->getEventOffsetStart());
-    Written += writeBinary(*TraceOut, Function->getEventOffsetEnd());
-    Written += writeBinary(*TraceOut, Function->getThreadTimeEntered());
-    Written += writeBinary(*TraceOut, Function->getThreadTimeExited());
-    
-    // Write offset of the child function list.
-    Written += writeBinary(*TraceOut, ListOffset);
-    
-    // Calculate offset of the next function list.
-    ListOffset += getWriteBinarySize(Function->getChildren());
-  }
-
-  // Write the top-level function list.
-  Written += writeBinary(*TraceOut, RecordedTopLevelFunctions);
-
-  // Write the child lists.
-  for (auto const &Function: RecordedFunctions) {
-    Written += writeBinary(*TraceOut, Function->getChildren());
-  }
-}
-
 void TraceThreadListener::synchronizeProcessTime() {
   auto RealProcessTime = ProcessListener.getTime();
   
@@ -124,6 +86,50 @@ void TraceThreadListener::recordFreeAndClear(uintptr_t Address) {
 //------------------------------------------------------------------------------
 // Memory states
 //------------------------------------------------------------------------------
+
+void
+TraceThreadListener::writeStateOverwritten(OverwrittenMemoryInfo const &Info)
+{
+  for (auto const &Overwrite : Info.overwrites()) {
+    auto &Event = Overwrite.getStateEvent();
+    auto &OldArea = Overwrite.getOldArea();
+    auto &NewArea = Overwrite.getNewArea();
+    
+    switch (Overwrite.getType()) {
+      case StateOverwrite::OverwriteType::ReplaceState:
+        EventsOut.write<EventType::StateOverwrite>
+                       (Event.getThreadID(),
+                        Event.getOffset());
+        break;
+      
+      case StateOverwrite::OverwriteType::ReplaceFragment:
+        EventsOut.write<EventType::StateOverwriteFragment>
+                       (Event.getThreadID(),
+                        Event.getOffset(),
+                        NewArea.address(),
+                        NewArea.length());
+        break;
+      
+      case StateOverwrite::OverwriteType::TrimFragmentRight:
+        EventsOut.write<EventType::StateOverwriteFragmentTrimmedRight>
+                       (OldArea.address(),
+                        OldArea.end() - NewArea.start());
+        break;
+      
+      case StateOverwrite::OverwriteType::TrimFragmentLeft:
+        EventsOut.write<EventType::StateOverwriteFragmentTrimmedLeft>
+                       (NewArea.end(),
+                        OldArea.start());
+        break;
+      
+      case StateOverwrite::OverwriteType::SplitFragment:
+        EventsOut.write<EventType::StateOverwriteFragmentSplit>
+                       (OldArea.address(),
+                        NewArea.end());
+        break;
+    }
+  }
+}
 
 void TraceThreadListener::recordUntypedState(char const *Data,
                                              std::size_t Size) {
@@ -236,6 +242,79 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
                                             Copy.getArea().start(),
                                             Copy.getArea().length());
   }
+}
+
+
+//------------------------------------------------------------------------------
+// Trace writing control.
+//------------------------------------------------------------------------------
+
+void TraceThreadListener::traceWrite()
+{
+  if (!OutputEnabled)
+    return;
+  
+  // Terminate the event stream.
+  EventsOut.write<EventType::TraceEnd>(0);
+  
+  // Write the trace information.
+  auto TraceOut = StreamAllocator.getThreadStream(ThreadID,
+                                                  ThreadSegment::Trace);
+  assert(TraceOut && "Couldn't get thread trace stream.");
+  
+  offset_uint Written = 0;
+
+  // Calculate the offset position of the first (top-level functions) list.
+  offset_uint ListOffset = getNewFunctionRecordOffset();
+
+  // Write offset of top-level function list.
+  Written += writeBinary(*TraceOut, ListOffset);
+  
+  // Calculate offset of the next function list.
+  ListOffset += getWriteBinarySize(RecordedTopLevelFunctions);
+
+  // Write function information.
+  for (auto const &Function: RecordedFunctions) {
+    Written += writeBinary(*TraceOut, Function->getIndex());
+    Written += writeBinary(*TraceOut, Function->getEventOffsetStart());
+    Written += writeBinary(*TraceOut, Function->getEventOffsetEnd());
+    Written += writeBinary(*TraceOut, Function->getThreadTimeEntered());
+    Written += writeBinary(*TraceOut, Function->getThreadTimeExited());
+    
+    // Write offset of the child function list.
+    Written += writeBinary(*TraceOut, ListOffset);
+    
+    // Calculate offset of the next function list.
+    ListOffset += getWriteBinarySize(Function->getChildren());
+  }
+
+  // Write the top-level function list.
+  Written += writeBinary(*TraceOut, RecordedTopLevelFunctions);
+
+  // Write the child lists.
+  for (auto const &Function: RecordedFunctions) {
+    Written += writeBinary(*TraceOut, Function->getChildren());
+  }
+}
+
+void TraceThreadListener::traceFlush()
+{
+  EventsOut.flush();
+}
+
+void TraceThreadListener::traceClose()
+{
+  EventsOut.close();
+}
+
+void TraceThreadListener::traceOpen()
+{
+  EventsOut.open(
+    StreamAllocator.getThreadStream(ThreadID,
+                                    ThreadSegment::Events,
+                                    llvm::raw_fd_ostream::F_Append));
+  
+  OutputEnabled = true;
 }
 
 

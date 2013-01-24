@@ -117,11 +117,11 @@ class TraceProcessListener {
   TraceProcessListener(TraceProcessListener const &) = delete;
   TraceProcessListener &operator=(TraceProcessListener const &) = delete;
 
-  typedef llvm::raw_ostream OutStream;
-  typedef std::unique_ptr<OutStream> StreamHolder;
-
   /// Allocates output streams.
   OutputStreamAllocator &StreamAllocator;
+  
+  /// Toggles trace output.
+  bool OutputEnabled;
   
   /// Handles synchronized calls to std::exit().
   SynchronizedExit &SyncExit;
@@ -221,6 +221,32 @@ public:
 
   /// \brief Destructor.
   ~TraceProcessListener();
+  
+  
+  /// \name Trace writing control.
+  /// @{
+  
+  /// \brief Check if tracing is enabled.
+  ///
+  bool traceEnabled() const { return OutputEnabled; }
+  
+  /// \brief Write out complete trace information.
+  ///
+  void traceWrite();
+  
+  /// \brief Flush all open trace streams.
+  ///
+  void traceFlush();
+  
+  /// \brief Close all open trace streams and disable future writes.
+  ///
+  void traceClose();
+  
+  /// \brief Open all used trace streams and enable future writes.
+  ///
+  void traceOpen();
+  
+  /// @}
 
 
   /// \name Accessors

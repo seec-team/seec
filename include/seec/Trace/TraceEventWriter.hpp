@@ -53,7 +53,7 @@ class EventWriter {
   offset_uint write(llvm::ArrayRef<char> Bytes) {
     // If the stream doesn't exist, silently ignore the write request.
     if (!Out)
-      return 0;
+      return noOffset();
     
     auto const Size = Bytes.size();
     Out->write(Bytes.data(), Size);
@@ -67,8 +67,8 @@ class EventWriter {
 public:
   /// \brief Constructor.
   ///
-  EventWriter(std::unique_ptr<llvm::raw_ostream> OutStream)
-  : Out(std::move(OutStream)),
+  EventWriter()
+  : Out(),
     Offset(0),
     PreviousEventSize(0),
     PreviousOffsets()
@@ -78,6 +78,7 @@ public:
       PreviousOffsets[i] = noOffset();
     }
   }
+  
   
   /// \name Accessors
   /// @{
@@ -97,13 +98,33 @@ public:
   /// @} (Accessors)
   
   
-  /// \name Mutators
+  /// \name Writing control
   /// @{
   
+  /// \brief Open this EventWriter's output stream.
+  ///
+  void open(std::unique_ptr<llvm::raw_ostream> Stream) {
+    Out = std::move(Stream);
+  }
+  
+  /// \brief Flush this EventWriter's output stream.
+  ///
+  void flush() {
+    if (Out)
+      Out->flush();
+  }
+  
   /// \brief Close this EventWriter's output stream.
+  ///
   void close() {
     Out.reset(nullptr);
   }
+  
+  /// @} (Writing control)
+  
+  
+  /// \name Event writing
+  /// @{
   
   /// \brief Construct a record and then write it as a block of data.
   /// \tparam ET the type of event to construct a record for.
@@ -113,6 +134,10 @@ public:
   template<EventType ET,
            typename... ArgTypes>
   offset_uint write(ArgTypes&&... Args) {
+    if (!Out)
+      return noOffset();
+    
+    // Construct the event record.
     EventRecord<ET> Record(PreviousEventSize, std::forward<ArgTypes>(Args)...);
 
     // Write the record as a block of bytes.
@@ -126,7 +151,7 @@ public:
     return Offset;
   }
   
-  /// @} (Mutators)
+  /// @} (Event writing)
 };
 
 

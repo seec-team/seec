@@ -29,6 +29,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
                                            OutputStreamAllocator &StreamAlloc,
                                            SynchronizedExit &SyncExit)
 : StreamAllocator(StreamAlloc),
+  OutputEnabled(false),
   SyncExit(SyncExit),
   Module(Module),
   DL(&Module),
@@ -39,7 +40,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   GlobalVariableInitialData(MIndex.getGlobalCount()),
   FunctionAddresses(MIndex.getFunctionCount()),
   FunctionLookup(),
-  DataOut(StreamAlloc.getProcessStream(ProcessSegment::Data)),
+  DataOut(),
   DataOutOffset(0),
   DataOutMutex(),
   Time(0),
@@ -55,28 +56,70 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   StreamsMutex(),
   Streams()
 {
+  // Open traces and enable output.
+  traceOpen();
+  
   Streams.streamOpened(stdout);
   Streams.streamOpened(stderr);
   Streams.streamOpened(stdin);
 }
 
 TraceProcessListener::~TraceProcessListener() {
+  traceWrite();
+  traceFlush();
+  traceClose();
+}
+
+
+//===----------------------------------------------------------------------===//
+// Trace writing control.
+//===----------------------------------------------------------------------===//
+
+void TraceProcessListener::traceWrite() {
+  if (!OutputEnabled)
+    return;
+  
   auto Out = StreamAllocator.getProcessStream(ProcessSegment::Trace);
   if (!Out)
     return;
-    
+  
   uint64_t Version = formatVersion();
   uint32_t NumThreads = NextThreadID - 1;
-    
+  
   writeBinary(*Out, Version);
   writeBinary(*Out, Module.getModuleIdentifier());
   writeBinary(*Out, NumThreads);
-  // writeBinary(*Out, Time.load());
   writeBinary(*Out, Time);
   writeBinary(*Out, GlobalVariableAddresses);
   writeBinary(*Out, GlobalVariableInitialData);
   writeBinary(*Out, FunctionAddresses);
 }
+
+void TraceProcessListener::traceFlush() {
+  std::lock_guard<std::mutex> Lock(DataOutMutex);
+  
+  if (DataOut)
+    DataOut->flush();
+}
+
+void TraceProcessListener::traceClose() {
+  std::lock_guard<std::mutex> Lock(DataOutMutex);
+  DataOut.reset(nullptr);
+  OutputEnabled = false;
+}
+
+void TraceProcessListener::traceOpen() {
+  std::lock_guard<std::mutex> Lock(DataOutMutex);
+  assert(!OutputEnabled && "traceOpen() with OutputEnabled.");
+  DataOut = StreamAllocator.getProcessStream(ProcessSegment::Data,
+                                             llvm::raw_fd_ostream::F_Append);
+  OutputEnabled = true;
+}
+
+
+//===----------------------------------------------------------------------===//
+// Accessors.
+//===----------------------------------------------------------------------===//
 
 seec::util::Maybe<MemoryArea>
 TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
@@ -137,19 +180,32 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
   return seec::util::Maybe<MemoryArea>();
 }
 
+
+//===----------------------------------------------------------------------===//
+// Memory state tracking.
+//===----------------------------------------------------------------------===//
+
 offset_uint TraceProcessListener::recordData(char const *Data, size_t Size) {
-  // don't allow concurrent access to DataOut - multiple threads may wreck
+  // Don't allow concurrent access to DataOut - multiple threads may wreck
   // the output (and the offsets returned).
   std::lock_guard<std::mutex> DataOutLock(DataOutMutex);
+  
+  if (!DataOut)
+    return 0;
 
   DataOut->write(Data, Size);
 
-  // return the offset that the data was written at, which will be used by
+  // Return the offset that the data was written at, which will be used by
   // events to refer to the data.
-  auto WrittenOffset = DataOutOffset;
+  auto const WrittenOffset = DataOutOffset;
   DataOutOffset += Size;
   return WrittenOffset;
 }
+
+
+//===----------------------------------------------------------------------===//
+// Notifications.
+//===----------------------------------------------------------------------===//
 
 void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
                                                 llvm::GlobalVariable const *GV,
@@ -191,6 +247,7 @@ void TraceProcessListener::notifyFunction(uint32_t Index,
   // Lookup for C standard library functions
   DetectCallsLookup.Set(F->getName(), Addr);
 }
+
 
 } // namespace trace (in seec)
 

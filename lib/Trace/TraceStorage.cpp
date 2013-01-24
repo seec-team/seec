@@ -171,16 +171,17 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
 }
 
 std::unique_ptr<llvm::raw_ostream>
-OutputStreamAllocator::getProcessStream(ProcessSegment Segment) {
-  llvm::SmallString<64> Filename {llvm::StringRef(TraceDirectory)};
+OutputStreamAllocator::getProcessStream(ProcessSegment Segment, unsigned Flags)
+{
+  llvm::SmallString<256> Filename {llvm::StringRef(TraceDirectory)};
   
   llvm::sys::path::append(Filename, llvm::Twine("st.") +
                                     getProcessExtension(Segment));
   
+  Flags |= llvm::raw_fd_ostream::F_Binary;
+  
   std::string ErrorInfo;
-  auto Out = new llvm::raw_fd_ostream(Filename.c_str(),
-                                      ErrorInfo,
-                                      llvm::raw_fd_ostream::F_Binary);
+  auto Out = new llvm::raw_fd_ostream(Filename.c_str(), ErrorInfo, Flags);
   if (!Out) {
     llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
     exit(EXIT_FAILURE);
@@ -191,7 +192,9 @@ OutputStreamAllocator::getProcessStream(ProcessSegment Segment) {
 
 std::unique_ptr<llvm::raw_ostream>
 OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
-                                       ThreadSegment Segment) {
+                                       ThreadSegment Segment,
+                                       unsigned Flags)
+{
   std::string File;
   
   {
@@ -201,13 +204,13 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
     FileStream.flush();
   }
   
-  llvm::SmallString<64> Path {llvm::StringRef(TraceDirectory)};
+  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectory)};
   llvm::sys::path::append(Path, File);
+  
+  Flags |= llvm::raw_fd_ostream::F_Binary;
 
   std::string ErrorInfo;
-  auto Out = new llvm::raw_fd_ostream(Path.c_str(),
-                                      ErrorInfo,
-                                      llvm::raw_fd_ostream::F_Binary);
+  auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
   if (!Out) {
     llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
     exit(EXIT_FAILURE);

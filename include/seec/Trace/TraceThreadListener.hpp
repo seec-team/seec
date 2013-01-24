@@ -91,10 +91,13 @@ class TraceThreadListener
 
   /// \name Outputs
   /// @{
-
-  /// Stream to write thread trace information to.
-  std::unique_ptr<llvm::raw_ostream> TraceOut;
-
+  
+  /// Allocates output streams.
+  OutputStreamAllocator &StreamAllocator;
+  
+  /// Controls trace file output.
+  bool OutputEnabled;
+  
   /// Handles writing event data.
   EventWriter EventsOut;
 
@@ -167,18 +170,15 @@ class TraceThreadListener
   /// \brief Get the offset that a new FunctionRecord would be placed at.
   offset_uint getNewFunctionRecordOffset() {
     constexpr size_t SizeOfFunctionRecord
-      = sizeof(uint32_t) // index
+      = sizeof(uint32_t)        // index
       + (2*sizeof(offset_uint)) // event start, end
-      + (2*sizeof(uint64_t)) // thread entered, exited
-      + (1*sizeof(offset_uint)) // child list, non-local change list
+      + (2*sizeof(uint64_t))    // thread entered, exited
+      + (1*sizeof(offset_uint)) // child list
       ;
 
     return sizeof(offset_uint) // For top-level function list offset
       + (RecordedFunctions.size() * SizeOfFunctionRecord); // For functions
   }
-
-  /// \brief Write the trace information for this thread.
-  void writeTrace();
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
@@ -242,47 +242,7 @@ public:
   }
 
   /// \brief Write a set of overwritten states.
-  void writeStateOverwritten(OverwrittenMemoryInfo const &Info) {
-    for (auto const &Overwrite : Info.overwrites()) {
-      auto &Event = Overwrite.getStateEvent();
-      auto &OldArea = Overwrite.getOldArea();
-      auto &NewArea = Overwrite.getNewArea();
-      
-      switch (Overwrite.getType()) {
-        case StateOverwrite::OverwriteType::ReplaceState:
-          EventsOut.write<EventType::StateOverwrite>
-                         (Event.getThreadID(),
-                          Event.getOffset());
-          break;
-        
-        case StateOverwrite::OverwriteType::ReplaceFragment:
-          EventsOut.write<EventType::StateOverwriteFragment>
-                         (Event.getThreadID(),
-                          Event.getOffset(),
-                          NewArea.address(),
-                          NewArea.length());
-          break;
-        
-        case StateOverwrite::OverwriteType::TrimFragmentRight:
-          EventsOut.write<EventType::StateOverwriteFragmentTrimmedRight>
-                         (OldArea.address(),
-                          OldArea.end() - NewArea.start());
-          break;
-        
-        case StateOverwrite::OverwriteType::TrimFragmentLeft:
-          EventsOut.write<EventType::StateOverwriteFragmentTrimmedLeft>
-                         (NewArea.end(),
-                          OldArea.start());
-          break;
-        
-        case StateOverwrite::OverwriteType::SplitFragment:
-          EventsOut.write<EventType::StateOverwriteFragmentSplit>
-                         (OldArea.address(),
-                          NewArea.end());
-          break;
-      }
-    }
-  }
+  void writeStateOverwritten(OverwrittenMemoryInfo const &Info);
 
   /// \brief Record an untyped update to memory.
   void recordUntypedState(char const *Data, std::size_t Size);
@@ -311,8 +271,9 @@ public:
     ProcessListener(ProcessListener),
     SupportSyncExit(ProcessListener.syncExit()),
     ThreadID(ProcessListener.registerThreadListener(this)),
-    TraceOut(StreamAllocator.getThreadStream(ThreadID, ThreadSegment::Trace)),
-    EventsOut(StreamAllocator.getThreadStream(ThreadID, ThreadSegment::Events)),
+    StreamAllocator(StreamAllocator),
+    OutputEnabled(false),
+    EventsOut(),
     Time(0),
     ProcessTime(0),
     RecordedFunctions(),
@@ -323,13 +284,43 @@ public:
     GlobalMemoryLock(),
     DynamicMemoryLock(),
     StreamsLock()
-  {}
+  {
+    traceOpen();
+  }
 
   /// Destructor.
   ~TraceThreadListener() {
-    writeTrace();
+    traceWrite();
+    traceFlush();
+    traceClose();
     ProcessListener.deregisterThreadListener(ThreadID);
   }
+  
+  
+  /// \name Trace writing control.
+  /// @{
+  
+  /// \brief Check if tracing is enabled.
+  ///
+  bool traceEnabled() const { return OutputEnabled; }
+  
+  /// \brief Write out complete trace information.
+  ///
+  void traceWrite();
+  
+  /// \brief Flush all open trace streams.
+  ///
+  void traceFlush();
+  
+  /// \brief Close all open trace streams and disable future writes.
+  ///
+  void traceClose();
+  
+  /// \brief Open all used trace streams and enable future writes.
+  ///
+  void traceOpen();
+  
+  /// @} (Trace writing control.)
 
 
   /// \name Accessors

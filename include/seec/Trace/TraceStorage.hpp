@@ -76,18 +76,28 @@ public:
   seec::util::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
   createOutputStreamAllocator();
   
+  
+  /// \name Mutators
+  /// @{
+  
   /// \brief Write the Module's bitcode to the trace directory.
   ///
   seec::util::Maybe<seec::Error> writeModule(llvm::StringRef Bitcode);
   
   /// \brief Get an output for a process-level data segment.
   ///
-  std::unique_ptr<llvm::raw_ostream> getProcessStream(ProcessSegment Segment);
+  std::unique_ptr<llvm::raw_ostream>
+  getProcessStream(ProcessSegment Segment,
+                   unsigned Flags = 0);
 
   /// \brief Get an output for a thread-specific data segment.
   ///
-  std::unique_ptr<llvm::raw_ostream> getThreadStream(uint32_t ThreadID,
-                                                     ThreadSegment Segment);
+  std::unique_ptr<llvm::raw_ostream>
+  getThreadStream(uint32_t ThreadID,
+                  ThreadSegment Segment,
+                  unsigned Flags = 0);
+  
+  /// @}
 };
 
 
