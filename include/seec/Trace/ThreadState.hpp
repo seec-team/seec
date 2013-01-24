@@ -195,6 +195,7 @@ class ThreadState {
   /// @{
 
   void addEvent(EventRecord<EventType::None> const &);
+  void addEvent(EventRecord<EventType::TraceEnd> const &);
   void addEvent(EventRecord<EventType::FunctionStart> const &);
   void addEvent(EventRecord<EventType::FunctionEnd> const &);
   void addEvent(EventRecord<EventType::BasicBlockStart> const &);
@@ -230,6 +231,7 @@ private:
   void makePreviousInstructionActive(EventReference PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
+  void removeEvent(EventRecord<EventType::TraceEnd> const &);
   void removeEvent(EventRecord<EventType::FunctionStart> const &);
   void removeEvent(EventRecord<EventType::FunctionEnd> const &);
   void removeEvent(EventRecord<EventType::BasicBlockStart> const &);

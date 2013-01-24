@@ -321,6 +321,10 @@ void ThreadState::restoreMemoryState(EventLocation const &Ev,
 
 void ThreadState::addEvent(EventRecord<EventType::None> const &Ev) {}
 
+// It's OK to find this Event in the middle of a trace, because the trace has
+// to be speculatively "ended" before calling exec functions.
+void ThreadState::addEvent(EventRecord<EventType::TraceEnd> const &Ev) {}
+
 void ThreadState::addEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const RecordOffset = Ev.getRecord();
   auto const Info = Trace.getFunctionTrace(RecordOffset);
@@ -613,6 +617,10 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::None> const &Ev) {}
+
+// It's OK to find this Event in the middle of a trace, because the trace has
+// to be speculatively "ended" before calling exec functions.
+void ThreadState::removeEvent(EventRecord<EventType::TraceEnd> const &Ev) {}
 
 void ThreadState::removeEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const RecordOffset = Ev.getRecord();
