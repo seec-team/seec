@@ -397,4 +397,13 @@ SEEC_RUNERR(VarArgsInsufficient,
     (received, seec::runtime_errors::ArgSize)
   ))
 
+//
+// Called a function that is unsafe in the presence of multiple threads.
+//
+SEEC_RUNERR(UnsafeMultithreaded,
+  SEEC_PP_QUOTE(
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
 #undef SEEC_RUNERR
