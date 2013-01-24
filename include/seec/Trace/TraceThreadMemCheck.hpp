@@ -196,6 +196,13 @@ public:
                                       char const *String,
                                       std::size_t Limit);
   
+  /// \brief Check that an array of C Strings is valid and NULL-terminated.
+  ///
+  /// \return The number of elements in the array, including the terminating
+  ///         NULL pointer. Zero indicates that no elements are accessible (in
+  ///         which case a runtime error has been raised).
+  std::size_t checkCStringArray(unsigned Parameter, char const * const *Array);
+  
   /// \brief Check the validity of a print format string.
   ///
   /// \return true iff there were no errors.

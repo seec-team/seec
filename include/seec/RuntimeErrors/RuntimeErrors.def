@@ -406,4 +406,15 @@ SEEC_RUNERR(UnsafeMultithreaded,
                  <seec::runtime_errors::format_selects::CStdFunction>)
   ))
 
+//
+// Passing a non-terminated array to a function that requires a terminated
+// array (e.g. the string arrays passed to execve).
+//
+SEEC_RUNERR(NonTerminatedArray,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter)
+  ))
+
 #undef SEEC_RUNERR

@@ -31,6 +31,8 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <thread>
 
 #include <dlfcn.h>

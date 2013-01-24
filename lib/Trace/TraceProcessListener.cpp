@@ -18,6 +18,8 @@
 #include "llvm/GlobalVariable.h"
 #include "llvm/Type.h"
 
+#include <cstdio>
+
 
 namespace seec {
 
@@ -76,12 +78,15 @@ TraceProcessListener::~TraceProcessListener() {
 //===----------------------------------------------------------------------===//
 
 void TraceProcessListener::traceWrite() {
-  if (!OutputEnabled)
+  if (!OutputEnabled) {
     return;
+  }
   
   auto Out = StreamAllocator.getProcessStream(ProcessSegment::Trace);
-  if (!Out)
+  if (!Out) {
+    assert(false && "couldn't get stream for process trace.");
     return;
+  }
   
   uint64_t Version = formatVersion();
   uint32_t NumThreads = NextThreadID - 1;

@@ -13,12 +13,14 @@
 
 #include "Tracer.hpp"
 
+#include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/Support/CallSite.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <cinttypes>
 #include <type_traits>
@@ -30,6 +32,109 @@ extern "C" {
 
 
 //===----------------------------------------------------------------------===//
+// execl
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execl)
+(char const *filename, ...)
+{
+  // ... = argN..., 0
+  
+  llvm_unreachable("execl not yet implemented.");
+  
+  return -1;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execv
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execv)
+(char const *filename, char * const argv[])
+{
+  using namespace seec::trace;
+  
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::execve;
+  
+  auto &ProcessEnv = getProcessEnvironment();
+  auto &ProcessListener = ProcessEnv.getProcessListener();
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  
+  // Raise an error if there are multiple threads.
+  if (ProcessEnv.getThreadLookup().size() > 1) {
+    using namespace seec::runtime_errors;
+    
+    Listener.handleRunError(
+      createRunError<RunErrorType::UnsafeMultithreaded>
+                    (format_selects::CStdFunction::execve),
+      RunErrorSeverity::Fatal);
+  }
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryReadLock();
+  
+  // Use a CStdLibChecker to help check memory.
+  CStdLibChecker Checker{Listener, ThreadEnv.getInstructionIndex(), FSFunction};
+  
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+  
+  // Ensure that argv is accessible.
+  Checker.checkCStringArray(1, argv);
+  
+  // Write a complete trace before we call execve, because if it succeeds we
+  // will no longer control the process.
+  auto const TraceEnabled = ProcessListener.traceEnabled();
+  
+  if (TraceEnabled) {
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+    Listener.traceWrite();
+    Listener.traceFlush();
+    Listener.traceClose();
+  }
+  
+  // Forward to the default implementation of execve.
+  auto Result = execv(filename, argv);
+  
+  // At this point the execve has failed, so restore tracing.
+  if (TraceEnabled) {
+    ProcessListener.traceOpen();
+    Listener.traceOpen();
+  }
+  
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execle
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execle)
+(char const *filename, ...)
+{
+  // ... = argN..., 0, char * const envp[]
+  
+  llvm_unreachable("execle not yet implemented.");
+  
+  return -1;
+}
+
+
+//===----------------------------------------------------------------------===//
 // execve
 //===----------------------------------------------------------------------===//
 
@@ -37,8 +142,156 @@ int
 SEEC_MANGLE_FUNCTION(execve)
 (char const *filename, char * const argv[], char * const envp[])
 {
-  exit(EXIT_SUCCESS);
-  return 0;
+  using namespace seec::trace;
+  
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::execve;
+  
+  auto &ProcessEnv = getProcessEnvironment();
+  auto &ProcessListener = ProcessEnv.getProcessListener();
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  
+  // Raise an error if there are multiple threads.
+  if (ProcessEnv.getThreadLookup().size() > 1) {
+    using namespace seec::runtime_errors;
+    
+    Listener.handleRunError(
+      createRunError<RunErrorType::UnsafeMultithreaded>
+                    (format_selects::CStdFunction::execve),
+      RunErrorSeverity::Fatal);
+  }
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryReadLock();
+  
+  // Use a CStdLibChecker to help check memory.
+  CStdLibChecker Checker{Listener, ThreadEnv.getInstructionIndex(), FSFunction};
+  
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+  
+  // Ensure that argv is accessible.
+  Checker.checkCStringArray(1, argv);
+  
+  // Ensure that envp is accessible.
+  Checker.checkCStringArray(2, envp);
+  
+  // Write a complete trace before we call execve, because if it succeeds we
+  // will no longer control the process.
+  auto const TraceEnabled = ProcessListener.traceEnabled();
+  
+  if (TraceEnabled) {
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+    Listener.traceWrite();
+    Listener.traceFlush();
+    Listener.traceClose();
+  }
+  
+  // Forward to the default implementation of execve.
+  auto Result = execve(filename, argv, envp);
+  
+  // At this point the execve has failed, so restore tracing.
+  if (TraceEnabled) {
+    ProcessListener.traceOpen();
+    Listener.traceOpen();
+  }
+  
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execlp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execlp)
+(char const *filename, ...)
+{
+  // ... = argN..., 0
+  
+  llvm_unreachable("execlp not yet implemented.");
+  
+  return -1;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execvp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execvp)
+(char const *filename, char * const argv[])
+{
+  using namespace seec::trace;
+  
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::execve;
+  
+  auto &ProcessEnv = getProcessEnvironment();
+  auto &ProcessListener = ProcessEnv.getProcessListener();
+  
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  
+  // Raise an error if there are multiple threads.
+  if (ProcessEnv.getThreadLookup().size() > 1) {
+    using namespace seec::runtime_errors;
+    
+    Listener.handleRunError(
+      createRunError<RunErrorType::UnsafeMultithreaded>
+                    (format_selects::CStdFunction::execve),
+      RunErrorSeverity::Fatal);
+  }
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryReadLock();
+  
+  // Use a CStdLibChecker to help check memory.
+  CStdLibChecker Checker{Listener, ThreadEnv.getInstructionIndex(), FSFunction};
+  
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+  
+  // Ensure that argv is accessible.
+  Checker.checkCStringArray(1, argv);
+  
+  // Write a complete trace before we call execve, because if it succeeds we
+  // will no longer control the process.
+  auto const TraceEnabled = ProcessListener.traceEnabled();
+  
+  if (TraceEnabled) {
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+    Listener.traceWrite();
+    Listener.traceFlush();
+    Listener.traceClose();
+  }
+  
+  // Forward to the default implementation of execve.
+  auto Result = execvp(filename, argv);
+  
+  // At this point the execve has failed, so restore tracing.
+  if (TraceEnabled) {
+    ProcessListener.traceOpen();
+    Listener.traceOpen();
+  }
+  
+  return Result;
 }
 
 
@@ -52,8 +305,28 @@ SEEC_MANGLE_FUNCTION(fork)
 {
   using namespace seec::trace;
   
-  // Wait until all other threads are synchronized, waiting for our signal.
+  auto &ProcessEnv = getProcessEnvironment();
+  auto &ProcessListener = ProcessEnv.getProcessListener();
   
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  
+  // Raise an error if there are multiple threads.
+  if (ProcessEnv.getThreadLookup().size() > 1) {
+    using namespace seec::runtime_errors;
+    
+    Listener.handleRunError(
+      createRunError<RunErrorType::UnsafeMultithreaded>
+                    (format_selects::CStdFunction::fork),
+      RunErrorSeverity::Fatal);
+  }
+  
+  // Flush output streams prior to the fork, so that information isn't
+  // flushed from both processes following the fork.
+  ProcessListener.traceFlush();
+  Listener.traceFlush();
+  
+  // Do the fork.
   auto Result = fork();
   
   if (Result == 0) {
@@ -62,13 +335,10 @@ SEEC_MANGLE_FUNCTION(fork)
     // are waiting for us will need to update any environment references that
     // they are currently using (alternatively, no other threads should be
     // allowed to have an environment reference at the synchronization point).
-    _exit(0);
+    ProcessListener.traceClose();
+    Listener.traceClose();
   }
   
-  // All other threads can continue execution now.
-  
-  auto &ThreadEnv = getThreadEnvironment();
-  auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),
                        ThreadEnv.getInstruction(),
                        std::make_unsigned<pid_t>::type(Result));
@@ -78,7 +348,7 @@ SEEC_MANGLE_FUNCTION(fork)
 
 
 //===----------------------------------------------------------------------===//
-// fork
+// pipe
 //===----------------------------------------------------------------------===//
 
 int

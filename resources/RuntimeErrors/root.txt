@@ -220,5 +220,16 @@ root:table {
         ", but received "
         "{received, plural, =0 {none.} other {only {received}.}}"
     }
+
+    // function
+    UnsafeMultithreaded:string {
+      "Calling function {function} in a multithreaded program is unsafe."
+    }
+
+    // function
+    // parameter
+    NonTerminatedArray:string {
+      "Passing a non-terminated array to function {function} as parameter {parameter}, but a terminated array is expected."
+    }
   }
 }

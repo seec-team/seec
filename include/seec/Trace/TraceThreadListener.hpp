@@ -33,6 +33,7 @@
 // #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <thread>
 #include <memory>
 #include <vector>
@@ -293,6 +294,7 @@ public:
     traceWrite();
     traceFlush();
     traceClose();
+    
     ProcessListener.deregisterThreadListener(ThreadID);
   }
   

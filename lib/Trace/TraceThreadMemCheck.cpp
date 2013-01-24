@@ -338,8 +338,13 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExists(StrAddr, 1, format_selects::MemoryAccess::Read, Area))
+  if (!memoryExistsForParameter(Parameter,
+                                StrAddr,
+                                1,
+                                format_selects::MemoryAccess::Read,
+                                Area)) {
     return 0;
+  }
   
   // Find the C string that String refers to, within Limit.
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
@@ -352,6 +357,59 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                 StrArea);
 
   return StrArea.length();
+}
+
+std::size_t
+CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
+{
+  auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
+  
+  // Check if Array points to owned memory.
+  auto const MaybeArea = getContainingMemoryArea(Thread, ArrayAddress);
+  if (!memoryExistsForParameter(Parameter,
+                                ArrayAddress,
+                                sizeof(char *),
+                                format_selects::MemoryAccess::Read,
+                                MaybeArea)) {
+    return 0;
+  }
+  
+  auto const &Area = MaybeArea.get<0>();
+  auto const Size = Area.length();
+  auto const Elements = Size / sizeof(char *);
+  
+  // This should be guaranteed by the success of memoryExitsForParameter().
+  assert(Elements > 0);
+  
+  // Ensure that all of the elements are initialized.
+  if (!checkMemoryAccessForParameter(Parameter,
+                                     ArrayAddress,
+                                     Elements * sizeof(char *),
+                                     format_selects::MemoryAccess::Read,
+                                     Area)) {
+    return 0;
+  }
+  
+  // Now check that each element is a valid C string.
+  for (unsigned Element = 0; Element < Elements - 1; ++Element) {
+    // TODO: When we modify the runtime error system to allow attaching
+    //       information piecemeal, make this indicate the exact element in the
+    //       array that is in error.
+    if (checkCStringRead(Parameter, Array[Element]) == 0) {
+      return 0;
+    }
+  }
+  
+  if (Array[Elements - 1] != nullptr) {
+    Thread.handleRunError(
+      createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
+                    (Function, Parameter),
+      RunErrorSeverity::Fatal);
+    
+    return 0;
+  }
+  
+  return Elements;
 }
 
 bool
