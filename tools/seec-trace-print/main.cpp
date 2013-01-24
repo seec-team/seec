@@ -208,7 +208,7 @@ int main(int argc, char **argv, char * const *envp) {
       for (auto &&Ev: Thread.events()) {
         if (Ev.isBlockStart())
           outs() << "\n";
-        outs() << "  " << Ev << "\n";
+        outs() << Ev << " @" << Thread.events().offsetOf(Ev) << "\n";
       }
     }
   }
