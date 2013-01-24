@@ -125,6 +125,8 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, wait, "wait")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, strdup, "strdup")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, pipe, "pipe")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fork, "fork")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, execve, "execve")
   )
 
 SEEC_FORMAT_SELECT(CFormatConversionFlag,
