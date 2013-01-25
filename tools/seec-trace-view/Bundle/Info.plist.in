@@ -9,14 +9,14 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>spt</string>
+				<string>seectrace</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>SeeC Process Trace</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSTypeIsPackage</key>
-			<false/>
+			<true/>
 		</dict>
 	</array>
 	<key>CFBundleInfoDictionaryVersion</key>

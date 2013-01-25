@@ -33,7 +33,7 @@
 #include "TraceViewerFrame.hpp"
 #include "WelcomeFrame.hpp"
 
-//#define SEEC_SHOW_DEBUG 1
+#define SEEC_SHOW_DEBUG 1
 
 
 //------------------------------------------------------------------------------
@@ -60,6 +60,8 @@ IMPLEMENT_APP(TraceViewerApp)
 //------------------------------------------------------------------------------
 
 void TraceViewerApp::OpenFile(wxString const &FileName) {
+  wxLogDebug("Open file %s\n", FileName.c_str());
+
   // Attempt to read the trace, which should either return the newly read trace
   // (in Maybe slot 0), or an error message (in Maybe slot 1).
   auto NewTrace = OpenTrace::FromFilePath(FileName);

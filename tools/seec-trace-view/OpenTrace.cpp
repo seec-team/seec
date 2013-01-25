@@ -15,7 +15,10 @@
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/Path.h"
 
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
@@ -31,10 +34,29 @@ OpenTrace::FromFilePath(wxString const &FilePath) {
   wxStandardPaths StdPaths;
   auto const &ExecutablePath = StdPaths.GetExecutablePath().ToStdString();
 
-  llvm::sys::Path DirPath {FilePath.ToStdString()};
-  DirPath.eraseComponent(); // Erase the filename from the path.
-
-  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(DirPath.str());
+  llvm::error_code ErrCode;
+  llvm::SmallString<256> DirPath {FilePath.ToStdString()};
+  
+  bool IsDirectory;
+  ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(DirPath), IsDirectory);
+  
+  if (ErrCode != llvm::errc::success) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto TextTable = seec::getResource("TraceViewer",
+                                       Locale::getDefault(),
+                                       Status,
+                                       "GUIText");
+    assert(U_SUCCESS(Status));
+    return RetTy(seec::getwxStringExOrDie(TextTable,
+                                          "OpenTrace_Error_FailIsDirectory"));
+  }
+  
+  // If the FilePath is indeed a file, remove the filename.
+  if (!IsDirectory)
+    llvm::sys::path::remove_filename(DirPath);
+  
+  // Attempt to create an input allocator for the folder.
+  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(DirPath);
   if (MaybeIBA.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto Message = MaybeIBA.get<seec::Error>().getMessage(Status, Locale());
