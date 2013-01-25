@@ -261,7 +261,7 @@ public:
 /// \param End end of the Event array (e.g. end of thread containing Record).
 /// \return A unique_ptr holding the recreated RunError if deserialization was
 ///         successful, otherwise an empty unique_ptr.
-std::unique_ptr<seec::runtime_errors::RunError>
+std::pair<std::unique_ptr<seec::runtime_errors::RunError>, EventReference>
 deserializeRuntimeError(EventRange Records);
 
 

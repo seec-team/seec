@@ -479,10 +479,10 @@ void checkIntegerDivisor(TraceThreadListener &Listener,
   if (!DivisorRTV.template get<0>()) {
     using namespace seec::runtime_errors;
 
-    Listener.handleRunError(
-      createRunError<RunErrorType::DivideByZero>(ArgObject{}),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
+    Listener.handleRunError(*createRunError<RunErrorType::DivideByZero>
+                                           (ArgObject{}),
+                            RunErrorSeverity::Fatal,
+                            InstructionIndex);
   }
 
   // Check for integer overflow
@@ -531,10 +531,10 @@ void checkFloatDivisor(TraceThreadListener &Listener,
   if (!DivisorRTV.template get<0>()) {
     using namespace seec::runtime_errors;
 
-    Listener.handleRunError(
-      createRunError<RunErrorType::DivideByZero>(ArgObject{}),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
+    Listener.handleRunError(*createRunError<RunErrorType::DivideByZero>
+                                           (ArgObject{}),
+                            RunErrorSeverity::Fatal,
+                            InstructionIndex);
   }
 }
 

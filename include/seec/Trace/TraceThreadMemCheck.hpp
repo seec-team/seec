@@ -216,10 +216,12 @@ public:
   ///
   /// \return true iff there were no errors.
   ///
+  /*
   bool
   checkScanFormat(unsigned Parameter,
                   char const *String,
                   detect_calls::VarArgList<TraceThreadListener> const &Args);
+  */
 };
 
 

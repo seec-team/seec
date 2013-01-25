@@ -414,7 +414,7 @@ public:
   /// \param Severity the severity of the error.
   /// \param PreInstructionIndex the index of the Instruction that would cause
   ///                            this error.
-  void handleRunError(std::unique_ptr<seec::runtime_errors::RunError> Error,
+  void handleRunError(seec::runtime_errors::RunError const &Error,
                       RunErrorSeverity Severity,
                       seec::util::Maybe<uint32_t> PreInstructionIndex
                         = seec::util::Maybe<uint32_t>());

@@ -1,6 +1,22 @@
 root:table {
   // Contains textual descriptions of runtime errors.
   descriptions:table {
+    // function
+    InfoCStdFunction:string { "Function {function}." }
+
+    // function
+    // parameter
+    InfoCStdFunctionParameter {
+      "{function, select, "
+        "strcpy {"
+          "{parameter, plural, "
+            "=0 {Destination parameter of strcpy.}"
+            "=1 {Source parameter of strcpy.}"
+            "other {Parameter {parameter} of strcpy.}}}"
+        "other {Parameter {parameter} passed to function {function}.}"
+      "}"
+    }
+
     // select MemoryAccess {read, write}
     // address
     // size

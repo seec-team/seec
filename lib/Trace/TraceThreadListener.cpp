@@ -322,27 +322,44 @@ void TraceThreadListener::traceOpen()
 // Mutators
 //------------------------------------------------------------------------------
 
-void TraceThreadListener::handleRunError(
-        std::unique_ptr<seec::runtime_errors::RunError> Error,
-        RunErrorSeverity Severity,
-        seec::util::Maybe<uint32_t> PreInstructionIndex) {
-  // PreInstruction event precedes the RuntimeError
-  if (PreInstructionIndex.assigned()) {
-    EventsOut.write<EventType::PreInstruction>(PreInstructionIndex.get<0>(),
-                                               ++Time);
-  }
+static void writeError(EventWriter &EventsOut,
+                       seec::runtime_errors::RunError const &Error,
+                       bool IsTopLevel)
+{
+  uint16_t Type = static_cast<uint16_t>(Error.type());
+  auto const &Args = Error.args();
+  auto const &Additional = Error.additional();
   
-  uint16_t Type = static_cast<uint16_t>(Error->type());
-  auto const &Args = Error->args();
-  
-  EventsOut.write<EventType::RuntimeError>(Type,
-                                           static_cast<uint32_t>(Args.size()));
+  EventsOut.write<EventType::RuntimeError>
+                 (Type,
+                  static_cast<uint8_t>(Args.size()),
+                  static_cast<uint8_t>(Additional.size()),
+                  static_cast<uint8_t>(IsTopLevel));
   
   for (auto const &Argument : Args) {
     EventsOut.write<EventType::RuntimeErrorArgument>(
       static_cast<uint8_t>(Argument->type()),
       Argument->data());
   }
+  
+  for (auto const &AdditionalError : Additional) {
+    writeError(EventsOut, *AdditionalError, false);
+  }
+}
+
+void
+TraceThreadListener
+::handleRunError(seec::runtime_errors::RunError const &Error,
+                 RunErrorSeverity Severity,
+                 seec::util::Maybe<uint32_t> PreInstructionIndex)
+{
+  // PreInstruction event precedes the RuntimeError
+  if (PreInstructionIndex.assigned()) {
+    EventsOut.write<EventType::PreInstruction>(PreInstructionIndex.get<0>(),
+                                               ++Time);
+  }
+  
+  writeError(EventsOut, Error, true);
   
   switch (Severity) {
     case RunErrorSeverity::Warning:

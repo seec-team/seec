@@ -245,6 +245,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 char const *Format)
 {
   using namespace seec::trace;
+  using namespace seec::runtime_errors;
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
@@ -310,9 +311,8 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
       Listener.handleRunError(
-        seec::runtime_errors::createRunError
-          <seec::runtime_errors::RunErrorType::FormatSpecifierParse>
-          (FSFunction, VarArgsStartIndex - 1, StartIndex),
+        *createRunError<RunErrorType::FormatSpecifierParse>
+                       (FSFunction, VarArgsStartIndex - 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
       return NumAssignments;
@@ -324,9 +324,11 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
     if (Conversion.SuppressAssignment) {
       if (!Conversion.allowedSuppressAssignment()) {
         Listener.handleRunError(
-          seec::runtime_errors::createRunError
-          <seec::runtime_errors::RunErrorType::FormatSpecifierSuppressionDenied>
-            (FSFunction, VarArgsStartIndex - 1, StartIndex, EndIndex),
+          *createRunError<RunErrorType::FormatSpecifierSuppressionDenied>
+                         (FSFunction,
+                          VarArgsStartIndex - 1,
+                          StartIndex,
+                          EndIndex),
           RunErrorSeverity::Fatal,
           InstructionIndex);
         return NumAssignments;
@@ -339,14 +341,13 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       // the isArgumentTypeOK() implementation.
       if (!Conversion.isArgumentTypeOK(VarArgs, NextArg)) {
         Listener.handleRunError(
-          seec::runtime_errors::createRunError
-            <seec::runtime_errors::RunErrorType::FormatSpecifierArgType>
-            (FSFunction,
-             VarArgsStartIndex - 1,
-             StartIndex,
-             EndIndex,
-             asCFormatLengthModifier(Conversion.Length),
-             VarArgs.offset() + NextArg),
+          *createRunError<RunErrorType::FormatSpecifierArgType>
+                         (FSFunction,
+                          VarArgsStartIndex - 1,
+                          StartIndex,
+                          EndIndex,
+                          asCFormatLengthModifier(Conversion.Length),
+                          VarArgs.offset() + NextArg),
           RunErrorSeverity::Fatal,
           InstructionIndex);
         return NumAssignments;
@@ -561,19 +562,17 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             }
             
             if (InsufficientMemory) {
-              using namespace seec::runtime_errors;
-              
               // Raise error for insufficient memory in destination buffer.
               Listener.handleRunError(
-                createRunError<RunErrorType::ScanFormattedStringOverflow>
-                              (FSFunction,
-                               VarArgsStartIndex - 1,
-                               StartIndex,
-                               EndIndex,
-                               asCFormatLengthModifier(Conversion.Length),
-                               VarArgs.offset() + NextArg,
-                               Writable,
-                               MatchedChars),
+                *createRunError<RunErrorType::ScanFormattedStringOverflow>
+                               (FSFunction,
+                                VarArgsStartIndex - 1,
+                                StartIndex,
+                                EndIndex,
+                                asCFormatLengthModifier(Conversion.Length),
+                                VarArgs.offset() + NextArg,
+                                Writable,
+                                MatchedChars),
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
               
@@ -660,19 +659,17 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             }
             
             if (InsufficientMemory) {
-              using namespace seec::runtime_errors;
-              
               // Raise error for insufficient memory in destination buffer.
               Listener.handleRunError(
-                createRunError<RunErrorType::ScanFormattedStringOverflow>
-                              (FSFunction,
-                               VarArgsStartIndex - 1,
-                               StartIndex,
-                               EndIndex,
-                               asCFormatLengthModifier(Conversion.Length),
-                               VarArgs.offset() + NextArg,
-                               Writable,
-                               MatchedChars),
+                *createRunError<RunErrorType::ScanFormattedStringOverflow>
+                               (FSFunction,
+                                VarArgsStartIndex - 1,
+                                StartIndex,
+                                EndIndex,
+                                asCFormatLengthModifier(Conversion.Length),
+                                VarArgs.offset() + NextArg,
+                                Writable,
+                                MatchedChars),
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
               
@@ -884,10 +881,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   
   // Ensure that we got a sufficient number of arguments.
   if (NextArg > VarArgs.size()) {
-    Listener.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
-                                          (FSFunction,
-                                           NextArg,
-                                           VarArgs.size()),
+    Listener.handleRunError(*createRunError<RunErrorType::VarArgsInsufficient>
+                                           (FSFunction,
+                                            NextArg,
+                                            VarArgs.size()),
                             RunErrorSeverity::Fatal,
                             InstructionIndex);
   }
@@ -1006,11 +1003,11 @@ SEEC_MANGLE_FUNCTION(sscanf)
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
       Listener.handleRunError(
-        seec::runtime_errors::createRunError
-          <seec::runtime_errors::RunErrorType::FormatSpecifierParse>
-          (FSFunction, 1, StartIndex),
+        *createRunError<RunErrorType::FormatSpecifierParse>
+                       (FSFunction, 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
+      
       return NumConversions;
     }
     
@@ -1020,11 +1017,11 @@ SEEC_MANGLE_FUNCTION(sscanf)
     if (Conversion.SuppressAssignment) {
       if (!Conversion.allowedSuppressAssignment()) {
         Listener.handleRunError(
-          seec::runtime_errors::createRunError
-          <seec::runtime_errors::RunErrorType::FormatSpecifierSuppressionDenied>
-            (FSFunction, 1, StartIndex, EndIndex),
+          *createRunError<RunErrorType::FormatSpecifierSuppressionDenied>
+                         (FSFunction, 1, StartIndex, EndIndex),
           RunErrorSeverity::Fatal,
           InstructionIndex);
+        
         return NumConversions;
       }
     }
@@ -1035,16 +1032,16 @@ SEEC_MANGLE_FUNCTION(sscanf)
       // the isArgumentTypeOK() implementation.
       if (!Conversion.isArgumentTypeOK(VarArgs, NextArg)) {
         Listener.handleRunError(
-          seec::runtime_errors::createRunError
-            <seec::runtime_errors::RunErrorType::FormatSpecifierArgType>
-            (FSFunction,
-             1,
-             StartIndex,
-             EndIndex,
-             asCFormatLengthModifier(Conversion.Length),
-             VarArgs.offset() + NextArg),
+          *createRunError<RunErrorType::FormatSpecifierArgType>
+                         (FSFunction,
+                          1,
+                          StartIndex,
+                          EndIndex,
+                          asCFormatLengthModifier(Conversion.Length),
+                          VarArgs.offset() + NextArg),
           RunErrorSeverity::Fatal,
           InstructionIndex);
+        
         return NumConversions;
       }
 
@@ -1184,19 +1181,17 @@ SEEC_MANGLE_FUNCTION(sscanf)
               }
               
               if (InsufficientMemory) {
-                using namespace seec::runtime_errors;
-                
                 // Raise error for insufficient memory in destination buffer.
                 Listener.handleRunError(
-                  createRunError<RunErrorType::ScanFormattedStringOverflow>
-                                (FSFunction,
-                                 1, // Index of "Format" argument.
-                                 StartIndex,
-                                 EndIndex,
-                                 asCFormatLengthModifier(Conversion.Length),
-                                 VarArgs.offset() + NextArg,
-                                 Writable,
-                                 MatchedChars + 1),
+                  *createRunError<RunErrorType::ScanFormattedStringOverflow>
+                                 (FSFunction,
+                                  1, // Index of "Format" argument.
+                                  StartIndex,
+                                  EndIndex,
+                                  asCFormatLengthModifier(Conversion.Length),
+                                  VarArgs.offset() + NextArg,
+                                  Writable,
+                                  MatchedChars + 1),
                   seec::trace::RunErrorSeverity::Fatal,
                   InstructionIndex);
                 
@@ -1266,19 +1261,17 @@ SEEC_MANGLE_FUNCTION(sscanf)
               }
               
               if (InsufficientMemory) {
-                using namespace seec::runtime_errors;
-                
                 // Raise error for insufficient memory in destination buffer.
                 Listener.handleRunError(
-                  createRunError<RunErrorType::ScanFormattedStringOverflow>
-                                (FSFunction,
-                                 1, // Index of "Format" argument.
-                                 StartIndex,
-                                 EndIndex,
-                                 asCFormatLengthModifier(Conversion.Length),
-                                 VarArgs.offset() + NextArg,
-                                 Writable,
-                                 MatchedChars + 1),
+                  *createRunError<RunErrorType::ScanFormattedStringOverflow>
+                                 (FSFunction,
+                                  1, // Index of "Format" argument.
+                                  StartIndex,
+                                  EndIndex,
+                                  asCFormatLengthModifier(Conversion.Length),
+                                  VarArgs.offset() + NextArg,
+                                  Writable,
+                                  MatchedChars + 1),
                   seec::trace::RunErrorSeverity::Fatal,
                   InstructionIndex);
                 
@@ -1443,10 +1436,10 @@ SEEC_MANGLE_FUNCTION(sscanf)
   
   // Ensure that we got a sufficient number of arguments.
   if (NextArg > VarArgs.size()) {
-    Listener.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
-                                          (FSFunction,
-                                           NextArg,
-                                           VarArgs.size()),
+    Listener.handleRunError(*createRunError<RunErrorType::VarArgsInsufficient>
+                                           (FSFunction,
+                                            NextArg,
+                                            VarArgs.size()),
                             RunErrorSeverity::Fatal,
                             InstructionIndex);
   }

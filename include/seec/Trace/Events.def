@@ -304,7 +304,9 @@ SEEC_TRACE_EVENT(StateOverwriteFragmentSplit,
 SEEC_TRACE_EVENT(RuntimeError,
   SEEC_PP_QUOTE(
     (uint16_t, ErrorType),
-    (uint32_t, ArgumentCount)
+    (uint8_t, ArgumentCount),
+    (uint8_t, AdditionalCount),
+    (uint8_t, IsTopLevel)
   ),
   SEEC_PP_QUOTE(
     (RuntimeError, no_traits)

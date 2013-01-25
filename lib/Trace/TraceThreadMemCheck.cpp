@@ -85,11 +85,11 @@ RuntimeErrorChecker::memoryExists(uintptr_t Address,
   if (Area.assigned())
     return true;
   
-  Thread.handleRunError(createRunError<RunErrorType::MemoryUnowned>(Access,
-                                                                    Address,
-                                                                    Size),
-                        RunErrorSeverity::Fatal,
-                        Instruction);
+  Thread.handleRunError(
+    *createRunError<RunErrorType::MemoryUnowned>
+                   (Access, Address, Size),
+    RunErrorSeverity::Fatal,
+    Instruction);
   
   return false;
 }
@@ -103,15 +103,16 @@ bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
   MemoryArea AccessArea(Address, Size);
 
   if (!ContainingArea.contains(AccessArea)) {
-    Thread.handleRunError(createRunError<RunErrorType::MemoryOverflow>
-                                        (Access,
-                                         Address,
-                                         Size,
-                                         ArgObject{},
-                                         ContainingArea.address(),
-                                         ContainingArea.length()),
-                          RunErrorSeverity::Fatal,
-                          Instruction);
+    Thread.handleRunError(
+      *createRunError<RunErrorType::MemoryOverflow>
+                     (Access,
+                      Address,
+                      Size,
+                      ArgObject{},
+                      ContainingArea.address(),
+                      ContainingArea.length()),
+      RunErrorSeverity::Fatal,
+      Instruction);
     return false;
   }
 
@@ -121,10 +122,11 @@ bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
     auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
     
     if (!MemoryState->hasKnownState(Address, Size)) {
-      Thread.handleRunError(createRunError<RunErrorType::MemoryUninitialized>
-                                          (Address, Size),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::MemoryUninitialized>
+                       (Address, Size),
+        RunErrorSeverity::Fatal,
+        Instruction);
       
       return false;
     }
@@ -192,12 +194,11 @@ CStdLibChecker::memoryExistsForParameter(
   if (Area.assigned())
     return true;
   
-  Thread.handleRunError(createRunError<RunErrorType::PassPointerToUnowned>
-                                      (Function,
-                                       Address,
-                                       Parameter),
-                        RunErrorSeverity::Fatal,
-                        Instruction);
+  Thread.handleRunError(
+    *createRunError<RunErrorType::PassPointerToUnowned>
+                   (Function, Address, Parameter),
+    RunErrorSeverity::Fatal,
+    Instruction);
   
   return false;
 }
@@ -215,17 +216,20 @@ CStdLibChecker::checkMemoryAccessForParameter(
 
   if (!ContainingArea.contains(AccessArea)) {
     Thread.handleRunError(
-              createRunError<RunErrorType::PassPointerToInsufficient>
-                            (Function,
-                             Parameter,
-                             Address,
-                             Size,
-                             ContainingArea.withStart(Address).length(),
-                             ArgObject{},
-                             ContainingArea.address(),
-                             ContainingArea.length()),
-              RunErrorSeverity::Fatal,
-              Instruction);
+      createRunError<RunErrorType::PassPointerToInsufficient>
+                    (Function,
+                     Parameter,
+                     Address,
+                     Size,
+                     ContainingArea.withStart(Address).length(),
+                     ArgObject{},
+                     ContainingArea.address(),
+                     ContainingArea.length())
+        ->addAdditional(
+          createRunError<RunErrorType::InfoCStdFunctionParameter>
+                        (Function, Parameter)),
+      RunErrorSeverity::Fatal,
+      Instruction);
     
     return false;
   }
@@ -237,10 +241,10 @@ CStdLibChecker::checkMemoryAccessForParameter(
     
     if (!MemoryState->hasKnownState(Address, Size)) {
       Thread.handleRunError(
-                createRunError<RunErrorType::PassPointerToUninitialized>
-                              (Function, Address, Parameter),
-                RunErrorSeverity::Fatal,
-                Instruction);
+        *createRunError<RunErrorType::PassPointerToUninitialized>
+                       (Function, Address, Parameter),
+        RunErrorSeverity::Fatal,
+        Instruction);
       
       return false;
     }
@@ -274,12 +278,13 @@ bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
   if (!Overlap.length())
     return true;
 
-  Thread.handleRunError(createRunError<RunErrorType::OverlappingSourceDest>
-                                      (Function,
-                                       Overlap.start(),
-                                       Overlap.length()),
-                        RunErrorSeverity::Warning,
-                        Instruction);
+  Thread.handleRunError(
+    *createRunError<RunErrorType::OverlappingSourceDest>
+                   (Function,
+                    Overlap.start(),
+                    Overlap.length()),
+    RunErrorSeverity::Warning,
+    Instruction);
   
   return false;
 }
@@ -291,12 +296,13 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
   if (Area.assigned())
     return true;
   
-  Thread.handleRunError(createRunError<RunErrorType::InvalidCString>
-                                      (Function,
-                                       Address,
-                                       Parameter),
-                        RunErrorSeverity::Fatal,
-                        Instruction);
+  Thread.handleRunError(
+    *createRunError<RunErrorType::InvalidCString>
+                   (Function,
+                    Address,
+                    Parameter),
+    RunErrorSeverity::Fatal,
+    Instruction);
 
   return false;
 }
@@ -402,8 +408,8 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   
   if (Array[Elements - 1] != nullptr) {
     Thread.handleRunError(
-      createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
-                    (Function, Parameter),
+      *createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
+                     (Function, Parameter),
       RunErrorSeverity::Fatal);
     
     return 0;
@@ -434,12 +440,11 @@ checkPrintFormat(unsigned Parameter,
     
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierParse>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierParse>
+                       (Function, Parameter, StartIndex),
+        RunErrorSeverity::Fatal,
+        Instruction);
       return false;
     }
     
@@ -447,102 +452,89 @@ checkPrintFormat(unsigned Parameter,
     
     // Ensure that all the specified flags are allowed for this conversion.
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex,
-                                           EndIndex,
-                                           '-'),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierFlag>
+                       (Function, Parameter, StartIndex, EndIndex, '-'),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      
       return false;
     }
     
     if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex,
-                                           EndIndex,
-                                           '+'),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierFlag>
+                       (Function, Parameter, StartIndex, EndIndex, '+'),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      
       return false;
     }
     
     if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex,
-                                           EndIndex,
-                                           ' '),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierFlag>
+                       (Function, Parameter, StartIndex, EndIndex, ' '),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      
       return false;
     }
     
     if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex,
-                                           EndIndex,
-                                           '#'),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierFlag>
+                       (Function, Parameter, StartIndex, EndIndex, '#'),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      
       return false;
     }
     
     if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
-      Thread.handleRunError(createRunError<RunErrorType::FormatSpecifierFlag>
-                                          (Function,
-                                           Parameter,
-                                           StartIndex,
-                                           EndIndex,
-                                           '0'),
-                            RunErrorSeverity::Fatal,
-                            Instruction);
+      Thread.handleRunError(
+        *createRunError<RunErrorType::FormatSpecifierFlag>
+                       (Function, Parameter, StartIndex, EndIndex, '0'),
+        RunErrorSeverity::Fatal,
+        Instruction);
+      
       return false;
     }
     
     // If a width was specified, ensure that width is allowed.
     if (Conversion.WidthSpecified && !Conversion.allowedWidth()) {
       Thread.handleRunError(
-        createRunError<RunErrorType::FormatSpecifierWidthDenied>
-                      (Function,
-                       Parameter,
-                       StartIndex,
-                       EndIndex),
+        *createRunError<RunErrorType::FormatSpecifierWidthDenied>
+                       (Function, Parameter, StartIndex, EndIndex),
         RunErrorSeverity::Fatal,
         Instruction);
+      
       return false;
     }
     
     // If a precision was specified, ensure that precision is allowed.
     if (Conversion.PrecisionSpecified && !Conversion.allowedPrecision()) {
       Thread.handleRunError(
-        createRunError<RunErrorType::FormatSpecifierPrecisionDenied>
-                      (Function,
-                       Parameter,
-                       StartIndex,
-                       EndIndex),
+        *createRunError<RunErrorType::FormatSpecifierPrecisionDenied>
+                       (Function, Parameter, StartIndex, EndIndex),
         RunErrorSeverity::Fatal,
         Instruction);
+      
       return false;
     }
     
     // Ensure that the length modifier (if any) is allowed.
     if (!Conversion.allowedCurrentLength()) {
       Thread.handleRunError(
-        createRunError<RunErrorType::FormatSpecifierLengthDenied>
-                      (Function,
-                       Parameter,
-                       StartIndex,
-                       EndIndex,
-                       asCFormatLengthModifier(Conversion.Length)),
+        *createRunError<RunErrorType::FormatSpecifierLengthDenied>
+                       (Function,
+                        Parameter,
+                        StartIndex,
+                        EndIndex,
+                        asCFormatLengthModifier(Conversion.Length)),
         RunErrorSeverity::Fatal,
         Instruction);
+      
       return false;
     }
     
@@ -552,14 +544,15 @@ checkPrintFormat(unsigned Parameter,
         auto MaybeWidth = Args.getAs<int>(NextArg);
         if (!MaybeWidth.assigned()) {
           Thread.handleRunError(
-            createRunError<RunErrorType::FormatSpecifierWidthArgType>
-                          (Function,
-                           Parameter,
-                           StartIndex,
-                           EndIndex,
-                           Args.offset() + NextArg),
+            *createRunError<RunErrorType::FormatSpecifierWidthArgType>
+                           (Function,
+                            Parameter,
+                            StartIndex,
+                            EndIndex,
+                            Args.offset() + NextArg),
             RunErrorSeverity::Fatal,
             Instruction);
+          
           return false;
         }
       }
@@ -573,14 +566,15 @@ checkPrintFormat(unsigned Parameter,
         auto MaybePrecision = Args.getAs<int>(NextArg);
         if (!MaybePrecision.assigned()) {
           Thread.handleRunError(
-            createRunError<RunErrorType::FormatSpecifierPrecisionArgType>
-                          (Function,
-                           Parameter,
-                           StartIndex,
-                           EndIndex,
-                           Args.offset() + NextArg),
+            *createRunError<RunErrorType::FormatSpecifierPrecisionArgType>
+                           (Function,
+                            Parameter,
+                            StartIndex,
+                            EndIndex,
+                            Args.offset() + NextArg),
             RunErrorSeverity::Fatal,
             Instruction);
+          
           return false;
         }
       }
@@ -594,15 +588,16 @@ checkPrintFormat(unsigned Parameter,
     // the isArgumentTypeOK() implementation.
     if (!Conversion.isArgumentTypeOK(Args, NextArg)) {
       Thread.handleRunError(
-        createRunError<RunErrorType::FormatSpecifierArgType>
-                      (Function,
-                       Parameter,
-                       StartIndex,
-                       EndIndex,
-                       asCFormatLengthModifier(Conversion.Length),
-                       Args.offset() + NextArg),
+        *createRunError<RunErrorType::FormatSpecifierArgType>
+                       (Function,
+                        Parameter,
+                        StartIndex,
+                        EndIndex,
+                        asCFormatLengthModifier(Conversion.Length),
+                        Args.offset() + NextArg),
         RunErrorSeverity::Fatal,
         Instruction);
+      
       return false;
     }
     
@@ -646,25 +641,26 @@ checkPrintFormat(unsigned Parameter,
   
   // Ensure that we got exactly the right number of arguments.
   if (NextArg > Args.size()) {
-    Thread.handleRunError(createRunError<RunErrorType::VarArgsInsufficient>
-                                        (Function,
-                                         NextArg,
-                                         Args.size()),
-                          RunErrorSeverity::Fatal,
-                          Instruction);
+    Thread.handleRunError(
+      *createRunError<RunErrorType::VarArgsInsufficient>
+                     (Function, NextArg, Args.size()),
+      RunErrorSeverity::Fatal,
+      Instruction);
+    
+    return false;
   }
   else if (NextArg < Args.size()) {
-    Thread.handleRunError(createRunError<RunErrorType::VarArgsSuperfluous>
-                                        (Function,
-                                         NextArg,
-                                         Args.size()),
-                          RunErrorSeverity::Warning,
-                          Instruction);
+    Thread.handleRunError(
+      *createRunError<RunErrorType::VarArgsSuperfluous>
+                     (Function, NextArg, Args.size()),
+      RunErrorSeverity::Warning,
+      Instruction);
   }
   
   return true;
 }
 
+/*
 bool
 CStdLibChecker::
 checkScanFormat(unsigned Parameter,
@@ -807,6 +803,7 @@ checkScanFormat(unsigned Parameter,
   
   return true;
 }
+*/
 
 
 //===------------------------------------------------------------------------===
@@ -815,13 +812,13 @@ checkScanFormat(unsigned Parameter,
 
 bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
                                     FILE *Stream) {
+  using namespace seec::runtime_errors;
+  
   if (!Streams.streamWillClose(Stream)) {
-    Thread.handleRunError(
-      seec::runtime_errors::createRunError
-        <seec::runtime_errors::RunErrorType::PassInvalidStream>(Function,
-                                                                Parameter),
-      seec::trace::RunErrorSeverity::Fatal,
-      Instruction);
+    Thread.handleRunError(*createRunError<RunErrorType::PassInvalidStream>
+                                         (Function, Parameter),
+                          seec::trace::RunErrorSeverity::Fatal,
+                          Instruction);
     
     return false;
   }
@@ -831,9 +828,10 @@ bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
 
 
 bool CIOChecker::checkStandardStreamIsValid(FILE *Stream) {
+  using namespace seec::runtime_errors;
+  using namespace seec::runtime_errors::format_selects;
+  
   if (!Streams.streamWillClose(Stream)) {
-    using namespace seec::runtime_errors::format_selects;
-    
     CStdStream StdStream = CStdStream::Unknown;
     
     if (Stream == stdout)
@@ -845,12 +843,10 @@ bool CIOChecker::checkStandardStreamIsValid(FILE *Stream) {
     else
       llvm_unreachable("non-standard stream!");
     
-    Thread.handleRunError(
-      seec::runtime_errors::createRunError
-        <seec::runtime_errors::RunErrorType::UseInvalidStream>(Function,
-                                                               StdStream),
-      seec::trace::RunErrorSeverity::Fatal,
-      Instruction);
+    Thread.handleRunError(*createRunError<RunErrorType::UseInvalidStream>
+                                         (Function, StdStream),
+                          seec::trace::RunErrorSeverity::Fatal,
+                          Instruction);
     
     return false;
   }

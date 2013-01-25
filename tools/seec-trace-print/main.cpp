@@ -254,16 +254,23 @@ int main(int argc, char **argv, char * const *envp) {
         }
         else if (Ev.getType() == trace::EventType::FunctionEnd) {
           assert(!FunctionStack.empty());
+          
           FunctionStack.pop_back();
         }
         else if (Ev.getType() == trace::EventType::RuntimeError) {
+          auto &EvRecord = Ev.as<trace::EventType::RuntimeError>();
+          if (!EvRecord.getIsTopLevel())
+            continue;
+          
           assert(!FunctionStack.empty());
+          
           // Print a textual description of the error.
           auto ErrRange = rangeAfterIncluding(Thread.events(), Ev);
           auto RunErr = deserializeRuntimeError(ErrRange);
-          if (RunErr) {
-            auto UniStr = seec::runtime_errors::format(*RunErr);
-            outs() << "Error: \"" << UniStr << "\"\n";
+          
+          if (RunErr.first) {
+            auto UniStr = seec::runtime_errors::format(*RunErr.first);
+            llvm::outs() << "Error:\n" << UniStr << "\n";
           }
 
           // Find the Instruction responsible for this error.

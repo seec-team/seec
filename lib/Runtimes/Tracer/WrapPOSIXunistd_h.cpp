@@ -71,8 +71,8 @@ SEEC_MANGLE_FUNCTION(execv)
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      createRunError<RunErrorType::UnsafeMultithreaded>
-                    (format_selects::CStdFunction::execve),
+      *createRunError<RunErrorType::UnsafeMultithreaded>
+                     (format_selects::CStdFunction::execve),
       RunErrorSeverity::Fatal);
   }
   
@@ -158,8 +158,8 @@ SEEC_MANGLE_FUNCTION(execve)
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      createRunError<RunErrorType::UnsafeMultithreaded>
-                    (format_selects::CStdFunction::execve),
+      *createRunError<RunErrorType::UnsafeMultithreaded>
+                     (format_selects::CStdFunction::execve),
       RunErrorSeverity::Fatal);
   }
   
@@ -248,8 +248,8 @@ SEEC_MANGLE_FUNCTION(execvp)
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      createRunError<RunErrorType::UnsafeMultithreaded>
-                    (format_selects::CStdFunction::execve),
+      *createRunError<RunErrorType::UnsafeMultithreaded>
+                     (format_selects::CStdFunction::execve),
       RunErrorSeverity::Fatal);
   }
   
@@ -316,8 +316,8 @@ SEEC_MANGLE_FUNCTION(fork)
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      createRunError<RunErrorType::UnsafeMultithreaded>
-                    (format_selects::CStdFunction::fork),
+      *createRunError<RunErrorType::UnsafeMultithreaded>
+                     (format_selects::CStdFunction::fork),
       RunErrorSeverity::Fatal);
   }
   

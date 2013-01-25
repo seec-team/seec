@@ -18,6 +18,29 @@
 #error "Must define SEEC_RUNERR before including RuntimeErrors.def"
 #endif
 
+
+//===----------------------------------------------------------------------===//
+// Additional Information/Notes
+//===----------------------------------------------------------------------===//
+
+SEEC_RUNERR(InfoCStdFunction,
+  SEEC_PP_QUOTE(
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
+SEEC_RUNERR(InfoCStdFunctionParameter,
+  SEEC_PP_QUOTE(
+    (function, seec::runtime_errors::ArgSelect
+                 <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter)
+  ))
+
+
+//===----------------------------------------------------------------------===//
+// Top-level Errors
+//===----------------------------------------------------------------------===//
+
 //
 // Access to unowned memory
 //

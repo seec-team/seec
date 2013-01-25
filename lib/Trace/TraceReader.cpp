@@ -43,30 +43,55 @@ deserializeRuntimeErrorArg(uint8_t Type, uint64_t Data) {
   return seec::runtime_errors::Arg::deserialize(Type, Data);
 }
 
-std::unique_ptr<seec::runtime_errors::RunError>
+std::pair<std::unique_ptr<seec::runtime_errors::RunError>, EventReference>
 deserializeRuntimeError(EventRange Records) {
-  auto Record = Records.begin();
-
-  if (Record->getType() != EventType::RuntimeError)
-    return nullptr;
-
-  auto &ErrorRecord = Record.get<EventType::RuntimeError>();
-  auto ErrorType =
-        static_cast<runtime_errors::RunErrorType>(ErrorRecord.getErrorType());
-
-  std::vector<std::unique_ptr<seec::runtime_errors::Arg>> Args;
-
+  using namespace seec::runtime_errors;
+  
+  auto NextRecord = Records.begin();
+  if (NextRecord->getType() != EventType::RuntimeError)
+    return std::make_pair(nullptr, NextRecord);
+  
+  auto &ErrorRecord = NextRecord.get<EventType::RuntimeError>();
+  auto ErrorType = static_cast<RunErrorType>(ErrorRecord.getErrorType());
+  
+  ++NextRecord;
+  
+  // Read arguments.
+  std::vector<std::unique_ptr<Arg>> Args;
+  
   for (auto Count = ErrorRecord.getArgumentCount(); Count != 0; --Count) {
-    ++Record;
-
-    auto &ArgRecord = Record.get<EventType::RuntimeErrorArgument>();
+    auto &ArgRecord = NextRecord.get<EventType::RuntimeErrorArgument>();
 
     Args.emplace_back(deserializeRuntimeErrorArg(ArgRecord.getArgumentType(),
                                                  ArgRecord.getArgumentData()));
+    
+    ++NextRecord;
   }
-
-  return std::unique_ptr<seec::runtime_errors::RunError>(
-          new seec::runtime_errors::RunError(ErrorType, std::move(Args)));
+  
+  // Read additional errors.
+  std::vector<std::unique_ptr<RunError>> Additional;
+  
+  for (auto Count = ErrorRecord.getAdditionalCount(); Count != 0; --Count) {
+    auto Read = deserializeRuntimeError(rangeAfterIncluding(Records,
+                                                            NextRecord));
+    
+    // If we couldn't read one of the additionals, the deserialization failed.
+    if (!Read.first)
+      return std::make_pair(nullptr, NextRecord);
+    
+    // Otherwise add the additional and continue from the first record that
+    // follows the additional.
+    Additional.emplace_back(std::move(Read.first));
+    NextRecord = Read.second;
+  }
+  
+  // Create the complete RunError.
+  auto Error = new RunError(ErrorType,
+                            std::move(Args),
+                            std::move(Additional));
+  
+  return std::make_pair(std::unique_ptr<seec::runtime_errors::RunError>(Error),
+                        NextRecord);
 }
 
 

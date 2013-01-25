@@ -905,11 +905,10 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
   if (!ProcessListener.isCurrentDynamicMemoryAllocation(AddressInt)) {
     using namespace seec::runtime_errors;
 
-
     handleRunError(
-      createRunError<RunErrorType::BadDynamicMemoryAddress>(
-        format_selects::CStdFunction::Free,
-        AddressInt),
+      *createRunError<RunErrorType::BadDynamicMemoryAddress>
+                     (format_selects::CStdFunction::Free,
+                      AddressInt),
       RunErrorSeverity::Fatal,
       Index);
   }
@@ -967,9 +966,9 @@ void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
     using namespace seec::runtime_errors;
 
     handleRunError(
-      createRunError<RunErrorType::BadDynamicMemoryAddress>(
-        format_selects::CStdFunction::Realloc,
-        AddressInt),
+      *createRunError<RunErrorType::BadDynamicMemoryAddress>
+                     (format_selects::CStdFunction::Realloc,
+                      AddressInt),
       RunErrorSeverity::Fatal,
       Index);
   }

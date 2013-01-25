@@ -54,21 +54,51 @@ class RunError {
   
   /// The arguments used.
   std::vector<std::unique_ptr<Arg>> Args;
+  
+  /// Additional (subservient) runtime errors.
+  std::vector<std::unique_ptr<RunError>> Additional;
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
   /// \param Type the type of runtime error.
   /// \param Args the arguments used - will be moved from.
-  RunError(RunErrorType Type, std::vector<std::unique_ptr<Arg>> &&Args)
-  : Type(Type),
-    Args(std::move(Args))
+  RunError(RunErrorType ErrorType,
+           std::vector<std::unique_ptr<Arg>> ErrorArgs,
+           std::vector<std::unique_ptr<RunError>> AdditionalErrors)
+  : Type(ErrorType),
+    Args(std::move(ErrorArgs)),
+    Additional(std::move(AdditionalErrors))
   {}
   
-  /// Get the type of runtime error.
+  
+  /// \name Accessors
+  /// @{
+  
+  /// \brief Get the type of runtime error.
   RunErrorType type() const { return Type; }
   
-  /// Get the arguments to this runtime error.
+  /// \brief Get the arguments to this runtime error.
   decltype(Args) const &args() const { return Args; }
+  
+  /// \brief Get the additional errors attached to this runtime error.
+  decltype(Additional) const &additional() const { return Additional; }
+  
+  /// @} (Accessors)
+  
+  
+  /// \name Mutators
+  /// @{
+  
+  /// \brief Add an additional error to this RunError.
+  /// \param Error the additional error to attach to this RunError.
+  /// \return this RunError.
+  ///
+  RunError &addAdditional(std::unique_ptr<RunError> Error) {
+    Additional.emplace_back(std::move(Error));
+    return *this;
+  }
+  
+  /// @} (Mutators)
 };
 
 /// Helper function used by RunErrorCreatorBase to create an argument vector.
@@ -93,10 +123,13 @@ public:
   /// \return a unique_ptr owning the new runtime error.
   static std::unique_ptr<RunError> create(ArgTypes&&... Args) {
     std::vector<std::unique_ptr<Arg>> ArgsVec;
-    
     emplaceArgs(ArgsVec, std::forward<ArgTypes>(Args)...);
     
-    return std::unique_ptr<RunError>(new RunError(Type, std::move(ArgsVec)));
+    auto Error = new RunError(Type,
+                              std::move(ArgsVec),
+                              std::vector<std::unique_ptr<RunError>>{});
+    
+    return std::unique_ptr<RunError>(Error);
   }
 };
 

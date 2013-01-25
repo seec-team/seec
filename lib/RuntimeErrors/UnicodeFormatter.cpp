@@ -84,30 +84,30 @@ Formattable formatArg(Arg const &A) {
 
 UnicodeString format(RunError const &RunErr) {
   UnicodeString Result;
-
+  
   UErrorCode Status = U_ZERO_ERROR;
-
-  // get the entire RuntimeErrors bundle
+  
+  // Get the entire RuntimeErrors bundle.
   auto Resources = getResourceBundle("RuntimeErrors", Locale::getDefault());
   if (!Resources)
     return Result;
-
-  // get descriptions
+  
+  // Get descriptions.
   auto Descriptions = Resources->get("descriptions", Status);
   assert(U_SUCCESS(Status) && "Couldn't get Descriptions.");
-
-  // get error description
+  
+  // Get error description.
   auto FormatString = Descriptions.getStringEx(describe(RunErr.type()), Status);
   if (!U_SUCCESS(Status)) {
     llvm::errs() << "Couldn't get FormatString for " << describe(RunErr.type())
                  << ", Status = " << u_errorName(Status) << "\n";
     exit(EXIT_FAILURE);
   }
-
+  
   // For every argument, create a Formattable object and a name string.
   std::vector<UnicodeString> ArgumentNames;
   std::vector<Formattable> Arguments;
-
+  
   for (auto &Arg: RunErr.args()) {
     // Get the name for this argument.
     auto Name = getArgumentName(RunErr.type(), ArgumentNames.size());
@@ -115,17 +115,23 @@ UnicodeString format(RunError const &RunErr) {
     ArgumentNames.push_back(UnicodeString::fromUTF8(Name));
     Arguments.push_back(formatArg(*Arg));
   }
-
+  
   MessageFormat Formatter(FormatString, Status);
   assert(U_SUCCESS(Status) && "Couldn't create MessageFormat object.");
-
+  
   Formatter.format(ArgumentNames.data(),
                    Arguments.data(),
                    Arguments.size(),
                    Result,
                    Status);
   assert(U_SUCCESS(Status) && "MessageFormat::format failed.");
-
+  
+  // Add the messages for each of the additional errors.
+  for (auto const &Additional : RunErr.additional()) {
+    Result += "\n";
+    Result += format(*Additional);
+  }
+  
   return Result;
 }
 

@@ -555,9 +555,13 @@ void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
+  if (!Ev.getIsTopLevel())
+    return;
+  
   auto ErrRange = rangeAfterIncluding(Trace.events(), Ev);
-  CurrentError = deserializeRuntimeError(ErrRange);
-  assert(CurrentError);
+  auto ReadError = deserializeRuntimeError(ErrRange);
+  assert(ReadError.first && "Malformed trace file.");
+  CurrentError = std::move(ReadError.first);
 }
 
 void ThreadState::addNextEvent() {
@@ -611,8 +615,9 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   if (MaybeErrorRef.assigned()) {
     auto ErrorRef = MaybeErrorRef.get<0>();
     auto ErrorRange = rangeAfterIncluding(ErrorSearchRange, ErrorRef);
-    CurrentError = deserializeRuntimeError(ErrorRange);
-    assert(CurrentError);
+    auto ReadError = deserializeRuntimeError(ErrorRange);
+    assert(ReadError.first && "Malformed trace file.");
+    CurrentError = std::move(ReadError.first);
   }
 }
 
