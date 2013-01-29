@@ -1511,6 +1511,9 @@ SEEC_MANGLE_FUNCTION(tmpnam)
     ProcessListener.addKnownMemoryRegion(Address,
                                          Length,
                                          seec::MemoryPermission::ReadOnly);
+    
+    // Record the write to the new string area.
+    Listener.recordUntypedState(Result, Length);
   }
   
   return Result;
