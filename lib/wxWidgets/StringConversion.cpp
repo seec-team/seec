@@ -15,6 +15,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include <cstdlib>
 #include <string>
 
 namespace seec {
