@@ -15,6 +15,8 @@
 			<string>SeeC Process Trace</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
+                        <key>CFBundleTypeIconFile</key>
+                        <string>SeeC</string>
 			<key>LSTypeIsPackage</key>
 			<true/>
 		</dict>
@@ -31,6 +33,8 @@
 	<string>seec-trace-view</string>
 	<key>CFBundleDisplayName</key>
 	<string>SeeC Trace Viewer</string>
+        <key>CFBundleIconFile</key>
+        <string>SeeC</string>
 	<key>CFBundleVersion</key>
 	<string>0.1</string>
 </dict>

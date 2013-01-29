@@ -134,4 +134,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   foreach(RES_FILE ${RES_FILES})
     INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
   endforeach(RES_FILE)
+
+  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Contents/Resources/)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
