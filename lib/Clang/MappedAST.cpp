@@ -392,11 +392,13 @@ MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
   if (DeclMap.first) {
     auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
     auto FileNode = dyn_cast<MDNode>(DeclIdxNode->getOperand(0));
+    assert(FileNode);
     FilePath = getPathFromFileNode(FileNode);
   }
   else if (StmtMap.first) {
     auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
     auto FileNode = dyn_cast<MDNode>(StmtIdxNode->getOperand(0));
+    assert(FileNode);
     FilePath = getPathFromFileNode(FileNode);
   }
   

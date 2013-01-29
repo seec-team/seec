@@ -334,8 +334,9 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 
       GlobalIdxMD->addOperand(llvm::MDNode::get(ModContext, Ops));
     }
+    
+    GlobalPtrMD->eraseFromParent();
   }
-  GlobalPtrMD->eraseFromParent();
   
   // Handle global Stmt maps. Each element in the global Stmt map has one
   // reference to a clang::Stmt, which is currently a constant int holding the
