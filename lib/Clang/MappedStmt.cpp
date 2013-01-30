@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 

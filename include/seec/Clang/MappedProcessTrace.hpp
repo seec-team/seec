@@ -17,6 +17,7 @@
 #define SEEC_CLANG_MAPPEDPROCESSTRACE_HPP
 
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedModule.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Error.hpp"

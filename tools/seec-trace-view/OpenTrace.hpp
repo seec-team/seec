@@ -15,6 +15,7 @@
 #define SEEC_TRACE_VIEW_OPENTRACE_HPP
 
 #include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedModule.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Maybe.hpp"
