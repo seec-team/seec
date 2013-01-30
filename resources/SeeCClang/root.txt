@@ -10,5 +10,15 @@ root:table {
     ParseModuleFail:string {
       "Couldn't parse module file \"{path}\". Received the following error: {error}"
     }
+
+    //
+    FileManagerGetFileFail:string {
+      "Couldn't get file from FileManager."
+    }
+
+    //
+    SourceLocationInvalid:string {
+      "Invalid source location."
+    }
   }
 }
