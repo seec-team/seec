@@ -84,7 +84,7 @@ public:
   /// @{
 
   /// Get the underlying ASTUnit.
-  clang::ASTUnit const &getASTUnit() const { return *AST; }
+  clang::ASTUnit &getASTUnit() const { return *AST; }
   
   /// Get all mapped clang::Decl pointers.
   decltype(Decls) const &getAllDecls() const { return Decls; }
