@@ -1,0 +1,66 @@
+root:table {
+  // Describes errors that can occur in the library.
+  errors:table {
+    ExplainNullDecl:string { "Decl is null." }
+
+    CreateDeclUnknownDeclKind:string { "Decl has unknown kind." }
+
+
+    ExplainNullStmt:string { "Stmt is null." }
+
+    CreateStmtNoStmtClass:string { "Stmt has no class." }
+
+    CreateStmtUnknownStmtClass:string { "Stmt has unknown class." }
+
+
+    DescriptionNotFound:string { "Couldn't find description for key {key}." }
+
+    DescriptionFormatFailed:string { "Couldn't format description with key {key}." }
+
+    DescriptionIndexFailed:string { "Couldn't index description with key {key}." }
+  }
+
+  // Contains textual descriptions of clang AST nodes.
+  descriptions:table {
+
+    //-------------------
+    // Decl descriptions.
+    //-------------------
+
+    // Function description.
+    //
+    Function:string { "This is a function declaration." }
+
+
+    //-------------------
+    // Stmt descriptions.
+    //-------------------
+
+    // IfStmt description.
+    // Inputs:
+    //   has_condition_variable
+    //   has_else
+    // Outputs:
+    //   cond
+    //   then
+    //   else
+    //
+    IfStmt:string {
+      "This is an if statement. It consists of a @[cond]condition@[], a @[then]body statement@[], and an optional @[else]else statement@[]. If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body statement@[] will be executed, otherwise the @[else]else statement@[] will be executed (if it exists)."
+      "{has_else, select, true { This if statement has an else branch.} false { This if statement does not have an else branch.} other { Very sad.}}"
+    }
+
+    // ReturnStmt description.
+    // Inputs:
+    //   has_return_value
+    // Outputs:
+    //   current_function
+    //   called_from
+    //
+    ReturnStmt:string {
+      "This is a return statement. It ends the execution of the current function, returning control to the caller of this function. If a value is returned, then it will be received at the site where this function was called. If this is the main function, then the program will end."
+      "{has_return_value, select, true { This return statement returns a value.} false { This return statement does not return a value.} other { Very sad.}}"
+    }
+
+  }
+}
