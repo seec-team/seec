@@ -27,24 +27,26 @@ UnicodeString LazyMessageByRef::create(UErrorCode &Status,
   // Load the package.
   ResourceBundle Bundle(Package, GetLocale, Status);
   if (U_FAILURE(Status))
-    return UnicodeString();
+    return UnicodeString("<LazyMessage error: couldn't open bundle \"")
+           + Package + "\">";
   
   // Traverse the bundles according to the keys.
   for (auto const &Key : Keys) {
     Bundle = Bundle.get(Key, Status);
     if (U_FAILURE(Status))
-      return UnicodeString();
+      return UnicodeString("<LazyMessage error: couldn't get bundle \"")
+             + Key + "\">";
   }
   
   // Get the final bundle as a string.
   UnicodeString FormatString = Bundle.getString(Status);
   if (U_FAILURE(Status))
-    return UnicodeString();
+    return UnicodeString("<LazyMessage error: couldn't get string>");
   
   // Format the string using the arguments.
   MessageFormat Formatter(FormatString, Status);
   if (U_FAILURE(Status))
-    return UnicodeString();
+    return UnicodeString("<LazyMessage error: couldn't create MessageFormat>");
   
   UnicodeString Result;
   
@@ -53,6 +55,9 @@ UnicodeString LazyMessageByRef::create(UErrorCode &Status,
                    ArgumentNames.size(),
                    Result,
                    Status);
+  
+  if (U_FAILURE(Status))
+    return UnicodeString("<LazyMessage error: couldn't format string>");
   
   return Result;
 }
