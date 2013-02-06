@@ -197,6 +197,8 @@ void addInfo(::clang::ReturnStmt const *Statement,
 {
   Arguments.add("has_return_value",
                 formatAsBool(Statement->getRetValue()));
+  
+  Links.add("return_value", Statement->getRetValue());
 }
 
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
