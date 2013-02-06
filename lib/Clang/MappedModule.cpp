@@ -275,6 +275,26 @@ MappedModule::getASTAndStmt(llvm::MDNode const *StmtIdentifier) const {
 }
 
 //------------------------------------------------------------------------------
+// MappedModule:: Find AST from Decl/Stmt.
+//------------------------------------------------------------------------------
+
+MappedAST const *
+MappedModule::getASTForDecl(::clang::Decl const *Decl) const {
+  for (auto const &ASTPtr : ASTList)
+    if (ASTPtr->contains(Decl))
+      return ASTPtr.get();
+  return nullptr;
+}
+
+MappedAST const *
+MappedModule::getASTForStmt(::clang::Stmt const *Stmt) const {
+  for (auto const &ASTPtr : ASTList)
+    if (ASTPtr->contains(Stmt))
+      return ASTPtr.get();
+  return nullptr;
+}
+
+//------------------------------------------------------------------------------
 // MappedModule:: Mapped llvm::Function pointers.
 //------------------------------------------------------------------------------
 

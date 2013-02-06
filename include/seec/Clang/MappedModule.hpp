@@ -250,6 +250,7 @@ public:
   /// Destructor.
   ~MappedModule();
 
+
   /// \name Accessors.
   /// @{
   
@@ -267,6 +268,20 @@ public:
   decltype(GlobalLookup) const &getGlobalLookup() const { return GlobalLookup; }
   
   /// @}
+  
+  
+  /// \name Find AST from Decl/Stmt.
+  /// @{
+  
+  /// \brief Find the AST that contains the given Decl, if possible.
+  ///
+  MappedAST const *getASTForDecl(::clang::Decl const *Decl) const;
+  
+  /// \brief Find the AST that contains the given Stmt, if possible.
+  ///
+  MappedAST const *getASTForStmt(::clang::Stmt const *Stmt) const;
+  
+  /// @} (Find AST from Decl/Stmt)
 
 
   /// \name Mapped llvm::Function pointers.

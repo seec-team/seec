@@ -106,6 +106,22 @@ public:
     return nullptr;
   }
   
+  /// \brief Check if this AST contains the given Decl.
+  bool contains(::clang::Decl const *Decl) const {
+    for (auto const D : Decls)
+      if (D == Decl)
+        return true;
+    return false;
+  }
+  
+  /// \brief Check if this AST contains the given Stmt.
+  bool contains(::clang::Stmt const *Stmt) const {
+    for (auto const S : Stmts)
+      if (S == Stmt)
+        return true;
+    return false;
+  }
+  
   /// @} (Accessors)
 };
 
