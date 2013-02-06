@@ -128,6 +128,30 @@ seec::util::Maybe<SciStyle> getDefaultStyle(SciCommonType Type) {
   return getDefaultStyle(StyleName);
 }
 
+void setupAllSciCommonTypes(wxStyledTextCtrl &Text) {
+  for (auto const Type : getAllSciCommonTypes()) {
+    auto const MaybeStyle = getDefaultStyle(Type);
+    
+    if (!MaybeStyle.assigned()) {
+      wxLogDebug("Couldn't get default style for style %s",
+                 getSciTypeName(Type));
+      
+      continue;
+    }
+    
+    auto const StyleNum = static_cast<int>(Type);
+    auto const &Style = MaybeStyle.get<0>();
+    
+    auto Font = Style.Font;
+    
+    Text.StyleSetForeground(StyleNum, Style.Foreground);
+    Text.StyleSetBackground(StyleNum, Style.Background);
+    Text.StyleSetFont(StyleNum, Font);
+    Text.StyleSetVisible(StyleNum, true);
+    Text.StyleSetCase(StyleNum, Style.CaseForce);
+  }
+}
+
 
 //===----------------------------------------------------------------------===//
 // SciLexerType
@@ -170,6 +194,30 @@ seec::util::Maybe<SciStyle> getDefaultStyle(SciLexerType Type) {
     return seec::util::Maybe<SciStyle>();
   
   return getDefaultStyle(StyleName);
+}
+
+void setupAllSciLexerTypes(wxStyledTextCtrl &Text) {
+  for (auto const Type : getAllSciLexerTypes()) {
+    auto const MaybeStyle = getDefaultStyle(Type);
+    
+    if (!MaybeStyle.assigned()) {
+      wxLogDebug("Couldn't get default style for lexer style %s",
+                 getSciTypeName(Type));
+      
+      continue;
+    }
+    
+    auto const StyleNum = static_cast<int>(Type);
+    auto const &Style = MaybeStyle.get<0>();
+    
+    auto Font = Style.Font;
+    
+    Text.StyleSetForeground(StyleNum, Style.Foreground);
+    Text.StyleSetBackground(StyleNum, Style.Background);
+    Text.StyleSetFont(StyleNum, Font);
+    Text.StyleSetVisible(StyleNum, true);
+    Text.StyleSetCase(StyleNum, Style.CaseForce);
+  }
 }
 
 
@@ -285,4 +333,26 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
                            Alpha,
                            OutlineAlpha,
                            Under);
+}
+
+void setupAllSciIndicatorTypes(wxStyledTextCtrl &Text) {
+  for (auto const Type : getAllSciIndicatorTypes()) {
+    auto const MaybeStyle = getDefaultIndicatorStyle(Type);
+    
+    if (!MaybeStyle.assigned()) {
+      wxLogDebug("Couldn't get default style for indicator %s",
+                 getSciIndicatorTypeName(Type));
+      
+      continue;
+    }
+    
+    auto const Indicator = static_cast<int>(Type);
+    auto const &IndicatorStyle = MaybeStyle.get<0>();
+    
+    Text.IndicatorSetStyle(Indicator, IndicatorStyle.Style);
+    Text.IndicatorSetForeground(Indicator, IndicatorStyle.Foreground);
+    Text.IndicatorSetAlpha(Indicator, IndicatorStyle.Alpha);
+    Text.IndicatorSetOutlineAlpha(Indicator, IndicatorStyle.OutlineAlpha);
+    Text.IndicatorSetUnder(Indicator, IndicatorStyle.Under);
+  }
 }

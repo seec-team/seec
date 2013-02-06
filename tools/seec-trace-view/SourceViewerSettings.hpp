@@ -100,6 +100,9 @@ llvm::ArrayRef<SciCommonType> getAllSciCommonTypes();
 ///
 seec::util::Maybe<SciStyle> getDefaultStyle(SciCommonType Type);
 
+/// \brief Setup default style settings for all common types.
+///
+void setupAllSciCommonTypes(wxStyledTextCtrl &Text);
 
 
 //===----------------------------------------------------------------------===//
@@ -134,6 +137,10 @@ llvm::ArrayRef<SciLexerType> getAllSciLexerTypes();
 /// \brief Get the default style settings for a given SciType.
 ///
 seec::util::Maybe<SciStyle> getDefaultStyle(SciLexerType Type);
+
+/// \brief Setup default style settings for all lexer types.
+///
+void setupAllSciLexerTypes(wxStyledTextCtrl &Text);
 
 
 //===----------------------------------------------------------------------===//
@@ -208,6 +215,10 @@ llvm::ArrayRef<SciIndicatorType> getAllSciIndicatorTypes();
 ///
 seec::util::Maybe<SciIndicatorStyle>
 getDefaultIndicatorStyle(SciIndicatorType Type);
+
+/// \brief Setup default style settings for all indicator types.
+///
+void setupAllSciIndicatorTypes(wxStyledTextCtrl &Text);
 
 
 //===----------------------------------------------------------------------===//

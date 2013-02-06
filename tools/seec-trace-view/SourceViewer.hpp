@@ -24,17 +24,19 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <map>
+#include <memory>
 
 
 // Forward declarations.
 
+class ExplanationViewer;
 class OpenTrace;
 class SourceFilePanel;
 
 namespace seec {
   namespace seec_clang {
     struct SimpleRange;
-  }
+  } // namespace seec_clang (in seec)
   namespace trace {
     class ProcessState;
     class RuntimeValue;
@@ -49,6 +51,7 @@ namespace llvm {
 } // namespace llvm
 
 namespace clang {
+  class Decl;
   class Stmt;
 } // namespace clang
 
@@ -59,7 +62,10 @@ class SourceViewerPanel : public wxPanel
 {
   /// Notebook that holds all of the source windows.
   wxAuiNotebook *Notebook;
-
+  
+  /// Text control that holds explanatory material.
+  ExplanationViewer *ExplanationCtrl;
+  
   /// The currently associated trace information.
   OpenTrace const *Trace;
 
@@ -67,15 +73,16 @@ class SourceViewerPanel : public wxPanel
   std::map<llvm::sys::Path, SourceFilePanel *> Pages;
   
 public:
-  /// Construct without creating.
+  /// \brief Construct without creating.
   SourceViewerPanel()
   : wxPanel(),
     Notebook(nullptr),
+    ExplanationCtrl(nullptr),
     Trace(nullptr),
     Pages()
   {}
 
-  /// Construct and create.
+  /// \brief Construct and create.
   SourceViewerPanel(wxWindow *Parent,
                     OpenTrace const &TheTrace,
                     wxWindowID ID = wxID_ANY,
@@ -83,6 +90,7 @@ public:
                     wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     Notebook(nullptr),
+    ExplanationCtrl(nullptr),
     Trace(nullptr),
     Pages()
   {
@@ -98,7 +106,7 @@ public:
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
-
+  
   /// Remove all files from the viewer.
   void clear();
   
@@ -112,7 +120,7 @@ public:
   /// given thread.
   void show(seec::trace::ProcessState const &ProcessState,
             seec::trace::ThreadState const &ThreadState);
-  
+
 private:
   /// \name State display.
   /// @{
@@ -126,6 +134,10 @@ private:
   ///
   void showActiveRange(SourceFilePanel *Page,
                        seec::seec_clang::SimpleRange const &Range);
+  
+  ///
+  void showActiveDecl(::clang::Decl const *Decl,
+                      seec::seec_clang::MappedAST const &AST);
   
   ///
   void showActiveStmt(::clang::Stmt const *Statement,

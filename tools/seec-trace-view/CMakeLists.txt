@@ -4,6 +4,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_HEADERS
+  ExplanationViewer.hpp
   FunctionStateViewer.hpp
   MallocViewer.hpp
   OpenTrace.hpp
@@ -20,6 +21,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   )
 
 set(SEEC_TRACE_VIEW_SRCS
+  ExplanationViewer.cpp
   FunctionStateViewer.cpp
   MallocViewer.cpp
   OpenTrace.cpp
@@ -80,6 +82,7 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 #--------------------------------------------------------------------------------
 target_link_libraries(seec-trace-view
  # SeeC libraries
+ SeeCClangEPV
  SeeCClang
  SeeCTrace
  SeeCRuntimeErrors

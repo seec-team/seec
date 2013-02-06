@@ -25,6 +25,7 @@
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <array>
 #include <memory>
 #include <set>
 
@@ -104,11 +105,13 @@ bool TraceViewerApp::OnInit() {
   // Load ICU resources for TraceViewer.
   ICUResources.reset(new seec::ResourceLoader(ExecutablePath));
   
-  if (!ICUResources->loadResource("TraceViewer"))
-    HandleFatalError("Couldn't load TraceViewer resources!");
-  if (!ICUResources->loadResource("RuntimeErrors"))
-    HandleFatalError("Couldn't load RuntimeErrors resources!");
-
+  std::array<char const *, 4> ResourceList {
+    {"SeeCClang", "ClangEPV", "TraceViewer", "RuntimeErrors"}
+  };
+  
+  if (!ICUResources->loadResources(ResourceList))
+    HandleFatalError("Couldn't load resources!");
+  
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",

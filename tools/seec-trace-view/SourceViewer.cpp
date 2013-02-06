@@ -34,6 +34,7 @@
 #include <wx/stc/stc.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "ExplanationViewer.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "OpenTrace.hpp"
@@ -83,68 +84,13 @@ class SourceFilePanel : public wxPanel {
     Text->SetLexer(wxSTC_LEX_CPP);
         
     // Setup the default common style settings.
-    for (auto Type : getAllSciCommonTypes()) {
-      auto MaybeStyle = getDefaultStyle(Type);
-      if (!MaybeStyle.assigned()) {
-        wxLogDebug("Couldn't get default style for style %s",
-                   getSciTypeName(Type));
-        
-        continue;
-      }
-      
-      auto StyleNum = static_cast<int>(Type);
-      auto &Style = MaybeStyle.get<0>();
-      
-      auto Font = Style.Font;
-      
-      Text->StyleSetForeground(StyleNum, Style.Foreground);
-      Text->StyleSetBackground(StyleNum, Style.Background);
-      Text->StyleSetFont(StyleNum, Font);
-      Text->StyleSetVisible(StyleNum, true);
-      Text->StyleSetCase(StyleNum, Style.CaseForce);
-    }
+    setupAllSciCommonTypes(*Text);
     
     // Setup the default style settings for the lexer.
-    for (auto Type : getAllSciLexerTypes()) {
-      auto MaybeStyle = getDefaultStyle(Type);
-      if (!MaybeStyle.assigned()) {
-        wxLogDebug("Couldn't get default style for lexer style %s",
-                   getSciTypeName(Type));
-        
-        continue;
-      }
-      
-      auto StyleNum = static_cast<int>(Type);
-      auto &Style = MaybeStyle.get<0>();
-      
-      auto Font = Style.Font;
-      
-      Text->StyleSetForeground(StyleNum, Style.Foreground);
-      Text->StyleSetBackground(StyleNum, Style.Background);
-      Text->StyleSetFont(StyleNum, Font);
-      Text->StyleSetVisible(StyleNum, true);
-      Text->StyleSetCase(StyleNum, Style.CaseForce);
-    }
+    setupAllSciLexerTypes(*Text);
     
     // Setup the style settings for our indicators.
-    for (auto Type : getAllSciIndicatorTypes()) {
-      auto MaybeStyle = getDefaultIndicatorStyle(Type);
-      if (!MaybeStyle.assigned()) {
-        wxLogDebug("Couldn't get default style for indicator %s",
-                   getSciIndicatorTypeName(Type));
-        
-        continue;
-      }
-      
-      auto Indicator = static_cast<int>(Type);
-      auto &IndicatorStyle = MaybeStyle.get<0>();
-      
-      Text->IndicatorSetStyle(Indicator, IndicatorStyle.Style);
-      Text->IndicatorSetForeground(Indicator, IndicatorStyle.Foreground);
-      Text->IndicatorSetAlpha(Indicator, IndicatorStyle.Alpha);
-      Text->IndicatorSetOutlineAlpha(Indicator, IndicatorStyle.OutlineAlpha);
-      Text->IndicatorSetUnder(Indicator, IndicatorStyle.Under);
-    }
+    setupAllSciIndicatorTypes(*Text);
     
     //
     UErrorCode Status = U_ZERO_ERROR;
@@ -178,7 +124,7 @@ class SourceFilePanel : public wxPanel {
     Text->SetIndentationGuides(true);
     Text->SetEdgeColumn(80);
     // Text->SetEdgeMode(wxSTC_EDGE_LINE);
-    Text->SetWrapMode(wxSTC_WRAP_NONE);
+    Text->SetWrapMode(wxSTC_WRAP_WORD);
     
     Text->SetExtraDescent(2);
   }
@@ -384,9 +330,15 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_TAB_SPLIT
                                | wxAUI_NB_TAB_MOVE
                                | wxAUI_NB_SCROLL_BUTTONS);
+  
+  ExplanationCtrl = new ExplanationViewer(this,
+                                          wxID_ANY,
+                                          wxDefaultPosition,
+                                          wxSize(100, 100));
 
-  auto TopSizer = new wxGridSizer(1, 1, wxSize(0,0));
-  TopSizer->Add(Notebook, wxSizerFlags().Expand());
+  auto TopSizer = new wxBoxSizer(wxVERTICAL);
+  TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
+  TopSizer->Add(ExplanationCtrl, wxSizerFlags(0).Expand());
   SetSizerAndFit(TopSizer);
 
   // Load all source files.
@@ -550,6 +502,10 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
 }
 
 void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
+  // Clear the current explanation.
+  ExplanationCtrl->clearExplanation();
+  
+  // Get the Function mapping.
   auto Mapping = Trace->getMappedModule().getMappedGlobalDecl(Function);
   if (!Mapping) {
     wxLogDebug("No mapping for Function '%s'",
@@ -578,7 +534,7 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
 
   // TODO: Clear highlight on current source file?
 
-  Panel->setStateIndicator(SciIndicatorType::ActiveCode,
+  Panel->setStateIndicator(SciIndicatorType::CodeActive,
                            Start.getLine(), Start.getColumn(),
                            End.getLine(), End.getColumn() + 1);
 
@@ -597,6 +553,10 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
 }
 
 void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
+  // Clear the current explanation.
+  ExplanationCtrl->clearExplanation();
+    
+  // Get the Function mapping.
   auto Mapping = Trace->getMappedModule().getMappedGlobalDecl(Function);
   if (!Mapping) {
     wxLogDebug("No mapping for Function '%s'",
@@ -625,7 +585,7 @@ void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
 
   // TODO: Clear highlight on current source file?
 
-  Panel->setStateIndicator(SciIndicatorType::ActiveCode,
+  Panel->setStateIndicator(SciIndicatorType::CodeActive,
                            Start.getLine(), Start.getColumn(),
                            End.getLine(), End.getColumn() + 1);
 
@@ -647,14 +607,21 @@ void
 SourceViewerPanel::showActiveRange(SourceFilePanel *Page,
                                    seec::seec_clang::SimpleRange const &Range)
 {
-  Page->setStateIndicator(SciIndicatorType::ActiveCode,
+  Page->setStateIndicator(SciIndicatorType::CodeActive,
                           Range.Start.Line, Range.Start.Column,
                           Range.End.Line, Range.End.Column);
 }
 
+void SourceViewerPanel::showActiveDecl(::clang::Decl const *Decl,
+                                       seec::seec_clang::MappedAST const &AST)
+{
+
+}
+
 void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                                        seec::seec_clang::MappedAST const &AST,
-                                       llvm::StringRef Value) {
+                                       llvm::StringRef Value)
+{
   auto &ClangAST = AST.getASTUnit();
   
   auto MaybeRange = seec::seec_clang::getPrettyVisibleRange(Statement,
@@ -686,6 +653,8 @@ void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                         wxString(Value),
                         SciLexerType::SeeCRuntimeValue);
   }
+  
+  ExplanationCtrl->showExplanation(Statement);
 }
 
 void SourceViewerPanel::highlightInstruction
@@ -693,6 +662,9 @@ void SourceViewerPanel::highlightInstruction
        seec::trace::RuntimeValue const &Value,
        seec::runtime_errors::RunError const *Error) {
   assert(Trace);
+  
+  // Clear the current explanation.
+  ExplanationCtrl->clearExplanation();
   
   // TODO: Clear state mapping on the current source file.
 
@@ -760,6 +732,8 @@ void SourceViewerPanel::highlightInstruction
                             SciLexerType::SeeCRuntimeError);
       }
     }
+    
+    ExplanationCtrl->showExplanation(Statement);
   }
   else if (auto Decl = InstructionMap.getDecl()) {
     // Highlight the associated clang::Decl.
@@ -768,6 +742,8 @@ void SourceViewerPanel::highlightInstruction
     if (MaybeRange.assigned()) {
       showActiveRange(Panel, MaybeRange.get<0>());
     }
+    
+    ExplanationCtrl->showExplanation(Decl);
   }
 }
 
