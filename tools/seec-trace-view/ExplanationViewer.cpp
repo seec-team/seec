@@ -20,12 +20,6 @@
 #include "ExplanationViewer.hpp"
 #include "SourceViewerSettings.hpp"
 
-BEGIN_EVENT_TABLE(ExplanationViewer, wxStyledTextCtrl)
-  EVT_MOTION(ExplanationViewer::OnMotion)
-  EVT_ENTER_WINDOW(ExplanationViewer::OnEnterWindow)
-  EVT_LEAVE_WINDOW(ExplanationViewer::OnLeaveWindow)
-END_EVENT_TABLE()
-
 void ExplanationViewer::SetText(wxString const &Value)
 {
   this->SetEditable(true);
@@ -47,6 +41,10 @@ bool ExplanationViewer::Create(wxWindow *Parent,
                                 Position,
                                 Size))
     return false;
+  
+  Bind(wxEVT_MOTION, &ExplanationViewer::OnMotion, this);
+  Bind(wxEVT_ENTER_WINDOW, &ExplanationViewer::OnEnterWindow, this);
+  Bind(wxEVT_LEAVE_WINDOW, &ExplanationViewer::OnLeaveWindow, this);
   
   // setupAllSciCommonTypes(*this);
   // setupAllSciLexerTypes(*this);

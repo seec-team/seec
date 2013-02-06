@@ -103,9 +103,6 @@ public:
   void clearExplanation();
   
   /// @} (Mutators)
-  
-private:
-  DECLARE_EVENT_TABLE()
 };
 
 #endif // SEEC_TRACE_VIEW_EXPLANATIONVIEWER_HPP
