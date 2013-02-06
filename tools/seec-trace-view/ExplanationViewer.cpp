@@ -18,15 +18,39 @@
 #include "clang/AST/Stmt.h"
 
 #include "ExplanationViewer.hpp"
+#include "HighlightEvent.hpp"
 #include "SourceViewerSettings.hpp"
 
-void ExplanationViewer::SetText(wxString const &Value)
+void ExplanationViewer::setText(wxString const &Value)
 {
   this->SetEditable(true);
   this->ClearAll();
   this->SetValue(Value);
   this->SetEditable(false);
   this->ClearSelections();
+}
+
+void ExplanationViewer::clearCurrent()
+{
+  IndicatorClearRange(0, GetTextLength());
+  
+  CurrentMousePosition = wxSTC_INVALID_POSITION;
+  
+  if (HighlightedDecl) {
+    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_OFF, GetId(), HighlightedDecl);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+    
+    HighlightedDecl = nullptr;
+  }
+  
+  if (HighlightedStmt) {
+    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_OFF, GetId(), HighlightedStmt);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+    
+    HighlightedStmt = nullptr;
+  }
 }
 
 ExplanationViewer::~ExplanationViewer() {}
@@ -68,8 +92,8 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   if (Pos == CurrentMousePosition)
     return;
   
+  clearCurrent();
   CurrentMousePosition = Pos;
-  IndicatorClearRange(0, GetTextLength());
   
   if (Pos == wxSTC_INVALID_POSITION)
     return;
@@ -81,6 +105,20 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
   IndicatorFillRange(Links.getPrimaryIndexStart(),
                      Links.getPrimaryIndexEnd() - Links.getPrimaryIndexStart());
+  
+  if (auto const Decl = Links.getPrimaryDecl()) {
+    HighlightedDecl = Decl;
+    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_ON, GetId(), Decl);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+  }
+  
+  if (auto const Stmt = Links.getPrimaryStmt()) {
+    HighlightedStmt = Stmt;
+    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_ON, GetId(), Stmt);
+    Ev.SetEventObject(this);
+    ProcessWindowEvent(Ev);
+  }
 }
 
 void ExplanationViewer::OnEnterWindow(wxMouseEvent &Event)
@@ -89,7 +127,7 @@ void ExplanationViewer::OnEnterWindow(wxMouseEvent &Event)
 
 void ExplanationViewer::OnLeaveWindow(wxMouseEvent &Event)
 {
-  IndicatorClearRange(0, GetTextLength());
+  clearCurrent();
 }
 
 void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
@@ -98,14 +136,14 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
   
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
-    SetText(seec::towxString(Explanation->getString()));
+    setText(seec::towxString(Explanation->getString()));
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
                                                                  Locale());
     if (U_SUCCESS(Status)) {
-      SetText(seec::towxString(String));
+      setText(seec::towxString(String));
     }
     else {
       wxLogDebug("Indescribable error with seec::clang_epv::explain().");
@@ -121,14 +159,14 @@ void ExplanationViewer::showExplanation(::clang::Stmt const *Statement)
   auto MaybeExplanation = seec::clang_epv::explain(Statement);
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
-    SetText(seec::towxString(Explanation->getString()));
+    setText(seec::towxString(Explanation->getString()));
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
                                                                  Locale());
     if (U_SUCCESS(Status)) {
-      SetText(seec::towxString(String));
+      setText(seec::towxString(String));
     }
     else {
       wxLogDebug("Indescribable error with seec::clang_epv::explain().");
@@ -141,6 +179,10 @@ void ExplanationViewer::showExplanation(::clang::Stmt const *Statement)
 
 void ExplanationViewer::clearExplanation()
 {
+  // Ensure that highlights etc. are cleared (if they are active).
+  clearCurrent();
+  
+  // Discard the explanation and clear the display.
   Explanation.reset();
-  SetText(wxEmptyString);
+  setText(wxEmptyString);
 }

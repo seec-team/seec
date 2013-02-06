@@ -26,6 +26,8 @@
 #include <map>
 #include <memory>
 
+#include "HighlightEvent.hpp"
+
 
 // Forward declarations.
 
@@ -54,6 +56,51 @@ namespace clang {
   class Decl;
   class Stmt;
 } // namespace clang
+
+
+/// \brief A range in a source file.
+///
+struct SourceFileRange {
+  std::string Filename;
+  
+  unsigned Start;
+  
+  unsigned StartLine;
+  
+  unsigned StartColumn;
+  
+  unsigned End;
+  
+  unsigned EndLine;
+  
+  unsigned EndColumn;
+  
+  SourceFileRange()
+  : Filename(),
+    Start(),
+    StartLine(),
+    StartColumn(),
+    End(),
+    EndLine(),
+    EndColumn()
+  {}
+  
+  SourceFileRange(std::string WithFilename,
+                  unsigned WithStart,
+                  unsigned WithStartLine,
+                  unsigned WithStartColumn,
+                  unsigned WithEnd,
+                  unsigned WithEndLine,
+                  unsigned WithEndColumn)
+  : Filename(std::move(WithFilename)),
+    Start(WithStart),
+    StartLine(WithStartLine),
+    StartColumn(WithStartColumn),
+    End(WithEnd),
+    EndLine(WithEndLine),
+    EndColumn(WithEndColumn)
+  {}
+};
 
 
 /// \brief SourceViewerPanel.
@@ -97,15 +144,19 @@ public:
     Create(Parent, TheTrace, ID, Position, Size);
   }
 
-  /// Destructor.
+  /// \brief Destructor.
   virtual ~SourceViewerPanel();
 
-  /// Create the panel.
+  /// \brief Create the panel.
   bool Create(wxWindow *Parent,
               OpenTrace const &TheTrace,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
+  
+  
+  /// \name Mutators.
+  /// @{
   
   /// Remove all files from the viewer.
   void clear();
@@ -121,6 +172,44 @@ public:
   void show(seec::trace::ProcessState const &ProcessState,
             seec::trace::ThreadState const &ThreadState);
 
+  /// @} (Mutators).
+  
+  
+  /// \name Location lookup.
+  /// @{
+  
+public:  
+  SourceFileRange getRange(::clang::Decl const *Decl) const;
+  
+  SourceFileRange getRange(::clang::Stmt const *Stmt,
+                           ::clang::ASTContext const &AST) const;
+  
+  SourceFileRange getRange(::clang::Stmt const *Stmt) const;
+  
+  /// @}
+  
+  
+  /// \name Highlighting.
+  /// @{
+private:
+  /// Set highlighting for a Decl.
+  void highlightOn(::clang::Decl const *Decl);
+  
+  /// Set highlighting for a Stmt.
+  void highlightOn(::clang::Stmt const *Stmt);
+  
+  /// Clear all highlighting.
+  void highlightOff();
+  
+public:
+  /// Set highlighting for the given event.
+  void OnHighlightOn(HighlightEvent const &Ev);
+  
+  /// Clear highlighting for the given event.
+  void OnHighlightOff(HighlightEvent const &Ev);
+  
+  /// @}
+  
 private:
   /// \name State display.
   /// @{
@@ -142,7 +231,8 @@ private:
   ///
   void showActiveStmt(::clang::Stmt const *Statement,
                       seec::seec_clang::MappedAST const &AST,
-                      llvm::StringRef Value);
+                      llvm::StringRef Value,
+                      wxString const &Error);
 
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction const *Instruction,

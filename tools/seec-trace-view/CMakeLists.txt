@@ -6,6 +6,7 @@ endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(SEEC_TRACE_VIEW_HEADERS
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
+  HighlightEvent.hpp
   MallocViewer.hpp
   OpenTrace.hpp
   ProcessTimeControl.hpp
@@ -23,6 +24,7 @@ set(SEEC_TRACE_VIEW_HEADERS
 set(SEEC_TRACE_VIEW_SRCS
   ExplanationViewer.cpp
   FunctionStateViewer.cpp
+  HighlightEvent.cpp
   MallocViewer.cpp
   OpenTrace.cpp
   ProcessTimeControl.cpp

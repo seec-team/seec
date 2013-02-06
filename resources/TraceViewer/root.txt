@@ -452,8 +452,8 @@ root:table {
       Name:string {"Active code"}
       Style:string {"STRAIGHTBOX"}      
       Foreground:string {"YELLOW"}
-      Alpha:int {80}
-      OutlineAlpha:int {80}
+      Alpha:int {30}
+      OutlineAlpha:int {30}
       Under:string {"False"}
     }
 
@@ -464,7 +464,7 @@ root:table {
       Name:string {"Highlight code"}
       Style:string {"STRAIGHTBOX"}      
       Foreground:string {"BLUE"}
-      Alpha:int {80}
+      Alpha:int {0}
       OutlineAlpha:int {80}
       Under:string {"False"}
     }

@@ -45,15 +45,26 @@ class ExplanationViewer : public wxStyledTextCtrl
   /// Caches the current mouse position.
   int CurrentMousePosition;
   
+  /// Currently highlighted Decl.
+  ::clang::Decl const *HighlightedDecl;
+  
+  /// Currently highlighted Stmt.
+  ::clang::Stmt const *HighlightedStmt;
+  
   /// \brief Set the contents of this viewer.
-  void SetText(wxString const &Value);
+  void setText(wxString const &Value);
+  
+  /// \brief Clear the current information.
+  void clearCurrent();
   
 public:
   /// \brief Construct without creating.
   ExplanationViewer()
   : wxStyledTextCtrl(),
     Explanation(),
-    CurrentMousePosition(wxSTC_INVALID_POSITION)
+    CurrentMousePosition(wxSTC_INVALID_POSITION),
+    HighlightedDecl(nullptr),
+    HighlightedStmt(nullptr)
   {}
 
   /// \brief Construct and create.
@@ -63,7 +74,9 @@ public:
                     wxSize const &Size = wxDefaultSize)
   : wxStyledTextCtrl(),
     Explanation(),
-    CurrentMousePosition(wxSTC_INVALID_POSITION)
+    CurrentMousePosition(wxSTC_INVALID_POSITION),
+    HighlightedDecl(nullptr),
+    HighlightedStmt(nullptr)
   {
     Create(Parent, ID, Position, Size);
   }
