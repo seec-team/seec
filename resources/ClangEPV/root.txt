@@ -42,10 +42,22 @@ root:table {
     // Outputs:
     //   lhs
     //   rhs
+    //
     BinaryOperator:string {
       "{opcode, select,"
       " BO_Mul {This is the multiplication operator *. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[].}}"
+    }
+
+    // DeclRefExpr description.
+    // Inputs:
+    //   name
+    // Outputs:
+    //   decl
+    //   found_decl
+    //
+    DeclRefExpr:string {
+      "This is a reference to the @[decl]declaration “{name}”@[]."
     }
 
     // IfStmt description.
