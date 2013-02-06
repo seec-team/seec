@@ -103,6 +103,73 @@ public:
 };
 
 
+/// \brief Describes linking information for a single character in an
+///        explanation.
+///
+class CharacterLinks {
+  /// The primary (innermost) index for this character, if any.
+  UnicodeString Index;
+  
+  /// The start of the primary index range, or -1 if none exists.
+  int32_t IndexStart;
+  
+  /// The end of the primary index range, or -1 if none exists.
+  int32_t IndexEnd;
+  
+  /// Decl associated with the Index, if any.
+  ::clang::Decl const *Decl;
+  
+  /// Stmt associated with the Index, if any.
+  ::clang::Stmt const *Stmt;
+  
+  /// \brief Constructor.
+  CharacterLinks(UnicodeString PrimaryIndex,
+                 int32_t PrimaryIndexStart,
+                 int32_t PrimaryIndexEnd,
+                 ::clang::Decl const *PrimaryDecl,
+                 ::clang::Stmt const *PrimaryStmt)
+  : Index(PrimaryIndex),
+    IndexStart(PrimaryIndexStart),
+    IndexEnd(PrimaryIndexEnd),
+    Decl(PrimaryDecl),
+    Stmt(PrimaryStmt)
+  {}
+  
+public:
+  static CharacterLinks create()
+  {
+    return CharacterLinks(UnicodeString(), -1, -1, nullptr, nullptr);
+  }
+  
+  static CharacterLinks create(UnicodeString const &PrimaryIndex,
+                               int32_t IndexStart,
+                               int32_t IndexEnd,
+                               NodeLinks const &Links)
+  {
+    return CharacterLinks(PrimaryIndex,
+                          IndexStart,
+                          IndexEnd,
+                          Links.getDeclFor(PrimaryIndex),
+                          Links.getStmtFor(PrimaryIndex));
+  }
+  
+  /// \name Accessors
+  /// @{
+  
+  UnicodeString const &getPrimaryIndex() const { return Index; }
+  
+  int32_t getPrimaryIndexStart() const { return IndexStart; }
+  
+  int32_t getPrimaryIndexEnd() const { return IndexEnd; }
+  
+  ::clang::Decl const *getPrimaryDecl() const { return Decl; }
+  
+  ::clang::Stmt const *getPrimaryStmt() const { return Stmt; }
+  
+  /// @}
+};
+
+
 /// \brief A textual explanation of a Clang AST node.
 ///
 class Explanation {
@@ -149,6 +216,21 @@ public:
   
   /// \brief Get a textual description of the node.
   UnicodeString const &getString() const { return Description.getString(); }
+  
+  /// \brief Get linking information for a single character.
+  CharacterLinks getCharacterLinksAt(int32_t Position) const {
+    auto const NeedleIt = Description.lookupPrimaryIndexAtCharacter(Position);
+    
+    if (NeedleIt != Description.getNeedleLookup().end()) {
+      return CharacterLinks::create(NeedleIt->first,
+                                    NeedleIt->second.getStart(),
+                                    NeedleIt->second.getEnd(),
+                                    Links);
+    }
+    else {
+      return CharacterLinks::create();
+    }
+  }
   
   /// @}
 };
