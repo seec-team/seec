@@ -15,6 +15,7 @@
 #include "seec/ClangEPV/ClangEPV.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Preprocessor/Apply.h"
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -47,6 +48,54 @@ namespace clang_epv {
 template<typename T>
 Formattable formatAsBool(T &&Value) {
   return Value ? Formattable("true") : Formattable("false");
+}
+
+Formattable formatAsString(llvm::StringRef String) {
+  return Formattable(UnicodeString::fromUTF8(String.str()));
+}
+
+Formattable formatAsString(::clang::BinaryOperatorKind Opcode) {
+  switch (Opcode) {
+#define SEEC_OPCODE_STRINGIZE(CODE) \
+    case ::clang::BinaryOperatorKind::CODE: return #CODE;
+
+SEEC_OPCODE_STRINGIZE(BO_PtrMemD)
+SEEC_OPCODE_STRINGIZE(BO_PtrMemI)
+SEEC_OPCODE_STRINGIZE(BO_Mul)
+SEEC_OPCODE_STRINGIZE(BO_Div)
+SEEC_OPCODE_STRINGIZE(BO_Rem)
+SEEC_OPCODE_STRINGIZE(BO_Add)
+SEEC_OPCODE_STRINGIZE(BO_Sub)
+SEEC_OPCODE_STRINGIZE(BO_Shl)
+SEEC_OPCODE_STRINGIZE(BO_Shr)
+SEEC_OPCODE_STRINGIZE(BO_LT)
+SEEC_OPCODE_STRINGIZE(BO_GT)
+SEEC_OPCODE_STRINGIZE(BO_LE)
+SEEC_OPCODE_STRINGIZE(BO_GE)
+SEEC_OPCODE_STRINGIZE(BO_EQ)
+SEEC_OPCODE_STRINGIZE(BO_NE)
+SEEC_OPCODE_STRINGIZE(BO_And)
+SEEC_OPCODE_STRINGIZE(BO_Xor)
+SEEC_OPCODE_STRINGIZE(BO_Or)
+SEEC_OPCODE_STRINGIZE(BO_LAnd)
+SEEC_OPCODE_STRINGIZE(BO_LOr)
+SEEC_OPCODE_STRINGIZE(BO_Assign)
+SEEC_OPCODE_STRINGIZE(BO_MulAssign)
+SEEC_OPCODE_STRINGIZE(BO_DivAssign)
+SEEC_OPCODE_STRINGIZE(BO_RemAssign)
+SEEC_OPCODE_STRINGIZE(BO_AddAssign)
+SEEC_OPCODE_STRINGIZE(BO_SubAssign)
+SEEC_OPCODE_STRINGIZE(BO_ShlAssign)
+SEEC_OPCODE_STRINGIZE(BO_ShrAssign)
+SEEC_OPCODE_STRINGIZE(BO_AndAssign)
+SEEC_OPCODE_STRINGIZE(BO_XorAssign)
+SEEC_OPCODE_STRINGIZE(BO_OrAssign)
+SEEC_OPCODE_STRINGIZE(BO_Comma)
+
+#undef SEEC_OPCODE_STRINGIZE
+  }
+
+  return formatAsString("<unknown opcode>");
 }
 
 
@@ -173,33 +222,28 @@ void addInfo(::clang::Stmt const *Statement,
              NodeLinks &Links)
 {}
 
-/// \brief Specialization for IfStmt.
-///
-void addInfo(::clang::IfStmt const *Statement,
-             seec::icu::FormatArgumentsWithNames &Arguments,
-             NodeLinks &Links)
-{
-  Arguments.add("has_condition_variable",
-                formatAsBool(Statement->getConditionVariable()));
-  Arguments.add("has_else",
-                formatAsBool(Statement->getElse()));
-  
-  Links.add("cond", Statement->getCond());
-  Links.add("then", Statement->getThen());
-  Links.add("else", Statement->getElse());
+// X-Macro generated specializations.
+#define SEEC_STMT_LINK_ARG(NAME, TYPE, GETTER) \
+  Arguments.add(NAME, formatAs##TYPE(Statement->GETTER));
+
+#define SEEC_STMT_LINK_LINK(NAME, GETTER) \
+  Links.add(NAME, Statement->GETTER);
+
+#define SEEC_STMT_LINK(STMTCLASS, ARGUMENTS, LINKS)                            \
+void addInfo(::clang::STMTCLASS const *Statement,                              \
+             seec::icu::FormatArgumentsWithNames &Arguments,                   \
+             NodeLinks &Links)                                                 \
+{                                                                              \
+  SEEC_PP_APPLY(SEEC_STMT_LINK_ARG, ARGUMENTS)                                 \
+  SEEC_PP_APPLY(SEEC_STMT_LINK_LINK, LINKS)                                    \
 }
 
-/// \brief Specialization for ReturnStmt.
-///
-void addInfo(::clang::ReturnStmt const *Statement,
-             seec::icu::FormatArgumentsWithNames &Arguments,
-             NodeLinks &Links)
-{
-  Arguments.add("has_return_value",
-                formatAsBool(Statement->getRetValue()));
-  
-  Links.add("return_value", Statement->getRetValue());
-}
+#include "StmtLinks.def"
+
+#undef SEEC_STMT_LINK_ARG
+#undef SEEC_STMT_LINK_LINK
+
+// Manual specializations.
 
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///

@@ -1,0 +1,48 @@
+//===- lib/ClangEPV/StmtLinks.def -----------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_STMT_LINK
+#error "Must define SEEC_STMT_LINK"
+#endif
+
+#include "seec/Preprocessor/Quote.h"
+
+SEEC_STMT_LINK(BinaryOperator,
+  SEEC_PP_QUOTE(
+    ("opcode", String, getOpcode())
+  ),
+  SEEC_PP_QUOTE(
+    ("lhs", getLHS()),
+    ("rhs", getRHS())
+  ))
+
+SEEC_STMT_LINK(IfStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable", Bool, getConditionVariable()),
+    ("has_else",               Bool, getElse())
+  ),
+  SEEC_PP_QUOTE(
+    ("cond", getCond()),
+    ("then", getThen()),
+    ("else", getElse())
+  ))
+
+SEEC_STMT_LINK(ReturnStmt,
+  SEEC_PP_QUOTE(
+    ("has_return_value", Bool, getRetValue())
+  ),
+  SEEC_PP_QUOTE(
+    ("return_value", getRetValue())
+  ))
+
+#undef SEEC_STMT_LINK

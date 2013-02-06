@@ -1,5 +1,6 @@
 set(SEEC_CLANGEPV_HEADERS
   ../../include/seec/ClangEPV/ClangEPV.hpp
+  StmtLinks.def
 )
 
 set(SEEC_CLANGEPV_SOURCES
