@@ -105,7 +105,12 @@ public:
   
   decltype(Needles) const &getNeedleLookup() const { return Needles; }
   
+  decltype(Needles)::const_iterator
+  lookupPrimaryIndexAtCharacter(int32_t Position) const;
+  
   std::vector<UnicodeString> getIndicesAtCharacter(int32_t Position) const;
+  
+  UnicodeString getPrimaryIndexAtCharacter(int32_t Position) const;
   
   /// @}
 };

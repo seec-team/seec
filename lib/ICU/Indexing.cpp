@@ -91,6 +91,25 @@ IndexedString::from(UnicodeString const &String)
   return IndexedString(std::move(CleanedString), std::move(Needles));
 }
 
+decltype(IndexedString::Needles)::const_iterator
+IndexedString::lookupPrimaryIndexAtCharacter(int32_t Position) const
+{
+  auto Result = Needles.end();
+  int32_t ResultEnd = std::numeric_limits<int32_t>::max();
+  
+  for (auto It = Needles.begin(); It != Needles.end(); ++It) {
+    if (It->second.getStart() <= Position
+        && Position < It->second.getEnd()
+        && It->second.getEnd() < ResultEnd)
+    {
+      Result = It;
+      ResultEnd = It->second.getEnd();
+    }
+  }
+  
+  return Result;
+}
+
 std::vector<UnicodeString>
 IndexedString::getIndicesAtCharacter(int32_t Position) const
 {
@@ -103,6 +122,13 @@ IndexedString::getIndicesAtCharacter(int32_t Position) const
   }
   
   return Result;
+}
+
+UnicodeString
+IndexedString::getPrimaryIndexAtCharacter(int32_t Position) const
+{
+  auto const Found = lookupPrimaryIndexAtCharacter(Position);
+  return Found != Needles.end() ? Found->first : UnicodeString();
 }
 
 
