@@ -56,10 +56,11 @@ root:table {
     // Outputs:
     //   current_function
     //   called_from
+    //   return_value
     //
     ReturnStmt:string {
-      "This is a return statement. It ends the execution of the current function, returning control to the caller of this function. If a value is returned, then it will be received at the site where this function was called. If this is the main function, then the program will end."
-      "{has_return_value, select, true { This return statement returns a value.} false { This return statement does not return a value.} other { Very sad.}}"
+      "This is a return statement. It ends the execution of the @[current_function]current function@[], returning control to the @[called_from]caller of this function@[]. If a value is returned, then it will be received at the site where this function was called. If this is the main function, then the program will end."
+      "{has_return_value, select, true { This return statement @[return_value]returns a value@[].} false { This return statement does not return a value.} other { Very sad.}}"
     }
 
   }
