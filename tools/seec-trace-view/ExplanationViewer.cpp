@@ -98,13 +98,37 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   if (Pos == wxSTC_INVALID_POSITION)
     return;
   
-  auto Links = Explanation->getCharacterLinksAt(Pos);
+  // This is the "whole character" offset (regardless of the text's encoding).
+  auto const Count = CountCharacters(0, Pos);
+  
+  auto const Links = Explanation->getCharacterLinksAt(Count);
   if (Links.getPrimaryIndex().isEmpty())
     return;
   
   SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
-  IndicatorFillRange(Links.getPrimaryIndexStart(),
-                     Links.getPrimaryIndexEnd() - Links.getPrimaryIndexStart());
+  
+  // Get the byte offset rather than the "whole character" index.
+  auto const StartIndex = Links.getPrimaryIndexStart();
+  
+  // Initially set the offset to the first valid offset preceding the
+  // "whole character" index. This will always be less than the required offset
+  // (because no encoding uses less than one byte per character).
+  int StartPos = PositionBefore(StartIndex);
+  
+  // Find the "whole character" index of the guessed position, use that to
+  // determine how many characters away from the desired position we are, and
+  // then iterate to the desired position.
+  auto const StartGuessCount = CountCharacters(0, StartPos);
+  for (int i = 0; i < StartIndex - StartGuessCount; ++i)
+    StartPos = PositionAfter(StartPos);
+  
+  // Get the EndPos by iterating from the StartPos.
+  auto const Length = Links.getPrimaryIndexEnd() - Links.getPrimaryIndexStart();
+  int EndPos = StartPos;
+  for (int i = 0; i < Length; ++i)
+    EndPos = PositionAfter(EndPos);
+  
+  IndicatorFillRange(StartPos, EndPos - StartPos);
   
   if (auto const Decl = Links.getPrimaryDecl()) {
     HighlightedDecl = Decl;
