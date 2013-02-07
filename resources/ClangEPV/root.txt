@@ -138,6 +138,19 @@ root:table {
       " other {This is a reference to the declaration @[decl]“{name}”@[].}}"
     }
 
+    // DeclStmt description.
+    // Inputs:
+    //   is_single_decl
+    // Outputs:
+    //   single_decl
+    //
+    DeclStmt:string {
+      "{is_single_decl, select,"
+      " true {This is a statement containing a @[single_decl]single declaration@[].}"
+      " false {This is a statement containing a group of declarations.}"
+      " other {Bad value for is_single_decl.}}"
+    }
+
     // IfStmt description.
     // Inputs:
     //   has_condition_variable

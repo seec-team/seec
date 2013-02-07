@@ -298,6 +298,22 @@ void addInfo(::clang::DeclRefExpr const *Statement,
   Links.add("found_decl", Statement->getFoundDecl());
 }
 
+/// \brief Specialization for DeclStmt
+///
+void addInfo(::clang::DeclStmt const *Statement,
+             seec::icu::FormatArgumentsWithNames &Arguments,
+             NodeLinks &Links)
+{
+  Arguments.add("is_single_decl", formatAsBool(Statement->isSingleDecl()));
+  
+  if (Statement->isSingleDecl()) {
+    Links.add("single_decl", Statement->getSingleDecl());
+  }
+  else {
+    // TODO.
+  }
+}
+
 
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///
