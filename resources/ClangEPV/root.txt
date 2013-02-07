@@ -39,14 +39,81 @@ root:table {
     // BinaryOperator description.
     // Inputs:
     //   opcode
+    //   type_general
     // Outputs:
     //   lhs
     //   rhs
     //
     BinaryOperator:string {
       "{opcode, select,"
-      " BO_Mul {This is the multiplication operator *. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
-      " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[].}}"
+
+      " BO_Mul {{type_general, select,"
+               " Integer {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
+               " Floating {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
+               " other {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}}}"
+
+      " BO_Div {{type_general, select,"
+               " Integer {This is the Division operator. In this case the division operator is being used to divide integers, so the result of the expression will be the result of dividing the value of @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], with any fractional part discarded. If you wish to find the value including the fractional part, then one or both of the values should be a floating point type.}"
+               " Floating {This is the Division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}"
+               " other {This is the Division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}}}"
+
+      " BO_Rem {This is the Modulo operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.}"
+
+      " BO_Add {This is the Addition operator. It returns the addition of the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[].}"
+
+      " BO_Sub {This is the Subtraction operator. It returns the result of subtracting the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[].}"
+
+      " BO_Shl {This is the “Bitwise Left Shift” operator.}"
+
+      " BO_Shr {This is the “Bitwise Right Shift” operator.}"
+
+      " BO_LT {This is the “Less Than” operator. If the value of the @[lhs]left hand side@[] is less than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_GT {This is the “Greater Than” operator. If the value of the @[lhs]left hand side@[] is greater than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_LE {This is the “Less Than Or Equal To” operator. If the value of the @[lhs]left hand side@[] is less than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_GE {This is the “Greater Than Or Equal To” operator. If the value of the @[lhs]left hand side@[] is greater than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_EQ {This is the “Equal To” operator. If the value of the @[lhs]left hand side@[] is equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_NE {This is the “Not Equal To” operator. If the value of the @[lhs]left hand side@[] is not equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+
+      " BO_And {This is the “Bitwise AND” operator. If you wish to use the “Logical AND” operator, it is &&.}"
+
+      " BO_Xor {This is the “Bitwise XOR” operator. If you wish to perform exponentiation use the function “pow”.}"
+
+      " BO_Or {This is the “Bitwise OR” operator. If you wish to use the “Logical OR” operator, it is ||.}"
+
+      " BO_LAnd {This is the “Logical AND” operator. If both the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0. In C the Logical AND operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 0.}"
+
+      " BO_LOr {This is the “Logical OR” operator. If either the value of the @[lhs]left hand side@[] or the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0. In C the Logical OR operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a non-zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 1.}"
+
+      " BO_Assign {This is the Assignment operator. It sets the value of the @[lhs]left hand side@[] to the value of the @[rhs]right hand side@[].}"
+
+      " BO_MulAssign {This is the “Multiplication Assignment” operator. It multiplies the value of the @[lhs]left hand side@[] with the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_DivAssign {This is the “Division Assignment” operator. It divides the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_RemAssign {This is the “Modulo Assignment” operator. It finds the remainder of dividing the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the value of the remainder to the @[lhs]left hand side@[].}"
+
+      " BO_AddAssign {This is the “Addition Assignment” operator. It adds the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_SubAssign {This is the “Subtraction Assignment” operator. It subtracts the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_ShlAssign {This is the “Bitwise Left Shift Assignment” operator.}"
+
+      " BO_ShrAssign {This is the “Bitwise Right Shift Assignment” operator.}"
+
+      " BO_AndAssign {This is the “Bitwise AND Assignment” operator.}"
+
+      " BO_XorAssign {This is the “Bitwise XOR Assignment” operator.}"
+
+      " BO_OrAssign {This is the “Bitwise OR Assignment” operator.}"
+
+      " BO_Comma {This is the Comma operator. The Comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression and returns the result.}"
+
+      " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
     }
 
     // DeclRefExpr description.

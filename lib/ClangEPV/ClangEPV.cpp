@@ -98,6 +98,28 @@ SEEC_OPCODE_STRINGIZE(BO_Comma)
   return formatAsString("<unknown opcode>");
 }
 
+Formattable formatAsGeneralTypeString(::clang::Type const *T) {
+  if (!T)
+    return formatAsString("<null>");
+  
+  if (T->isIntegerType())
+    return formatAsString("Integer");
+  if (T->isEnumeralType())
+    return formatAsString("Enumeral");
+  if (T->isBooleanType())
+    return formatAsString("Boolean");
+  if (T->isAnyCharacterType())
+    return formatAsString("Char");
+  if (T->isRealFloatingType())
+    return formatAsString("Floating");
+  if (T->isVoidType())
+    return formatAsString("Void");
+  if (T->isPointerType())
+    return formatAsString("Pointer");
+  
+  return formatAsString("<unknown type>");
+}
+
 
 //===----------------------------------------------------------------------===//
 // Explanation

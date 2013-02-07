@@ -19,7 +19,8 @@
 
 SEEC_STMT_LINK(BinaryOperator,
   SEEC_PP_QUOTE(
-    ("opcode", String, getOpcode())
+    ("opcode", String, getOpcode()),
+    ("type_general", GeneralTypeString, getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
     ("lhs", getLHS()),
