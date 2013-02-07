@@ -26,15 +26,6 @@ SEEC_STMT_LINK(BinaryOperator,
     ("rhs", getRHS())
   ))
 
-SEEC_STMT_LINK(DeclRefExpr,
-  SEEC_PP_QUOTE(
-    ("name", String, getNameInfo().getName().getAsString())
-  ),
-  SEEC_PP_QUOTE(
-    ("decl", getDecl()),
-    ("found_decl", getFoundDecl())
-  ))
-
 SEEC_STMT_LINK(IfStmt,
   SEEC_PP_QUOTE(
     ("has_condition_variable", Bool, getConditionVariable()),

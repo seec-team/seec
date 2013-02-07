@@ -245,6 +245,38 @@ void addInfo(::clang::STMTCLASS const *Statement,                              \
 
 // Manual specializations.
 
+/// \brief Specialization for DeclRefExpr
+///
+void addInfo(::clang::DeclRefExpr const *Statement,
+             seec::icu::FormatArgumentsWithNames &Arguments,
+             NodeLinks &Links)
+{
+  auto const Decl = Statement->getDecl();
+  auto const Name = Statement->getNameInfo().getName();
+  
+  Arguments.add("name", formatAsString(Name.getAsString()));
+  
+  if (auto const D = llvm::dyn_cast<::clang::VarDecl>(Decl)) {
+    Arguments.add("kind_general", formatAsString("Var"));
+    Arguments.add("has_definition", formatAsBool(D->hasDefinition()));
+  }
+  else if (auto const D = llvm::dyn_cast<::clang::FunctionDecl>(Decl)) {
+    Arguments.add("kind_general", formatAsString("Function"));
+    Arguments.add("has_body", formatAsBool(D->hasBody()));
+  }
+  else if (auto const D = llvm::dyn_cast<::clang::EnumConstantDecl>(Decl)) {
+    Arguments.add("kind_general", formatAsString("EnumConstant"));
+    Arguments.add("init_val", formatAsString(D->getInitVal().toString(10)));
+  }
+  else {
+    Arguments.add("kind_general", formatAsString("Other"));
+  }
+  
+  Links.add("decl", Decl);
+  Links.add("found_decl", Statement->getFoundDecl());
+}
+
+
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>

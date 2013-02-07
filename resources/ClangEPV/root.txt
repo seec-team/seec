@@ -51,13 +51,24 @@ root:table {
 
     // DeclRefExpr description.
     // Inputs:
-    //   name
+    //   name = string
+    //   kind_general = "Var" | "Function" | "EnumConstant" | "Other"
+    // Inputs (when kind_general == "Var"):
+    //   has_definition
+    // Inputs (when kind_general == "Function"):
+    //   has_body
+    // Inputs (when kind_general == "EnumConstant"):
+    //   init_val
     // Outputs:
     //   decl
     //   found_decl
     //
     DeclRefExpr:string {
-      "This is a reference to the @[decl]declaration “{name}”@[]."
+      "{kind_general, select,"
+      " Var {This refers to the variable @[decl]“{name}”@[].}"
+      " Function {This refers to the function @[decl]“{name}”@[].}"
+      " EnumConstant {This refers to the enum constant @[decl]“{name}”@[].}"
+      " other {This is a reference to the declaration @[decl]“{name}”@[].}}"
     }
 
     // IfStmt description.
