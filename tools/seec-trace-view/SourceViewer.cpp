@@ -27,9 +27,9 @@
 #include "clang/AST/Decl.h"
 #include "clang/Lex/Lexer.h"
 
-#include "llvm/Function.h"
-#include "llvm/Instruction.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/font.h>
@@ -165,7 +165,7 @@ class SourceFilePanel : public wxPanel {
 
 public:
   /// Type used to reference temporary indicators.
-  typedef decltype(TemporaryIndicators)::const_iterator
+  typedef decltype(TemporaryIndicators)::iterator
           temporary_indicator_token;
   
   // \brief Construct without creating.

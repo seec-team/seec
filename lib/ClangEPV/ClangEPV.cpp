@@ -175,12 +175,12 @@ ExplanationOfDecl::create(::clang::Decl const *Node)
   
   // Find the appropriate description for the Decl kind.
   switch (Node->getKind()) {
-#define DECL(DERIVED, BASE)                       \
-    case ::clang::Decl::Kind::DERIVED:            \
-      DescriptionKey = #DERIVED;                  \
-      addInfo(llvm::cast<::clang::DERIVED##Decl>(Node), \
-              DescriptionArguments,               \
-              ExplanationLinks);                  \
+#define DECL(DERIVED, BASE)                              \
+    case ::clang::Decl::Kind::DERIVED:                   \
+      DescriptionKey = #DERIVED;                         \
+      addInfo(llvm::cast< ::clang::DERIVED##Decl>(Node), \
+              DescriptionArguments,                      \
+              ExplanationLinks);                         \
       break;
 #define ABSTRACT_DECL(DECL)
 #include "clang/AST/DeclNodes.inc"
@@ -278,15 +278,15 @@ void addInfo(::clang::DeclRefExpr const *Statement,
   
   Arguments.add("name", formatAsString(Name.getAsString()));
   
-  if (auto const D = llvm::dyn_cast<::clang::VarDecl>(Decl)) {
+  if (auto const D = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
     Arguments.add("kind_general", formatAsString("Var"));
     Arguments.add("has_definition", formatAsBool(D->hasDefinition()));
   }
-  else if (auto const D = llvm::dyn_cast<::clang::FunctionDecl>(Decl)) {
+  else if (auto const D = llvm::dyn_cast< ::clang::FunctionDecl>(Decl)) {
     Arguments.add("kind_general", formatAsString("Function"));
     Arguments.add("has_body", formatAsBool(D->hasBody()));
   }
-  else if (auto const D = llvm::dyn_cast<::clang::EnumConstantDecl>(Decl)) {
+  else if (auto const D = llvm::dyn_cast< ::clang::EnumConstantDecl>(Decl)) {
     Arguments.add("kind_general", formatAsString("EnumConstant"));
     Arguments.add("init_val", formatAsString(D->getInitVal().toString(10)));
   }
@@ -332,12 +332,12 @@ ExplanationOfStmt::create(::clang::Stmt const *Node)
                                                   {"errors",
                                                    "CreateStmtNoStmtClass"}));
     
-#define STMT(CLASS, PARENT)                           \
-    case ::clang::Stmt::StmtClass::CLASS##Class:      \
-      DescriptionKey = #CLASS;                        \
-      addInfo(llvm::cast<::clang::CLASS const>(Node), \
-              DescriptionArguments,                   \
-              ExplanationLinks);                      \
+#define STMT(CLASS, PARENT)                            \
+    case ::clang::Stmt::StmtClass::CLASS##Class:       \
+      DescriptionKey = #CLASS;                         \
+      addInfo(llvm::cast< ::clang::CLASS const>(Node), \
+              DescriptionArguments,                    \
+              ExplanationLinks);                       \
       break;
 #define ABSTRACT_STMT(STMT)
 #include "clang/AST/StmtNodes.inc"

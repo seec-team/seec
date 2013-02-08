@@ -34,6 +34,14 @@ execute_process(
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
+execute_process(
+ COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+ OUTPUT_VARIABLE REQ_ICU_LIBRARIES
+)
+string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
+string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+
 target_link_libraries(SeeCRuntimeTracer
  SeeCExecutionTracer
  SeeCTrace
@@ -41,6 +49,7 @@ target_link_libraries(SeeCRuntimeTracer
  SeeCRuntimeErrors
  SeeCICU
  ${REQ_LLVM_LIBRARIES}
+ ${REQ_ICU_LIBRARIES}
 )
 
 target_link_libraries(SeeCRuntimeTracer-static
@@ -50,6 +59,7 @@ target_link_libraries(SeeCRuntimeTracer-static
  SeeCRuntimeErrors
  SeeCICU
  ${REQ_LLVM_LIBRARIES}
+ ${REQ_ICU_LIBRARIES}
 )
 
 INSTALL(TARGETS SeeCRuntimeTracer SeeCRuntimeTracer-static

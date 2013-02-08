@@ -90,12 +90,14 @@ public:
   /// @{
   
   NodeLinks &add(UnicodeString Name, ::clang::Decl const *Value) {
-    MapDecl.emplace(std::move(Name), Value);
+    // MapDecl.emplace(std::move(Name), Value);
+    MapDecl.insert(std::make_pair(std::move(Name), Value));
     return *this;
   }
   
   NodeLinks &add(UnicodeString Name, ::clang::Stmt const *Value) {
-    MapStmt.emplace(std::move(Name), Value);
+    // MapStmt.emplace(std::move(Name), Value);
+    MapStmt.insert(std::make_pair(std::move(Name), Value));
     return *this;
   }
   

@@ -19,8 +19,8 @@
 
 #include "clang/AST/RecursiveASTVisitor.h"
 
-#include "llvm/Constants.h"
-#include "llvm/Instruction.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instruction.h"
 
 
 using namespace clang;

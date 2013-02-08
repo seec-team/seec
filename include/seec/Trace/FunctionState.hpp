@@ -20,7 +20,7 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 #include <cstdint>
 #include <vector>

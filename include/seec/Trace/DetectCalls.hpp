@@ -32,8 +32,8 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
-#include "llvm/Instructions.h"
-#include "llvm/Intrinsics.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 
 #include <cstdio> // for fpos_t, size_t, FILE *.

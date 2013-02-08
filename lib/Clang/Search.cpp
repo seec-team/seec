@@ -113,7 +113,7 @@ search(::clang::ASTUnit &AST,
                                                 {"errors",
                                                  "SourceLocationInvalid"}));
   
-  llvm::SmallVector<::clang::Decl *, 8> FoundDecls;
+  llvm::SmallVector< ::clang::Decl *, 8> FoundDecls;
   AST.findFileRegionDecls(FileID,
                           SourceMgr.getFileOffset(SLoc),
                           0,

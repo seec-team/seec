@@ -31,9 +31,9 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
-#include "llvm/LLVMContext.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/ManagedStatic.h"

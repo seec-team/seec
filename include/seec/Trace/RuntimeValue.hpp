@@ -16,7 +16,7 @@
 
 #include "seec/Trace/TraceFormat.hpp"
 
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/APInt.h"
 
 #include <cstdint>

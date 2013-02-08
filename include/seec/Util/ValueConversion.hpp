@@ -14,10 +14,10 @@
 #ifndef _SEEC_UTIL_VALUE_CONVERSION_HPP_
 #define _SEEC_UTIL_VALUE_CONVERSION_HPP_
 
-#include "llvm/Constants.h"
-#include "llvm/Value.h"
-#include "llvm/Type.h"
-#include "llvm/TypeBuilder.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/TypeBuilder.h"
 
 using namespace llvm;
 

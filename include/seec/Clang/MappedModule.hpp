@@ -16,8 +16,8 @@
 
 #include "clang/Frontend/ASTUnit.h"
 
-#include "llvm/Module.h"
-#include "llvm/Instruction.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
 

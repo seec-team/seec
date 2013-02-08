@@ -17,7 +17,7 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/DenseMap.h"
 
 #include <vector>

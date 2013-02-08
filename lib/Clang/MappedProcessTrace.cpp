@@ -14,7 +14,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/IRReader.h"
 
 

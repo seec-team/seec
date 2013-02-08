@@ -13,8 +13,8 @@
 
 #include "seec/Clang/MappedFile.hpp"
 
-#include "llvm/Metadata.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Value.h"
 
 namespace seec {
 

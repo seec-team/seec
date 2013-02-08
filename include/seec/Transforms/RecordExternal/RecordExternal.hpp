@@ -16,12 +16,12 @@
 
 #include "seec/Util/ModuleIndex.hpp"
 
-#include "llvm/DataLayout.h"
+#include "llvm/InstVisitor.h"
 #include "llvm/Pass.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/DataTypes.h"
-#include "llvm/Support/InstVisitor.h"
 
 #include <memory>
 #include <vector>

@@ -17,7 +17,7 @@
 #define _SEEC_REPLACE_CSTDLIB_INTRINSICS_HPP_
 
 #include "llvm/Pass.h"
-#include "llvm/Support/InstVisitor.h"
+#include "llvm/InstVisitor.h"
 
 namespace llvm {
 

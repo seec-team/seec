@@ -6,6 +6,7 @@ set(HEADERS
   ../../include/seec/Util/Dispatch.hpp
   ../../include/seec/Util/Endianness.hpp
   ../../include/seec/Util/Error.hpp
+  ../../include/seec/Util/Fallthrough.hpp
   ../../include/seec/Util/FunctionTraits.hpp
   ../../include/seec/Util/LockedObjectAccessor.hpp
   ../../include/seec/Util/MakeUnique.hpp

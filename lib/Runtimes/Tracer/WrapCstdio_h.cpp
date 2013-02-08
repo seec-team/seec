@@ -19,6 +19,7 @@
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/Support/CallSite.h"
@@ -143,19 +144,19 @@ bool parseInt(int &CharactersRead,
         break;
       
       // OK always.
-      case '1': [[clang::fallthrough]];
-      case '2': [[clang::fallthrough]];
-      case '3': [[clang::fallthrough]];
-      case '4': [[clang::fallthrough]];
-      case '5': [[clang::fallthrough]];
-      case '6': [[clang::fallthrough]];
+      case '1': SEEC_FALLTHROUGH;
+      case '2': SEEC_FALLTHROUGH;
+      case '3': SEEC_FALLTHROUGH;
+      case '4': SEEC_FALLTHROUGH;
+      case '5': SEEC_FALLTHROUGH;
+      case '6': SEEC_FALLTHROUGH;
       case '7':
         if (Base == 0)
           Base = 10;
         break;
       
       // OK iff decimal or hexadecimal.
-      case '8': [[clang::fallthrough]];
+      case '8': SEEC_FALLTHROUGH;
       case '9':
         if (Base == 0)
           Base = 10;
@@ -164,31 +165,31 @@ bool parseInt(int &CharactersRead,
         break;
       
       // OK iff hexadecimal.
-      case 'A': [[clang::fallthrough]];
-      case 'a': [[clang::fallthrough]];
-      case 'B': [[clang::fallthrough]];
-      case 'b': [[clang::fallthrough]];
-      case 'C': [[clang::fallthrough]];
-      case 'c': [[clang::fallthrough]];
-      case 'D': [[clang::fallthrough]];
-      case 'd': [[clang::fallthrough]];
-      case 'E': [[clang::fallthrough]];
-      case 'e': [[clang::fallthrough]];
-      case 'F': [[clang::fallthrough]];
+      case 'A': SEEC_FALLTHROUGH;
+      case 'a': SEEC_FALLTHROUGH;
+      case 'B': SEEC_FALLTHROUGH;
+      case 'b': SEEC_FALLTHROUGH;
+      case 'C': SEEC_FALLTHROUGH;
+      case 'c': SEEC_FALLTHROUGH;
+      case 'D': SEEC_FALLTHROUGH;
+      case 'd': SEEC_FALLTHROUGH;
+      case 'E': SEEC_FALLTHROUGH;
+      case 'e': SEEC_FALLTHROUGH;
+      case 'F': SEEC_FALLTHROUGH;
       case 'f':
         if (Base < 16)
           ReadOK = false;
         break;
       
       // OK as first character.
-      case '+': [[clang::fallthrough]];
+      case '+': SEEC_FALLTHROUGH;
       case '-':
         if (BufferPtr != Buffer)
           ReadOK = false;
         break;
       
       // OK if part of the prefix "0x" or "0X".
-      case 'X': [[clang::fallthrough]];
+      case 'X': SEEC_FALLTHROUGH;
       case 'x':
         if (HexPrefixOK) {
           Base = 16;
@@ -685,10 +686,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         }
         break;
       
-      case ScanConversionSpecifier::Specifier::u: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::d: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::i: [[clang::fallthrough]];
-      case ScanConversionSpecifier::Specifier::o: [[clang::fallthrough]];
+      case ScanConversionSpecifier::Specifier::u: SEEC_FALLTHROUGH;
+      case ScanConversionSpecifier::Specifier::d: SEEC_FALLTHROUGH;
+      case ScanConversionSpecifier::Specifier::i: SEEC_FALLTHROUGH;
+      case ScanConversionSpecifier::Specifier::o: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::x:
         // Read integer.
         {

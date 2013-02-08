@@ -18,9 +18,9 @@
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instruction.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 

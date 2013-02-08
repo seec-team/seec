@@ -16,9 +16,9 @@
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
-#include "llvm/Constants.h"
-#include "llvm/Metadata.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Value.h"
 
 namespace seec {
 

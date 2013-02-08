@@ -15,9 +15,9 @@
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instruction.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>

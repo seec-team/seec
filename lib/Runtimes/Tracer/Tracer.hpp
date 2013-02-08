@@ -18,7 +18,7 @@
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/ADT/DenseSet.h"
 
 #include <cassert>

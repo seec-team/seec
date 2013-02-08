@@ -14,9 +14,9 @@
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 
-#include "llvm/DerivedTypes.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Type.h"
 
 #include <cstdio>
 

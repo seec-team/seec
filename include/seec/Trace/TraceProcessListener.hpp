@@ -26,7 +26,7 @@
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Serialization.hpp"
 
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 

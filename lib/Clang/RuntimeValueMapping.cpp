@@ -18,7 +18,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
@@ -130,6 +130,13 @@ toString(clang::BuiltinType const *Type,
     SEEC_UNHANDLED_BUILTIN(ObjCId)
     SEEC_UNHANDLED_BUILTIN(ObjCClass)
     SEEC_UNHANDLED_BUILTIN(ObjCSel)
+    SEEC_UNHANDLED_BUILTIN(OCLImage1d)
+    SEEC_UNHANDLED_BUILTIN(OCLImage1dArray)
+    SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2d)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
+    SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
     SEEC_UNHANDLED_BUILTIN(BoundMember)

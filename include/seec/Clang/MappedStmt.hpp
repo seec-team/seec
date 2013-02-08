@@ -14,7 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDSTMT_HPP
 #define SEEC_CLANG_MAPPEDSTMT_HPP
 
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 
 #include <memory>
 

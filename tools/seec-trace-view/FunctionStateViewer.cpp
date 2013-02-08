@@ -18,7 +18,7 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/Printing.hpp"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/ArrayRef.h"
 
 #include <wx/collpane.h>
