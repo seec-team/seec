@@ -32,6 +32,19 @@ SEEC_FORMAT_SELECT(MemoryAccess,
   )
 
 SEEC_FORMAT_SELECT(CStdFunction,
+  //----------------------------------------------------------------------------
+  // fenv.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fegetexceptflag, "fegetexceptflag")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fesetexceptflag, "fesetexceptflag")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fegetenv, "fegetenv")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fesetenv, "fesetenv")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, feholdexcept, "feholdexcept")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, feupdateenv, "feupdateenv")
+  
+  //----------------------------------------------------------------------------
+  // other
+  //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fopen, "fopen")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, freopen, "freopen")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fclose, "fclose")

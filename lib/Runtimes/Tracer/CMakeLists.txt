@@ -5,11 +5,13 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(HEADERS
   ../../../include/seec/Runtimes/MangleFunction.h
   ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
+  SimpleWrapper.hpp
   Tracer.hpp
   )
 
 set(SOURCES
   Tracer.cpp
+  WrapCfenv_h.cpp
   WrapCstdio_h.cpp
   WrapCstring_h.cpp
   WrapPOSIXsys_wait_h.cpp
