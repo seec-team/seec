@@ -74,7 +74,7 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     auto const UCharValues = std::numeric_limits<unsigned char>::max() + 1;
     
     Result.SetLookup.reset(new bool[UCharValues]);
-    for (std::size_t i = 0; i < UCharValues; ++i)
+    for (unsigned char i = 0; i < UCharValues; ++i)
       Result.SetLookup[i] = false;
     
     if (*++Remainder == '\0')
@@ -112,7 +112,7 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     }
     
     if (Result.SetNegation) {
-      for (std::size_t i = 0; i < UCharValues; ++i)
+      for (unsigned char i = 0; i < UCharValues; ++i)
         Result.SetLookup[i] = !Result.SetLookup[i];
     }
   }

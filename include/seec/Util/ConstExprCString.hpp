@@ -50,7 +50,7 @@ public:
   /// \name Accessors.
   /// @{
   
-  constexpr char operator[](unsigned i) {
+  constexpr char operator[](int const i) {
     return Begin[i];
   }
   

@@ -108,8 +108,10 @@ ProcessEnvironment::ProcessEnvironment()
   }
   
   // Parse the Module bitcode, which is stored in a global variable.
-  llvm::StringRef BitcodeRef {SeeCInfoModuleBitcode,
-                              SeeCInfoModuleBitcodeLength};
+  llvm::StringRef BitcodeRef {
+    SeeCInfoModuleBitcode,
+    static_cast<std::size_t>(SeeCInfoModuleBitcodeLength)
+  };
   
   auto BitcodeBuffer = llvm::MemoryBuffer::getMemBuffer(BitcodeRef, "", false);
   

@@ -735,7 +735,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         // Read float.
         {
           char Buffer[128];
-          int BufferIdx = 0;
+          std::size_t BufferIdx = 0;
           int ReadChar;
           
           while ((ReadChar = std::fgetc(Stream)) != EOF) {
