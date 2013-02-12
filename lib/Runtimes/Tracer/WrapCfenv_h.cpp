@@ -39,7 +39,8 @@ SEEC_MANGLE_FUNCTION(fegetexceptflag)
           seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
           {seec::runtime_errors::format_selects::CStdFunction::fegetexceptflag}
           (fegetexceptflag,
-           [](int Result){return Result == 0;},
+           [](int Result){ return Result == 0; },
+           seec::ResultStateRecorderForNoOp(),
            seec::wrapOutputPointer(flagp),
            excepts);
 }
@@ -54,13 +55,15 @@ SEEC_MANGLE_FUNCTION(fesetexceptflag)
 (std::fexcept_t const *flagp, int excepts)
 {
   // Use the SimpleWrapper mechanism.
-  return seec::SimpleWrapper<
-          seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
-          {seec::runtime_errors::format_selects::CStdFunction::fesetexceptflag}
-          (fesetexceptflag,
-           [](int Result){return Result == 0;},
-           seec::wrapInputPointer(flagp),
-           excepts);
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fesetexceptflag}
+      (fesetexceptflag,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputPointer(flagp),
+       excepts);
 }
 
 

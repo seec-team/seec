@@ -57,6 +57,13 @@ SEEC_INTERCEPTED_FUNCTION(strdup)
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(time)
+SEEC_INTERCEPTED_FUNCTION(asctime)
+SEEC_INTERCEPTED_FUNCTION(ctime)
+SEEC_INTERCEPTED_FUNCTION(strftime)
+SEEC_INTERCEPTED_FUNCTION_ALIAS(\01_strftime, strftime)
+SEEC_INTERCEPTED_FUNCTION(gmtime)
+SEEC_INTERCEPTED_FUNCTION(localtime)
+SEEC_INTERCEPTED_FUNCTION(mktime)
 
 
 //===----------------------------------------------------------------------===//
@@ -65,6 +72,7 @@ SEEC_INTERCEPTED_FUNCTION(time)
 
 SEEC_INTERCEPTED_FUNCTION(wait)
 SEEC_INTERCEPTED_FUNCTION_ALIAS(\01_wait, wait)
+
 
 //===----------------------------------------------------------------------===//
 // POSIX <unistd.h>

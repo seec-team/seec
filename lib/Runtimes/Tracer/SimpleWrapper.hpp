@@ -26,6 +26,7 @@
 
 #include <cerrno>
 #include <climits>
+#include <cstring>
 
 
 // Forward declarations.
@@ -113,6 +114,54 @@ constexpr bool isSettingInList() {
 
 
 //===----------------------------------------------------------------------===//
+// WrappedArgumentChecker
+//===----------------------------------------------------------------------===//
+
+/// \brief Base case of WrappedArgumentChecker always passes checks.
+///
+template<typename T>
+class WrappedArgumentChecker {
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(T &Value, int Parameter) { return true; }
+};
+
+
+//===----------------------------------------------------------------------===//
+// WrappedArgumentRecorder
+//===----------------------------------------------------------------------===//
+
+/// \brief Base case of WrappedArgumentRecorder records nothing.
+///
+template<typename T>
+class WrappedArgumentRecorder {
+  /// The underlying TraceThreadListener.
+  seec::trace::TraceThreadListener &Listener;
+
+public:
+  /// \brief Construct a new WrappedArgumentRecorder.
+  ///
+  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  : Listener(WithListener)
+  {}
+  
+  /// \brief Record any state changes.
+  ///
+  bool record(T &Value, bool Success) { return true; }
+};
+
+
+//===----------------------------------------------------------------------===//
 // WrappedInputPointer
 //===----------------------------------------------------------------------===//
 
@@ -136,6 +185,76 @@ template<typename T>
 WrappedInputPointer<T> wrapInputPointer(T ForValue) {
   return WrappedInputPointer<T>(ForValue);
 }
+
+/// \brief WrappedArgumentChecker specialization for WrappedInputPointer.
+///
+template<typename T>
+class WrappedArgumentChecker<WrappedInputPointer<T>>
+{
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedInputPointer<T> &Value, int Parameter) {
+    return Checker.checkMemoryExistsAndAccessibleForParameter(
+              Parameter,
+              Value.address(),
+              Value.pointeeSize(),
+              seec::runtime_errors::format_selects::MemoryAccess::Read);
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// WrappedInputCString
+//===----------------------------------------------------------------------===//
+
+class WrappedInputCString {
+  char const *Value;
+  
+public:
+  WrappedInputCString(char const *ForValue)
+  : Value(ForValue)
+  {}
+  
+  operator char const *() const { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+};
+
+inline WrappedInputCString wrapInputCString(char const *ForValue) {
+  return WrappedInputCString(ForValue);
+}
+
+/// \brief WrappedArgumentChecker specialization for WrappedInputCString.
+///
+template<>
+class WrappedArgumentChecker<WrappedInputCString>
+{
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedInputCString &Value, int Parameter) {
+    return Checker.checkCStringRead(Parameter, Value);
+  }
+};
 
 
 //===----------------------------------------------------------------------===//
@@ -183,58 +302,6 @@ WrappedOutputPointer<T> wrapOutputPointer(T ForValue) {
   return WrappedOutputPointer<T>(ForValue);
 }
 
-
-//===----------------------------------------------------------------------===//
-// WrappedArgumentChecker
-//===----------------------------------------------------------------------===//
-
-/// \brief Base case of WrappedArgumentChecker always passes checks.
-///
-template<typename T>
-class WrappedArgumentChecker {
-  /// The underlying memory checker.
-  seec::trace::CStdLibChecker &Checker;
-
-public:
-  /// \brief Construct a new WrappedArgumentChecker.
-  ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
-  : Checker(WithChecker)
-  {}
-  
-  /// \brief Check if the given value is OK.
-  ///
-  bool check(T &Value, int Parameter) { return true; }
-};
-
-
-/// \brief WrappedArgumentChecker specialization for WrappedInputPointer.
-///
-template<typename T>
-class WrappedArgumentChecker<WrappedInputPointer<T>>
-{
-  /// The underlying memory checker.
-  seec::trace::CStdLibChecker &Checker;
-
-public:
-  /// \brief Construct a new WrappedArgumentChecker.
-  ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
-  : Checker(WithChecker)
-  {}
-  
-  /// \brief Check if the given value is OK.
-  ///
-  bool check(WrappedInputPointer<T> &Value, int Parameter) {
-    return Checker.checkMemoryExistsAndAccessibleForParameter(
-              Parameter,
-              Value.address(),
-              Value.pointeeSize(),
-              seec::runtime_errors::format_selects::MemoryAccess::Read);
-  }
-};
-
-
 /// \brief WrappedArgumentChecker specialization for WrappedOutputPointer.
 ///
 template<typename T>
@@ -264,32 +331,7 @@ public:
   }
 };
 
-
-//===----------------------------------------------------------------------===//
-// WrappedArgumentRecorder
-//===----------------------------------------------------------------------===//
-
-/// \brief Base case of WrappedArgumentRecorder records nothing.
-///
-template<typename T>
-class WrappedArgumentRecorder {
-  /// The underlying TraceThreadListener.
-  seec::trace::TraceThreadListener &Listener;
-
-public:
-  /// \brief Construct a new WrappedArgumentRecorder.
-  ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
-  : Listener(WithListener)
-  {}
-  
-  /// \brief Record any state changes.
-  ///
-  bool record(T &Value, bool Success) { return true; }
-};
-
-
-/// \brief Base case of WrappedArgumentRecorder records nothing.
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer.
 ///
 template<typename T>
 class WrappedArgumentRecorder<WrappedOutputPointer<T>> {
@@ -320,6 +362,194 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// WrappedOutputCString
+//===----------------------------------------------------------------------===//
+
+class WrappedOutputCString {
+  char *Value;
+  
+  bool IgnoreNull;
+  
+  std::size_t MaximumSize;
+  
+public:
+  WrappedOutputCString(char *ForValue)
+  : Value(ForValue),
+    IgnoreNull(false),
+    MaximumSize(std::numeric_limits<std::size_t>::max())
+  {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedOutputCString &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  WrappedOutputCString &setMaximumSize(std::size_t Value) {
+    MaximumSize = Value;
+    return *this;
+  }
+  
+  std::size_t getMaximumSize() const { return MaximumSize; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
+  
+  operator char *() const { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  /// @} (Value information)
+};
+
+inline WrappedOutputCString wrapOutputCString(char *ForValue) {
+  return WrappedOutputCString(ForValue);
+}
+
+/// \brief WrappedArgumentChecker specialization for WrappedOutputCString.
+///
+template<>
+class WrappedArgumentChecker<WrappedOutputCString>
+{
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedOutputCString const &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    return Checker.checkMemoryExistsAndAccessibleForParameter(
+              Parameter,
+              Value.address(),
+              Value.getMaximumSize(),
+              seec::runtime_errors::format_selects::MemoryAccess::Write);
+  }
+};
+
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputCString.
+///
+template<>
+class WrappedArgumentRecorder<WrappedOutputCString> {
+  /// The underlying TraceThreadListener.
+  seec::trace::TraceThreadListener &Listener;
+
+public:
+  /// \brief Construct a new WrappedArgumentRecorder.
+  ///
+  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  : Listener(WithListener)
+  {}
+  
+  /// \brief Record any state changes.
+  ///
+  bool record(WrappedOutputCString const &Value, bool Success) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    if (Success) {
+      auto const Length = std::strlen(Value) + 1;
+      Listener.recordUntypedState(Value, Length);
+    }
+    
+    return true;
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ResultStateRecorder
+//===----------------------------------------------------------------------===//
+
+class ResultStateRecorderForNoOp {
+public:
+  ResultStateRecorderForNoOp() {}
+  
+  template<typename T>
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              T &&Value)
+  {}
+};
+
+class ResultStateRecorderForStaticInternalCString {
+  MemoryPermission Access;
+  
+public:
+  ResultStateRecorderForStaticInternalCString(MemoryPermission WithAccess)
+  : Access(WithAccess)
+  {}
+  
+  template<typename T>
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              T &&Value)
+  {
+    if (Value == nullptr)
+      return;
+    
+    auto const Address = reinterpret_cast<uintptr_t>(Value);
+    auto const Ptr = reinterpret_cast<char const *>(Value);
+    auto const Length = std::strlen(Ptr) + 1;
+    
+    // Remove existing knowledge of the area.
+    ProcessListener.removeKnownMemoryRegion(Address);
+
+    // Set knowledge of the new string area.
+    ProcessListener.addKnownMemoryRegion(Address, Length, Access);
+    
+    // Update memory state.
+    ThreadListener.recordUntypedState(Ptr, Length);
+  }
+};
+
+class ResultStateRecorderForStaticInternalObject {
+  MemoryPermission Access;
+  
+public:
+  ResultStateRecorderForStaticInternalObject(MemoryPermission WithAccess)
+  : Access(WithAccess)
+  {}
+  
+  template<typename T>
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              T &&Value)
+  {
+    if (Value == nullptr)
+      return;
+    
+    auto const Address = reinterpret_cast<uintptr_t>(Value);
+    auto const Ptr = reinterpret_cast<char const *>(Value);
+    auto const Length = sizeof(*Value);
+    
+    // Remove existing knowledge of the area.
+    ProcessListener.removeKnownMemoryRegion(Address);
+
+    // Set knowledge of the new string area.
+    ProcessListener.addKnownMemoryRegion(Address, Length, Access);
+    
+    // Update memory state.
+    ThreadListener.recordUntypedState(Ptr, Length);
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
 
@@ -345,14 +575,20 @@ class SimpleWrapper {
   
   template<typename FnT,
            typename SuccessPredT,
+           typename ResultStateRecorderT,
            int... ArgIs,
            typename... ArgT>
-  typename seec::FunctionTraits<FnT>::ReturnType
-  impl(FnT Function,
-       SuccessPredT SuccessPred,
+  typename seec::FunctionTraits<typename std::remove_reference<FnT>::type
+                                >::ReturnType
+  impl(FnT &&Function,
+       SuccessPredT &&SuccessPred,
+       ResultStateRecorderT &&ResultStateRecorder,
        seec::ct::sequence_int<ArgIs...>,
-       ArgT... Args)
+       ArgT &&... Args)
   {
+    auto &ProcessEnv = seec::trace::getProcessEnvironment();
+    auto &ProcessListener = ProcessEnv.getProcessListener();
+    
     auto &ThreadEnv = seec::trace::getThreadEnvironment();
     auto &Listener = ThreadEnv.getThreadListener();
     auto Instruction = ThreadEnv.getInstruction();
@@ -375,7 +611,8 @@ class SimpleWrapper {
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<ArgT>(Checker).check(Args, ArgIs))...
+      (WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+                             (Checker).check(Args, ArgIs))...
     };
     
     for (auto const InputCheck : InputChecks) {
@@ -390,7 +627,9 @@ class SimpleWrapper {
     bool const Success = SuccessPred(Result);
     
     // Notify the TraceThreadListener of the new value.
-    ListenerNotifier<typename seec::FunctionTraits<FnT>::ReturnType> Notifier;
+    typedef typename std::remove_reference<FnT>::type FnTLessReference;
+    typedef typename seec::FunctionTraits<FnTLessReference>::ReturnType RetT;
+    ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
     
     // Record any changes to errno.
@@ -399,9 +638,13 @@ class SimpleWrapper {
                                   sizeof(errno));
     }
     
+    // Record state changes revealed by the return value.
+    ResultStateRecorder.record(ProcessListener, Listener, Result);
+    
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
-      (WrappedArgumentRecorder<ArgT>(Listener).record(Args, Success))...
+      (WrappedArgumentRecorder<typename std::remove_reference<ArgT>::type>
+                              (Listener).record(Args, Success))...
     };
     
     for (auto const OutputRecord : OutputRecords) {
@@ -421,13 +664,19 @@ public:
   
   template<typename FnT,
            typename SuccessPredT,
+           typename ResultStateRecorderT,
            typename... ArgT>
-  typename seec::FunctionTraits<FnT>::ReturnType
-  operator()(FnT Function, SuccessPredT SuccessPred, ArgT... Args)
+  typename seec::FunctionTraits<typename std::remove_reference<FnT>::type
+                                >::ReturnType
+  operator()(FnT &&Function,
+             SuccessPredT &&SuccessPred,
+             ResultStateRecorderT &&ResultStateRecorder,
+             ArgT &&... Args)
   {
     typename seec::ct::generate_sequence_int<0, sizeof...(ArgT)>::type Indices;
     return impl(std::forward<FnT>(Function),
                 std::forward<SuccessPredT>(SuccessPred),
+                std::forward<ResultStateRecorderT>(ResultStateRecorder),
                 Indices,
                 std::forward<ArgT>(Args)...);
   }

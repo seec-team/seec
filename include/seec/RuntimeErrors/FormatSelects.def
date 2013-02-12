@@ -46,6 +46,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   // time.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, time, "time")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, asctime, "asctime")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, ctime, "ctime")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strftime, "strftime")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, gmtime, "gmtime")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, localtime, "localtime")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mktime, "mktime")
   
   //----------------------------------------------------------------------------
   // other

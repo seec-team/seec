@@ -26,21 +26,153 @@
 
 extern "C" {
 
+
 //===----------------------------------------------------------------------===//
 // time
 //===----------------------------------------------------------------------===//
 
-int
+std::time_t
 SEEC_MANGLE_FUNCTION(time)
 (std::time_t *time_ptr)
 {
   // Use the SimpleWrapper mechanism.
-  return seec::SimpleWrapper<
-          seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
-          {seec::runtime_errors::format_selects::CStdFunction::time}
-          (time,
-           [](std::time_t Result){return Result != std::time_t(-1);},
-           seec::wrapOutputPointer(time_ptr).setIgnoreNull(true));
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::time}
+      (time,
+       [](std::time_t Result){ return Result != std::time_t(-1); },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(time_ptr).setIgnoreNull(true));
+}
+
+
+//===----------------------------------------------------------------------===//
+// asctime
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(asctime)
+(std::tm const *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  // TODO: Behaviour is undefined if the output string would be longer than 25
+  //       characters.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::asctime}
+      (asctime,
+       [](char *Result){ return Result != nullptr; },
+       seec::ResultStateRecorderForStaticInternalCString(
+         seec::MemoryPermission::ReadWrite),
+       seec::wrapInputPointer(time_ptr));
+}
+
+
+//===----------------------------------------------------------------------===//
+// ctime
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(ctime)
+(std::time_t const *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::ctime}
+      (ctime,
+       [](char *Result){ return Result != nullptr; },
+       seec::ResultStateRecorderForStaticInternalCString(
+         seec::MemoryPermission::ReadWrite),
+       seec::wrapInputPointer(time_ptr));
+}
+
+
+//===----------------------------------------------------------------------===//
+// strftime
+//===----------------------------------------------------------------------===//
+
+std::size_t
+SEEC_MANGLE_FUNCTION(strftime)
+(char *str, std::size_t count, char const *format, std::tm *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::strftime}
+      (strftime,
+       [](std::size_t Result){ return Result != 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputCString(str).setMaximumSize(count),
+       count,
+       seec::wrapInputCString(format),
+       seec::wrapInputPointer(time_ptr));
+}
+
+
+//===----------------------------------------------------------------------===//
+// gmtime
+//===----------------------------------------------------------------------===//
+
+std::tm *
+SEEC_MANGLE_FUNCTION(gmtime)
+(std::time_t const *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::gmtime}
+      (gmtime,
+       [](std::tm *Result){ return Result != nullptr; },
+       seec::ResultStateRecorderForStaticInternalObject(
+         seec::MemoryPermission::ReadWrite),
+       seec::wrapInputPointer(time_ptr));
+}
+
+
+//===----------------------------------------------------------------------===//
+// localtime
+//===----------------------------------------------------------------------===//
+
+std::tm *
+SEEC_MANGLE_FUNCTION(localtime)
+(std::time_t const *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::localtime}
+      (localtime,
+       [](std::tm *Result){ return Result != nullptr; },
+       seec::ResultStateRecorderForStaticInternalObject(
+         seec::MemoryPermission::ReadWrite),
+       seec::wrapInputPointer(time_ptr));
+}
+
+
+//===----------------------------------------------------------------------===//
+// mktime
+//===----------------------------------------------------------------------===//
+
+std::time_t
+SEEC_MANGLE_FUNCTION(mktime)
+(std::tm *time_ptr)
+{
+  // Use the SimpleWrapper mechanism.
+  return 
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::mktime}
+      (mktime,
+       [](std::time_t const &Result){ return Result != std::time_t(-1); },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputPointer(time_ptr));
 }
 
 
