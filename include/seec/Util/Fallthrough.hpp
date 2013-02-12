@@ -14,11 +14,11 @@
 #ifndef SEEC_UTIL_FALLTHROUGH_HPP
 #define SEEC_UTIL_FALLTHROUGH_HPP
 
-#ifndef __has_attribute
-#define __has_attribute(x) 0
+#ifndef __has_feature
+#define __has_feature(x) 0
 #endif
 
-#if __has_attribute(clang::fallthrough)
+#if __has_feature(cxx_attributes)
 #define SEEC_FALLTHROUGH [[clang::fallthrough]]
 #else
 #define SEEC_FALLTHROUGH
