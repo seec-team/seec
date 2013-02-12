@@ -14,6 +14,7 @@ set(SOURCES
   WrapCfenv_h.cpp
   WrapCstdio_h.cpp
   WrapCstring_h.cpp
+  WrapCtime_h.cpp
   WrapPOSIXsys_wait_h.cpp
   WrapPOSIXunistd_h.cpp
   )

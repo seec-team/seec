@@ -43,6 +43,11 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, feupdateenv, "feupdateenv")
   
   //----------------------------------------------------------------------------
+  // time.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, time, "time")
+  
+  //----------------------------------------------------------------------------
   // other
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fopen, "fopen")
