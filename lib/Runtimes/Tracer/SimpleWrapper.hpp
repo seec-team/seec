@@ -220,14 +220,34 @@ public:
 class WrappedInputCString {
   char const *Value;
   
+  bool IgnoreNull;
+  
 public:
   WrappedInputCString(char const *ForValue)
-  : Value(ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
   {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedInputCString &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
   
   operator char const *() const { return Value; }
   
   uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  /// @}
 };
 
 inline WrappedInputCString wrapInputCString(char const *ForValue) {
@@ -252,6 +272,9 @@ public:
   /// \brief Check if the given value is OK.
   ///
   bool check(WrappedInputCString &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
     return Checker.checkCStringRead(Parameter, Value);
   }
 };
@@ -539,7 +562,7 @@ public:
     
     // Remove existing knowledge of the area.
     ProcessListener.removeKnownMemoryRegion(Address);
-
+    
     // Set knowledge of the new string area.
     ProcessListener.addKnownMemoryRegion(Address, Length, Access);
     
