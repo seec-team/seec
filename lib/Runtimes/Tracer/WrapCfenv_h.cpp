@@ -67,4 +67,84 @@ SEEC_MANGLE_FUNCTION(fesetexceptflag)
 }
 
 
+//===----------------------------------------------------------------------===//
+// fegetenv
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fegetenv)
+(std::fenv_t *envp)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fegetenv}
+      (fegetenv,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(envp));
+}
+
+
+//===----------------------------------------------------------------------===//
+// fesetenv
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fesetenv)
+(std::fenv_t const *envp)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fesetenv}
+      (fesetenv,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputPointer(envp));
+}
+
+
+//===----------------------------------------------------------------------===//
+// feholdexcept
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(feholdexcept)
+(std::fenv_t *envp)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::feholdexcept}
+      (feholdexcept,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(envp));
+}
+
+
+//===----------------------------------------------------------------------===//
+// feupdateenv
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(feupdateenv)
+(std::fenv_t const *envp)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::feupdateenv}
+      (feupdateenv,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputPointer(envp));
+}
+
+
 } // extern "C"

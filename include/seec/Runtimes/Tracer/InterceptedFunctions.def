@@ -29,6 +29,10 @@
 
 SEEC_INTERCEPTED_FUNCTION(fegetexceptflag)
 SEEC_INTERCEPTED_FUNCTION(fesetexceptflag)
+SEEC_INTERCEPTED_FUNCTION(fegetenv)
+SEEC_INTERCEPTED_FUNCTION(fesetenv)
+SEEC_INTERCEPTED_FUNCTION(feholdexcept)
+SEEC_INTERCEPTED_FUNCTION(feupdateexcept)
 
 
 //===----------------------------------------------------------------------===//
