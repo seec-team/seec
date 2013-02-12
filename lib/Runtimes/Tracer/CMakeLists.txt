@@ -12,6 +12,7 @@ set(HEADERS
 set(SOURCES
   Tracer.cpp
   WrapCfenv_h.cpp
+  WrapClocale_h.cpp
   WrapCstdio_h.cpp
   WrapCstring_h.cpp
   WrapCtime_h.cpp

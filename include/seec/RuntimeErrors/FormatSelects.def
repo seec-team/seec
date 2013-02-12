@@ -43,6 +43,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, feupdateenv, "feupdateenv")
   
   //----------------------------------------------------------------------------
+  // locale.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, setlocale, "setlocale")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, localeconv, "localeconv")
+  
+  //----------------------------------------------------------------------------
   // time.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, time, "time")
