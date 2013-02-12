@@ -16,12 +16,16 @@
 
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/FixedWidthIntTypes.hpp"
 #include "seec/Util/FunctionTraits.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <cerrno>
+#include <climits>
 
 
 // Forward declarations.
@@ -48,9 +52,15 @@ struct ListenerNotifier
                   uint32_t InstructionIndex,
                   llvm::Instruction const *Instruction,
                   T Value) {
+    // Convert to an unsigned, fixed-width integer type, because that is what
+    // the notifyValue overloads expect, and if we leave it up to the compiler
+    // the conversion will be ambiguous.
+    constexpr auto ByteWidth = sizeof(typename std::make_unsigned<T>::type);
+    constexpr auto BitWidth = CHAR_BIT * ByteWidth;
+    
     Listener.notifyValue(InstructionIndex,
                          Instruction,
-                         typename std::make_unsigned<T>::type(Value));
+                         typename seec::GetUInt<BitWidth>::type(Value));
   }
 };
 
@@ -136,16 +146,36 @@ template<typename T>
 class WrappedOutputPointer {
   T Value;
   
+  bool IgnoreNull;
+  
 public:
   WrappedOutputPointer(T ForValue)
-  : Value(ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
   {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedOutputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
   
   operator T() { return Value; }
   
   uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
   
   std::size_t pointeeSize() const { return sizeof(*Value); }
+  
+  /// @} (Value information)
 };
 
 template<typename T>
@@ -223,6 +253,9 @@ public:
   /// \brief Check if the given value is OK.
   ///
   bool check(WrappedOutputPointer<T> &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),
@@ -273,6 +306,9 @@ public:
   /// \brief Record any state changes.
   ///
   bool record(WrappedOutputPointer<T> &Value, bool Success) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
     if (Success) {
       auto const Ptr = reinterpret_cast<char const *>(Value.address());
       Listener.recordUntypedState(Ptr, Value.pointeeSize());
@@ -346,6 +382,9 @@ class SimpleWrapper {
       assert(InputCheck && "Input check failed.");
     }
     
+    // Get the pre-call value of errno.
+    auto const PreCallErrno = errno;
+    
     // Call the original function.
     auto const Result = Function(std::forward<ArgT>(Args)...);
     bool const Success = SuccessPred(Result);
@@ -353,6 +392,12 @@ class SimpleWrapper {
     // Notify the TraceThreadListener of the new value.
     ListenerNotifier<typename seec::FunctionTraits<FnT>::ReturnType> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
+    
+    // Record any changes to errno.
+    if (errno != PreCallErrno) {
+      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                  sizeof(errno));
+    }
     
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
