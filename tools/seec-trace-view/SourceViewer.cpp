@@ -574,28 +574,30 @@ SourceFileRange SourceViewerPanel::getRange(::clang::Decl const *Decl) const {
   auto const &SourceManager = AST.getSourceManager();
   
   // Find the first character in the first token.
-  auto const Start = Decl->getLocStart();
-  auto const SpellingStart = SourceManager.getSpellingLoc(Start);
+  auto Start = Decl->getLocStart();
+  while (Start.isMacroID())
+    Start = SourceManager.getExpansionLoc(Start);
   
   // Find the file that the first token belongs to.
-  auto const FileID = SourceManager.getFileID(SpellingStart);
-  auto const Filename = SourceManager.getFilename(SpellingStart);
+  auto const FileID = SourceManager.getFileID(Start);
+  auto const Filename = SourceManager.getFilename(Start);
   
   // Find the first character in the last token.
-  auto const End = Decl->getLocEnd();
-  auto const SpellingEnd = SourceManager.getSpellingLoc(End);
+  auto End = Decl->getLocEnd();
+  while (End.isMacroID())
+    End = SourceManager.getExpansionLoc(End);
   
   // Find the first character following the last token.
   auto const FollowingEnd =
-    clang::Lexer::getLocForEndOfToken(SpellingEnd,
+    clang::Lexer::getLocForEndOfToken(End,
                                       0,
                                       SourceManager,
                                       AST.getLangOpts());
   
   // Get the file offset of the start and end.
-  auto const StartOffset = SourceManager.getFileOffset(SpellingStart);
+  auto const StartOffset = SourceManager.getFileOffset(Start);
   auto const EndOffset = FollowingEnd.isValid()
-                       ? SourceManager.getFileOffset(SpellingEnd)
+                       ? SourceManager.getFileOffset(End)
                        : SourceManager.getFileOffset(FollowingEnd);
   
   return SourceFileRange(Filename.str(),
@@ -614,31 +616,33 @@ SourceViewerPanel::getRange(::clang::Stmt const *Stmt,
   auto const &SourceManager = AST.getSourceManager();
   
   // Find the first character in the first token.
-  auto const Start = Stmt->getLocStart();
-  auto const SpellingStart = SourceManager.getSpellingLoc(Start);
+  auto Start = Stmt->getLocStart();
+  while (Start.isMacroID())
+    Start = SourceManager.getExpansionLoc(Start);
   
   // Find the file that the first token belongs to.
-  auto const FileID = SourceManager.getFileID(SpellingStart);
-  auto const Filename = SourceManager.getFilename(SpellingStart);
+  auto const FileID = SourceManager.getFileID(Start);
+  auto const Filename = SourceManager.getFilename(Start);
   
   // Find the first character in the last token.
-  auto const End = Stmt->getLocEnd();
-  auto const SpellingEnd = SourceManager.getSpellingLoc(End);
+  auto End = Stmt->getLocEnd();
+  while (End.isMacroID())
+    End = SourceManager.getExpansionLoc(End);
   
   // Find the first character following the last token.
   auto const FollowingEnd =
-    clang::Lexer::getLocForEndOfToken(SpellingEnd,
+    clang::Lexer::getLocForEndOfToken(End,
                                       0,
                                       SourceManager,
                                       AST.getLangOpts());
   
   // Get the file offset of the start and end.
-  auto const StartOffset = SourceManager.getFileOffset(SpellingStart);
+  auto const StartOffset = SourceManager.getFileOffset(Start);
   
   auto const EndOffset = FollowingEnd.isValid()
                        ? SourceManager.getFileOffset(FollowingEnd)
-                       : SourceManager.getFileOffset(SpellingEnd);
-
+                       : SourceManager.getFileOffset(End);
+  
   return SourceFileRange(Filename.str(),
                          StartOffset,
                          SourceManager.getLineNumber(FileID, StartOffset),
