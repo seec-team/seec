@@ -21,6 +21,7 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <cinttypes>
 #include <iostream>
 
 #include "TraceViewerApp.hpp"
@@ -183,6 +184,10 @@ void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
 void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
   auto &ThreadState = State->getThreadState(Event.getThreadID());
   seec::trace::moveToTime(ThreadState, Event.getThreadTime());
+  
+  wxLogDebug("Requested time %" PRIu64 " and got time %" PRIu64,
+             Event.getThreadTime(),
+             ThreadState.getThreadTime());
 
   StateViewer->show(*State);
   SourceViewer->show(*State, ThreadState);
