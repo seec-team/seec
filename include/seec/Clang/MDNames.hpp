@@ -11,7 +11,8 @@ namespace seec_clang {
 
 char const * const MDStmtPtrStr = "seec.clang.stmt.ptr";
 char const * const MDStmtIdxStr = "seec.clang.stmt.idx";
-char const * const MDDeclPtrStr = "clang.decl.ptr";
+char const * const MDDeclPtrStrClang = "clang.decl.ptr";
+char const * const MDDeclPtrStr = "seec.clang.decl.ptr";
 char const * const MDDeclIdxStr = "seec.clang.decl.idx";
 
 char const * const MDGlobalDeclPtrsStr = "clang.global.decl.ptrs";

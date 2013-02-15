@@ -266,6 +266,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   // Handle Instruction Metadata
   unsigned MDStmtPtrID = Mod->getMDKindID(MDStmtPtrStr);
   unsigned MDStmtIdxID = Mod->getMDKindID(MDStmtIdxStr);
+  unsigned MDDeclPtrIDClang = Mod->getMDKindID(MDDeclPtrStrClang);
   unsigned MDDeclPtrID = Mod->getMDKindID(MDDeclPtrStr);
   unsigned MDDeclIdxID = Mod->getMDKindID(MDDeclIdxStr);
 
@@ -275,32 +276,61 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
         if (!Instruction.hasMetadata())
           continue;
 
-        Stmt const *S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID);
-        if (S) {
+        // Handle SeeC's Stmt metadata.
+        if (auto S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID))
+        {
           auto It = StmtMap.find(S);
           if (It != StmtMap.end()) {
+            llvm::errs() << "Marking " << S->getStmtClassName()
+                         << " Stmt with index " << It->second << "\n";
+            
             Value *Ops[] {
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // StmtIdx
             };
 
             Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
-            Instruction.setMetadata(MDStmtPtrID, nullptr);
           }
+          
+          Instruction.setMetadata(MDStmtPtrID, nullptr);
         }
 
-        Decl const *D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID);
-        if (D) {
+        // Handle SeeC's Decl metadata.
+        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID))
+        {
           auto It = DeclMap.find(D);
           if (It != DeclMap.end()) {
+            llvm::errs() << "Marking " << D->getDeclKindName()
+                         << " Decl with index " << It->second << "\n";
+            
             Value *Ops[] {
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // DeclIdx
             };
 
             Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
-            Instruction.setMetadata(MDDeclPtrID, nullptr);
           }
+          
+          Instruction.setMetadata(MDDeclPtrID, nullptr);
+        }
+        
+        // Handle Clang's Decl metadata.
+        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrIDClang))
+        {
+          auto It = DeclMap.find(D);
+          if (It != DeclMap.end()) {
+            llvm::errs() << "Marking " << D->getDeclKindName()
+                         << " Decl with index " << It->second << "\n";
+            
+            Value *Ops[] {
+              MainFileNode,
+              ConstantInt::get(Int64Ty, It->second) // DeclIdx
+            };
+
+            Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
+          }
+          
+          Instruction.setMetadata(MDDeclPtrIDClang, nullptr);
         }
       }
     }

@@ -4,8 +4,10 @@ set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/MappedFile.hpp
   ../../include/seec/Clang/MappedModule.hpp
   ../../include/seec/Clang/MappedStmt.hpp
+  ../../include/seec/Clang/MDNames.hpp
   ../../include/seec/Clang/RuntimeValueMapping.hpp
   ../../include/seec/Clang/Search.hpp
+  ../../include/seec/Clang/SourceMapping.hpp
   ../../include/seec/Clang/StateMapping.hpp
 )
 
