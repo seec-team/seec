@@ -35,7 +35,7 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
   ThreadStates()
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
-    ThreadStates.emplace_back(new seec::cm::ThreadState());
+    ThreadStates.emplace_back(new seec::cm::ThreadState(*this, *StatePtr));
 }
 
 ProcessState::~ProcessState() = default;
@@ -48,9 +48,15 @@ std::size_t ProcessState::getThreadCount() const {
   return UnmappedState->getThreadStateCount();
 }
 
-// ThreadState &ProcessState::getThread(std::size_t Index) {}
+ThreadState &ProcessState::getThread(std::size_t Index) {
+  assert(Index < ThreadStates.size());
+  return *ThreadStates[Index];
+}
 
-// ThreadState const &ProcessState::getThread(std::size_t Index) const {}
+ThreadState const &ProcessState::getThread(std::size_t Index) const {
+  assert(Index < ThreadStates.size());
+  return *ThreadStates[Index];
+}
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
@@ -58,6 +64,11 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << "Process State @" << State.getProcessTime() << "\n";
   
   Out << " Threads: " << State.getThreadCount() << "\n";
+  
+  for (std::size_t i = 0; i < State.getThreadCount(); ++i) {
+    Out << "Thread #" << i << ":\n";
+    Out << State.getThread(i);
+  }
   
   return Out;
 }

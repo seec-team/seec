@@ -1,4 +1,4 @@
-//===- lib/Clang/MappedThreadState.cpp ------------------------------------===//
+//===- lib/Clang/MappedStateMovement.cpp ----------------------------------===//
 //
 //                                    SeeC
 //
@@ -11,10 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
-#include "seec/Trace/ThreadState.hpp"
-
-#include "llvm/Support/raw_ostream.h"
+#include "seec/Trace/StateMovement.hpp"
 
 
 namespace seec {
@@ -23,18 +22,18 @@ namespace cm {
 
 
 //===----------------------------------------------------------------------===//
-// ThreadState
-//===----------------------------------------------------------------------===//
+// Thread movement.
 
-ThreadState::~ThreadState() = default;
-
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, ThreadState const &State)
-{
-  Out << "ThreadTime = " << State.getUnmappedState().getThreadTime() << "\n";
-  
-  return Out;
+bool moveForward(ThreadState &Thread) {
+  return seec::trace::moveForward(Thread.getUnmappedState());
 }
+
+bool moveBackward(ThreadState &Thread) {
+  return seec::trace::moveBackward(Thread.getUnmappedState());
+}
+
+// (Thread movement.)
+//===----------------------------------------------------------------------===//
 
 
 } // namespace cm (in seec)

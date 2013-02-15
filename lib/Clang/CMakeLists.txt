@@ -34,14 +34,16 @@ INSTALL(TARGETS SeeCClang
 
 
 set(SEEC_CLANG_MAPPED_TRACE_HEADERS
-  ../../include/seec/Clang/MappedProcessTrace.hpp
   ../../include/seec/Clang/MappedProcessState.hpp
+  ../../include/seec/Clang/MappedProcessTrace.hpp
+  ../../include/seec/Clang/MappedStateMovement.hpp
   ../../include/seec/Clang/MappedThreadState.hpp
 )
 
 set(SEEC_CLANG_MAPPED_TRACE_SOURCES
-  MappedProcessTrace.cpp
   MappedProcessState.cpp
+  MappedProcessTrace.cpp
+  MappedStateMovement.cpp
   MappedThreadState.cpp
 )
 

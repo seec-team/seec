@@ -15,6 +15,7 @@
 #define SEEC_TRACE_STATEMOVEMENT_HPP
 
 #include <functional>
+#include <map>
 
 namespace seec {
 
