@@ -35,6 +35,37 @@ root:table {
     //-------------------
     // Stmt descriptions.
     //-------------------
+    
+    // ArraySubscriptExpr description.
+    // Inputs:
+    //   is_lhs_base
+    //   base_type_general
+    //   idx_type_general
+    // Outputs:
+    //   base
+    //   idx
+    //
+    ArraySubscriptExpr:string {
+      "{is_lhs_base, select,"
+
+      " true {{base_type_general, select,"
+             " Pointer {This is an array subscript expression. It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer. The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to. That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on.}"
+
+             " other {This is an array subscript expression. It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer. The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array. That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on.}}}"
+
+      " false {{base_type_general, select,"
+             " Pointer {This is an array subscript expression. It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer. Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form. The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to. That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on.}"
+
+             " other {This is an array subscript expression. It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer. Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form. The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array. That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on.}}}"
+
+      " other {Unexpected value for is_lhs_base.}}"
+    }
+
+    // BreakStmt description.
+    // Inputs:
+    // Outputs:
+    //
+    BreakStmt:string { "This is a break statement. It ends the execution of the first loop (“do”, “for”, or “while”) or “switch” statement that encloses it." }
 
     // BinaryOperator description.
     // Inputs:
@@ -116,6 +147,74 @@ root:table {
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
     }
 
+    // CallExpr description.
+    // Inputs:
+    //   has_callee
+    //   has_callee_decl
+    //   has_direct_callee
+    //   num_args
+    //   general_type
+    // Outputs:
+    //   callee_expr
+    // Outputs (when has_direct_callee == "true"):
+    //   direct_callee_decl
+    //
+    CallExpr:string {
+      "{has_direct_callee, select,"
+      //
+      // Direct callee.
+      //
+      " true {{num_args, plural,"
+             //
+             // Direct callee with no arguments.
+             //
+             " =0 {{general_type, select,"
+                  " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parenthesis are empty. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[], and continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.}"
+
+                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parenthesis are empty. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[], and continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.}}}"
+
+             //
+             // Direct callee with one argument.
+             //
+             " =1 {{general_type, select,"
+                  " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.}"
+
+                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.}}}"
+
+             //
+             // Direct callee with N>1 arguments.
+             //
+             " other {{general_type, select,"
+                     " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.}"
+
+                     " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.}}}}}"
+
+      //
+      // Indirect call.
+      //
+      " false {{num_args, plural,"
+              //
+              // Indirect call with no arguments.
+              //
+              " =0 {}"
+              " =1 {}"
+              " other {}}}"
+
+      " other {Unexpected value for has_direct_callee.}}"
+    }
+
+    // CompoundStmt description.
+    // Inputs:
+    // Outputs:
+    //
+    CompoundStmt:string { "This is a compound statement. It consists of a group of statements. Each of these statements will be evaluated in order." }
+
+    // ContinueStmt description.
+    // Inputs:
+    // Outputs:
+    //
+    ContinueStmt:string { "This is a continue statement. It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it. If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop. If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression." }
+
     // DeclRefExpr description.
     // Inputs:
     //   name = string
@@ -150,6 +249,14 @@ root:table {
       " false {This is a statement containing a group of declarations.}"
       " other {Bad value for is_single_decl.}}"
     }
+
+    // DoStmt description.
+    // Inputs:
+    // Outputs:
+    //   cond
+    //   body
+    //
+    DoStmt:string { "This is a “do while” loop. It has a @[body]body@[] and a @[cond]condition@[]. Initially, the @[body]body@[] is evaluated. After the @[body]body@[] is evaluated, the @[cond]condition@[] is evaluated. If the result of the @[cond]condition@[] is considered to be true (non-zero), then execution transfers to the beginning of the loop: the @[body]body@[] is evaluated again, followed by the @[cond]condition@[]." }
 
     // IfStmt description.
     // Inputs:

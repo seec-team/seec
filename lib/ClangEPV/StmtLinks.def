@@ -27,6 +27,13 @@ SEEC_STMT_LINK(BinaryOperator,
     ("rhs", getRHS())
   ))
 
+SEEC_STMT_LINK(DoStmt,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("cond", getCond()),
+    ("body", getBody())
+  ))
+
 SEEC_STMT_LINK(IfStmt,
   SEEC_PP_QUOTE(
     ("has_condition_variable", Bool, getConditionVariable()),

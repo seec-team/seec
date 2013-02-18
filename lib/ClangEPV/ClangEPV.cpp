@@ -50,6 +50,10 @@ Formattable formatAsBool(T &&Value) {
   return Value ? Formattable("true") : Formattable("false");
 }
 
+Formattable formatAsInt(int32_t Value) { return Formattable(Value); }
+
+Formattable formatAsInt(int64_t Value) { return Formattable(Value); }
+
 Formattable formatAsString(llvm::StringRef String) {
   return Formattable(UnicodeString::fromUTF8(String.str()));
 }
@@ -266,6 +270,46 @@ void addInfo(::clang::STMTCLASS const *Statement,                              \
 #undef SEEC_STMT_LINK_LINK
 
 // Manual specializations.
+
+/// \brief Specialization for ArraySubscriptExpr
+///
+void addInfo(::clang::ArraySubscriptExpr const *Statement,
+             seec::icu::FormatArgumentsWithNames &Arguments,
+             NodeLinks &Links)
+{
+  auto const Base = Statement->getBase();
+  auto const Idx = Statement->getIdx();
+  
+  Arguments.add("is_lhs_base", formatAsBool(Statement->getLHS() == Base));
+  Arguments.add("base_type_general",
+                formatAsGeneralTypeString(Base->getType().getTypePtr()));
+  Arguments.add("idx_type_general",
+                formatAsGeneralTypeString(Idx->getType().getTypePtr()));
+  
+  Links.add("base", Base);
+  Links.add("idx", Idx);
+}
+
+/// \brief Specialization for CallExpr
+///
+void addInfo(::clang::CallExpr const *Statement,
+             seec::icu::FormatArgumentsWithNames &Arguments,
+             NodeLinks &Links)
+{
+  auto const Callee = Statement->getCallee();
+  auto const CalleeDecl = Statement->getCalleeDecl();
+  auto const DirectCallee = Statement->getDirectCallee();
+  
+  Arguments.add("has_callee", formatAsBool(Callee));
+  Arguments.add("has_callee_decl", formatAsBool(CalleeDecl));
+  Arguments.add("has_direct_callee", formatAsBool(DirectCallee));
+  Arguments.add("num_args", formatAsInt(int64_t(Statement->getNumArgs())));
+  Arguments.add("general_type",
+                formatAsGeneralTypeString(Statement->getType().getTypePtr()));
+  
+  Links.add("callee_expr", Callee);
+  Links.add("direct_callee_decl", DirectCallee);
+}
 
 /// \brief Specialization for DeclRefExpr
 ///
