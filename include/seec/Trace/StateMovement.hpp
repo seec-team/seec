@@ -14,6 +14,7 @@
 #ifndef SEEC_TRACE_STATEMOVEMENT_HPP
 #define SEEC_TRACE_STATEMOVEMENT_HPP
 
+#include <cstdint>
 #include <functional>
 #include <map>
 
