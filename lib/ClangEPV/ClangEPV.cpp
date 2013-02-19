@@ -142,9 +142,20 @@ explain(::clang::Decl const *Node)
                                                 {"errors",
                                                  "ExplainNullDecl"}));
   
-  return ExplanationOfDecl::create(Node);
+  return ExplanationOfDecl::create(Node, nullptr);
 }
 
+seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node,
+        RuntimeValueLookup const &ValueLookup)
+{
+  if (Node == nullptr)
+    return seec::Error(LazyMessageByRef::create("ClangEPV",
+                                                {"errors",
+                                                 "ExplainNullDecl"}));
+  
+  return ExplanationOfDecl::create(Node, &ValueLookup);
+}
 
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node)
@@ -152,9 +163,21 @@ explain(::clang::Stmt const *Node)
   if (Node == nullptr)
     return seec::Error(LazyMessageByRef::create("ClangEPV",
                                                 {"errors",
-                                                 "ExplainNullDecl"}));
+                                                 "ExplainNullStmt"}));
   
-  return ExplanationOfStmt::create(Node);
+  return ExplanationOfStmt::create(Node, nullptr);
+}
+
+seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node,
+        RuntimeValueLookup const &ValueLookup)
+{
+  if (Node == nullptr)
+    return seec::Error(LazyMessageByRef::create("ClangEPV",
+                                                {"errors",
+                                                 "ExplainNullStmt"}));
+  
+  return ExplanationOfStmt::create(Node, &ValueLookup);
 }
 
 
@@ -165,12 +188,14 @@ explain(::clang::Stmt const *Node)
 /// \brief Catch all non-specialized Decl cases.
 ///
 void addInfo(::clang::Decl const *Decl,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {}
 
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
-ExplanationOfDecl::create(::clang::Decl const *Node)
+ExplanationOfDecl::create(::clang::Decl const *Node,
+                          RuntimeValueLookup const *ValueLookup)
 {
   char const *DescriptionKey = nullptr;
   seec::icu::FormatArgumentsWithNames DescriptionArguments;
@@ -183,6 +208,7 @@ ExplanationOfDecl::create(::clang::Decl const *Node)
     case ::clang::Decl::Kind::DERIVED:                   \
       DescriptionKey = #DERIVED;                         \
       addInfo(llvm::cast< ::clang::DERIVED##Decl>(Node), \
+              ValueLookup,                               \
               DescriptionArguments,                      \
               ExplanationLinks);                         \
       break;
@@ -241,9 +267,31 @@ ExplanationOfDecl::create(::clang::Decl const *Node)
 // ExplanationOfStmt
 //===----------------------------------------------------------------------===//
 
+void addRuntimeValue(::clang::Stmt const *ForStatement,
+                     char const *Name,
+                     RuntimeValueLookup const &ValueLookup,
+                     seec::icu::FormatArgumentsWithNames &Arguments)
+{
+  UnicodeString UnicodeName(Name);
+  UnicodeString UnicodeHasName = UnicodeString("has_") + UnicodeName;
+  
+  if (ForStatement) {
+    auto const ValueString = ValueLookup.getValueString(ForStatement);
+    if (!ValueString.empty()) {
+      // Add the runtime value.
+      Arguments.add(UnicodeHasName, formatAsBool(true));
+      Arguments.add(UnicodeName, formatAsString(ValueString));
+    }
+  }
+  
+  // No runtime value found.
+  Arguments.add(UnicodeHasName, formatAsBool(false));
+}
+
 /// \brief Catch all non-specialized Stmt cases.
 ///
 void addInfo(::clang::Stmt const *Statement,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {}
@@ -252,15 +300,23 @@ void addInfo(::clang::Stmt const *Statement,
 #define SEEC_STMT_LINK_ARG(NAME, TYPE, GETTER) \
   Arguments.add(NAME, formatAs##TYPE(Statement->GETTER));
 
+#define SEEC_STMT_LINK_RTV(NAME, GETTER)                                       \
+  addRuntimeValue(Statement->GETTER, NAME, *ValueLookup, Arguments);
+
 #define SEEC_STMT_LINK_LINK(NAME, GETTER) \
   Links.add(NAME, Statement->GETTER);
 
-#define SEEC_STMT_LINK(STMTCLASS, ARGUMENTS, LINKS)                            \
+#define SEEC_STMT_LINK(STMTCLASS, ARGUMENTS, RTVALUES, LINKS)                  \
 void addInfo(::clang::STMTCLASS const *Statement,                              \
+             RuntimeValueLookup const *ValueLookup,                            \
              seec::icu::FormatArgumentsWithNames &Arguments,                   \
              NodeLinks &Links)                                                 \
 {                                                                              \
   SEEC_PP_APPLY(SEEC_STMT_LINK_ARG, ARGUMENTS)                                 \
+  if (ValueLookup) {                                                           \
+    addRuntimeValue(Statement, "rtv_of_this", *ValueLookup, Arguments);        \
+    SEEC_PP_APPLY(SEEC_STMT_LINK_RTV, RTVALUES)                                \
+  }                                                                            \
   SEEC_PP_APPLY(SEEC_STMT_LINK_LINK, LINKS)                                    \
 }
 
@@ -274,18 +330,28 @@ void addInfo(::clang::STMTCLASS const *Statement,                              \
 /// \brief Specialization for ArraySubscriptExpr
 ///
 void addInfo(::clang::ArraySubscriptExpr const *Statement,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {
   auto const Base = Statement->getBase();
   auto const Idx = Statement->getIdx();
   
+  // Arguments.
   Arguments.add("is_lhs_base", formatAsBool(Statement->getLHS() == Base));
   Arguments.add("base_type_general",
                 formatAsGeneralTypeString(Base->getType().getTypePtr()));
   Arguments.add("idx_type_general",
                 formatAsGeneralTypeString(Idx->getType().getTypePtr()));
   
+  // Runtime values.
+  if (ValueLookup) {
+    addRuntimeValue(Statement, "rtv_of_this", *ValueLookup, Arguments);
+    addRuntimeValue(Base, "rtv_of_base", *ValueLookup, Arguments);
+    addRuntimeValue(Idx, "rtv_of_idx", *ValueLookup, Arguments);
+  }
+  
+  // Links.
   Links.add("base", Base);
   Links.add("idx", Idx);
 }
@@ -293,6 +359,7 @@ void addInfo(::clang::ArraySubscriptExpr const *Statement,
 /// \brief Specialization for CallExpr
 ///
 void addInfo(::clang::CallExpr const *Statement,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {
@@ -300,6 +367,7 @@ void addInfo(::clang::CallExpr const *Statement,
   auto const CalleeDecl = Statement->getCalleeDecl();
   auto const DirectCallee = Statement->getDirectCallee();
   
+  // Arguments.
   Arguments.add("has_callee", formatAsBool(Callee));
   Arguments.add("has_callee_decl", formatAsBool(CalleeDecl));
   Arguments.add("has_direct_callee", formatAsBool(DirectCallee));
@@ -307,6 +375,12 @@ void addInfo(::clang::CallExpr const *Statement,
   Arguments.add("general_type",
                 formatAsGeneralTypeString(Statement->getType().getTypePtr()));
   
+  // Runtime values.
+  if (ValueLookup) {
+    addRuntimeValue(Statement, "rtv_of_this", *ValueLookup, Arguments);
+  }
+  
+  // Links.
   Links.add("callee_expr", Callee);
   Links.add("direct_callee_decl", DirectCallee);
 }
@@ -314,12 +388,14 @@ void addInfo(::clang::CallExpr const *Statement,
 /// \brief Specialization for DeclRefExpr
 ///
 void addInfo(::clang::DeclRefExpr const *Statement,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {
   auto const Decl = Statement->getDecl();
   auto const Name = Statement->getNameInfo().getName();
   
+  // Arguments.
   Arguments.add("name", formatAsString(Name.getAsString()));
   
   if (auto const D = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
@@ -338,6 +414,12 @@ void addInfo(::clang::DeclRefExpr const *Statement,
     Arguments.add("kind_general", formatAsString("Other"));
   }
   
+  // Runtime values.
+  if (ValueLookup) {
+    addRuntimeValue(Statement, "rtv_of_this", *ValueLookup, Arguments);
+  }
+  
+  // Links.
   Links.add("decl", Decl);
   Links.add("found_decl", Statement->getFoundDecl());
 }
@@ -345,6 +427,7 @@ void addInfo(::clang::DeclRefExpr const *Statement,
 /// \brief Specialization for DeclStmt
 ///
 void addInfo(::clang::DeclStmt const *Statement,
+             RuntimeValueLookup const *ValueLookup,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {
@@ -362,7 +445,8 @@ void addInfo(::clang::DeclStmt const *Statement,
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
-ExplanationOfStmt::create(::clang::Stmt const *Node)
+ExplanationOfStmt::create(::clang::Stmt const *Node,
+                          RuntimeValueLookup const *ValueLookup)
 {
   char const *DescriptionKey = nullptr;
   seec::icu::FormatArgumentsWithNames DescriptionArguments;
@@ -380,6 +464,7 @@ ExplanationOfStmt::create(::clang::Stmt const *Node)
     case ::clang::Stmt::StmtClass::CLASS##Class:       \
       DescriptionKey = #CLASS;                         \
       addInfo(llvm::cast< ::clang::CLASS const>(Node), \
+              ValueLookup,                             \
               DescriptionArguments,                    \
               ExplanationLinks);                       \
       break;

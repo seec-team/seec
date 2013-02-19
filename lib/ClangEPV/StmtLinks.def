@@ -23,12 +23,19 @@ SEEC_STMT_LINK(BinaryOperator,
     ("type_general", GeneralTypeString, getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
+    ("rtv_of_lhs", getLHS()),
+    ("rtv_of_rhs", getRHS())
+  ),
+  SEEC_PP_QUOTE(
     ("lhs", getLHS()),
     ("rhs", getRHS())
   ))
 
 SEEC_STMT_LINK(DoStmt,
   SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
   SEEC_PP_QUOTE(
     ("cond", getCond()),
     ("body", getBody())
@@ -40,6 +47,9 @@ SEEC_STMT_LINK(IfStmt,
     ("has_else",               Bool, getElse())
   ),
   SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
     ("cond", getCond()),
     ("then", getThen()),
     ("else", getElse())
@@ -48,6 +58,9 @@ SEEC_STMT_LINK(IfStmt,
 SEEC_STMT_LINK(ReturnStmt,
   SEEC_PP_QUOTE(
     ("has_return_value", Bool, getRetValue())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_return_value", getRetValue())
   ),
   SEEC_PP_QUOTE(
     ("return_value", getRetValue())

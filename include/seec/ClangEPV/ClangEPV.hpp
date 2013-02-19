@@ -172,6 +172,40 @@ public:
 };
 
 
+/// \brief Interface for providing value information.
+///
+class RuntimeValueLookup {
+public:
+  /// \brief Get a string describing the current runtime value of Statement.
+  ///
+  virtual std::string getValueString(::clang::Stmt const *Statement) const = 0;
+};
+
+
+/// \brief Lambda-based implementation of RuntimeValueLookup.
+///
+template<typename StmtToValueStringT>
+class RuntimeValueLookupByLambda : public RuntimeValueLookup {
+  StmtToValueStringT StmtToValueString;
+  
+public:
+  RuntimeValueLookupByLambda(StmtToValueStringT &&StmtToValueStringFunction)
+  : StmtToValueString(std::move(StmtToValueStringFunction))
+  {}
+  
+  virtual std::string getValueString(::clang::Stmt const *Statement) const {
+    return Statement ? StmtToValueString(Statement) : std::string{};
+  }
+};
+
+template<typename StmtToValueStringT>
+RuntimeValueLookupByLambda<StmtToValueStringT>
+makeRuntimeValueLookupByLambda(StmtToValueStringT &&StmtToValueStringFunction) {
+  return RuntimeValueLookupByLambda<StmtToValueStringT>
+                                   (std::move(StmtToValueStringFunction));
+}
+
+
 /// \brief A textual explanation of a Clang AST node.
 ///
 class Explanation {
@@ -243,11 +277,22 @@ public:
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node);
 
+/// \brief Get an Explanation for a clang::Decl, with runtime values.
+///
+seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node,
+        RuntimeValueLookup const &ValueLookup);
 
 /// \brief Get an Explanation for a clang::Stmt.
 ///
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node);
+
+/// \brief Get an Explanation for a clang::Stmt, with runtime values.
+///
+seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node,
+        RuntimeValueLookup const &ValueLookup);
 
 
 /// \brief A textual explanation of a clang::Decl.
@@ -275,7 +320,7 @@ public:
   }
   
   static seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
-  create(::clang::Decl const *Node);
+  create(::clang::Decl const *Node, RuntimeValueLookup const *ValueLookup);
 };
 
 
@@ -304,7 +349,7 @@ public:
   }
   
   static seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
-  create(::clang::Stmt const *Node);
+  create(::clang::Stmt const *Node, RuntimeValueLookup const *ValueLookup);
 };
 
 

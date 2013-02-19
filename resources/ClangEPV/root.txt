@@ -71,6 +71,10 @@ root:table {
     // Inputs:
     //   opcode
     //   type_general
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_lhs
+    //   [has_]rtv_of_rhs
     // Outputs:
     //   lhs
     //   rhs
@@ -90,7 +94,7 @@ root:table {
 
       " BO_Rem {This is the Modulo operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.}"
 
-      " BO_Add {This is the Addition operator. It returns the addition of the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[].}"
+      " BO_Add {This is the Addition operator. It returns the addition of the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[].{has_rtv_of_lhs, select, true { The value of the left hand side is “{rtv_of_lhs}”.} other {}}{has_rtv_of_rhs, select, true { The value of the right hand side is “{rtv_of_rhs}”.} other {}}}"
 
       " BO_Sub {This is the Subtraction operator. It returns the result of subtracting the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[].}"
 
@@ -154,6 +158,8 @@ root:table {
     //   has_direct_callee
     //   num_args
     //   general_type
+    // Value inputs:
+    //   
     // Outputs:
     //   callee_expr
     // Outputs (when has_direct_callee == "true"):
@@ -252,6 +258,9 @@ root:table {
 
     // DoStmt description.
     // Inputs:
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_cond
     // Outputs:
     //   cond
     //   body
@@ -262,6 +271,9 @@ root:table {
     // Inputs:
     //   has_condition_variable
     //   has_else
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_cond
     // Outputs:
     //   cond
     //   then
@@ -275,6 +287,9 @@ root:table {
     // ReturnStmt description.
     // Inputs:
     //   has_return_value
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_return_value
     // Outputs:
     //   current_function
     //   called_from
@@ -283,6 +298,7 @@ root:table {
     ReturnStmt:string {
       "This is a return statement. It ends the execution of the @[current_function]current function@[], returning control to the @[called_from]caller of this function@[]. If a value is returned, then it will be received at the site where this function was called. If this is the main function, then the program will end."
       "{has_return_value, select, true { This return statement @[return_value]returns a value@[].} false { This return statement does not return a value.} other { Very sad.}}"
+      "{has_rtv_of_return_value, select, true { This return statement is returning the value “{rtv_of_return_value}”. } other {}}"
     }
 
   }
