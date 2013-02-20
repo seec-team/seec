@@ -244,6 +244,16 @@ public:
   decltype(Memory) const &getMemory() const { return Memory; }
 
   /// @}
+  
+  
+  /// \name Get run-time addresses.
+  /// @{
+  
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
+  
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
+  
+  /// @}
 };
 
 /// Print a textual description of a ProcessState.

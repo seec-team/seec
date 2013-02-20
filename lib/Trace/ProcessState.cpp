@@ -59,6 +59,19 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   }
 }
 
+uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
+  auto const MaybeIndex = Module->getIndexOfFunction(F);
+  assert(MaybeIndex.assigned());
+  return Trace->getFunctionAddress(MaybeIndex.get<0>());
+}
+
+uintptr_t
+ProcessState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
+  auto const MaybeIndex = Module->getIndexOfGlobal(GV);
+  assert(MaybeIndex.assigned());
+  return Trace->getGlobalVariableAddress(MaybeIndex.get<0>());
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State) {
   Out << "Process @" << State.getProcessTime() << "\n";
