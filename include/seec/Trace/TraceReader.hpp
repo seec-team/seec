@@ -563,6 +563,15 @@ public:
 
   /// \name Functions
   /// @{
+  
+  /// \brief Get the run-time address of a Function.
+  /// \param Index the index of the Function in the Module.
+  /// \return the run-time address of the specified Function.
+  ///
+  uintptr_t getFunctionAddress(uint32_t Index) const {
+    assert(Index < FunctionAddresses.size());
+    return FunctionAddresses[Index];
+  }
 
   /// @} (Functions)
 
