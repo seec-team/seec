@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
@@ -80,15 +81,22 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
   return FunctionLookup->getInstruction(ActiveInstruction.get<0>());
 }
 
-RuntimeValue &FunctionState::getRuntimeValue(llvm::Instruction const *I) {
-  auto MaybeIndex = FunctionLookup->getIndexOfInstruction(I);
-  return getRuntimeValue(MaybeIndex.get<0>());
+uintptr_t FunctionState::getRuntimeAddress(llvm::Function const *F) const {
+  return Parent->getParent().getRuntimeAddress(F);
 }
 
-RuntimeValue const &
-FunctionState::getRuntimeValue(llvm::Instruction const *I) const {
-  auto MaybeIndex = FunctionLookup->getIndexOfInstruction(I);
-  return getRuntimeValue(MaybeIndex.get<0>());
+uintptr_t
+FunctionState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
+  return Parent->getParent().getRuntimeAddress(GV);
+}
+
+RuntimeValue const *
+FunctionState::getCurrentRuntimeValue(llvm::Instruction const *I) const {
+  auto const MaybeIndex = FunctionLookup->getIndexOfInstruction(I);
+  if (!MaybeIndex.assigned())
+    return nullptr;
+  
+  return getCurrentRuntimeValue(MaybeIndex.get<0>());
 }
 
 
@@ -109,31 +117,32 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << "   Instruction values:\n";
   auto const InstructionCount = State.getInstructionCount();
   for (std::size_t i = 0; i < InstructionCount; ++i) {
-    auto const &Value = State.getRuntimeValue(i);
-    if (Value.assigned()) {
-      auto Type = State.getInstruction(i)->getType();
-      
-      Out << "    " << i << " = ";
-      
-      if (llvm::isa<llvm::IntegerType>(Type)) {
-        Out << "(int64_t)" << State.getRuntimeValueAs<int64_t>(i).get<0>()
-            << ", (uint64_t)" << State.getRuntimeValueAs<uint64_t>(i).get<0>();
-      }
-      else if (Type->isFloatTy()) {
-        Out << "(float)" << State.getRuntimeValueAs<float>(i).get<0>();
-      }
-      else if (Type->isDoubleTy()) {
-        Out << "(double)" << State.getRuntimeValueAs<double>(i).get<0>();
-      }
-      else if (Type->isPointerTy()) {
-        Out << "(? *)" << State.getRuntimeValueAs<void *>(i).get<0>();
-      }
-      else {
-        Out << "(unknown type)";
-      }
-      
-      Out << "\n";
+    auto const Value = State.getCurrentRuntimeValue(i);
+    if (!Value || !Value->assigned())
+      continue;
+    
+    auto Type = State.getInstruction(i)->getType();
+    
+    Out << "    " << i << " = ";
+    
+    if (llvm::isa<llvm::IntegerType>(Type)) {
+      Out << "(int64_t)" << getAs<int64_t>(*Value, Type)
+          << ", (uint64_t)" << getAs<uint64_t>(*Value, Type);
     }
+    else if (Type->isFloatTy()) {
+      Out << "(float)" << getAs<float>(*Value, Type);
+    }
+    else if (Type->isDoubleTy()) {
+      Out << "(double)" << getAs<double>(*Value, Type);
+    }
+    else if (Type->isPointerTy()) {
+      Out << "(? *)" << getAs<void *>(*Value, Type);
+    }
+    else {
+      Out << "(unknown type)";
+    }
+    
+    Out << "\n";
   }
 
   return Out;

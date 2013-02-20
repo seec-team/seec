@@ -203,74 +203,33 @@ public:
   }
 
   /// @} (Mutators)
-
-
-  /// \name Runtime values.
+  
+  
+  /// \name Support getCurrentRuntimeValueAs().
   /// @{
-
-  /// \brief Get the current runtime value for an llvm::Instruction.
-  /// \param Index the index of the llvm::Instruction in this llvm::Function.
+  
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
+  
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
+  
+  RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const {
+    assert(Index < InstructionValues.size());
+    return &InstructionValues[Index];
+  }
+  
+  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
+    
+  /// @}
+  
+  
+  /// \name Access runtime values.
+  /// @{
+  
   RuntimeValue &getRuntimeValue(uint32_t Index) {
     assert(Index < InstructionValues.size());
     return InstructionValues[Index];
   }
-
-  /// \brief Get the current runtime value for an llvm::Instruction.
-  /// \param Index the index of the llvm::Instruction in this llvm::Function.
-  RuntimeValue const &getRuntimeValue(uint32_t Index) const {
-    assert(Index < InstructionValues.size());
-    return InstructionValues[Index];
-  }
   
-  /// \brief Get an llvm::Instruction's runtime value as a specific type.
-  ///
-  /// If the runtime value is undefined, then the resulting Maybe will be
-  /// unassigned.
-  ///
-  /// If the type is a mismatch to the llvm::Instruction's type, e.g. trying
-  /// to extract an llvm::IntegerType as a float, then this is an error
-  /// (checked by assertion).
-  ///
-  template<typename T>
-  seec::util::Maybe<T> getRuntimeValueAs(uint32_t Index) const {
-    assert(Index < InstructionValues.size());
-    
-    auto &RTValue = InstructionValues[Index];
-    if (!RTValue.assigned())
-      return seec::util::Maybe<T>();
-    
-    auto Inst = getInstruction(Index);
-    assert(Inst);
-    
-    return getAs<T>(RTValue, Inst->getType());
-  }
-
-  /// \brief Get the current runtime value for an llvm::Instruction.
-  /// \param I the llvm::Instruction, which must belong to this function.
-  RuntimeValue &getRuntimeValue(llvm::Instruction const *I);
-
-  /// \brief Get the current runtime value for an llvm::Instruction.
-  /// \param I the llvm::Instruction, which must belong to this function.
-  RuntimeValue const &getRuntimeValue(llvm::Instruction const *I) const;
-  
-  /// \brief Get an llvm::Instruction's runtime value as a specific type.
-  ///
-  /// If the runtime value is undefined, then the resulting Maybe will be
-  /// unassigned.
-  ///
-  /// If the type is a mismatch to the llvm::Instruction's type, e.g. trying
-  /// to extract an llvm::IntegerType as a float, then this is an error
-  /// (checked by assertion).
-  ///
-  template<typename T>
-  seec::util::Maybe<T> getRuntimeValueAs(llvm::Instruction const *I) const {
-    auto &RTValue = getRuntimeValue(I);
-    if (!RTValue.assigned())
-      return seec::util::Maybe<T>();
-    
-    return getAs<T>(RTValue, I->getType());
-  }
-
   /// @}
 
 
