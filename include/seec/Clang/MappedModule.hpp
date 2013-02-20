@@ -324,6 +324,13 @@ public:
   /// \name Mapped clang::Stmt pointers.
   /// @{
   
+  /// \brief Get the MappedStmt object for the given clang::Stmt.
+  ///
+  MappedStmt const *getMappedStmtForStmt(::clang::Stmt const *S) const {
+    auto It = StmtToMappedStmt.find(S);
+    return It != StmtToMappedStmt.end() ? It->second.get() : nullptr;
+  }
+  
   /// \brief Get all MappedStmt objects containing the given llvm::Value.
   std::pair<decltype(ValueToMappedStmt)::const_iterator,
             decltype(ValueToMappedStmt)::const_iterator>
