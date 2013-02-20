@@ -1,4 +1,4 @@
-//===- include/seec/Clang/MappedProcessState.hpp --------------------------===//
+//===- include/seec/Clang/MappedThreadState.hpp ---------------------------===//
 //
 //                                    SeeC
 //
