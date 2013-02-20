@@ -1,6 +1,7 @@
 set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
   ../../include/seec/Trace/FunctionState.hpp
+  ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
   ../../include/seec/Trace/MemoryState.hpp
   ../../include/seec/Trace/ProcessState.hpp
   ../../include/seec/Trace/StateMovement.hpp
@@ -35,7 +36,6 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/DetectCalls/DetectCallsCstring.def
   ../../include/seec/Trace/DetectCalls/DetectCallsCtime.def
   ../../include/seec/Trace/DetectCallsLookup.hpp
-  ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
   ../../include/seec/Trace/TracedFunction.hpp
   ../../include/seec/Trace/TraceEventWriter.hpp
   ../../include/seec/Trace/TraceMemory.hpp
