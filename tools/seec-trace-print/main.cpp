@@ -12,8 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedAST.hpp"
-#include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -100,12 +101,25 @@ int main(int argc, char **argv, char * const *envp) {
   }
 
 
-#if 0 // test clang-mapped trace interface.
+#if 1 // test clang-mapped trace interface.
+
+  // Attempt to setup the trace reader.
+  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
+  if (MaybeIBA.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = std::move(MaybeIBA.get<seec::Error>());
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
+  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
 
   // Read the trace.
   auto CMProcessTraceLoad
     = cm::ProcessTrace::load(ExecutablePath.str(),
-                             seec::makeUnique<trace::InputBufferAllocator>());
+                             seec::makeUnique<trace::InputBufferAllocator>
+                                             (std::move(BufferAllocator)));
   
   if (CMProcessTraceLoad.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -119,6 +133,19 @@ int main(int argc, char **argv, char * const *envp) {
   // Print the states.
   if (ShowStates) {
     seec::cm::ProcessState State(*CMProcessTrace);
+    
+    if (State.getThreadCount() == 1) {
+      llvm::outs() << "Using thread-level iterator.\n";
+      
+      do {
+        llvm::outs() << State;
+        llvm::outs() << "\n";
+      } while (seec::cm::moveForward(State.getThread(0)));
+    }
+    else {
+      llvm::outs() << "Using process-level iteration.\n";
+      llvm::outs() << State;
+    }
   }
   
 #else // raw printing (not clang-mapped)

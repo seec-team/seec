@@ -40,6 +40,7 @@ namespace seec {
     struct SimpleRange;
   } // namespace seec_clang (in seec)
   namespace trace {
+    class FunctionState;
     class ProcessState;
     class RuntimeValue;
     class ThreadState;
@@ -237,7 +238,8 @@ private:
   /// Highlight the source code associated with the specified Instruction.
   void highlightInstruction(llvm::Instruction const *Instruction,
                             seec::trace::RuntimeValue const &Value,
-                            seec::runtime_errors::RunError const *Error);
+                            seec::runtime_errors::RunError const *Error,
+                            seec::trace::FunctionState const &FunctionState);
 
   /// @}
   

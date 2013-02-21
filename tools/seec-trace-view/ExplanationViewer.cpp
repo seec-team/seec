@@ -180,7 +180,14 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 
 void ExplanationViewer::showExplanation(::clang::Stmt const *Statement)
 {
-  auto MaybeExplanation = seec::clang_epv::explain(Statement);
+  auto MaybeExplanation =
+    seec::clang_epv::explain(
+      Statement,
+      seec::clang_epv::makeRuntimeValueLookupByLambda(
+        [](::clang::Stmt const *S) {
+          return std::string("test");
+        }));
+  
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
     setText(seec::towxString(Explanation->getString()));

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedStmt.hpp"
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/Clang/SourceMapping.hpp"
 #include "seec/Clang/RuntimeValueMapping.hpp"
 #include "seec/ICU/Format.hpp"
@@ -556,8 +557,11 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
   auto &FunctionState = *(CallStack.back());
 
   if (auto Instruction = FunctionState.getActiveInstruction()) {
-    auto &RTValue = FunctionState.getRuntimeValue(Instruction);
-    highlightInstruction(Instruction, RTValue, RuntimeError);
+    auto const RTValue = FunctionState.getCurrentRuntimeValue(Instruction);
+    if (!RTValue)
+      return;
+    
+    highlightInstruction(Instruction, *RTValue, RuntimeError, FunctionState);
   }
   else {
     // If there is no active Instruction, highlight the function entry.
@@ -830,10 +834,13 @@ void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   ExplanationCtrl->showExplanation(Statement);
 }
 
-void SourceViewerPanel::highlightInstruction
-      (llvm::Instruction const *Instruction,
-       seec::trace::RuntimeValue const &Value,
-       seec::runtime_errors::RunError const *Error) {
+void
+SourceViewerPanel::
+highlightInstruction(llvm::Instruction const *Instruction,
+                     seec::trace::RuntimeValue const &Value,
+                     seec::runtime_errors::RunError const *Error,
+                     seec::trace::FunctionState const &FunctionState)
+{
   assert(Trace);
   
   // Clear the current explanation.
@@ -843,47 +850,68 @@ void SourceViewerPanel::highlightInstruction
 
   auto &ClangMap = Trace->getMappedModule();
   
-  // First, see if the Instruction represents a value that we can display.
-  if (Value.assigned()) {
-    auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
-    
-    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
-      switch (Mapping.second->getMapType()) {
-        case seec::seec_clang::MappedStmt::Type::LValSimple:
-          // Not yet implemented.
-          wxLogDebug("Unimplemented LValSimple.");
-          break;
-        
-        case seec::seec_clang::MappedStmt::Type::RValScalar:
-          {
-            wxLogDebug("Showing RValScalar.");
-            
-            auto Statement = Mapping.second->getStatement();
-            
-            auto StrValue = seec::seec_clang::toString(Statement,
-                                                       Instruction,
-                                                       Value);
-            
-            // Highlight this clang::Stmt.
-            showActiveStmt(Statement,
-                           Mapping.second->getAST(),
-                           StrValue,
-                           wxEmptyString);
-          }
-          return;
-        
-        case seec::seec_clang::MappedStmt::Type::RValAggregate:
-          // Not yet implemented.
-          wxLogDebug("Unimplemented RValAggregate.");
-          break;
-      }
-    }
-  }
-  
   // Find the clang::Stmt or clang::Decl that the Instruction belongs to.
   auto InstructionMap = ClangMap.getMapping(Instruction);
   if (!InstructionMap.getAST())
-    return; // Instruction has no mapping.
+    return; // Instruction has no ownership mapping.
+  
+  // See if the Instruction is part of a value mapping.
+  if (Value.assigned()) {
+    auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
+    
+    // See if we can find a perfect mapping for the owning Stmt first.
+    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
+      if (Mapping.second->getStatement() != InstructionMap.getStmt())
+        continue;
+      
+      auto const Value = seec::cm::getValue(*Mapping.second, FunctionState);
+      if (!Value)
+        continue;
+      
+      wxLogDebug("Got value.");
+      
+      auto const ChildCount = Value->getChildCount();
+      wxLogDebug(" children: %u", ChildCount);
+      
+      auto const DereferenceLimit = Value->getDereferenceIndexLimit();
+      wxLogDebug(" dereference limit: %u", DereferenceLimit);
+      
+      for (unsigned i = 0; i < DereferenceLimit; ++i) {
+        auto const Child = Value->getDereferenced(i);
+        if (!Child) {
+          wxLogDebug("  child %u: null", i);
+          continue;
+        }
+        
+        wxLogDebug("  child %u: %s", i, Child->getValueAsStringFull().c_str());
+      }
+      
+      auto StrValue = Value->getValueAsStringFull();
+      
+      showActiveStmt(Mapping.second->getStatement(),
+                     Mapping.second->getAST(),
+                     StrValue,
+                     wxEmptyString);
+      
+      return;
+    }
+    
+    // See if we can find any mapping that has a value.
+    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
+      auto const Value = seec::cm::getValue(*Mapping.second, FunctionState);
+      if (!Value)
+        continue;
+      
+      auto StrValue = Value->getValueAsStringFull();
+      
+      showActiveStmt(Mapping.second->getStatement(),
+                     Mapping.second->getAST(),
+                     StrValue,
+                     wxEmptyString);
+      
+      return;
+    }
+  }
   
   // Focus on the mapped source file.
   auto const Panel = showPageForFile(InstructionMap.getFilePath());

@@ -88,6 +88,7 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 target_link_libraries(seec-trace-view
  # SeeC libraries
  SeeCClangEPV
+ SeeCClangMappedTrace
  SeeCClang
  SeeCTrace
  SeeCRuntimeErrors
