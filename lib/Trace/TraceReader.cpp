@@ -186,10 +186,8 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
 // ProcessTrace
 //------------------------------------------------------------------------------
 
-ProcessTrace::ProcessTrace(InputBufferAllocator &Allocator,
-                           std::unique_ptr<llvm::MemoryBuffer> &&Trace,
+ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> &&Trace,
                            std::unique_ptr<llvm::MemoryBuffer> &&Data,
-                           uint64_t Version,
                            std::string &&ModuleIdentifier,
                            uint32_t NumThreads,
                            uint64_t FinalProcessTime,
@@ -198,10 +196,8 @@ ProcessTrace::ProcessTrace(InputBufferAllocator &Allocator,
                            std::vector<uintptr_t> &&FAddresses,
                            std::vector<std::unique_ptr<ThreadTrace>> &&TTraces
                            )
-: BufferAllocator(Allocator),
-  Trace(std::move(Trace)),
+: Trace(std::move(Trace)),
   Data(std::move(Data)),
-  Version(Version),
   ModuleIdentifier(ModuleIdentifier),
   NumThreads(NumThreads),
   FinalProcessTime(FinalProcessTime),
@@ -268,10 +264,8 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   }
 
   return std::unique_ptr<ProcessTrace>(
-            new ProcessTrace(Allocator,
-                             std::move(TraceBuffer.get<0>()),
+            new ProcessTrace(std::move(TraceBuffer.get<0>()),
                              std::move(DataBuffer.get<0>()),
-                             Version,
                              std::move(ModuleIdentifier),
                              NumThreads,
                              FinalProcessTime,

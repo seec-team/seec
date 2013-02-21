@@ -458,17 +458,11 @@ public:
 /// \brief Trace information for a single process invocation.
 ///
 class ProcessTrace {
-  /// Gets MemoryBuffers for input files.
-  InputBufferAllocator &BufferAllocator;
-
   /// Process-wide trace information.
   std::unique_ptr<llvm::MemoryBuffer> const Trace;
 
   /// Process-wide data.
   std::unique_ptr<llvm::MemoryBuffer> const Data;
-
-  /// Trace format version.
-  uint64_t Version;
 
   /// Name of the recorded Module.
   std::string ModuleIdentifier;
@@ -493,10 +487,8 @@ class ProcessTrace {
   mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   /// Constructor.
-  ProcessTrace(InputBufferAllocator &Allocator,
-               std::unique_ptr<llvm::MemoryBuffer> &&Trace,
+  ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> &&Trace,
                std::unique_ptr<llvm::MemoryBuffer> &&Data,
-               uint64_t Version,
                std::string &&ModuleIdentifier,
                uint32_t NumThreads,
                uint64_t FinalProcessTime,
