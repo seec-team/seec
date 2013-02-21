@@ -609,12 +609,9 @@ public:
     // Find the first index of an element with type T (statically)
     typedef maybe_impl::MaybeIndexByType<T, StoreT> IndexT;
     auto constexpr Index = IndexT::Index;
-
-    if (!Which)
-      Which = Index + 1;
-    else
-      assert((Which == Index + 1) && "Illegal access to Maybe.");
-
+    
+    assert((Which == Index + 1) && "Illegal access to Maybe.");
+    
     typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
     return ValueT::get(Store);
   }
