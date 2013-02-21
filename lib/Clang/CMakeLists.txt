@@ -40,6 +40,7 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/MappedProcessTrace.hpp
   ../../include/seec/Clang/MappedStateMovement.hpp
   ../../include/seec/Clang/MappedThreadState.hpp
+  ../../include/seec/Clang/MappedValue.hpp
 )
 
 set(SEEC_CLANG_MAPPED_TRACE_SOURCES
@@ -47,6 +48,7 @@ set(SEEC_CLANG_MAPPED_TRACE_SOURCES
   MappedProcessTrace.cpp
   MappedStateMovement.cpp
   MappedThreadState.cpp
+  MappedValue.cpp
 )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
