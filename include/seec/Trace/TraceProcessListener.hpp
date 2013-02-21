@@ -295,10 +295,14 @@ public:
   }
   
   /// \brief Find the allocated range that owns an address.
-  /// This method will search dynamic allocations first. If no dynamic
-  /// allocation owns the address, then it will search the stack of all
-  /// TracingThreadListeners other than that of the thread that requested the
-  /// information. This method is thread safe.
+  ///
+  /// This method will searches regions in the following order:
+  ///  - Global variables.
+  ///  - Dynamic memory allocations.
+  ///  - Readable/writable regions.
+  ///  - Thread stacks (other than the requesting thread).
+  /// This method is thread safe.
+  ///
   seec::util::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address, uint32_t RequestingThreadID) const;
   
