@@ -208,15 +208,23 @@ public:
   /// \name Support getCurrentRuntimeValueAs().
   /// @{
   
+  /// \brief Get the run-time address of a Function.
+  ///
   uintptr_t getRuntimeAddress(llvm::Function const *F) const;
   
+  /// \brief Get the run-time address of a GlobalVariable.
+  ///
   uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
   
+  /// \brief Get a pointer to an Instruction's RuntimeValue, by index.
+  ///
   RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const {
     assert(Index < InstructionValues.size());
     return &InstructionValues[Index];
   }
   
+  /// \brief Get a pointer to an Instruction's RuntimeValue.
+  ///
   RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
     
   /// @}
@@ -225,6 +233,8 @@ public:
   /// \name Access runtime values.
   /// @{
   
+  /// \brief Get a reference to an Instruction's RuntimeValue, by index.
+  ///
   RuntimeValue &getRuntimeValue(uint32_t Index) {
     assert(Index < InstructionValues.size());
     return InstructionValues[Index];
@@ -237,10 +247,25 @@ public:
   /// @{
 
   /// \brief Get the active stack allocations for this function.
+  ///
   decltype(Allocas) &getAllocas() { return Allocas; }
 
   /// \brief Get the active stack allocations for this function.
+  ///
   decltype(Allocas) const &getAllocas() const { return Allocas; }
+  
+  /// \brief Find the Alloca that covers the given address, or nullptr if none
+  ///        exists.
+  ///
+  AllocaState const *getAllocaContaining(uintptr_t Address) const {
+    for (auto const &Alloca : Allocas) {
+      auto const Area = MemoryArea(Alloca.getAddress(), Alloca.getTotalSize());
+      if (Area.contains(Address))
+        return &Alloca;
+    }
+    
+    return nullptr;
+  }
 
   /// @}
 };

@@ -304,6 +304,20 @@ public:
   }
 
   /// @} (Accessors)
+  
+  
+  /// \name Memory.
+  /// @{
+  
+  /// \brief Find the allocated range that owns an address.
+  ///
+  /// This method will search:
+  ///  - Functions' stack allocations.
+  ///
+  seec::util::Maybe<MemoryArea>
+  getContainingMemoryArea(uintptr_t Address) const;
+  
+  /// @} (Memory.)
 
 
   /// \name Searching

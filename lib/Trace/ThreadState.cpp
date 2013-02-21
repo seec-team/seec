@@ -1046,6 +1046,19 @@ void ThreadState::removePreviousEvent() {
   }
 }
 
+seec::util::Maybe<MemoryArea>
+ThreadState::getContainingMemoryArea(uintptr_t Address) const {
+  for (auto const &FunctionStatePtr : CallStack) {
+    auto Alloca = FunctionStatePtr->getAllocaContaining(Address);
+    if (!Alloca)
+      continue;
+    
+    return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
+  }
+  
+  return seec::util::Maybe<MemoryArea>();
+}
+
 seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
   return rfind(rangeBefore(Trace.events(), NextEvent),
                [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});

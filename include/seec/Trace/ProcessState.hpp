@@ -24,6 +24,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <map>
 #include <memory>
 #include <thread>
 
@@ -88,10 +89,10 @@ class ProcessState {
   /// DataLayout for the llvm::Module that this trace was created from.
   llvm::DataLayout DL;
 
-  /// @}
+  /// @} (Constants.)
 
 
-  /// \name Update access control
+  /// \name Update access control.
   /// @{
 
   /// Controls access to mutable areas of the process state during updates.
@@ -168,7 +169,7 @@ public:
     return ScopedUpdate(*this, RequiredProcessTime);
   }
 
-  /// @}
+  /// @} (Update access control.)
 
 private:
   /// \name Variable data
@@ -181,12 +182,12 @@ private:
   std::vector<std::unique_ptr<ThreadState>> ThreadStates;
 
   /// All current dynamic memory allocations, indexed by address.
-  llvm::DenseMap<uintptr_t, MallocState> Mallocs;
+  std::map<uintptr_t, MallocState> Mallocs;
 
   /// Current state of memory.
   MemoryState Memory;
 
-  /// @}
+  /// @} (Variable data.)
 
 
   // Don't allow copying.
@@ -194,66 +195,101 @@ private:
   ProcessState &operator=(ProcessState const &RHS) = delete;
 
 public:
-  /// Construct a new ProcessState at the beginning of the Trace.
+  /// \brief Construct a new ProcessState at the beginning of the Trace.
+  ///
   ProcessState(std::shared_ptr<ProcessTrace const> Trace,
                std::shared_ptr<ModuleIndex const> ModIndex);
+
 
   /// \name Accessors.
   /// @{
 
   /// \brief Get the ProcessTrace backing this state.
+  ///
   ProcessTrace const &getTrace() const { return *Trace; }
 
   /// \brief Get a ModuleIndex for the llvm::Module.
+  ///
   ModuleIndex const &getModule() const { return *Module; }
   
   /// \brief Get the DataLayout for the llvm::Module.
+  ///
   llvm::DataLayout const &getDataLayout() const { return DL; }
 
   /// \brief Get the synthetic process time that this state represents.
+  ///
   uint64_t getProcessTime() const { return ProcessTime; }
   
   /// \brief Get the vector of thread states.
+  ///
   decltype(ThreadStates) const &getThreadStates() const { return ThreadStates; }
   
   /// \brief Get the number of thread states.
+  ///
   std::size_t getThreadStateCount() const { return ThreadStates.size(); }
 
   /// \brief Get the thread state for the given Thread ID.
+  ///
   ThreadState &getThreadState(uint32_t ThreadID) {
     assert(ThreadID > 0 && ThreadID <= ThreadStates.size());
     return *(ThreadStates[ThreadID - 1]);
   }
 
   /// \brief Get the thread state for the given Thread ID.
+  ///
   ThreadState const &getThreadState(uint32_t ThreadID) const {
     assert(ThreadID > 0 && ThreadID <= ThreadStates.size());
     return *(ThreadStates[ThreadID - 1]);
   }
 
+  /// @} (Accessors.)
+  
+  
+  /// \name Memory.
+  /// @{
+  
   /// \brief Get the map of dynamic memory allocations.
+  ///
   decltype(Mallocs) &getMallocs() { return Mallocs; }
   
   /// \brief Get the map of dynamic memory allocations.
+  ///
   decltype(Mallocs) const &getMallocs() const { return Mallocs; }
 
   /// \brief Get the memory state.
+  ///
   decltype(Memory) &getMemory() { return Memory; }
   
   /// \brief Get the memory state.
+  ///
   decltype(Memory) const &getMemory() const { return Memory; }
-
-  /// @}
+  
+  /// \brief Find the allocated range that owns an address.
+  ///
+  /// This method will search in the following order:
+  ///  - Global variables.
+  ///  - Dynamic memory allocations.
+  ///  - Known readable/writable regions.
+  ///  - Thread stacks.
+  ///
+  seec::util::Maybe<MemoryArea>
+  getContainingMemoryArea(uintptr_t Address) const;
+  
+  /// @} (Memory.)
   
   
   /// \name Get run-time addresses.
   /// @{
   
+  /// \brief Get the run-time address of a Function.
+  ///
   uintptr_t getRuntimeAddress(llvm::Function const *F) const;
   
+  /// \brief Get the run-time address of a GlobalVariable.
+  ///
   uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
   
-  /// @}
+  /// @} (Get run-time addresses.)
 };
 
 /// Print a textual description of a ProcessState.

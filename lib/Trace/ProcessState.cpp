@@ -59,6 +59,62 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   }
 }
 
+seec::util::Maybe<MemoryArea>
+ProcessState::getContainingMemoryArea(uintptr_t Address) const {
+  // Check global variables.
+  for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
+    auto const Begin = Trace->getGlobalVariableAddress(Index);
+    if (Address < Begin)
+      continue;
+    
+    auto const Global = Module->getGlobal(Index);
+    auto const Size = DL.getTypeAllocSize(Global->getType());
+    auto const Area = MemoryArea(Begin, Size);
+    
+    if (Area.contains(Address))
+      return Area;
+  }
+  
+  // Check dynamic memory allocations.
+  {
+    auto DynIt = Mallocs.upper_bound(Address);
+    if (DynIt != Mallocs.begin()) {
+      --DynIt; // DynIt's allocation address is now <= Address.
+      
+      auto const Area = MemoryArea(DynIt->second.getAddress(),
+                                   DynIt->second.getSize());
+      
+      if (Area.contains(Address))
+        return Area;
+    }
+  }
+
+#if 0  
+  // TODO: Check readable/writable regions.
+  {
+    auto KnownIt = KnownMemory.find(Address);
+    if (KnownIt != KnownMemory.end()) {
+      // Range of interval is inclusive: [Begin, End]
+      auto Length = (KnownIt->End - KnownIt->Begin) + 1;
+      return seec::util::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
+                                                      Length,
+                                                      KnownIt->Value));
+    }
+  }
+#endif
+    
+  // Check other threads.
+  for (auto const &ThreadStatePtr : ThreadStates) {
+    auto MaybeArea = ThreadStatePtr->getContainingMemoryArea(Address);
+    if (!MaybeArea.assigned<MemoryArea>())
+      continue;
+    
+    return MaybeArea;
+  }
+    
+  return seec::util::Maybe<MemoryArea>();
+}
+
 uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
   assert(MaybeIndex.assigned());
