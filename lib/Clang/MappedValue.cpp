@@ -1392,9 +1392,26 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
     }
     
     case seec::seec_clang::MappedStmt::Type::RValAggregate:
-      // TODO.
-      llvm::errs() << "Mapped RValAggregate not supported.\n";
-      return std::shared_ptr<Value const>();
+    {
+      llvm::errs() << "Creating RValAggregate.\n";
+      
+      // Extract the address of the in-memory object that this rval represents.
+      auto const MaybeValue =
+        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
+                                             (FunctionState, SMap.getValue());
+      if (!MaybeValue.assigned()) {
+        llvm::errs() << "No address assigned.\n";
+        return std::shared_ptr<Value const>();
+      }
+      
+      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      
+      // Get the in-memory value at the given address.
+      return getValue(Expression->getType(),
+                      SMap.getAST().getASTUnit().getASTContext(),
+                      PtrValue,
+                      FunctionState.getParent().getParent().getMemory());
+    }
   }
   
   llvm_unreachable("Unhandled MappedStmt::Type!");
