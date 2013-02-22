@@ -309,11 +309,11 @@ public:
   ValueByMemoryForScalar(::clang::QualType WithQualType,
                          uintptr_t WithAddress,
                          ::clang::CharUnits WithSize,
-                         seec::trace::MemoryState const &InMemory)
+                         seec::trace::ProcessState const &ForProcessState)
   : QualType(WithQualType),
     Address(WithAddress),
     Size(WithSize),
-    Memory(InMemory)
+    Memory(ForProcessState.getMemory())
   {}
   
   virtual ::clang::Expr const *getExpr() const override { return nullptr; }
@@ -369,6 +369,11 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// ValueByMemoryForPointer - TODO
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
 // ValueByMemoryForRecord
 //===----------------------------------------------------------------------===//
 
@@ -387,8 +392,8 @@ class ValueByMemoryForRecord : public Value {
   /// The memory address of this Value.
   uintptr_t Address;
   
-  /// The memory state that this Value is in.
-  seec::trace::MemoryState const &Memory;
+  /// The process state that this Value is in.
+  seec::trace::ProcessState const &ProcessState;
   
   /// \brief Constructor.
   ///
@@ -396,12 +401,12 @@ class ValueByMemoryForRecord : public Value {
                          ::clang::ASTRecordLayout const &WithLayout,
                          ::clang::QualType WithQualType,
                          uintptr_t WithAddress,
-                         seec::trace::MemoryState const &InMemory)
+                         seec::trace::ProcessState const &ForProcessState)
   : ASTContext(WithASTContext),
     Layout(WithLayout),
     QualType(WithQualType),
     Address(WithAddress),
-    Memory(InMemory)
+    ProcessState(ForProcessState)
   {}
   
 public:
@@ -411,7 +416,7 @@ public:
   create(::clang::ASTContext const &ASTContext,
          ::clang::QualType QualType,
          uintptr_t Address,
-         seec::trace::MemoryState const &Memory)
+         seec::trace::ProcessState const &ProcessState)
   {
     auto const CanonTy = QualType.getCanonicalType().getTypePtr();
     auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
@@ -426,7 +431,7 @@ public:
                                                       Layout,
                                                       QualType,
                                                       Address,
-                                                      Memory));
+                                                      ProcessState));
   }
   
   /// \brief In-memory values are never for an Expr.
@@ -472,18 +477,12 @@ public:
   /// \brief Get a string representing an elided struct: "{ ... }"
   ///
   virtual std::string getValueAsStringShort() const override {
-    if (!isCompletelyInitialized())
-      return std::string("<uninitialized>");
-    
     return std::string("{ ... }");
   }
   
   /// \brief Get a string describing the full value of all child members.
   ///
   virtual std::string getValueAsStringFull() const override {
-    if (!isCompletelyInitialized())
-      return std::string("<uninitialized>");
-    
     auto const CanonTy = QualType.getCanonicalType().getTypePtr();
     auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
     auto const Decl = RecordTy->getDecl()->getDefinition();
@@ -555,7 +554,216 @@ public:
     return getValue(FieldIt->getType(),
                     ASTContext,
                     Address + (BitOffset / CHAR_BIT),
-                    Memory);
+                    ProcessState);
+  }
+  
+  /// \brief Records are never dereferenced.
+  ///
+  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
+  
+  /// \brief Records are never dereferenced.
+  ///
+  virtual std::shared_ptr<Value const>
+  getDereferenced(unsigned Index) const override {
+    return std::shared_ptr<Value const>();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ValueByMemoryForArray
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents an array Value in memory.
+///
+class ValueByMemoryForArray : public Value {
+  /// The Context for this Value.
+  ::clang::ASTContext const &ASTContext;
+  
+  /// The type of this Value.
+  ::clang::QualType QualType;
+  
+  /// The memory address of this Value.
+  uintptr_t Address;
+  
+  /// The size of an element.
+  unsigned ElementSize;
+  
+  /// The number of elements.
+  unsigned ElementCount;
+  
+  /// The process state that this Value is in.
+  seec::trace::ProcessState const &ProcessState;
+
+  /// \brief Constructor.
+  ///
+  ValueByMemoryForArray(::clang::ASTContext const &WithASTContext,
+                        ::clang::QualType WithQualType,
+                        uintptr_t WithAddress,
+                        unsigned WithElementSize,
+                        unsigned WithElementCount,
+                        seec::trace::ProcessState const &ForProcessState)
+  : ASTContext(WithASTContext),
+    QualType(WithQualType),
+    Address(WithAddress),
+    ElementSize(WithElementSize),
+    ElementCount(WithElementCount),
+    ProcessState(ForProcessState)
+  {}
+  
+public:
+  /// \brief Attempt to create a new instance of this class.
+  ///
+  static std::shared_ptr<ValueByMemoryForArray const>
+  create(::clang::ASTContext const &ASTContext,
+         ::clang::QualType QualType,
+         uintptr_t Address,
+         seec::trace::ProcessState const &ProcessState)
+  {
+    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
+    auto const ArrayTy = llvm::cast< ::clang::ArrayType>(CanonTy);
+    auto const ElementTy = ArrayTy->getElementType();
+    auto const ElementSize = ASTContext.getTypeSizeInChars(ElementTy);
+    
+    if (ElementSize.isZero()) {
+      llvm::errs() << "Array's element type has size zero.\n";
+      return std::shared_ptr<ValueByMemoryForArray const>();
+    }
+    
+    unsigned ElementCount = 0;
+    
+    switch (ArrayTy->getTypeClass()) {
+      case ::clang::Type::TypeClass::ConstantArray:
+      {
+        auto const Ty = llvm::cast< ::clang::ConstantArrayType>(ArrayTy);
+        ElementCount = Ty->getSize().getZExtValue();
+        
+        break;
+      }
+      
+      // We could attempt to get the runtime value generated by the size
+      // expression, but we would need access to the function state. Instead,
+      // just use whatever size fills the allocated memory block, as we do
+      // for IncompleteArray types.
+      case ::clang::Type::TypeClass::VariableArray: SEEC_FALLTHROUGH;
+      case ::clang::Type::TypeClass::IncompleteArray:
+      {
+        auto const MaybeArea = ProcessState.getContainingMemoryArea(Address);
+        if (MaybeArea.assigned<MemoryArea>()) {
+          auto const Area = MaybeArea.get<MemoryArea>().withStart(Address);
+          ElementCount = Area.length() / ElementSize.getQuantity();
+        }
+        
+        break;
+      }
+      
+      // Not implemented!
+      case ::clang::Type::TypeClass::DependentSizedArray: SEEC_FALLTHROUGH;
+      default:
+        llvm_unreachable("not implemented");
+        return std::shared_ptr<ValueByMemoryForArray const>();
+    }
+    
+    return std::shared_ptr<ValueByMemoryForArray const>
+                          (new ValueByMemoryForArray(ASTContext,
+                                                     QualType,
+                                                     Address,
+                                                     ElementSize.getQuantity(),
+                                                     ElementCount,
+                                                     ProcessState));
+  }
+  
+  /// \brief In-memory values are never for an Expr.
+  /// \return nullptr.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return nullptr; }
+  
+  /// \brief In-memory values are always in memory.
+  /// \return true.
+  ///
+  virtual bool isInMemory() const override { return true; }
+  
+  /// \brief Check if this value is completely initialized.
+  ///
+  /// If this is an aggregate value, then the result of this method is the
+  /// logical AND reduction of applying this operation to all children.
+  ///
+  virtual bool isCompletelyInitialized() const override {
+    for (unsigned i = 0, Count = getChildCount(); i < Count; ++i) {
+      auto const Child = getChildAt(i);
+      if (Child && !Child->isCompletelyInitialized())
+        return false;
+    }
+    
+    return true;
+  }
+  
+  /// \brief Check if this value is partially initialized.
+  ///
+  /// If this is an aggregate value, then the result of this method is the
+  /// logical OR reduction of applying this operation to all children.
+  ///
+  virtual bool isPartiallyInitialized() const override {
+    for (unsigned i = 0, Count = getChildCount(); i < Count; ++i) {
+      auto const Child = getChildAt(i);
+      if (Child && Child->isPartiallyInitialized())
+        return true;
+    }
+    
+    return false;
+  }
+  
+  virtual std::string getValueAsStringShort() const override {
+    return std::string("[ ... ]");
+  }
+  
+  virtual std::string getValueAsStringFull() const override {
+    if (ElementCount == 0)
+      return std::string("[]");
+    
+    std::string ValueStr;
+    
+    {
+      llvm::raw_string_ostream Stream(ValueStr);
+      
+      Stream << "[";
+      
+      for (unsigned i = 0; i < ElementCount; ++i) {
+        if (i != 0)
+          Stream << ", ";
+        
+        auto const Child = getChildAt(i);
+        if (!Child) {
+          Stream << "<error>";
+          continue;
+        }
+        
+        Stream << Child->getValueAsStringFull();
+      }
+      
+      Stream << "]";
+    }
+    
+    return ValueStr;
+  }
+  
+  virtual unsigned getChildCount() const override {
+    return ElementCount;
+  }
+  
+  virtual std::shared_ptr<Value const>
+  getChildAt(unsigned Index) const override {
+    assert(Index < ElementCount && "Invalid Child Index");
+    
+    auto const ArrayTy = QualType->getAsArrayTypeUnsafe();
+    assert(ArrayTy);
+    
+    auto const ChildAddress = Address + (Index * ElementSize);
+    
+    return getValue(ArrayTy->getElementType(),
+                    ASTContext,
+                    ChildAddress,
+                    ProcessState);
   }
   
   /// \brief Records are never dereferenced.
@@ -1183,12 +1391,30 @@ public:
   /// \brief Get the highest legal dereference of this value.
   ///
   virtual unsigned getDereferenceIndexLimit() const override {
+    // TODO: Move these calculations into the construction process.
     auto const MaybeArea = ProcessState.getContainingMemoryArea(PtrValue);
     if (!MaybeArea.assigned<MemoryArea>())
       return 0;
     
     if (PointeeSize.isZero())
       return 0;
+    
+    auto const PointeeTy = Expression->getType()->getPointeeType();
+    auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
+    
+    if (RecordTy) {
+      llvm::errs() << "pointee is record.\n";
+      
+      auto const RecordDecl = RecordTy->getDecl()->getDefinition();
+      if (RecordDecl) {
+        llvm::errs() << "got pointee definition.\n";
+        
+        if (RecordDecl->hasFlexibleArrayMember()) {
+          llvm::errs() << "pointee has flexible array member.\n";
+          return 1;
+        }
+      }
+    }
     
     auto const Area = MaybeArea.get<MemoryArea>().withStart(PtrValue);
     return Area.length() / PointeeSize.getQuantity();
@@ -1203,7 +1429,7 @@ public:
     return getValue(Expression->getType()->getPointeeType(),
                     MappedAST.getASTUnit().getASTContext(),
                     Address,
-                    ProcessState.getMemory());
+                    ProcessState);
   }
 };
 
@@ -1219,7 +1445,7 @@ std::shared_ptr<Value const>
 getValue(::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
          uintptr_t Address,
-         seec::trace::MemoryState const &Memory)
+         seec::trace::ProcessState const &ProcessState)
 {
   if (!QualType.getTypePtr()) {
     llvm::errs() << "null type.\n";
@@ -1228,10 +1454,6 @@ getValue(::clang::QualType QualType,
   
   auto const CanonicalType = QualType.getCanonicalType();
   auto const TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
-  if (TypeSize.isZero()) {
-    llvm::errs() << "type size is zero.\n";
-    return std::shared_ptr<Value const>();
-  }
   
   switch (CanonicalType->getTypeClass()) {
     // Scalar values.
@@ -1241,7 +1463,7 @@ getValue(::clang::QualType QualType,
     case ::clang::Type::Pointer: SEEC_FALLTHROUGH;
     {
       return std::make_shared<ValueByMemoryForScalar>
-                             (QualType, Address, TypeSize, Memory);
+                             (QualType, Address, TypeSize, ProcessState);
     }
     
     case ::clang::Type::Record:
@@ -1249,7 +1471,17 @@ getValue(::clang::QualType QualType,
       return ValueByMemoryForRecord::create(ASTContext,
                                             QualType,
                                             Address,
-                                            Memory);
+                                            ProcessState);
+    }
+    
+    case ::clang::Type::ConstantArray:   SEEC_FALLTHROUGH;
+    case ::clang::Type::IncompleteArray: SEEC_FALLTHROUGH;
+    case ::clang::Type::VariableArray:
+    {
+      return ValueByMemoryForArray::create(ASTContext,
+                                           QualType,
+                                           Address,
+                                           ProcessState);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -1257,9 +1489,6 @@ getValue(::clang::QualType QualType,
       return std::shared_ptr<Value const>();
     
     SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(ConstantArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(VariableArray) // TODO.
     
     // Not needed because we don't support the language(s).
     SEEC_UNHANDLED_TYPE_CLASS(BlockPointer) // ObjC
@@ -1331,7 +1560,7 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
       return getValue(Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent().getMemory());
+                      FunctionState.getParent().getParent());
     }
     
     case seec::seec_clang::MappedStmt::Type::RValScalar:
@@ -1410,7 +1639,7 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
       return getValue(Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent().getMemory());
+                      FunctionState.getParent().getParent());
     }
   }
   

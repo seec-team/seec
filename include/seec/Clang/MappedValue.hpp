@@ -22,6 +22,7 @@
 
 
 namespace clang {
+  class ASTContext;
   class Expr;
   class Stmt;
 } // namespace clang
@@ -30,11 +31,12 @@ namespace seec {
 
 namespace seec_clang {
   class MappedModule;
+  class MappedStmt;
 } // namespace seec_clang (in seec)
 
 namespace trace {
   class FunctionState;
-  class MemoryState;
+  class ProcessState;
 } // namespace trace (in seec)
 
 // Documented in MappedProcessTrace.hpp
@@ -131,7 +133,7 @@ std::shared_ptr<Value const>
 getValue(::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
          uintptr_t Address,
-         seec::trace::MemoryState const &Memory);
+         seec::trace::ProcessState const &ProcessState);
 
 
 /// \brief Get a Value for a MappedStmt.
