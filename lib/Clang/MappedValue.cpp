@@ -20,10 +20,12 @@
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/RecordLayout.h"
 #include "clang/AST/Type.h"
 #include "clang/Frontend/ASTUnit.h"
 
@@ -226,7 +228,7 @@ getScalarValueAsString(::clang::Type const *Type,
     // PointerType
     case ::clang::Type::Pointer:
     {
-      // TODO.
+      return GetMemoryOfBuiltinAsString<void const *>::impl(Region);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -359,6 +361,209 @@ public:
   
   virtual unsigned getDereferenceIndexLimit() const override { return 0; }
   
+  virtual std::shared_ptr<Value const>
+  getDereferenced(unsigned Index) const override {
+    return std::shared_ptr<Value const>();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ValueByMemoryForRecord
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents a record Value in memory.
+///
+class ValueByMemoryForRecord : public Value {
+  /// The Context for this Value.
+  ::clang::ASTContext const &ASTContext;
+  
+  /// The layout information for this Record.
+  ::clang::ASTRecordLayout const &Layout;
+  
+  /// The type of this Value.
+  ::clang::QualType QualType;
+  
+  /// The memory address of this Value.
+  uintptr_t Address;
+  
+  /// The memory state that this Value is in.
+  seec::trace::MemoryState const &Memory;
+  
+  /// \brief Constructor.
+  ///
+  ValueByMemoryForRecord(::clang::ASTContext const &WithASTContext,
+                         ::clang::ASTRecordLayout const &WithLayout,
+                         ::clang::QualType WithQualType,
+                         uintptr_t WithAddress,
+                         seec::trace::MemoryState const &InMemory)
+  : ASTContext(WithASTContext),
+    Layout(WithLayout),
+    QualType(WithQualType),
+    Address(WithAddress),
+    Memory(InMemory)
+  {}
+  
+public:
+  /// \brief Attempt to create a new instance of this class.
+  ///
+  static std::shared_ptr<ValueByMemoryForRecord>
+  create(::clang::ASTContext const &ASTContext,
+         ::clang::QualType QualType,
+         uintptr_t Address,
+         seec::trace::MemoryState const &Memory)
+  {
+    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const Decl = RecordTy->getDecl()->getDefinition();
+    if (!Decl)
+      return std::shared_ptr<ValueByMemoryForRecord>();
+    
+    auto const &Layout = ASTContext.getASTRecordLayout(Decl);
+    
+    return std::shared_ptr<ValueByMemoryForRecord>
+                          (new ValueByMemoryForRecord(ASTContext,
+                                                      Layout,
+                                                      QualType,
+                                                      Address,
+                                                      Memory));
+  }
+  
+  /// \brief In-memory values are never for an Expr.
+  /// \return nullptr.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return nullptr; }
+  
+  /// \brief In-memory values are always in memory.
+  /// \return true.
+  ///
+  virtual bool isInMemory() const override { return true; }
+  
+  /// \brief Check if this value is completely initialized.
+  ///
+  /// If this is an aggregate value, then the result of this method is the
+  /// logical AND reduction of applying this operation to all children.
+  ///
+  virtual bool isCompletelyInitialized() const override {
+    for (unsigned i = 0, Count = getChildCount(); i < Count; ++i) {
+      auto const Child = getChildAt(i);
+      if (Child && !Child->isCompletelyInitialized())
+        return false;
+    }
+    
+    return true;
+  }
+  
+  /// \brief Check if this value is partially initialized.
+  ///
+  /// If this is an aggregate value, then the result of this method is the
+  /// logical OR reduction of applying this operation to all children.
+  ///
+  virtual bool isPartiallyInitialized() const override {
+    for (unsigned i = 0, Count = getChildCount(); i < Count; ++i) {
+      auto const Child = getChildAt(i);
+      if (Child && Child->isPartiallyInitialized())
+        return true;
+    }
+    
+    return false;
+  }
+  
+  /// \brief Get a string representing an elided struct: "{ ... }"
+  ///
+  virtual std::string getValueAsStringShort() const override {
+    if (!isCompletelyInitialized())
+      return std::string("<uninitialized>");
+    
+    return std::string("{ ... }");
+  }
+  
+  /// \brief Get a string describing the full value of all child members.
+  ///
+  virtual std::string getValueAsStringFull() const override {
+    if (!isCompletelyInitialized())
+      return std::string("<uninitialized>");
+    
+    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const Decl = RecordTy->getDecl()->getDefinition();
+    
+    std::string ValueStr;
+    
+    {
+      llvm::raw_string_ostream Stream(ValueStr);
+      bool FirstField = true;
+      
+      Stream << '{';
+      
+      for (auto const Field : seec::range(Decl->field_begin(),
+                                          Decl->field_end()))
+      {
+        auto const Child = getChildAt(Field->getFieldIndex());
+        if (!Child)
+          continue;
+        
+        if (!FirstField) {
+          Stream << ',';
+        }
+        else {
+          FirstField = false;
+        }
+        
+        Stream << " ."
+               << Field->getNameAsString()
+               << " = "
+               << Child->getValueAsStringFull();
+      }
+      
+      Stream << " }";
+    }
+    
+    return ValueStr;
+  }
+  
+  /// \brief Get the number of members of this record.
+  ///
+  virtual unsigned getChildCount() const override {
+    return Layout.getFieldCount();
+  }
+  
+  /// \brief Get the Value of a member of this record.
+  ///
+  virtual std::shared_ptr<Value const>
+  getChildAt(unsigned Index) const override {
+    assert(Index < getChildCount() && "Invalid Child Index");
+    
+    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const Decl = RecordTy->getDecl()->getDefinition();
+    
+    auto FieldIt = Decl->field_begin();
+    for (auto FieldEnd = Decl->field_end(); ; ++FieldIt) {
+      if (FieldIt == FieldEnd)
+        return std::shared_ptr<Value const>();
+      
+      if (FieldIt->getFieldIndex() == Index)
+        break;
+    }
+    
+    // We don't support bitfields yet!
+    auto const BitOffset = Layout.getFieldOffset(Index);
+    if (BitOffset % CHAR_BIT != 0)
+      return std::shared_ptr<Value const>();
+    
+    return getValue(FieldIt->getType(),
+                    ASTContext,
+                    Address + (BitOffset / CHAR_BIT),
+                    Memory);
+  }
+  
+  /// \brief Records are never dereferenced.
+  ///
+  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
+  
+  /// \brief Records are never dereferenced.
+  ///
   virtual std::shared_ptr<Value const>
   getDereferenced(unsigned Index) const override {
     return std::shared_ptr<Value const>();
@@ -1029,32 +1234,22 @@ getValue(::clang::QualType QualType,
   }
   
   switch (CanonicalType->getTypeClass()) {
-    // BuiltinType
-    case ::clang::Type::Builtin:
+    // Scalar values.
+    case ::clang::Type::Builtin: SEEC_FALLTHROUGH;
+    case ::clang::Type::Atomic:  SEEC_FALLTHROUGH;
+    case ::clang::Type::Enum:    SEEC_FALLTHROUGH;
+    case ::clang::Type::Pointer: SEEC_FALLTHROUGH;
     {
       return std::make_shared<ValueByMemoryForScalar>
-                             (QualType,
-                              Address,
-                              TypeSize,
-                              Memory);
+                             (QualType, Address, TypeSize, Memory);
     }
     
-    // AtomicType
-    case ::clang::Type::Atomic:
+    case ::clang::Type::Record:
     {
-      // TODO.
-    }
-    
-    // EnumType
-    case ::clang::Type::Enum:
-    {
-      // TODO.
-    }
-    
-    // PointerType
-    case ::clang::Type::Pointer:
-    {
-      // TODO.
+      return ValueByMemoryForRecord::create(ASTContext,
+                                            QualType,
+                                            Address,
+                                            Memory);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -1062,7 +1257,6 @@ getValue(::clang::QualType QualType,
       return std::shared_ptr<Value const>();
     
     SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(Record) // TODO.
     SEEC_UNHANDLED_TYPE_CLASS(ConstantArray) // TODO.
     SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray) // TODO.
     SEEC_UNHANDLED_TYPE_CLASS(VariableArray) // TODO.
@@ -1119,9 +1313,26 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
   
   switch (SMap.getMapType()) {
     case seec::seec_clang::MappedStmt::Type::LValSimple:
-      // TODO.
-      llvm::errs() << "Mapped LValSimple not supported.\n";
-      return std::shared_ptr<Value const>();
+    {
+      llvm::errs() << "Creating LValSimple.\n";
+      
+      // Extract the address of the in-memory object that this lval represents.
+      auto const MaybeValue =
+        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
+                                             (FunctionState, SMap.getValue());
+      if (!MaybeValue.assigned()) {
+        llvm::errs() << "No address assigned.\n";
+        return std::shared_ptr<Value const>();
+      }
+      
+      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      
+      // Get the in-memory value at the given address.
+      return getValue(Expression->getType(),
+                      SMap.getAST().getASTUnit().getASTContext(),
+                      PtrValue,
+                      FunctionState.getParent().getParent().getMemory());
+    }
     
     case seec::seec_clang::MappedStmt::Type::RValScalar:
     {
