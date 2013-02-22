@@ -14,7 +14,6 @@
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/Clang/SourceMapping.hpp"
-#include "seec/Clang/RuntimeValueMapping.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"

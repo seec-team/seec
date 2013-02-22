@@ -11,10 +11,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/StateMapping.hpp"
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/ThreadState.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/Printing.hpp"
 
@@ -83,38 +84,38 @@ bool FunctionStateViewerPanel::Create(wxWindow *Parent,
   
   // Show the state of all Allocas.
   for (auto &Alloca : State.getAllocas()) {
-    auto AllocaInst = Alloca.getInstruction();
-    
-    auto Mapping = ClangMap.getMapping(AllocaInst);
+    auto const AllocaInst = Alloca.getInstruction();
+    auto const Mapping = ClangMap.getMapping(AllocaInst);
     if (!Mapping.getAST())
       continue;
     
-    auto Decl = Mapping.getDecl();
+    auto const Decl = Mapping.getDecl();
     if (!Decl)
       continue;
     
-    auto Value = llvm::dyn_cast<clang::ValueDecl>(Decl);
-    if (!Value) {
+    auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Decl);
+    if (!ValueDecl) {
       wxLogDebug("Decl for AllocaInst is not a ValueDecl");
       continue;
     }
     
-    auto Memory = Alloca.getMemoryRegion();
-    
     wxString AllocaStr;
-    AllocaStr << Value->getType().getAsString()
+    AllocaStr << ValueDecl->getType().getAsString()
               << ' '
-              << Value->getNameAsString()
+              << ValueDecl->getNameAsString()
               << " = ";
     
-    if (Memory.isCompletelyInitialized()) {
-      auto const Bytes = Memory.getByteValues();
-      AllocaStr << seec::seec_clang::toString(Value,
-                                              llvm::ArrayRef<char>(Bytes));
-      AllocaStr << ";";
+    auto const &ASTContext = Mapping.getAST()->getASTUnit().getASTContext();
+    auto const Value = seec::cm::getValue(ValueDecl->getType(),
+                                          ASTContext,
+                                          Alloca.getAddress(),
+                                          State.getParent().getParent());
+    
+    if (Value) {
+      AllocaStr << Value->getValueAsStringFull();
     }
     else {
-      AllocaStr << "uninitialized;";
+      AllocaStr << "<unknown>";
     }
     
     auto AllocaText = new wxStaticText(StaticBox, wxID_ANY, AllocaStr);
