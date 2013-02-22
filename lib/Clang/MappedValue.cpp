@@ -372,6 +372,177 @@ public:
 // ValueByMemoryForPointer - TODO
 //===----------------------------------------------------------------------===//
 
+/// \brief Represents a pointer Value in LLVM's virtual registers.
+///
+class ValueByMemoryForPointer : public Value {
+  /// The Context for this Value.
+  ::clang::ASTContext const &ASTContext;
+  
+  /// The type of this Value.
+  ::clang::QualType QualType;
+  
+  /// The address of this pointer (not the value of the pointer).
+  uintptr_t Address;
+  
+  /// The size of the pointee type.
+  ::clang::CharUnits PointeeSize;
+  
+  /// The ProcessState that this value is for.
+  seec::trace::ProcessState const &ProcessState;
+  
+  /// \brief Constructor.
+  ///
+  ValueByMemoryForPointer(::clang::ASTContext const &WithASTContext,
+                          ::clang::QualType WithQualType,
+                          uintptr_t WithAddress,
+                          ::clang::CharUnits WithPointeeSize,
+                          seec::trace::ProcessState const &ForProcessState)
+  : ASTContext(WithASTContext),
+    QualType(WithQualType),
+    Address(WithAddress),
+    PointeeSize(WithPointeeSize),
+    ProcessState(ForProcessState)
+  {}
+  
+public:
+  /// \brief Attempt to create a new ValueByMemoryForPointer.
+  ///
+  static std::shared_ptr<ValueByMemoryForPointer const>
+  create(::clang::ASTContext const &ASTContext,
+         ::clang::QualType QualType,
+         uintptr_t Address,
+         seec::trace::ProcessState const &ProcessState)
+  {
+    // Get the size of pointee type.
+    auto const Type = QualType->getAs< ::clang::PointerType>();
+    assert(Type && "Expected PointerType");
+    
+    auto const PointeeQType = Type->getPointeeType();
+    auto const PointeeSize = ASTContext.getTypeSizeInChars(PointeeQType);
+    
+    // Create the object.
+    return std::shared_ptr<ValueByMemoryForPointer const>
+                          (new ValueByMemoryForPointer(ASTContext,
+                                                       QualType,
+                                                       Address,
+                                                       PointeeSize,
+                                                       ProcessState));
+  }
+  
+  /// \brief Get the Expr that this Value is for.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return nullptr; }
+  
+  virtual bool isInMemory() const override { return true; }
+  
+  virtual bool isCompletelyInitialized() const override {
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    return Region.isCompletelyInitialized();
+  }
+  
+  virtual bool isPartiallyInitialized() const override {
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    
+    // TODO: We should implement this in MemoryRegion, because it will be much
+    //       more efficient.
+    for (auto Value : Region.getByteInitialization())
+      if (Value)
+        return true;
+    
+    return false;
+  }
+  
+  /// \brief Get a string describing the value (which may be elided).
+  ///
+  virtual std::string getValueAsStringShort() const override {
+    if (!isCompletelyInitialized())
+      return std::string("<uninitialized>");
+    
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    return getScalarValueAsString(QualType, Region);
+  }
+  
+  /// Get a string describing the value.
+  ///
+  virtual std::string getValueAsStringFull() const override {
+    return getValueAsStringShort();
+  }
+  
+  /// \brief Pointers have no children.
+  /// \return Always 0.
+  ///
+  virtual unsigned getChildCount() const override { return 0; }
+  
+  /// \brief Pointers have no children.
+  /// \return An empty std::shared_ptr<Value const>
+  ///
+  virtual std::shared_ptr<Value const>
+  getChildAt(unsigned Index) const override {
+    return std::shared_ptr<Value const>();
+  }
+  
+  /// \brief Get the highest legal dereference of this value.
+  ///
+  virtual unsigned getDereferenceIndexLimit() const override {
+    if (!isCompletelyInitialized())
+      return 0;
+    
+    // TODO: Move these calculations into the construction process.
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    auto const RawBytes = Region.getByteValues();
+    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
+    
+    auto const MaybeArea = ProcessState.getContainingMemoryArea(PtrValue);
+    if (!MaybeArea.assigned<MemoryArea>())
+      return 0;
+    
+    if (PointeeSize.isZero())
+      return 0;
+    
+    auto const PointeeTy = QualType->getPointeeType();
+    auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
+    
+    if (RecordTy) {
+      llvm::errs() << "pointee is record.\n";
+      
+      auto const RecordDecl = RecordTy->getDecl()->getDefinition();
+      if (RecordDecl) {
+        llvm::errs() << "got pointee definition.\n";
+        
+        if (RecordDecl->hasFlexibleArrayMember()) {
+          llvm::errs() << "pointee has flexible array member.\n";
+          return 1;
+        }
+      }
+    }
+    
+    auto const Area = MaybeArea.get<MemoryArea>().withStart(PtrValue);
+    return Area.length() / PointeeSize.getQuantity();
+  }
+  
+  /// \brief Get the value of this pointer dereferenced using the given Index.
+  ///
+  virtual std::shared_ptr<Value const>
+  getDereferenced(unsigned Index) const override {
+    // TODO: Move these calculations into the construction process.
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    auto const RawBytes = Region.getByteValues();
+    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
+    
+    auto const Address = PtrValue + (Index * PointeeSize.getQuantity());
+    
+    return getValue(QualType->getPointeeType(),
+                    ASTContext,
+                    Address,
+                    ProcessState);
+  }
+};
+
 
 //===----------------------------------------------------------------------===//
 // ValueByMemoryForRecord
@@ -1459,11 +1630,18 @@ getValue(::clang::QualType QualType,
     // Scalar values.
     case ::clang::Type::Builtin: SEEC_FALLTHROUGH;
     case ::clang::Type::Atomic:  SEEC_FALLTHROUGH;
-    case ::clang::Type::Enum:    SEEC_FALLTHROUGH;
-    case ::clang::Type::Pointer: SEEC_FALLTHROUGH;
+    case ::clang::Type::Enum:
     {
       return std::make_shared<ValueByMemoryForScalar>
                              (QualType, Address, TypeSize, ProcessState);
+    }
+    
+    case ::clang::Type::Pointer:
+    {
+      return ValueByMemoryForPointer::create(ASTContext,
+                                             QualType,
+                                             Address,
+                                             ProcessState);
     }
     
     case ::clang::Type::Record:
