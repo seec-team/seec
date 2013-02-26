@@ -202,8 +202,7 @@ OverwrittenMemoryInfo TraceMemoryState::clear(uintptr_t Address,
       auto Fragment = std::move(It->second);
       Fragments.erase(It++);
       Fragment.area().setStart(LastAddress + 1);
-      Fragments.insert(It,
-                       std::make_pair(LastAddress + 1, std::move(Fragment)));
+      Fragments.insert(std::make_pair(LastAddress + 1, std::move(Fragment)));
       
       break;
     }

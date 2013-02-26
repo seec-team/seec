@@ -1233,6 +1233,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
       
       auto const EnumDecl = EnumTy->getDecl();
       auto const UnderlyingTy = EnumDecl->getIntegerType().getTypePtr();
+      assert(UnderlyingTy && "EnumDecl->getIntegerType() failed");
       
       // If we have the definition, perhaps we can print a "nicer" value.
       if (auto const EnumDef = EnumDecl->getDefinition()) {

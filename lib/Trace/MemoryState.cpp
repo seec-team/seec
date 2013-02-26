@@ -209,7 +209,7 @@ void MemoryState::untrimLeftSide(uintptr_t Address, uintptr_t PriorAddress) {
   auto Fragment = std::move(It->second);
   FragmentMap.erase(It++);
   Fragment.getBlock().untrimLeftSide(PriorAddress);
-  FragmentMap.insert(It, std::make_pair(PriorAddress, std::move(Fragment)));
+  FragmentMap.insert(std::make_pair(PriorAddress, std::move(Fragment)));
 }
 
 
