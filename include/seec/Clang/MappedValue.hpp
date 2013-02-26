@@ -79,6 +79,10 @@ public:
   ///
   virtual ~Value() =0;
   
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const =0;
+  
   /// \brief Get the Expr that this Value is for (if any).
   ///
   virtual ::clang::Expr const *getExpr() const =0;

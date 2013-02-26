@@ -189,11 +189,6 @@ getScalarValueAsString(::clang::BuiltinType const *Type,
   return std::string("<unexpected builtin>");
 }
 
-// Forward declaration.
-std::string
-getScalarValueAsString(::clang::QualType QualType,
-                       seec::trace::MemoryState::Region const &Region);
-
 std::string
 getScalarValueAsString(::clang::Type const *Type,
                        seec::trace::MemoryState::Region const &Region)
@@ -214,7 +209,8 @@ getScalarValueAsString(::clang::Type const *Type,
     {
       // Recursive on the underlying type.
       auto const Ty = llvm::cast< ::clang::AtomicType>(CanonType);
-      return getScalarValueAsString(Ty->getValueType(), Region);
+      auto const ValueTy = Ty->getValueType().getCanonicalType().getTypePtr();
+      return getScalarValueAsString(ValueTy, Region);
     }
     
     // EnumType
@@ -222,7 +218,9 @@ getScalarValueAsString(::clang::Type const *Type,
     {
       // Recursive on the underlying type.
       auto const Ty = llvm::cast< ::clang::EnumType>(CanonType);
-      return getScalarValueAsString(Ty->getDecl()->getIntegerType(), Region);
+      auto const IntegerTy = Ty->getDecl()->getIntegerType();
+      auto const CanonicalIntegerTy = IntegerTy.getCanonicalType().getTypePtr();
+      return getScalarValueAsString(CanonicalIntegerTy, Region);
     }
     
     // PointerType
@@ -280,13 +278,6 @@ getScalarValueAsString(::clang::Type const *Type,
   return std::string("<unhandled type class>");
 }
 
-std::string
-getScalarValueAsString(::clang::QualType QualType,
-                       seec::trace::MemoryState::Region const &Region)
-{
-  return getScalarValueAsString(QualType.getTypePtr(), Region);
-}
-
 
 //===----------------------------------------------------------------------===//
 // ValueByMemoryForScalar
@@ -295,29 +286,45 @@ getScalarValueAsString(::clang::QualType QualType,
 /// \brief Represents a simple scalar Value in memory.
 ///
 class ValueByMemoryForScalar : public Value {
-  ::clang::QualType QualType;
+  /// The canonical Type of this value.
+  ::clang::Type const * CanonicalType;
   
+  /// The recorded memory address of the value.
   uintptr_t Address;
   
+  /// The size of the value.
   ::clang::CharUnits Size;
   
+  /// The state of recorded memory.
   seec::trace::MemoryState const &Memory;
   
 public:
   /// \brief Constructor.
   ///
-  ValueByMemoryForScalar(::clang::QualType WithQualType,
+  ValueByMemoryForScalar(::clang::Type const *WithCanonicalType,
                          uintptr_t WithAddress,
                          ::clang::CharUnits WithSize,
                          seec::trace::ProcessState const &ForProcessState)
-  : QualType(WithQualType),
+  : CanonicalType(WithCanonicalType),
     Address(WithAddress),
     Size(WithSize),
     Memory(ForProcessState.getMemory())
   {}
   
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
+  }
+  
+  /// \brief In-memory scalar values never have an associated Expr.
+  /// \return nullptr.
+  ///
   virtual ::clang::Expr const *getExpr() const override { return nullptr; }
   
+  /// \brief In-memory values are always in memory.
+  /// \return true.
+  ///
   virtual bool isInMemory() const override { return true; }
   
   virtual bool isCompletelyInitialized() const override {
@@ -343,7 +350,7 @@ public:
     
     auto const Length = Size.getQuantity();
     
-    return getScalarValueAsString(QualType,
+    return getScalarValueAsString(CanonicalType,
                                   Memory.getRegion(MemoryArea(Address,
                                                               Length)));
   }
@@ -369,7 +376,7 @@ public:
 
 
 //===----------------------------------------------------------------------===//
-// ValueByMemoryForPointer - TODO
+// ValueByMemoryForPointer
 //===----------------------------------------------------------------------===//
 
 /// \brief Represents a pointer Value in LLVM's virtual registers.
@@ -378,8 +385,8 @@ class ValueByMemoryForPointer : public Value {
   /// The Context for this Value.
   ::clang::ASTContext const &ASTContext;
   
-  /// The type of this Value.
-  ::clang::QualType QualType;
+  /// The canonical Type of this value.
+  ::clang::Type const * CanonicalType;
   
   /// The address of this pointer (not the value of the pointer).
   uintptr_t Address;
@@ -393,12 +400,12 @@ class ValueByMemoryForPointer : public Value {
   /// \brief Constructor.
   ///
   ValueByMemoryForPointer(::clang::ASTContext const &WithASTContext,
-                          ::clang::QualType WithQualType,
+                          ::clang::Type const *WithCanonicalType,
                           uintptr_t WithAddress,
                           ::clang::CharUnits WithPointeeSize,
                           seec::trace::ProcessState const &ForProcessState)
   : ASTContext(WithASTContext),
-    QualType(WithQualType),
+    CanonicalType(WithCanonicalType),
     Address(WithAddress),
     PointeeSize(WithPointeeSize),
     ProcessState(ForProcessState)
@@ -409,12 +416,12 @@ public:
   ///
   static std::shared_ptr<ValueByMemoryForPointer const>
   create(::clang::ASTContext const &ASTContext,
-         ::clang::QualType QualType,
+         ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
   {
     // Get the size of pointee type.
-    auto const Type = QualType->getAs< ::clang::PointerType>();
+    auto const Type = CanonicalType->getAs< ::clang::PointerType>();
     assert(Type && "Expected PointerType");
     
     auto const PointeeQType = Type->getPointeeType();
@@ -423,10 +430,16 @@ public:
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
                           (new ValueByMemoryForPointer(ASTContext,
-                                                       QualType,
+                                                       CanonicalType,
                                                        Address,
                                                        PointeeSize,
                                                        ProcessState));
+  }
+  
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
   }
   
   /// \brief Get the Expr that this Value is for.
@@ -462,7 +475,7 @@ public:
     
     auto const &Memory = ProcessState.getMemory();
     auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    return getScalarValueAsString(QualType, Region);
+    return getScalarValueAsString(CanonicalType, Region);
   }
   
   /// Get a string describing the value.
@@ -503,7 +516,7 @@ public:
     if (PointeeSize.isZero())
       return 0;
     
-    auto const PointeeTy = QualType->getPointeeType();
+    auto const PointeeTy = CanonicalType->getPointeeType();
     auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
     
     if (RecordTy) {
@@ -536,7 +549,7 @@ public:
     
     auto const Address = PtrValue + (Index * PointeeSize.getQuantity());
     
-    return getValue(QualType->getPointeeType(),
+    return getValue(CanonicalType->getPointeeType(),
                     ASTContext,
                     Address,
                     ProcessState);
@@ -557,8 +570,8 @@ class ValueByMemoryForRecord : public Value {
   /// The layout information for this Record.
   ::clang::ASTRecordLayout const &Layout;
   
-  /// The type of this Value.
-  ::clang::QualType QualType;
+  /// The canonical Type of this value.
+  ::clang::Type const * CanonicalType;
   
   /// The memory address of this Value.
   uintptr_t Address;
@@ -570,12 +583,12 @@ class ValueByMemoryForRecord : public Value {
   ///
   ValueByMemoryForRecord(::clang::ASTContext const &WithASTContext,
                          ::clang::ASTRecordLayout const &WithLayout,
-                         ::clang::QualType WithQualType,
+                         ::clang::Type const *WithCanonicalType,
                          uintptr_t WithAddress,
                          seec::trace::ProcessState const &ForProcessState)
   : ASTContext(WithASTContext),
     Layout(WithLayout),
-    QualType(WithQualType),
+    CanonicalType(WithCanonicalType),
     Address(WithAddress),
     ProcessState(ForProcessState)
   {}
@@ -585,12 +598,11 @@ public:
   ///
   static std::shared_ptr<ValueByMemoryForRecord>
   create(::clang::ASTContext const &ASTContext,
-         ::clang::QualType QualType,
+         ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
   {
-    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
-    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
     auto const Decl = RecordTy->getDecl()->getDefinition();
     if (!Decl)
       return std::shared_ptr<ValueByMemoryForRecord>();
@@ -600,9 +612,15 @@ public:
     return std::shared_ptr<ValueByMemoryForRecord>
                           (new ValueByMemoryForRecord(ASTContext,
                                                       Layout,
-                                                      QualType,
+                                                      CanonicalType,
                                                       Address,
                                                       ProcessState));
+  }
+  
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
   }
   
   /// \brief In-memory values are never for an Expr.
@@ -654,8 +672,7 @@ public:
   /// \brief Get a string describing the full value of all child members.
   ///
   virtual std::string getValueAsStringFull() const override {
-    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
-    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
     auto const Decl = RecordTy->getDecl()->getDefinition();
     
     std::string ValueStr;
@@ -704,8 +721,7 @@ public:
   getChildAt(unsigned Index) const override {
     assert(Index < getChildCount() && "Invalid Child Index");
     
-    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
-    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonTy);
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
     auto const Decl = RecordTy->getDecl()->getDefinition();
     
     auto FieldIt = Decl->field_begin();
@@ -751,8 +767,8 @@ class ValueByMemoryForArray : public Value {
   /// The Context for this Value.
   ::clang::ASTContext const &ASTContext;
   
-  /// The type of this Value.
-  ::clang::QualType QualType;
+  /// The canonical Type of this value.
+  ::clang::ArrayType const * CanonicalType;
   
   /// The memory address of this Value.
   uintptr_t Address;
@@ -769,13 +785,13 @@ class ValueByMemoryForArray : public Value {
   /// \brief Constructor.
   ///
   ValueByMemoryForArray(::clang::ASTContext const &WithASTContext,
-                        ::clang::QualType WithQualType,
+                        ::clang::ArrayType const *WithCanonicalType,
                         uintptr_t WithAddress,
                         unsigned WithElementSize,
                         unsigned WithElementCount,
                         seec::trace::ProcessState const &ForProcessState)
   : ASTContext(WithASTContext),
-    QualType(WithQualType),
+    CanonicalType(WithCanonicalType),
     Address(WithAddress),
     ElementSize(WithElementSize),
     ElementCount(WithElementCount),
@@ -787,12 +803,11 @@ public:
   ///
   static std::shared_ptr<ValueByMemoryForArray const>
   create(::clang::ASTContext const &ASTContext,
-         ::clang::QualType QualType,
+         ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
   {
-    auto const CanonTy = QualType.getCanonicalType().getTypePtr();
-    auto const ArrayTy = llvm::cast< ::clang::ArrayType>(CanonTy);
+    auto const ArrayTy = llvm::cast< ::clang::ArrayType>(CanonicalType);
     auto const ElementTy = ArrayTy->getElementType();
     auto const ElementSize = ASTContext.getTypeSizeInChars(ElementTy);
     
@@ -837,11 +852,17 @@ public:
     
     return std::shared_ptr<ValueByMemoryForArray const>
                           (new ValueByMemoryForArray(ASTContext,
-                                                     QualType,
+                                                     ArrayTy,
                                                      Address,
                                                      ElementSize.getQuantity(),
                                                      ElementCount,
                                                      ProcessState));
+  }
+  
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
   }
   
   /// \brief In-memory values are never for an Expr.
@@ -926,12 +947,9 @@ public:
   getChildAt(unsigned Index) const override {
     assert(Index < ElementCount && "Invalid Child Index");
     
-    auto const ArrayTy = QualType->getAsArrayTypeUnsafe();
-    assert(ArrayTy);
-    
     auto const ChildAddress = Address + (Index * ElementSize);
     
-    return getValue(ArrayTy->getElementType(),
+    return getValue(CanonicalType->getElementType(),
                     ASTContext,
                     ChildAddress,
                     ProcessState);
@@ -1394,9 +1412,11 @@ public:
     LLVMValue(WithLLVMValue)
   {}
   
-  /// \brief Virtual destructor required.
+  /// \brief Get the canonical type of this Value.
   ///
-  virtual ~ValueByRuntimeValueForScalar() = default;
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return Expression->getType().getCanonicalType().getTypePtr();
+  }
   
   /// \brief Get the Expr that this Value is for.
   ///
@@ -1520,9 +1540,11 @@ public:
                                                              PointeeSize));
   }
   
-  /// \brief Virtual destructor required.
+  /// \brief Get the canonical type of this Value.
   ///
-  virtual ~ValueByRuntimeValueForPointer() = default;
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return Expression->getType().getCanonicalType().getTypePtr();
+  }
   
   /// \brief Get the Expr that this Value is for.
   ///
@@ -1634,13 +1656,16 @@ getValue(::clang::QualType QualType,
     case ::clang::Type::Enum:
     {
       return std::make_shared<ValueByMemoryForScalar>
-                             (QualType, Address, TypeSize, ProcessState);
+                             (CanonicalType.getTypePtr(),
+                              Address,
+                              TypeSize,
+                              ProcessState);
     }
     
     case ::clang::Type::Pointer:
     {
       return ValueByMemoryForPointer::create(ASTContext,
-                                             QualType,
+                                             CanonicalType.getTypePtr(),
                                              Address,
                                              ProcessState);
     }
@@ -1648,7 +1673,7 @@ getValue(::clang::QualType QualType,
     case ::clang::Type::Record:
     {
       return ValueByMemoryForRecord::create(ASTContext,
-                                            QualType,
+                                            CanonicalType.getTypePtr(),
                                             Address,
                                             ProcessState);
     }
@@ -1658,7 +1683,7 @@ getValue(::clang::QualType QualType,
     case ::clang::Type::VariableArray:
     {
       return ValueByMemoryForArray::create(ASTContext,
-                                           QualType,
+                                           CanonicalType.getTypePtr(),
                                            Address,
                                            ProcessState);
     }
