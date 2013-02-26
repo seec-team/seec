@@ -31,6 +31,8 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include <cctype>
+
 
 namespace seec {
 
@@ -96,6 +98,43 @@ struct GetMemoryOfBuiltinAsString {
       llvm::raw_string_ostream Stream(RetStr);
       auto const Bytes = Region.getByteValues();
       Stream << *reinterpret_cast<T const *>(Bytes.data());
+    }
+    
+    return RetStr;
+  }
+};
+
+template<>
+struct GetMemoryOfBuiltinAsString<char> {
+  static std::string impl(seec::trace::MemoryState::Region const &Region) {
+    if (Region.getArea().length() != sizeof(char))
+      return std::string("<size mismatch>");
+    
+    std::string RetStr;
+    
+    {
+      llvm::raw_string_ostream Stream(RetStr);
+      auto const Bytes = Region.getByteValues();
+      auto const Character = *reinterpret_cast<char const *>(Bytes.data());
+      
+      Stream << '\'';
+      
+      if (std::isprint(Character))
+        Stream << Character;
+      else {
+        Stream << '\\';
+        
+        switch (Character) {
+          case '\t': Stream << 't'; break;
+          case '\f': Stream << 'f'; break;
+          case '\v': Stream << 'v'; break;
+          case '\n': Stream << 'n'; break;
+          case '\r': Stream << 'r'; break;
+          default:   Stream << int(Character); break;
+        }
+      }
+      
+      Stream << '\'';
     }
     
     return RetStr;
