@@ -1097,6 +1097,9 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 #undef SEEC_HANDLE_BUILTIN
 #undef SEEC_UNHANDLED_BUILTIN
   }
+  
+  llvm_unreachable("unexpected builtin type");
+  return seec::util::Maybe<llvm::APSInt>();
 }
 
 seec::util::Maybe<llvm::APSInt>
@@ -1261,6 +1264,9 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 #undef SEEC_HANDLE_BUILTIN
 #undef SEEC_UNHANDLED_BUILTIN
   }
+  
+  llvm_unreachable("unexpected builtin type");
+  return std::string();
 }
 
 std::string getScalarValueAsString(seec::trace::FunctionState const &State,
@@ -1390,6 +1396,9 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 
 #undef SEEC_UNHANDLED_TYPE_CLASS
   }
+  
+  llvm_unreachable("unexpected type class");
+  return std::string();
 }
 
 
