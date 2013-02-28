@@ -872,62 +872,40 @@ highlightInstruction(llvm::Instruction const *Instruction,
   if (!InstructionMap.getAST())
     return; // Instruction has no ownership mapping.
   
-  // See if the Instruction is part of a value mapping.
-  if (Value.assigned()) {
-    auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
-    
-    // See if we can find a perfect mapping for the owning Stmt first.
-    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
-      if (Mapping.second->getStatement() != InstructionMap.getStmt())
-        continue;
-      
-      auto const Value = seec::cm::getValue(ValueStore,
-                                            *Mapping.second,
-                                            FunctionState);
-      if (!Value)
-        continue;
-      
-      auto StrValue = Value->getValueAsStringFull();
-      
-      showActiveStmt(Mapping.second->getStatement(),
-                     Mapping.second->getAST(),
-                     FunctionState,
-                     ValueStore,
-                     StrValue,
-                     wxEmptyString);
-      
-      return;
-    }
-    
-    // See if we can find any mapping that has a value.
-    for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
-      auto const Value = seec::cm::getValue(ValueStore,
-                                            *Mapping.second,
-                                            FunctionState);
-      if (!Value)
-        continue;
-      
-      auto StrValue = Value->getValueAsStringFull();
-      
-      showActiveStmt(Mapping.second->getStatement(),
-                     Mapping.second->getAST(),
-                     FunctionState,
-                     ValueStore,
-                     StrValue,
-                     wxEmptyString);
-      
-      return;
-    }
-  }
-  
-  // Focus on the mapped source file.
-  auto const Panel = showPageForFile(InstructionMap.getFilePath());
-  if (!Panel)
-    return;
-  
   if (auto const Statement = InstructionMap.getStmt()) {
-    wxString ErrorStr;
+    // If the Instruction is owned by a Stmt, try to find a perfect mapping for
+    // the owning Stmt.
+    if (Value.assigned()) {
+      auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
+      
+      for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
+        if (Statement != Mapping.second->getStatement())
+          continue;
+        
+        // Try to get the SeeC-Clang mapped Value for this Stmt.
+        auto const Value = seec::cm::getValue(ValueStore,
+                                              *Mapping.second,
+                                              FunctionState);
+        if (!Value)
+          continue;
+        
+        // Show the Stmt with the SeeC-Clang mapped Value inline.
+        auto StrValue = Value->getValueAsStringFull();
+        
+        showActiveStmt(Mapping.second->getStatement(),
+                       Mapping.second->getAST(),
+                       FunctionState,
+                       ValueStore,
+                       StrValue,
+                       wxEmptyString);
+        
+        return;
+      }
+    }
     
+    // Highlight the Stmt with no in-line Value. If there is an Error, then
+    // display a description of the Error in-line.
+    wxString ErrorStr;
     if (Error)
       ErrorStr = seec::towxString(seec::runtime_errors::format(*Error));
     
@@ -939,6 +917,7 @@ highlightInstruction(llvm::Instruction const *Instruction,
                    ErrorStr);
   }
   else if (auto const Decl = InstructionMap.getDecl()) {
+    // Highlight the active Decl.
     showActiveDecl(Decl, *InstructionMap.getAST());
   }
 }
