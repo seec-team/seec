@@ -14,6 +14,7 @@
 #ifndef SEEC_TRACE_VIEW_EXPLANATIONVIEWER_HPP
 #define SEEC_TRACE_VIEW_EXPLANATIONVIEWER_HPP
 
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
 
 #include "llvm/ADT/StringRef.h"
@@ -110,7 +111,10 @@ public:
   void showExplanation(::clang::Decl const *Decl);
   
   /// \brief Attempt to show an explanation for the given Stmt.
-  void showExplanation(::clang::Stmt const *Statement);
+  void showExplanation(::clang::Stmt const *Statement,
+                       seec::seec_clang::MappedModule const &Mapping,
+                       seec::trace::FunctionState const &FunctionState,
+                       std::shared_ptr<seec::cm::ValueStore const> ValueStore);
   
   /// \brief Clear the display.
   void clearExplanation();

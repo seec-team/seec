@@ -178,14 +178,24 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
   }
 }
 
-void ExplanationViewer::showExplanation(::clang::Stmt const *Statement)
+void
+ExplanationViewer::
+showExplanation(::clang::Stmt const *Statement,
+                seec::seec_clang::MappedModule const &Mapping,
+                seec::trace::FunctionState const &FunctionState,
+                std::shared_ptr<seec::cm::ValueStore const> ValueStore)
 {
   auto MaybeExplanation =
     seec::clang_epv::explain(
       Statement,
       seec::clang_epv::makeRuntimeValueLookupByLambda(
-        [](::clang::Stmt const *S) {
-          return std::string("test");
+        [&](::clang::Stmt const *S) -> std::string {
+          auto const Value = seec::cm::getValue(ValueStore,
+                                                S,
+                                                Mapping,
+                                                FunctionState);
+          
+          return Value ? Value->getValueAsStringFull() : std::string();
         }));
   
   if (MaybeExplanation.assigned(0)) {

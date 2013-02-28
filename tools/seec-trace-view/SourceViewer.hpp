@@ -236,6 +236,8 @@ private:
   ///
   void showActiveStmt(::clang::Stmt const *Statement,
                       seec::seec_clang::MappedAST const &AST,
+                      seec::trace::FunctionState const &FunctionState,
+                      std::shared_ptr<seec::cm::ValueStore const> ValueStore,
                       llvm::StringRef Value,
                       wxString const &Error);
 

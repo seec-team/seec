@@ -800,10 +800,14 @@ void SourceViewerPanel::showActiveDecl(::clang::Decl const *Decl,
   ExplanationCtrl->showExplanation(Decl);
 }
 
-void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
-                                       seec::seec_clang::MappedAST const &AST,
-                                       llvm::StringRef Value,
-                                       wxString const &Error)
+void
+SourceViewerPanel::
+showActiveStmt(::clang::Stmt const *Statement,
+               seec::seec_clang::MappedAST const &AST,
+               seec::trace::FunctionState const &FunctionState,
+               std::shared_ptr<seec::cm::ValueStore const> ValueStore,
+               llvm::StringRef Value,
+               wxString const &Error)
 {
   auto &ClangAST = AST.getASTUnit();
   auto const Range = getRange(Statement, ClangAST.getASTContext());
@@ -840,7 +844,10 @@ void SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   }
   
   // Show an explanation for the Stmt.
-  ExplanationCtrl->showExplanation(Statement);
+  ExplanationCtrl->showExplanation(Statement,
+                                   Trace->getMappedModule(),
+                                   FunctionState,
+                                   ValueStore);
 }
 
 void
@@ -880,28 +887,12 @@ highlightInstruction(llvm::Instruction const *Instruction,
       if (!Value)
         continue;
       
-      wxLogDebug("Got value.");
-      
-      auto const ChildCount = Value->getChildCount();
-      wxLogDebug(" children: %u", ChildCount);
-      
-      auto const DereferenceLimit = Value->getDereferenceIndexLimit();
-      wxLogDebug(" dereference limit: %u", DereferenceLimit);
-      
-      for (unsigned i = 0; i < DereferenceLimit; ++i) {
-        auto const Child = Value->getDereferenced(i);
-        if (!Child) {
-          wxLogDebug("  child %u: null", i);
-          continue;
-        }
-        
-        wxLogDebug("  child %u: %s", i, Child->getValueAsStringFull().c_str());
-      }
-      
       auto StrValue = Value->getValueAsStringFull();
       
       showActiveStmt(Mapping.second->getStatement(),
                      Mapping.second->getAST(),
+                     FunctionState,
+                     ValueStore,
                      StrValue,
                      wxEmptyString);
       
@@ -920,6 +911,8 @@ highlightInstruction(llvm::Instruction const *Instruction,
       
       showActiveStmt(Mapping.second->getStatement(),
                      Mapping.second->getAST(),
+                     FunctionState,
+                     ValueStore,
                      StrValue,
                      wxEmptyString);
       
@@ -938,7 +931,12 @@ highlightInstruction(llvm::Instruction const *Instruction,
     if (Error)
       ErrorStr = seec::towxString(seec::runtime_errors::format(*Error));
     
-    showActiveStmt(Statement, *InstructionMap.getAST(), "", ErrorStr);
+    showActiveStmt(Statement,
+                   *InstructionMap.getAST(),
+                   FunctionState,
+                   ValueStore,
+                   "",
+                   ErrorStr);
   }
   else if (auto const Decl = InstructionMap.getDecl()) {
     showActiveDecl(Decl, *InstructionMap.getAST());
