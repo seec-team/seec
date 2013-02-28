@@ -437,7 +437,10 @@ SourceFilePanel *SourceViewerPanel::showPageForFile(llvm::sys::Path const &File)
   return PageIt->second;
 }
 
-void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
+void
+SourceViewerPanel::show(seec::trace::ProcessState const &State,
+                        std::shared_ptr<seec::cm::ValueStore const> ValueStore)
+{
   // We want to show some information about the last action that modified the
   // shared state of the process. This can occur for one of three reasons:
   //  1) A function was entered (particularly main(), which causes argv and
@@ -536,8 +539,11 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &State) {
   }
 }
 
-void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
-                             seec::trace::ThreadState const &ThreadState) {
+void
+SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
+                        std::shared_ptr<seec::cm::ValueStore const> ValueStore,
+                        seec::trace::ThreadState const &ThreadState)
+{
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
@@ -560,7 +566,11 @@ void SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
     if (!RTValue)
       return;
     
-    highlightInstruction(Instruction, *RTValue, RuntimeError, FunctionState);
+    highlightInstruction(Instruction,
+                         *RTValue,
+                         RuntimeError,
+                         FunctionState,
+                         ValueStore);
   }
   else {
     // If there is no active Instruction, highlight the function entry.
@@ -838,7 +848,8 @@ SourceViewerPanel::
 highlightInstruction(llvm::Instruction const *Instruction,
                      seec::trace::RuntimeValue const &Value,
                      seec::runtime_errors::RunError const *Error,
-                     seec::trace::FunctionState const &FunctionState)
+                     seec::trace::FunctionState const &FunctionState,
+                     std::shared_ptr<seec::cm::ValueStore const> ValueStore)
 {
   assert(Trace);
   
@@ -863,7 +874,9 @@ highlightInstruction(llvm::Instruction const *Instruction,
       if (Mapping.second->getStatement() != InstructionMap.getStmt())
         continue;
       
-      auto const Value = seec::cm::getValue(*Mapping.second, FunctionState);
+      auto const Value = seec::cm::getValue(ValueStore,
+                                            *Mapping.second,
+                                            FunctionState);
       if (!Value)
         continue;
       
@@ -897,7 +910,9 @@ highlightInstruction(llvm::Instruction const *Instruction,
     
     // See if we can find any mapping that has a value.
     for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
-      auto const Value = seec::cm::getValue(*Mapping.second, FunctionState);
+      auto const Value = seec::cm::getValue(ValueStore,
+                                            *Mapping.second,
+                                            FunctionState);
       if (!Value)
         continue;
       

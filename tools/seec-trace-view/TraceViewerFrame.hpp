@@ -14,6 +14,7 @@
 #ifndef SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 #define SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 
@@ -38,6 +39,9 @@ class TraceViewerFrame : public wxFrame
 
   /// Stores the current ProcessState.
   std::unique_ptr<seec::trace::ProcessState> State;
+
+  /// Stores SeeC-Clang mapped Values.
+  std::shared_ptr<seec::cm::ValueStore const> ValueStore;
 
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
@@ -66,6 +70,7 @@ public:
   TraceViewerFrame()
   : Trace(),
     State(),
+    ValueStore(),
     SourceViewer(nullptr),
     StateViewer(nullptr)
   {}
@@ -78,6 +83,7 @@ public:
                    wxSize const &Size = wxDefaultSize)
   : Trace(),
     State(),
+    ValueStore(),
     SourceViewer(nullptr),
     StateViewer(nullptr)
   {

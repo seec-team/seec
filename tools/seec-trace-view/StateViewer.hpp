@@ -14,6 +14,7 @@
 #ifndef SEEC_TRACE_VIEW_STATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_STATEVIEWER_HPP
 
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/Trace/ProcessState.hpp"
 
 #include <wx/wx.h>
@@ -87,7 +88,8 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-  void show(seec::trace::ProcessState &State);
+  void show(seec::trace::ProcessState &State,
+            std::shared_ptr<seec::cm::ValueStore const> ValueStore);
 
   void clear();
 };

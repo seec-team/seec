@@ -35,12 +35,16 @@
 
 FunctionStateViewerPanel::~FunctionStateViewerPanel() {}
 
-bool FunctionStateViewerPanel::Create(wxWindow *Parent,
-                                      OpenTrace const &TheTrace,
-                                      seec::trace::FunctionState const &State,
-                                      wxWindowID ID,
-                                      wxPoint const &Position,
-                                      wxSize const &Size) {
+bool
+FunctionStateViewerPanel::
+Create(wxWindow *Parent,
+       OpenTrace const &TheTrace,
+       seec::trace::FunctionState const &State,
+       std::shared_ptr<seec::cm::ValueStore const> ValueStore,
+       wxWindowID ID,
+       wxPoint const &Position,
+       wxSize const &Size)
+{
   if (!wxPanel::Create(Parent,
                        ID,
                        Position,
@@ -106,7 +110,8 @@ bool FunctionStateViewerPanel::Create(wxWindow *Parent,
               << " = ";
     
     auto const &ASTContext = Mapping.getAST()->getASTUnit().getASTContext();
-    auto const Value = seec::cm::getValue(ValueDecl->getType(),
+    auto const Value = seec::cm::getValue(ValueStore,
+                                          ValueDecl->getType(),
                                           ASTContext,
                                           Alloca.getAddress(),
                                           State.getParent().getParent());

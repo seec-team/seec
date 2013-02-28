@@ -14,8 +14,13 @@
 #ifndef SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP
 
+#include "seec/Clang/MappedValue.hpp"
+
 #include <wx/wx.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include <memory>
+
 
 class OpenTrace;
 
@@ -43,17 +48,20 @@ public:
     Container(nullptr)
   {}
   
-  FunctionStateViewerPanel(wxWindow *Parent,
-                           OpenTrace const &TheTrace,
-                           seec::trace::FunctionState const &State,
-                           wxWindowID ID = wxID_ANY,
-                           wxPoint const &Position = wxDefaultPosition,
-                           wxSize const &Size = wxDefaultSize)
+  FunctionStateViewerPanel(
+    wxWindow *Parent,
+    OpenTrace const &TheTrace,
+    seec::trace::FunctionState const &State,
+    std::shared_ptr<seec::cm::ValueStore const> ValueStore,
+    wxWindowID ID = wxID_ANY,
+    wxPoint const &Position = wxDefaultPosition,
+    wxSize const &Size = wxDefaultSize
+  )
   : wxPanel(),
     Trace(nullptr),
     Container(nullptr)
   {
-    Create(Parent, TheTrace, State, ID, Position, Size);
+    Create(Parent, TheTrace, State, ValueStore, ID, Position, Size);
   }
   
   virtual ~FunctionStateViewerPanel();
@@ -61,6 +69,7 @@ public:
   bool Create(wxWindow *Parent,
               OpenTrace const &TheTrace,
               seec::trace::FunctionState const &State,
+              std::shared_ptr<seec::cm::ValueStore const> ValueStore,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

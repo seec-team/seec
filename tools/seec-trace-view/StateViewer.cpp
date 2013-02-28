@@ -128,12 +128,15 @@ bool StateViewerPanel::Create(wxWindow *Parent,
   return true;
 }
 
-void StateViewerPanel::show(seec::trace::ProcessState &State) {
+void
+StateViewerPanel::show(seec::trace::ProcessState &State,
+                       std::shared_ptr<seec::cm::ValueStore const> ValueStore)
+{
   // Update thread-specific views.
   auto &Threads = State.getThreadStates();
   
   for (std::size_t i = 0; i < Threads.size(); ++i) {
-    ThreadViewers[i]->showState(*Threads[i]);
+    ThreadViewers[i]->showState(*Threads[i], ValueStore);
   }
   
   // Update the malloc state view.

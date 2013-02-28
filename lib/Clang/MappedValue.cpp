@@ -40,42 +40,6 @@ namespace cm {
 
 
 //===----------------------------------------------------------------------===//
-// ValueStoreImpl
-//===----------------------------------------------------------------------===//
-
-class ValueStoreImpl {
-
-public:
-  /// \brief Constructor.
-  ValueStoreImpl()
-  {}
-  
-  /// \brief Free up unused memory.
-  ///
-  void freeUnused() const {}
-};
-
-
-//===----------------------------------------------------------------------===//
-// ValueStore
-//===----------------------------------------------------------------------===//
-
-ValueStore::ValueStore()
-: Impl(new ValueStoreImpl())
-{}
-
-ValueStore::~ValueStore() = default;
-
-ValueStoreImpl const &ValueStore::getImpl() const {
-  return *Impl;
-}
-
-void ValueStore::freeUnused() const {
-  Impl->freeUnused();
-}
-
-
-//===----------------------------------------------------------------------===//
 // Value
 //===----------------------------------------------------------------------===//
 
@@ -421,6 +385,9 @@ public:
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
 class ValueByMemoryForPointer : public Value {
+  /// The Store for this Value.
+  std::weak_ptr<ValueStore const> Store;
+  
   /// The Context for this Value.
   ::clang::ASTContext const &ASTContext;
   
@@ -438,12 +405,14 @@ class ValueByMemoryForPointer : public Value {
   
   /// \brief Constructor.
   ///
-  ValueByMemoryForPointer(::clang::ASTContext const &WithASTContext,
+  ValueByMemoryForPointer(std::weak_ptr<ValueStore const> InStore,
+                          ::clang::ASTContext const &WithASTContext,
                           ::clang::Type const *WithCanonicalType,
                           uintptr_t WithAddress,
                           ::clang::CharUnits WithPointeeSize,
                           seec::trace::ProcessState const &ForProcessState)
-  : ASTContext(WithASTContext),
+  : Store(InStore),
+    ASTContext(WithASTContext),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     PointeeSize(WithPointeeSize),
@@ -454,7 +423,8 @@ public:
   /// \brief Attempt to create a new ValueByMemoryForPointer.
   ///
   static std::shared_ptr<ValueByMemoryForPointer const>
-  create(::clang::ASTContext const &ASTContext,
+  create(std::weak_ptr<ValueStore const> Store,
+         ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
@@ -468,7 +438,8 @@ public:
     
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
-                          (new ValueByMemoryForPointer(ASTContext,
+                          (new ValueByMemoryForPointer(Store,
+                                                       ASTContext,
                                                        CanonicalType,
                                                        Address,
                                                        PointeeSize,
@@ -580,6 +551,11 @@ public:
   ///
   virtual std::shared_ptr<Value const>
   getDereferenced(unsigned Index) const override {
+    // Find the Store (if it still exists).
+    auto StorePtr = Store.lock();
+    if (!StorePtr)
+      return std::shared_ptr<Value const>();
+    
     // TODO: Move these calculations into the construction process.
     auto const &Memory = ProcessState.getMemory();
     auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
@@ -588,7 +564,8 @@ public:
     
     auto const Address = PtrValue + (Index * PointeeSize.getQuantity());
     
-    return getValue(CanonicalType->getPointeeType(),
+    return getValue(StorePtr,
+                    CanonicalType->getPointeeType(),
                     ASTContext,
                     Address,
                     ProcessState);
@@ -603,6 +580,9 @@ public:
 /// \brief Represents a record Value in memory.
 ///
 class ValueByMemoryForRecord : public Value {
+  /// The Store for this Value.
+  std::weak_ptr<ValueStore const> Store;
+  
   /// The Context for this Value.
   ::clang::ASTContext const &ASTContext;
   
@@ -620,12 +600,14 @@ class ValueByMemoryForRecord : public Value {
   
   /// \brief Constructor.
   ///
-  ValueByMemoryForRecord(::clang::ASTContext const &WithASTContext,
+  ValueByMemoryForRecord(std::weak_ptr<ValueStore const> InStore,
+                         ::clang::ASTContext const &WithASTContext,
                          ::clang::ASTRecordLayout const &WithLayout,
                          ::clang::Type const *WithCanonicalType,
                          uintptr_t WithAddress,
                          seec::trace::ProcessState const &ForProcessState)
-  : ASTContext(WithASTContext),
+  : Store(InStore),
+    ASTContext(WithASTContext),
     Layout(WithLayout),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
@@ -636,7 +618,8 @@ public:
   /// \brief Attempt to create a new instance of this class.
   ///
   static std::shared_ptr<ValueByMemoryForRecord>
-  create(::clang::ASTContext const &ASTContext,
+  create(std::weak_ptr<ValueStore const> Store,
+         ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
@@ -649,7 +632,8 @@ public:
     auto const &Layout = ASTContext.getASTRecordLayout(Decl);
     
     return std::shared_ptr<ValueByMemoryForRecord>
-                          (new ValueByMemoryForRecord(ASTContext,
+                          (new ValueByMemoryForRecord(Store,
+                                                      ASTContext,
                                                       Layout,
                                                       CanonicalType,
                                                       Address,
@@ -760,6 +744,12 @@ public:
   getChildAt(unsigned Index) const override {
     assert(Index < getChildCount() && "Invalid Child Index");
     
+    // Get the store (if it still exists).
+    auto StorePtr = Store.lock();
+    if (!StorePtr)
+      return std::shared_ptr<Value const>();
+    
+    // Get information about the Index-th field.
     auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
     auto const Decl = RecordTy->getDecl()->getDefinition();
     
@@ -772,12 +762,13 @@ public:
         break;
     }
     
-    // We don't support bitfields yet!
+    // TODO: We don't support bitfields yet!
     auto const BitOffset = Layout.getFieldOffset(Index);
     if (BitOffset % CHAR_BIT != 0)
       return std::shared_ptr<Value const>();
     
-    return getValue(FieldIt->getType(),
+    return getValue(StorePtr,
+                    FieldIt->getType(),
                     ASTContext,
                     Address + (BitOffset / CHAR_BIT),
                     ProcessState);
@@ -803,6 +794,9 @@ public:
 /// \brief Represents an array Value in memory.
 ///
 class ValueByMemoryForArray : public Value {
+  /// The Store for this Value.
+  std::weak_ptr<ValueStore const> Store;
+  
   /// The Context for this Value.
   ::clang::ASTContext const &ASTContext;
   
@@ -823,13 +817,15 @@ class ValueByMemoryForArray : public Value {
 
   /// \brief Constructor.
   ///
-  ValueByMemoryForArray(::clang::ASTContext const &WithASTContext,
+  ValueByMemoryForArray(std::weak_ptr<ValueStore const> InStore,
+                        ::clang::ASTContext const &WithASTContext,
                         ::clang::ArrayType const *WithCanonicalType,
                         uintptr_t WithAddress,
                         unsigned WithElementSize,
                         unsigned WithElementCount,
                         seec::trace::ProcessState const &ForProcessState)
-  : ASTContext(WithASTContext),
+  : Store(InStore),
+    ASTContext(WithASTContext),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     ElementSize(WithElementSize),
@@ -841,7 +837,8 @@ public:
   /// \brief Attempt to create a new instance of this class.
   ///
   static std::shared_ptr<ValueByMemoryForArray const>
-  create(::clang::ASTContext const &ASTContext,
+  create(std::weak_ptr<ValueStore const> Store,
+         ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState)
@@ -890,7 +887,8 @@ public:
     }
     
     return std::shared_ptr<ValueByMemoryForArray const>
-                          (new ValueByMemoryForArray(ASTContext,
+                          (new ValueByMemoryForArray(Store,
+                                                     ASTContext,
                                                      ArrayTy,
                                                      Address,
                                                      ElementSize.getQuantity(),
@@ -986,9 +984,15 @@ public:
   getChildAt(unsigned Index) const override {
     assert(Index < ElementCount && "Invalid Child Index");
     
+    // Get the store (if it still exists).
+    auto StorePtr = Store.lock();
+    if (!StorePtr)
+      return std::shared_ptr<Value const>();
+    
     auto const ChildAddress = Address + (Index * ElementSize);
     
-    return getValue(CanonicalType->getElementType(),
+    return getValue(StorePtr,
+                    CanonicalType->getElementType(),
                     ASTContext,
                     ChildAddress,
                     ProcessState);
@@ -1510,6 +1514,9 @@ public:
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
 class ValueByRuntimeValueForPointer : public ValueByRuntimeValue {
+  /// The Store for this Value.
+  std::weak_ptr<ValueStore const> Store;
+  
   /// The Expr that this value is for.
   ::clang::Expr const *Expression;
   
@@ -1527,12 +1534,14 @@ class ValueByRuntimeValueForPointer : public ValueByRuntimeValue {
   
   /// \brief Constructor.
   ///
-  ValueByRuntimeValueForPointer(::clang::Expr const *ForExpression,
+  ValueByRuntimeValueForPointer(std::weak_ptr<ValueStore const> WithStore,
+                                ::clang::Expr const *ForExpression,
                                 seec::seec_clang::MappedAST const &WithAST,
                                 seec::trace::ProcessState const &ForState,
                                 uintptr_t WithPtrValue,
                                 ::clang::CharUnits WithPointeeSize)
-  : Expression(ForExpression),
+  : Store(WithStore),
+    Expression(ForExpression),
     MappedAST(WithAST),
     ProcessState(ForState),
     PtrValue(WithPtrValue),
@@ -1543,7 +1552,8 @@ public:
   /// \brief Attempt ot create a new ValueByRuntimeValueForPointer.
   ///
   static std::shared_ptr<ValueByRuntimeValueForPointer>
-  create(seec::seec_clang::MappedStmt const &SMap,
+  create(std::weak_ptr<ValueStore const> Store,
+         seec::seec_clang::MappedStmt const &SMap,
          ::clang::Expr const *Expression,
          seec::trace::FunctionState const &FunctionState,
          llvm::Value const *LLVMValue)
@@ -1572,7 +1582,8 @@ public:
     
     // Create the object.
     return std::shared_ptr<ValueByRuntimeValueForPointer>
-                          (new ValueByRuntimeValueForPointer(Expression,
+                          (new ValueByRuntimeValueForPointer(Store,
+                                                             Expression,
                                                              MappedAST,
                                                              ProcessState,
                                                              PtrValue,
@@ -1657,9 +1668,15 @@ public:
   ///
   virtual std::shared_ptr<Value const>
   getDereferenced(unsigned Index) const override {
+    // Get the store (if it still exists).
+    auto StorePtr = Store.lock();
+    if (!StorePtr)
+      return std::shared_ptr<Value const>();
+    
     auto const Address = PtrValue + (Index * PointeeSize.getQuantity());
     
-    return getValue(Expression->getType()->getPointeeType(),
+    return getValue(StorePtr,
+                    Expression->getType()->getPointeeType(),
                     MappedAST.getASTUnit().getASTContext(),
                     Address,
                     ProcessState);
@@ -1668,20 +1685,20 @@ public:
 
 
 //===----------------------------------------------------------------------===//
-// getValue()
+// createValue() from a Type and address.
 //===----------------------------------------------------------------------===//
-
 
 /// \brief Get a Value for a specific type at an address.
 ///
 std::shared_ptr<Value const>
-getValue(::clang::QualType QualType,
-         ::clang::ASTContext const &ASTContext,
-         uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState)
+createValue(std::shared_ptr<ValueStore const> Store,
+            ::clang::QualType QualType,
+            ::clang::ASTContext const &ASTContext,
+            uintptr_t Address,
+            seec::trace::ProcessState const &ProcessState)
 {
   if (!QualType.getTypePtr()) {
-    llvm::errs() << "null type.\n";
+    llvm_unreachable("null type");
     return std::shared_ptr<Value const>();
   }
   
@@ -1703,7 +1720,8 @@ getValue(::clang::QualType QualType,
     
     case ::clang::Type::Pointer:
     {
-      return ValueByMemoryForPointer::create(ASTContext,
+      return ValueByMemoryForPointer::create(Store,
+                                             ASTContext,
                                              CanonicalType.getTypePtr(),
                                              Address,
                                              ProcessState);
@@ -1711,7 +1729,8 @@ getValue(::clang::QualType QualType,
     
     case ::clang::Type::Record:
     {
-      return ValueByMemoryForRecord::create(ASTContext,
+      return ValueByMemoryForRecord::create(Store,
+                                            ASTContext,
                                             CanonicalType.getTypePtr(),
                                             Address,
                                             ProcessState);
@@ -1721,7 +1740,8 @@ getValue(::clang::QualType QualType,
     case ::clang::Type::IncompleteArray: SEEC_FALLTHROUGH;
     case ::clang::Type::VariableArray:
     {
-      return ValueByMemoryForArray::create(ASTContext,
+      return ValueByMemoryForArray::create(Store,
+                                           ASTContext,
                                            CanonicalType.getTypePtr(),
                                            Address,
                                            ProcessState);
@@ -1773,10 +1793,123 @@ getValue(::clang::QualType QualType,
 }
 
 
+//===----------------------------------------------------------------------===//
+// ValueStoreImpl
+//===----------------------------------------------------------------------===//
+
+class ValueStoreImpl {
+  /// Control access to the Store variable.
+  mutable std::mutex StoreAccess;
+  
+  // Two-stage lookup to find previously created Value objects.
+  // The first stage is the in-memory address of the object.
+  // The second stage is the canonical type of the object.
+  mutable llvm::DenseMap<uintptr_t,
+                         llvm::DenseMap<::clang::Type const *,
+                                        std::weak_ptr<Value const>>> Store;
+  
+  // Disable copying and moving.
+  ValueStoreImpl(ValueStoreImpl const &) = delete;
+  ValueStoreImpl(ValueStoreImpl &&) = delete;
+  ValueStoreImpl &operator=(ValueStoreImpl const &) = delete;
+  ValueStoreImpl &operator=(ValueStore &&) = delete;
+  
+public:
+  /// \brief Constructor.
+  ValueStoreImpl()
+  : Store()
+  {}
+  
+  /// \brief Find or construct a Value for the given type.
+  ///
+  std::shared_ptr<Value const>
+  getValue(std::shared_ptr<ValueStore const> StorePtr,
+           ::clang::QualType QualType,
+           ::clang::ASTContext const &ASTContext,
+           uintptr_t Address,
+           seec::trace::ProcessState const &ProcessState) const
+  {
+    auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
+    
+    // Lock the Store.
+    std::lock_guard<std::mutex> LockStore(StoreAccess);
+    
+    // Get (or create) the lookup table for this memory address.
+    auto &TypeMap = Store[Address];
+    
+    auto const It = TypeMap.find(CanonicalType);
+    if (It != TypeMap.end()) {
+      // Return the previously created entry, if it still exists.
+      if (auto SharedPtr = It->second.lock())
+        return SharedPtr;
+      
+      // The previous entry has been destroyed.
+      TypeMap.erase(It);
+    }
+    
+    // We must create a new Value.
+    auto SharedPtr = createValue(StorePtr,
+                                 QualType,
+                                 ASTContext,
+                                 Address,
+                                 ProcessState);
+    if (!SharedPtr)
+      return SharedPtr;
+    
+    // Store a weak_ptr for this Value in the lookup table.
+    TypeMap.insert(std::make_pair(CanonicalType,
+                                  std::weak_ptr<Value const>(SharedPtr)));
+    
+    return SharedPtr;
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ValueStore
+//===----------------------------------------------------------------------===//
+
+ValueStore::ValueStore()
+: Impl(new ValueStoreImpl())
+{}
+
+ValueStore::~ValueStore() = default;
+
+ValueStoreImpl const &ValueStore::getImpl() const {
+  return *Impl;
+}
+
+
+//===----------------------------------------------------------------------===//
+// getValue() from a type and address.
+//===----------------------------------------------------------------------===//
+
 // Documented in MappedValue.hpp
 //
 std::shared_ptr<Value const>
-getValue(seec::seec_clang::MappedStmt const &SMap,
+getValue(std::shared_ptr<ValueStore const> Store,
+         ::clang::QualType QualType,
+         ::clang::ASTContext const &ASTContext,
+         uintptr_t Address,
+         seec::trace::ProcessState const &ProcessState)
+{
+  return Store->getImpl().getValue(Store,
+                                   QualType,
+                                   ASTContext,
+                                   Address,
+                                   ProcessState);
+}
+
+
+//===----------------------------------------------------------------------===//
+// getValue() from a mapped ::clang::Stmt.
+//===----------------------------------------------------------------------===//
+
+// Documented in MappedValue.hpp
+//
+std::shared_ptr<Value const>
+getValue(std::shared_ptr<ValueStore const> Store,
+         seec::seec_clang::MappedStmt const &SMap,
          seec::trace::FunctionState const &FunctionState)
 {
   auto const Expression = llvm::dyn_cast< ::clang::Expr>(SMap.getStatement());
@@ -1800,7 +1933,8 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
       auto const PtrValue = MaybeValue.get<uintptr_t>();
       
       // Get the in-memory value at the given address.
-      return getValue(Expression->getType(),
+      return getValue(Store,
+                      Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
                       FunctionState.getParent().getParent());
@@ -1830,7 +1964,8 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
       if (LLVMValues.second == nullptr) {
         if (Expression->getType()->isPointerType()) {
           // Pointer types use a special implementation.
-          return ValueByRuntimeValueForPointer::create(SMap,
+          return ValueByRuntimeValueForPointer::create(Store,
+                                                       SMap,
                                                        Expression,
                                                        FunctionState,
                                                        LLVMValues.first);
@@ -1879,7 +2014,8 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
       auto const PtrValue = MaybeValue.get<uintptr_t>();
       
       // Get the in-memory value at the given address.
-      return getValue(Expression->getType(),
+      return getValue(Store,
+                      Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
                       FunctionState.getParent().getParent());
@@ -1894,7 +2030,8 @@ getValue(seec::seec_clang::MappedStmt const &SMap,
 // Documented in MappedValue.hpp
 //
 std::shared_ptr<Value const>
-getValue(::clang::Stmt const *Statement,
+getValue(std::shared_ptr<ValueStore const> Store,
+         ::clang::Stmt const *Statement,
          seec::seec_clang::MappedModule const &Mapping,
          seec::trace::FunctionState const &FunctionState)
 {
@@ -1902,7 +2039,7 @@ getValue(::clang::Stmt const *Statement,
   if (!SMap)
     return std::shared_ptr<Value const>();
   
-  return getValue(*SMap, FunctionState);
+  return getValue(Store, *SMap, FunctionState);
 }
 
 

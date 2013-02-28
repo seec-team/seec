@@ -39,7 +39,11 @@ bool ThreadStateViewerPanel::Create(wxWindow *Parent,
   return true;
 }
 
-void ThreadStateViewerPanel::showState(seec::trace::ThreadState const &State) {
+void
+ThreadStateViewerPanel::
+showState(seec::trace::ThreadState const &State,
+          std::shared_ptr<seec::cm::ValueStore const> ValueStore)
+{
   // Destroy all existing function viewers.
   for (auto FunctionViewer : FunctionViewers) {
     Sizer->Detach(FunctionViewer);
@@ -52,8 +56,13 @@ void ThreadStateViewerPanel::showState(seec::trace::ThreadState const &State) {
   auto &CallStack = State.getCallStack();
   
   for (auto &State : CallStack) {
-    auto Viewer = new FunctionStateViewerPanel(this, *Trace, *State);
+    auto Viewer = new FunctionStateViewerPanel(this,
+                                               *Trace,
+                                               *State,
+                                               ValueStore);
+    
     FunctionViewers.push_back(Viewer);
+    
     Sizer->Add(Viewer, wxSizerFlags().Proportion(0).Expand());
   }
   

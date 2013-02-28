@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP
 
+#include "seec/Clang/MappedValue.hpp"
+
 #include <wx/wx.h>
 #include <wx/scrolwin.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -81,7 +83,8 @@ public:
   
   /// \brief Update the display to show the given State.
   ///
-  void showState(seec::trace::ThreadState const &State);
+  void showState(seec::trace::ThreadState const &State,
+                 std::shared_ptr<seec::cm::ValueStore const> ValueStore);
 };
 
 #endif // SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP

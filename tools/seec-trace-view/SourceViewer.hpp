@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 #define SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 
+#include "seec/Clang/MappedValue.hpp"
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 
@@ -166,11 +168,13 @@ public:
   SourceFilePanel *showPageForFile(llvm::sys::Path const &File);
 
   /// Show the current state, without thread-specific information.
-  void show(seec::trace::ProcessState const &State);
+  void show(seec::trace::ProcessState const &State,
+            std::shared_ptr<seec::cm::ValueStore const> ValueStore);
 
   /// Show the current state and display thread-specific information for the
   /// given thread.
   void show(seec::trace::ProcessState const &ProcessState,
+            std::shared_ptr<seec::cm::ValueStore const> ValueStore,
             seec::trace::ThreadState const &ThreadState);
 
   /// @} (Mutators).
@@ -236,10 +240,12 @@ private:
                       wxString const &Error);
 
   /// Highlight the source code associated with the specified Instruction.
-  void highlightInstruction(llvm::Instruction const *Instruction,
-                            seec::trace::RuntimeValue const &Value,
-                            seec::runtime_errors::RunError const *Error,
-                            seec::trace::FunctionState const &FunctionState);
+  void
+  highlightInstruction(llvm::Instruction const *Instruction,
+                       seec::trace::RuntimeValue const &Value,
+                       seec::runtime_errors::RunError const *Error,
+                       seec::trace::FunctionState const &FunctionState,
+                       std::shared_ptr<seec::cm::ValueStore const> ValueStore);
 
   /// @}
   

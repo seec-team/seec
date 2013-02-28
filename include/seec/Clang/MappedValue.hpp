@@ -43,34 +43,6 @@ namespace trace {
 namespace cm {
 
 
-class ValueStoreImpl;
-
-
-/// \brief Ensures that in-memory Value objects are uniqued.
-///
-class ValueStore {
-  /// The underlying implementation.
-  std::unique_ptr<ValueStoreImpl> Impl;
-  
-public:
-  /// \brief Constructor.
-  ///
-  ValueStore();
-  
-  /// \brief Destructor.
-  ///
-  ~ValueStore();
-  
-  /// \brief Access the underlying implementation.
-  ///
-  ValueStoreImpl const &getImpl() const;
-  
-  /// \brief Free up unused memory.
-  ///
-  void freeUnused() const;
-};
-
-
 /// \brief Represents a runtime value.
 ///
 class Value {
@@ -131,10 +103,48 @@ public:
 };
 
 
+// Forward-declare for ValueStore.
+class ValueStoreImpl;
+
+
+/// \brief Ensures that in-memory Value objects are uniqued.
+///
+class ValueStore {
+  /// The underlying implementation.
+  std::unique_ptr<ValueStoreImpl> Impl;
+  
+  /// \brief Constructor.
+  ///
+  ValueStore();
+  
+  // Don't allow copying or moving.
+  ValueStore(ValueStore const &) = delete;
+  ValueStore(ValueStore &&) = delete;
+  ValueStore &operator=(ValueStore const &) = delete;
+  ValueStore &operator=(ValueStore &&) = delete;
+  
+public:
+  /// \brief Create a new ValueStore.
+  ///
+  static std::shared_ptr<ValueStore const> create() {
+    return std::shared_ptr<ValueStore const>(new ValueStore());
+  }
+  
+  /// \brief Destructor.
+  ///
+  ~ValueStore();
+  
+  /// \brief Access the underlying implementation.
+  ///
+  ValueStoreImpl const &getImpl() const;
+};
+
+
 /// \brief Get a Value for a given type in memory.
 ///
 std::shared_ptr<Value const>
-getValue(::clang::QualType QualType,
+getValue(std::shared_ptr<ValueStore const> Store,
+         ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
          uintptr_t Address,
          seec::trace::ProcessState const &ProcessState);
@@ -143,14 +153,16 @@ getValue(::clang::QualType QualType,
 /// \brief Get a Value for a MappedStmt.
 ///
 std::shared_ptr<Value const>
-getValue(seec::seec_clang::MappedStmt const &MappedStatement,
+getValue(std::shared_ptr<ValueStore const> Store,
+         seec::seec_clang::MappedStmt const &MappedStatement,
          seec::trace::FunctionState const &FunctionState);
 
 
 /// \brief Get a Value for a Stmt.
 ///
 std::shared_ptr<Value const>
-getValue(::clang::Stmt const *Statement,
+getValue(std::shared_ptr<ValueStore const> Store,
+         ::clang::Stmt const *Statement,
          seec::seec_clang::MappedModule const &Mapping,
          seec::trace::FunctionState const &FunctionState);
 

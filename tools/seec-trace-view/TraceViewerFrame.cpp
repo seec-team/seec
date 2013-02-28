@@ -65,6 +65,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   // Create a new ProcessState at the beginning of the trace.
   State.reset(new seec::trace::ProcessState(Trace->getProcessTracePtr(),
                                             Trace->getModuleIndexPtr()));
+  
+  // Create a value store for the current state.
+  ValueStore = seec::cm::ValueStore::create();
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -123,8 +126,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Display initial information about the trace.
     ProcessTime->setTrace(*Trace);
-    StateViewer->show(*State);
-    SourceViewer->show(*State);
+    StateViewer->show(*State, ValueStore);
+    SourceViewer->show(*State, ValueStore);
   }
   else {
     // Setup the view for a single-threaded trace.
@@ -162,8 +165,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     SetSizer(TopSizer);
 
     // Display initial information about the trace.
-    StateViewer->show(*State);
-    SourceViewer->show(*State, State->getThreadState(1));
+    StateViewer->show(*State, ValueStore);
+    SourceViewer->show(*State, ValueStore, State->getThreadState(1));
     ThreadTime->show(*State, State->getThreadState(1));
   }
 
@@ -175,13 +178,22 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 }
 
 void TraceViewerFrame::OnProcessTimeChanged(ProcessTimeEvent &Event) {
+  // Invalidate existing references.
+  ValueStore = seec::cm::ValueStore::create();
+  
+  // Update the state.
   seec::trace::moveToTime(*State, Event.getProcessTime());
 
-  StateViewer->show(*State);
-  SourceViewer->show(*State);
+  // Display the new state.
+  StateViewer->show(*State, ValueStore);
+  SourceViewer->show(*State, ValueStore);
 }
 
 void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
+  // Invalidate existing references.
+  ValueStore = seec::cm::ValueStore::create();
+  
+  // Update the state.
   auto &ThreadState = State->getThreadState(Event.getThreadID());
   seec::trace::moveToTime(ThreadState, Event.getThreadTime());
   
@@ -189,7 +201,8 @@ void TraceViewerFrame::OnThreadTimeChanged(ThreadTimeEvent &Event) {
              Event.getThreadTime(),
              ThreadState.getThreadTime());
 
-  StateViewer->show(*State);
-  SourceViewer->show(*State, ThreadState);
+  // Display the new state.
+  StateViewer->show(*State, ValueStore);
+  SourceViewer->show(*State, ValueStore, ThreadState);
   ThreadTime->show(*State, ThreadState);
 }
