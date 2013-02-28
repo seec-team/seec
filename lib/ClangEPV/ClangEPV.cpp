@@ -102,6 +102,10 @@ SEEC_OPCODE_STRINGIZE(BO_Comma)
   return formatAsString("<unknown opcode>");
 }
 
+Formattable formatAsString(::clang::Type const *T) {
+  return formatAsString(::clang::QualType::getAsString(T, clang::Qualifiers()));
+}
+
 Formattable formatAsGeneralTypeString(::clang::Type const *T) {
   if (!T)
     return formatAsString("<null>");

@@ -31,6 +31,21 @@ SEEC_STMT_LINK(BinaryOperator,
     ("rhs", getRHS())
   ))
 
+SEEC_STMT_LINK(CStyleCastExpr,
+  SEEC_PP_QUOTE(
+    ("cast_kind_name",  String, getCastKindName()),
+    ("type",            String, getType().getTypePtr()),
+    ("type_as_written", String, getTypeAsWritten().getAsString())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_sub_expr", getSubExpr()),
+    ("rtv_of_sub_expr_as_written", getSubExprAsWritten())
+  ),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr()),
+    ("sub_expr_as_written", getSubExprAsWritten())
+  ))
+
 SEEC_STMT_LINK(DoStmt,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
@@ -53,6 +68,20 @@ SEEC_STMT_LINK(IfStmt,
     ("cond", getCond()),
     ("then", getThen()),
     ("else", getElse())
+  ))
+
+SEEC_STMT_LINK(ImplicitCastExpr,
+  SEEC_PP_QUOTE(
+    ("cast_kind_name", String, getCastKindName()),
+    ("type",           String, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_sub_expr", getSubExpr()),
+    ("rtv_of_sub_expr_as_written", getSubExprAsWritten())
+  ),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr()),
+    ("sub_expr_as_written", getSubExprAsWritten())
   ))
 
 SEEC_STMT_LINK(ReturnStmt,

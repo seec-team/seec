@@ -221,6 +221,25 @@ root:table {
     //
     ContinueStmt:string { "This is a continue statement. It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it. If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop. If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression." }
 
+    // CStyleCastExpr description.
+    // Inputs:
+    //   cast_kind_name
+    //   type
+    //   type_as_written
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_sub_expr
+    //   [has_]rtv_of_sub_expr_as_written
+    // Outputs:
+    //   sub_expr
+    //   sub_expr_as_written
+    //
+    CStyleCastExpr:string {
+      "This is an explicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it to a new type. In this case the new type is “{type_as_written}”."
+       "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
+       "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
+    }
+
     // DeclRefExpr description.
     // Inputs:
     //   name = string
@@ -282,6 +301,24 @@ root:table {
     IfStmt:string {
       "This is an if statement. It consists of a @[cond]condition@[], a @[then]body statement@[], and an optional @[else]else statement@[]. If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body statement@[] will be executed, otherwise the @[else]else statement@[] will be executed (if it exists)."
       "{has_else, select, true { This if statement has an else branch.} false { This if statement does not have an else branch.} other { Very sad.}}"
+    }
+
+    // ImplicitCastExpr description.
+    // Inputs:
+    //   cast_kind_name
+    //   type
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_sub_expr
+    //   [has_]rtv_of_sub_expr_as_written
+    // Outputs:
+    //   sub_expr
+    //   sub_expr_as_written
+    //
+    ImplicitCastExpr:string {
+      "This is an implicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it into an appropriate type, so that it can be stored in a variable, passed to a function, or used with an operator. In this case the new type is “{type}”."
+       "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
+       "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
     }
 
     // ReturnStmt description.
