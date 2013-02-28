@@ -106,6 +106,22 @@ Formattable formatAsString(::clang::Type const *T) {
   return formatAsString(::clang::QualType::getAsString(T, clang::Qualifiers()));
 }
 
+Formattable formatAsString(::clang::CharacterLiteral::CharacterKind Kind) {
+  switch (Kind) {
+    case ::clang::CharacterLiteral::CharacterKind::Ascii:
+      return formatAsString("ASCII");
+    case ::clang::CharacterLiteral::CharacterKind::Wide:
+      return formatAsString("Wide");
+    case ::clang::CharacterLiteral::CharacterKind::UTF16:
+      return formatAsString("UTF-16");
+    case ::clang::CharacterLiteral::CharacterKind::UTF32:
+      return formatAsString("UTF-32");
+  }
+  
+  llvm_unreachable("unknown CharacterKind");
+  return formatAsString("<unknown CharacterKind>");
+}
+
 Formattable formatAsGeneralTypeString(::clang::Type const *T) {
   if (!T)
     return formatAsString("<null>");

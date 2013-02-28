@@ -31,6 +31,43 @@ SEEC_STMT_LINK(BinaryOperator,
     ("rhs", getRHS())
   ))
 
+SEEC_STMT_LINK(CaseStmt,
+  SEEC_PP_QUOTE(
+    ("has_next_switch_case", Bool, getNextSwitchCase()),
+    ("has_sub_stmt",         Bool, getSubStmt()),
+    ("has_lhs",              Bool, getLHS()),
+    ("has_rhs",              Bool, getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_lhs", getLHS()),
+    ("rtv_of_rhs", getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("next_switch_case", getNextSwitchCase()),
+    ("sub_stmt",         getSubStmt()),
+    ("lhs",              getLHS()),
+    ("rhs",              getRHS())
+  ))
+
+SEEC_STMT_LINK(CharacterLiteral,
+  SEEC_PP_QUOTE(
+    ("character_kind", String, getKind()),
+    ("type",           String, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+SEEC_STMT_LINK(CompoundLiteralExpr,
+  SEEC_PP_QUOTE(
+    ("type", String, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_init", getInitializer())
+  ),
+  SEEC_PP_QUOTE(
+    ("init", getInitializer())
+  ))
+
 SEEC_STMT_LINK(CStyleCastExpr,
   SEEC_PP_QUOTE(
     ("cast_kind_name",  String, getCastKindName()),
@@ -46,6 +83,17 @@ SEEC_STMT_LINK(CStyleCastExpr,
     ("sub_expr_as_written", getSubExprAsWritten())
   ))
 
+SEEC_STMT_LINK(DefaultStmt,
+  SEEC_PP_QUOTE(
+    ("has_next_switch_case", Bool, getNextSwitchCase()),
+    ("has_sub_stmt",         Bool, getSubStmt())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("next_switch_case", getNextSwitchCase()),
+    ("sub_stmt",         getSubStmt())
+  ))
+
 SEEC_STMT_LINK(DoStmt,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
@@ -54,6 +102,33 @@ SEEC_STMT_LINK(DoStmt,
   SEEC_PP_QUOTE(
     ("cond", getCond()),
     ("body", getBody())
+  ))
+
+SEEC_STMT_LINK(ForStmt,
+  SEEC_PP_QUOTE(
+    ("has_init",               Bool, getInit()),
+    ("has_cond",               Bool, getCond()),
+    ("has_inc",                Bool, getInc()),
+    ("has_condition_variable", Bool, getConditionVariable()),
+    ("has_body",               Bool, getBody())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_init", getInit()),
+    ("rtv_of_cond", getCond()),
+    ("rtv_of_inc",  getInc())
+  ),
+  SEEC_PP_QUOTE(
+    ("init", getInit()),
+    ("cond", getCond()),
+    ("inc",  getInc()),
+    ("body", getBody())
+  ))
+
+SEEC_STMT_LINK(GotoStmt,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("label", getLabel())
   ))
 
 SEEC_STMT_LINK(IfStmt,
@@ -84,6 +159,23 @@ SEEC_STMT_LINK(ImplicitCastExpr,
     ("sub_expr_as_written", getSubExprAsWritten())
   ))
 
+SEEC_STMT_LINK(LabelStmt,
+  SEEC_PP_QUOTE(
+    ("name",         String, getName()),
+    ("has_decl",     Bool,   getDecl()),
+    ("has_sub_stmt", Bool,   getSubStmt())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("decl", getDecl()),
+    ("sub_stmt", getSubStmt())
+  ))
+
+SEEC_STMT_LINK(NullStmt,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
 SEEC_STMT_LINK(ReturnStmt,
   SEEC_PP_QUOTE(
     ("has_return_value", Bool, getRetValue())
@@ -93,6 +185,36 @@ SEEC_STMT_LINK(ReturnStmt,
   ),
   SEEC_PP_QUOTE(
     ("return_value", getRetValue())
+  ))
+
+SEEC_STMT_LINK(SwitchStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable",    Bool, getConditionVariable()),
+    ("has_cond",                  Bool, getCond()),
+    ("has_body",                  Bool, getBody()),
+    ("is_all_enum_cases_covered", Bool, isAllEnumCasesCovered())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
+    ("cond", getCond()),
+    ("body", getBody())
+  ))
+
+SEEC_STMT_LINK(WhileStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable", Bool, getConditionVariable()),
+    ("has_cond",               Bool, getCond()),
+    ("has_body",               Bool, getBody())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
+    ("condition_variable", getConditionVariable()),
+    ("cond",               getCond()),
+    ("body",               getBody())
   ))
 
 #undef SEEC_STMT_LINK
