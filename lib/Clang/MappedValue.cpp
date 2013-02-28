@@ -526,18 +526,16 @@ public:
     if (PointeeSize.isZero())
       return 0;
     
+    // If the pointee is a struct with a flexible array member, then we should
+    // never allow more than one dereference, because the additional memory (if
+    // any) is occupied by the flexible array member.
     auto const PointeeTy = CanonicalType->getPointeeType();
     auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
     
     if (RecordTy) {
-      llvm::errs() << "pointee is record.\n";
-      
       auto const RecordDecl = RecordTy->getDecl()->getDefinition();
       if (RecordDecl) {
-        llvm::errs() << "got pointee definition.\n";
-        
         if (RecordDecl->hasFlexibleArrayMember()) {
-          llvm::errs() << "pointee has flexible array member.\n";
           return 1;
         }
       }
@@ -848,7 +846,6 @@ public:
     auto const ElementSize = ASTContext.getTypeSizeInChars(ElementTy);
     
     if (ElementSize.isZero()) {
-      llvm::errs() << "Array's element type has size zero.\n";
       return std::shared_ptr<ValueByMemoryForArray const>();
     }
     
@@ -1647,14 +1644,9 @@ public:
     auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
     
     if (RecordTy) {
-      llvm::errs() << "pointee is record.\n";
-      
       auto const RecordDecl = RecordTy->getDecl()->getDefinition();
       if (RecordDecl) {
-        llvm::errs() << "got pointee definition.\n";
-        
         if (RecordDecl->hasFlexibleArrayMember()) {
-          llvm::errs() << "pointee has flexible array member.\n";
           return 1;
         }
       }
@@ -1806,7 +1798,7 @@ class ValueStoreImpl {
   // The second stage is the canonical type of the object.
   mutable llvm::DenseMap<uintptr_t,
                          llvm::DenseMap<::clang::Type const *,
-                                        std::weak_ptr<Value const>>> Store;
+                                        std::shared_ptr<Value const>>> Store;
   
   // Disable copying and moving.
   ValueStoreImpl(ValueStoreImpl const &) = delete;
@@ -1838,14 +1830,8 @@ public:
     auto &TypeMap = Store[Address];
     
     auto const It = TypeMap.find(CanonicalType);
-    if (It != TypeMap.end()) {
-      // Return the previously created entry, if it still exists.
-      if (auto SharedPtr = It->second.lock())
-        return SharedPtr;
-      
-      // The previous entry has been destroyed.
-      TypeMap.erase(It);
-    }
+    if (It != TypeMap.end())
+      return It->second;
     
     // We must create a new Value.
     auto SharedPtr = createValue(StorePtr,
@@ -1856,9 +1842,8 @@ public:
     if (!SharedPtr)
       return SharedPtr;
     
-    // Store a weak_ptr for this Value in the lookup table.
-    TypeMap.insert(std::make_pair(CanonicalType,
-                                  std::weak_ptr<Value const>(SharedPtr)));
+    // Store a shared_ptr for this Value in the lookup table.
+    TypeMap.insert(std::make_pair(CanonicalType, SharedPtr));
     
     return SharedPtr;
   }
@@ -1919,14 +1904,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
   switch (SMap.getMapType()) {
     case seec::seec_clang::MappedStmt::Type::LValSimple:
     {
-      llvm::errs() << "Creating LValSimple.\n";
-      
       // Extract the address of the in-memory object that this lval represents.
       auto const MaybeValue =
         seec::trace::getCurrentRuntimeValueAs<uintptr_t>
                                              (FunctionState, SMap.getValue());
       if (!MaybeValue.assigned()) {
-        llvm::errs() << "No address assigned.\n";
         return std::shared_ptr<Value const>();
       }
       
@@ -1944,7 +1926,6 @@ getValue(std::shared_ptr<ValueStore const> Store,
     {
       auto const LLVMValues = SMap.getValues();
       if (LLVMValues.first == nullptr) {
-        llvm::errs() << "Mapped llvm::Value is NULL.\n";
         return std::shared_ptr<Value const>();
       }
       
@@ -1952,7 +1933,6 @@ getValue(std::shared_ptr<ValueStore const> Store,
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.first)) {
         if (auto const RTV = FunctionState.getCurrentRuntimeValue(I)) {
           if (!RTV->assigned()) {
-            llvm::errs() << "Mapped llvm::Instruction not yet assigned.\n";
             return std::shared_ptr<Value const>();
           }
           
@@ -1985,7 +1965,6 @@ getValue(std::shared_ptr<ValueStore const> Store,
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second)) {
         if (auto const RTV = FunctionState.getCurrentRuntimeValue(I)) {
           if (!RTV->assigned()) {
-            llvm::errs() << "Mapped llvm::Instruction not yet assigned.\n";
             return std::shared_ptr<Value const>();
           }
           
@@ -1994,20 +1973,16 @@ getValue(std::shared_ptr<ValueStore const> Store,
       }
       
       // TODO.
-      llvm::errs() << "Mapped complex values not supported.\n";
       return std::shared_ptr<Value const>();
     }
     
     case seec::seec_clang::MappedStmt::Type::RValAggregate:
     {
-      llvm::errs() << "Creating RValAggregate.\n";
-      
       // Extract the address of the in-memory object that this rval represents.
       auto const MaybeValue =
         seec::trace::getCurrentRuntimeValueAs<uintptr_t>
                                              (FunctionState, SMap.getValue());
       if (!MaybeValue.assigned()) {
-        llvm::errs() << "No address assigned.\n";
         return std::shared_ptr<Value const>();
       }
       
