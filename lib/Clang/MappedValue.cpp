@@ -1806,7 +1806,7 @@ class ValueStoreImpl {
   // The first stage is the in-memory address of the object.
   // The second stage is the canonical type of the object.
   mutable llvm::DenseMap<uintptr_t,
-                         llvm::DenseMap<::clang::Type const *,
+                         llvm::DenseMap< ::clang::Type const *,
                                         std::shared_ptr<Value const>>> Store;
   
   // Disable copying and moving.
