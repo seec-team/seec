@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// \file
+/// \file X-Macro for generating input, value, and linking information for
+///       explanations of Stmt nodes. The node types are ordered according to
+///       the order of Clang's StmtNodes.td.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -17,81 +19,74 @@
 
 #include "seec/Preprocessor/Quote.h"
 
-SEEC_STMT_LINK(BinaryOperator,
-  SEEC_PP_QUOTE(
-    ("opcode", String, getOpcode()),
-    ("type_general", GeneralTypeString, getType().getTypePtr())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_lhs", getLHS()),
-    ("rtv_of_rhs", getRHS())
-  ),
-  SEEC_PP_QUOTE(
-    ("lhs", getLHS()),
-    ("rhs", getRHS())
-  ))
 
-SEEC_STMT_LINK(CaseStmt,
-  SEEC_PP_QUOTE(
-    ("has_next_switch_case", Bool, getNextSwitchCase()),
-    ("has_sub_stmt",         Bool, getSubStmt()),
-    ("has_lhs",              Bool, getLHS()),
-    ("has_rhs",              Bool, getRHS())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_lhs", getLHS()),
-    ("rtv_of_rhs", getRHS())
-  ),
-  SEEC_PP_QUOTE(
-    ("next_switch_case", getNextSwitchCase()),
-    ("sub_stmt",         getSubStmt()),
-    ("lhs",              getLHS()),
-    ("rhs",              getRHS())
-  ))
+//===----------------------------------------------------------------------===//
+// Statements
+//===----------------------------------------------------------------------===//
 
-SEEC_STMT_LINK(CharacterLiteral,
-  SEEC_PP_QUOTE(
-    ("character_kind", String, getKind()),
-    ("type",           String, getType().getTypePtr())
-  ),
+SEEC_STMT_LINK(NullStmt,
+  SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_STMT_LINK(CompoundLiteralExpr,
-  SEEC_PP_QUOTE(
-    ("type", String, getType().getTypePtr())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_init", getInitializer())
-  ),
-  SEEC_PP_QUOTE(
-    ("init", getInitializer())
-  ))
+// TODO: CompoundStmt
 
-SEEC_STMT_LINK(CStyleCastExpr,
+SEEC_STMT_LINK(LabelStmt,
   SEEC_PP_QUOTE(
-    ("cast_kind_name",  String, getCastKindName()),
-    ("type",            String, getType().getTypePtr()),
-    ("type_as_written", String, getTypeAsWritten().getAsString())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_sub_expr", getSubExpr()),
-    ("rtv_of_sub_expr_as_written", getSubExprAsWritten())
-  ),
-  SEEC_PP_QUOTE(
-    ("sub_expr", getSubExpr()),
-    ("sub_expr_as_written", getSubExprAsWritten())
-  ))
-
-SEEC_STMT_LINK(DefaultStmt,
-  SEEC_PP_QUOTE(
-    ("has_next_switch_case", Bool, getNextSwitchCase()),
-    ("has_sub_stmt",         Bool, getSubStmt())
+    ("name",         String, getName()),
+    ("has_decl",     Bool,   getDecl()),
+    ("has_sub_stmt", Bool,   getSubStmt())
   ),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
-    ("next_switch_case", getNextSwitchCase()),
-    ("sub_stmt",         getSubStmt())
+    ("decl", getDecl()),
+    ("sub_stmt", getSubStmt())
+  ))
+
+// AttributedStmt is not handled.
+
+SEEC_STMT_LINK(IfStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable", Bool, getConditionVariable()),
+    ("has_else",               Bool, getElse())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
+    ("cond", getCond()),
+    ("then", getThen()),
+    ("else", getElse())
+  ))
+
+SEEC_STMT_LINK(SwitchStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable",    Bool, getConditionVariable()),
+    ("has_cond",                  Bool, getCond()),
+    ("has_body",                  Bool, getBody()),
+    ("is_all_enum_cases_covered", Bool, isAllEnumCasesCovered())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
+    ("cond", getCond()),
+    ("body", getBody())
+  ))
+
+SEEC_STMT_LINK(WhileStmt,
+  SEEC_PP_QUOTE(
+    ("has_condition_variable", Bool, getConditionVariable()),
+    ("has_cond",               Bool, getCond()),
+    ("has_body",               Bool, getBody())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_cond", getCond())
+  ),
+  SEEC_PP_QUOTE(
+    ("condition_variable", getConditionVariable()),
+    ("cond",               getCond()),
+    ("body",               getBody())
   ))
 
 SEEC_STMT_LINK(DoStmt,
@@ -131,19 +126,128 @@ SEEC_STMT_LINK(GotoStmt,
     ("label", getLabel())
   ))
 
-SEEC_STMT_LINK(IfStmt,
+// IndirectGotoStmt is not handled.
+
+// TODO: ContinueStmt
+
+// TODO: BreakStmt
+
+SEEC_STMT_LINK(ReturnStmt,
   SEEC_PP_QUOTE(
-    ("has_condition_variable", Bool, getConditionVariable()),
-    ("has_else",               Bool, getElse())
+    ("has_return_value", Bool, getRetValue())
   ),
   SEEC_PP_QUOTE(
-    ("rtv_of_cond", getCond())
+    ("rtv_of_return_value", getRetValue())
   ),
   SEEC_PP_QUOTE(
-    ("cond", getCond()),
-    ("then", getThen()),
-    ("else", getElse())
+    ("return_value", getRetValue())
   ))
+
+// DeclStmt is handled manually.
+
+// SwitchCase is handled by CaseStmt and DefaultStmt, below.
+
+SEEC_STMT_LINK(CaseStmt,
+  SEEC_PP_QUOTE(
+    ("has_next_switch_case", Bool, getNextSwitchCase()),
+    ("has_sub_stmt",         Bool, getSubStmt()),
+    ("has_lhs",              Bool, getLHS()),
+    ("has_rhs",              Bool, getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_lhs", getLHS()),
+    ("rtv_of_rhs", getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("next_switch_case", getNextSwitchCase()),
+    ("sub_stmt",         getSubStmt()),
+    ("lhs",              getLHS()),
+    ("rhs",              getRHS())
+  ))
+
+SEEC_STMT_LINK(DefaultStmt,
+  SEEC_PP_QUOTE(
+    ("has_next_switch_case", Bool, getNextSwitchCase()),
+    ("has_sub_stmt",         Bool, getSubStmt())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("next_switch_case", getNextSwitchCase()),
+    ("sub_stmt",         getSubStmt())
+  ))
+
+
+//===----------------------------------------------------------------------===//
+// Asm statements are not handled
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Obj-C statements are not handled
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// C++ statements are not handled
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Expressions
+//===----------------------------------------------------------------------===//
+
+// TODO: PredefinedExpr
+
+// DeclRefExpr is handled manually.
+
+// TODO: IntegerLiteral
+
+// TODO: FloatingLiteral
+
+// TODO: ImaginaryLiteral
+
+// TODO: StringLiteral
+
+SEEC_STMT_LINK(CharacterLiteral,
+  SEEC_PP_QUOTE(
+    ("character_kind", String, getKind()),
+    ("type",           String, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+// TODO: ParenExpr
+
+// TODO: UnaryOperator
+
+// TODO: OffsetOfExpr
+
+// TODO: UnaryExprOrTypeTraitExpr
+
+// ArraySubscriptExpr is handled manually.
+
+// CallExpr is handled manually.
+
+// TODO: MemberExpr.
+
+// CastExpr is handled by the derived expressions.
+
+SEEC_STMT_LINK(BinaryOperator,
+  SEEC_PP_QUOTE(
+    ("opcode", String, getOpcode()),
+    ("type_general", GeneralTypeString, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_lhs", getLHS()),
+    ("rtv_of_rhs", getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("lhs", getLHS()),
+    ("rhs", getRHS())
+  ))
+
+// TODO: CompoundAssignOperator
+
+// TODO: ConditionalOperator
+
+// TODO: BinaryConditionalOperator
 
 SEEC_STMT_LINK(ImplicitCastExpr,
   SEEC_PP_QUOTE(
@@ -159,62 +263,86 @@ SEEC_STMT_LINK(ImplicitCastExpr,
     ("sub_expr_as_written", getSubExprAsWritten())
   ))
 
-SEEC_STMT_LINK(LabelStmt,
+// ExplicitCastExpr is handled by the derived expressions.
+
+SEEC_STMT_LINK(CStyleCastExpr,
   SEEC_PP_QUOTE(
-    ("name",         String, getName()),
-    ("has_decl",     Bool,   getDecl()),
-    ("has_sub_stmt", Bool,   getSubStmt())
+    ("cast_kind_name",  String, getCastKindName()),
+    ("type",            String, getType().getTypePtr()),
+    ("type_as_written", String, getTypeAsWritten().getAsString())
   ),
-  SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
-    ("decl", getDecl()),
-    ("sub_stmt", getSubStmt())
+    ("rtv_of_sub_expr", getSubExpr()),
+    ("rtv_of_sub_expr_as_written", getSubExprAsWritten())
+  ),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr()),
+    ("sub_expr_as_written", getSubExprAsWritten())
   ))
 
-SEEC_STMT_LINK(NullStmt,
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE())
-
-SEEC_STMT_LINK(ReturnStmt,
+SEEC_STMT_LINK(CompoundLiteralExpr,
   SEEC_PP_QUOTE(
-    ("has_return_value", Bool, getRetValue())
+    ("type", String, getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
-    ("rtv_of_return_value", getRetValue())
+    ("rtv_of_init", getInitializer())
   ),
   SEEC_PP_QUOTE(
-    ("return_value", getRetValue())
+    ("init", getInitializer())
   ))
 
-SEEC_STMT_LINK(SwitchStmt,
-  SEEC_PP_QUOTE(
-    ("has_condition_variable",    Bool, getConditionVariable()),
-    ("has_cond",                  Bool, getCond()),
-    ("has_body",                  Bool, getBody()),
-    ("is_all_enum_cases_covered", Bool, isAllEnumCasesCovered())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_cond", getCond())
-  ),
-  SEEC_PP_QUOTE(
-    ("cond", getCond()),
-    ("body", getBody())
-  ))
+// ExtVectorElementExpr is not handled.
 
-SEEC_STMT_LINK(WhileStmt,
-  SEEC_PP_QUOTE(
-    ("has_condition_variable", Bool, getConditionVariable()),
-    ("has_cond",               Bool, getCond()),
-    ("has_body",               Bool, getBody())
-  ),
-  SEEC_PP_QUOTE(
-    ("rtv_of_cond", getCond())
-  ),
-  SEEC_PP_QUOTE(
-    ("condition_variable", getConditionVariable()),
-    ("cond",               getCond()),
-    ("body",               getBody())
-  ))
+// TODO: InitListExpr.
+
+// TODO: DesignatedInitExpr.
+
+// TODO: ImplicitValueInitExpr.
+
+// TODO: ParenListExpr.
+
+// TODO: VAArgExpr.
+
+// TODO: GenericSelectionExpr.
+
+// TODO: PseudoObjectExpr.
+
+
+//===----------------------------------------------------------------------===//
+// Atomic expressions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// GNU Extensions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// C++ Expressions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Obj-C Expressions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Obj-C ARC Expressions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// CUDA Expressions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Clang Extensions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Microsoft Extensions are not handled.
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// OpenCL Extensions are not handled.
+//===----------------------------------------------------------------------===//
+
 
 #undef SEEC_STMT_LINK
