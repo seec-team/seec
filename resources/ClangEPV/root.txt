@@ -126,26 +126,6 @@ root:table {
 
       " BO_Assign {This is the Assignment operator. It sets the value of the @[lhs]left hand side@[] to the value of the @[rhs]right hand side@[].}"
 
-      " BO_MulAssign {This is the “Multiplication Assignment” operator. It multiplies the value of the @[lhs]left hand side@[] with the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
-
-      " BO_DivAssign {This is the “Division Assignment” operator. It divides the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
-
-      " BO_RemAssign {This is the “Modulo Assignment” operator. It finds the remainder of dividing the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the value of the remainder to the @[lhs]left hand side@[].}"
-
-      " BO_AddAssign {This is the “Addition Assignment” operator. It adds the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
-
-      " BO_SubAssign {This is the “Subtraction Assignment” operator. It subtracts the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
-
-      " BO_ShlAssign {This is the “Bitwise Left Shift Assignment” operator.}"
-
-      " BO_ShrAssign {This is the “Bitwise Right Shift Assignment” operator.}"
-
-      " BO_AndAssign {This is the “Bitwise AND Assignment” operator.}"
-
-      " BO_XorAssign {This is the “Bitwise XOR Assignment” operator.}"
-
-      " BO_OrAssign {This is the “Bitwise OR Assignment” operator.}"
-
       " BO_Comma {This is the Comma operator. The Comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression and returns the result.}"
 
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
@@ -240,6 +220,44 @@ root:table {
       "{has_rtv_of_this, select, true { The value is “{rtv_of_this}”.} false {} other {}}"
     }
 
+    // CompoundAssignOperator description.
+    // Inputs:
+    //   opcode
+    //   type_general
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_lhs
+    //   [has_]rtv_of_rhs
+    // Outputs:
+    //   lhs
+    //   rhs
+    //
+    CompoundAssignOperator:string {
+      "{opcode, select,"
+
+      " BO_MulAssign {This is the “Multiplication Assignment” operator. It multiplies the value of the @[lhs]left hand side@[] with the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_DivAssign {This is the “Division Assignment” operator. It divides the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_RemAssign {This is the “Modulo Assignment” operator. It finds the remainder of dividing the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the value of the remainder to the @[lhs]left hand side@[].}"
+
+      " BO_AddAssign {This is the “Addition Assignment” operator. It adds the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_SubAssign {This is the “Subtraction Assignment” operator. It subtracts the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+
+      " BO_ShlAssign {This is the “Bitwise Left Shift Assignment” operator.}"
+
+      " BO_ShrAssign {This is the “Bitwise Right Shift Assignment” operator.}"
+
+      " BO_AndAssign {This is the “Bitwise AND Assignment” operator.}"
+
+      " BO_XorAssign {This is the “Bitwise XOR Assignment” operator.}"
+
+      " BO_OrAssign {This is the “Bitwise OR Assignment” operator.}"
+
+      " other {This is the compound assignment binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
+    }
+
     // CompoundLiteral description.
     // Inputs:
     //   type
@@ -256,9 +274,25 @@ root:table {
 
     // CompoundStmt description.
     // Inputs:
+    //   size
     // Outputs:
     //
-    CompoundStmt:string { "This is a compound statement. It consists of a group of statements. Each of these statements will be evaluated in order." }
+    CompoundStmt:string {
+      "This is a compound statement. It consists of a group of statements. Each of these statements will be evaluated in order."
+      " {size, plural, =0 {There are no statements in this compound statement's group.} =1 {There is one statement in this compound statement's group.} other {There are {size} statements in this compound statement's group.}}"
+    }
+
+    // ConditionalOperator description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //   cond
+    //   true_expr
+    //   false_expr
+    //
+    ConditionalOperator:string {
+      "This is a ternary conditional operation. The form of this operation is “@[cond]condition@[] ? @[true_expr]true-expression@[] : @[false_expr]false-expression@[]”. If the @[cond]condition@[] is considered to be true, then this operation returns the result of evaluating the @[true_expr]true-expression@[], otherwise it returns the result of evaluating the @[false_expr]false-expression.@[]"
+    }
 
     // ContinueStmt description.
     // Inputs:
@@ -342,6 +376,15 @@ root:table {
     //
     DoStmt:string { "This is a “do while” loop. It has a @[body]body@[] and a @[cond]condition@[]. Initially, the @[body]body@[] is evaluated. After the @[body]body@[] is evaluated, the @[cond]condition@[] is evaluated. If the result of the @[cond]condition@[] is considered to be true (non-zero), then execution transfers to the beginning of the loop: the @[body]body@[] is evaluated again, followed by the @[cond]condition@[]." }
 
+    // FloatingLiteral description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //
+    FloatingLiteral:string {
+      "This is a floating-point literal."
+    }
+
     // ForStmt description.
     // Inputs:
     //   has_init
@@ -402,6 +445,17 @@ root:table {
       "{has_else, select, true { This if statement has an else branch.} false { This if statement does not have an else branch.} other { Very sad.}}"
     }
 
+    // ImaginaryLiteral description.
+    // Inputs:
+    //   sub_expr_type_general
+    // Value inputs:
+    // Outputs:
+    //   sub_expr
+    //
+    ImaginaryLiteral:string {
+      "This is an imaginary {sub_expr_type_general} literal."
+    }
+
     // ImplicitCastExpr description.
     // Inputs:
     //   cast_kind_name
@@ -420,6 +474,15 @@ root:table {
        "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
     }
 
+    // IntegerLiteral description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //
+    IntegerLiteral:string {
+      "This is an integer literal."
+    }
+
     // LabelStmt description.
     // Inputs:
     //   name
@@ -434,12 +497,56 @@ root:table {
       "This is a label statement. It declares a label with the name “{name}”, which is followed by a @[sub_stmt]sub-statement@[]."
     }
 
+    // MemberExpr description.
+    // Inputs:
+    //   member_decl_name
+    //   is_arrow
+    // Value inputs:
+    // Outputs:
+    //   base
+    //   member_decl
+    //
+    MemberExpr:string {
+      "{is_arrow, select"
+      " true {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that is pointed to by the pointer that precedes the arrow.}"
+      " false {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that precedes the dot.}"
+      " other {}}"
+    }
+
     // NullStmt description.
     // Inputs:
     // Value inputs:
     // Outputs:
     //
     NullStmt:string { "This is a null statement. It does nothing at execution time. When a statement is required to appear, a null statement can be used to indicate that no operations should occur. For example, it may be used to indicate that a for loop should perform no initialization." }
+
+    // OffsetOfExpr description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //
+    OffsetOfExpr:string {
+      "This is an offsetof expression. It finds the offset of the specified member (the second parameter) in the given struct type (the first parameter)."
+    }
+
+    // ParenExpr description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //   sub_expr
+    //
+    ParenExpr:string {
+      "This is a parenthesized expression. It wraps the contained @[sub_expr]sub-expression@[]. This can be used, for example, to ensure that mathematical operators are associated with the intended operands."
+    }
+
+    // PredefinedExpr description.
+    // Inputs:
+    // Value inputs:
+    // Outputs:
+    //
+    PredefinedExpr:string {
+      "This is a predefined identifier."
+    }
 
     // ReturnStmt description.
     // Inputs:
@@ -458,6 +565,27 @@ root:table {
       "{has_rtv_of_return_value, select, true { This return statement is returning the value “{rtv_of_return_value}”. } other {}}"
     }
 
+    // StringLiteral description.
+    // Inputs:
+    //   string
+    //   byte_length
+    //   length
+    //   char_byte_width
+    //   string_kind
+    //   num_concatenated
+    // Value inputs:
+    // Outputs:
+    //
+    StringLiteral:string {
+      "{string_kind, select,"
+       " ASCII {This is an ASCII string literal.}"
+       " Wide {This is a wide string literal.}"
+       " UTF-8 {This is a UTF-8 (Unicode) string literal.}"
+       " UTF-16 {This is a UTF-16 (Unicode) string literal.}"
+       " UTF-32 {This is a UTF-32 (Unicode) string literal.}}"
+      "{num_concatenated, plural, =0 {} =1 {} other { This string literal was concatenated from {num_concatenated} individual string literals.}}"
+    }
+
     // SwitchStmt description
     // Inputs:
     //   has_condition_variable
@@ -474,6 +602,64 @@ root:table {
       "This is a switch statement. It has a @[cond]condition expression@[] and a @[body]body@[]. The body contains case statements, optionally including a “default” statement. If the value produced by the @[cond]condition expression@[] matches the value of one of the case statements, then execution will jump to that case statement. If the value does not match any case statement, but there is a default statement, then execution will jump to the default statement. Otherwise, execution will jump to the end of the @[body]body@[] (i.e. it will proceed from the first point immediately following the switch statement)."
     }
 
+    // UnaryExprOrTypeTraitExpr description
+    // Inputs:
+    //   kind
+    //   is_argument_type
+    //   argument_type
+    // Value inputs:
+    // Outputs:
+    //   argument_expr
+    //
+    UnaryExprOrTypeTraitExpr:string {
+      "{kind, select,"
+      " UETT_SizeOf {"
+        "{is_argument_type, select,"
+        " true {This is a sizeof operation, being used on the type {argument_type}. This operation returns the size of the type, which is the number of bytes needed to store one object of this type.}"
+        " false {This is a sizeof operation, being used on an @[argument_expr]expression@[], which has type {argument_type}. This operation returns the size of the type, which is the number of bytes needed to store one object of this type.}"
+        " other{}}"
+      " UETT_AlignOf {}"
+        "{is_argument_type, select,"
+        " true {This is the alignof operation, being used on the type {argument_type}.}"
+        " false {This is the alignof operation, being used on an @[argument_expr]expression@[], which has type {argument_type}.}"
+        " other{}}"
+      " UETT_VecStep {This is vec_step, used in OpenCL.}"
+      " other {This is a unary expression or type trait expression with an unknown kind: {kind}.}}"
+    }
+
+    // UnaryOperator description
+    // Inputs:
+    //   opcode
+    //   is_prefix
+    //   is_postfix
+    //   is_increment_op
+    //   is_decrement_op
+    //   is_increment_decrement_op
+    //   is_arithmetic_op
+    // Value inputs:
+    //   [has_]rtv_of_this
+    //   [has_]rtv_of_sub_expr
+    // Outputs:
+    //   sub_expr
+    //
+    UnaryOperator:string {
+      "{opcode, select,"
+      " UO_PostInc {This is a post-increment operation. It returns the current value of the object referenced by the @[sub_expr]sub-expression@[], and increments (adds 1 to) the value that is stored in that object.}"
+      " UO_PostDec {This is a post-decrement operation. It returns the current value of the object referenced by the @[sub_expr]sub-expression@[], and decrements (subtracts 1 from) the value that is stored in that object.}"
+      " UO_PreInc {This is a pre-increment operation. It increments (adds 1 to) the value that is stored in the object referenced by the @[sub_expr]sub-expression@[], and returns the new value.}"
+      " UO_PreDec {This is a pre-decrement operation. It decrements (subtracts 1 from) the value that is stored in the object referenced by the @[sub_expr]sub-expression@[], and returns the new value.}"
+      " UO_AddrOf {This is an address-of operation. It takes the address of the object that is referenced by the @[sub_expr]sub-expression@[], producing a pointer to that object.}"
+      " UO_Deref {This is a dereference operation. It returns the object that is at the address that is referenced by the pointer-type @[sub_expr]sub-expression@[].}"
+      " UO_Plus {This is a unary plus operation.}"
+      " UO_Minus {This is a unary minus operation, which returns the additive inverse of the value produced by the @[sub_expr]sub-expression@[] (i.e. the value of the @[sub_expr]sub-expression@[] subtracted from zero).}"
+      " UO_Not {This is a bitwise NOT, or complement, operation. It inverts the value of each individual bit in the value produced by the @[sub_expr]sub-expression@[].}"
+      " UO_LNot {This is a logical negation (NOT) operation. If the value of the @[sub_expr]sub-expression@[] is considered to be true, then this operation returns a false value. If the value of the @[sub_expr]sub-expression@[] is considered to be false, then this operation returns a true value.}"
+      " UO_Real {This operation returns the real part of a complex number.}"
+      " UO_Imag {This operation returns the imaginary part of a complex number.}"
+      " UO_Extension {This is the extension marker.}"
+      " other {This is an unknown unary operator.}}"
+    }
+
     // WhileStmt description
     // Inputs:
     //   has_condition_variable
@@ -488,7 +674,7 @@ root:table {
     //
     WhileStmt:string {
       "This is a while loop. It has a @[cond]condition expression@[] and a @[body]body@[]. At the beginning of the loop, the @[cond]condition expression@[] is evaluated."
-      "{select, has_rtv_of_cond, true { In this case it has evaluated to {rtv_of_cond}.} false {} other {}}"
+      "{has_rtv_of_cond, select, true { In this case it has evaluated to {rtv_of_cond}.} false {} other {}}"
       " If this value is considered to be true (i.e. it is not zero), then the loop's @[body]body@[] will be evaluated. If the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is complete. Evaluation will return to the beginning of the loop, starting with the @[cond]condition expression@[]. If the value produced by the @[cond]condition expression@[] is considered to be false, then the loop is complete and execution proceeds to the first point following the end of the @[body]body@[]."
     }
   }

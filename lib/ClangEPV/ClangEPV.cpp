@@ -16,6 +16,7 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Preprocessor/Apply.h"
+#include "seec/Util/FixedWidthIntTypes.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -53,6 +54,10 @@ Formattable formatAsBool(T &&Value) {
 Formattable formatAsInt(int32_t Value) { return Formattable(Value); }
 
 Formattable formatAsInt(int64_t Value) { return Formattable(Value); }
+
+Formattable formatAsInt(unsigned Value) {
+  return formatAsInt(int64_t(Value));
+}
 
 Formattable formatAsString(llvm::StringRef String) {
   return Formattable(UnicodeString::fromUTF8(String.str()));
@@ -99,7 +104,50 @@ SEEC_OPCODE_STRINGIZE(BO_Comma)
 #undef SEEC_OPCODE_STRINGIZE
   }
 
-  return formatAsString("<unknown opcode>");
+  llvm_unreachable("unknown BinaryOperatorKind");
+  return formatAsString("<unknown BinaryOperatorKind>");
+}
+
+Formattable formatAsString(::clang::UnaryOperatorKind Opcode) {
+  switch (Opcode) {
+#define SEEC_OPCODE_STRINGIZE(CODE) \
+    case ::clang::UnaryOperatorKind::CODE: return #CODE;
+
+SEEC_OPCODE_STRINGIZE(UO_PostInc)
+SEEC_OPCODE_STRINGIZE(UO_PostDec)
+SEEC_OPCODE_STRINGIZE(UO_PreInc)
+SEEC_OPCODE_STRINGIZE(UO_PreDec)
+SEEC_OPCODE_STRINGIZE(UO_AddrOf)
+SEEC_OPCODE_STRINGIZE(UO_Deref)
+SEEC_OPCODE_STRINGIZE(UO_Plus)
+SEEC_OPCODE_STRINGIZE(UO_Minus)
+SEEC_OPCODE_STRINGIZE(UO_Not)
+SEEC_OPCODE_STRINGIZE(UO_LNot)
+SEEC_OPCODE_STRINGIZE(UO_Real)
+SEEC_OPCODE_STRINGIZE(UO_Imag)
+SEEC_OPCODE_STRINGIZE(UO_Extension)
+
+#undef SEEC_OPCODE_STRINGIZE
+  }
+  
+  llvm_unreachable("unknown UnaryOperatorKind");
+  return formatAsString("<unknown UnaryOperatorKind>");
+}
+
+Formattable formatAsString(::clang::UnaryExprOrTypeTrait Kind) {
+  switch (Kind) {
+#define SEEC_KIND_STRINGIZE(MEMBER) \
+    case ::clang::UnaryExprOrTypeTrait::MEMBER: return #MEMBER;
+
+SEEC_KIND_STRINGIZE(UETT_SizeOf)
+SEEC_KIND_STRINGIZE(UETT_AlignOf)
+SEEC_KIND_STRINGIZE(UETT_VecStep)
+
+#undef SEEC_KIND_STRINGIZE
+  }
+  
+  llvm_unreachable("unknown UnaryExprOrTypeTrait");
+  return formatAsString("<unknown UnaryExprOrTypeTrait>");
 }
 
 Formattable formatAsString(::clang::Type const *T) {
@@ -120,6 +168,24 @@ Formattable formatAsString(::clang::CharacterLiteral::CharacterKind Kind) {
   
   llvm_unreachable("unknown CharacterKind");
   return formatAsString("<unknown CharacterKind>");
+}
+
+Formattable formatAsString(::clang::StringLiteral::StringKind Kind) {
+  switch (Kind) {
+    case ::clang::StringLiteral::StringKind::Ascii:
+      return formatAsString("ASCII");
+    case ::clang::StringLiteral::StringKind::Wide:
+      return formatAsString("Wide");
+    case ::clang::StringLiteral::StringKind::UTF8:
+      return formatAsString("UTF-8");
+    case ::clang::StringLiteral::StringKind::UTF16:
+      return formatAsString("UTF-16");
+    case ::clang::StringLiteral::StringKind::UTF32:
+      return formatAsString("UTF-32");
+  }
+  
+  llvm_unreachable("unknown StringKind");
+  return formatAsString("<unknown StringKind>");
 }
 
 Formattable formatAsGeneralTypeString(::clang::Type const *T) {

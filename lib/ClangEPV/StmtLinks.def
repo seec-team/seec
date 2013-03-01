@@ -29,7 +29,12 @@ SEEC_STMT_LINK(NullStmt,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-// TODO: CompoundStmt
+SEEC_STMT_LINK(CompoundStmt,
+  SEEC_PP_QUOTE(
+    ("size", Int, size())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 SEEC_STMT_LINK(LabelStmt,
   SEEC_PP_QUOTE(
@@ -128,9 +133,15 @@ SEEC_STMT_LINK(GotoStmt,
 
 // IndirectGotoStmt is not handled.
 
-// TODO: ContinueStmt
+SEEC_STMT_LINK(ContinueStmt,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
-// TODO: BreakStmt
+SEEC_STMT_LINK(BreakStmt,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 SEEC_STMT_LINK(ReturnStmt,
   SEEC_PP_QUOTE(
@@ -193,17 +204,45 @@ SEEC_STMT_LINK(DefaultStmt,
 // Expressions
 //===----------------------------------------------------------------------===//
 
-// TODO: PredefinedExpr
+SEEC_STMT_LINK(PredefinedExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // DeclRefExpr is handled manually.
 
-// TODO: IntegerLiteral
+SEEC_STMT_LINK(IntegerLiteral,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
-// TODO: FloatingLiteral
+SEEC_STMT_LINK(FloatingLiteral,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
-// TODO: ImaginaryLiteral
+SEEC_STMT_LINK(ImaginaryLiteral,
+  SEEC_PP_QUOTE(
+    ("sub_expr_type_general",
+     GeneralTypeString,
+     getSubExpr()->getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr())
+  ))
 
-// TODO: StringLiteral
+SEEC_STMT_LINK(StringLiteral,
+  SEEC_PP_QUOTE(
+    ("string",           String, getString()),
+    ("byte_length",      Int,    getByteLength()),
+    ("length",           Int,    getLength()),
+    ("char_byte_width",  Int,    getCharByteWidth()),
+    ("string_kind",      String, getKind()),
+    ("num_concatenated", Int,    getNumConcatenated())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 SEEC_STMT_LINK(CharacterLiteral,
   SEEC_PP_QUOTE(
@@ -213,25 +252,66 @@ SEEC_STMT_LINK(CharacterLiteral,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-// TODO: ParenExpr
+SEEC_STMT_LINK(ParenExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr())
+  ))
 
-// TODO: UnaryOperator
+SEEC_STMT_LINK(UnaryOperator,
+  SEEC_PP_QUOTE(
+    ("opcode", String, getOpcode()),
+    ("is_prefix", Bool, isPrefix()),
+    ("is_postfix", Bool, isPostfix()),
+    ("is_increment_op", Bool, isIncrementOp()),
+    ("is_decrement_op", Bool, isDecrementOp()),
+    ("is_increment_decrement_op", Bool, isIncrementDecrementOp()),
+    ("is_arithmetic_op", Bool, isArithmeticOp())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_sub_expr", getSubExpr())
+  ),
+  SEEC_PP_QUOTE(
+    ("sub_expr", getSubExpr())
+  ))
 
-// TODO: OffsetOfExpr
+SEEC_STMT_LINK(OffsetOfExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
-// TODO: UnaryExprOrTypeTraitExpr
+SEEC_STMT_LINK(UnaryExprOrTypeTraitExpr,
+  SEEC_PP_QUOTE(
+    ("kind",             String, getKind()),
+    ("is_argument_type", Bool,   isArgumentType()),
+    ("argument_type",    String, getTypeOfArgument().getAsString())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("argument_expr", getArgumentExpr())
+  ))
 
 // ArraySubscriptExpr is handled manually.
 
 // CallExpr is handled manually.
 
-// TODO: MemberExpr.
+SEEC_STMT_LINK(MemberExpr,
+  SEEC_PP_QUOTE(
+    ("member_decl_name", String, getMemberDecl()->getName()),
+    ("is_arrow",         Bool,   isArrow())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("base",        getBase()),
+    ("member_decl", getMemberDecl())
+  ))
 
 // CastExpr is handled by the derived expressions.
 
 SEEC_STMT_LINK(BinaryOperator,
   SEEC_PP_QUOTE(
-    ("opcode", String, getOpcode()),
+    ("opcode",       String,            getOpcode()),
     ("type_general", GeneralTypeString, getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
@@ -243,11 +323,34 @@ SEEC_STMT_LINK(BinaryOperator,
     ("rhs", getRHS())
   ))
 
-// TODO: CompoundAssignOperator
+SEEC_STMT_LINK(CompoundAssignOperator,
+  SEEC_PP_QUOTE(
+    ("opcode",       String,            getOpcode()),
+    ("type_general", GeneralTypeString, getType().getTypePtr())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_lhs", getLHS()),
+    ("rtv_of_rhs", getRHS())
+  ),
+  SEEC_PP_QUOTE(
+    ("lhs", getLHS()),
+    ("rhs", getRHS())
+  ))
 
-// TODO: ConditionalOperator
+SEEC_STMT_LINK(ConditionalOperator,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("cond",       getCond()),
+    ("true_expr",  getTrueExpr()),
+    ("false_expr", getFalseExpr())
+  ))
 
 // TODO: BinaryConditionalOperator
+SEEC_STMT_LINK(BinaryConditionalOperator,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 SEEC_STMT_LINK(ImplicitCastExpr,
   SEEC_PP_QUOTE(
@@ -294,18 +397,46 @@ SEEC_STMT_LINK(CompoundLiteralExpr,
 // ExtVectorElementExpr is not handled.
 
 // TODO: InitListExpr.
+SEEC_STMT_LINK(InitListExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: DesignatedInitExpr.
+SEEC_STMT_LINK(DesignatedInitExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: ImplicitValueInitExpr.
+SEEC_STMT_LINK(ImplicitValueInitExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: ParenListExpr.
+SEEC_STMT_LINK(ParenListExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: VAArgExpr.
+SEEC_STMT_LINK(VAArgExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: GenericSelectionExpr.
+SEEC_STMT_LINK(GenericSelectionExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 // TODO: PseudoObjectExpr.
+SEEC_STMT_LINK(PseudoObjectExpr,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
 
 
 //===----------------------------------------------------------------------===//
