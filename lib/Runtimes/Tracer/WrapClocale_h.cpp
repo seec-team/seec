@@ -65,9 +65,9 @@ class ResultStateRecorderForStaticInternalLConv {
     auto const Address = reinterpret_cast<uintptr_t>(String);
     auto const Length = std::strlen(String) + 1;
     
-    ProcessListener.removeKnownMemoryRegion(Address);
-    ProcessListener.addKnownMemoryRegion(Address, Length,
-                                         seec::MemoryPermission::ReadOnly);
+    ThreadListener.removeKnownMemoryRegion(Address);
+    ThreadListener.addKnownMemoryRegion(Address, Length,
+                                        seec::MemoryPermission::ReadOnly);
     ThreadListener.recordUntypedState(String, Length);
   }
   
@@ -85,9 +85,9 @@ public:
     auto const Address = reinterpret_cast<uintptr_t>(Value);
     auto const Ptr = reinterpret_cast<char const *>(Value);
     
-    ProcessListener.removeKnownMemoryRegion(Address);
-    ProcessListener.addKnownMemoryRegion(Address, sizeof(*Value),
-                                         seec::MemoryPermission::ReadOnly);
+    ThreadListener.removeKnownMemoryRegion(Address);
+    ThreadListener.addKnownMemoryRegion(Address, sizeof(*Value),
+                                        seec::MemoryPermission::ReadOnly);
     ThreadListener.recordUntypedState(Ptr, sizeof(*Value));
     
     // Record knowledge of all strings pointed to by the struct's members.

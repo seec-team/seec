@@ -14,6 +14,7 @@
 #ifndef SEEC_TRACE_PROCESSSTATE_HPP
 #define SEEC_TRACE_PROCESSSTATE_HPP
 
+#include "seec/DSA/IntervalMapVector.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
@@ -186,6 +187,9 @@ private:
 
   /// Current state of memory.
   MemoryState Memory;
+  
+  /// Known, but unowned, regions of memory.
+  IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
 
   /// @} (Variable data.)
 
@@ -263,6 +267,25 @@ public:
   /// \brief Get the memory state.
   ///
   decltype(Memory) const &getMemory() const { return Memory; }
+  
+  /// \brief Add a region of known memory.
+  ///
+  void addKnownMemory(uintptr_t Address,
+                      std::size_t Length,
+                      MemoryPermission Access)
+  {
+    KnownMemory.insert(Address, Address + (Length - 1), Access);
+  }
+  
+  /// \brief Remove the region of known memory at the given address.
+  ///
+  bool removeKnownMemory(uintptr_t Address) {
+    return (KnownMemory.erase(Address) != 0);
+  }
+  
+  /// \brief Get the regions of known memory.
+  ///
+  decltype(KnownMemory) const &getKnownMemory() const { return KnownMemory; }
   
   /// \brief Find the allocated range that owns an address.
   ///

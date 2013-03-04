@@ -530,10 +530,10 @@ public:
     auto const Length = std::strlen(Ptr) + 1;
     
     // Remove existing knowledge of the area.
-    ProcessListener.removeKnownMemoryRegion(Address);
+    ThreadListener.removeKnownMemoryRegion(Address);
 
     // Set knowledge of the new string area.
-    ProcessListener.addKnownMemoryRegion(Address, Length, Access);
+    ThreadListener.addKnownMemoryRegion(Address, Length, Access);
     
     // Update memory state.
     ThreadListener.recordUntypedState(Ptr, Length);
@@ -561,10 +561,10 @@ public:
     auto const Length = sizeof(*Value);
     
     // Remove existing knowledge of the area.
-    ProcessListener.removeKnownMemoryRegion(Address);
+    ThreadListener.removeKnownMemoryRegion(Address);
     
     // Set knowledge of the new string area.
-    ProcessListener.addKnownMemoryRegion(Address, Length, Access);
+    ThreadListener.addKnownMemoryRegion(Address, Length, Access);
     
     // Update memory state.
     ThreadListener.recordUntypedState(Ptr, Length);

@@ -214,6 +214,8 @@ class ThreadState {
   void addEvent(EventRecord<EventType::StateUntyped> const &);
   void addEvent(EventRecord<EventType::StateMemmove> const &);
   void addEvent(EventRecord<EventType::StateClear> const &);
+  void addEvent(EventRecord<EventType::KnownRegionAdd> const &);
+  void addEvent(EventRecord<EventType::KnownRegionRemove> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
   /// Swallows unmatched calls to addEvent. This allows us to restrict calls to
@@ -258,6 +260,8 @@ private:
   void removeEvent(
     EventRecord<EventType::StateOverwriteFragmentTrimmedLeft> const &);
   void removeEvent(EventRecord<EventType::StateOverwriteFragmentSplit> const &);
+  void removeEvent(EventRecord<EventType::KnownRegionAdd> const &);
+  void removeEvent(EventRecord<EventType::KnownRegionRemove> const &);
   void removeEvent(EventRecord<EventType::RuntimeError> const &);
 
   /// Swallows unmatched calls to removeEvent. This allows us to restrict calls

@@ -1472,7 +1472,6 @@ SEEC_MANGLE_FUNCTION(tmpnam)
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
-  auto &ProcessListener = getProcessEnvironment().getProcessListener();
   auto Instruction = ThreadEnv.getInstruction();
   auto InstructionIndex = ThreadEnv.getInstructionIndex();
   
@@ -1512,14 +1511,14 @@ SEEC_MANGLE_FUNCTION(tmpnam)
     auto Address = reinterpret_cast<uintptr_t>(Result);
     
     // Remove knowledge of the existing getenv string at this position (if any).
-    ProcessListener.removeKnownMemoryRegion(Address);
+    Listener.removeKnownMemoryRegion(Address);
   
     // TODO: Delete any existing memory states at this address.
   
     // Set knowledge of the new string area.
-    ProcessListener.addKnownMemoryRegion(Address,
-                                         Length,
-                                         seec::MemoryPermission::ReadOnly);
+    Listener.addKnownMemoryRegion(Address,
+                                  Length,
+                                  seec::MemoryPermission::ReadOnly);
     
     // Record the write to the new string area.
     Listener.recordUntypedState(Result, Length);

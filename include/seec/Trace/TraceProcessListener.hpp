@@ -389,6 +389,10 @@ public:
   bool removeKnownMemoryRegion(uintptr_t Address) {
     return KnownMemory.erase(Address) != 0;
   }
+  
+  /// \brief Get const access to the known memory regions.
+  ///
+  decltype(KnownMemory) const &getKnownMemory() const { return KnownMemory; }
 
   /// @}
 

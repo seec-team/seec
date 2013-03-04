@@ -98,36 +98,44 @@ public:
   /// Equality operator.
   /// \param RHS an iterator.
   /// \return true iff this and RHS point to the same element.
-  bool operator== (IntervalMapVectorIterator const &RHS) {
+  bool operator== (IntervalMapVectorIterator const &RHS) const {
     return It == RHS.It;
   }
 
   /// Less-than operator.
   /// \param RHS an iterator.
   /// \return true iff this points to an earlier element than RHS.
-  bool operator<(IntervalMapVectorIterator const &RHS) { return It < RHS.It; }
+  bool operator<(IntervalMapVectorIterator const &RHS) const {
+    return It < RHS.It;
+  }
 
   /// Greater-than operator.
   /// \param RHS an iterator.
   /// \return true iff this points to a later element than RHS.
-  bool operator>(IntervalMapVectorIterator const &RHS) { return It > RHS.It; }
+  bool operator>(IntervalMapVectorIterator const &RHS) const {
+    return It > RHS.It;
+  }
 
   /// Less-than-or-equal operator.
   /// \param RHS an iterator.
   /// \return true iff this points to an earlier element than, or the same
   /// element as, RHS.
-  bool operator<=(IntervalMapVectorIterator const &RHS) { return It <= RHS.It; }
+  bool operator<=(IntervalMapVectorIterator const &RHS) const {
+    return It <= RHS.It;
+  }
 
   /// Greater-than-or-equal operator.
   /// \param RHS an iterator.
   /// \return true iff this points to a later element than, or the same element
   /// as, RHS.
-  bool operator>=(IntervalMapVectorIterator const &RHS) { return It >= RHS.It; }
+  bool operator>=(IntervalMapVectorIterator const &RHS) const {
+    return It >= RHS.It;
+  }
 
   /// Inequality operator.
   /// \param RHS an iterator.
   /// \return true iff this and RHS do not point to the same element.
-  bool operator!= (IntervalMapVectorIterator const &RHS) {
+  bool operator!= (IntervalMapVectorIterator const &RHS) const {
     return It != RHS.It;
   }
 
@@ -280,28 +288,28 @@ public:
   /// Equality operator.
   /// \param RHS an iterator.
   /// \return true iff this and RHS point to the same element.
-  bool operator== (IntervalMapVectorConstIterator const &RHS) {
+  bool operator== (IntervalMapVectorConstIterator const &RHS) const {
     return It == RHS.It;
   }
   
   /// Equality operator.
   /// \param RHS an iterator.
   /// \return true iff this and RHS point to the same element.
-  bool operator== (non_const_iterator const &RHS) {
+  bool operator== (non_const_iterator const &RHS) const {
     return It == RHS.It;
   }
 
   /// Less-than operator.
   /// \param RHS an iterator.
   /// \return true iff this points to an earlier element than RHS.
-  bool operator<(IntervalMapVectorConstIterator const &RHS) {
+  bool operator<(IntervalMapVectorConstIterator const &RHS) const {
     return It < RHS.It;
   }
 
   /// Greater-than operator.
   /// \param RHS an iterator.
   /// \return true iff this points to a later element than RHS.
-  bool operator>(IntervalMapVectorConstIterator const &RHS) {
+  bool operator>(IntervalMapVectorConstIterator const &RHS) const {
     return It > RHS.It;
   }
 
@@ -309,7 +317,7 @@ public:
   /// \param RHS an iterator.
   /// \return true iff this points to an earlier element than, or the same
   /// element as, RHS.
-  bool operator<=(IntervalMapVectorConstIterator const &RHS) {
+  bool operator<=(IntervalMapVectorConstIterator const &RHS) const {
     return It <= RHS.It;
   }
 
@@ -317,14 +325,14 @@ public:
   /// \param RHS an iterator.
   /// \return true iff this points to a later element than, or the same element
   /// as, RHS.
-  bool operator>=(IntervalMapVectorConstIterator const &RHS) {
+  bool operator>=(IntervalMapVectorConstIterator const &RHS) const {
     return It >= RHS.It;
   }
 
   /// Inequality operator.
   /// \param RHS an iterator.
   /// \return true iff this and RHS do not point to the same element.
-  bool operator!= (IntervalMapVectorConstIterator const &RHS) {
+  bool operator!= (IntervalMapVectorConstIterator const &RHS) const {
     return It != RHS.It;
   }
 

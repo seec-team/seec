@@ -176,9 +176,8 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // Make the pointer array read/write.
   auto TableAddress = reinterpret_cast<uintptr_t>(ArgV);
   auto TableSize = sizeof(char *[ArgC + 1]);
-  ProcessListener.addKnownMemoryRegion(TableAddress,
-                                       TableSize,
-                                       MemoryPermission::ReadWrite);
+  
+  addKnownMemoryRegion(TableAddress, TableSize, MemoryPermission::ReadWrite);
   
   // Set the state of the pointer array.
   recordUntypedState(reinterpret_cast<char const *>(ArgV), TableSize);
@@ -188,9 +187,10 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
     // Make the string read/write.
     auto StringAddress = reinterpret_cast<uintptr_t>(ArgV[i]);
     auto StringSize = strlen(ArgV[i]) + 1;
-    ProcessListener.addKnownMemoryRegion(StringAddress,
-                                         StringSize,
-                                         MemoryPermission::ReadWrite);
+    
+    addKnownMemoryRegion(StringAddress,
+                         StringSize,
+                         MemoryPermission::ReadWrite);
     
     // Set the state of the string.
     recordUntypedState(ArgV[i], StringSize);
@@ -214,9 +214,10 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   // Make the pointer array readable.
   auto TableAddress = reinterpret_cast<uintptr_t>(EnvP);
   auto TableSize = sizeof(char *[Count]);
-  ProcessListener.addKnownMemoryRegion(TableAddress,
-                                       TableSize,
-                                       MemoryPermission::ReadOnly);
+  
+  addKnownMemoryRegion(TableAddress,
+                       TableSize,
+                       MemoryPermission::ReadOnly);
   
   // Set the state of the pointer array.
   recordUntypedState(reinterpret_cast<char const *>(EnvP), TableSize);
@@ -227,9 +228,10 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
     // Make the string readable.
     auto StringAddress = reinterpret_cast<uintptr_t>(EnvP[i]);
     auto StringSize = strlen(EnvP[i]) + 1;
-    ProcessListener.addKnownMemoryRegion(StringAddress,
-                                         StringSize,
-                                         MemoryPermission::ReadOnly);
+    
+    addKnownMemoryRegion(StringAddress,
+                         StringSize,
+                         MemoryPermission::ReadOnly);
     
     // Set the state of the string.
     recordUntypedState(EnvP[i], StringSize);

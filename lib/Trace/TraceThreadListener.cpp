@@ -244,6 +244,55 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   }
 }
 
+void TraceThreadListener::addKnownMemoryRegion(uintptr_t Address,
+                                               std::size_t Length,
+                                               seec::MemoryPermission Access)
+{
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+  
+  ProcessListener.addKnownMemoryRegion(Address, Length, Access);
+  
+  auto const Readable = (Access == seec::MemoryPermission::ReadOnly) ||
+                        (Access == seec::MemoryPermission::ReadWrite);
+  
+  auto const Writable = (Access == seec::MemoryPermission::WriteOnly) ||
+                        (Access == seec::MemoryPermission::ReadWrite);
+  
+  EventsOut.write<EventType::KnownRegionAdd>
+                 (Address, Length, Readable, Writable);
+}
+
+bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
+{
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+  
+  auto const &KnownMemory = ProcessListener.getKnownMemory();
+  auto const It = KnownMemory.find(Address);
+  
+  if (It == KnownMemory.end())
+    return false;
+  
+  auto const KeyAddress = It->Begin;
+  auto const Length = (It->End - It->Begin) + 1; // Range is inclusive.
+  auto const Access = It->Value;
+  
+  auto const Result = ProcessListener.removeKnownMemoryRegion(Address);
+  
+  if (!Result)
+    return false;
+  
+  auto const Readable = (Access == seec::MemoryPermission::ReadOnly) ||
+                        (Access == seec::MemoryPermission::ReadWrite);
+  
+  auto const Writable = (Access == seec::MemoryPermission::WriteOnly) ||
+                        (Access == seec::MemoryPermission::ReadWrite);
+  
+  EventsOut.write<EventType::KnownRegionRemove>
+                 (KeyAddress, Length, Readable, Writable);
+  
+  return Result;
+}
+
 
 //------------------------------------------------------------------------------
 // Trace writing control.

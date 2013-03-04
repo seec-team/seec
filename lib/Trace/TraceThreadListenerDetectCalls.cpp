@@ -1053,14 +1053,12 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   
   // Remove knowledge of the existing getenv string at this position (if any).
-  ProcessListener.removeKnownMemoryRegion(Address);
+  removeKnownMemoryRegion(Address);
   
   // TODO: Delete any existing memory states at this address.
   
   // Set knowledge of the new string area.
-  ProcessListener.addKnownMemoryRegion(Address,
-                                       Length,
-                                       MemoryPermission::ReadOnly);
+  addKnownMemoryRegion(Address, Length, MemoryPermission::ReadOnly);
   
   // Set the new string at this address.
   recordUntypedState(Str, Length);
@@ -1414,14 +1412,12 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   
   // Remove knowledge of the existing strerror string (if any).
-  ProcessListener.removeKnownMemoryRegion(Address);
+  removeKnownMemoryRegion(Address);
   
   // TODO: Delete any existing memory states at this address.
   
   // Set knowledge of the new string area.
-  ProcessListener.addKnownMemoryRegion(Address,
-                                       Length,
-                                       MemoryPermission::ReadOnly);
+  addKnownMemoryRegion(Address, Length, MemoryPermission::ReadOnly);
   
   // Set the new string at this address.
   recordUntypedState(Str, Length);

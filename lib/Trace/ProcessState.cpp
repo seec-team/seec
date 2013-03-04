@@ -37,7 +37,8 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   ProcessTime(0),
   ThreadStates(Trace->getNumThreads()),
   Mallocs(),
-  Memory()
+  Memory(),
+  KnownMemory()
 {
   // Setup initial memory state for global variables.
   for (std::size_t i = 0; i < Module->getGlobalCount(); ++i) {
@@ -89,8 +90,7 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
     }
   }
 
-#if 0  
-  // TODO: Check readable/writable regions.
+  // Check known readable/writable regions.
   {
     auto KnownIt = KnownMemory.find(Address);
     if (KnownIt != KnownMemory.end()) {
@@ -101,8 +101,7 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
                                                       KnownIt->Value));
     }
   }
-#endif
-    
+  
   // Check other threads.
   for (auto const &ThreadStatePtr : ThreadStates) {
     auto MaybeArea = ThreadStatePtr->getContainingMemoryArea(Address);
@@ -133,6 +132,8 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << "Process @" << State.getProcessTime() << "\n";
   
   Out << " Dynamic Allocations: " << State.getMallocs().size() << "\n";
+  
+  Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
   
   Out << " Memory State Fragments: "
       << State.getMemory().getNumberOfFragments() << "\n";

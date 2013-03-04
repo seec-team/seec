@@ -260,6 +260,14 @@ public:
   /// \brief Record a memmove (or memcpy) update to memory.
   void recordMemmove(uintptr_t Source, uintptr_t Destination, std::size_t Size);
 
+  /// \brief Add a region of known, but unowned, memory.
+  void addKnownMemoryRegion(uintptr_t Address,
+                            std::size_t Length,
+                            MemoryPermission Access);
+  
+  /// \brief Remove the region of known memory starting at Address.
+  bool removeKnownMemoryRegion(uintptr_t Address);
+
   /// @} (Memory states)
 
 

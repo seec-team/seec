@@ -554,6 +554,21 @@ void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
   ProcessTime = Ev.getProcessTime();
 }
 
+void ThreadState::addEvent(EventRecord<EventType::KnownRegionAdd> const &Ev) {
+  auto const Access =
+    Ev.getReadable() ? (Ev.getWritable() ? MemoryPermission::ReadWrite
+                                         : MemoryPermission::ReadOnly)
+                     : (Ev.getWritable() ? MemoryPermission::WriteOnly
+                                         : MemoryPermission::None);
+  
+  Parent.addKnownMemory(Ev.getAddress(), Ev.getSize(), Access);
+}
+
+void ThreadState::addEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
+{
+  Parent.removeKnownMemory(Ev.getAddress());
+}
+
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   if (!Ev.getIsTopLevel())
     return;
@@ -1026,6 +1041,23 @@ void ThreadState::removeEvent(
   EventRecord<EventType::StateOverwriteFragmentSplit> const &Ev) {
   Parent.Memory.unsplit(Ev.getAddressOfLeftBlock(),
                         Ev.getAddressOfRightBlock());
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::KnownRegionAdd> const &Ev)
+{
+  Parent.removeKnownMemory(Ev.getAddress());
+}
+
+void
+ThreadState::removeEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
+{
+  auto const Access =
+    Ev.getReadable() ? (Ev.getWritable() ? MemoryPermission::ReadWrite
+                                         : MemoryPermission::ReadOnly)
+                     : (Ev.getWritable() ? MemoryPermission::WriteOnly
+                                         : MemoryPermission::None);
+  
+  Parent.addKnownMemory(Ev.getAddress(), Ev.getSize(), Access);
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {

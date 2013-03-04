@@ -240,6 +240,7 @@ SEEC_TRACE_EVENT(StateCopied,
     (std::size_t, Size)
   ),
   SEEC_PP_QUOTE(
+    (StateCopied, modifies_shared_state),
     (StateCopied, is_subservient)
   ))
 
@@ -299,6 +300,28 @@ SEEC_TRACE_EVENT(StateOverwriteFragmentSplit,
   ),
   SEEC_PP_QUOTE(
     (StateOverwriteFragmentSplit, is_subservient)
+  ))
+
+SEEC_TRACE_EVENT(KnownRegionAdd,
+  SEEC_PP_QUOTE(
+    (uintptr_t, Address),
+    (std::size_t, Size),
+    (bool, Readable),
+    (bool, Writable)
+  ),
+  SEEC_PP_QUOTE(
+    (KnownRegionAdd, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(KnownRegionRemove,
+  SEEC_PP_QUOTE(
+    (uintptr_t, Address),
+    (std::size_t, Size),
+    (bool, Readable),
+    (bool, Writable)
+  ),
+  SEEC_PP_QUOTE(
+    (KnownRegionRemove, modifies_shared_state)
   ))
 
 SEEC_TRACE_EVENT(RuntimeError,
