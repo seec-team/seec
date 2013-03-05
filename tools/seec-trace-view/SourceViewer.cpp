@@ -410,8 +410,8 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
   Bind(SEEC_EV_HIGHLIGHT_OFF, &SourceViewerPanel::OnHighlightOff, this);
 
   // Load all source files.
-  for (auto &MapGlobalPair : Trace->getMappedModule().getGlobalLookup()) {
-    addSourceFile(MapGlobalPair.second.getFilePath());
+  for (auto &MapFunctionPair : Trace->getMappedModule().getFunctionLookup()) {
+    addSourceFile(MapFunctionPair.second.getFilePath());
   }
 
   return true;
@@ -740,7 +740,7 @@ void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
   ExplanationCtrl->clearExplanation();
   
   // Get the Function mapping.
-  auto Mapping = Trace->getMappedModule().getMappedGlobalDecl(Function);
+  auto Mapping = Trace->getMappedModule().getMappedFunctionDecl(Function);
   if (!Mapping) {
     wxLogDebug("No mapping for Function '%s'",
                Function->getName().str().c_str());

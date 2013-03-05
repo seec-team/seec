@@ -129,14 +129,14 @@ MappedModule::MappedModule(
   ASTList(),
   MDStmtIdxKind(ModIndex.getModule().getMDKindID(MDStmtIdxStr)),
   MDDeclIdxKind(ModIndex.getModule().getMDKindID(MDDeclIdxStr)),
-  GlobalLookup(),
+  FunctionLookup(),
   CompileInfo(),
   StmtToMappedStmt(),
   ValueToMappedStmt()
 {
   auto const &Module = ModIndex.getModule();
   
-  // Create the GlobalLookup.
+  // Create the FunctionLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
     for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
@@ -155,19 +155,22 @@ MappedModule::MappedModule(
       // Sometimes the compilation process creates mappings to Functions that do
       // not exist in the Module, so we must carefully ignore them.
       auto Func = dyn_cast_or_null<Function>(Node->getOperand(1u));
-      if (!Func)
+      if (!Func) {
+        llvm::errs() << "Mapping to non-Function.\n";
         continue;
+      }
 
       auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
       assert(DeclIdx);
 
       auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
 
-      GlobalLookup.insert(std::make_pair(Func,
-                                         MappedGlobalDecl(std::move(FilePath),
-                                                          *AST,
-                                                          Decl,
-                                                          Func)));
+      FunctionLookup.insert(
+        std::make_pair(Func,
+                       MappedFunctionDecl(std::move(FilePath),
+                                          *AST,
+                                          Decl,
+                                          Func)));
     }
   }
   
@@ -298,18 +301,18 @@ MappedModule::getASTForStmt(::clang::Stmt const *Stmt) const {
 // MappedModule:: Mapped llvm::Function pointers.
 //------------------------------------------------------------------------------
 
-MappedGlobalDecl const *
-MappedModule::getMappedGlobalDecl(llvm::Function const *F) const {
-  auto It = GlobalLookup.find(F);
-  if (It == GlobalLookup.end())
+MappedFunctionDecl const *
+MappedModule::getMappedFunctionDecl(llvm::Function const *F) const {
+  auto It = FunctionLookup.find(F);
+  if (It == FunctionLookup.end())
     return nullptr;
 
   return &(It->second);
 }
 
 clang::Decl const *MappedModule::getDecl(llvm::Function const *F) const {
-  auto It = GlobalLookup.find(F);
-  if (It == GlobalLookup.end())
+  auto It = FunctionLookup.find(F);
+  if (It == FunctionLookup.end())
     return nullptr;
 
   return It->second.getDecl();

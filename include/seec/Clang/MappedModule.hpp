@@ -46,7 +46,7 @@ class MappedStmt;
 
 /// \brief Represents a mapping from an llvm::Function to a clang::Decl.
 ///
-class MappedGlobalDecl {
+class MappedFunctionDecl {
   llvm::sys::Path FilePath;
   
   MappedAST const &AST;
@@ -57,10 +57,10 @@ class MappedGlobalDecl {
 
 public:
   /// Constructor.
-  MappedGlobalDecl(llvm::sys::Path FilePath,
-                   MappedAST const &AST,
-                   clang::Decl const *Decl,
-                   llvm::Function const *Function)
+  MappedFunctionDecl(llvm::sys::Path FilePath,
+                     MappedAST const &AST,
+                     clang::Decl const *Decl,
+                     llvm::Function const *Function)
   : FilePath(FilePath),
     AST(AST),
     Decl(Decl),
@@ -68,10 +68,10 @@ public:
   {}
 
   /// Copy constructor.
-  MappedGlobalDecl(MappedGlobalDecl const &) = default;
+  MappedFunctionDecl(MappedFunctionDecl const &) = default;
 
   /// Copy assignment.
-  MappedGlobalDecl &operator=(MappedGlobalDecl const &) = default;
+  MappedFunctionDecl &operator=(MappedFunctionDecl const &) = default;
 
   /// Get the path to the source file that this mapping refers to.
   llvm::sys::Path const &getFilePath() const { return FilePath; }
@@ -221,8 +221,8 @@ class MappedModule {
   /// Kind of clang::Decl mapping metadata.
   unsigned MDDeclIdxKind;
 
-  /// Map llvm::Function pointers to MappedGlobalDecl objects.
-  llvm::DenseMap<llvm::Function const *, MappedGlobalDecl> GlobalLookup;
+  /// Map llvm::Function pointers to MappedFunctionDecl objects.
+  llvm::DenseMap<llvm::Function const *, MappedFunctionDecl> FunctionLookup;
   
   /// Compile information for each main file in this Module.
   std::map<std::string, std::unique_ptr<MappedCompileInfo>> CompileInfo;
@@ -264,8 +264,10 @@ public:
   std::pair<MappedAST const *, clang::Stmt const *>
   getASTAndStmt(llvm::MDNode const *StmtIdentifier) const;
   
-  /// \brief Get the GlobalLookup.
-  decltype(GlobalLookup) const &getGlobalLookup() const { return GlobalLookup; }
+  /// \brief Get the FunctionLookup.
+  decltype(FunctionLookup) const &getFunctionLookup() const {
+    return FunctionLookup;
+  }
   
   /// @}
   
@@ -288,7 +290,8 @@ public:
   /// @{
   
   /// \brief Find the clang::Decl mapping for an llvm::Function, if one exists.
-  MappedGlobalDecl const *getMappedGlobalDecl(llvm::Function const *F) const;
+  MappedFunctionDecl const *
+  getMappedFunctionDecl(llvm::Function const *F) const;
 
   /// \brief Find the clang::Decl for an llvm::Function, if one exists.
   clang::Decl const *getDecl(llvm::Function const *F) const;
