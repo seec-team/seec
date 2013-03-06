@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SimpleWrapper.hpp"
 #include "Tracer.hpp"
 
 #include "seec/RuntimeErrors/FormatSelects.hpp"
@@ -29,10 +30,8 @@
 #include <cstdio>
 
 
-extern "C" {
-
 //===----------------------------------------------------------------------===//
-// scanf, fscanf, sscanf
+// scanf, fscanf, sscanf common methods
 //===----------------------------------------------------------------------===//
 
 /// \brief Attempt to match a sequence of literal characters.
@@ -907,6 +906,58 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   return NumAssignments;
 }
 
+
+extern "C" {
+
+
+//===----------------------------------------------------------------------===//
+// fread
+//===----------------------------------------------------------------------===//
+
+size_t
+SEEC_MANGLE_FUNCTION(fread)
+(void *buffer, size_t size, size_t count, FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fread}
+      (fread,
+       [](size_t Result){ return Result != 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(buffer).setSize(size * count),
+       size,
+       count,
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// fwrite
+//===----------------------------------------------------------------------===//
+
+size_t
+SEEC_MANGLE_FUNCTION(fwrite)
+(void const *buffer, size_t size, size_t count, FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fwrite}
+      (fwrite,
+       [](size_t Result){ return Result != 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputPointer(buffer).setSize(size * count),
+       size,
+       count,
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// scanf
+//===----------------------------------------------------------------------===//
+
 int
 SEEC_MANGLE_FUNCTION(scanf)
 (char const *Format, ...)
@@ -918,6 +969,10 @@ SEEC_MANGLE_FUNCTION(scanf)
              Format);
 }
 
+//===----------------------------------------------------------------------===//
+// fscanf
+//===----------------------------------------------------------------------===//
+
 int
 SEEC_MANGLE_FUNCTION(fscanf)
 (FILE *Stream, char const *Format, ...)
@@ -928,6 +983,10 @@ SEEC_MANGLE_FUNCTION(fscanf)
              Stream,
              Format);
 }
+
+//===----------------------------------------------------------------------===//
+// sscanf
+//===----------------------------------------------------------------------===//
 
 int
 SEEC_MANGLE_FUNCTION(sscanf)

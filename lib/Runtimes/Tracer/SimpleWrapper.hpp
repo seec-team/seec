@@ -169,10 +169,25 @@ template<typename T>
 class WrappedInputPointer {
   T Value;
   
+  std::size_t Size;
+  
 public:
   WrappedInputPointer(T ForValue)
-  : Value(ForValue)
+  : Value(ForValue),
+    Size(sizeof(*ForValue))
   {}
+  
+  /// \name Flags.
+  /// @{
+  
+  WrappedInputPointer &setSize(std::size_t Value) {
+    Size = Value;
+    return *this;
+  }
+  
+  std::size_t getSize() const { return Size; }
+  
+  /// @} (Flags.)
   
   operator T() { return Value; }
   
@@ -207,7 +222,7 @@ public:
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),
-              Value.pointeeSize(),
+              Value.getSize(),
               seec::runtime_errors::format_selects::MemoryAccess::Read);
   }
 };
@@ -281,6 +296,73 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// WrappedInputFILE
+//===----------------------------------------------------------------------===//
+
+class WrappedInputFILE {
+  FILE *Value;
+  
+  bool IgnoreNull;
+  
+public:
+  WrappedInputFILE(FILE *ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
+  {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedInputFILE &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
+  
+  operator FILE *() const { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  /// @}
+};
+
+inline WrappedInputFILE wrapInputFILE(FILE *ForValue) {
+  return WrappedInputFILE(ForValue);
+}
+
+/// \brief WrappedArgumentChecker specialization for WrappedInputFILE.
+///
+template<>
+class WrappedArgumentChecker<WrappedInputFILE>
+{
+  /// The underlying memory checker.
+  seec::trace::CIOChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedInputFILE &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    return Checker.checkStreamIsValid(Parameter, Value);
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // WrappedOutputPointer
 //===----------------------------------------------------------------------===//
 
@@ -288,11 +370,14 @@ template<typename T>
 class WrappedOutputPointer {
   T Value;
   
+  std::size_t Size;
+  
   bool IgnoreNull;
   
 public:
   WrappedOutputPointer(T ForValue)
   : Value(ForValue),
+    Size(sizeof(*ForValue)),
     IgnoreNull(false)
   {}
   
@@ -305,6 +390,13 @@ public:
   }
   
   bool getIgnoreNull() const { return IgnoreNull; }
+  
+  WrappedOutputPointer &setSize(std::size_t Value) {
+    Size = Value;
+    return *this;
+  }
+  
+  std::size_t getSize() const { return Size; }
   
   /// @} (Flags)
   
@@ -349,7 +441,7 @@ public:
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),
-              Value.pointeeSize(),
+              Value.getSize(),
               seec::runtime_errors::format_selects::MemoryAccess::Write);
   }
 };
@@ -376,7 +468,7 @@ public:
     
     if (Success) {
       auto const Ptr = reinterpret_cast<char const *>(Value.address());
-      Listener.recordUntypedState(Ptr, Value.pointeeSize());
+      Listener.recordUntypedState(Ptr, Value.getSize());
     }
     
     return true;
@@ -629,8 +721,14 @@ class SimpleWrapper {
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
+    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
+    auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+    
     // Create the memory checker.
-    seec::trace::CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+    seec::trace::CIOChecker Checker {Listener,
+                                     InstructionIndex,
+                                     FSFunction,
+                                     StreamsAccessor.getObject()};
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {

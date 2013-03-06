@@ -47,6 +47,9 @@ SEEC_INTERCEPTED_FUNCTION(localeconv)
 // C <stdio.h>
 //===----------------------------------------------------------------------===//
 
+SEEC_INTERCEPTED_FUNCTION(fread)
+SEEC_INTERCEPTED_FUNCTION(fwrite)
+
 SEEC_INTERCEPTED_FUNCTION(scanf)
 SEEC_INTERCEPTED_FUNCTION(fscanf)
 SEEC_INTERCEPTED_FUNCTION(sscanf)
