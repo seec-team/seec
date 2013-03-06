@@ -1683,7 +1683,11 @@ SEEC_MANGLE_FUNCTION(fseek)
 (FILE *stream, long offset, int origin)
 {
   // Use the SimpleWrapper mechanism.
+  
   // TODO: ensure that origin is SEEK_SET, SEEK_CUR, or SEEK_END
+  // TODO: for text streams, ensure that the value of offset is either 0, or a
+  //       value returned by an earlier call to ftell (for SEEK_SET only).
+  
   return
     seec::SimpleWrapper
       <>
@@ -1705,6 +1709,10 @@ SEEC_MANGLE_FUNCTION(fsetpos)
 (FILE *stream, fpos_t const *pos)
 {
   // Use the SimpleWrapper mechanism.
+  
+  // TODO: ensure that the value of *pos was set by an earlier call to fgetpos
+  //       operating on this stream.
+  
   return
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
