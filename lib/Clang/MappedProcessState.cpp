@@ -75,9 +75,9 @@ ThreadState const &ProcessState::getThread(std::size_t Index) const {
 // ProcessState: Global variables
 //===----------------------------------------------------------------------===//
 
-std::vector<GlobalVar> ProcessState::getGlobalVariables() const
+std::vector<GlobalVariable> ProcessState::getGlobalVariables() const
 {
-  std::vector<GlobalVar> Globals;
+  std::vector<GlobalVariable> Globals;
   
   for (auto const &It : Trace.getMapping().getGlobalVariableLookup()) {
     auto const GV = It.second.getGlobal();
@@ -107,7 +107,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Globals: " << Globals.size() << "\n";
   
   for (auto const &Global : Globals) {
-    Out << "  " << Global.getDecl()->getName() << "\n";
+    Out << "  " << Global.getClangValueDecl()->getName() << "\n";
   }
   
   // Print thread states.

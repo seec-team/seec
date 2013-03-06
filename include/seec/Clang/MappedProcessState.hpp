@@ -16,6 +16,7 @@
 #ifndef SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
+#include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedValue.hpp"
 
@@ -43,51 +44,6 @@ namespace trace {
 namespace cm {
 
 class ThreadState;
-
-
-/// \brief A SeeC-Clang-mapped global variable.
-///
-class GlobalVar {
-  /// The Decl for the global variable.
-  ::clang::ValueDecl const *Decl;
-  
-  /// The GlobalVariable for this Decl.
-  ::llvm::GlobalVariable const *GlobalVariable;
-  
-  /// The run-time address.
-  uintptr_t Address;
-  
-public:
-  /// \brief Constructor.
-  ///
-  GlobalVar(::clang::ValueDecl const *ForDecl,
-            ::llvm::GlobalVariable const *ForGlobalVariable,
-            uintptr_t WithAddress)
-  : Decl(ForDecl),
-    GlobalVariable(ForGlobalVariable),
-    Address(WithAddress)
-  {}
-  
-  
-  /// \name Accessors.
-  /// @{
-  
-  /// \brief Get the clang::ValueDecl for this global.
-  ///
-  ::clang::ValueDecl const *getDecl() const { return Decl; }
-  
-  /// \brief Get the llvm::GlobalVariable for this global.
-  ///
-  ::llvm::GlobalVariable const *getGlobalVariable() const {
-    return GlobalVariable;
-  }
-  
-  /// \brief Get the run-time address of this global.
-  ///
-  uintptr_t getAddress() const { return Address; }
-  
-  /// @}
-};
 
 
 /// \brief SeeC-Clang-mapped process state.
@@ -166,7 +122,7 @@ public:
   
   /// \brief Get all mapped global variables.
   ///
-  std::vector<GlobalVar> getGlobalVariables() const;
+  std::vector<GlobalVariable> getGlobalVariables() const;
   
   /// @}
   
