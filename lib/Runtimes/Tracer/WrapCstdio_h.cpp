@@ -1819,5 +1819,44 @@ SEEC_MANGLE_FUNCTION(perror)
        seec::wrapInputCString(s));
 }
 
+//===----------------------------------------------------------------------===//
+// remove
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(remove)
+(char const *fname)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::remove}
+      (remove,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(fname));
+}
+
+//===----------------------------------------------------------------------===//
+// rename
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(rename)
+(char const *old_filename, char const *new_filename)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::rename}
+      (rename,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(old_filename),
+       seec::wrapInputCString(new_filename));
+}
+
 
 } // extern "C"
