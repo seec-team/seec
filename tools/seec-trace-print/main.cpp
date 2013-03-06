@@ -58,6 +58,9 @@ namespace {
   InputDirectory(cl::desc("<input trace>"), cl::Positional, cl::init(""));
 
   static cl::opt<bool>
+  UseClangMapping("C", cl::desc("use SeeC-Clang mapped states"));
+
+  static cl::opt<bool>
   ShowRawEvents("R", cl::desc("show raw events"));
 
   static cl::opt<bool>
@@ -78,31 +81,8 @@ llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
   return llvm::sys::Path::GetMainExecutable(ArgV0, P);
 }
 
-int main(int argc, char **argv, char * const *envp) {
-  sys::PrintStackTraceOnErrorSignal();
-  PrettyStackTraceProgram X(argc, argv);
-
-  atexit(llvm_shutdown);
-
-  cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
-
-  llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
-
-  // Setup resource loading.
-  ResourceLoader Resources(ExecutablePath);
-  
-  std::array<char const *, 3> ResourceList {
-    {"RuntimeErrors", "SeeCClang", "Trace"}
-  };
-  
-  if (!Resources.loadResources(ResourceList)) {
-    llvm::errs() << "failed to load resources\n";
-    exit(EXIT_FAILURE);
-  }
-
-
-#if 1 // test clang-mapped trace interface.
-
+void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
+{
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
   if (MaybeIBA.assigned<seec::Error>()) {
@@ -147,9 +127,10 @@ int main(int argc, char **argv, char * const *envp) {
       llvm::outs() << State;
     }
   }
-  
-#else // raw printing (not clang-mapped)
+}
 
+void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
+{
   auto &Context = llvm::getGlobalContext();
 
   // Attempt to setup the trace reader.
@@ -340,9 +321,36 @@ int main(int argc, char **argv, char * const *envp) {
       }
     }
   }
+}
 
-#endif
+int main(int argc, char **argv, char * const *envp) {
+  sys::PrintStackTraceOnErrorSignal();
+  PrettyStackTraceProgram X(argc, argv);
 
+  atexit(llvm_shutdown);
 
+  cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
+
+  llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
+
+  // Setup resource loading.
+  ResourceLoader Resources(ExecutablePath);
+  
+  std::array<char const *, 3> ResourceList {
+    {"RuntimeErrors", "SeeCClang", "Trace"}
+  };
+  
+  if (!Resources.loadResources(ResourceList)) {
+    llvm::errs() << "failed to load resources\n";
+    exit(EXIT_FAILURE);
+  }
+
+  if (UseClangMapping) {
+    PrintClangMapped(ExecutablePath);
+  }
+  else {
+    PrintUnmapped(ExecutablePath);
+  }
+  
   return EXIT_SUCCESS;
 }
