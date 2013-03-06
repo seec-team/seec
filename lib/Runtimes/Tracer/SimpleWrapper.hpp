@@ -668,38 +668,31 @@ public:
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
 
-template<SimpleWrapperSetting... Settings>
-class SimpleWrapper {
-  /// \name Members
-  /// @{
-  
+template<typename RetT,
+         typename FnT,
+         typename SuccessPredT,
+         typename ResultStateRecorderT,
+         SimpleWrapperSetting... Settings>
+class SimpleWrapperImpl
+{
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
-  
-  /// @}
-  
-  
-  /// \name Settings
-  /// @{
   
   template<SimpleWrapperSetting Setting>
   constexpr bool isEnabled() {
     return isSettingInList<Setting, Settings...>();
   }
   
-  /// @}
+public:
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
+  : FSFunction(ForFn)
+  {}
   
-  template<typename FnT,
-           typename SuccessPredT,
-           typename ResultStateRecorderT,
-           int... ArgIs,
-           typename... ArgT>
-  typename seec::FunctionTraits<typename std::remove_reference<FnT>::type
-                                >::ReturnType
-  impl(FnT &&Function,
-       SuccessPredT &&SuccessPred,
-       ResultStateRecorderT &&ResultStateRecorder,
-       seec::ct::sequence_int<ArgIs...>,
-       ArgT &&... Args)
+  template<int... ArgIs, typename... ArgTs>
+  RetT impl(FnT &&Function,
+            SuccessPredT &&SuccessPred,
+            ResultStateRecorderT &&ResultStateRecorder,
+            seec::ct::sequence_int<ArgIs...>,
+            ArgTs &&... Args)
   {
     auto &ProcessEnv = seec::trace::getProcessEnvironment();
     auto &ProcessListener = ProcessEnv.getProcessListener();
@@ -732,7 +725,7 @@ class SimpleWrapper {
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
                              (Checker).check(Args, ArgIs))...
     };
     
@@ -744,12 +737,11 @@ class SimpleWrapper {
     auto const PreCallErrno = errno;
     
     // Call the original function.
-    auto const Result = Function(std::forward<ArgT>(Args)...);
+    auto const Result = Function(std::forward<ArgTs>(Args)...);
     bool const Success = SuccessPred(Result);
     
     // Notify the TraceThreadListener of the new value.
     typedef typename std::remove_reference<FnT>::type FnTLessReference;
-    typedef typename seec::FunctionTraits<FnTLessReference>::ReturnType RetT;
     ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
     
@@ -764,7 +756,7 @@ class SimpleWrapper {
     
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
-      (WrappedArgumentRecorder<typename std::remove_reference<ArgT>::type>
+      (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
                               (Listener).record(Args, Success))...
     };
     
@@ -777,6 +769,108 @@ class SimpleWrapper {
     
     return Result;
   }
+};
+
+template<typename FnT,
+         typename SuccessPredT,
+         typename ResultStateRecorderT,
+         SimpleWrapperSetting... Settings>
+class SimpleWrapperImpl<void,
+                        FnT,
+                        SuccessPredT,
+                        ResultStateRecorderT,
+                        Settings...>
+{
+  seec::runtime_errors::format_selects::CStdFunction FSFunction;
+  
+  template<SimpleWrapperSetting Setting>
+  constexpr bool isEnabled() {
+    return isSettingInList<Setting, Settings...>();
+  }
+  
+public:
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
+  : FSFunction(ForFn)
+  {}
+  
+  template<int... ArgIs, typename... ArgTs>
+  void impl(FnT &&Function,
+            SuccessPredT &&SuccessPred,
+            ResultStateRecorderT &&ResultStateRecorder,
+            seec::ct::sequence_int<ArgIs...>,
+            ArgTs &&... Args)
+  {
+    auto &ThreadEnv = seec::trace::getThreadEnvironment();
+    auto &Listener = ThreadEnv.getThreadListener();
+    auto InstructionIndex = ThreadEnv.getInstructionIndex();
+    
+    // Do Listener's notification entry.
+    Listener.enterNotification();
+    
+    // Acquire necessary locks.
+    if (isEnabled<SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>())
+      Listener.acquireGlobalMemoryWriteLock();
+    else if (isEnabled<SimpleWrapperSetting::AcquireGlobalMemoryReadLock>())
+      Listener.acquireGlobalMemoryReadLock();
+    
+    if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
+      Listener.acquireDynamicMemoryLock();
+    
+    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
+    auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+    
+    // Create the memory checker.
+    seec::trace::CIOChecker Checker {Listener,
+                                     InstructionIndex,
+                                     FSFunction,
+                                     StreamsAccessor.getObject()};
+    
+    // Check each of the inputs.
+    std::vector<bool> InputChecks {
+      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
+                             (Checker).check(Args, ArgIs))...
+    };
+    
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+    
+    // Get the pre-call value of errno.
+    auto const PreCallErrno = errno;
+    
+    // Call the original function.
+    Function(std::forward<ArgTs>(Args)...);
+    bool const Success = SuccessPred();
+        
+    // Record any changes to errno.
+    if (errno != PreCallErrno) {
+      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                  sizeof(errno));
+    }
+    
+    // Record each of the outputs.
+    std::vector<bool> OutputRecords {
+      (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
+                              (Listener).record(Args, Success))...
+    };
+    
+    for (auto const OutputRecord : OutputRecords) {
+      assert(OutputRecord && "Output record failed.");
+    }
+    
+    // Do Listener's notification exit.
+    Listener.exitPostNotification();
+  }
+};
+
+template<SimpleWrapperSetting... Settings>
+class SimpleWrapper {
+  /// \name Members
+  /// @{
+  
+  seec::runtime_errors::format_selects::CStdFunction FSFunction;
+  
+  /// @}
   
 public:
   SimpleWrapper(seec::runtime_errors::format_selects::CStdFunction ForFunction)
@@ -794,12 +888,27 @@ public:
              ResultStateRecorderT &&ResultStateRecorder,
              ArgT &&... Args)
   {
+    // Get the return type.
+    typedef
+      typename seec::FunctionTraits<typename std::remove_reference<FnT>::type
+                                    >::ReturnType
+      RetT;
+    
+    // Create the argument indices.
     typename seec::ct::generate_sequence_int<0, sizeof...(ArgT)>::type Indices;
-    return impl(std::forward<FnT>(Function),
-                std::forward<SuccessPredT>(SuccessPred),
-                std::forward<ResultStateRecorderT>(ResultStateRecorder),
-                Indices,
-                std::forward<ArgT>(Args)...);
+    
+    // Call the implementation struct.
+    return SimpleWrapperImpl<RetT,
+                             FnT,
+                             SuccessPredT,
+                             ResultStateRecorderT,
+                             Settings...>
+                             { FSFunction }
+            .impl(std::forward<FnT>(Function),
+                  std::forward<SuccessPredT>(SuccessPred),
+                  std::forward<ResultStateRecorderT>(ResultStateRecorder),
+                  Indices,
+                  std::forward<ArgT>(Args)...);
   }
 };
 

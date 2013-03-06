@@ -1635,5 +1635,105 @@ SEEC_MANGLE_FUNCTION(fdopen)
   return Result;
 }
 
+//===----------------------------------------------------------------------===//
+// ftell
+//===----------------------------------------------------------------------===//
+
+long
+SEEC_MANGLE_FUNCTION(ftell)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::ftell}
+      (ftell,
+       [](long Result){ return Result != EOF; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// fgetpos
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fgetpos)
+(FILE *stream, fpos_t *pos)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fgetpos}
+      (fgetpos,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream),
+       seec::wrapOutputPointer(pos));
+}
+
+//===----------------------------------------------------------------------===//
+// fseek
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fseek)
+(FILE *stream, long offset, int origin)
+{
+  // Use the SimpleWrapper mechanism.
+  // TODO: ensure that origin is SEEK_SET, SEEK_CUR, or SEEK_END
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::fseek}
+      (fseek,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream),
+       offset,
+       origin);
+}
+
+//===----------------------------------------------------------------------===//
+// fsetpos
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fsetpos)
+(FILE *stream, fpos_t const *pos)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::fsetpos}
+      (fsetpos,
+       [](int Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream),
+       seec::wrapInputPointer(pos));
+}
+
+//===----------------------------------------------------------------------===//
+// rewind
+//===----------------------------------------------------------------------===//
+
+void
+SEEC_MANGLE_FUNCTION(rewind)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::rewind}
+      (rewind,
+       [](){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream));
+}
+
 
 } // extern "C"
