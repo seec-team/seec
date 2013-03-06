@@ -107,7 +107,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Globals: " << Globals.size() << "\n";
   
   for (auto const &Global : Globals) {
-    Out << "  " << Global.getClangValueDecl()->getName() << "\n";
+    Out << "  " << Global << "\n";
   }
   
   // Print thread states.

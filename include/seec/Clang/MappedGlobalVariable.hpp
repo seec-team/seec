@@ -80,6 +80,12 @@ public:
 };
 
 
+/// \brief Print a textual description of a GlobalVariable.
+///
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              GlobalVariable const &State);
+
+
 } // namespace cm (in seec)
 
 } // namespace seec

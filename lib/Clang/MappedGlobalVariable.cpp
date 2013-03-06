@@ -13,6 +13,8 @@
 
 #include "seec/Clang/MappedGlobalVariable.hpp"
 
+#include "clang/AST/Decl.h"
+
 #include "llvm/Support/raw_ostream.h"
 
 
@@ -31,9 +33,13 @@ namespace cm {
 // GlobalVariable: Printing
 //===----------------------------------------------------------------------===//
 
+// Documented in MappedGlobalVariable.hpp
+//
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               GlobalVariable const &State)
 {
+  Out << State.getClangValueDecl()->getName();
+  
   return Out;
 }
 
