@@ -28,6 +28,10 @@ namespace cm {
 
 ThreadState::~ThreadState() = default;
 
+void ThreadState::cacheClear() {
+  // Nothing to clear.
+}
+
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, ThreadState const &State)
 {

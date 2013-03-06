@@ -64,6 +64,14 @@ public:
   ThreadState &operator=(ThreadState const &) = delete;
   
   
+  /// \brief Clear any cached information.
+  ///
+  /// Must be called following updates to the underlying state. May eagerly
+  /// generate new information.
+  ///
+  void cacheClear();
+  
+  
   /// \name Access underlying information.
   /// @{
   

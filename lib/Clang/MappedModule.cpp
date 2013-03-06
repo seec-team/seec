@@ -130,13 +130,14 @@ MappedModule::MappedModule(
   MDStmtIdxKind(ModIndex.getModule().getMDKindID(MDStmtIdxStr)),
   MDDeclIdxKind(ModIndex.getModule().getMDKindID(MDDeclIdxStr)),
   FunctionLookup(),
+  GlobalVariableLookup(),
   CompileInfo(),
   StmtToMappedStmt(),
   ValueToMappedStmt()
 {
   auto const &Module = ModIndex.getModule();
   
-  // Create the FunctionLookup.
+  // Create the FunctionLookup and GlobalVariableLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
     for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
@@ -151,26 +152,44 @@ MappedModule::MappedModule(
 
       auto FilePath = getPathFromFileNode(FileNode);
       assert(!FilePath.empty());
-
-      // Sometimes the compilation process creates mappings to Functions that do
-      // not exist in the Module, so we must carefully ignore them.
-      auto Func = dyn_cast_or_null<Function>(Node->getOperand(1u));
-      if (!Func) {
-        llvm::errs() << "Mapping to non-Function.\n";
+      
+      auto const Global = Node->getOperand(1u);
+      if (!Global) {
+        llvm::errs() << "Mapping to null global.\n";
         continue;
       }
 
-      auto DeclIdx = dyn_cast<ConstantInt>(Node->getOperand(2u));
+      auto DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
       assert(DeclIdx);
 
       auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
-
-      FunctionLookup.insert(
-        std::make_pair(Func,
-                       MappedFunctionDecl(std::move(FilePath),
-                                          *AST,
-                                          Decl,
-                                          Func)));
+      
+      if (auto const Func = llvm::dyn_cast<llvm::Function>(Global)) {
+        FunctionLookup.insert(
+          std::make_pair(Func,
+                         MappedFunctionDecl(std::move(FilePath),
+                                            *AST,
+                                            Decl,
+                                            Func)));
+      }
+      else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
+        if (!llvm::isa<clang::ValueDecl>(Decl)) {
+          llvm::errs() << "Global is not a ValueDecl.\n";
+          continue;
+        }
+        
+        auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Decl);
+        
+        GlobalVariableLookup.insert(
+          std::make_pair(GV,
+                         MappedGlobalVariableDecl(std::move(FilePath),
+                                                  *AST,
+                                                  ValueDecl,
+                                                  GV)));
+      }
+      else {
+        llvm::errs() << "Mapping to non-Function non-GlobalVariable.\n";
+      }
     }
   }
   
@@ -313,6 +332,28 @@ MappedModule::getMappedFunctionDecl(llvm::Function const *F) const {
 clang::Decl const *MappedModule::getDecl(llvm::Function const *F) const {
   auto It = FunctionLookup.find(F);
   if (It == FunctionLookup.end())
+    return nullptr;
+
+  return It->second.getDecl();
+}
+
+//------------------------------------------------------------------------------
+// MappedModule:: Mapped llvm::GlobalVariable pointers.
+//------------------------------------------------------------------------------
+
+MappedGlobalVariableDecl const *
+MappedModule::getMappedGlobalVariableDecl(llvm::GlobalVariable const *GV) const
+{
+  auto It = GlobalVariableLookup.find(GV);
+  if (It == GlobalVariableLookup.end())
+    return nullptr;
+
+  return &(It->second);
+}
+
+clang::Decl const *MappedModule::getDecl(llvm::GlobalVariable const *GV) const {
+  auto It = GlobalVariableLookup.find(GV);
+  if (It == GlobalVariableLookup.end())
     return nullptr;
 
   return It->second.getDecl();

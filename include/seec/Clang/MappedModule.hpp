@@ -87,6 +87,50 @@ public:
 };
 
 
+/// \brief Represents a mapping from an llvm::GlobalVariable to a clang::Decl.
+///
+class MappedGlobalVariableDecl {
+  llvm::sys::Path FilePath;
+  
+  MappedAST const &AST;
+
+  clang::ValueDecl const *Decl;
+
+  llvm::GlobalVariable const *Global;
+
+public:
+  /// Constructor.
+  MappedGlobalVariableDecl(llvm::sys::Path FilePath,
+                           MappedAST const &AST,
+                           clang::ValueDecl const *Decl,
+                           llvm::GlobalVariable const *Global)
+  : FilePath(FilePath),
+    AST(AST),
+    Decl(Decl),
+    Global(Global)
+  {}
+
+  /// Copy constructor.
+  MappedGlobalVariableDecl(MappedGlobalVariableDecl const &) = default;
+
+  /// Copy assignment.
+  MappedGlobalVariableDecl &operator=(MappedGlobalVariableDecl const &) =
+    default;
+
+  /// Get the path to the source file that this mapping refers to.
+  llvm::sys::Path const &getFilePath() const { return FilePath; }
+
+  /// Get the AST that this clang::Decl belongs to.
+  MappedAST const &getAST() const { return AST; }
+  
+  /// Get the clang::Decl that is mapped to.
+  clang::ValueDecl const *getDecl() const { return Decl; }
+
+  /// Get the llvm::GlobalVariable that is mapped from.
+  llvm::GlobalVariable const *getGlobal() const { return Global; }
+};
+
+
 /// \brief Mapping of an Instruction to a Decl or Stmt (possibly neither).
 ///
 class MappedInstruction {
@@ -224,6 +268,11 @@ class MappedModule {
   /// Map llvm::Function pointers to MappedFunctionDecl objects.
   llvm::DenseMap<llvm::Function const *, MappedFunctionDecl> FunctionLookup;
   
+  /// Map llvm::GlobalVariable pointers to MappedGlobalVariableDecl objects.
+  llvm::DenseMap<llvm::GlobalVariable const *,
+                 MappedGlobalVariableDecl>
+    GlobalVariableLookup;
+  
   /// Compile information for each main file in this Module.
   std::map<std::string, std::unique_ptr<MappedCompileInfo>> CompileInfo;
   
@@ -295,6 +344,28 @@ public:
 
   /// \brief Find the clang::Decl for an llvm::Function, if one exists.
   clang::Decl const *getDecl(llvm::Function const *F) const;
+  
+  /// @}
+  
+  
+  /// \name Mapped llvm::GlobalVariable pointers.
+  /// @{
+  
+  /// \brief Get the GlobalVariableLookup.
+  ///
+  decltype(GlobalVariableLookup) const &getGlobalVariableLookup() const {
+    return GlobalVariableLookup;
+  }
+  
+  /// \brief Find the clang::Decl mapping for an llvm::GlobalVariable, if one
+  ///        exists.
+  ///
+  MappedGlobalVariableDecl const *
+  getMappedGlobalVariableDecl(llvm::GlobalVariable const *GV) const;
+  
+  /// \brief Find the clang::Decl for an llvm::GlobalVariable, if one exists.
+  ///
+  clang::Decl const *getDecl(llvm::GlobalVariable const *GV) const;
   
   /// @}
   

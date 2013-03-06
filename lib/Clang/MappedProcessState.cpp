@@ -32,13 +32,25 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
 : Trace(ForTrace),
   UnmappedState(new seec::trace::ProcessState(ForTrace.getUnmappedTrace(),
                                               ForTrace.getModuleIndex())),
-  ThreadStates()
+  ThreadStates(),
+  CurrentValueStore()
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
     ThreadStates.emplace_back(new seec::cm::ThreadState(*this, *StatePtr));
+  
+  cacheClear();
 }
 
 ProcessState::~ProcessState() = default;
+
+void ProcessState::cacheClear() {
+  // Clear process-level cached information.
+  CurrentValueStore = seec::cm::ValueStore::create();
+  
+  // Clear thread-level cached information.
+  for (auto &ThreadPtr : ThreadStates)
+    ThreadPtr->cacheClear();
+}
 
 uint64_t ProcessState::getProcessTime() const {
   return UnmappedState->getProcessTime();
@@ -58,11 +70,47 @@ ThreadState const &ProcessState::getThread(std::size_t Index) const {
   return *ThreadStates[Index];
 }
 
+
+//===----------------------------------------------------------------------===//
+// ProcessState: Global variables
+//===----------------------------------------------------------------------===//
+
+std::vector<GlobalVar> ProcessState::getGlobalVariables() const
+{
+  std::vector<GlobalVar> Globals;
+  
+  for (auto const &It : Trace.getMapping().getGlobalVariableLookup()) {
+    auto const GV = It.second.getGlobal();
+    auto const Address = UnmappedState->getRuntimeAddress(GV);
+    
+    Globals.emplace_back(It.second.getDecl(),
+                         GV,
+                         Address);
+  }
+  
+  return Globals;
+}
+
+
+//===----------------------------------------------------------------------===//
+// ProcessState: Printing
+//===----------------------------------------------------------------------===//
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
 {
   Out << "Process State @" << State.getProcessTime() << "\n";
   
+  // Print global variables.
+  auto const Globals = State.getGlobalVariables();
+  
+  Out << " Globals: " << Globals.size() << "\n";
+  
+  for (auto const &Global : Globals) {
+    Out << "  " << Global.getDecl()->getName() << "\n";
+  }
+  
+  // Print thread states.
   Out << " Threads: " << State.getThreadCount() << "\n";
   
   for (std::size_t i = 0; i < State.getThreadCount(); ++i) {

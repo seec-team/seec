@@ -107,6 +107,12 @@ public:
     return ModuleIndex;
   }
   
+  /// \brief Get the SeeC-Clang mapping information.
+  ///
+  seec::seec_clang::MappedModule const &getMapping() const {
+    return Mapping;
+  }
+  
   /// @} (Access underlying information)
 };
 

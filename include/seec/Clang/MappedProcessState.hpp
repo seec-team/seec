@@ -17,24 +17,77 @@
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedValue.hpp"
 
 #include <memory>
+#include <vector>
 
+
+namespace clang {
+  class Decl;
+} // namespace clang
 
 namespace llvm {
   class raw_ostream;
-}
+  class GlobalVariable;
+} // namespace llvm
+
 
 namespace seec {
 
 namespace trace {
   class ProcessState;
-}
+} // namespace trace (in seec)
 
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
 class ThreadState;
+
+
+/// \brief A SeeC-Clang-mapped global variable.
+///
+class GlobalVar {
+  /// The Decl for the global variable.
+  ::clang::ValueDecl const *Decl;
+  
+  /// The GlobalVariable for this Decl.
+  ::llvm::GlobalVariable const *GlobalVariable;
+  
+  /// The run-time address.
+  uintptr_t Address;
+  
+public:
+  /// \brief Constructor.
+  ///
+  GlobalVar(::clang::ValueDecl const *ForDecl,
+            ::llvm::GlobalVariable const *ForGlobalVariable,
+            uintptr_t WithAddress)
+  : Decl(ForDecl),
+    GlobalVariable(ForGlobalVariable),
+    Address(WithAddress)
+  {}
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the clang::ValueDecl for this global.
+  ///
+  ::clang::ValueDecl const *getDecl() const { return Decl; }
+  
+  /// \brief Get the llvm::GlobalVariable for this global.
+  ///
+  ::llvm::GlobalVariable const *getGlobalVariable() const {
+    return GlobalVariable;
+  }
+  
+  /// \brief Get the run-time address of this global.
+  ///
+  uintptr_t getAddress() const { return Address; }
+  
+  /// @}
+};
 
 
 /// \brief SeeC-Clang-mapped process state.
@@ -48,6 +101,9 @@ class ProcessState {
   
   /// Thread states.
   std::vector<std::unique_ptr<seec::cm::ThreadState>> ThreadStates;
+  
+  /// The current Value store.
+  std::shared_ptr<ValueStore const> CurrentValueStore;
   
 public:
   /// \brief Constructor.
@@ -73,6 +129,14 @@ public:
   ~ProcessState();
   
   
+  /// \brief Clear any cached information.
+  ///
+  /// Must be called following updates to the underlying state. May eagerly
+  /// generate new information.
+  ///
+  void cacheClear();
+  
+  
   /// \name Access underlying information.
   /// @{
   
@@ -93,6 +157,16 @@ public:
   
   /// \brief Get the state of a thread.
   seec::cm::ThreadState const &getThread(std::size_t Index) const;
+  
+  /// @}
+  
+  
+  /// \name Global variables.
+  /// @{
+  
+  /// \brief Get all mapped global variables.
+  ///
+  std::vector<GlobalVar> getGlobalVariables() const;
   
   /// @}
   
