@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/StateMovement.hpp"
@@ -25,11 +26,15 @@ namespace cm {
 // Thread movement.
 
 bool moveForward(ThreadState &Thread) {
-  return seec::trace::moveForward(Thread.getUnmappedState());
+  auto const Success = seec::trace::moveForward(Thread.getUnmappedState());
+  Thread.getParent().cacheClear();
+  return Success;
 }
 
 bool moveBackward(ThreadState &Thread) {
-  return seec::trace::moveBackward(Thread.getUnmappedState());
+  auto const Success = seec::trace::moveBackward(Thread.getUnmappedState());
+  Thread.getParent().cacheClear();
+  return Success;
 }
 
 // (Thread movement.)

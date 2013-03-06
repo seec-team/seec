@@ -16,6 +16,8 @@
 #ifndef SEEC_CLANG_MAPPEDGLOBALVARIABLE_HPP
 #define SEEC_CLANG_MAPPEDGLOBALVARIABLE_HPP
 
+#include "seec/Clang/MappedValue.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -37,9 +39,15 @@ namespace seec {
 namespace cm {
 
 
+class ProcessState;
+
+
 /// \brief A SeeC-Clang-mapped global variable.
 ///
 class GlobalVariable {
+  /// The process state that this global variable belongs to.
+  ProcessState const &State;
+  
   /// The Decl for the global variable.
   ::clang::ValueDecl const *Decl;
   
@@ -52,10 +60,12 @@ class GlobalVariable {
 public:
   /// \brief Constructor.
   ///
-  GlobalVariable(::clang::ValueDecl const *ForDecl,
+  GlobalVariable(ProcessState const &ForState,
+                 ::clang::ValueDecl const *ForDecl,
                  ::llvm::GlobalVariable const *ForLLVMGlobalVariable,
                  uintptr_t WithAddress)
-  : Decl(ForDecl),
+  : State(ForState),
+    Decl(ForDecl),
     GV(ForLLVMGlobalVariable),
     Address(WithAddress)
   {}
@@ -77,6 +87,11 @@ public:
   uintptr_t getAddress() const { return Address; }
   
   /// @}
+  
+  
+  /// \brief Get the current run-time value of this global.
+  ///
+  std::shared_ptr<Value const> getValue() const;
 };
 
 

@@ -96,7 +96,20 @@ public:
   /// \name Access underlying information.
   /// @{
   
+  /// \brief Get the unmapped process state for this state.
+  ///
+  seec::trace::ProcessState const &getUnmappedProcessState() const {
+    return *UnmappedState;
+  }
+  
+  /// \brief Get the value store used by this state.
+  ///
+  std::shared_ptr<ValueStore const> getCurrentValueStore() const {
+    return CurrentValueStore;
+  }
+  
   /// \brief Get the synthetic process time for this state.
+  ///
   uint64_t getProcessTime() const;
   
   /// @} (Access underlying information).

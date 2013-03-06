@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedGlobalVariable.hpp"
+#include "seec/Clang/MappedProcessState.hpp"
 
 #include "clang/AST/Decl.h"
 
@@ -28,6 +29,15 @@ namespace cm {
 // GlobalVariable
 //===----------------------------------------------------------------------===//
 
+std::shared_ptr<Value const> GlobalVariable::getValue() const
+{
+  return seec::cm::getValue(State.getCurrentValueStore(),
+                            Decl->getType(),
+                            Decl->getDeclContext()->getParentASTContext(),
+                            Address,
+                            State.getUnmappedProcessState());
+}
+
 
 //===----------------------------------------------------------------------===//
 // GlobalVariable: Printing
@@ -38,7 +48,13 @@ namespace cm {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               GlobalVariable const &State)
 {
-  Out << State.getClangValueDecl()->getName();
+  Out << State.getClangValueDecl()->getName() << " = ";
+  
+  auto const Value = State.getValue();
+  if (Value)
+    Out << Value->getValueAsStringFull();
+  else
+    Out << "<couldn't get value>";
   
   return Out;
 }

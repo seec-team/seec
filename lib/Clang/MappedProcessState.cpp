@@ -83,7 +83,8 @@ std::vector<GlobalVariable> ProcessState::getGlobalVariables() const
     auto const GV = It.second.getGlobal();
     auto const Address = UnmappedState->getRuntimeAddress(GV);
     
-    Globals.emplace_back(It.second.getDecl(),
+    Globals.emplace_back(*this,
+                         It.second.getDecl(),
                          GV,
                          Address);
   }
