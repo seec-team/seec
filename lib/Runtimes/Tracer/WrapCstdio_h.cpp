@@ -1743,5 +1743,81 @@ SEEC_MANGLE_FUNCTION(rewind)
        seec::wrapInputFILE(stream));
 }
 
+//===----------------------------------------------------------------------===//
+// clearerr
+//===----------------------------------------------------------------------===//
+
+void
+SEEC_MANGLE_FUNCTION(clearerr)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::clearerr}
+      (clearerr,
+       [](){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// feof
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(feof)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::feof}
+      (feof,
+       [](int Result){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// ferror
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(ferror)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::ferror}
+      (ferror,
+       [](int Result){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// perror
+//===----------------------------------------------------------------------===//
+
+void
+SEEC_MANGLE_FUNCTION(perror)
+(char const *s)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::perror}
+      (perror,
+       [](){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(s));
+}
+
 
 } // extern "C"
