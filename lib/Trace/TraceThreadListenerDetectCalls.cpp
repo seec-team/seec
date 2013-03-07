@@ -419,6 +419,7 @@ preCsprintf(llvm::CallInst const *Call,
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkPrintFormat(1, Str, Args);
+  
   // TODO: Check that size of Buffer is sufficient to contain size of the
   // formatted string.
 }
@@ -445,7 +446,7 @@ TraceThreadListener::
 preCsnprintf(llvm::CallInst const *Call,
              uint32_t Index,
              char *Buffer,
-             int BufSize,
+             std::size_t BufSize,
              char const *Str,
              detect_calls::VarArgList<TraceThreadListener> const &Args)
 {
@@ -457,8 +458,16 @@ preCsnprintf(llvm::CallInst const *Call,
   CIOChecker Checker(*this, Index, CStdFunction::snprintf,
                      ProcessListener.getStreams(StreamsLock));
   
+  // Check that the format string and varargs are OK.
   Checker.checkPrintFormat(2, Str, Args);
-  // TODO: Check that Buffer and BufSize are valid.
+  
+  // Check that the Buffer and BufSize are OK.
+  auto const BufferAddress = reinterpret_cast<uintptr_t>(Buffer);
+  
+  Checker.checkMemoryExistsAndAccessibleForParameter(0,
+                                                     BufferAddress,
+                                                     BufSize,
+                                                     MemoryAccess::Write);
 }
 
 void
@@ -466,7 +475,7 @@ TraceThreadListener::
 postCsnprintf(llvm::CallInst const *Call,
               uint32_t Index,
               char *Buffer,
-              int BufSize,
+              std::size_t BufSize,
               char const *Str,
               detect_calls::VarArgList<TraceThreadListener> const &Args)
 {
@@ -1610,45 +1619,6 @@ void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
   CStdLibChecker Checker(*this, Index, Fn);
   Checker.checkCStringRead(0, Str1);
   Checker.checkCStringRead(1, Str2);
-}
-
-
-//===------------------------------------------------------------------------===
-// strtok
-//===------------------------------------------------------------------------===
-
-void TraceThreadListener::preCstrtok(llvm::CallInst const *Call,
-                                     uint32_t Index,
-                                     char *Str,
-                                     char const *Delimiters) {
-  llvm::errs() << "\n\nstrtok is not supported\n";
-  exit(EXIT_FAILURE);
-  
-#if 0
-  using namespace seec::runtime_errors;
-  
-  acquireGlobalMemoryWriteLock();
-  
-  if (Str == NULL) {
-    // TODO: Str may legitimately be NULL if strtok has been called previously.
-  }
-  else {
-    // TODO: Check reading/writing Str.
-  }
-  
-  checkCStringRead(*this,
-                   Index,
-                   format_selects::CStdFunction::Strtok,
-                   1, // Parameter Index for Delimiters.
-                   Str);
-#endif
-}
-
-void TraceThreadListener::postCstrtok(llvm::CallInst const *Call,
-                                      uint32_t Index,
-                                      char *Str,
-                                      char const *Delimiters) {
-  // Todo: update Str for the new NULL-character (if necessary).
 }
 
 

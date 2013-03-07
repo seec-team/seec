@@ -79,7 +79,7 @@ DETECT_CALL(C, sprintf,
 
 DETECT_CALL(C, snprintf,
             SEEC_PP_QUOTE(char *,
-                          int,
+                          std::size_t,
                           char const *,
                           seec::trace::detect_calls::VarArgList<LT>))
 

@@ -620,10 +620,10 @@ public:
   
   // snprintf
   void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                    int BufSize, char const *Str,
+                    std::size_t BufSize, char const *Str,
                     detect_calls::VarArgList<TraceThreadListener> const &Args);
   void postCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                     int BufSize, char const *Str,
+                     std::size_t BufSize, char const *Str,
                      detect_calls::VarArgList<TraceThreadListener> const &Args);
   
   /// @}
@@ -823,12 +823,6 @@ public:
 
   void preCstrstr(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
-
-  void preCstrtok(llvm::CallInst const *Call, uint32_t Index,
-                  char *Str, char const *Delimiters);
-  
-  void postCstrtok(llvm::CallInst const *Call, uint32_t Index,
-                   char *Str, char const *Delimiters);
 
   void preCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
                    char *Destination, char const *Source, size_t Num);
