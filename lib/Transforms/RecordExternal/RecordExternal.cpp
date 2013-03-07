@@ -252,6 +252,20 @@ bool InsertExternalRecording::doInitialization(Module &M) {
                      GlobalValue::ExternalLinkage, IdentifierStrConst,
                      StringRef("SeeCInfoModuleIdentifier"));
 
+  // Check for unhandled external functions.
+  for (auto &F : M) {
+    if (F.empty()) {
+      auto Name = F.getName();
+      bool Handled = false;
+      
+#define SEEC_FUNCTION_HANDLED(NAME) if (Name.equals(#NAME)) Handled = true;
+#include "seec/Transforms/FunctionsHandled.def"
+
+      if (!Handled)
+        UnhandledFunctions.insert(&F);
+    }
+  }
+
   // Add declarations for the SeeC recording functions
   #define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE) \
   Record##POINT = cast<Function>( \

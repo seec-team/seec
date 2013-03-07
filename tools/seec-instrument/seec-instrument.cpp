@@ -98,7 +98,8 @@ int main(int argc, char **argv)
     Passes.add(DL);
 
   // Add SeeC's recording instrumentation pass
-  Passes.add(new InsertExternalRecording());
+  auto const Pass = new InsertExternalRecording();
+  Passes.add(Pass);
 
   // Verify the final module
   Passes.add(createVerifierPass());
@@ -113,6 +114,14 @@ int main(int argc, char **argv)
   Passes.run(*M.get());
   
   Out->keep();
+  
+  // Check if there were unhandled external functions.
+  for (auto Fn : Pass->getUnhandledFunctions()) {
+    llvm::errs() << "Warning: function \""
+                 << Fn->getName()
+                 << "\" is not handled. If this function modifies memory state,"
+                    " then SeeC will not be aware of it.\n";
+  }
 
   return 0;
 }

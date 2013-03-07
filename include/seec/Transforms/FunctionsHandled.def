@@ -1,0 +1,47 @@
+//===- include/seec/Transforms/FunctionsHandled.def -----------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_FUNCTION_HANDLED
+#define SEEC_FUNCTION_HANDLED(NAME)
+#endif
+
+//===----------------------------------------------------------------------===//
+// All detected calls are handled!
+//
+#ifdef DETECT_CALL
+#error "FunctionsInstrumented.def uses DETECT_CALL internally."
+#endif
+
+#define DETECT_CALL(PREFIX, CALL, ARGTYPES) \
+SEEC_FUNCTION_HANDLED(CALL)
+
+#include "seec/Trace/DetectCallsAll.def"
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// All intercepted functions are handled!
+//
+#ifdef SEEC_INTERCEPTED_FUNCTION
+#error "FunctionsInstrumented.def uses SEEC_INTERCEPTED_FUNCTION internally."
+#endif
+
+#define SEEC_INTERCEPTED_FUNCTION(NAME) \
+SEEC_FUNCTION_HANDLED(NAME)
+
+#define SEEC_INTERCEPTED_FUNCTION_ALIAS(ALIAS, NAME) \
+SEEC_FUNCTION_HANDLED(ALIAS)
+
+#include "seec/Runtimes/Tracer/InterceptedFunctions.def"
+//===----------------------------------------------------------------------===//
+
+#undef SEEC_FUNCTION_HANDLED

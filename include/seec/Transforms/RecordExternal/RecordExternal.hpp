@@ -26,11 +26,15 @@
 #include <memory>
 #include <vector>
 
+
 namespace llvm {
+
 
 class DataLayout;
 
-/// This pass inserts calls to external execution tracing functions.
+
+/// \brief Inserts calls to external execution tracing functions.
+///
 class InsertExternalRecording
 : public FunctionPass,
   public InstVisitor<InsertExternalRecording>
@@ -62,7 +66,10 @@ private:
   /// Index of the Module.
   std::unique_ptr<seec::ModuleIndex> ModIndex;
   
-  /// @}
+  /// All unhandled external functions.
+  llvm::SmallPtrSet<llvm::Function *, 16> UnhandledFunctions;
+  
+  /// @} (Members.)
   
 
   /// \name Helper methods.
@@ -78,14 +85,13 @@ private:
   CallInst *insertRecordUpdateForValue(Instruction &I,
                                        Instruction *Before = nullptr);
 
-  /// @}
+  /// @} (Helper methods.)
   
 public:
   static char ID; ///< For LLVM's RTTI
 
-  /// Constructor.
-  /// \param Listener the InternalRecordingListener that will be notified of
-  ///        events during execution of the instrumented Module.
+  /// \brief Constructor.
+  ///
   InsertExternalRecording()
   : FunctionPass(ID),
     Interceptors(),
@@ -95,11 +101,13 @@ public:
     Int64Ty(nullptr),
     Int8PtrTy(nullptr),
     DL(nullptr),
-    ModIndex(nullptr)
+    ModIndex(nullptr),
+    UnhandledFunctions()
   {}
 
-  /// Get a string containing the name of this pass.
+  /// \brief Get a string containing the name of this pass.
   /// \return A string containing the name of this pass.
+  ///
   const char *getPassName() const {
     return "Insert SeeC External Execution Tracing";
   }
@@ -116,9 +124,17 @@ public:
   /// \brief Determine whether or not this pass will invalidate any analyses.
   ///
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+  
+  /// \brief Get all encountered unhandled functions.
+  ///
+  decltype(UnhandledFunctions) const &getUnhandledFunctions() const {
+    return UnhandledFunctions;
+  }
 
-  /// \name InstVisitor methods
+
+  /// \name InstVisitor methods.
   /// @{
+  
 #define SIMPLE_RECORD_UPDATE_FOR_VALUE(INST_TYPE) \
   void visit##INST_TYPE(INST_TYPE &I) { insertRecordUpdateForValue(I); }
 
@@ -142,8 +158,10 @@ public:
   void visitCallInst(CallInst &I);
 
 #undef SIMPLE_RECORD_UPDATE_FOR_VALUE
-  /// @} (InstVisitor methods)
+  
+  /// @} (InstVisitor methods.)
 };
+
 
 }
 
