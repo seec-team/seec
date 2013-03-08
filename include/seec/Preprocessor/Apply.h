@@ -48,6 +48,39 @@
 #define SEEC_PP_APPLY9(FN, S, A1, ...) FN A1 S \
                               SEEC_PP_APPLY8(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
 
+#define SEEC_PP_APPLY10(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY9(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY11(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY10(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY12(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY11(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY13(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY12(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY14(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY13(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY15(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY14(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY16(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY15(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY17(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY16(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY18(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY17(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY19(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY18(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
+#define SEEC_PP_APPLY20(FN, S, A1, ...) FN A1 S \
+                              SEEC_PP_APPLY19(FN, SEEC_PP_QUOTE(S), __VA_ARGS__)
+
 #define SEEC_PP_APPLY_IMPL2(NARGS, FUNC, S, ...) \
           SEEC_PP_APPLY ## NARGS (FUNC, SEEC_PP_QUOTE(S), __VA_ARGS__)
 
