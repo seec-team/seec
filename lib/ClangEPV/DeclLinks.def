@@ -1,0 +1,301 @@
+//===- lib/ClangEPV/DeclLinks.def -----------------------------------------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file X-Macro for generating input, value, and linking information for
+///       explanations of Decl nodes. The node types are ordered according to
+///       the order of Clang's DeclNodes.td.
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef SEEC_DECL_LINK
+#error "Must define SEEC_DECL_LINK"
+#endif
+
+#include "seec/Preprocessor/Quote.h"
+
+// TranslationUnit
+
+SEEC_DECL_LINK(NamedDecl,
+  SEEC_PP_QUOTE(
+    ("name",                   String, getName()),
+    ("qualified_name",         String, getQualifiedNameAsString()),
+    ("has_linkage",            Bool,   hasLinkage()),
+    ("is_hidden",              Bool,   isHidden()),
+    ("is_cxx_class_member",    Bool,   isCXXClassMember()),
+    ("is_cxx_instance_member", Bool,   isCXXInstanceMember())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("underlying_decl", getUnderlyingDecl())
+  ))
+
+// Namespace
+
+// UsingDirective
+
+// NamespaceAlias
+
+SEEC_DECL_LINK(LabelDecl,
+  SEEC_PP_QUOTE(
+    ("is_gnu_local", Bool, isGnuLocal())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("stmt", getStmt())
+  ))
+
+SEEC_DECL_LINK(TypeDecl,
+  SEEC_PP_QUOTE(
+    ("type_for_decl", String, getTypeForDecl())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+SEEC_DECL_LINK(TypedefNameDecl,
+  SEEC_PP_QUOTE(
+    ("underlying_type", String, getUnderlyingType())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("canonical_decl", getCanonicalDecl())
+  ))
+
+// Typedef
+
+// TypeAlias - C++11
+
+// UnresolvedUsingTypename
+
+SEEC_DECL_LINK(TagDecl,
+  SEEC_PP_QUOTE(
+    ("is_this_declaration_a_definition", Bool, isThisDeclarationADefinition()),
+    ("is_complete_definition",           Bool, isCompleteDefinition()),
+    ("is_embedded_in_declarator",        Bool, isEmbeddedInDeclarator()),
+    ("is_free_standing",                 Bool, isFreeStanding()),
+    ("is_dependent_type",                Bool, isDependentType()),
+    ("is_struct",                        Bool, isStruct()),
+    ("is_interface",                     Bool, isInterface()),
+    ("is_class",                         Bool, isClass()),
+    ("is_union",                         Bool, isUnion()),
+    ("is_enum",                          Bool, isEnum())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("canonical_decl", getCanonicalDecl()),
+    ("definition",     getDefinition())
+  ))
+
+SEEC_DECL_LINK(EnumDecl,
+  SEEC_PP_QUOTE(
+    ("promotion_type", String, getPromotionType()),
+    ("integer_type",   String, getIntegerType()),
+    ("is_scoped",      Bool,   isScoped()),
+    ("is_fixed",       Bool,   isFixed()),
+    ("is_complete",    Bool,   isComplete())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("canonical_decl", getCanonicalDecl()),
+    ("definition",     getDefinition())
+  ))
+
+SEEC_DECL_LINK(RecordDecl,
+  SEEC_PP_QUOTE(
+    ("has_flexible_array_member",    Bool,   hasFlexibleArrayMember()),
+    ("is_anonymous_struct_or_union", Bool,   isAnonymousStructOrUnion()),
+    ("has_object_member",            Bool,   hasObjectMember()),
+    ("has_volatile_member",          Bool,   hasVolatileMember()),
+    ("is_injected_class_name",       Bool,   isInjectedClassName())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("canonical_decl", getCanonicalDecl()),
+    ("definition",     getDefinition())
+  ))
+
+// CXXRecord
+
+// ClassTemplateSpecialization
+
+// ClassTemplatePartialSpecialization
+
+// TemplateTypeParm
+
+SEEC_DECL_LINK(ValueDecl,
+  SEEC_PP_QUOTE(
+    ("type",    String, getType()),
+    ("is_weak", Bool,   isWeak())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+SEEC_DECL_LINK(EnumConstantDecl,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("rtv_of_init_expr", getInitExpr())
+  ),
+  SEEC_PP_QUOTE(
+    ("init_expr", getInitExpr())
+  ))
+
+// UnresolvedUsingValue
+
+SEEC_DECL_LINK(IndirectFieldDecl,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("anon_field", getAnonField()),
+    ("var_decl",   getVarDecl())
+  ))
+
+SEEC_DECL_LINK(DeclaratorDecl,
+  SEEC_PP_QUOTE(
+    ("type_source_info_type", String, getTypeSourceInfo()->getType())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+SEEC_DECL_LINK(FunctionDecl,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+// CXXMethod
+
+// CXXConstructor
+
+// CXXDestructor
+
+// CXXConversion
+
+SEEC_DECL_LINK(FieldDecl,
+  SEEC_PP_QUOTE(
+    ("field_index",              Int,  getFieldIndex()),
+    ("is_mutable",               Bool, isMutable()),
+    ("is_bit_field",             Bool, isBitField()),
+    ("is_unnamed_bitfield",      Bool, isUnnamedBitfield()),
+    ("has_in_class_initializer", Bool, hasInClassInitializer())
+  ),
+  SEEC_PP_QUOTE(
+    ("rtv_of_bit_width", getBitWidth())
+  ),
+  SEEC_PP_QUOTE(
+    ("bit_width",            getBitWidth()),
+    ("in_class_initializer", getInClassInitializer()),
+    ("parent",               getParent())
+  ))
+
+// ObjCIvar
+
+// ObjCAtDefsField
+
+SEEC_DECL_LINK(VarDecl,
+  SEEC_PP_QUOTE(
+    ("is_thread_specified",             Bool, isThreadSpecified()),
+    ("has_local_storage",               Bool, hasLocalStorage()),
+    ("is_static_local",                 Bool, isStaticLocal()),
+    ("has_external_storage",            Bool, hasExternalStorage()),
+    ("has_global_storage",              Bool, hasGlobalStorage()),
+    ("is_extern_C",                     Bool, isExternC()),
+    ("is_local_var_decl",               Bool, isLocalVarDecl()),
+    ("is_function_or_method_var_decl",  Bool, isFunctionOrMethodVarDecl()),
+    ("is_static_data_member",           Bool, isStaticDataMember()),
+    ("is_tentative_definition_now",     Bool, isTentativeDefinitionNow()),
+    ("is_out_of_line",                  Bool, isOutOfLine()),
+    ("is_file_var_decl",                Bool, isFileVarDecl()),
+    ("is_direct_init",                  Bool, isDirectInit())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("canonical_decl",         getCanonicalDecl()),
+    ("definition",             getDefinition()),
+    ("any_initializer",        getAnyInitializer()),
+    ("init",                   getInit())
+  ))
+
+// ImplicitParam
+
+SEEC_DECL_LINK(ParmVarDecl,
+  SEEC_PP_QUOTE(
+    ("is_knr_promoted", Bool,   isKNRPromoted()),
+    ("has_default_arg", Bool,   hasDefaultArg()),
+    ("original_type",   String, getOriginalType())
+  ),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("default_arg", getDefaultArg())
+  ))
+
+// NonTypeTemplateParm
+
+// Template
+
+// RedeclarableTemplate
+
+// FunctionTemplate
+
+// ClassTemplate
+
+// TypeAliasTemplate
+
+// TemplateTemplateParm
+
+// Using
+
+// UsingShadow
+
+// ObjCMethod
+
+// ObjCContainer
+
+// ObjCCategory
+
+// ObjCProtocol
+
+// ObjCInterface
+
+// ObjCImpl
+
+// ObjCCategoryImpl
+
+// ObjCImplementation
+
+// ObjCProperty
+
+// ObjCCompatibleAlias
+
+SEEC_DECL_LINK(LinkageSpecDecl,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE())
+
+// ObjCPropertyImpl
+
+SEEC_DECL_LINK(FileScopeAsmDecl,
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("asm_string", getAsmString())
+  ))
+
+// AccessSpec
+
+// Friend
+
+// FriendTemplate
+
+// StaticAssert
+
+// Block
+
+// ClassScopeFunctionSpecialization
+
+// Import
+
+#undef SEEC_DECL_LINK

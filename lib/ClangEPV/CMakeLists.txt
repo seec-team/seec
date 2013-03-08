@@ -1,5 +1,6 @@
 set(SEEC_CLANGEPV_HEADERS
   ../../include/seec/ClangEPV/ClangEPV.hpp
+  DeclLinks.def
   StmtLinks.def
 )
 

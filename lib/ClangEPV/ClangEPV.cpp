@@ -154,6 +154,10 @@ Formattable formatAsString(::clang::Type const *T) {
   return formatAsString(::clang::QualType::getAsString(T, clang::Qualifiers()));
 }
 
+Formattable formatAsString(::clang::QualType QT) {
+  return formatAsString(QT.getAsString());
+}
+
 Formattable formatAsString(::clang::CharacterLiteral::CharacterKind Kind) {
   switch (Kind) {
     case ::clang::CharacterLiteral::CharacterKind::Ascii:
@@ -268,7 +272,33 @@ explain(::clang::Stmt const *Node,
 
 
 //===----------------------------------------------------------------------===//
-// ExplanationOfDecl
+// Explanation generation helpers.
+//===----------------------------------------------------------------------===//
+
+void addRuntimeValue(::clang::Stmt const *ForStatement,
+                     char const *Name,
+                     RuntimeValueLookup const &ValueLookup,
+                     seec::icu::FormatArgumentsWithNames &Arguments)
+{
+  UnicodeString UnicodeName(Name);
+  UnicodeString UnicodeHasName = UnicodeString("has_") + UnicodeName;
+  
+  if (ForStatement) {
+    auto const ValueString = ValueLookup.getValueString(ForStatement);
+    if (!ValueString.empty()) {
+      // Add the runtime value.
+      Arguments.add(UnicodeHasName, formatAsBool(true));
+      Arguments.add(UnicodeName, formatAsString(ValueString));
+    }
+  }
+  
+  // No runtime value found.
+  Arguments.add(UnicodeHasName, formatAsBool(false));
+}
+
+
+//===----------------------------------------------------------------------===//
+// addInfo() for ::clang::Decl
 //===----------------------------------------------------------------------===//
 
 /// \brief Catch all non-specialized Decl cases.
@@ -278,6 +308,64 @@ void addInfo(::clang::Decl const *Decl,
              seec::icu::FormatArgumentsWithNames &Arguments,
              NodeLinks &Links)
 {}
+
+// X-Macro generated specializations.
+#define SEEC_DECL_LINK_ARG(NAME, TYPE, GETTER)                                 \
+  Arguments.add(NAME, formatAs##TYPE(Declaration->GETTER));
+
+#define SEEC_DECL_LINK_RTV(NAME, GETTER)                                       \
+  addRuntimeValue(Declaration->GETTER, NAME, *ValueLookup, Arguments);
+
+#define SEEC_DECL_LINK_LINK(NAME, GETTER)                                      \
+  Links.add(NAME, Declaration->GETTER);
+
+#define SEEC_DECL_LINK(DECLCLASS, ARGUMENTS, RTVALUES, LINKS)                  \
+void addInfo(::clang::DECLCLASS const *Declaration,                            \
+             RuntimeValueLookup const *ValueLookup,                            \
+             seec::icu::FormatArgumentsWithNames &Arguments,                   \
+             NodeLinks &Links)                                                 \
+{                                                                              \
+  SEEC_PP_APPLY(SEEC_DECL_LINK_ARG, ARGUMENTS)                                 \
+  if (ValueLookup) {                                                           \
+    SEEC_PP_APPLY(SEEC_DECL_LINK_RTV, RTVALUES)                                \
+  }                                                                            \
+  SEEC_PP_APPLY(SEEC_DECL_LINK_LINK, LINKS)                                    \
+}
+
+#include "DeclLinks.def"
+
+#undef SEEC_DECL_LINK_ARG
+#undef SEEC_DECL_LINK_RTV
+#undef SEEC_DECL_LINK_LINK
+
+
+//===----------------------------------------------------------------------===//
+// addInfoForDerivedAndBase() for ::clang::Decl
+//===----------------------------------------------------------------------===//
+
+void addInfoForDerivedAndBase(::clang::Decl const *Node,
+                              RuntimeValueLookup const *ValueLookup,
+                              seec::icu::FormatArgumentsWithNames &Arguments,
+                              NodeLinks &Links)
+{
+  addInfo(Node, ValueLookup, Arguments, Links);
+}
+
+#define DECL(DERIVED, BASE)                                                    \
+void addInfoForDerivedAndBase(::clang::DERIVED##Decl const *Node,              \
+                              RuntimeValueLookup const *ValueLookup,           \
+                              seec::icu::FormatArgumentsWithNames &Arguments,  \
+                              NodeLinks &Links) {                              \
+  auto const BasePtr = static_cast< ::clang::BASE const *>(Node);              \
+  addInfoForDerivedAndBase(BasePtr, ValueLookup, Arguments, Links);            \
+  addInfo(Node, ValueLookup, Arguments, Links);                                \
+}
+#include "clang/AST/DeclNodes.inc"
+
+
+//===----------------------------------------------------------------------===//
+// ExplanationOfDecl
+//===----------------------------------------------------------------------===//
 
 seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
 ExplanationOfDecl::create(::clang::Decl const *Node,
@@ -290,13 +378,13 @@ ExplanationOfDecl::create(::clang::Decl const *Node,
   
   // Find the appropriate description for the Decl kind.
   switch (Node->getKind()) {
-#define DECL(DERIVED, BASE)                              \
-    case ::clang::Decl::Kind::DERIVED:                   \
-      DescriptionKey = #DERIVED;                         \
-      addInfo(llvm::cast< ::clang::DERIVED##Decl>(Node), \
-              ValueLookup,                               \
-              DescriptionArguments,                      \
-              ExplanationLinks);                         \
+#define DECL(DERIVED, BASE)                                                \
+    case ::clang::Decl::Kind::DERIVED:                                     \
+      DescriptionKey = #DERIVED;                                           \
+      addInfoForDerivedAndBase(llvm::cast< ::clang::DERIVED##Decl >(Node), \
+                               ValueLookup,                                \
+                               DescriptionArguments,                       \
+                               ExplanationLinks);                          \
       break;
 #define ABSTRACT_DECL(DECL)
 #include "clang/AST/DeclNodes.inc"
@@ -353,27 +441,6 @@ ExplanationOfDecl::create(::clang::Decl const *Node,
 // ExplanationOfStmt
 //===----------------------------------------------------------------------===//
 
-void addRuntimeValue(::clang::Stmt const *ForStatement,
-                     char const *Name,
-                     RuntimeValueLookup const &ValueLookup,
-                     seec::icu::FormatArgumentsWithNames &Arguments)
-{
-  UnicodeString UnicodeName(Name);
-  UnicodeString UnicodeHasName = UnicodeString("has_") + UnicodeName;
-  
-  if (ForStatement) {
-    auto const ValueString = ValueLookup.getValueString(ForStatement);
-    if (!ValueString.empty()) {
-      // Add the runtime value.
-      Arguments.add(UnicodeHasName, formatAsBool(true));
-      Arguments.add(UnicodeName, formatAsString(ValueString));
-    }
-  }
-  
-  // No runtime value found.
-  Arguments.add(UnicodeHasName, formatAsBool(false));
-}
-
 /// \brief Catch all non-specialized Stmt cases.
 ///
 void addInfo(::clang::Stmt const *Statement,
@@ -409,6 +476,7 @@ void addInfo(::clang::STMTCLASS const *Statement,                              \
 #include "StmtLinks.def"
 
 #undef SEEC_STMT_LINK_ARG
+#undef SEEC_STMT_LINK_RTV
 #undef SEEC_STMT_LINK_LINK
 
 // Manual specializations.
