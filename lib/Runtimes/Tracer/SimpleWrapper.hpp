@@ -196,6 +196,37 @@ public:
   std::size_t pointeeSize() const { return sizeof(*Value); }
 };
 
+template<>
+class WrappedInputPointer<void const *> {
+  void const *Value;
+  
+  std::size_t Size;
+  
+public:
+  WrappedInputPointer(void const * ForValue)
+  : Value(ForValue),
+    Size(0)
+  {}
+  
+  /// \name Flags.
+  /// @{
+  
+  WrappedInputPointer &setSize(std::size_t Value) {
+    Size = Value;
+    return *this;
+  }
+  
+  std::size_t getSize() const { return Size; }
+  
+  /// @} (Flags.)
+  
+  operator void const *() { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  std::size_t pointeeSize() const { return 0; }
+};
+
 template<typename T>
 WrappedInputPointer<T> wrapInputPointer(T ForValue) {
   return WrappedInputPointer<T>(ForValue);
@@ -408,6 +439,52 @@ public:
   uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
   
   std::size_t pointeeSize() const { return sizeof(*Value); }
+  
+  /// @} (Value information)
+};
+
+template<>
+class WrappedOutputPointer<void *> {
+  void *Value;
+  
+  std::size_t Size;
+  
+  bool IgnoreNull;
+  
+public:
+  WrappedOutputPointer(void *ForValue)
+  : Value(ForValue),
+    Size(0),
+    IgnoreNull(false)
+  {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedOutputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  WrappedOutputPointer &setSize(std::size_t Value) {
+    Size = Value;
+    return *this;
+  }
+  
+  std::size_t getSize() const { return Size; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
+  
+  operator void *() { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  std::size_t pointeeSize() const { return 0; }
   
   /// @} (Value information)
 };

@@ -15,6 +15,7 @@
 #define SEEC_UTIL_FIXEDWIDTHINTTYPES_HPP
 
 
+#include <climits>
 #include <cstdint>
 
 

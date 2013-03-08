@@ -86,6 +86,9 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 # Link.
 #--------------------------------------------------------------------------------
 target_link_libraries(seec-trace-view
+ # wxWidgets libraries
+ ${REQ_WX_LIBRARIES}
+ 
  # SeeC libraries
  SeeCClangEPV
  SeeCClangMappedTrace
@@ -115,9 +118,6 @@ target_link_libraries(seec-trace-view
 
  # ICU libraries
  ${REQ_ICU_LIBRARIES}
-
- # wxWidgets libraries
- ${REQ_WX_LIBRARIES}
 )
 
 #--------------------------------------------------------------------------------

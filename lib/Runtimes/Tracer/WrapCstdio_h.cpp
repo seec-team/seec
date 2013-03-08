@@ -941,6 +941,8 @@ SEEC_MANGLE_FUNCTION(fwrite)
 (void const *buffer, size_t size, size_t count, FILE *stream)
 {
   // Use the SimpleWrapper mechanism.
+  auto const CharBuffer = reinterpret_cast<char const *>(buffer);
+  
   return
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
@@ -948,7 +950,7 @@ SEEC_MANGLE_FUNCTION(fwrite)
       (fwrite,
        [](size_t Result){ return Result != 0; },
        seec::ResultStateRecorderForNoOp(),
-       seec::wrapInputPointer(buffer).setSize(size * count),
+       seec::wrapInputPointer(CharBuffer).setSize(size * count),
        size,
        count,
        seec::wrapInputFILE(stream));
