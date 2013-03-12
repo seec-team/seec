@@ -41,7 +41,7 @@ SEEC_DECL_LINK(NamedDecl,
 
 // NamespaceAlias
 
-SEEC_DECL_LINK(LabelDecl,
+SEEC_DECL_LINK(LabelDecl, // Inherits NamedDecl
   SEEC_PP_QUOTE(
     ("is_gnu_local", Bool, isGnuLocal())
   ),
@@ -50,14 +50,14 @@ SEEC_DECL_LINK(LabelDecl,
     ("stmt", getStmt())
   ))
 
-SEEC_DECL_LINK(TypeDecl,
+SEEC_DECL_LINK(TypeDecl, // Inherits NamedDecl
   SEEC_PP_QUOTE(
     ("type_for_decl", String, getTypeForDecl())
   ),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_DECL_LINK(TypedefNameDecl,
+SEEC_DECL_LINK(TypedefNameDecl, // Inherits TypeDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("underlying_type", String, getUnderlyingType())
   ),
@@ -72,7 +72,7 @@ SEEC_DECL_LINK(TypedefNameDecl,
 
 // UnresolvedUsingTypename
 
-SEEC_DECL_LINK(TagDecl,
+SEEC_DECL_LINK(TagDecl, // Inherits NamedDecl
   SEEC_PP_QUOTE(
     ("is_this_declaration_a_definition", Bool, isThisDeclarationADefinition()),
     ("is_complete_definition",           Bool, isCompleteDefinition()),
@@ -91,7 +91,7 @@ SEEC_DECL_LINK(TagDecl,
     ("definition",     getDefinition())
   ))
 
-SEEC_DECL_LINK(EnumDecl,
+SEEC_DECL_LINK(EnumDecl, // Inherits TagDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("promotion_type", String, getPromotionType()),
     ("integer_type",   String, getIntegerType()),
@@ -105,7 +105,7 @@ SEEC_DECL_LINK(EnumDecl,
     ("definition",     getDefinition())
   ))
 
-SEEC_DECL_LINK(RecordDecl,
+SEEC_DECL_LINK(RecordDecl, // Inherits TagDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("has_flexible_array_member",    Bool,   hasFlexibleArrayMember()),
     ("is_anonymous_struct_or_union", Bool,   isAnonymousStructOrUnion()),
@@ -127,7 +127,7 @@ SEEC_DECL_LINK(RecordDecl,
 
 // TemplateTypeParm
 
-SEEC_DECL_LINK(ValueDecl,
+SEEC_DECL_LINK(ValueDecl, // Inherits NamedDecl
   SEEC_PP_QUOTE(
     ("type",    String, getType()),
     ("is_weak", Bool,   isWeak())
@@ -135,7 +135,7 @@ SEEC_DECL_LINK(ValueDecl,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_DECL_LINK(EnumConstantDecl,
+SEEC_DECL_LINK(EnumConstantDecl, // Inherits ValueDecl, NamedDecl
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
     ("rtv_of_init_expr", getInitExpr())
@@ -146,7 +146,7 @@ SEEC_DECL_LINK(EnumConstantDecl,
 
 // UnresolvedUsingValue
 
-SEEC_DECL_LINK(IndirectFieldDecl,
+SEEC_DECL_LINK(IndirectFieldDecl, // Inherits ValueDecl, NamedDecl
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
@@ -154,14 +154,14 @@ SEEC_DECL_LINK(IndirectFieldDecl,
     ("var_decl",   getVarDecl())
   ))
 
-SEEC_DECL_LINK(DeclaratorDecl,
+SEEC_DECL_LINK(DeclaratorDecl, // Inherits ValueDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("type_source_info_type", String, getTypeSourceInfo()->getType())
   ),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_DECL_LINK(FunctionDecl,
+SEEC_DECL_LINK(FunctionDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
@@ -174,7 +174,7 @@ SEEC_DECL_LINK(FunctionDecl,
 
 // CXXConversion
 
-SEEC_DECL_LINK(FieldDecl,
+SEEC_DECL_LINK(FieldDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("field_index",              Int,  getFieldIndex()),
     ("is_mutable",               Bool, isMutable()),
@@ -195,7 +195,7 @@ SEEC_DECL_LINK(FieldDecl,
 
 // ObjCAtDefsField
 
-SEEC_DECL_LINK(VarDecl,
+SEEC_DECL_LINK(VarDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
   SEEC_PP_QUOTE(
     ("is_thread_specified",             Bool, isThreadSpecified()),
     ("has_local_storage",               Bool, hasLocalStorage()),
@@ -221,6 +221,8 @@ SEEC_DECL_LINK(VarDecl,
 
 // ImplicitParam
 
+// ParmVarDecl inherits VarDecl, DeclaratorDecl, ValueDecl, NamedDecl
+//
 SEEC_DECL_LINK(ParmVarDecl,
   SEEC_PP_QUOTE(
     ("is_knr_promoted", Bool,   isKNRPromoted()),

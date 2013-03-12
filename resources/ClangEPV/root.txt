@@ -1,5 +1,7 @@
 root:table {
+  //
   // Describes errors that can occur in the library.
+  //
   errors:table {
     ExplainNullDecl:string { "Decl is null." }
 
@@ -20,21 +22,319 @@ root:table {
     DescriptionIndexFailed:string { "Couldn't index description with key {key}." }
   }
 
+  //
   // Contains textual descriptions of clang AST nodes.
+  //
   descriptions:table {
 
-    //-------------------
+    //--------------------------------------------------------------------------
     // Decl descriptions.
-    //-------------------
+    //--------------------------------------------------------------------------
+
+    // Label description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   is_gnu_local
+    // Outputs:
+    //   underlying_decl
+    //   stmt
+    //
+    Label:string {
+      "This is a label named “{name}”. If execution reaches this label, or jumps to this label from another location, then the next evaluated statement will be @[stmt]the statement immediately following this label@[]."
+    }
+
+    // Type description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type_for_decl
+    // Outputs:
+    //   underlying_decl
+    //
+    Type:string {
+      "This declares a type named “{name}”, with type “{type_for_decl}”."
+    }
+
+    // Typedef description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type_for_decl
+    //   underlying_type
+    // Outputs:
+    //   underlying_decl
+    //   canonical_decl
+    //
+    Typedef:string {
+      "This is a typedef that associates the name “{name}” with the type “{underlying_type}”."
+    }
+
+    // Enum description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   is_this_declaration_a_definition
+    //   is_complete_definition
+    //   is_embedded_in_declarator
+    //   is_free_standing
+    //   is_dependent_type
+    //   is_struct
+    //   is_interface
+    //   is_class
+    //   is_union
+    //   is_enum
+    //   promotion_type
+    //   integer_type
+    //   is_scoped
+    //   is_fixed
+    //   is_complete
+    // Outputs:
+    //   underlying_decl
+    //   canonical_decl
+    //   definition
+    //
+    Enum:string {
+      "{is_complete_definition, select,"
+
+      " true {This declares and defines an enum named “{name}”.}"
+
+      " other {This declares an enum named “{name}”. The enum is completed by a @[definition]definition@[].}}"
+    }
+
+    // Record description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   is_this_declaration_a_definition
+    //   is_complete_definition
+    //   is_embedded_in_declarator
+    //   is_free_standing
+    //   is_dependent_type
+    //   is_struct
+    //   is_interface
+    //   is_class
+    //   is_union
+    //   is_enum
+    //   has_flexible_array_member
+    //   is_anonymous_struct_or_union
+    //   has_object_member
+    //   has_volatile_member
+    //   is_injected_class_name
+    // Outputs:
+    //   underlying_decl
+    //   canonical_decl
+    //   definition
+    //
+    Record:string {
+      "{is_struct, select,"
+      " true {This declares a structure type named “{name}”.}"
+      " other {"
+        "{is_union, select,"
+        " true {This declares a union type named “{name}”.}"
+        " other {"
+          "This declares a record type named “{name}”."
+        "}}"
+      "}}"
+    }
+
+    // EnumConstant description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    // Values:
+    //   [has_]rtv_of_init_expr
+    // Outputs:
+    //   underlying_decl
+    //   init_expr
+    //
+    EnumConstant:string {
+      "This is an enum constant named “{name}”." 
+    }
+
+    // IndirectField description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    // Outputs:
+    //   underlying_decl
+    //   anon_field
+    //   var_decl
+    //
+    IndirectField:string {
+      "This represents the @[anon_field]field named “{name}”@[], included in the parent scope by an anonymous union or struct."
+    }
 
     // Function description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    //   type_source_info_type
+    // Outputs:
+    //   underlying_decl
     //
-    Function:string { "This is a function declaration." }
+    Function:string {
+      "This declares a function named “{name}”."
+    }
+
+    // Field description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    //   type_source_info_type
+    //   field_index
+    //   is_mutable
+    //   is_bit_field
+    //   is_unnamed_bitfield
+    //   has_in_class_initializer
+    // Values:
+    //   [has_]rtv_of_bit_width
+    // Outputs:
+    //   underlying_decl
+    //   bit_width
+    //   in_class_initializer
+    //   parent
+    //
+    Field:string {
+      "This declares a field named “{name}”, with type “{type}”, in @[parent]the enclosing record type@[]."
+    }
+
+    // Var description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    //   type_source_info_type
+    //   is_thread_specified
+    //   has_local_storage
+    //   is_static_local
+    //   has_external_storage
+    //   has_global_storage
+    //   is_extern_C
+    //   is_local_var_decl
+    //   is_function_or_method_var_decl
+    //   is_static_data_member
+    //   is_tentative_definition_now
+    //   is_out_of_line
+    //   is_file_var_decl
+    //   is_direct_init
+    // Outputs:
+    //   underlying_decl
+    //   canonical_decl
+    //   definition
+    //   any_initializer
+    //   init
+    //
+    Var:string {
+      "This declares a variable named “{name}”, with type “{type}”."
+    }
+
+    // ParmVar description.
+    // Inputs:
+    //   name
+    //   qualified_name
+    //   has_linkage
+    //   is_hidden
+    //   is_cxx_class_member
+    //   is_cxx_instance_member
+    //   type
+    //   is_weak
+    //   type_source_info_type
+    //   is_thread_specified
+    //   has_local_storage
+    //   is_static_local
+    //   has_external_storage
+    //   has_global_storage
+    //   is_extern_C
+    //   is_local_var_decl
+    //   is_function_or_method_var_decl
+    //   is_static_data_member
+    //   is_tentative_definition_now
+    //   is_out_of_line
+    //   is_file_var_decl
+    //   is_direct_init
+    //   is_knr_promoted
+    //   has_default_arg
+    //   original_type
+    // Outputs:
+    //   underlying_decl
+    //   canonical_decl
+    //   definition
+    //   any_initializer
+    //   init
+    //   default_arg
+    //
+    ParmVar:string {
+      "This declares a parameter named “{name}”, with type “{type}”."
+    }
+
+    // LinkageSpec description.
+    //
+    LinkageSpec:string {
+      "This specifies linkage."
+    }
+
+    // FileScopeAsm description.
+    // Outputs:
+    //   asm_string
+    //
+    FileScopeAsm:string {
+      "This is used to include raw assembly."
+    }
 
 
-    //-------------------
+    //--------------------------------------------------------------------------
     // Stmt descriptions.
-    //-------------------
+    //--------------------------------------------------------------------------
     
     // ArraySubscriptExpr description.
     // Inputs:
