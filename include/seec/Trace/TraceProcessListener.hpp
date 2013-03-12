@@ -175,7 +175,7 @@ class TraceProcessListener {
   uint32_t NextThreadID;
   
   /// Lookup active TraceThreadListener objects.
-  llvm::DenseMap<uint32_t, TraceThreadListener const *> ActiveThreadListeners;
+  llvm::DenseMap<uint32_t, TraceThreadListener *> ActiveThreadListeners;
   
   /// Controls access to NextThreadID and ActiveThreadListeners.
   mutable std::mutex TraceThreadListenerMutex;
@@ -335,7 +335,7 @@ public:
   
   /// \brief Register a new TraceThreadListener with this process.
   /// \return a new integer ThreadID for the TraceThreadListener.
-  uint32_t registerThreadListener(TraceThreadListener const *Listener) {
+  uint32_t registerThreadListener(TraceThreadListener *Listener) {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
     auto ThreadID = NextThreadID++;
@@ -350,6 +350,19 @@ public:
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
     ActiveThreadListeners.erase(ThreadID);
+  }
+  
+  /// \brief Get a list of active TraceThreadListener objects.
+  ///
+  std::vector<TraceThreadListener *> getThreadListeners() {
+    std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
+    
+    std::vector<TraceThreadListener *> List;
+    
+    for (auto const &Pair : ActiveThreadListeners)
+      List.push_back(Pair.second);
+    
+    return List;
   }
   
   /// @}
