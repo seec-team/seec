@@ -254,7 +254,7 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
   // Check for unhandled external functions.
   for (auto &F : M) {
-    if (F.empty()) {
+    if (F.empty() && !F.isIntrinsic()) {
       auto Name = F.getName();
       bool Handled = false;
       
