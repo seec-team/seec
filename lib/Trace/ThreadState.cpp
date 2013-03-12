@@ -669,7 +669,7 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   CallStack.emplace_back(State);
   
   ThreadTime = Info.getThreadTimeExited() - 1;
-
+  
   // Now we need to restore all function-level events. For now, we use the
   // naive method, which is to simply re-add all events from the start of the
   // function to the end.
@@ -686,6 +686,9 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
       // Set the iterator to the FunctionEnd event for the child function. It
       // will be incremented to the next event in this function, by the loop.
       RestoreRef = Trace.events().referenceToOffset(Child.getEventEnd());
+      
+      // Set the thread time to the FunctionEnd event's thread time.
+      ThreadTime = Child.getThreadTimeExited();
       
       continue;
     }

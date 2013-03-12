@@ -164,9 +164,9 @@ public:
           }
         }
       }
-
+      
       State.removePreviousEvent();
-
+      
       if (PreviousEvent->isBlockStart() || PreviousEvent == FirstEvent)
         return true;
       
