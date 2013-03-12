@@ -307,6 +307,13 @@ public:
   }
   
   
+  /// \brief Access the synchronized exit supporter for this thread.
+  ///
+  SupportSynchronizedExit const &getSupportSynchronizedExit() {
+    return SupportSyncExit;
+  }
+  
+  
   /// \name Trace writing control.
   /// @{
   

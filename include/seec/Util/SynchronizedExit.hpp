@@ -22,6 +22,7 @@ namespace seec {
 
 /// \brief Support synchronizing std::exit() amongst a group of participating
 ///        threads.
+///
 class SynchronizedExit {
   std::mutex Access;
   
@@ -35,9 +36,13 @@ class SynchronizedExit {
   
   std::condition_variable StopCancelled;
   
-  void stop(std::unique_lock<std::mutex> &Lock);
+  void initiateStop();
+  
+  void joinStop(std::unique_lock<std::mutex> &Lock);
   
 public:
+  /// \brief Constructor.
+  ///
   SynchronizedExit()
   : Access(),
     ExitCalled(false),
@@ -51,12 +56,28 @@ public:
   
   SynchronizedExit &operator=(SynchronizedExit const &) = delete;
   
+  /// \brief Notify that this thread has started.
+  ///
   void threadStart();
   
+  /// \brief Notify that this thread is terminating.
+  ///
   void threadFinish();
   
+  /// \brief Stop all threads and then return.
+  ///
+  void stopAll();
+  
+  /// \brief Stop all threads and call std::abort().
+  ///
+  void abort();
+  
+  /// \brief Stop all threads and call std::exit().
+  ///
   void exit(int ExitCode);
   
+  /// \brief Check if we should join an active stop.
+  ///
   void check() {
     std::unique_lock<std::mutex> Lock(Access);
     
@@ -66,7 +87,7 @@ public:
     if (ExitCalled)
       return;
     
-    stop(Lock);
+    joinStop(Lock);
   }
 };
 
