@@ -307,13 +307,6 @@ public:
   }
   
   
-  /// \brief Access the synchronized exit supporter for this thread.
-  ///
-  SupportSynchronizedExit const &getSupportSynchronizedExit() {
-    return SupportSyncExit;
-  }
-  
-  
   /// \name Trace writing control.
   /// @{
   
@@ -343,45 +336,63 @@ public:
   /// \name Accessors
   /// @{
 
-  /// Get the TraceProcessListener for the process that this thread belongs to.
+  /// \brief Get the TraceProcessListener for the process that this thread
+  ///        belongs to.
+  ///
   TraceProcessListener const &getProcessListener() const {
     return ProcessListener;
   }
+  
+  /// \brief Access the synchronized exit supporter for this thread.
+  ///
+  SupportSynchronizedExit const &getSupportSynchronizedExit() {
+    return SupportSyncExit;
+  }
 
-  /// Get the unique ThreadID for this thread.
+  /// \brief Get the unique ThreadID for this thread.
+  ///
   uint32_t getThreadID() const { return ThreadID; }
+  
+  /// \brief Get access to the event output.
+  ///
+  EventWriter &getEventsOut() { return EventsOut; }
 
-  /// Get the run-time address of a GlobalVariable.
+  /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
+  ///
   uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
     return ProcessListener.getRuntimeAddress(GV);
   }
 
-  /// Get the run-time address of a Function.
+  /// \brief Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
+  ///
   uintptr_t getRuntimeAddress(llvm::Function const *F) const {
     return ProcessListener.getRuntimeAddress(F);
   }
 
-  /// Get trace information about the currently active Function.
+  /// \brief Get trace information about the currently active Function.
   /// \return a pointer to the current active TracedFunction, or nullptr
   ///         if no Function is currently active.
+  ///
   TracedFunction *getActiveFunction() {
     // return ActiveFunction.load();
     return ActiveFunction;
   }
 
-  /// Get trace information about the currently active Function.
+  /// \brief Get trace information about the currently active Function.
   /// \return a const pointer to the current active TracedFunction, or nullptr
   ///         if no Function is currently active.
+  ///
   TracedFunction const *getActiveFunction() const {
     // return ActiveFunction.load();
     return ActiveFunction;
   }
 
-  /// Get the current RuntimeValue associated with an Instruction.
+  /// \brief Get the current RuntimeValue associated with an Instruction.
+  ///
   RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const {
     // auto ActiveFunc = ActiveFunction.load();
     auto ActiveFunc = ActiveFunction;
@@ -398,8 +409,9 @@ public:
     return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
   }
 
-  /// Find the allocated range that owns an address, if it belongs to this
-  /// thread. This method is thread safe.
+  /// \brief Find the allocated range that owns an address, if it belongs to this
+  ///        thread. This method is thread safe.
+  ///
   seec::util::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(FunctionStackMutex);
@@ -421,6 +433,19 @@ public:
 
   /// \name Mutators
   /// @{
+  
+  /// \brief Increment the thread time and write a NewThreadTime event.
+  ///
+  /// This will also reset the process time associated with the current
+  /// instruction.
+  ///
+  uint64_t incrementThreadTime() {
+    EventsOut.write<seec::trace::EventType::NewThreadTime>(++Time);
+    
+    CIProcessTime.reset();
+    
+    return Time;
+  }
 
   /// \brief Handle a run-time error.
   /// At this time, a run-time error is handled by writing it to the trace, and
@@ -440,7 +465,6 @@ public:
   /// \name Thread Listener Notifications
   /// @{
 
-public:
   void enterNotification();
 
   void exitNotification();
@@ -449,7 +473,6 @@ public:
 
   void exitPostNotification();
 
-public:
   void notifyFunctionBegin(uint32_t Index, llvm::Function const *F);
 
   void notifyFunctionEnd(uint32_t Index, llvm::Function const *F);

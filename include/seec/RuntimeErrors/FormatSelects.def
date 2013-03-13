@@ -49,6 +49,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, localeconv, "localeconv")
   
   //----------------------------------------------------------------------------
+  // stdlib.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, qsort, "qsort")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, bsearch, "bsearch")
+  
+  //----------------------------------------------------------------------------
   // time.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, time, "time")

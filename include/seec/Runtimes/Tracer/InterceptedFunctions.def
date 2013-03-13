@@ -84,6 +84,8 @@ SEEC_INTERCEPTED_FUNCTION(_Exit)
 SEEC_INTERCEPTED_FUNCTION(atexit)
 SEEC_INTERCEPTED_FUNCTION(at_quick_exit)
 
+SEEC_INTERCEPTED_FUNCTION(qsort)
+
 
 //===----------------------------------------------------------------------===//
 // C <string.h>

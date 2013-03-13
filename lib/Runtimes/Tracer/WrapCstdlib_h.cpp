@@ -11,11 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SimpleWrapper.hpp"
 #include "Tracer.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/Support/CallSite.h"
@@ -64,13 +66,185 @@ void stopThreadsAndWriteTrace() {
 }
 
 
+/// Functions to call during exit().
 static std::stack<void (*)()> AtExitFunctions;
 
+/// Controls access to AtExitFunctions.
 static std::mutex AtExitFunctionsMutex;
 
+/// Functions to call during quick_exit().
 static std::stack<void (*)()> AtQuickExitFunctions;
 
+/// Controls access to AtQuickExitFunctions.
 static std::mutex AtQuickExitFunctionsMutex;
+
+
+/// \brief Implement a recording quicksort.
+///
+class QuickSortImpl {
+  /// The thread performing the sort.
+  seec::trace::TraceThreadListener &ThreadListener;
+  
+  /// The memory checker.
+  seec::trace::CStdLibChecker Checker;
+  
+  /// Pointer to the start of the array.
+  char * const Array;
+  
+  /// Number of elements in the array.
+  std::size_t const ElementCount;
+  
+  /// Size of each element.
+  std::size_t const ElementSize;
+  
+  /// Comparison function.
+  int (* const Compare)(char const *, char const *);
+  
+  /// \brief Acquire memory lock and ensure that memory is accessible.
+  ///
+  bool acquireMemory()
+  {
+    ThreadListener.enterNotification();
+    ThreadListener.acquireGlobalMemoryWriteLock();
+    ThreadListener.acquireDynamicMemoryLock();
+    
+    return Checker.checkMemoryExistsAndAccessibleForParameter
+                   (0,
+                    reinterpret_cast<uintptr_t>(Array),
+                    ElementCount * ElementSize,
+                    seec::runtime_errors::format_selects::MemoryAccess::Write);
+  }
+  
+  /// \brief Release memory lock.
+  ///
+  void releaseMemory()
+  {
+    ThreadListener.exitPostNotification();
+  }
+  
+  /// \brief Get a pointer to an element in the array.
+  ///
+  char *getElement(std::size_t Index) {
+    assert(Index < ElementCount);
+    
+    return Array + (Index * ElementSize);
+  }
+  
+  /// \brief Swap two elements in the array.
+  ///
+  void swap(std::size_t IndexA, std::size_t IndexB) {
+    assert((IndexA < ElementCount) && (IndexB < ElementCount));
+    
+    if (IndexA == IndexB)
+      return;
+    
+    auto const ElemA = getElement(IndexA);
+    auto const ElemB = getElement(IndexB);
+    
+    char TempValue[ElementSize];
+    
+    memcpy(TempValue, ElemA,     ElementSize);
+    memcpy(ElemA,     ElemB,     ElementSize);
+    memcpy(ElemB,     TempValue, ElementSize);
+    
+    // Create a new thread time for this "step" of the sort, and record the
+    // updated memory states.
+    ThreadListener.incrementThreadTime();
+    ThreadListener.recordUntypedState(ElemA, ElementSize);
+    ThreadListener.recordUntypedState(ElemB, ElementSize);
+  }
+  
+  /// \brief Partition.
+  ///
+  seec::util::Maybe<std::size_t>
+  partition(std::size_t const Left,
+            std::size_t const Right,
+            std::size_t const Pivot)
+  {
+    // Move the pivot to the end.
+    swap(Pivot, Right);
+    
+    // Shift all elements "less than" the pivot to the left side.
+    std::size_t StoreIndex = Left;
+    
+    for (std::size_t i = Left; i < Right; ++i) {
+      // Release memory so that the compare function can access it.
+      releaseMemory();
+      
+      // Compare the current element to the pivot.
+      auto const Comparison = Compare(getElement(i), getElement(Right));
+      
+      // Lock memory and ensure that the compare function hasn't deallocated it.
+      if (!acquireMemory())
+        return seec::util::Maybe<std::size_t>();
+            
+      if (Comparison < 0) {
+        swap(i, StoreIndex);
+        ++StoreIndex;
+      }
+    }
+    
+    // Move pivot to its final place.
+    swap(StoreIndex, Right);
+    
+    // Return final index of pivot.
+    return StoreIndex;
+  }
+  
+  /// \brief Quicksort.
+  ///
+  /// \return true iff sorting should continue (no errors occurred).
+  ///
+  bool quicksort(std::size_t Left, std::size_t Right)
+  {
+    if (Left >= Right)
+      return true;
+    
+    // Divide using naive "halfway" partition.
+    auto const MaybePivotIndex = partition(Left,
+                                           Right,
+                                           Left + ((Right - Left) / 2));
+    
+    if (!MaybePivotIndex.assigned())
+      return false;
+    
+    auto const PivotIndex = MaybePivotIndex.get<std::size_t>();
+    
+    // Recursively sort the left side (if there is one).
+    if (PivotIndex != 0 && !quicksort(Left, PivotIndex - 1))
+      return false;
+    
+    // Sort the right area.
+    return quicksort(PivotIndex + 1, Right);
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  QuickSortImpl(seec::trace::ThreadEnvironment &WithThread,
+                char * const ForArray,
+                std::size_t const WithElementCount,
+                std::size_t const WithElementSize,
+                int (* const WithCompare)(char const *, char const *))
+  : ThreadListener(WithThread.getThreadListener()),
+    Checker(WithThread.getThreadListener(),
+            WithThread.getInstructionIndex(),
+            seec::runtime_errors::format_selects::CStdFunction::qsort),
+    Array(ForArray),
+    ElementCount(WithElementCount),
+    ElementSize(WithElementSize),
+    Compare(WithCompare)
+  {}
+  
+  /// \brief Perform the quicksort.
+  ///
+  void operator()()
+  {
+    acquireMemory();
+    quicksort(0, ElementCount - 1);
+    releaseMemory();
+  }
+};
 
 
 } // namespace seec
@@ -182,6 +356,23 @@ SEEC_MANGLE_FUNCTION(at_quick_exit)
   seec::AtQuickExitFunctions.push(func);
   
   return 0;
+}
+
+
+//===----------------------------------------------------------------------===//
+// qsort
+//===----------------------------------------------------------------------===//
+
+void
+SEEC_MANGLE_FUNCTION(qsort)
+(char *Array,
+ std::size_t ElementCount,
+ std::size_t ElementSize,
+ int (*Compare)(char const *, char const *)
+ )
+{
+  seec::QuickSortImpl(seec::trace::getThreadEnvironment(),
+                      Array, ElementCount, ElementSize, Compare)();
 }
 
 
