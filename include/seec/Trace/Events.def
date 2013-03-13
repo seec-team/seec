@@ -21,8 +21,9 @@
 ///
 /// And Traits is a quoted list (created with SEEC_PP_QUOTE), and each element
 /// in the list takes the form:
-///  (Name)
+///  (EventName, TraitName)
 ///
+/// The possible traits are listed in TraceFormat.hpp.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -73,6 +74,15 @@ SEEC_TRACE_EVENT(NewProcessTime,
   ),
   SEEC_PP_QUOTE(
     (NewProcessTime, is_block_start)
+  ))
+
+SEEC_TRACE_EVENT(NewThreadTime,
+  SEEC_PP_QUOTE(
+    (uint64_t, ThreadTime)
+  ),
+  SEEC_PP_QUOTE(
+    (NewThreadTime, is_block_start),
+    (NewThreadTime, is_function_level)
   ))
 
 SEEC_TRACE_EVENT(PreInstruction,
@@ -332,7 +342,6 @@ SEEC_TRACE_EVENT(RuntimeError,
     (uint8_t, IsTopLevel)
   ),
   SEEC_PP_QUOTE(
-    (RuntimeError, no_traits)
   ))
 
 SEEC_TRACE_EVENT(RuntimeErrorArgument,

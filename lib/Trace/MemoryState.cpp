@@ -79,11 +79,11 @@ void MemoryState::memcpy(uintptr_t Source,
       if (Block.area().length() <= Size)
         Block.setStartEnd(Destination, Destination + Block.area().length());
       else
-        Block.setStartEnd(Destination, Size);
+        Block.setStartEnd(Destination, Destination + Size);
       
       // Create a new state fragment for this event with the modified block.
       MovedInsert = Moved.insert(MovedInsert,
-                                 std::make_pair(Source,
+                                 std::make_pair(Destination,
                                                 MemoryStateFragment(Block,
                                                                     Event)));
     }

@@ -158,6 +158,8 @@ ThreadState::restoreMemoryState(
   seec::trace::MemoryState &Memory
   )
 {
+  auto const Destination = Ev.getDestinationAddress();
+  
   // 1. Create a new, empty MemoryState.
   seec::trace::MemoryState StageMemory;
   
@@ -176,15 +178,16 @@ ThreadState::restoreMemoryState(
   
   // 3. Move the events in the new MemoryState into the new position.
   StageMemory.memcpy(Ev.getSourceAddress(),
-                     Ev.getDestinationAddress(),
+                     Destination,
                      Ev.getSize(),
                      EvLoc);
   
   // 4. Copy the new fragments into Memory.
-  auto &Fragments = StageMemory.getFragmentMap();
-  auto End = Fragments.lower_bound(Ev.getDestinationAddress() + Ev.getSize());
+  auto const &Fragments = StageMemory.getFragmentMap();
   
-  for (auto It = Fragments.find(Ev.getDestinationAddress()); It != End; ++It) {
+  auto const End = Fragments.lower_bound(Destination + Ev.getSize());
+  
+  for (auto It = Fragments.lower_bound(Destination); It != End; ++It) {
     Memory.add(std::move(It->second.getBlock()), EvLoc);
   }
 }
@@ -205,6 +208,7 @@ ThreadState::restoreMemoryState(
   while ((++EvRef)->isSubservient()) {
     if (EvRef->getType() == EventType::StateCopied) {
       auto const &CopyEv = EvRef.get<EventType::StateCopied>();
+      
       restoreMemoryState(EventLocation(CopyEv.getStateThreadID(),
                                        CopyEv.getStateOffset()),
                          StageMemory,
@@ -221,10 +225,11 @@ ThreadState::restoreMemoryState(
                      EvLoc);
   
   // 4. Copy the new fragments into Memory.
-  auto &Fragments = StageMemory.getFragmentMap();
-  auto End = Fragments.lower_bound(InArea.end());
+  auto const &Fragments = StageMemory.getFragmentMap();
   
-  for (auto It = Fragments.find(InArea.start()); It != End; ++It) {
+  auto const End = Fragments.lower_bound(InArea.end());
+  
+  for (auto It = Fragments.lower_bound(InArea.address()); It != End; ++It) {
     Memory.add(std::move(It->second.getBlock()), EvLoc);
   }
 }
@@ -307,11 +312,11 @@ void ThreadState::restoreMemoryState(EventLocation const &Ev,
     auto const FragmentAddress = InArea.start();
     auto const FragmentSize = InArea.length();
     
-    Parent.Memory.add(MappedMemoryBlock(FragmentAddress,
-                                        FragmentSize,
-                                        Data.slice(FragmentAddress - Address,
-                                                   FragmentSize).data()),
-                      EventLocation());
+    Memory.add(MappedMemoryBlock(FragmentAddress,
+                                 FragmentSize,
+                                 Data.slice(FragmentAddress - Address,
+                                            FragmentSize).data()),
+               EventLocation());
   }
 }
 
@@ -358,9 +363,15 @@ void ThreadState::addEvent(EventRecord<EventType::BasicBlockStart> const &Ev) {
   // TODO
 }
 
-void ThreadState::addEvent(EventRecord<EventType::NewProcessTime> const &Ev) {
+void ThreadState::addEvent(EventRecord<EventType::NewProcessTime> const &Ev)
+{
   // Update this thread's view of ProcessTime.
   ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::addEvent(EventRecord<EventType::NewThreadTime> const &Ev)
+{
+  ThreadTime = Ev.getThreadTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
@@ -713,8 +724,16 @@ void ThreadState::removeEvent(
 }
 
 void ThreadState::removeEvent(
-      EventRecord<EventType::NewProcessTime> const &Ev) {
+      EventRecord<EventType::NewProcessTime> const &Ev)
+{
+  // TODO: We need to get the time from the preceding setter.
   ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::removeEvent(
+      EventRecord<EventType::NewThreadTime> const &Ev)
+{
+  ThreadTime = Ev.getThreadTime() - 1;
 }
 
 void ThreadState::removeEvent(
