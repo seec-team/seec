@@ -79,6 +79,141 @@ static std::stack<void (*)()> AtQuickExitFunctions;
 static std::mutex AtQuickExitFunctionsMutex;
 
 
+/// \brief Implement a checking bsearch.
+///
+class BinarySearchImpl {
+  /// The thread performing the sort.
+  seec::trace::TraceThreadListener &ThreadListener;
+  
+  /// The memory checker.
+  seec::trace::CStdLibChecker Checker;
+  
+  /// Pointer to the key.
+  char const * const Key;
+  
+  /// Pointer to the start of the array.
+  char const * const Array;
+  
+  /// Number of elements in the array.
+  std::size_t const ElementCount;
+  
+  /// Size of each element.
+  std::size_t const ElementSize;
+  
+  /// Comparison function.
+  int (* const Compare)(char const *, char const *);
+  
+  /// \brief Acquire memory lock and ensure that memory is accessible.
+  ///
+  bool acquireMemory()
+  {
+    ThreadListener.enterNotification();
+    ThreadListener.acquireGlobalMemoryReadLock();
+    ThreadListener.acquireDynamicMemoryLock();
+    
+    // We check for "copy", because it doesn't require initialization, and
+    // doesn't require read permission. We don't need the entire array to be
+    // initialized, because the initialization that is *required* will be
+    // checked in the comparison function.
+    
+    return Checker.checkMemoryExistsAndAccessibleForParameter
+                   (0,
+                    reinterpret_cast<uintptr_t>(Key),
+                    ElementSize,
+                    seec::runtime_errors::format_selects::MemoryAccess::Copy)
+           &&
+           Checker.checkMemoryExistsAndAccessibleForParameter
+                   (1,
+                    reinterpret_cast<uintptr_t>(Array),
+                    ElementCount * ElementSize,
+                    seec::runtime_errors::format_selects::MemoryAccess::Copy);
+  }
+  
+  /// \brief Release memory lock.
+  ///
+  void releaseMemory()
+  {
+    ThreadListener.exitPostNotification();
+  }
+  
+  /// \brief Get a pointer to an element in the array.
+  ///
+  char const *getElement(std::size_t Index) {
+    assert(Index < ElementCount);
+    
+    return Array + (Index * ElementSize);
+  }
+  
+  /// \brief Perform the binary search.
+  char const *bsearch() {
+    if (!ElementCount)
+      return nullptr;
+    
+    std::size_t Min = 0;
+    std::size_t Max = ElementCount - 1;
+    
+    while (Min <= Max) {
+      std::size_t const Mid = Min + ((Max - Min) / 2);
+      
+      // Compare the midpoint with the key.
+      releaseMemory();
+      
+      auto const Comparison = Compare(getElement(Mid), Key);
+      
+      if (!acquireMemory())
+        return nullptr;
+      
+      if (Comparison < 0) // Mid-point is less than Key
+        Min = Mid + 1;
+      else if (Comparison > 0) { // Mid-point is greater than Key
+        if (Mid == 0)
+          return nullptr;
+        
+        Max = Mid - 1;
+      }
+      else // Mid-point is equal to Key
+        return getElement(Mid);
+    }
+    
+    return nullptr;
+  }
+  
+public:
+  /// \brief Constructor.
+  ///
+  BinarySearchImpl(seec::trace::ThreadEnvironment &WithThread,
+                   char const * const ForKey,
+                   char const * const ForArray,
+                   std::size_t const WithElementCount,
+                   std::size_t const WithElementSize,
+                   int (* const WithCompare)(char const *, char const *))
+  : ThreadListener(WithThread.getThreadListener()),
+    Checker(WithThread.getThreadListener(),
+            WithThread.getInstructionIndex(),
+            seec::runtime_errors::format_selects::CStdFunction::bsearch),
+    Key(ForKey),
+    Array(ForArray),
+    ElementCount(WithElementCount),
+    ElementSize(WithElementSize),
+    Compare(WithCompare)
+  {}
+  
+  /// \brief Perform the quicksort.
+  ///
+  void *operator()()
+  {
+    acquireMemory();
+    
+    auto const Result = bsearch();
+    
+    releaseMemory();
+    
+    // const_cast due to the C standard.
+    return const_cast<char *>(Result);
+  }
+};
+
+
 /// \brief Implement a recording quicksort.
 ///
 class QuickSortImpl {
@@ -373,6 +508,24 @@ SEEC_MANGLE_FUNCTION(qsort)
 {
   seec::QuickSortImpl(seec::trace::getThreadEnvironment(),
                       Array, ElementCount, ElementSize, Compare)();
+}
+
+
+//===----------------------------------------------------------------------===//
+// bsearch
+//===----------------------------------------------------------------------===//
+
+void
+SEEC_MANGLE_FUNCTION(bsearch)
+(char const *Key,
+ char const *Array,
+ std::size_t ElementCount,
+ std::size_t ElementSize,
+ int (*Compare)(char const *, char const *)
+ )
+{
+  seec::BinarySearchImpl(seec::trace::getThreadEnvironment(),
+                         Key, Array, ElementCount, ElementSize, Compare)();
 }
 
 

@@ -85,6 +85,7 @@ SEEC_INTERCEPTED_FUNCTION(atexit)
 SEEC_INTERCEPTED_FUNCTION(at_quick_exit)
 
 SEEC_INTERCEPTED_FUNCTION(qsort)
+SEEC_INTERCEPTED_FUNCTION(bsearch)
 
 
 //===----------------------------------------------------------------------===//

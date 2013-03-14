@@ -42,21 +42,8 @@ DETECT_CALL(C, realloc, SEEC_PP_QUOTE(void *, size_t))
 
 
 // Environment
-DETECT_CALL(C, abort, )
-DETECT_CALL(C, atexit, SEEC_PP_QUOTE(void (*)(void)))
-DETECT_CALL(C, exit, SEEC_PP_QUOTE(int))
 DETECT_CALL(C, getenv, SEEC_PP_QUOTE(char const *))
 DETECT_CALL(C, system, SEEC_PP_QUOTE(char const *))
-
-
-// Searching and sorting
-DETECT_CALL(C, bsearch,
-            SEEC_PP_QUOTE(void const *, void const *, size_t, size_t,
-                          int (*)(void const *, void const *)))
-
-DETECT_CALL(C, qsort,
-            SEEC_PP_QUOTE(void *, size_t, size_t,
-                          int (*)(void const *, void const *)))
 
 
 // Math functions
