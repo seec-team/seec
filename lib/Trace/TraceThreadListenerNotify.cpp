@@ -30,6 +30,7 @@ namespace trace {
 
 void TraceThreadListener::enterNotification() {
   synchronizeProcessTime();
+  checkSignals();
 }
 
 void TraceThreadListener::exitNotification() {

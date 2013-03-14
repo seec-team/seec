@@ -91,6 +91,7 @@ ProcessEnvironment::ProcessEnvironment()
   ThreadLookup(),
   InterceptorAddresses()
 {
+  // Setup multithreading support for LLVM.
   llvm::llvm_start_multithreaded();
   
   // Create the output stream allocator.

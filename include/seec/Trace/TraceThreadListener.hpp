@@ -183,6 +183,10 @@ class TraceThreadListener
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
+  
+  /// \brief Check for any pending signals.
+  ///
+  void checkSignals();
 
 public:  
   /// \brief Acquire the StreamsLock, if we don't have it already.
@@ -272,39 +276,14 @@ public:
 
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
+  ///
   TraceThreadListener(TraceProcessListener &ProcessListener,
-                      OutputStreamAllocator &StreamAllocator)
-  : seec::trace::CallDetector<TraceThreadListener>
-                             (ProcessListener.getDetectCallsLookup()),
-    ProcessListener(ProcessListener),
-    SupportSyncExit(ProcessListener.syncExit()),
-    ThreadID(ProcessListener.registerThreadListener(this)),
-    StreamAllocator(StreamAllocator),
-    OutputEnabled(false),
-    EventsOut(),
-    Time(0),
-    ProcessTime(0),
-    RecordedFunctions(),
-    RecordedTopLevelFunctions(),
-    FunctionStack(),
-    FunctionStackMutex(),
-    ActiveFunction(nullptr),
-    GlobalMemoryLock(),
-    DynamicMemoryLock(),
-    StreamsLock()
-  {
-    traceOpen();
-  }
+                      OutputStreamAllocator &StreamAllocator);
 
-  /// Destructor.
-  ~TraceThreadListener() {
-    traceWrite();
-    traceFlush();
-    traceClose();
-    
-    ProcessListener.deregisterThreadListener(ThreadID);
-  }
+  /// \brief Destructor.
+  ///
+  ~TraceThreadListener();
   
   
   /// \name Trace writing control.

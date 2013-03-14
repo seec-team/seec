@@ -13,9 +13,13 @@
 
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Util/SynchronizedExit.hpp"
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#define _POSIX_SOURCE
+#include <signal.h>
 
 namespace seec {
 
@@ -34,6 +38,38 @@ void TraceThreadListener::synchronizeProcessTime() {
     
     EventsOut.write<EventType::NewProcessTime>(ProcessTime);
   }
+}
+
+void TraceThreadListener::checkSignals() {
+  static std::mutex CheckSignalsMutex;
+  
+  int Success = 0;
+  int Caught = 0;
+  sigset_t Empty;
+  sigset_t Pending;
+  
+  Success = sigemptyset(&Empty);
+  assert(Success == 0 && "sigemptyset() failed.");
+  
+  {
+    std::lock_guard<std::mutex> Lock (CheckSignalsMutex);
+    
+    Success = sigpending(&Pending);
+    assert(Success == 0 && "sigpending() failed.");
+    
+    if (memcmp(&Empty, &Pending, sizeof(sigset_t)) == 0)
+      return;
+    
+    // There is a pending signal.
+    Success = sigwait(&Pending, &Caught);
+    assert(Success == 0 && "sigwait() failed.");
+  }
+  
+  // TODO: Write the signal into the trace.
+  // Describe signal using strsignal().
+  
+  // Perform a coordinated exit (traces will be finalized during destruction).
+  getSupportSynchronizedExit().getSynchronizedExit().exit(EXIT_FAILURE);
 }
 
 
@@ -291,6 +327,59 @@ bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
                  (KeyAddress, Length, Readable, Writable);
   
   return Result;
+}
+
+
+//------------------------------------------------------------------------------
+// Constructor and destructor.
+//------------------------------------------------------------------------------
+
+TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
+                                         OutputStreamAllocator &StreamAllocator)
+: seec::trace::CallDetector<TraceThreadListener>
+                           (ProcessListener.getDetectCallsLookup()),
+  ProcessListener(ProcessListener),
+  SupportSyncExit(ProcessListener.syncExit()),
+  ThreadID(ProcessListener.registerThreadListener(this)),
+  StreamAllocator(StreamAllocator),
+  OutputEnabled(false),
+  EventsOut(),
+  Time(0),
+  ProcessTime(0),
+  RecordedFunctions(),
+  RecordedTopLevelFunctions(),
+  FunctionStack(),
+  FunctionStackMutex(),
+  ActiveFunction(nullptr),
+  GlobalMemoryLock(),
+  DynamicMemoryLock(),
+  StreamsLock()
+{
+  traceOpen();
+  
+  // Setup signal handling for this thread.
+  int Success = 0;
+  sigset_t BlockedSignals;
+  
+  Success |= sigfillset(&BlockedSignals);
+  
+  // Remove signals that cause undefined behaviour when blocked.
+  Success |= sigdelset(&BlockedSignals, SIGBUS);
+  Success |= sigdelset(&BlockedSignals, SIGFPE);
+  Success |= sigdelset(&BlockedSignals, SIGILL);
+  Success |= sigdelset(&BlockedSignals, SIGSEGV);
+  
+  Success |= sigprocmask(SIG_BLOCK, &BlockedSignals, NULL);
+  assert(Success == 0 && "Failed to setup signal blocking.");
+}
+
+TraceThreadListener::~TraceThreadListener()
+{
+  traceWrite();
+  traceFlush();
+  traceClose();
+  
+  ProcessListener.deregisterThreadListener(ThreadID);
 }
 
 
