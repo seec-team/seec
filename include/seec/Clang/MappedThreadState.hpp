@@ -127,8 +127,8 @@ private:
 public:
   /// \brief Get the function state of all functions on the call stack.
   ///
-  std::vector<std::reference_wrapper<FunctionState const>> getCallStack() const
-  {
+  std::vector<std::reference_wrapper<FunctionState const>> const &
+  getCallStack() const {
     return CallStackRefs;
   }
   
