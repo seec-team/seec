@@ -115,6 +115,16 @@ public:
   /// @} (Access underlying information).
   
   
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the process trace.
+  ///
+  seec::cm::ProcessTrace const &getProcessTrace() const { return Trace; }
+  
+  /// @} (Accessors.)
+  
+  
   /// \name Threads.
   /// @{
   
@@ -127,7 +137,7 @@ public:
   /// \brief Get the state of a thread.
   seec::cm::ThreadState const &getThread(std::size_t Index) const;
   
-  /// @}
+  /// @} (Threads.)
   
   
   /// \name Global variables.
@@ -137,19 +147,19 @@ public:
   ///
   std::vector<GlobalVariable> getGlobalVariables() const;
   
-  /// @}
+  /// @} (Global variables.)
   
   
   /// \name Dynamic memory allocations.
   /// @{
   
-  /// @}
+  /// @} (Dynamic memory allocations.)
   
   
   /// \name Memory state.
   /// @{
   
-  /// @}
+  /// @} (Memory state.)
 };
 
 

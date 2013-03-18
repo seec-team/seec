@@ -16,6 +16,10 @@
 #ifndef SEEC_CLANG_MAPPEDTHREADSTATE_HPP
 #define SEEC_CLANG_MAPPEDTHREADSTATE_HPP
 
+#include <functional>
+#include <memory>
+#include <vector>
+
 
 namespace llvm {
   class raw_ostream;
@@ -30,6 +34,7 @@ namespace trace {
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
+class FunctionState;
 class ProcessState;
 
 
@@ -42,21 +47,30 @@ class ThreadState {
   /// The base (unmapped) state.
   seec::trace::ThreadState &UnmappedState;
   
+  /// The mapped call stack.
+  std::vector<std::unique_ptr<FunctionState>> CallStack;
+  
+  /// References to the mapped FunctionState objects. This is used to expose
+  /// the function states to clients without exposing details of the storage
+  /// implementation (i.e. unique_ptr).
+  std::vector<std::reference_wrapper<FunctionState const>> CallStackRefs;
+  
 public:
   /// \brief Constructor.
+  ///
   ThreadState(ProcessState &WithParent,
-              seec::trace::ThreadState &ForState)
-  : Parent(WithParent),
-    UnmappedState(ForState)
-  {}
+              seec::trace::ThreadState &ForState);
   
   /// \brief Destructor.
+  ///
   ~ThreadState();
   
   /// \brief Move constructor.
+  ///
   ThreadState(ThreadState &&) = default;
   
   /// \brief Move assignment.
+  ///
   ThreadState &operator=(ThreadState &&) = default;
   
   // No copying.
@@ -76,9 +90,11 @@ public:
   /// @{
   
   /// \brief Get the underlying (unmapped) state.
+  ///
   seec::trace::ThreadState &getUnmappedState() { return UnmappedState; }
 
   /// \brief Get the underlying (unmapped) state.
+  ///
   seec::trace::ThreadState const &getUnmappedState() const {
     return UnmappedState;
   }
@@ -90,12 +106,33 @@ public:
   /// @{
   
   /// \brief Get the process state that this thread state belongs to.
+  ///
   ProcessState &getParent() { return Parent; }
   
   /// \brief Get the process state that this thread state belongs to.
+  ///
   ProcessState const &getParent() const { return Parent; }
   
   /// @} (Accessors.)
+  
+  
+  /// \name Call stack.
+  /// @{
+  
+private:
+  /// \brief Generate the mapped call stack.
+  ///
+  void generateCallStack();
+
+public:
+  /// \brief Get the function state of all functions on the call stack.
+  ///
+  std::vector<std::reference_wrapper<FunctionState const>> getCallStack() const
+  {
+    return CallStackRefs;
+  }
+  
+  /// @} (Call stack.)
 };
 
 

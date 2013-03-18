@@ -36,6 +36,7 @@ INSTALL(TARGETS SeeCClang
 
 
 set(SEEC_CLANG_MAPPED_TRACE_HEADERS
+  ../../include/seec/Clang/MappedFunctionState.hpp
   ../../include/seec/Clang/MappedGlobalVariable.hpp
   ../../include/seec/Clang/MappedProcessState.hpp
   ../../include/seec/Clang/MappedProcessTrace.hpp
@@ -45,6 +46,7 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
 )
 
 set(SEEC_CLANG_MAPPED_TRACE_SOURCES
+  MappedFunctionState.cpp
   MappedGlobalVariable.cpp
   MappedProcessState.cpp
   MappedProcessTrace.cpp
