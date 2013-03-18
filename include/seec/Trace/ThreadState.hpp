@@ -232,6 +232,7 @@ public:
 
 private:
   void makePreviousInstructionActive(EventReference PriorTo);
+  void setPreviousViewOfProcessTime(EventReference PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
   void removeEvent(EventRecord<EventType::TraceEnd> const &);

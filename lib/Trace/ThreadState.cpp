@@ -647,6 +647,19 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   }
 }
 
+void ThreadState::setPreviousViewOfProcessTime(EventReference PriorTo) {
+  // Find the previous event that sets the process time, if there is one.
+  auto MaybeRef = rfind(rangeBefore(Trace.events(), PriorTo),
+                        [](EventRecordBase const &Ev) -> bool {
+                          return Ev.getProcessTime().assigned();
+                        });
+  
+  if (!MaybeRef.assigned())
+    ProcessTime = 0;
+  else
+    ProcessTime = MaybeRef.get<0>()->getProcessTime().get<0>();
+}
+
 void ThreadState::removeEvent(EventRecord<EventType::None> const &Ev) {}
 
 // It's OK to find this Event in the middle of a trace, because the trace has
@@ -726,8 +739,7 @@ void ThreadState::removeEvent(
 void ThreadState::removeEvent(
       EventRecord<EventType::NewProcessTime> const &Ev)
 {
-  // TODO: We need to get the time from the preceding setter.
-  ProcessTime = Ev.getProcessTime();
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(
@@ -878,7 +890,7 @@ void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
   Parent.Mallocs.erase(Address);
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
@@ -916,7 +928,7 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
                                                    MallocLocation)));
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 bool ThreadState::removeEventIfOverwrite(EventReference EvRef) {
@@ -957,7 +969,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(
@@ -977,7 +989,7 @@ void ThreadState::removeEvent(
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
@@ -996,7 +1008,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StateMemmove> const &Ev) {
@@ -1015,7 +1027,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StateMemmove> const &Ev) {
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
@@ -1030,7 +1042,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
   }
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
-  ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(
