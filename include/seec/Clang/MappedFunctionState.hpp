@@ -14,11 +14,14 @@
 #ifndef SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 #define SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 
+#include "seec/Clang/MappedValue.hpp"
+
 #include <string>
 
 
 namespace clang {
   class FunctionDecl;
+  class Stmt;
 }
 
 namespace llvm {
@@ -97,6 +100,34 @@ public:
   std::string getNameAsString() const;
   
   /// @} (Accessors.)
+  
+  
+  /// \name Stmt evaluation.
+  /// @{
+  
+  /// \brief Get the active Stmt (if any).
+  ///
+  /// This Stmt may have just finished evaluating, or may be partially
+  /// evaluated.
+  ///
+  ::clang::Stmt const *getActiveStmt() const;
+  
+  /// \brief Get the Value of a Stmt.
+  ///
+  /// This gets the Value resulting from the last evaluation of the given Stmt,
+  /// if it has been evaluated (and the value is mapped).
+  ///
+  std::shared_ptr<Value const> getStmtValue(::clang::Stmt const *S) const;
+  
+  /// @} (Stmt evaluation.)
+  
+  
+  /// \name Local variables.
+  /// @{
+  
+  
+  
+  /// @} (Local variables.)
 };
 
 

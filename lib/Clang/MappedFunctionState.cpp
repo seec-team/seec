@@ -70,6 +70,34 @@ std::string FunctionState::getNameAsString() const {
 
 
 //===----------------------------------------------------------------------===//
+// Stmt evaluation.
+//===----------------------------------------------------------------------===//
+
+::clang::Stmt const *FunctionState::getActiveStmt() const {
+  auto const Instruction = UnmappedState.getActiveInstruction();
+  if (!Instruction)
+    return nullptr;
+  
+  auto const &Trace = Parent.getParent().getProcessTrace();
+  auto const &MappedModule = Trace.getMapping();
+  return MappedModule.getStmt(Instruction);
+}
+
+std::shared_ptr<Value const>
+FunctionState::getStmtValue(::clang::Stmt const *S) const {
+  return seec::cm::getValue(Parent.getParent().getCurrentValueStore(),
+                            S,
+                            Parent.getParent().getProcessTrace().getMapping(),
+                            UnmappedState);
+}
+
+
+//===----------------------------------------------------------------------===//
+// Local variables.
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
 // llvm::raw_ostream output
 //===----------------------------------------------------------------------===//
 
