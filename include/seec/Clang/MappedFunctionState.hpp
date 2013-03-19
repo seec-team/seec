@@ -77,11 +77,11 @@ public:
   
   /// \brief Get the underlying (unmapped) state.
   ///
-  decltype(UnmappedState) &getUnmappedState() { return UnmappedState; }
+  seec::trace::FunctionState &getUnmappedState() { return UnmappedState; }
   
   /// \brief Get the underlying (unmapped) state.
   ///
-  decltype(UnmappedState) const &getUnmappedState() const {
+  seec::trace::FunctionState const &getUnmappedState() const {
     return UnmappedState;
   }
   
