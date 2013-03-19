@@ -114,7 +114,13 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
         << "\n";
   }
 
-  Out << "   Instruction values:\n";
+  Out << "   Instruction values [Active=";
+  if (State.getActiveInstructionIndex().assigned(0))
+    Out << State.getActiveInstructionIndex().get<0>();
+  else
+    Out << "unassigned";
+  Out << "]:\n";
+  
   auto const InstructionCount = State.getInstructionCount();
   for (std::size_t i = 0; i < InstructionCount; ++i) {
     auto const Value = State.getCurrentRuntimeValue(i);
