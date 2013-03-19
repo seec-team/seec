@@ -11,12 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef _SEEC_UTIL_PRINTING_HPP_
-#define _SEEC_UTIL_PRINTING_HPP_
+#ifndef SEEC_UTIL_PRINTING_HPP
+#define SEEC_UTIL_PRINTING_HPP
 
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <cassert>
+#include <cstdint>
 #include <string>
 
 namespace llvm {
@@ -102,6 +103,70 @@ std::string to_hex_string(char Byte) {
 }
 
 /// @}
+
+
+/// \brief Track indentation, to assist printing structured information.
+///
+class IndentationGuide
+{
+  /// The character (or string) used for each step of indentation.
+  std::string const Character;
+  
+  /// Amount of times to repeat the IndentCharacter per step of indentation.
+  std::size_t const Step;
+  
+  /// Steps of indentation.
+  std::size_t Indentation;
+  
+  /// The current indentation.
+  std::string IndentationString;
+  
+public:
+  /// \brief Constructor.
+  ///
+  IndentationGuide()
+  : Character(),
+    Step(0),
+    Indentation(0),
+    IndentationString()
+  {}
+  
+  /// \brief Add a level of indentation.
+  ///
+  std::size_t indent() {
+    ++Indentation;
+    
+    for (std::size_t i = 0; i < Step; ++i)
+      IndentationString.append(Character);
+    
+    return Indentation;
+  }
+  
+  /// \brief Remove a level of indentation.
+  ///
+  std::size_t unindent() {
+    if (!Indentation)
+      return Indentation;
+    
+    --Indentation;
+    
+    auto const NumCharsToRemove = Character.size() * Step;
+    auto const Size = IndentationString.size();
+    assert(Size <= NumCharsToRemove);
+    
+    IndentationString.resize(Size - NumCharsToRemove);
+    
+    return Indentation;
+  }
+  
+  /// \brief Get the amount of indentation.
+  ///
+  std::size_t getIndentation() const { return Indentation; }
+  
+  /// \brief Get the indentation string.
+  ///
+  std::string const &getString() const { return IndentationString; }
+};
 
 
 } // namespace util
