@@ -126,6 +126,9 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   auto const &DataLayout = ProcessListener.dataLayout();
   auto const PointeeSize = DataLayout.getTypeStoreSize(PointeeType);
   
+  // Record this memory area in the trace.
+  EventsOut.write<EventType::ByValRegionAdd>(AddressInt, PointeeSize);
+  
   // Lock global memory, and release when we exit scope.
   acquireGlobalMemoryWriteLock();
   auto UnlockGlobalMemory = scopeExit([=](){ GlobalMemoryLock.unlock(); });

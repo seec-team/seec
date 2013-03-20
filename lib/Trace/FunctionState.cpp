@@ -58,7 +58,8 @@ FunctionState::FunctionState(ThreadState &Parent,
   Trace(Trace),
   ActiveInstruction(),
   InstructionValues(Function.getInstructionCount()),
-  Allocas()
+  Allocas(),
+  ByValAreas()
 {
   assert(FunctionLookup);
 }
@@ -79,6 +80,19 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
     return nullptr;
 
   return FunctionLookup->getInstruction(ActiveInstruction.get<0>());
+}
+
+seec::util::Maybe<MemoryArea>
+FunctionState::getContainingMemoryArea(uintptr_t Address) const {
+  auto const Alloca = getAllocaContaining(Address);
+  if (Alloca)
+    return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
+  
+  for (auto const &ByValArea : ByValAreas)
+    if (ByValArea.contains(Address))
+      return ByValArea;
+  
+  return seec::util::Maybe<MemoryArea>();
 }
 
 uintptr_t FunctionState::getRuntimeAddress(llvm::Function const *F) const {

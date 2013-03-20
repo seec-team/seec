@@ -334,6 +334,15 @@ SEEC_TRACE_EVENT(KnownRegionRemove,
     (KnownRegionRemove, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(ByValRegionAdd,
+  SEEC_PP_QUOTE(
+    (uintptr_t, Address),
+    (std::size_t, Size)
+  ),
+  SEEC_PP_QUOTE(
+    (ByValRegionAdd, is_function_level)
+  ))
+
 SEEC_TRACE_EVENT(RuntimeError,
   SEEC_PP_QUOTE(
     (uint16_t, ErrorType),

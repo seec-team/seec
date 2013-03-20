@@ -137,6 +137,9 @@ class FunctionState {
 
   /// All active stack allocations for this function.
   std::vector<AllocaState> Allocas;
+  
+  /// All byval argument memory areas for this function.
+  std::vector<MemoryArea> ByValAreas;
 
 public:
   /// \brief Constructor.
@@ -184,6 +187,13 @@ public:
 
   /// \brief Get the active llvm::Instruction, if there is one.
   llvm::Instruction const *getActiveInstruction() const;
+  
+  /// \brief Get the stack-allocated area that contains an address.
+  ///
+  /// This method is thread safe.
+  ///
+  seec::util::Maybe<MemoryArea>
+  getContainingMemoryArea(uintptr_t Address) const;
 
   /// @} (Accessors)
 
@@ -274,6 +284,29 @@ public:
   }
 
   /// @}
+  
+  
+  /// \name Argument byval memory area tracking.
+  /// @{
+  
+  /// \brief Add an argument byval memory area.
+  ///
+  void addByValArea(uintptr_t Address, std::size_t Size) {
+    ByValAreas.push_back(MemoryArea(Address, Size));
+  }
+  
+  /// \brief Remove the argument byval memory area that begins at Address.
+  ///
+  void removeByValArea(uintptr_t Address) {
+    for (auto It = ByValAreas.begin(), End = ByValAreas.end(); It != End; ++It){
+      if (It->contains(Address)) {
+        ByValAreas.erase(It);
+        break;
+      }
+    }
+  }
+  
+  /// @} (Argument byval memory area tracking.)
 };
 
 /// Print a textual description of a FunctionState.

@@ -580,6 +580,12 @@ void ThreadState::addEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
   Parent.removeKnownMemory(Ev.getAddress());
 }
 
+void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
+{
+  auto &FuncState = *(CallStack.back());
+  FuncState.addByValArea(Ev.getAddress(), Ev.getSize());
+}
+
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   if (!Ev.getIsTopLevel())
     return;
@@ -1094,6 +1100,12 @@ ThreadState::removeEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
   Parent.addKnownMemory(Ev.getAddress(), Ev.getSize(), Access);
 }
 
+void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
+{
+  auto &FuncState = *(CallStack.back());
+  FuncState.removeByValArea(Ev.getAddress());
+}
+
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   CurrentError.reset(nullptr);
 }
@@ -1114,15 +1126,15 @@ void ThreadState::removePreviousEvent() {
 
 seec::util::Maybe<MemoryArea>
 ThreadState::getContainingMemoryArea(uintptr_t Address) const {
+  seec::util::Maybe<MemoryArea> Area;
+  
   for (auto const &FunctionStatePtr : CallStack) {
-    auto Alloca = FunctionStatePtr->getAllocaContaining(Address);
-    if (!Alloca)
-      continue;
-    
-    return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
+    Area = FunctionStatePtr->getContainingMemoryArea(Address);
+    if (Area.assigned())
+      break;
   }
   
-  return seec::util::Maybe<MemoryArea>();
+  return Area;
 }
 
 seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
