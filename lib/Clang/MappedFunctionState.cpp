@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
@@ -37,9 +38,33 @@ namespace cm {
 FunctionState::FunctionState(ThreadState &WithParent,
                              seec::trace::FunctionState &ForUnmappedState)
 : Parent(WithParent),
-  UnmappedState(ForUnmappedState)
+  UnmappedState(ForUnmappedState),
+  Parameters(),
+  Variables()
 {
+  auto const &Trace = Parent.getParent().getProcessTrace();
+  auto const &MappedModule = Trace.getMapping();
   
+  for (auto &RawAlloca : UnmappedState.getAllocas()) {
+    auto const AllocaInst = RawAlloca.getInstruction();
+    auto const Mapping = MappedModule.getMapping(AllocaInst);
+    if (!Mapping.getAST())
+      continue;
+    
+    // TODO: Check if this alloca had passed the debug declaration point
+    //       (if one exists).
+    
+    auto const Decl = Mapping.getDecl();
+    if (!Decl)
+      continue;
+    
+    if (auto const ParmVar = llvm::dyn_cast< ::clang::ParmVarDecl>(Decl)) {
+      Parameters.emplace_back(*this, RawAlloca, ParmVar);
+    }
+    else if (auto const Var = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
+      Variables.emplace_back(*this, RawAlloca, Var);
+    }
+  }
 }
 
 FunctionState::~FunctionState() = default;
@@ -49,6 +74,28 @@ void FunctionState::print(llvm::raw_ostream &Out,
 {
   Out << Indentation.getString()
       << "Function \"" << this->getNameAsString() << "\"\n";
+  
+  // Parameters.
+  Out << Indentation.getString() << "Parameters:\n";
+  {
+    Indentation.indent();
+    
+    for (auto const &Alloca : Parameters)
+      Alloca.print(Out, Indentation);
+    
+    Indentation.unindent();
+  }
+  
+  // Local variables.
+  Out << Indentation.getString() << "Local variables:\n";
+  {
+    Indentation.indent();
+    
+    for (auto const &Alloca : Variables)
+      Alloca.print(Out, Indentation);
+    
+    Indentation.unindent();
+  }
 }
 
 //===----------------------------------------------------------------------===//

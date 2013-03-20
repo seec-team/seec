@@ -41,6 +41,7 @@ namespace util {
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
+class AllocaState;
 class ThreadState;
 
 
@@ -52,6 +53,12 @@ class FunctionState {
   
   /// The base (unmapped) state.
   seec::trace::FunctionState &UnmappedState;
+  
+  /// The mapped parameters.
+  std::vector<AllocaState> Parameters;
+  
+  /// The mapped local variables.
+  std::vector<AllocaState> Variables;
   
 public:
   /// \brief Constructor.
