@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Util/Printing.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -50,6 +51,41 @@ void ProcessState::cacheClear() {
   // Clear thread-level cached information.
   for (auto &ThreadPtr : ThreadStates)
     ThreadPtr->cacheClear();
+}
+
+void ProcessState::print(llvm::raw_ostream &Out,
+                         seec::util::IndentationGuide &Indentation) const
+{
+  Out << "Process State @" << this->getProcessTime() << "\n";
+  
+  {
+    Indentation.indent();
+    
+    // Print global variables.
+    auto const Globals = this->getGlobalVariables();
+    Out << Indentation.getString() << "Globals: " << Globals.size() << "\n";
+    
+    {
+      Indentation.indent();
+      for (auto const &Global : Globals) {
+        Out << Indentation.getString() << Global << "\n";
+      }
+      Indentation.unindent();
+    }
+    
+    // Print thread states.
+    for (std::size_t i = 0; i < this->getThreadCount(); ++i) {
+      Out << Indentation.getString() << "Thread #" << i << ":\n";
+      
+      {
+        Indentation.indent();
+        this->getThread(i).print(Out, Indentation);
+        Indentation.unindent();
+      }
+    }
+    
+    Indentation.unindent();
+  }
 }
 
 uint64_t ProcessState::getProcessTime() const {
@@ -100,25 +136,8 @@ std::vector<GlobalVariable> ProcessState::getGlobalVariables() const
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
 {
-  Out << "Process State @" << State.getProcessTime() << "\n";
-  
-  // Print global variables.
-  auto const Globals = State.getGlobalVariables();
-  
-  Out << " Globals: " << Globals.size() << "\n";
-  
-  for (auto const &Global : Globals) {
-    Out << "  " << Global << "\n";
-  }
-  
-  // Print thread states.
-  Out << " Threads: " << State.getThreadCount() << "\n";
-  
-  for (std::size_t i = 0; i < State.getThreadCount(); ++i) {
-    Out << "Thread #" << i << ":\n";
-    Out << State.getThread(i);
-  }
-  
+  seec::util::IndentationGuide Indent("  ");
+  State.print(Out, Indent);
   return Out;
 }
 

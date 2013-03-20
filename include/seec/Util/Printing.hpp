@@ -131,6 +131,24 @@ public:
     IndentationString()
   {}
   
+  /// \brief Constructor.
+  ///
+  IndentationGuide(std::string WithCharacter)
+  : Character(std::move(WithCharacter)),
+    Step(1),
+    Indentation(0),
+    IndentationString()
+  {}
+  
+  /// \brief Constructor.
+  ///
+  IndentationGuide(std::string WithCharacter, std::size_t const WithStep)
+  : Character(std::move(WithCharacter)),
+    Step(WithStep),
+    Indentation(0),
+    IndentationString()
+  {}
+  
   /// \brief Add a level of indentation.
   ///
   std::size_t indent() {
@@ -152,7 +170,7 @@ public:
     
     auto const NumCharsToRemove = Character.size() * Step;
     auto const Size = IndentationString.size();
-    assert(Size <= NumCharsToRemove);
+    assert(Size >= NumCharsToRemove);
     
     IndentationString.resize(Size - NumCharsToRemove);
     

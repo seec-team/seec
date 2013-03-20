@@ -31,6 +31,10 @@ namespace trace {
   class ThreadState;
 } // namespace trace (in seec)
 
+namespace util {
+  class IndentationGuide;
+} // namespace util (in seec)
+
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
@@ -84,6 +88,11 @@ public:
   /// generate new information.
   ///
   void cacheClear();
+  
+  /// \brief Print a textual description of the state.
+  ///
+  void print(llvm::raw_ostream &Out,
+             seec::util::IndentationGuide &Indentation) const;
   
   
   /// \name Access underlying information.

@@ -34,6 +34,10 @@ namespace trace {
   class FunctionState;
 } // namespace trace (in seec)
 
+namespace util {
+  class IndentationGuide;
+} // namespace util (in seec)
+
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
@@ -70,6 +74,12 @@ public:
   // No copying.
   FunctionState(FunctionState const &) = delete;
   FunctionState &operator=(FunctionState const &) = delete;
+  
+  
+  /// \brief Print a textual description of the state.
+  ///
+  void print(llvm::raw_ostream &Out,
+             seec::util::IndentationGuide &Indentation) const;
   
   
   /// \name Access underlying information.

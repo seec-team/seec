@@ -78,11 +78,9 @@ void TraceThreadListener::checkSignals() {
   struct timespec WaitTime = (struct timespec){.tv_sec = 0, .tv_nsec = 0};
   int const Caught = sigtimedwait(&FullSet, &Information, &WaitTime);
   
-  if (Caught == 0) // sigtimedwait() successful and no signal found.
+  // If no signal is found then sigtimedwait() returns an error (-1).
+  if (Caught == -1)
     return;
-  
-  // Caught == -1 indicates that sigtimedwait() failed, in which case we will
-  // terminate the process anyway.
   
   // Caught > 0 indicates the signal number of the caught signal.
 #endif // __linux__

@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ThreadState.hpp"
+#include "seec/Util/Printing.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -42,6 +43,27 @@ void ThreadState::cacheClear() {
   generateCallStack();
 }
 
+void ThreadState::print(llvm::raw_ostream &Out,
+                        seec::util::IndentationGuide &Indentation) const
+{
+  // Basic information.
+  Out << Indentation.getString()
+      << "ThreadTime = " << this->getUnmappedState().getThreadTime() << "\n";
+  
+  // The call stack.
+  Out << Indentation.getString() << "Call Stack:\n";
+  
+  {
+    Indentation.indent();
+    
+    for (seec::cm::FunctionState const &Function : this->getCallStack()) {
+      Function.print(Out, Indentation);
+    }
+    
+    Indentation.unindent();
+  }
+}
+
 
 //===----------------------------------------------------------------------===//
 // Call stack
@@ -64,12 +86,8 @@ void ThreadState::generateCallStack() {
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, ThreadState const &State)
 {
-  Out << "ThreadTime = " << State.getUnmappedState().getThreadTime() << "\n";
-  
-  Out << "Call Stack:\n";
-  for (auto const &Function : State.getCallStack())
-    Out << Function;
-  
+  seec::util::IndentationGuide Indent("  ");
+  State.print(Out, Indent);
   return Out;
 }
 

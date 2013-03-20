@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
 
@@ -43,6 +44,12 @@ FunctionState::FunctionState(ThreadState &WithParent,
 
 FunctionState::~FunctionState() = default;
 
+void FunctionState::print(llvm::raw_ostream &Out,
+                          seec::util::IndentationGuide &Indentation) const
+{
+  Out << Indentation.getString()
+      << "Function \"" << this->getNameAsString() << "\"\n";
+}
 
 //===----------------------------------------------------------------------===//
 // Accessors.
@@ -104,8 +111,8 @@ FunctionState::getStmtValue(::clang::Stmt const *S) const {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               FunctionState const &State)
 {
-  Out << "Function \"" << State.getNameAsString() << "\"\n";
-  
+  seec::util::IndentationGuide Indent("  ");
+  State.print(Out, Indent);
   return Out;
 }
 
