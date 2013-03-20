@@ -11,6 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#define _POSIX_C_SOURCE 199506L
+
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
@@ -18,7 +20,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
-#define _POSIX_SOURCE
 #include <signal.h>
 
 namespace seec {
@@ -41,6 +42,8 @@ void TraceThreadListener::synchronizeProcessTime() {
 }
 
 void TraceThreadListener::checkSignals() {
+  
+#if defined(__APPLE__)
   static std::mutex CheckSignalsMutex;
   
   int Success = 0;
@@ -64,7 +67,26 @@ void TraceThreadListener::checkSignals() {
     Success = sigwait(&Pending, &Caught);
     assert(Success == 0 && "sigwait() failed.");
   }
+#endif // __APPLE__
+
+#if defined(__linux__)
+  sigset_t FullSet;
+  auto const FillResult = sigfillset(&FullSet);
+  assert(FillResult == 0 && "sigfillset() failed.");
   
+  siginfo_t Information;
+  struct timespec WaitTime = (struct timespec){.tv_sec = 0, .tv_nsec = 0};
+  int const Caught = sigtimedwait(&FullSet, &Information, &WaitTime);
+  
+  if (Caught == 0) // sigtimedwait() successful and no signal found.
+    return;
+  
+  // Caught == -1 indicates that sigtimedwait() failed, in which case we will
+  // terminate the process anyway.
+  
+  // Caught > 0 indicates the signal number of the caught signal.
+#endif // __linux__
+
   // TODO: Write the signal into the trace.
   // Describe signal using strsignal().
   
