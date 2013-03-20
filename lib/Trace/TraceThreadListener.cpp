@@ -20,7 +20,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+#include <unistd.h>
 #include <signal.h>
+#endif
 
 namespace seec {
 
@@ -42,8 +45,11 @@ void TraceThreadListener::synchronizeProcessTime() {
 }
 
 void TraceThreadListener::checkSignals() {
+  // This function polls for blocked signals.
   
 #if defined(__APPLE__)
+  // Apple don't have sigtimedwait(), so we have to use a messy workaround.
+  
   static std::mutex CheckSignalsMutex;
   
   int Success = 0;
@@ -67,9 +73,10 @@ void TraceThreadListener::checkSignals() {
     Success = sigwait(&Pending, &Caught);
     assert(Success == 0 && "sigwait() failed.");
   }
-#endif // __APPLE__
 
-#if defined(__linux__)
+#elif defined(_POSIX_REALTIME_SIGNALS)
+  // Use sigtimedwait() if we possibly can.
+  
   sigset_t FullSet;
   auto const FillResult = sigfillset(&FullSet);
   assert(FillResult == 0 && "sigfillset() failed.");
@@ -83,7 +90,12 @@ void TraceThreadListener::checkSignals() {
     return;
   
   // Caught > 0 indicates the signal number of the caught signal.
-#endif // __linux__
+
+#else
+  // All other platforms - no implementation currently.
+  return;
+
+#endif
 
   // TODO: Write the signal into the trace.
   // Describe signal using strsignal().
@@ -377,6 +389,7 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
 {
   traceOpen();
   
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
   // Setup signal handling for this thread.
   int Success = 0;
   sigset_t BlockedSignals;
@@ -391,6 +404,7 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   
   Success |= sigprocmask(SIG_BLOCK, &BlockedSignals, NULL);
   assert(Success == 0 && "Failed to setup signal blocking.");
+#endif
 }
 
 TraceThreadListener::~TraceThreadListener()
