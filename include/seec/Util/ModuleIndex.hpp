@@ -17,6 +17,7 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/DenseMap.h"
 
@@ -26,6 +27,7 @@ namespace seec {
 
 
 /// \brief Index for an llvm::Function.
+///
 class FunctionIndex {
   /// Keep a reference to the llvm::Function.
   llvm::Function &Function;
@@ -38,6 +40,13 @@ class FunctionIndex {
   
   /// Lookup Argument pointers by their index.
   std::vector<llvm::Argument *> ArgumentPtrByIdx;
+  
+  /// List all llvm.dbg.declare Instructions.
+  std::vector<llvm::DbgDeclareInst const *> DbgDeclareInstList;
+  
+  /// Map allocas to the llvm.dbg.declare instructions that reference them.
+  llvm::DenseMap<llvm::AllocaInst const *, uint32_t>
+    AllocaToDbgDeclareIdx;
 
 public:
   /// \brief Constructor.
@@ -45,13 +54,24 @@ public:
   : Function(Function),
     InstructionPtrByIdx(),
     InstructionIdxByPtr(),
-    ArgumentPtrByIdx()
+    ArgumentPtrByIdx(),
+    DbgDeclareInstList(),
+    AllocaToDbgDeclareIdx()
   {
     for (auto &BasicBlock: Function) {
       for (auto &Instruction: BasicBlock) {
         uint32_t Idx = static_cast<uint32_t>(InstructionPtrByIdx.size());
         InstructionIdxByPtr[&Instruction] = Idx;
         InstructionPtrByIdx.push_back(&Instruction);
+        
+        if (llvm::isa<llvm::DbgDeclareInst>(&Instruction)) {
+          auto const Dbg = llvm::cast<llvm::DbgDeclareInst>(&Instruction);
+          DbgDeclareInstList.push_back(Dbg);
+          
+          auto const Addr = llvm::dyn_cast<llvm::AllocaInst>(Dbg->getAddress());
+          if (Addr)
+            AllocaToDbgDeclareIdx.insert(std::make_pair(Addr, Idx));
+        }
       }
     }
     
@@ -94,6 +114,36 @@ public:
   /// @}
   
   
+  /// \name Debug helpers.
+  /// @{
+  
+  /// \brief Get the index of the llvm.dbg.declare associated with an alloca.
+  ///
+  seec::util::Maybe<uint32_t>
+  getIndexOfDbgDeclareFor(llvm::AllocaInst const *Alloca) const {
+    auto const It = AllocaToDbgDeclareIdx.find(Alloca);
+    if (It != AllocaToDbgDeclareIdx.end())
+      return It->second;
+    return seec::util::Maybe<uint32_t>();
+  }
+  
+  /// \brief Get the llvm.dbg.declare associated with an alloca.
+  ///
+  llvm::DbgDeclareInst const *
+  getDbgDeclareFor(llvm::AllocaInst const *Alloca) const {
+    auto const MaybeIdx = getIndexOfDbgDeclareFor(Alloca);
+    
+    if (MaybeIdx.assigned<uint32_t>()) {
+      auto const Idx = MaybeIdx.get<uint32_t>();
+      return llvm::dyn_cast<llvm::DbgDeclareInst>(InstructionPtrByIdx[Idx]);
+    }
+    
+    return nullptr;
+  }
+  
+  /// @} (Debug helpers.)
+  
+  
   /// \name Argument mapping.
   /// @{
   
@@ -115,6 +165,7 @@ public:
 
 
 /// \brief Index for an llvm::Module.
+///
 class ModuleIndex {
   /// The indexed Module.
   llvm::Module const &Module;

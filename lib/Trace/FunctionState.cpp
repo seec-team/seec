@@ -113,6 +113,30 @@ FunctionState::getCurrentRuntimeValue(llvm::Instruction const *I) const {
   return getCurrentRuntimeValue(MaybeIndex.get<0>());
 }
 
+std::vector<std::reference_wrapper<AllocaState const>>
+FunctionState::getVisibleAllocas() const {
+  std::vector<std::reference_wrapper<AllocaState const>> RetVal;
+  
+  if (!ActiveInstruction.assigned(0))
+    return RetVal;
+  
+  auto const ActiveIdx = ActiveInstruction.get<0>();
+  
+  for (auto const &Alloca : Allocas) {
+    auto const Inst = Alloca.getInstruction();
+    auto const MaybeIdx = FunctionLookup->getIndexOfDbgDeclareFor(Inst);
+    
+    // If the index of the llvm.dbg.declare is greater than our active index,
+    // then do not show this alloca.
+    if (MaybeIdx.assigned(0) && MaybeIdx.get<0>() > ActiveIdx)
+      continue;
+    
+    RetVal.emplace_back(Alloca);
+  }
+  
+  return RetVal;
+}
+
 
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,

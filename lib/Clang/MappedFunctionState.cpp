@@ -45,7 +45,8 @@ FunctionState::FunctionState(ThreadState &WithParent,
   auto const &Trace = Parent.getParent().getProcessTrace();
   auto const &MappedModule = Trace.getMapping();
   
-  for (auto &RawAlloca : UnmappedState.getAllocas()) {
+  for (auto const AllocaRef : UnmappedState.getVisibleAllocas()) {
+    seec::trace::AllocaState const &RawAlloca = AllocaRef;
     auto const AllocaInst = RawAlloca.getInstruction();
     auto const Mapping = MappedModule.getMapping(AllocaInst);
     if (!Mapping.getAST())

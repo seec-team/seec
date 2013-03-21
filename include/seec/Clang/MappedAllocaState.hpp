@@ -49,7 +49,7 @@ class AllocaState {
   FunctionState &Parent;
   
   /// The base (unmapped) state.
-  seec::trace::AllocaState &UnmappedState;
+  seec::trace::AllocaState const &UnmappedState;
   
   /// The mapped Decl.
   ::clang::VarDecl const *Decl;
@@ -58,7 +58,7 @@ public:
   /// \brief Constructor.
   ///
   AllocaState(FunctionState &WithParent,
-              seec::trace::AllocaState &ForUnmappedState,
+              seec::trace::AllocaState const &ForUnmappedState,
               ::clang::VarDecl const *ForDecl);
   
   /// \brief Destructor.

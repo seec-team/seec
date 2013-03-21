@@ -37,7 +37,7 @@ namespace cm {
 //===----------------------------------------------------------------------===//
 
 AllocaState::AllocaState(FunctionState &WithParent,
-                         seec::trace::AllocaState &ForUnmappedState,
+                         seec::trace::AllocaState const &ForUnmappedState,
                          ::clang::VarDecl const *ForDecl)
 : Parent(WithParent),
   UnmappedState(ForUnmappedState),

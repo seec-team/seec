@@ -23,6 +23,7 @@
 #include "llvm/IR/Instructions.h"
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 
@@ -269,6 +270,11 @@ public:
   /// \brief Get the active stack allocations for this function.
   ///
   decltype(Allocas) const &getAllocas() const { return Allocas; }
+  
+  /// \brief Get the "visible" stack allocations for this function.
+  ///
+  std::vector<std::reference_wrapper<AllocaState const>>
+  getVisibleAllocas() const;
   
   /// \brief Find the Alloca that covers the given address, or nullptr if none
   ///        exists.
