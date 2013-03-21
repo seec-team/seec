@@ -15,6 +15,9 @@
 #define SEEC_CLANG_MAPPEDALLOCASTATE_HPP
 
 
+#include "seec/Clang/MappedValue.hpp"
+
+
 namespace clang {
   class VarDecl;
 } // namespace clang
@@ -42,18 +45,69 @@ class FunctionState;
 /// \brief SeeC-Clang-mapped alloca state.
 ///
 class AllocaState {
-
+  /// The function state that this alloca belongs to.
+  FunctionState &Parent;
+  
+  /// The base (unmapped) state.
+  seec::trace::AllocaState &UnmappedState;
+  
+  /// The mapped Decl.
+  ::clang::VarDecl const *Decl;
+  
 public:
   /// \brief Constructor.
   ///
   AllocaState(FunctionState &WithParent,
               seec::trace::AllocaState &ForUnmappedState,
-              clang::VarDecl const *Decl);
+              ::clang::VarDecl const *ForDecl);
+  
+  /// \brief Destructor.
+  ///
+  ~AllocaState();
+  
+  /// \brief Move constructor.
+  ///
+  AllocaState(AllocaState &&) = default;
+  
+  /// \brief Move assignment.
+  ///
+  AllocaState &operator=(AllocaState &&) = default;
+  
+  // No copying.
+  AllocaState(AllocaState const &) = delete;
+  AllocaState &operator=(AllocaState const &) = delete;
+  
   
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
              seec::util::IndentationGuide &Indentation) const;
+  
+  
+  /// \name Access underlying information.
+  /// @{
+  
+  /// \brief Get the unmapped state for this alloca.
+  ///
+  seec::trace::AllocaState const &getUnmappedState() const {
+    return UnmappedState;
+  }
+  
+  /// @} (Access underlying information.)
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the VarDecl for this alloca.
+  ///
+  ::clang::VarDecl const *getDecl() const { return Decl; }
+  
+  /// \brief Get the current mapped Value of this alloca.
+  ///
+  std::shared_ptr<Value const> getValue() const;
+  
+  /// @} (Accessors.)
 };
 
 

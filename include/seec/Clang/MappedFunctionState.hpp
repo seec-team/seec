@@ -108,6 +108,14 @@ public:
   /// \name Accessors.
   /// @{
   
+  /// \brief Get the ThreadState that this FunctionState belongs to.
+  ///
+  ThreadState &getParent() { return Parent; }
+  
+  /// \brief Get the ThreadState that this FunctionState belongs to.
+  ///
+  ThreadState const &getParent() const { return Parent; }
+  
   /// \brief Get the FunctionDecl for this function.
   ///
   ::clang::FunctionDecl const *getFunctionDecl() const;

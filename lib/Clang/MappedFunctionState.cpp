@@ -58,6 +58,8 @@ FunctionState::FunctionState(ThreadState &WithParent,
     if (!Decl)
       continue;
     
+    // TODO: Check if this Decl is still in scope.
+    
     if (auto const ParmVar = llvm::dyn_cast< ::clang::ParmVarDecl>(Decl)) {
       Parameters.emplace_back(*this, RawAlloca, ParmVar);
     }
