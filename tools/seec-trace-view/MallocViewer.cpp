@@ -99,6 +99,7 @@ public:
     wxASSERT(Item.IsOk());
 
     // Get the MallocState from the Item.
+    assert(Item.GetID() != nullptr);
     auto &Malloc
       = *reinterpret_cast<seec::trace::MallocState const *>(Item.GetID());
 

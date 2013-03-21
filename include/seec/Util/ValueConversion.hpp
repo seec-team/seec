@@ -108,6 +108,9 @@ public:
   /// \param V the Value to convert.
   /// \param InsertAt position to insert conversion instructions.
   static Value *getValueAs(Value *V, Instruction *InsertAt) {
+    if (V == nullptr)
+      return nullptr;
+    
     return getValueAsType<IP>(V,
                               TypeBuilder<T, false>::get(V->getContext()),
                               InsertAt);
