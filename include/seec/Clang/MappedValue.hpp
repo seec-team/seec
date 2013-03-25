@@ -17,6 +17,8 @@
 
 #include "clang/AST/Type.h"
 
+#include "llvm/Support/Casting.h"
+
 #include <memory>
 #include <string>
 
@@ -47,6 +49,28 @@ namespace cm {
 ///
 class Value {
 public:
+  enum class Kind {
+    Basic,
+    Array,
+    Record,
+    Pointer
+  };
+
+private:
+  /// General Kind of this Value.
+  Kind ThisKind;
+
+public:
+  /// \brief Constructor.
+  ///
+  Value(Kind WithKind)
+  : ThisKind(WithKind)
+  {}
+  
+  /// \brief Get the Kind of this Value.
+  ///
+  Kind getKind() const { return ThisKind; }
+  
   /// \brief Virtual destructor required.
   ///
   virtual ~Value() =0;
@@ -84,20 +108,82 @@ public:
   /// \brief Get a string describing the value.
   ///
   virtual std::string getValueAsStringFull() const =0;
+};
+
+
+/// \brief Represents an aggregate's runtime value.
+///
+class ValueOfArray : public Value {
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfArray()
+  : Value(Value::Kind::Array)
+  {}
+  
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Array;
+  }
   
   /// \brief Get the number of children of this value.
   ///
   virtual unsigned getChildCount() const =0;
   
-  /// \brief Get a child of this value (if it is an aggregate type).
+  /// \brief Get a child of this value.
   ///
   virtual std::shared_ptr<Value const> getChildAt(unsigned Index) const =0;
+};
+
+
+/// \brief Represents a record's runtime value.
+///
+class ValueOfRecord : public Value {
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfRecord()
+  : Value(Value::Kind::Record)
+  {}
+  
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Record;
+  }
+  
+  /// \brief Get the number of children of this value.
+  ///
+  virtual unsigned getChildCount() const =0;
+  
+  /// \brief Get a child of this value.
+  ///
+  virtual std::shared_ptr<Value const> getChildAt(unsigned Index) const =0;
+};
+
+
+/// \brief Represents a pointer's runtime value.
+///
+class ValueOfPointer : public Value {
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfPointer()
+  : Value(Value::Kind::Pointer)
+  {}
+  
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Pointer;
+  }
   
   /// \brief Get the highest legal dereference index of this value.
   ///
   virtual unsigned getDereferenceIndexLimit() const =0;
   
-  /// \brief Get the Value of this Value dereferenced (if it is a pointer type).
+  /// \brief Get the Value of this Value dereferenced.
   ///
   virtual std::shared_ptr<Value const> getDereferenced(unsigned Index) const =0;
 };

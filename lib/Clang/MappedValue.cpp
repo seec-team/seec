@@ -308,7 +308,8 @@ public:
                          uintptr_t WithAddress,
                          ::clang::CharUnits WithSize,
                          seec::trace::ProcessState const &ForProcessState)
-  : CanonicalType(WithCanonicalType),
+  : Value(Value::Kind::Basic),
+    CanonicalType(WithCanonicalType),
     Address(WithAddress),
     Size(WithSize),
     Memory(ForProcessState.getMemory())
@@ -361,20 +362,6 @@ public:
   virtual std::string getValueAsStringFull() const override {
     return getValueAsStringShort();
   }
-  
-  virtual unsigned getChildCount() const override { return 0; }
-  
-  virtual std::shared_ptr<Value const>
-  getChildAt(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
-  
-  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
-  
-  virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
 };
 
 
@@ -384,7 +371,7 @@ public:
 
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
-class ValueByMemoryForPointer : public Value {
+class ValueByMemoryForPointer : public ValueOfPointer {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -494,19 +481,6 @@ public:
     return getValueAsStringShort();
   }
   
-  /// \brief Pointers have no children.
-  /// \return Always 0.
-  ///
-  virtual unsigned getChildCount() const override { return 0; }
-  
-  /// \brief Pointers have no children.
-  /// \return An empty std::shared_ptr<Value const>
-  ///
-  virtual std::shared_ptr<Value const>
-  getChildAt(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
-  
   /// \brief Get the highest legal dereference of this value.
   ///
   virtual unsigned getDereferenceIndexLimit() const override {
@@ -577,7 +551,7 @@ public:
 
 /// \brief Represents a record Value in memory.
 ///
-class ValueByMemoryForRecord : public Value {
+class ValueByMemoryForRecord : public ValueOfRecord {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -771,17 +745,6 @@ public:
                     Address + (BitOffset / CHAR_BIT),
                     ProcessState);
   }
-  
-  /// \brief Records are never dereferenced.
-  ///
-  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
-  
-  /// \brief Records are never dereferenced.
-  ///
-  virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
 };
 
 
@@ -791,7 +754,7 @@ public:
 
 /// \brief Represents an array Value in memory.
 ///
-class ValueByMemoryForArray : public Value {
+class ValueByMemoryForArray : public ValueOfArray {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -993,17 +956,6 @@ public:
                     ASTContext,
                     ChildAddress,
                     ProcessState);
-  }
-  
-  /// \brief Records are never dereferenced.
-  ///
-  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
-  
-  /// \brief Records are never dereferenced.
-  ///
-  virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
   }
 };
 
@@ -1404,43 +1356,12 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 
 
 //===----------------------------------------------------------------------===//
-// ValueByRuntimeValue
-//===----------------------------------------------------------------------===//
-
-/// \brief Represents a Value in LLVM's virtual registers.
-///
-class ValueByRuntimeValue : public Value {
-public:
-  /// \brief Constructor.
-  ///
-  ValueByRuntimeValue()
-  {}
-  
-  /// \brief Virtual destructor required.
-  ///
-  virtual ~ValueByRuntimeValue() = default;
-  
-  /// \brief Runtime values are never in memory.
-  ///
-  virtual bool isInMemory() const override { return false; }
-  
-  /// \brief Runtime values are always initialized (at the moment).
-  ///
-  virtual bool isCompletelyInitialized() const override { return true; }
-  
-  /// \brief Runtime values are never partially initialized (at the moment).
-  ///
-  virtual bool isPartiallyInitialized() const override { return false; }
-};
-
-
-//===----------------------------------------------------------------------===//
 // ValueByRuntimeValueForScalar
 //===----------------------------------------------------------------------===//
 
 /// \brief Represents a simple scalar Value in LLVM's virtual registers.
 ///
-class ValueByRuntimeValueForScalar : public ValueByRuntimeValue {
+class ValueByRuntimeValueForScalar : public Value {
   /// The Expr that this value is for.
   ::clang::Expr const *Expression;
   
@@ -1456,7 +1377,8 @@ public:
   ValueByRuntimeValueForScalar(::clang::Expr const *ForExpression,
                                seec::trace::FunctionState const &ForState,
                                llvm::Value const *WithLLVMValue)
-  : Expression(ForExpression),
+  : Value(Value::Kind::Basic),
+    Expression(ForExpression),
     FunctionState(ForState),
     LLVMValue(WithLLVMValue)
   {}
@@ -1471,6 +1393,18 @@ public:
   ///
   virtual ::clang::Expr const *getExpr() const override { return Expression; }
   
+  /// \brief Runtime values are never in memory.
+  ///
+  virtual bool isInMemory() const override { return false; }
+  
+  /// \brief Runtime values are always initialized (at the moment).
+  ///
+  virtual bool isCompletelyInitialized() const override { return true; }
+  
+  /// \brief Runtime values are never partially initialized (at the moment).
+  ///
+  virtual bool isPartiallyInitialized() const override { return false; }
+  
   /// \brief Get a string describing the value (which may be elided).
   ///
   virtual std::string getValueAsStringShort() const override {
@@ -1484,32 +1418,6 @@ public:
   virtual std::string getValueAsStringFull() const override {
     return getValueAsStringShort();
   }
-  
-  /// \brief Scalar values have no children.
-  /// \return Always 0.
-  ///
-  virtual unsigned getChildCount() const override { return 0; }
-  
-  /// \brief Scalar values have no children.
-  /// \return An empty std::shared_ptr<Value const>
-  ///
-  virtual std::shared_ptr<Value const>
-  getChildAt(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
-  
-  /// \brief Scalar values do not dereference.
-  ///
-  virtual unsigned getDereferenceIndexLimit() const override { return 0; }
-  
-  /// \brief Scalar values do not dereference.
-  ///
-  /// Pointers are implemented using ValueByRuntimeValueForPointer.
-  ///
-  virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
-  }
 };
 
 
@@ -1519,7 +1427,7 @@ public:
 
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
-class ValueByRuntimeValueForPointer : public ValueByRuntimeValue {
+class ValueByRuntimeValueForPointer : public ValueOfPointer {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -1606,6 +1514,18 @@ public:
   ///
   virtual ::clang::Expr const *getExpr() const override { return Expression; }
   
+  /// \brief Runtime values are never in memory.
+  ///
+  virtual bool isInMemory() const override { return false; }
+  
+  /// \brief Runtime values are always initialized (at the moment).
+  ///
+  virtual bool isCompletelyInitialized() const override { return true; }
+  
+  /// \brief Runtime values are never partially initialized (at the moment).
+  ///
+  virtual bool isPartiallyInitialized() const override { return false; }
+  
   /// \brief Get a string describing the value (which may be elided).
   ///
   virtual std::string getValueAsStringShort() const override {
@@ -1623,19 +1543,6 @@ public:
   ///
   virtual std::string getValueAsStringFull() const override {
     return getValueAsStringShort();
-  }
-  
-  /// \brief Pointers have no children.
-  /// \return Always 0.
-  ///
-  virtual unsigned getChildCount() const override { return 0; }
-  
-  /// \brief Pointers have no children.
-  /// \return An empty std::shared_ptr<Value const>
-  ///
-  virtual std::shared_ptr<Value const>
-  getChildAt(unsigned Index) const override {
-    return std::shared_ptr<Value const>();
   }
   
   /// \brief Get the highest legal dereference of this value.
