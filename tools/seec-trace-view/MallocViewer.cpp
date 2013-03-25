@@ -131,6 +131,9 @@ public:
   }
 
   virtual bool IsContainer(wxDataViewItem const &Item) const {
+    if (!State)
+      return false;
+    
     if (!Item.IsOk())
       return true;
 
@@ -144,9 +147,7 @@ public:
   }
 
   void setState(seec::trace::ProcessState &NewState) {
-    // Remove all existing items.
-    State = nullptr;
-    Cleared();
+    clearState();
 
     // Set the new state.
     State = &NewState;
@@ -158,6 +159,11 @@ public:
       ItemAdded(wxDataViewItem(nullptr), wxDataViewItem(VoidPtr));
     }
   }
+  
+  void clearState() {
+    State = nullptr;
+    Cleared();
+  }
 };
 
 
@@ -165,7 +171,9 @@ public:
 // MallocViewerPanel
 //------------------------------------------------------------------------------
 
-MallocViewerPanel::~MallocViewerPanel() {}
+MallocViewerPanel::~MallocViewerPanel() {
+  DataModel->clearState();
+}
 
 bool MallocViewerPanel::Create(wxWindow *Parent,
                                wxWindowID ID,
@@ -247,5 +255,5 @@ void MallocViewerPanel::show(seec::trace::ProcessState &State) {
 }
 
 void MallocViewerPanel::clear() {
-  //
+  DataModel->clearState();
 }
