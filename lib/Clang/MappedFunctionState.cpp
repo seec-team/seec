@@ -52,9 +52,6 @@ FunctionState::FunctionState(ThreadState &WithParent,
     if (!Mapping.getAST())
       continue;
     
-    // TODO: Check if this alloca had passed the debug declaration point
-    //       (if one exists).
-    
     auto const Decl = Mapping.getDecl();
     if (!Decl)
       continue;
