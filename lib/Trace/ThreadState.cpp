@@ -34,8 +34,7 @@ ThreadState::ThreadState(ProcessState &Parent,
   NextEvent(Trace.events().begin()),
   ProcessTime(Parent.getProcessTime()),
   ThreadTime(0),
-  CallStack(),
-  CurrentError()
+  CallStack()
 {}
 
 
@@ -379,8 +378,7 @@ void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
 
   auto &FuncState = *(CallStack.back());
   FuncState.setActiveInstruction(Index);
-
-  CurrentError.reset(nullptr);
+  
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -389,8 +387,7 @@ void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
 
   auto &FuncState = *(CallStack.back());
   FuncState.setActiveInstruction(Index);
-
-  CurrentError.reset(nullptr);
+  
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -403,8 +400,7 @@ void ThreadState::addEvent(
   auto &FuncState = *(CallStack.back());
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
-
-  CurrentError.reset(nullptr);
+  
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -418,7 +414,6 @@ void ThreadState::addEvent(
   FuncState.getRuntimeValue(Index).set(Offset, Value);
   FuncState.setActiveInstruction(Index);
 
-  CurrentError.reset(nullptr);
   ThreadTime = Ev.getThreadTime();
 }
 
@@ -426,9 +421,6 @@ void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithLargeValue> const &Ev) {
   // TODO
   llvm_unreachable("not yet implemented");
-
-  CurrentError.reset(nullptr);
-  ThreadTime = Ev.getThreadTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
@@ -593,15 +585,15 @@ void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   auto ErrRange = rangeAfterIncluding(Trace.events(), Ev);
   auto ReadError = deserializeRuntimeError(ErrRange);
   assert(ReadError.first && "Malformed trace file.");
-  CurrentError = std::move(ReadError.first);
+  
+  CallStack.back()->addRuntimeError(std::move(ReadError.first));
 }
 
 void ThreadState::addNextEvent() {
   switch (NextEvent->getType()) {
-    // TODO: If is_function_level, assert that a function exists.
-
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
+      assert(!is_function_level<EventType::NAME>::value || !CallStack.empty());\
       if (!is_subservient<EventType::NAME>::value) {                           \
         addEvent(NextEvent.get<EventType::NAME>());                            \
       }                                                                        \
@@ -639,17 +631,15 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   assert(MaybeIndex.assigned());
   FuncState.setActiveInstruction(MaybeIndex.get<0>());
   
-  // If there is a runtime error attached to the previous instruction, then
-  // it should be set as the current error now.
+  // Find all runtime errors attached to the previous instruction, and make
+  // them active.
   auto ErrorSearchRange = EventRange(MaybeRef.get<0>(), PriorTo);
-  auto MaybeErrorRef = find<EventType::RuntimeError>(ErrorSearchRange);
   
-  if (MaybeErrorRef.assigned()) {
-    auto ErrorRef = MaybeErrorRef.get<0>();
-    auto ErrorRange = rangeAfterIncluding(ErrorSearchRange, ErrorRef);
-    auto ReadError = deserializeRuntimeError(ErrorRange);
-    assert(ReadError.first && "Malformed trace file.");
-    CurrentError = std::move(ReadError.first);
+  for (auto Ev : ErrorSearchRange) {
+    if (Ev.getType() != EventType::RuntimeError)
+      continue;
+    
+    addEvent(Ev.as<EventType::RuntimeError>());
   }
 }
 
@@ -1107,7 +1097,10 @@ void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {
-  CurrentError.reset(nullptr);
+  if (!Ev.getIsTopLevel())
+    return;
+  
+  CallStack.back()->removeLastRuntimeError();
 }
 
 void ThreadState::removePreviousEvent() {
@@ -1147,9 +1140,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Thread #" << State.getTrace().getThreadID()
       << " @TT=" << State.getThreadTime()
       << "\n";
-  
-  if (State.getCurrentError())
-    Out << "  With RunError\n";
 
   for (auto &Function : State.getCallStack()) {
     Out << *Function;

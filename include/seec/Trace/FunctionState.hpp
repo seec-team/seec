@@ -15,6 +15,7 @@
 #define SEEC_TRACE_FUNCTIONSTATE_HPP
 
 #include "seec/DSA/MemoryBlock.hpp"
+#include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceReader.hpp"
@@ -115,6 +116,47 @@ public:
 };
 
 
+/// \brief Represents a single RunError.
+///
+class RuntimeErrorState {
+  /// The function state that this error belongs to.
+  FunctionState const &Parent;
+  
+  /// The index of the Instruction that caused this error.
+  uint32_t InstructionIndex;
+  
+  /// The runtime error.
+  std::unique_ptr<seec::runtime_errors::RunError> Error;
+  
+public:
+  /// \brief Constructor.
+  ///
+  RuntimeErrorState(FunctionState const &WithParent,
+                    uint32_t WithInstructionIndex,
+                    std::unique_ptr<seec::runtime_errors::RunError> WithError)
+  : Parent(WithParent),
+    InstructionIndex(WithInstructionIndex),
+    Error(std::move(WithError))
+  {}
+  
+  /// \brief Get the function state that this runtime error belongs to.
+  ///
+  FunctionState const &getParent() const { return Parent; }
+  
+  /// \brief Get the index of the instruction that produced this error.
+  ///
+  uint32_t getInstructionIndex() const { return InstructionIndex; }
+  
+  /// \brief Get the Instruction that produced this error.
+  ///
+  llvm::Instruction const *getInstruction() const;
+  
+  /// \brief Get the RunError itself.
+  ///
+  seec::runtime_errors::RunError const &getRunError() const { return *Error; }
+};
+
+
 /// \brief State of a function invocation at a specific point in time.
 ///
 class FunctionState {
@@ -141,6 +183,9 @@ class FunctionState {
   
   /// All byval argument memory areas for this function.
   std::vector<MemoryArea> ByValAreas;
+  
+  /// All runtime errors seen in this function.
+  std::vector<RuntimeErrorState> RuntimeErrors;
 
 public:
   /// \brief Constructor.
@@ -313,6 +358,20 @@ public:
   }
   
   /// @} (Argument byval memory area tracking.)
+  
+  
+  /// \name Runtime errors.
+  /// @{
+  
+  std::vector<RuntimeErrorState> const &getRuntimeErrors() const {
+    return RuntimeErrors;
+  }
+  
+  void addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error);
+  
+  void removeLastRuntimeError();
+  
+  /// @}
 };
 
 /// Print a textual description of a FunctionState.

@@ -547,12 +547,6 @@ SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
-  
-  //
-  auto RuntimeError = ThreadState.getCurrentError();
-  if (RuntimeError) {
-    wxLogDebug("RuntimeError");
-  }
 
   // Find the active function.
   auto &CallStack = ThreadState.getCallStack();
@@ -563,11 +557,16 @@ SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
 
   if (auto Instruction = FunctionState.getActiveInstruction()) {
     auto const RTValue = FunctionState.getCurrentRuntimeValue(Instruction);
-    if (!RTValue)
-      return;
+    
+    auto const &RuntimeErrors = FunctionState.getRuntimeErrors();
+    seec::runtime_errors::RunError const *RuntimeError = nullptr;
+    if (!RuntimeErrors.empty()
+        && RuntimeErrors.back().getInstruction() == Instruction) {
+      RuntimeError = &RuntimeErrors.front().getRunError();
+    }
     
     highlightInstruction(Instruction,
-                         *RTValue,
+                         RTValue,
                          RuntimeError,
                          FunctionState,
                          ValueStore);
@@ -853,7 +852,7 @@ showActiveStmt(::clang::Stmt const *Statement,
 void
 SourceViewerPanel::
 highlightInstruction(llvm::Instruction const *Instruction,
-                     seec::trace::RuntimeValue const &Value,
+                     seec::trace::RuntimeValue const *Value,
                      seec::runtime_errors::RunError const *Error,
                      seec::trace::FunctionState const &FunctionState,
                      std::shared_ptr<seec::cm::ValueStore const> ValueStore)
@@ -875,7 +874,7 @@ highlightInstruction(llvm::Instruction const *Instruction,
   if (auto const Statement = InstructionMap.getStmt()) {
     // If the Instruction is owned by a Stmt, try to find a perfect mapping for
     // the owning Stmt.
-    if (Value.assigned()) {
+    if (Value && Value->assigned()) {
       auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
       
       for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {

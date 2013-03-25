@@ -244,7 +244,7 @@ private:
   /// Highlight the source code associated with the specified Instruction.
   void
   highlightInstruction(llvm::Instruction const *Instruction,
-                       seec::trace::RuntimeValue const &Value,
+                       seec::trace::RuntimeValue const *Value,
                        seec::runtime_errors::RunError const *Error,
                        seec::trace::FunctionState const &FunctionState,
                        std::shared_ptr<seec::cm::ValueStore const> ValueStore);

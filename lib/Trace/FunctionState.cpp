@@ -45,6 +45,16 @@ MemoryState::Region AllocaState::getMemoryRegion() const {
 
 
 //===------------------------------------------------------------------------===
+// RuntimeErrorState
+//===------------------------------------------------------------------------===
+
+llvm::Instruction const *RuntimeErrorState::getInstruction() const {
+  auto Index = Parent.getFunctionLookup();
+  return Index.getInstruction(InstructionIndex);
+}
+
+
+//===------------------------------------------------------------------------===
 // FunctionState
 //===------------------------------------------------------------------------===
 
@@ -59,7 +69,8 @@ FunctionState::FunctionState(ThreadState &Parent,
   ActiveInstruction(),
   InstructionValues(Function.getInstructionCount()),
   Allocas(),
-  ByValAreas()
+  ByValAreas(),
+  RuntimeErrors()
 {
   assert(FunctionLookup);
 }
@@ -135,6 +146,23 @@ FunctionState::getVisibleAllocas() const {
   }
   
   return RetVal;
+}
+
+void
+FunctionState::
+addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error) {
+  assert(ActiveInstruction.assigned(0)
+         && "Runtime error with no active instruction.");
+  
+  RuntimeErrors.emplace_back(*this,
+                             ActiveInstruction.get<0>(),
+                             std::move(Error));
+}
+
+void FunctionState::removeLastRuntimeError() {
+  assert(!RuntimeErrors.empty() && "No runtime error to remove.");
+  
+  RuntimeErrors.pop_back();
 }
 
 

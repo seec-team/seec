@@ -65,9 +65,6 @@ class ThreadState {
 
   /// The stack of FunctionState objects.
   std::vector<std::unique_ptr<FunctionState>> CallStack;
-  
-  /// The runtime error at this point of time in the thread (if any).
-  std::unique_ptr<seec::runtime_errors::RunError> CurrentError;
 
   /// @}
 
@@ -304,13 +301,6 @@ public:
 
   /// \brief Get the current stack of FunctionStates.
   decltype(CallStack) const &getCallStack() const { return CallStack; }
-  
-  /// \brief Get a pointer to the current RunError for this thread.
-  /// \return a pointer to the current RunError for this thread, if one exists,
-  ///         otherwise nullptr.
-  seec::runtime_errors::RunError const *getCurrentError() const {
-    return CurrentError.get();
-  }
 
   /// @} (Accessors)
   
