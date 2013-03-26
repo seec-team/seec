@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Format.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -31,8 +32,12 @@ namespace seec {
 
 namespace runtime_errors {
 
+
+//===----------------------------------------------------------------------===//
+// formatArg()
+//===----------------------------------------------------------------------===//
+
 Formattable formatArg(ArgAddress const &A) {
-  // TODO: convert address to string
   std::string AddressString;
 
   llvm::raw_string_ostream AddressStringStream(AddressString);
@@ -60,7 +65,7 @@ Formattable formatArg(ArgOperand const &A) {
 }
 
 Formattable formatArg(ArgParameter const &A) {
-  return Formattable(static_cast<int64_t>(A.index()));
+  return Formattable(static_cast<int64_t>(A.index() + 1));
 }
 
 Formattable formatArg(ArgCharacter const &A) {
@@ -82,58 +87,112 @@ Formattable formatArg(Arg const &A) {
   return Formattable();
 }
 
-UnicodeString format(RunError const &RunErr) {
-  UnicodeString Result;
-  
-  UErrorCode Status = U_ZERO_ERROR;
-  
-  // Get the entire RuntimeErrors bundle.
-  auto Resources = getResourceBundle("RuntimeErrors", Locale::getDefault());
-  if (!Resources)
-    return Result;
-  
-  // Get descriptions.
-  auto Descriptions = Resources->get("descriptions", Status);
-  assert(U_SUCCESS(Status) && "Couldn't get Descriptions.");
-  
-  // Get error description.
-  auto FormatString = Descriptions.getStringEx(describe(RunErr.type()), Status);
-  if (!U_SUCCESS(Status)) {
-    llvm::errs() << "Couldn't get FormatString for " << describe(RunErr.type())
-                 << ", Status = " << u_errorName(Status) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  // For every argument, create a Formattable object and a name string.
-  std::vector<UnicodeString> ArgumentNames;
-  std::vector<Formattable> Arguments;
-  
-  for (auto &Arg: RunErr.args()) {
-    // Get the name for this argument.
-    auto Name = getArgumentName(RunErr.type(), ArgumentNames.size());
 
-    ArgumentNames.push_back(UnicodeString::fromUTF8(Name));
-    Arguments.push_back(formatArg(*Arg));
+//===----------------------------------------------------------------------===//
+// Description
+//===----------------------------------------------------------------------===//
+
+seec::util::Maybe<std::unique_ptr<Description>, seec::Error>
+Description::create(RunError const &Error) {
+  // Create descriptions for all of the additional errors.
+  std::vector<std::unique_ptr<Description>> AdditionalDescriptions;
+  
+  for (auto const &Additional : Error.additional()) {
+    auto AddDescription = Description::create(*Additional);
+    
+    if (AddDescription.assigned<seec::Error>()) {
+      return seec::util::Maybe<std::unique_ptr<Description>, seec::Error>
+                              (std::move(AddDescription.get<seec::Error>()));
+    }
+    
+    assert(AddDescription.assigned(0));
+    
+    AdditionalDescriptions.emplace_back(std::move(AddDescription.get<0>()));
   }
   
-  MessageFormat Formatter(FormatString, Status);
-  assert(U_SUCCESS(Status) && "Couldn't create MessageFormat object.");
+  // Create the description for the parent error.
+  auto const DescriptionKey = describe(Error.type());
   
-  Formatter.format(ArgumentNames.data(),
-                   Arguments.data(),
-                   Arguments.size(),
-                   Result,
-                   Status);
-  assert(U_SUCCESS(Status) && "MessageFormat::format failed.");
+  // Extract the raw description.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const Descriptions = seec::getResource("RuntimeErrors",
+                                              Locale(),
+                                              Status,
+                                              "descriptions");
+  auto const Message = Descriptions.getStringEx(DescriptionKey, Status);
   
-  // Add the messages for each of the additional errors.
-  for (auto const &Additional : RunErr.additional()) {
-    Result += "\n";
-    Result += format(*Additional);
+  if (!U_SUCCESS(Status))
+    return seec::Error(
+              LazyMessageByRef::create("RuntimeErrors",
+                                       {"errors", "DescriptionNotFound"},
+                                       std::make_pair("key", DescriptionKey)));
+  
+  // Format the arguments.
+  seec::icu::FormatArgumentsWithNames DescriptionArguments;
+  
+  for (auto &Arg : Error.args()) {
+    auto Name = getArgumentName(Error.type(), DescriptionArguments.size());
+    DescriptionArguments.add(UnicodeString::fromUTF8(Name),
+                             formatArg(*Arg));
   }
   
-  return Result;
+  // Format the raw description.
+  UnicodeString FormattedDescription = seec::icu::format(Message,
+                                                         DescriptionArguments,
+                                                         Status);
+  if (!U_SUCCESS(Status))
+    return seec::Error(
+              LazyMessageByRef::create("RuntimeErrors",
+                                       {"errors", "DescriptionFormatFailed"},
+                                       std::make_pair("key", DescriptionKey)));
+  
+  // Index the string.
+  auto MaybeIndexed = seec::icu::IndexedString::from(FormattedDescription);
+  if (!MaybeIndexed.assigned())
+    return seec::Error(
+              LazyMessageByRef::create("RuntimeErrors",
+                                       {"errors", "DescriptionIndexFailed"},
+                                       std::make_pair("key", DescriptionKey)));
+  
+  return std::unique_ptr<Description>
+                        (new Description(std::move(MaybeIndexed.get<0>()),
+                                         std::move(AdditionalDescriptions)));
 }
+
+
+//===----------------------------------------------------------------------===//
+// DescriptionPrinterUnicode
+//===----------------------------------------------------------------------===//
+
+void DescriptionPrinterUnicode::appendDescription(Description const &Desc,
+                                                  unsigned const Indent)
+{
+  if (CombinedString.length())
+    CombinedString.append(Separator);
+  
+  for (unsigned i = 0; i < Indent; ++i)
+    CombinedString.append(Indentation);
+  
+  CombinedString.append(Desc.getString());
+  
+  for (auto const &Additional : Desc.getAdditional())
+    appendDescription(*Additional, Indent + 1);
+}
+
+DescriptionPrinterUnicode::
+DescriptionPrinterUnicode(std::unique_ptr<Description> WithDescription,
+                          UnicodeString WithSeparator,
+                          UnicodeString WithIndentation)
+: TheDescription(std::move(WithDescription)),
+  Separator(std::move(WithSeparator)),
+  Indentation(std::move(WithIndentation)),
+  CombinedString()
+{
+  assert(TheDescription && "Description is null!");
+  
+  appendDescription(*TheDescription, 0);
+}
+
 
 } // namespace runtime_errors (in seec)
 

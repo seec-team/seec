@@ -2,7 +2,7 @@ root:table {
   // Contains textual descriptions of runtime errors.
   descriptions:table {
     // function
-    InfoCStdFunction:string { "Function {function}." }
+    InfoCStdFunction:string { "Note: Error was raised by call to function {function}." }
 
     // function
     // parameter
@@ -10,11 +10,28 @@ root:table {
       "{function, select, "
         "strcpy {"
           "{parameter, plural, "
-            "=0 {Destination parameter of strcpy.}"
-            "=1 {Source parameter of strcpy.}"
-            "other {Parameter {parameter} of strcpy.}}}"
-        "other {Parameter {parameter} passed to function {function}.}"
+            "=1    {Note: Error was raised for the @[parameter=1]destination parameter@[] passed to strcpy (first parameter).}"
+            "=2    {Note: Error was raised for the @[parameter=2]source parameter@[] passed to strcpy (second parameter).}"
+            "other {Note: Error was raised for @[parameter={parameter}]parameter {parameter}@[] passed to strcpy.}}}"
+        "other {"
+          "{parameter, plural, "
+            "=1    {Note: Error was raised for the @[arg:parameter]first parameter@[] passed to function {function}.}"
+            "=2    {Note: Error was raised for the @[arg:parameter]second parameter@[] passed to function {function}.}"
+            "=3    {Note: Error was raised for the @[arg:parameter]third parameter@[] passed to function {function}.}"
+            "=4    {Note: Error was raised for the @[arg:parameter]fourth parameter@[] passed to function {function}.}"
+            "=5    {Note: Error was raised for the @[arg:parameter]fifth parameter@[] passed to function {function}.}"
+            "=6    {Note: Error was raised for the @[arg:parameter]sixth parameter@[] passed to function {function}.}"
+            "=7    {Note: Error was raised for the @[arg:parameter]seventh parameter@[] passed to function {function}.}"
+            "=8    {Note: Error was raised for the @[arg:parameter]eighth parameter@[] passed to function {function}.}"
+            "=9    {Note: Error was raised for the @[arg:parameter]ninth parameter@[] passed to function {function}.}"
+            "=10   {Note: Error was raised for the @[arg:parameter]tenth parameter@[] passed to function {function}.}"
+            "other {Note: Error was raised for @[arg:parameter]parameter {parameter}@[] passed to function {function}.}}}"
       "}"
+    }
+
+    // element
+    InfoElementOfArray {
+      "Note: Error was detected with array element with index {element}."
     }
 
     // select MemoryAccess {read, write}

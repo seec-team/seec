@@ -36,6 +36,11 @@ SEEC_RUNERR(InfoCStdFunctionParameter,
     (parameter, seec::runtime_errors::ArgParameter)
   ))
 
+SEEC_RUNERR(InfoElementOfArray,
+  SEEC_PP_QUOTE(
+    (element, seec::runtime_errors::ArgSize)
+  ))
+
 
 //===----------------------------------------------------------------------===//
 // Top-level Errors

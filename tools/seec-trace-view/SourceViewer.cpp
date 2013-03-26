@@ -905,8 +905,26 @@ highlightInstruction(llvm::Instruction const *Instruction,
     // Highlight the Stmt with no in-line Value. If there is an Error, then
     // display a description of the Error in-line.
     wxString ErrorStr;
-    if (Error)
-      ErrorStr = seec::towxString(seec::runtime_errors::format(*Error));
+    if (Error) {
+      using namespace seec::runtime_errors;
+      
+      auto MaybeDesc = Description::create(*Error);
+      
+      wxASSERT(MaybeDesc.assigned());
+      
+      if (MaybeDesc.assigned(0)) {
+        DescriptionPrinterUnicode Printer(std::move(MaybeDesc.get<0>()),
+                                          "\n",
+                                          "  ");
+        
+        ErrorStr = seec::towxString(Printer.getString());
+      }
+      else if (MaybeDesc.assigned<seec::Error>()) {
+        UErrorCode Status = U_ZERO_ERROR;
+        ErrorStr = seec::towxString(MaybeDesc.get<seec::Error>()
+                                             .getMessage(Status, Locale()));
+      }
+    }
     
     showActiveStmt(Statement,
                    *InstructionMap.getAST(),

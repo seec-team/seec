@@ -277,8 +277,26 @@ void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
           auto RunErr = deserializeRuntimeError(ErrRange);
           
           if (RunErr.first) {
-            auto UniStr = seec::runtime_errors::format(*RunErr.first);
-            llvm::outs() << "Error:\n" << UniStr << "\n";
+            using namespace seec::runtime_errors;
+            
+            auto MaybeDesc = Description::create(*RunErr.first);
+            
+            if (MaybeDesc.assigned(0)) {
+              DescriptionPrinterUnicode Printer(std::move(MaybeDesc.get<0>()),
+                                                "\n",
+                                                "  ");
+              
+              llvm::outs() << Printer.getString() << "\n";
+            }
+            else if (MaybeDesc.assigned<seec::Error>()) {
+              UErrorCode Status = U_ZERO_ERROR;
+              llvm::errs() << MaybeDesc.get<seec::Error>()
+                                       .getMessage(Status, Locale()) << "\n";
+              exit(EXIT_FAILURE);
+            }
+            else {
+              llvm::outs() << "Couldn't get error description.\n";
+            }
           }
 
           // Find the Instruction responsible for this error.
