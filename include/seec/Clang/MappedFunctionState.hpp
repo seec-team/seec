@@ -42,6 +42,7 @@ namespace util {
 namespace cm {
 
 class AllocaState;
+class RuntimeErrorState;
 class ThreadState;
 
 
@@ -59,6 +60,9 @@ class FunctionState {
   
   /// The mapped local variables.
   std::vector<AllocaState> Variables;
+  
+  /// The mapped runtime errors.
+  std::vector<RuntimeErrorState> RuntimeErrors;
   
 public:
   /// \brief Constructor.

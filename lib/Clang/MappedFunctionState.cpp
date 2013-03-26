@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
@@ -40,11 +41,13 @@ FunctionState::FunctionState(ThreadState &WithParent,
 : Parent(WithParent),
   UnmappedState(ForUnmappedState),
   Parameters(),
-  Variables()
+  Variables(),
+  RuntimeErrors()
 {
   auto const &Trace = Parent.getParent().getProcessTrace();
   auto const &MappedModule = Trace.getMapping();
   
+  // Add allocas (parameters and variables).
   for (auto const AllocaRef : UnmappedState.getVisibleAllocas()) {
     seec::trace::AllocaState const &RawAlloca = AllocaRef;
     auto const AllocaInst = RawAlloca.getInstruction();
@@ -64,6 +67,11 @@ FunctionState::FunctionState(ThreadState &WithParent,
     else if (auto const Var = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
       Variables.emplace_back(*this, RawAlloca, Var);
     }
+  }
+  
+  // Add runtime errors.
+  for (auto const &ErrorState : UnmappedState.getRuntimeErrors()) {
+    RuntimeErrors.emplace_back(*this, ErrorState);
   }
 }
 
@@ -95,6 +103,19 @@ void FunctionState::print(llvm::raw_ostream &Out,
       Alloca.print(Out, Indentation);
     
     Indentation.unindent();
+  }
+  
+  // Runtime errors.
+  if (!RuntimeErrors.empty()) {
+    Out << Indentation.getString() << "Runtime errors:\n";
+    {
+      Indentation.indent();
+      
+      for (auto const &Error : RuntimeErrors)
+        Error.print(Out, Indentation);
+      
+      Indentation.unindent();
+    }
   }
 }
 
