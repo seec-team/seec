@@ -63,6 +63,17 @@ void RuntimeErrorState::print(llvm::raw_ostream &Out,
     if (U_SUCCESS(Status))
       Out << Indentation.getString() << Str << "\n";
   }
+  
+  auto const Statement = getStmt();
+  if (!Statement)
+    return;
+  
+  clang::LangOptions LangOpts;
+  clang::PrintingPolicy Policy(LangOpts);
+  auto const Indent = Indentation.getString().length();
+  
+  Out << Indentation.getString();
+  Statement->printPretty(Out, nullptr, Policy, Indent);
 }
 
 seec::runtime_errors::RunError const &RuntimeErrorState::getRunError() const {
