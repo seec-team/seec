@@ -19,14 +19,14 @@
 
 #include <string>
 
-namespace seec {
+namespace llvm {
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
-                              UnicodeString const &Str) {
+raw_ostream &operator<<(raw_ostream &Out,
+                        UnicodeString const &Str) {
   std::string Buffer;
   Str.toUTF8String(Buffer);
   Out << Buffer;
   return Out;
 }
 
-} // namespace seec
+} // namespace llvm

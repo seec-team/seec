@@ -20,13 +20,9 @@ namespace llvm {
 
 class raw_ostream;
 
-}
-
-namespace seec {
-
 /// Write a UnicodeString to a raw_ostream as UTF-8.
-llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, UnicodeString const &Str);
+raw_ostream &operator<<(raw_ostream &Out, UnicodeString const &Str);
 
-}
+} // namespace llvm
 
 #endif // SEEC_ICU_OUTPUT_HPP
