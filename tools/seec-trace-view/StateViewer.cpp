@@ -31,6 +31,8 @@
 #include "OpenTrace.hpp"
 #include "ThreadStateViewer.hpp"
 
+#define SEEC_SHOW_PROCESS_WIDE_STATES 1
+
 //------------------------------------------------------------------------------
 // StateViewerPanel
 //------------------------------------------------------------------------------
@@ -93,7 +95,8 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 
   
   // Setup the process-wide state information:
-  
+
+#if SEEC_SHOW_PROCESS_WIDE_STATES
   // Create the notebook that holds other state views.
   StateBook = new wxAuiNotebook(this,
                                 wxID_ANY,
@@ -109,19 +112,27 @@ bool StateViewerPanel::Create(wxWindow *Parent,
   StateBook->AddPage(MallocViewer,
                      seec::getwxStringExOrEmpty(TextTable, "MallocView_Title"));
 
-
   // Use a sizer to layout the thread view and process view notebook.
   auto TopSizer = new wxGridSizer(1, // Rows
                                   2, // Cols
                                   wxSize(0,0) // Gap
                                   );
+#else
+  // Use a sizer to layout the thread view and process view notebook.
+  auto TopSizer = new wxGridSizer(1, // Rows
+                                  1, // Cols
+                                  wxSize(0,0) // Gap
+                                  );  
+#endif
   
   if (ThreadBook)
     TopSizer->Add(ThreadBook, wxSizerFlags().Expand());
   else
     TopSizer->Add(ThreadViewers[0], wxSizerFlags().Expand());
   
+#if SEEC_SHOW_PROCESS_WIDE_STATES
   TopSizer->Add(StateBook, wxSizerFlags().Expand());
+#endif
   
   SetSizerAndFit(TopSizer);
 
@@ -139,13 +150,17 @@ StateViewerPanel::show(seec::trace::ProcessState &State,
     ThreadViewers[i]->showState(*Threads[i], ValueStore);
   }
   
+#if SEEC_SHOW_PROCESS_WIDE_STATES
   // Update the malloc state view.
   MallocViewer->show(State);
+#endif
 }
 
 void StateViewerPanel::clear() {
   // Clear thread-specific views.
   
+#if SEEC_SHOW_PROCESS_WIDE_STATES
   // Clear the malloc state view.
   MallocViewer->clear();
+#endif
 }

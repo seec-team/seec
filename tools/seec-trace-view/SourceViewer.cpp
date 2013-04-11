@@ -45,6 +45,8 @@
 
 #include <list>
 
+#define SEEC_SHOW_EXPLANATION 1
+
 //------------------------------------------------------------------------------
 // SourceFilePanel
 //------------------------------------------------------------------------------
@@ -394,14 +396,18 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_TAB_MOVE
                                | wxAUI_NB_SCROLL_BUTTONS);
   
+#if SEEC_SHOW_EXPLANATION
   ExplanationCtrl = new ExplanationViewer(this,
                                           wxID_ANY,
                                           wxDefaultPosition,
                                           wxSize(100, 100));
+#endif
 
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
+#if SEEC_SHOW_EXPLANATION
   TopSizer->Add(ExplanationCtrl, wxSizerFlags(0).Expand());
+#endif
   SetSizerAndFit(TopSizer);
   
   // Setup highlight event handling.
@@ -735,9 +741,11 @@ void SourceViewerPanel::OnHighlightOff(HighlightEvent const &Ev) {
 }
 
 void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
+#if SEEC_SHOW_EXPLANATION
   // Clear the current explanation.
   ExplanationCtrl->clearExplanation();
-  
+#endif
+
   // Get the Function mapping.
   auto Mapping = Trace->getMappedModule().getMappedFunctionDecl(Function);
   if (!Mapping) {
@@ -794,9 +802,11 @@ void SourceViewerPanel::showActiveDecl(::clang::Decl const *Decl,
   Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
                            Range.Start,
                            Range.End);
-    
+  
+#if SEEC_SHOW_EXPLANATION
   // Show an explanation for the Decl.
   ExplanationCtrl->showExplanation(Decl);
+#endif
 }
 
 void
@@ -842,11 +852,13 @@ showActiveStmt(::clang::Stmt const *Statement,
                         SciLexerType::SeeCRuntimeError);
   }
   
+#if SEEC_SHOW_EXPLANATION
   // Show an explanation for the Stmt.
   ExplanationCtrl->showExplanation(Statement,
                                    Trace->getMappedModule(),
                                    FunctionState,
                                    ValueStore);
+#endif
 }
 
 void
@@ -859,8 +871,10 @@ highlightInstruction(llvm::Instruction const *Instruction,
 {
   assert(Trace);
   
+#if SEEC_SHOW_EXPLANATION
   // Clear the current explanation.
   ExplanationCtrl->clearExplanation();
+#endif
   
   // TODO: Clear state mapping on the current source file.
 
