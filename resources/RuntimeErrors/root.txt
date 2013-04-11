@@ -143,7 +143,30 @@ root:table {
     // object_address
     // object_size
     PassPointerToInsufficient:string {
-      "There was insufficient memory at the destination of the pointer passed to {function} as parameter {parameter}. In this case the function required {access_size} bytes, but only {accessible_size} were available."
+      "{parameter, plural, "
+        "=1    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the first parameter@[].}"
+        "=2    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the second parameter@[].}"
+        "=3    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the third parameter@[].}"
+        "=4    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fourth parameter@[].}"
+        "=5    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fifth parameter@[].}"
+        "=6    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the sixth parameter@[].}"
+        "=7    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the seventh parameter@[].}"
+        "=8    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the eighth parameter@[].}"
+        "=9    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the ninth parameter@[].}"
+        "=10   {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the tenth parameter@[].}"
+        "other {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]parameter {parameter}@[].}"
+      "}"
+
+      "{access_size, plural, "
+        "=1    { In this case the function required one byte,}"
+        "other { In this case the function required {access_size} bytes,}"
+      "}"
+
+      "{accessible_size, plural, "
+        "=0    { but none were available.}"
+        "=1    { but only one was available.}"
+        "other { but only {accessible_size} were available.}"
+      "}"
     }
 
     // function
