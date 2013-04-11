@@ -82,7 +82,27 @@ root:table {
     // address of invalid string
     // index of the argument that held the pointer
     InvalidCString:string {
-      "Address {address}, passed to parameter {parameter} of function {function}, does not refer to a C string."
+      "{function, select, "
+        "other {"
+          "{parameter, plural, "
+            "=1    {The pointer passed as the @[arg:parameter]first parameter@[] to\n"
+                   "function {function} does not refer to a C string.\n"
+                   "A C string must be terminated by a null character.}"
+            "=2    {The pointer passed as the @[arg:parameter]second parameter@[] to\n"
+                   "function {function} does not refer to a C string.\n"
+                   "A C string must be terminated by a null character.}"
+            "=3    {The pointer passed as the @[arg:parameter]third parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=4    {The pointer passed as the @[arg:parameter]fourth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=5    {The pointer passed as the @[arg:parameter]fifth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=6    {The pointer passed as the @[arg:parameter]sixth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=7    {The pointer passed as the @[arg:parameter]seventh parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=8    {The pointer passed as the @[arg:parameter]eighth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=9    {The pointer passed as the @[arg:parameter]ninth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=10   {The pointer passed as the @[arg:parameter]tenth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "other {The pointer passed as @[arg:parameter]parameter {parameter}@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+          "}"
+        "}"
+      "}"
     }
     
     // dummy
