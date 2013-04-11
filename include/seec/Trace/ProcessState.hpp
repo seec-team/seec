@@ -20,8 +20,8 @@
 #include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -51,15 +51,20 @@ class MallocState {
 
   /// Location of the Malloc event.
   EventLocation Malloc;
+  
+  /// Instruction that caused this allocation.
+  llvm::Instruction const *Allocator;
 
 public:
   /// Construct a new MallocState with the given values.
   MallocState(uintptr_t Address,
               std::size_t Size,
-              EventLocation MallocLocation)
+              EventLocation MallocLocation,
+              llvm::Instruction const *WithAllocator)
   : Address(Address),
     Size(Size),
-    Malloc(MallocLocation)
+    Malloc(MallocLocation),
+    Allocator(WithAllocator)
   {}
 
   /// Get the address of the allocated memory.
@@ -70,6 +75,9 @@ public:
 
   /// Get the location of the Malloc event.
   EventLocation getMallocLocation() const { return Malloc; }
+  
+  /// Get the Instruction that caused this allocation.
+  llvm::Instruction const *getAllocator() const { return Allocator; }
 };
 
 

@@ -8,8 +8,6 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file defines ProcessState, a class for viewing the recorded states of
-/// SeeC-Clang mapped processes. 
 ///
 //===----------------------------------------------------------------------===//
 

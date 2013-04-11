@@ -21,4 +21,13 @@ root:table {
       "Invalid source location."
     }
   }
+
+  // Contains formatting for printing state information.
+  states:table {
+    // 
+    MallocState:string { "{size} byte(s) at {address}." }
+
+    //
+    MallocStateAllocatedAt:string { "allocated in file {filename} at line {line}, column {column}." }
+  }
 }

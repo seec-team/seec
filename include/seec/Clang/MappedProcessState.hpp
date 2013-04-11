@@ -17,6 +17,7 @@
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
 #include "seec/Clang/MappedGlobalVariable.hpp"
+#include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedValue.hpp"
 
@@ -161,6 +162,10 @@ public:
   
   /// \name Dynamic memory allocations.
   /// @{
+  
+  /// \brief Get all mapped dynamic memory allocations.
+  ///
+  std::vector<MallocState> getDynamicMemoryAllocations() const;
   
   /// @} (Dynamic memory allocations.)
   

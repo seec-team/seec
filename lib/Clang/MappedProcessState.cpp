@@ -73,6 +73,21 @@ void ProcessState::print(llvm::raw_ostream &Out,
       Indentation.unindent();
     }
     
+    // Print dynamic memory allocations.
+    auto const Mallocs = this->getDynamicMemoryAllocations();
+    if (!Mallocs.empty()) {
+      Out << Indentation.getString()
+          << "Dynamic Memory Allocations: " << Mallocs.size() << "\n";
+      
+      {
+        Indentation.indent();
+        for (auto const &Malloc : Mallocs) {
+          Malloc.print(Out, Indentation);
+        }
+        Indentation.unindent();
+      }
+    }
+    
     // Print thread states.
     for (std::size_t i = 0; i < this->getThreadCount(); ++i) {
       Out << Indentation.getString() << "Thread #" << i << ":\n";
@@ -126,6 +141,22 @@ std::vector<GlobalVariable> ProcessState::getGlobalVariables() const
   }
   
   return Globals;
+}
+
+
+//===----------------------------------------------------------------------===//
+// ProcessState: Dynamic memory allocations
+//===----------------------------------------------------------------------===//
+
+std::vector<MallocState> ProcessState::getDynamicMemoryAllocations() const
+{
+  std::vector<MallocState> States;
+  
+  for (auto const &RawMallocPair : UnmappedState->getMallocs()) {
+    States.emplace_back(*this, RawMallocPair.second);
+  }
+  
+  return States;
 }
 
 

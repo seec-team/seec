@@ -13,6 +13,7 @@
 
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
+#include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceSearch.hpp"
 #include "seec/Util/Dispatch.hpp"
 #include "seec/Util/ModuleIndex.hpp"
@@ -477,17 +478,23 @@ void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &InstrEv = InstrRef.get<EventType::InstructionWithValue>();
 
-  auto const Address = Instr.getValue().UInt64;
+  auto const Address = InstrEv.getValue().UInt64;
   auto const MallocLocation = EventLocation(Trace.getThreadID(),
                                             Trace.events().offsetOf(EvRef));
-
+  
+  llvm::Instruction const *Allocator = nullptr;
+  if (!CallStack.empty())
+    Allocator = CallStack.back()->getInstruction(InstrEv.getIndex());
+  
   // Update the shared ProcessState.
   Parent.Mallocs.insert(std::make_pair(Address,
                                        MallocState(Address,
                                                    Ev.getSize(),
-                                                   MallocLocation)));
+                                                   MallocLocation,
+                                                   Allocator)));
+  
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
@@ -910,18 +917,37 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &InstrEv = InstrRef.get<EventType::InstructionWithValue>();
 
   // Information required to recreate the dynamic memory allocation.
-  auto const Address = Instr.getValue().UInt64;
+  auto const Address = InstrEv.getValue().UInt64;
 
   EventLocation MallocLocation(MallocThreadID, MallocOffset);
+  
+  // Attempt to find the llvm::Instruction that allocated this memory.
+  llvm::Instruction const *Allocator = nullptr;
+  
+  auto const MaybeFuncStartRef = rfind<EventType::FunctionStart>
+                                      (rangeBefore(MallocThread.events(),
+                                                   InstrRef));
+  if (MaybeFuncStartRef.assigned(0)) {
+    auto const &FuncStartRef = MaybeFuncStartRef.get<0>();
+    auto const &FuncStartEv = FuncStartRef.get<EventType::FunctionStart>();
+    
+    auto const FnInfo = Trace.getFunctionTrace(FuncStartEv.getRecord());
+    auto const FnIndex = FnInfo.getIndex();
+    
+    auto const MappedFunction = Parent.getModule().getFunctionIndex(FnIndex);
+    if (MappedFunction)
+      Allocator = MappedFunction->getInstruction(InstrEv.getIndex());
+  }
 
   // Update the shared ProcessState.
   Parent.Mallocs.insert(std::make_pair(Address,
                                        MallocState(Address,
                                                    MallocEv.getSize(),
-                                                   MallocLocation)));
+                                                   MallocLocation,
+                                                   Allocator)));
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
