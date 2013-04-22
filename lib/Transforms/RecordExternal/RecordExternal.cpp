@@ -256,6 +256,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   for (auto &F : M) {
     if (F.empty() && !F.isIntrinsic()) {
       auto Name = F.getName();
+      
+      // Don't consider the "\01_" prefix when matching names.
+      if (Name.startswith("\01_"))
+        Name = Name.substr(std::strlen("\01_"));
+      
       bool Handled = false;
       
 #define SEEC_FUNCTION_HANDLED(NAME) if (Name.equals(#NAME)) Handled = true;
@@ -276,6 +281,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   // Perform SeeC's function interception.
   for (auto &F : M) {
     auto Name = F.getName();
+    
+    // Don't consider the "\01_" prefix when matching names.
+    if (Name.startswith("\01_"))
+      Name = Name.substr(std::strlen("\01_"));
+    
     llvm::Function *Intercept = nullptr;
     
 #define SEEC__STRINGIZE2(STR) #STR
