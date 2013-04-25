@@ -118,7 +118,7 @@ llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
 // ThreadTrace
 //------------------------------------------------------------------------------
 
-seec::util::Maybe<FunctionTrace>
+seec::Maybe<FunctionTrace>
 ThreadTrace::getFunctionContaining(EventReference EvRef) const {
   auto Evs = rangeBefore(events(), EvRef);
 
@@ -146,13 +146,13 @@ ThreadTrace::getFunctionContaining(EventReference EvRef) const {
       break;
   }
 
-  return seec::util::Maybe<FunctionTrace>();
+  return seec::Maybe<FunctionTrace>();
 }
 
 uint64_t ThreadTrace::getFinalThreadTime() const {
   auto MaybeTime = lastSuccessfulApply(events(),
                     [this]
-                    (EventRecordBase const &Ev) -> seec::util::Maybe<uint64_t>
+                    (EventRecordBase const &Ev) -> seec::Maybe<uint64_t>
                     {
                       auto Ty = Ev.getType();
 
@@ -163,7 +163,7 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
                         auto Exited = FTrace.getThreadTimeExited();
                         // Function might never have been exited, in which case
                         // it will have a zero exit time.
-                        return Exited ? Exited : seec::util::Maybe<uint64_t>();
+                        return Exited ? Exited : seec::Maybe<uint64_t>();
                       }
                       else if (Ty == EventType::FunctionStart) {
                         auto StartEv = Ev.as<EventType::FunctionStart>();
@@ -207,8 +207,8 @@ ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> &&Trace,
   ThreadTraces(std::move(TTraces))
 {}
 
-seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                  seec::Error>
+seec::Maybe<std::unique_ptr<ProcessTrace>,
+            seec::Error>
 ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
   if (TraceBuffer.assigned<seec::Error>())

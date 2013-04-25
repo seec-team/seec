@@ -52,14 +52,14 @@ bool typeInList(EventType Type) {
 /// \return a pointer to the first Event in Range with type in SearchFor, or
 ///         nullptr if no such Event exists.
 template<EventType... SearchFor>
-seec::util::Maybe<EventReference> find(EventRange Range) {
+seec::Maybe<EventReference> find(EventRange Range) {
   for (auto &&Ev : Range) {
     if (typeInList<SearchFor...>(Ev.getType())) {
-      return seec::util::Maybe<EventReference>(EventReference(Ev));
+      return seec::Maybe<EventReference>(EventReference(Ev));
     }
   }
 
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// Find the last Event in a range that matches a set of EventTypes.
@@ -68,20 +68,20 @@ seec::util::Maybe<EventReference> find(EventRange Range) {
 /// \return a pointer to the last Event in Range with type in SearchFor, or
 ///         nullptr if no such Event exists.
 template<EventType... SearchFor>
-seec::util::Maybe<EventReference> rfind(EventRange Range) {
+seec::Maybe<EventReference> rfind(EventRange Range) {
   if (Range.begin() == Range.end())
-    return seec::util::Maybe<EventReference>();
+    return seec::Maybe<EventReference>();
   
   for (auto It = --(Range.end()); ; --It) {
     if (typeInList<SearchFor...>(It->getType())) {
-      return seec::util::Maybe<EventReference>(It);
+      return seec::Maybe<EventReference>(It);
     }
     
     if (It == Range.begin())
       break;
   }
 
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// @}
@@ -94,48 +94,48 @@ seec::util::Maybe<EventReference> rfind(EventRange Range) {
 /// \tparam PredT the type of the predicate.
 /// \param Range the event range to search in.
 /// \param Predicate the predicate to check the events with.
-/// \return a seec::util::Maybe, which contains an EventReference for the first
+/// \return a seec::Maybe, which contains an EventReference for the first
 ///         Event in Range for which Predicate(Event) is true. If no such event
 ///         is found, the Maybe is unassigned.
 template<typename PredT>
-seec::util::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
+seec::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
   for (auto &&Ev : Range) {
     if (Predicate(Ev)) {
-      return seec::util::Maybe<EventReference>(EventReference(Ev));
+      return seec::Maybe<EventReference>(EventReference(Ev));
     }
   }
 
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// Find the last Event in a range for which a predicate returns true.
 /// \tparam PredT the type of the predicate.
 /// \param Range the event range to search in.
 /// \param Predicate the predicate to check the events with.
-/// \return a seec::util::Maybe, which contains an EventReference for the last
+/// \return a seec::Maybe, which contains an EventReference for the last
 ///         Event in Range for which Predicate(Event) is true. If no such event
 ///         is found, the Maybe is unassigned.
 template<typename PredT>
-seec::util::Maybe<EventReference> rfind(EventRange Range, PredT Predicate) {
+seec::Maybe<EventReference> rfind(EventRange Range, PredT Predicate) {
   if (Range.begin() == Range.end())
-    return seec::util::Maybe<EventReference>();
+    return seec::Maybe<EventReference>();
   
   for (auto It = --(Range.end()); ; --It) {
     if (Predicate(*It)) {
-      return seec::util::Maybe<EventReference>(It);
+      return seec::Maybe<EventReference>(It);
     }
     
     if (It == Range.begin())
       break;
   }
 
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// Find the first Event in a range in a function for which a predicate returns
 /// true.
 template<typename PredT>
-seec::util::Maybe<EventReference>
+seec::Maybe<EventReference>
 findInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
   for (auto It = Range.begin(); It != Range.end(); ++It) {
     switch (It->getType()) {
@@ -153,32 +153,32 @@ findInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
         break;
         
       case EventType::FunctionEnd:
-        return seec::util::Maybe<EventReference>();
+        return seec::Maybe<EventReference>();
         
       default:
         if (Predicate(*It))
-          return seec::util::Maybe<EventReference>(It);
+          return seec::Maybe<EventReference>(It);
         break;
     }
   }
   
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// Find the last Event in a range in a function for which a predicate returns
 /// true.
 template<typename PredT>
-seec::util::Maybe<EventReference>
+seec::Maybe<EventReference>
 rfindInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
   if (Range.begin() == Range.end())
-    return seec::util::Maybe<EventReference>();
+    return seec::Maybe<EventReference>();
   
   for (auto It = --(Range.end()); ; --It) {
     switch (It->getType()) {
       case EventType::FunctionStart:
         // This is the start of the active function, so no valid event was
         // found.
-        return seec::util::Maybe<EventReference>();
+        return seec::Maybe<EventReference>();
       
       case EventType::FunctionEnd:
         // Skip any events belonging to child functions.
@@ -194,13 +194,13 @@ rfindInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
           // If the FunctionStart is outside of the Range, then no valid event
           // was found.
           if (It < Range.begin())
-            return seec::util::Maybe<EventReference>();
+            return seec::Maybe<EventReference>();
         }
         break;
       
       default:
         if (Predicate(*It))
-          return seec::util::Maybe<EventReference>(It);
+          return seec::Maybe<EventReference>(It);
         break;
     }
     
@@ -209,7 +209,7 @@ rfindInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
       break;
   }
   
-  return seec::util::Maybe<EventReference>();
+  return seec::Maybe<EventReference>();
 }
 
 /// For the first Event in a range for which the given predicate returns an

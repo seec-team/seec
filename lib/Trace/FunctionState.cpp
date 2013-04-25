@@ -93,7 +93,7 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
   return FunctionLookup->getInstruction(ActiveInstruction.get<0>());
 }
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 FunctionState::getContainingMemoryArea(uintptr_t Address) const {
   auto const Alloca = getAllocaContaining(Address);
   if (Alloca)
@@ -103,7 +103,7 @@ FunctionState::getContainingMemoryArea(uintptr_t Address) const {
     if (ByValArea.contains(Address))
       return ByValArea;
   
-  return seec::util::Maybe<MemoryArea>();
+  return seec::Maybe<MemoryArea>();
 }
 
 uintptr_t FunctionState::getRuntimeAddress(llvm::Function const *F) const {

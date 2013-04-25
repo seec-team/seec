@@ -66,7 +66,7 @@ public:
 };
 
 
-seec::util::Maybe<SearchResult, seec::Error>
+seec::Maybe<SearchResult, seec::Error>
 search(::clang::ASTUnit &AST,
        llvm::StringRef Filename,
        unsigned Line,

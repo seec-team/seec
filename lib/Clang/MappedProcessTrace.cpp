@@ -27,7 +27,7 @@ namespace cm {
 // ProcessTrace
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
+seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
 ProcessTrace::
 load(llvm::StringRef ExecutablePath,
      std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator) {

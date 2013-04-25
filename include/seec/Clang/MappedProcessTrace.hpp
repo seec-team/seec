@@ -86,8 +86,7 @@ public:
   /// \brief Attempt to load a SeeC-Clang-mapped process trace.
   ///
   static
-  seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                    seec::Error>
+  seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
   load(llvm::StringRef ExecutablePath,
        std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator);
   

@@ -190,7 +190,7 @@ template<typename RecordT>
 typename std::enable_if<
   has_get_process_time<RecordT,
                        uint64_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint64_t>>::type
+  seec::Maybe<uint64_t>>::type
 getProcessTime(RecordT const &Record) {
   return Record.getProcessTime();
 }
@@ -199,12 +199,12 @@ template<typename RecordT>
 typename std::enable_if<
   !has_get_process_time<RecordT,
                         uint64_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint64_t>>::type
+  seec::Maybe<uint64_t>>::type
 getProcessTime(RecordT const &Record) {
-  return seec::util::Maybe<uint64_t>();
+  return seec::Maybe<uint64_t>();
 }
 
-seec::util::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
+seec::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
   switch (getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
@@ -214,7 +214,7 @@ seec::util::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
     default: llvm_unreachable("Reference to unknown event type!");
   }
   
-  return seec::util::Maybe<uint64_t>();
+  return seec::Maybe<uint64_t>();
 }
 
 
@@ -228,7 +228,7 @@ template<typename RecordT>
 typename std::enable_if<
   has_get_thread_time<RecordT,
                        uint64_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint64_t>>::type
+  seec::Maybe<uint64_t>>::type
 getThreadTime(RecordT const &Record) {
   return Record.getThreadTime();
 }
@@ -237,12 +237,12 @@ template<typename RecordT>
 typename std::enable_if<
   !has_get_thread_time<RecordT,
                         uint64_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint64_t>>::type
+  seec::Maybe<uint64_t>>::type
 getThreadTime(RecordT const &Record) {
-  return seec::util::Maybe<uint64_t>();
+  return seec::Maybe<uint64_t>();
 }
 
-seec::util::Maybe<uint64_t> EventRecordBase::getThreadTime() const {
+seec::Maybe<uint64_t> EventRecordBase::getThreadTime() const {
   switch (getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
@@ -252,7 +252,7 @@ seec::util::Maybe<uint64_t> EventRecordBase::getThreadTime() const {
     default: llvm_unreachable("Reference to unknown event type!");
   }
   
-  return seec::util::Maybe<uint64_t>();
+  return seec::Maybe<uint64_t>();
 }
 
 
@@ -265,7 +265,7 @@ SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_get_index, getIndex)
 template<typename RecordT>
 typename std::enable_if<
   has_get_index<RecordT, uint32_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint32_t>>::type
+  seec::Maybe<uint32_t>>::type
 getIndex(RecordT const &Record) {
   return Record.getIndex();
 }
@@ -273,12 +273,12 @@ getIndex(RecordT const &Record) {
 template<typename RecordT>
 typename std::enable_if<
   !has_get_index<RecordT, uint32_t const &(RecordT::*)() const>::value,
-  seec::util::Maybe<uint32_t>>::type
+  seec::Maybe<uint32_t>>::type
 getIndex(RecordT const &Record) {
-  return seec::util::Maybe<uint32_t>();
+  return seec::Maybe<uint32_t>();
 }
 
-seec::util::Maybe<uint32_t> EventRecordBase::getIndex() const {
+seec::Maybe<uint32_t> EventRecordBase::getIndex() const {
   switch (getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
@@ -288,7 +288,7 @@ seec::util::Maybe<uint32_t> EventRecordBase::getIndex() const {
     default: llvm_unreachable("Reference to unknown event type!");
   }
   
-  return seec::util::Maybe<uint32_t>();
+  return seec::Maybe<uint32_t>();
 }
 
 

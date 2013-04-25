@@ -173,7 +173,7 @@ class FunctionState {
   FunctionTrace Trace;
 
   /// Index of the currently active llvm::Instruction.
-  seec::util::Maybe<uint32_t> ActiveInstruction;
+  seec::Maybe<uint32_t> ActiveInstruction;
 
   /// Runtime values indexed by Instruction index.
   std::vector<RuntimeValue> InstructionValues;
@@ -227,7 +227,7 @@ public:
   llvm::Instruction const *getInstruction(uint32_t Index) const;
 
   /// \brief Get the index of the active llvm::Instruction, if there is one.
-  seec::util::Maybe<uint32_t> getActiveInstructionIndex() const {
+  seec::Maybe<uint32_t> getActiveInstructionIndex() const {
     return ActiveInstruction;
   }
 
@@ -238,7 +238,7 @@ public:
   ///
   /// This method is thread safe.
   ///
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const;
 
   /// @} (Accessors)

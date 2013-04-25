@@ -303,7 +303,7 @@ public:
   ///  - Known readable/writable regions.
   ///  - Thread stacks.
   ///
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const;
   
   /// @} (Memory.)

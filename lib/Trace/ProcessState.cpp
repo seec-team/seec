@@ -60,7 +60,7 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   }
 }
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 ProcessState::getContainingMemoryArea(uintptr_t Address) const {
   // Check global variables.
   for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
@@ -96,9 +96,9 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
     if (KnownIt != KnownMemory.end()) {
       // Range of interval is inclusive: [Begin, End]
       auto Length = (KnownIt->End - KnownIt->Begin) + 1;
-      return seec::util::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
-                                                      Length,
-                                                      KnownIt->Value));
+      return seec::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
+                                     Length,
+                                     KnownIt->Value));
     }
   }
   
@@ -111,7 +111,7 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
     return MaybeArea;
   }
     
-  return seec::util::Maybe<MemoryArea>();
+  return seec::Maybe<MemoryArea>();
 }
 
 uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {

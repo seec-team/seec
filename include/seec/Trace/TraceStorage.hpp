@@ -73,7 +73,7 @@ public:
   /// \brief Attempt to create OutputStreamAllocator.
   ///
   static 
-  seec::util::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
+  seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
   createOutputStreamAllocator();
   
   
@@ -82,7 +82,7 @@ public:
   
   /// \brief Write the Module's bitcode to the trace directory.
   ///
-  seec::util::Maybe<seec::Error> writeModule(llvm::StringRef Bitcode);
+  seec::Maybe<seec::Error> writeModule(llvm::StringRef Bitcode);
   
   /// \brief Get an output for a process-level data segment.
   ///
@@ -122,7 +122,7 @@ public:
   ///         could not be created.
   ///
   static
-  seec::util::Maybe<InputBufferAllocator, seec::Error>
+  seec::Maybe<InputBufferAllocator, seec::Error>
   createFor(llvm::StringRef Directory);
 
   /// Copy constructor.
@@ -154,18 +154,18 @@ public:
   
   /// \brief Get the original, uninstrumented Module.
   ///
-  seec::util::Maybe<llvm::Module *, seec::Error>
+  seec::Maybe<llvm::Module *, seec::Error>
   getModule(llvm::LLVMContext &Context);
 
   /// Create a MemoryBuffer containing the process data for the given Segment.
   ///
-  seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
   getProcessData(ProcessSegment Segment);
 
   /// Create a MemoryBuffer containing the data for the given thread's given
   /// Segment.
   ///
-  seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
   getThreadData(uint32_t ThreadID, ThreadSegment Segment);
 };
 

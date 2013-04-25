@@ -241,13 +241,13 @@ public:
   std::size_t getEventSize() const;
   
   /// Get the value of this event's ProcessTime, if it has one.
-  seec::util::Maybe<uint64_t> getProcessTime() const;
+  seec::Maybe<uint64_t> getProcessTime() const;
   
   /// Get the value of this event's ThreadTime, if it has one.
-  seec::util::Maybe<uint64_t> getThreadTime() const;
+  seec::Maybe<uint64_t> getThreadTime() const;
   
   /// Get the value of this event's Index member, if it has one.
-  seec::util::Maybe<uint32_t> getIndex() const;
+  seec::Maybe<uint32_t> getIndex() const;
   
   /// Check if this event has the is_block_start trait.
   bool isBlockStart() const {

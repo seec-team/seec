@@ -126,7 +126,7 @@ void TraceProcessListener::traceOpen() {
 // Accessors.
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
                                               uint32_t RequestingThreadID
                                               ) const {
@@ -137,7 +137,7 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
       auto Begin = GlobIt->Begin;
       // Range of interval is inclusive: [Begin, End]
       auto Length = (GlobIt->End - GlobIt->Begin) + 1;
-      return seec::util::Maybe<MemoryArea>(MemoryArea(Begin, Length));
+      return seec::Maybe<MemoryArea>(MemoryArea(Begin, Length));
     }
   }
   
@@ -151,7 +151,7 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
         
       auto Area = DynIt->second.area();
       if (Area.contains(Address)) {
-        return seec::util::Maybe<MemoryArea>(Area);
+        return seec::Maybe<MemoryArea>(Area);
       }
     }
   }
@@ -162,9 +162,9 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
     if (KnownIt != KnownMemory.end()) {
       // Range of interval is inclusive: [Begin, End]
       auto Length = (KnownIt->End - KnownIt->Begin) + 1;
-      return seec::util::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
-                                                      Length,
-                                                      KnownIt->Value));
+      return seec::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
+                                     Length,
+                                     KnownIt->Value));
     }
   }
     
@@ -182,7 +182,7 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
     }
   }
     
-  return seec::util::Maybe<MemoryArea>();
+  return seec::Maybe<MemoryArea>();
 }
 
 

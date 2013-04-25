@@ -82,8 +82,8 @@ public:
   
   /// \brief Get a Description for this runtime error.
   ///
-  seec::util::Maybe<std::unique_ptr<seec::runtime_errors::Description>,
-                    seec::Error>
+  seec::Maybe<std::unique_ptr<seec::runtime_errors::Description>,
+              seec::Error>
   getDescription() const;
   
   /// \brief Get the Stmt that owns the Instruction that caused this error.

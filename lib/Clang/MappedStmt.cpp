@@ -24,11 +24,11 @@ namespace seec {
 
 namespace seec_clang {
 
-seec::util::Maybe<MappedStmt::Type>
+seec::Maybe<MappedStmt::Type>
 getTypeFromMDString(llvm::MDString const *MDStr)
 {
   if (!MDStr)
-    return seec::util::Maybe<MappedStmt::Type>();
+    return seec::Maybe<MappedStmt::Type>();
   
   auto Str = MDStr->getString();
   
@@ -39,7 +39,7 @@ getTypeFromMDString(llvm::MDString const *MDStr)
   else if (Str.equals("rvalaggregate"))
     return MappedStmt::Type::RValAggregate;
   
-  return seec::util::Maybe<MappedStmt::Type>();
+  return seec::Maybe<MappedStmt::Type>();
 }
 
 llvm::Value const *

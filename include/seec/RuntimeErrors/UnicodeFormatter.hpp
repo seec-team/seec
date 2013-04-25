@@ -46,7 +46,7 @@ class Description {
 public:
   /// \brief Attempt to create a Description of the given RunError.
   ///
-  static seec::util::Maybe<std::unique_ptr<Description>, seec::Error>
+  static seec::Maybe<std::unique_ptr<Description>, seec::Error>
   create(RunError const &Error);
   
   /// \brief Get a textual description of the parent error.

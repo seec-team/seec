@@ -317,7 +317,7 @@ public:
   
   /// Get the stack-allocated area that contains an address. This method is
   /// thread safe.
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const;
   
   /// Get a reference to the current RuntimeValue for an Instruction.

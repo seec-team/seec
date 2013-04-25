@@ -99,14 +99,14 @@ public:
 
   /// Attempt to read a trace at the given FilePath.
   /// \param FilePath the path to the process trace file.
-  /// \return a seec::util::Maybe. If the trace was successfully read, then the
+  /// \return a seec::Maybe. If the trace was successfully read, then the
   ///         first element will be active and will contain a std::unique_ptr
   ///         holding an OpenTrace. If an error occurred, then the second
   ///         element will be active and will contain a pointer to a
   ///         statically-allocated C-String containing a key that can be used
   ///         to lookup the error in the GUIText table.
   static
-  seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString>
+  seec::Maybe<std::unique_ptr<OpenTrace>, wxString>
   FromFilePath(wxString const &FilePath);
 
 

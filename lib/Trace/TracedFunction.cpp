@@ -40,7 +40,7 @@ uintptr_t TracedFunction::getRuntimeAddress(llvm::Function const *F) const
 // Accessors for active-only information.
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 TracedFunction::getContainingMemoryArea(uintptr_t Address) const
 {
   std::lock_guard<std::mutex> Lock(StackMutex);
@@ -63,7 +63,7 @@ TracedFunction::getContainingMemoryArea(uintptr_t Address) const
     }
   }
   
-  return seec::util::Maybe<MemoryArea>();
+  return seec::Maybe<MemoryArea>();
 }
 
 

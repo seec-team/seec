@@ -26,9 +26,9 @@
 
 #include "OpenTrace.hpp"
 
-seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString>
+seec::Maybe<std::unique_ptr<OpenTrace>, wxString>
 OpenTrace::FromFilePath(wxString const &FilePath) {
-  typedef seec::util::Maybe<std::unique_ptr<OpenTrace>, wxString> RetTy;
+  typedef seec::Maybe<std::unique_ptr<OpenTrace>, wxString> RetTy;
 
   // Create an InputBufferAllocator for the folder containing the trace file.
   wxStandardPaths StdPaths;

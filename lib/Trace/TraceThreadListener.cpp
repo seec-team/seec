@@ -523,7 +523,7 @@ void
 TraceThreadListener
 ::handleRunError(seec::runtime_errors::RunError const &Error,
                  RunErrorSeverity Severity,
-                 seec::util::Maybe<uint32_t> PreInstructionIndex)
+                 seec::Maybe<uint32_t> PreInstructionIndex)
 {
   // PreInstruction event precedes the RuntimeError
   if (PreInstructionIndex.assigned()) {

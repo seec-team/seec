@@ -21,7 +21,7 @@
 #include "SourceViewerSettings.hpp"
 
 
-seec::util::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
+seec::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
   // Find the default setting for this style in our ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto Table = seec::getResource("TraceViewer",
@@ -30,7 +30,7 @@ seec::util::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
                                  "ScintillaStyles",
                                  StyleName);
   if (U_FAILURE(Status))
-    return seec::util::Maybe<SciStyle>();
+    return seec::Maybe<SciStyle>();
   
   // Get the individual values from the default setting table.
   auto Name = seec::getwxStringExOrEmpty(Table, "Name");
@@ -42,7 +42,7 @@ seec::util::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
   auto LetterCase = seec::getIntEx(Table, "LetterCase", Status);
   
   if (U_FAILURE(Status))
-    return seec::util::Maybe<SciStyle>();
+    return seec::Maybe<SciStyle>();
   
   auto FontStyle = wxFONTSTYLE_NORMAL;
   auto FontWeight = wxFONTWEIGHT_NORMAL;
@@ -100,13 +100,13 @@ char const *getSciTypeName(SciCommonType Type) {
   return nullptr;
 }
 
-seec::util::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name){
+seec::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name){
 #define SEEC_SCI_COMMON_TYPE(TYPE, ID) \
   if (Name.equals(#TYPE))   \
     return SciCommonType::TYPE;
 #include "SourceViewerSettingsTypes.def"
 
-  return seec::util::Maybe<SciCommonType>();
+  return seec::Maybe<SciCommonType>();
 }
 
 llvm::ArrayRef<SciCommonType> getAllSciCommonTypes() {
@@ -119,11 +119,11 @@ llvm::ArrayRef<SciCommonType> getAllSciCommonTypes() {
   return llvm::ArrayRef<SciCommonType>(Types);
 }
 
-seec::util::Maybe<SciStyle> getDefaultStyle(SciCommonType Type) {
+seec::Maybe<SciStyle> getDefaultStyle(SciCommonType Type) {
   // First get the name of this style type.
   auto StyleName = getSciTypeName(Type);
   if (!StyleName)
-    return seec::util::Maybe<SciStyle>();
+    return seec::Maybe<SciStyle>();
   
   return getDefaultStyle(StyleName);
 }
@@ -168,13 +168,13 @@ char const *getSciTypeName(SciLexerType Type) {
   return nullptr;
 }
 
-seec::util::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name) {
+seec::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name) {
 #define SEEC_SCI_TYPE(TYPE, ID) \
   if (Name.equals(#TYPE))   \
     return SciLexerType::TYPE;
 #include "SourceViewerSettingsTypes.def"
 
-  return seec::util::Maybe<SciLexerType>();
+  return seec::Maybe<SciLexerType>();
 }
 
 llvm::ArrayRef<SciLexerType> getAllSciLexerTypes() {
@@ -187,11 +187,11 @@ llvm::ArrayRef<SciLexerType> getAllSciLexerTypes() {
   return llvm::ArrayRef<SciLexerType>(Types);
 }
 
-seec::util::Maybe<SciStyle> getDefaultStyle(SciLexerType Type) {
+seec::Maybe<SciStyle> getDefaultStyle(SciLexerType Type) {
   // First get the name of this style type.
   auto StyleName = getSciTypeName(Type);
   if (!StyleName)
-    return seec::util::Maybe<SciStyle>();
+    return seec::Maybe<SciStyle>();
   
   return getDefaultStyle(StyleName);
 }
@@ -236,14 +236,14 @@ char const *getSciIndicatorTypeName(SciIndicatorType Type) {
   return nullptr;
 }
 
-seec::util::Maybe<SciIndicatorType>
+seec::Maybe<SciIndicatorType>
 getSciIndicatorTypeFromName(llvm::StringRef Name) {
 #define SEEC_SCI_INDICATOR(TYPE) \
   if (Name.equals(#TYPE))   \
     return SciIndicatorType::TYPE;
 #include "SourceViewerSettingsTypes.def"
 
-  return seec::util::Maybe<SciIndicatorType>();
+  return seec::Maybe<SciIndicatorType>();
 }
 
 llvm::ArrayRef<SciIndicatorType> getAllSciIndicatorTypes() {
@@ -256,12 +256,12 @@ llvm::ArrayRef<SciIndicatorType> getAllSciIndicatorTypes() {
   return llvm::ArrayRef<SciIndicatorType>(Types);
 }
 
-seec::util::Maybe<SciIndicatorStyle>
+seec::Maybe<SciIndicatorStyle>
 getDefaultIndicatorStyle(SciIndicatorType Type) {
   // First get the name of this indicator style type.
   auto StyleName = getSciIndicatorTypeName(Type);
   if (!StyleName)
-    return seec::util::Maybe<SciIndicatorStyle>();
+    return seec::Maybe<SciIndicatorStyle>();
   
   // Find the default setting for this indicator style in our ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -271,7 +271,7 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
                                  "ScintillaIndicatorStyles",
                                  StyleName);
   if (U_FAILURE(Status))
-    return seec::util::Maybe<SciIndicatorStyle>();
+    return seec::Maybe<SciIndicatorStyle>();
   
   // Get the individual values from the default setting table.
   auto Name = seec::getwxStringExOrEmpty(Table, "Name");
@@ -282,7 +282,7 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
   auto UnderStr = seec::getwxStringExOrEmpty(Table, "Under");
   
   if (U_FAILURE(Status))
-    return seec::util::Maybe<SciIndicatorStyle>();
+    return seec::Maybe<SciIndicatorStyle>();
   
   // Match the style string to a style.
   int Style = -1;
@@ -308,7 +308,7 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
 #undef SEEC_MATCH_INDICATOR_STYLE
 
   if (Style == -1)
-    return seec::util::Maybe<SciIndicatorStyle>();
+    return seec::Maybe<SciIndicatorStyle>();
   
   // Ensure that the alpha values are within the acceptable range.
   if (Alpha < 0) Alpha = 0;
@@ -324,7 +324,7 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
   else if (UnderStr.CmpNoCase("FALSE"))
     Under = false;
   else
-    return seec::util::Maybe<SciIndicatorStyle>();
+    return seec::Maybe<SciIndicatorStyle>();
   
   // Return the complete style.
   return SciIndicatorStyle(wxString(StyleName),

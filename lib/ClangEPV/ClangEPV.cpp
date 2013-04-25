@@ -224,7 +224,7 @@ Formattable formatAsGeneralTypeString(::clang::Type const *T) {
 // explain()
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node)
 {
   if (Node == nullptr)
@@ -235,7 +235,7 @@ explain(::clang::Decl const *Node)
   return ExplanationOfDecl::create(Node, nullptr);
 }
 
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node,
         RuntimeValueLookup const &ValueLookup)
 {
@@ -247,7 +247,7 @@ explain(::clang::Decl const *Node,
   return ExplanationOfDecl::create(Node, &ValueLookup);
 }
 
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node)
 {
   if (Node == nullptr)
@@ -258,7 +258,7 @@ explain(::clang::Stmt const *Node)
   return ExplanationOfStmt::create(Node, nullptr);
 }
 
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node,
         RuntimeValueLookup const &ValueLookup)
 {
@@ -367,7 +367,7 @@ void addInfoForDerivedAndBase(::clang::DERIVED##Decl const *Node,              \
 // ExplanationOfDecl
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 ExplanationOfDecl::create(::clang::Decl const *Node,
                           RuntimeValueLookup const *ValueLookup)
 {
@@ -598,7 +598,7 @@ void addInfo(::clang::DeclStmt const *Statement,
 
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 ExplanationOfStmt::create(::clang::Stmt const *Node,
                           RuntimeValueLookup const *ValueLookup)
 {

@@ -97,7 +97,7 @@ public:
   /// be selected using the dispatch() function.
   /// \tparam PredTs the types of the predicates.
   /// \param Preds the predicates.
-  /// \return a seec::util::Maybe with element type based on the return types
+  /// \return a seec::Maybe with element type based on the return types
   ///         of the predicates. If no appropriate predicate was found for the
   ///         event record, the Maybe will be unassigned.
   template<typename... PredTs>
@@ -448,7 +448,7 @@ public:
   /// @{
 
   /// Find the FunctionTrace for the function call containing the given event.
-  seec::util::Maybe<FunctionTrace>
+  seec::Maybe<FunctionTrace>
   getFunctionContaining(EventReference EvRef) const;
 
   /// @}
@@ -500,8 +500,7 @@ class ProcessTrace {
 public:
   /// Read a ProcessTrace using an InputBufferAllocator.
   static
-  seec::util::Maybe<std::unique_ptr<ProcessTrace>,
-                    seec::Error>
+  seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
   readFrom(InputBufferAllocator &Allocator);
 
   /// \name Accessors

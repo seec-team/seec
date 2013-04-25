@@ -966,13 +966,13 @@ public:
 
 template<typename T>
 struct GetValueOfBuiltinAsAPSInt {
-  static seec::util::Maybe<llvm::APSInt>
+  static seec::Maybe<llvm::APSInt>
   impl(seec::trace::FunctionState const &State, ::llvm::Value const *Value)
   {
     auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
                                                                  (State, Value);
     if (!MaybeValue.assigned())
-      return seec::util::Maybe<llvm::APSInt>();
+      return seec::Maybe<llvm::APSInt>();
     
     llvm::APSInt APSValue(sizeof(T) * CHAR_BIT, std::is_unsigned<T>::value);
     APSValue = MaybeValue.template get<0>();
@@ -981,7 +981,7 @@ struct GetValueOfBuiltinAsAPSInt {
   }
 };
 
-seec::util::Maybe<llvm::APSInt>
+seec::Maybe<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::BuiltinType const *Type,
                        ::llvm::Value const *Value)
@@ -993,7 +993,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 
 #define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
     case clang::BuiltinType::KIND:                                             \
-      return seec::util::Maybe<llvm::APSInt>();
+      return seec::Maybe<llvm::APSInt>();
 
     // Builtin types
     SEEC_UNHANDLED_BUILTIN(Void)
@@ -1052,10 +1052,10 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
   }
   
   llvm_unreachable("unexpected builtin type");
-  return seec::util::Maybe<llvm::APSInt>();
+  return seec::Maybe<llvm::APSInt>();
 }
 
-seec::util::Maybe<llvm::APSInt>
+seec::Maybe<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::Type const *Type,
                        ::llvm::Value const *Value)
@@ -1087,7 +1087,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     
     // No other types are supported.
     default:
-      return seec::util::Maybe<llvm::APSInt>();
+      return seec::Maybe<llvm::APSInt>();
   }
 }
 

@@ -25,11 +25,11 @@ namespace seec {
 namespace icu {
 
 
-seec::util::Maybe<IndexedString>
+seec::Maybe<IndexedString>
 IndexedString::from(UnicodeString const &String)
 {
   if (String.isBogus())
-    return seec::util::Maybe<IndexedString>();
+    return seec::Maybe<IndexedString>();
   
   UnicodeString const NeedleStart("@[");
   UnicodeString const NeedleEscape("@[[");
@@ -57,12 +57,12 @@ IndexedString::from(UnicodeString const &String)
     // Find the end of this sequence.
     uint32_t FoundEnd = String.indexOf(NeedleEnd, SearchFrom);
     if (FoundEnd == -1)
-      return seec::util::Maybe<IndexedString>();
+      return seec::Maybe<IndexedString>();
     
     if (FoundEnd == FoundStart + NeedleStart.length()) {
       // This is a closing sequence.
       if (IndexStack.size() == 0)
-        return seec::util::Maybe<IndexedString>();
+        return seec::Maybe<IndexedString>();
       
       // Pop the starting details of the last-opened sequence.
       auto Start = IndexStack.back();

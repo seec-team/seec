@@ -88,17 +88,17 @@ char const *getSciTypeName(SciCommonType Type);
 /// \brief Get the SciCommonType with the given name (if any).
 ///
 /// \param Name the name to search for.
-/// \return a seec::util::Maybe<SciCommonType> which contains the SciCommonType
+/// \return a seec::Maybe<SciCommonType> which contains the SciCommonType
 ///         with name equal to Name, or is unassigned if no such SciCommonType
 ///         exists.
-seec::util::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name);
+seec::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name);
 
 /// \brief Get an array containing all valid SciCommonType values.
 llvm::ArrayRef<SciCommonType> getAllSciCommonTypes();
 
 /// \brief Get the default style settings for a given SciCommonType.
 ///
-seec::util::Maybe<SciStyle> getDefaultStyle(SciCommonType Type);
+seec::Maybe<SciStyle> getDefaultStyle(SciCommonType Type);
 
 /// \brief Setup default style settings for all common types.
 ///
@@ -127,16 +127,16 @@ char const *getSciTypeName(SciLexerType Type);
 /// \brief Get the SciLexerType with the given name (if any).
 ///
 /// \param Name the name to search for.
-/// \return a seec::util::Maybe<SciType> which contains the SciType with name
+/// \return a seec::Maybe<SciType> which contains the SciType with name
 ///         equal to Name, or is unassigned if no such SciType exists.
-seec::util::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name);
+seec::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name);
 
 /// \brief Get an array containing all valid SciType values.
 llvm::ArrayRef<SciLexerType> getAllSciLexerTypes();
 
 /// \brief Get the default style settings for a given SciType.
 ///
-seec::util::Maybe<SciStyle> getDefaultStyle(SciLexerType Type);
+seec::Maybe<SciStyle> getDefaultStyle(SciLexerType Type);
 
 /// \brief Setup default style settings for all lexer types.
 ///
@@ -204,7 +204,7 @@ char const *getSciIndicatorTypeName(SciIndicatorType Type);
 
 /// \brief Get the SciIndicatorType with the given name (if any).
 ///
-seec::util::Maybe<SciIndicatorType>
+seec::Maybe<SciIndicatorType>
 getSciIndicatorTypeFromName(llvm::StringRef Name);
 
 /// \brief Get an array containing all valid SciIndicatorType values.
@@ -213,7 +213,7 @@ llvm::ArrayRef<SciIndicatorType> getAllSciIndicatorTypes();
 
 /// \brief Get the default style settings for a given SciIndicatorType.
 ///
-seec::util::Maybe<SciIndicatorStyle>
+seec::Maybe<SciIndicatorStyle>
 getDefaultIndicatorStyle(SciIndicatorType Type);
 
 /// \brief Setup default style settings for all indicator types.

@@ -54,7 +54,7 @@ public:
   MappedFile(MappedFile &&) = default;
   
   /// \brief Read a MappedFile from metadata.
-  static seec::util::Maybe<MappedFile> fromMetadata(llvm::Value *);
+  static seec::Maybe<MappedFile> fromMetadata(llvm::Value *);
   
   /// @}
   

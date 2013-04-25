@@ -274,23 +274,23 @@ public:
 
 /// \brief Get an Explanation for a clang::Decl.
 ///
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node);
 
 /// \brief Get an Explanation for a clang::Decl, with runtime values.
 ///
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node,
         RuntimeValueLookup const &ValueLookup);
 
 /// \brief Get an Explanation for a clang::Stmt.
 ///
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node);
 
 /// \brief Get an Explanation for a clang::Stmt, with runtime values.
 ///
-seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node,
         RuntimeValueLookup const &ValueLookup);
 
@@ -319,7 +319,7 @@ public:
     return Object->getNodeType() == Explanation::ENodeType::Decl;
   }
   
-  static seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+  static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
   create(::clang::Decl const *Node, RuntimeValueLookup const *ValueLookup);
 };
 
@@ -348,7 +348,7 @@ public:
     return Object->getNodeType() == Explanation::ENodeType::Stmt;
   }
   
-  static seec::util::Maybe<std::unique_ptr<Explanation>, seec::Error>
+  static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
   create(::clang::Stmt const *Node, RuntimeValueLookup const *ValueLookup);
 };
 

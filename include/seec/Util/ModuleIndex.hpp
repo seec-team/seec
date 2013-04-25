@@ -103,12 +103,12 @@ public:
   ///
   /// If the Instruction does not exist in the Function, then the Maybe returned
   /// will be unassigned.
-  util::Maybe<uint32_t>
+  Maybe<uint32_t>
   getIndexOfInstruction(llvm::Instruction const *Instruction) const {
     auto It = InstructionIdxByPtr.find(Instruction);
     if (It != InstructionIdxByPtr.end())
-      return util::Maybe<uint32_t>(It->second);
-    return util::Maybe<uint32_t>();
+      return Maybe<uint32_t>(It->second);
+    return Maybe<uint32_t>();
   }
   
   /// @}
@@ -119,12 +119,12 @@ public:
   
   /// \brief Get the index of the llvm.dbg.declare associated with an alloca.
   ///
-  seec::util::Maybe<uint32_t>
+  seec::Maybe<uint32_t>
   getIndexOfDbgDeclareFor(llvm::AllocaInst const *Alloca) const {
     auto const It = AllocaToDbgDeclareIdx.find(Alloca);
     if (It != AllocaToDbgDeclareIdx.end())
       return It->second;
-    return seec::util::Maybe<uint32_t>();
+    return seec::Maybe<uint32_t>();
   }
   
   /// \brief Get the llvm.dbg.declare associated with an alloca.
@@ -234,12 +234,12 @@ public:
   }
 
   /// \brief Get the Index of the given llvm::GlobalVariable.
-  util::Maybe<uint32_t>
+  Maybe<uint32_t>
   getIndexOfGlobal(llvm::GlobalVariable const *Global) const {
     auto It = GlobalIdxByPtr.find(Global);
     if (It != GlobalIdxByPtr.end())
-      return util::Maybe<uint32_t>(It->second);
-    return util::Maybe<uint32_t>();
+      return Maybe<uint32_t>(It->second);
+    return Maybe<uint32_t>();
   }
   
   /// \brief Get the number of functions in the indexed Module.
@@ -254,11 +254,11 @@ public:
   }
 
   /// \brief Get the Index of the given llvm::Function.
-  util::Maybe<uint32_t> getIndexOfFunction(llvm::Function const *Function) const {
+  Maybe<uint32_t> getIndexOfFunction(llvm::Function const *Function) const {
     auto It = FunctionIdxByPtr.find(Function);
     if (It != FunctionIdxByPtr.end())
-      return util::Maybe<uint32_t>(It->second);
-    return util::Maybe<uint32_t>();
+      return Maybe<uint32_t>(It->second);
+    return Maybe<uint32_t>();
   }
 
   /// \brief Generate the FunctionIndex for all llvm::Functions.

@@ -303,7 +303,7 @@ public:
   ///  - Thread stacks (other than the requesting thread).
   /// This method is thread safe.
   ///
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address, uint32_t RequestingThreadID) const;
   
   /// \brief Get the detect calls Lookup.
@@ -427,7 +427,7 @@ public:
   }
 
   /// Get information about the Malloc event that allocated an address.
-  seec::util::Maybe<DynamicAllocation>
+  seec::Maybe<DynamicAllocation>
   getCurrentDynamicMemoryAllocation(uintptr_t Address) const {
     std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
 
@@ -437,7 +437,7 @@ public:
       return It->second;
     }
 
-    return seec::util::Maybe<DynamicAllocation>();
+    return seec::Maybe<DynamicAllocation>();
   }
 
   /// Set the offset of the Malloc event that allocated an address.

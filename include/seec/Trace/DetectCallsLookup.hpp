@@ -77,7 +77,7 @@ public:
   
   /// Check if there is a known function at a certain address.
   /// \param Address the address to check.
-  seec::util::Maybe<Call> Check(void const *Address) const;
+  seec::Maybe<Call> Check(void const *Address) const;
   
   /// Set the run-time location of a function, if it is detectable by
   /// DetectCall.

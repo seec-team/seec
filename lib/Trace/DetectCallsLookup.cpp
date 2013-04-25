@@ -45,12 +45,12 @@ bool Lookup::Check(Call C, void const *Address) const {
   return false;
 }
 
-seec::util::Maybe<Call> Lookup::Check(void const *Address) const {
+seec::Maybe<Call> Lookup::Check(void const *Address) const {
   auto It = AddressMap.find(Address);
   if (It != AddressMap.end())
     return It->second;
   
-  return seec::util::Maybe<Call>();
+  return seec::Maybe<Call>();
 }
 
 bool Lookup::Set(llvm::StringRef Name, void const *Address) {

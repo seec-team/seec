@@ -291,7 +291,7 @@ class QuickSortImpl {
   
   /// \brief Partition.
   ///
-  seec::util::Maybe<std::size_t>
+  seec::Maybe<std::size_t>
   partition(std::size_t const Left,
             std::size_t const Right,
             std::size_t const Pivot)
@@ -311,7 +311,7 @@ class QuickSortImpl {
       
       // Lock memory and ensure that the compare function hasn't deallocated it.
       if (!acquireMemory())
-        return seec::util::Maybe<std::size_t>();
+        return seec::Maybe<std::size_t>();
             
       if (Comparison < 0) {
         swap(i, StoreIndex);

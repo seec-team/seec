@@ -96,7 +96,7 @@ public:
     Needles(std::move(Other.Needles))
   {}
   
-  static seec::util::Maybe<IndexedString> from(UnicodeString const &String);
+  static seec::Maybe<IndexedString> from(UnicodeString const &String);
   
   /// \name Accessors
   /// @{

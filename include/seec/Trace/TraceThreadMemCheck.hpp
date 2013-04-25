@@ -32,7 +32,7 @@ namespace trace {
 /// \brief Get the allocated memory area that contains Address, if any.
 /// \param Listener the listener for the thread requesting this information.
 /// \param Address the address of memory to find the owning allocation for.
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address);
 
 /// \brief Helps detect and report run-time errors with memory usage.
@@ -68,7 +68,7 @@ public:
   bool memoryExists(uintptr_t Address,
                     std::size_t Size,
                     seec::runtime_errors::format_selects::MemoryAccess Access,
-                    seec::util::Maybe<MemoryArea> const &Area);
+                    seec::Maybe<MemoryArea> const &Area);
   
   /// \brief Check whether or not a memory access is valid.
   ///
@@ -98,8 +98,8 @@ public:
                     seec::runtime_errors::format_selects::MemoryAccess Access);
   
   /// \brief Find the area of the C string referenced by String.
-  seec::util::Maybe<MemoryArea> getCStringInArea(char const *String,
-                                                 MemoryArea Area);
+  seec::Maybe<MemoryArea> getCStringInArea(char const *String,
+                                           MemoryArea Area);
 
   /// \brief Find the limited C string referenced by String.
   /// If String points to a C string that fits within Area, then get the
@@ -137,7 +137,7 @@ public:
           uintptr_t Address,
           std::size_t Size,
           seec::runtime_errors::format_selects::MemoryAccess Access,
-          seec::util::Maybe<MemoryArea> const &Area);
+          seec::Maybe<MemoryArea> const &Area);
   
   /// \brief Check whether or not a memory access is valid.
   ///
@@ -177,7 +177,7 @@ public:
   /// \return true iff there were no errors.
   bool checkCStringIsValid(uintptr_t Address,
                            unsigned Parameter,
-                           seec::util::Maybe<MemoryArea> Area);
+                           seec::Maybe<MemoryArea> Area);
   
   /// \brief Check a read from a C String.
   ///

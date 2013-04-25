@@ -92,7 +92,7 @@ Formattable formatArg(Arg const &A) {
 // Description
 //===----------------------------------------------------------------------===//
 
-seec::util::Maybe<std::unique_ptr<Description>, seec::Error>
+seec::Maybe<std::unique_ptr<Description>, seec::Error>
 Description::create(RunError const &Error) {
   // Create descriptions for all of the additional errors.
   std::vector<std::unique_ptr<Description>> AdditionalDescriptions;
@@ -101,8 +101,8 @@ Description::create(RunError const &Error) {
     auto AddDescription = Description::create(*Additional);
     
     if (AddDescription.assigned<seec::Error>()) {
-      return seec::util::Maybe<std::unique_ptr<Description>, seec::Error>
-                              (std::move(AddDescription.get<seec::Error>()));
+      return seec::Maybe<std::unique_ptr<Description>, seec::Error>
+                        (std::move(AddDescription.get<seec::Error>()));
     }
     
     assert(AddDescription.assigned(0));

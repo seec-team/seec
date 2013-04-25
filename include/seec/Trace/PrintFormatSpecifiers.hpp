@@ -285,7 +285,7 @@ private:
   typename std::enable_if
            <std::is_pointer<T>::value
             && !std::is_void<typename std::remove_pointer<T>::type>::value,
-            seec::util::Maybe<MemoryArea>>::type
+            seec::Maybe<MemoryArea>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     if (ArgIndex < Args.size()) {
@@ -296,7 +296,7 @@ private:
       }
     }
     
-    return seec::util::Maybe<MemoryArea>();
+    return seec::Maybe<MemoryArea>();
   }
   
   /// \brief For non-pointer types return an uninitialized Maybe.
@@ -304,16 +304,16 @@ private:
   typename std::enable_if
            <!std::is_pointer<T>::value
             || std::is_void<typename std::remove_pointer<T>::type>::value,
-            seec::util::Maybe<MemoryArea>>::type
+            seec::Maybe<MemoryArea>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
-    return seec::util::Maybe<MemoryArea>();
+    return seec::Maybe<MemoryArea>();
   }
 
 public:
   /// \brief Get the address and size of the pointee of a pointer argument.
   ///
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     // We use the X-Macro to generate a two levels of switching. The outer
@@ -322,7 +322,7 @@ public:
     // return an unassigned Maybe.
     
     switch (Conversion) {
-      case Specifier::none: return seec::util::Maybe<MemoryArea>();
+      case Specifier::none: return seec::Maybe<MemoryArea>();
 
 #define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
         case LengthModifier::LENGTH:                                           \
@@ -332,7 +332,7 @@ public:
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
           SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
-          default: return seec::util::Maybe<MemoryArea>();                     \
+          default: return seec::Maybe<MemoryArea>();                           \
         }
 
 #include "PrintFormatSpecifiers.def"
@@ -340,7 +340,7 @@ public:
     }
     
     llvm_unreachable("illegal conversion specifier");
-    return seec::util::Maybe<MemoryArea>();
+    return seec::Maybe<MemoryArea>();
   }
   
   /// \brief Find and read the first print conversion specified in String.

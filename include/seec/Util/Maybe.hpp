@@ -23,10 +23,7 @@
 
 namespace seec {
 
-/// General utilities.
-namespace util {
-
-/// Contains implementation details for seec::util::Maybe.
+/// Contains implementation details for seec::Maybe.
 namespace maybe_impl {
 
 //===------------------------------------------------------------------------===
@@ -373,7 +370,7 @@ public:
     typedef typename std::remove_reference<T>::type RawT;
 
     // Ensure that this type exists in our element types.
-    static_assert(seec::util::maybe_impl::typeInList<RawT, Elems...>(),
+    static_assert(seec::maybe_impl::typeInList<RawT, Elems...>(),
                   "Type was not found in element types.");
 
     if (Which == 0)
@@ -523,7 +520,7 @@ public:
     typedef typename std::remove_reference<T>::type RawT;
 
     // Ensure that this type exists in our element types.
-    static_assert(seec::util::maybe_impl::typeInList<RawT, Elems...>(),
+    static_assert(seec::maybe_impl::typeInList<RawT, Elems...>(),
                   "Type was not found in element types.");
 
     // First, check if the currently active element is of type T, in which case
@@ -616,8 +613,6 @@ public:
     return ValueT::get(Store);
   }
 };
-
-} // namespace util (in seec)
 
 } // namespace seec
 

@@ -81,7 +81,7 @@ OutputStreamAllocator::OutputStreamAllocator(llvm::StringRef Directory)
 : TraceDirectory(Directory)
 {}
 
-seec::util::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
+seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
 OutputStreamAllocator::createOutputStreamAllocator()
 {
   llvm::error_code ErrCode;
@@ -144,7 +144,7 @@ OutputStreamAllocator::createOutputStreamAllocator()
   return std::unique_ptr<OutputStreamAllocator>(Allocator);
 }
 
-seec::util::Maybe<seec::Error>
+seec::Maybe<seec::Error>
 OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
   // Get a path for the bitcode file.
   llvm::SmallString<256> Path {llvm::StringRef{TraceDirectory}};
@@ -167,7 +167,7 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
   std::memcpy(Output->getBufferStart(), Bitcode.data(), Bitcode.size());
   Output->commit();
   
-  return seec::util::Maybe<seec::Error>();
+  return seec::Maybe<seec::Error>();
 }
 
 std::unique_ptr<llvm::raw_ostream>
@@ -224,7 +224,7 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
 // InputBufferAllocator
 //------------------------------------------------------------------------------
 
-seec::util::Maybe<InputBufferAllocator, seec::Error>
+seec::Maybe<InputBufferAllocator, seec::Error>
 InputBufferAllocator::createFor(llvm::StringRef Directory) {
   llvm::error_code ErrCode;
   llvm::SmallString<256> Path;
@@ -259,7 +259,7 @@ InputBufferAllocator::createFor(llvm::StringRef Directory) {
   return InputBufferAllocator{llvm::StringRef(Path)};
 }
 
-seec::util::Maybe<llvm::Module *, seec::Error>
+seec::Maybe<llvm::Module *, seec::Error>
 InputBufferAllocator::getModule(llvm::LLVMContext &Context) {
   // Get the path to the bitcode file.
   llvm::SmallString<256> Path {TraceDirectory};
@@ -294,7 +294,7 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) {
   return Mod;
 }
 
-seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
 InputBufferAllocator::getProcessData(ProcessSegment Segment) {
   // Get the path to the file.
   llvm::SmallString<256> Path {TraceDirectory};
@@ -318,7 +318,7 @@ InputBufferAllocator::getProcessData(ProcessSegment Segment) {
   return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
 }
 
-seec::util::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
 InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment) {
   // Get the name of the file.
   std::string Filename;

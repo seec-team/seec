@@ -1143,9 +1143,9 @@ void ThreadState::removePreviousEvent() {
   }
 }
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 ThreadState::getContainingMemoryArea(uintptr_t Address) const {
-  seec::util::Maybe<MemoryArea> Area;
+  seec::Maybe<MemoryArea> Area;
   
   for (auto const &FunctionStatePtr : CallStack) {
     Area = FunctionStatePtr->getContainingMemoryArea(Address);
@@ -1156,7 +1156,7 @@ ThreadState::getContainingMemoryArea(uintptr_t Address) const {
   return Area;
 }
 
-seec::util::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
+seec::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
   return rfind(rangeBefore(Trace.events(), NextEvent),
                [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});
 }

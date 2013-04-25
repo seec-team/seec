@@ -49,10 +49,10 @@ struct SimpleRange {
 
 /// \brief Get the spelling range of a declaration.
 ///
-seec::util::Maybe<SimpleRange>
+seec::Maybe<SimpleRange>
 getSpellingRange(clang::Decl const *Decl, clang::ASTUnit const &AST) {
   if (!Decl)
-    return seec::util::Maybe<SimpleRange>();
+    return seec::Maybe<SimpleRange>();
   
   auto &SourceManager = AST.getSourceManager();
   
@@ -68,7 +68,7 @@ getSpellingRange(clang::Decl const *Decl, clang::ASTUnit const &AST) {
   auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid);
   
   if (Invalid)
-    return seec::util::Maybe<SimpleRange>();
+    return seec::Maybe<SimpleRange>();
   
   return SimpleRange(SimpleLocation(StartLine, StartCol),
                      SimpleLocation(EndLine, EndCol));
@@ -77,7 +77,7 @@ getSpellingRange(clang::Decl const *Decl, clang::ASTUnit const &AST) {
 /// \brief Get the "pretty" spelling range, as we want to show it to the user.
 ///
 /// This performs some simple transformations on the spelling range.
-seec::util::Maybe<SimpleRange>
+seec::Maybe<SimpleRange>
 getPrettyVisibleRange(clang::Decl const *Decl, clang::ASTUnit const &AST) {
   auto Range = getSpellingRange(Decl, AST);
   if (!Range.assigned())
@@ -96,10 +96,10 @@ getPrettyVisibleRange(clang::Decl const *Decl, clang::ASTUnit const &AST) {
 
 /// \brief Get the spelling range of a statement.
 ///
-seec::util::Maybe<SimpleRange>
+seec::Maybe<SimpleRange>
 getSpellingRange(clang::Stmt const *Stmt, clang::ASTUnit const &AST) {
   if (!Stmt)
-    return seec::util::Maybe<SimpleRange>();
+    return seec::Maybe<SimpleRange>();
   
   auto &SourceManager = AST.getSourceManager();
   
@@ -115,7 +115,7 @@ getSpellingRange(clang::Stmt const *Stmt, clang::ASTUnit const &AST) {
   auto EndCol = SourceManager.getSpellingColumnNumber(SpellEnd, &Invalid);
   
   if (Invalid)
-    return seec::util::Maybe<SimpleRange>();
+    return seec::Maybe<SimpleRange>();
   
   return SimpleRange(SimpleLocation(StartLine, StartCol),
                      SimpleLocation(EndLine, EndCol));
@@ -124,7 +124,7 @@ getSpellingRange(clang::Stmt const *Stmt, clang::ASTUnit const &AST) {
 /// \brief Get the "pretty" spelling range, as we want to show it to the user.
 ///
 /// This performs some simple transformations on the spelling range.
-seec::util::Maybe<SimpleRange>
+seec::Maybe<SimpleRange>
 getPrettyVisibleRange(clang::Stmt const *Stmt, clang::ASTUnit const &AST) {
   auto MaybeRange = getSpellingRange(Stmt, AST);
   if (!MaybeRange.assigned())

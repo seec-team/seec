@@ -80,8 +80,7 @@ seec::runtime_errors::RunError const &RuntimeErrorState::getRunError() const {
   return UnmappedState.getRunError();
 }
 
-seec::util::Maybe<std::unique_ptr<seec::runtime_errors::Description>,
-                  seec::Error>
+seec::Maybe<std::unique_ptr<seec::runtime_errors::Description>, seec::Error>
 RuntimeErrorState::getDescription() const {
   return seec::runtime_errors::Description::create(getRunError());
 }

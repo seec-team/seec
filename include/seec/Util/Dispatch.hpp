@@ -168,8 +168,7 @@ constexpr std::size_t indexOfConvertible() {
 /// will be Maybe<char, int, std::string>.
 template<uint32_t Flags, typename... PredTs>
 struct ReturnType {
-  typedef seec::util::Maybe<typename FunctionTraits<PredTs>::ReturnType...>
-          type;
+  typedef seec::Maybe<typename FunctionTraits<PredTs>::ReturnType...> type;
 };
 
 /// Specialization of ReturnType for when the MultipleReturnTypes flag is
@@ -187,7 +186,7 @@ struct ReturnType
   PredTs...>
 {
   typedef typename FunctionTraits<PredT>::ReturnType PredTRetT;
-  typedef seec::util::Maybe<PredTRetT> type;
+  typedef seec::Maybe<PredTRetT> type;
 };
 
 //------------------------------------------------------------------------------

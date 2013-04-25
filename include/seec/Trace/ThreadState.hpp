@@ -313,7 +313,7 @@ public:
   /// This method will search:
   ///  - Functions' stack allocations.
   ///
-  seec::util::Maybe<MemoryArea>
+  seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const;
   
   /// @} (Memory.)
@@ -324,7 +324,7 @@ public:
 
   /// \brief Get the last event that modified the shared process state from this
   /// thread.
-  seec::util::Maybe<EventReference> getLastProcessModifier() const;
+  seec::Maybe<EventReference> getLastProcessModifier() const;
 
   /// @}
 };

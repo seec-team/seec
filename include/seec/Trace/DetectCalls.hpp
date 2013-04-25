@@ -83,13 +83,13 @@ public:
   }
   
   template<typename T>
-  seec::util::Maybe<T> getAs(unsigned Index) const {
+  seec::Maybe<T> getAs(unsigned Index) const {
     if (Offset + Index < Instruction.arg_size()) {
       auto Arg = Instruction.getArgument(Offset + Index);
       return getCurrentRuntimeValueAs<T>(Listener, Arg);
     }
     
-    return seec::util::Maybe<T>();
+    return seec::Maybe<T>();
   }
 };
 

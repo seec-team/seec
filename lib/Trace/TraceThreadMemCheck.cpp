@@ -29,7 +29,7 @@ using namespace seec::runtime_errors;
 // getContainingMemoryArea()
 //===------------------------------------------------------------------------===
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 getContainingMemoryArea(TraceThreadListener &Listener,
                         uintptr_t Address) {
   auto const &ProcListener = Listener.getProcessListener();
@@ -80,7 +80,7 @@ bool
 RuntimeErrorChecker::memoryExists(uintptr_t Address,
                                   std::size_t Size,
                                   format_selects::MemoryAccess Access,
-                                  seec::util::Maybe<MemoryArea> const &Area)
+                                  seec::Maybe<MemoryArea> const &Area)
 {
   if (Area.assigned())
     return true;
@@ -148,7 +148,7 @@ bool RuntimeErrorChecker::checkMemoryExistsAndAccessible(
   return checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
-seec::util::Maybe<MemoryArea>
+seec::Maybe<MemoryArea>
 RuntimeErrorChecker::getCStringInArea(char const *String, MemoryArea Area)
 {
   auto const StrAddress = reinterpret_cast<uintptr_t>(String);
@@ -161,7 +161,7 @@ RuntimeErrorChecker::getCStringInArea(char const *String, MemoryArea Area)
     }
   }
 
-  return seec::util::Maybe<MemoryArea>();
+  return seec::Maybe<MemoryArea>();
 }
 
 MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
@@ -189,7 +189,7 @@ CStdLibChecker::memoryExistsForParameter(
                   uintptr_t Address,
                   std::size_t Size,
                   format_selects::MemoryAccess Access,
-                  seec::util::Maybe<MemoryArea> const &Area)
+                  seec::Maybe<MemoryArea> const &Area)
 {
   if (Area.assigned())
     return true;
@@ -291,7 +291,7 @@ bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
 
 bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
                                          unsigned Parameter,
-                                         seec::util::Maybe<MemoryArea> Area)
+                                         seec::Maybe<MemoryArea> Area)
 {
   if (Area.assigned())
     return true;
