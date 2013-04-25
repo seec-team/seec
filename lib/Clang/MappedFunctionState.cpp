@@ -21,7 +21,17 @@
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprObjC.h"
+#include "clang/AST/Stmt.h"
+#include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtObjC.h"
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
@@ -31,6 +41,150 @@ namespace seec {
 
 namespace cm {
 
+
+//===----------------------------------------------------------------------===//
+// Add all the visible VarDecl children of a Decl.
+//===----------------------------------------------------------------------===//
+
+void addVarDeclsVisible(clang::Decl const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{}
+
+//===----------------------------------------------------------------------===//
+// Add all the visible VarDecl children of a Stmt.
+//===----------------------------------------------------------------------===//
+
+void addVarDeclsVisible(clang::DeclStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  if (Parent->isSingleDecl()) {
+    auto const Decl = Parent->getSingleDecl();
+    if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl)) {
+      Set.insert(VarDecl);
+    }
+  }
+  else {
+  
+  }
+}
+
+void addVarDeclsVisible(clang::Stmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{}
+
+//===----------------------------------------------------------------------===//
+// Find all visible VarDecls from a given location.
+//===----------------------------------------------------------------------===//
+
+void getVarDeclsVisible(clang::Decl const *FromDecl,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set);
+
+void getVarDeclsVisible(clang::Stmt const *FromStmt,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set);
+
+void getVarDeclsVisible(clang::Decl const *FromDecl,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  // Add to Set based on the dynamic type of FromDecl.
+  switch (FromDecl->getKind()) {
+#define DECL(DERIVED, BASE)                                                    \
+    case ::clang::Decl::Kind::DERIVED:                                         \
+      addVarDeclsVisible(llvm::cast< ::clang::DERIVED##Decl >(FromDecl),       \
+                         PriorToDecl, PriorToStmt, Map, Set);                  \
+      break;
+#define ABSTRACT_DECL(DECL)
+#include "clang/AST/DeclNodes.inc"
+  }
+  
+  // Continue searching above/prior to this point in the AST.
+  auto const Parent = Map.getParent(FromDecl);
+  
+  if (Parent.assigned<clang::Decl const *>())
+    getVarDeclsVisible(Parent.get<clang::Decl const *>(),
+                       FromDecl,
+                       nullptr,
+                       Map,
+                       Set);
+  else if (Parent.assigned<clang::Stmt const *>())
+    getVarDeclsVisible(Parent.get<clang::Stmt const *>(),
+                       FromDecl,
+                       nullptr,
+                       Map,
+                       Set);
+}
+
+void getVarDeclsVisible(clang::Stmt const *FromStmt,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  // Add to Set based on the dynamic type of FromStmt.
+  switch (FromStmt->getStmtClass()) {
+    case ::clang::Stmt::StmtClass::NoStmtClass:
+      break;
+    
+#define STMT(CLASS, PARENT)                                                    \
+    case ::clang::Stmt::StmtClass::CLASS##Class:                               \
+      addVarDeclsVisible(llvm::cast< ::clang::CLASS >(FromStmt),               \
+                         PriorToDecl, PriorToStmt, Map, Set);                  \
+      break;
+#define ABSTRACT_STMT(STMT)
+#include "clang/AST/StmtNodes.inc"
+  }
+  
+  // Continue searching above/prior to this point in the AST.
+  auto const Parent = Map.getParent(FromStmt);
+  
+  if (Parent.assigned<clang::Decl const *>())
+    getVarDeclsVisible(Parent.get<clang::Decl const *>(),
+                       nullptr,
+                       FromStmt,
+                       Map,
+                       Set);
+  else if (Parent.assigned<clang::Stmt const *>())
+    getVarDeclsVisible(Parent.get<clang::Stmt const *>(),
+                       nullptr,
+                       FromStmt,
+                       Map,
+                       Set);
+}
+
+llvm::DenseSet<clang::VarDecl const *>
+getVarDeclsVisibleFrom(clang::Decl const *Decl,
+                       seec::seec_clang::MappedAST const &Map)
+{
+  llvm::DenseSet<clang::VarDecl const *> Set;
+  getVarDeclsVisible(Decl, nullptr, nullptr, Map, Set);
+  return Set;
+}
+
+llvm::DenseSet<clang::VarDecl const *>
+getVarDeclsVisibleFrom(clang::Stmt const *Stmt,
+                       seec::seec_clang::MappedAST const &Map)
+{
+  llvm::DenseSet<clang::VarDecl const *> Set;
+  getVarDeclsVisible(Stmt, nullptr, nullptr, Map, Set);
+  return Set;
+}
 
 //===----------------------------------------------------------------------===//
 // FunctionState

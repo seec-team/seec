@@ -36,36 +36,122 @@ namespace seec_clang {
 // class Mapper
 //===----------------------------------------------------------------------===//
 
+/// \brief Visit an AST and construct mapping information.
+///
 class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
-  std::vector<Decl const *> &Decls;
-  std::vector<Stmt const *> &Stmts;
+  typedef MappedAST::ASTNodeTy ASTNodeTy;
+  
+  /// Current stack of visitation.
+  std::vector<ASTNodeTy> VisitStack;
+  
+  /// All Decls in visitation order.
+  std::vector<Decl const *> Decls;
+  
+  /// All Stmts in visitation order.
+  std::vector<Stmt const *> Stmts;
+  
+  /// Parents of Decls.
+  llvm::DenseMap<clang::Decl const *, ASTNodeTy> DeclParents;
+  
+  /// Parents of Stmts.
+  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
 
 public:
-  MappingASTVisitor(std::vector<Decl const *> &Decls,
-                    std::vector<Stmt const *> &Stmts)
-  : Decls(Decls),
-    Stmts(Stmts)
+  /// \brief Constructor.
+  ///
+  MappingASTVisitor()
+  : Decls(),
+    Stmts()
   {}
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// Get all Decls in visitation order.
+  decltype(Decls) &getDecls() { return Decls; }
+  
+  /// Get all Stmts in visitation order.
+  decltype(Stmts) &getStmts() { return Stmts; }
+  
+  /// Get all Decl parents.
+  decltype(DeclParents) &getDeclParents() { return DeclParents; }
+  
+  /// Get all Stmt parents.
+  decltype(StmtParents) &getStmtParents() { return StmtParents; }
+  
+  /// @}
 
-  /// RecursiveASTVisitor Methods
-  /// \{
 
-  bool VisitDecl(Decl *D) {
+  /// \name RecursiveASTVisitor Methods
+  /// @{
+  
+  /// \brief Traverse a Stmt.
+  ///
+  bool TraverseStmt(::clang::Stmt *S) {
+    ::clang::Stmt const * const CS = S;
+    
+    // Fill in the parent for this Stmt, if any.
+    if (!VisitStack.empty()) {
+      auto const &Parent = VisitStack.back();
+      if (Parent.assigned())
+        StmtParents.insert(std::make_pair(CS, Parent));
+    }
+    
+    // Traverse this Stmt using the default implementation.
+    VisitStack.emplace_back(CS);
+    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseStmt(S);
+    VisitStack.pop_back();
+    return Ret;
+  }
+  
+  /// \brief Traverse a Decl.
+  ///
+  bool TraverseDecl(::clang::Decl *D) {
+    ::clang::Decl const * const CD = D;
+    
+    // Fill in the parent for this Decl, if any.
+    if (!VisitStack.empty()) {
+      auto const &Parent = VisitStack.back();
+      if (Parent.assigned())
+        DeclParents.insert(std::make_pair(CD, Parent));
+    }
+    
+    // Traverse this Decl using the default implementation.
+    VisitStack.push_back(CD);
+    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseDecl(D);
+    VisitStack.pop_back();
+    return Ret;
+  }
+  
+  /// \brief Visit a Decl.
+  ///
+  bool VisitDecl(::clang::Decl *D) {
     Decls.push_back(D);
     return true;
   }
-
-  bool VisitStmt(Stmt *S) {
+  
+  /// \brief Visit a Stmt.
+  ///
+  bool VisitStmt(::clang::Stmt *S) {
     Stmts.push_back(S);
     return true;
   }
-
-  /// \}
+  
+  /// @}
 };
 
 //===----------------------------------------------------------------------===//
 // class MappedAST
 //===----------------------------------------------------------------------===//
+
+MappedAST::MappedAST(clang::ASTUnit *ForAST,
+                     MappingASTVisitor &&WithMapping)
+: AST(ForAST),
+  Decls(std::move(WithMapping.getDecls())),
+  Stmts(std::move(WithMapping.getStmts())),
+  DeclParents(std::move(WithMapping.getDeclParents())),
+  StmtParents(std::move(WithMapping.getStmtParents()))
+{}
 
 MappedAST::~MappedAST() {
   delete AST;
@@ -79,7 +165,7 @@ MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   std::vector<Decl const *> Decls;
   std::vector<Stmt const *> Stmts;
 
-  MappingASTVisitor Mapper(Decls, Stmts);
+  MappingASTVisitor Mapper;
 
   for (auto It = AST->top_level_begin(), End = AST->top_level_end();
        It != End; ++It) {
@@ -87,8 +173,7 @@ MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   }
 
   auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(AST,
-                                                         std::move(Decls),
-                                                         std::move(Stmts)));
+                                                         std::move(Mapper)));
   if (!Mapped)
     delete AST;
 

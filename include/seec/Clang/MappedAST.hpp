@@ -14,8 +14,12 @@
 #ifndef SEEC_CLANG_MAPPEDAST_HPP
 #define SEEC_CLANG_MAPPEDAST_HPP
 
+
+#include "seec/Util/Maybe.hpp"
+
 #include "clang/Frontend/ASTUnit.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -38,42 +42,58 @@ namespace seec {
 namespace seec_clang {
 
 
+class MappingASTVisitor;
+
+
+/// \brief Provides indexing and lookup for clang::ASTUnit objects.
 ///
 class MappedAST {
+public:
+  typedef seec::Maybe<clang::Decl const *, clang::Stmt const *> ASTNodeTy;
+  
+private:
+  /// The ASTUnit that is mapped.
   clang::ASTUnit *AST;
 
+  /// All known Decl pointers in visitation order.
   std::vector<clang::Decl const *> Decls;
 
+  /// All known Stmt pointers in visitation order.
   std::vector<clang::Stmt const *> Stmts;
-
-  /// Constructor.
-  MappedAST(clang::ASTUnit *AST,
-            std::vector<clang::Decl const *> &&Decls,
-            std::vector<clang::Stmt const *> &&Stmts)
-  : AST(AST),
-    Decls(Decls),
-    Stmts(Stmts)
-  {}
+  
+  /// Parents of Decls.
+  llvm::DenseMap<clang::Decl const *, ASTNodeTy> DeclParents;
+  
+  /// Parents of Stmts.
+  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
+  
+  /// \brief Constructor.
+  MappedAST(clang::ASTUnit *ForAST,
+            MappingASTVisitor &&WithMapping);
 
   // Don't allow copying.
   MappedAST(MappedAST const &Other) = delete;
   MappedAST & operator=(MappedAST const &RHS) = delete;
 
 public:
-  /// Destructor.
+  /// \brief Destructor.
+  ///
   ~MappedAST();
 
-  /// Factory.
+  /// \brief Factory.
+  ///
   static std::unique_ptr<MappedAST>
   FromASTUnit(clang::ASTUnit *AST);
 
-  /// Factory.
+  /// \brief Factory.
+  ///
   static std::unique_ptr<MappedAST>
   LoadFromASTFile(llvm::StringRef Filename,
                   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags,
                   clang::FileSystemOptions const &FileSystemOpts);
 
-  /// Factory.
+  /// \brief Factory.
+  ///
   static std::unique_ptr<MappedAST>
   LoadFromCompilerInvocation(
     std::unique_ptr<clang::CompilerInvocation> Invocation,
@@ -83,23 +103,28 @@ public:
   /// \name Accessors
   /// @{
 
-  /// Get the underlying ASTUnit.
+  /// \brief Get the underlying ASTUnit.
+  ///
   clang::ASTUnit &getASTUnit() const { return *AST; }
   
-  /// Get all mapped clang::Decl pointers.
+  /// \brief Get all mapped clang::Decl pointers.
+  ///
   decltype(Decls) const &getAllDecls() const { return Decls; }
   
-  /// Get all mapped clang::Stmt pointers.
+  /// \brief Get all mapped clang::Stmt pointers.
+  ///
   decltype(Stmts) const &getAllStmts() const { return Stmts; }
 
-  /// Get the clang::Decl at the given index.
+  /// \brief Get the clang::Decl at the given index.
+  ///
   clang::Decl const *getDeclFromIdx(uint64_t DeclIdx) const {
     if (DeclIdx < Decls.size())
       return Decls[DeclIdx];
     return nullptr;
   }
 
-  /// Get the clang::Stmt at the given index.
+  /// \brief Get the clang::Stmt at the given index.
+  ///
   clang::Stmt const *getStmtFromIdx(uint64_t StmtIdx) const {
     if (StmtIdx < Stmts.size())
       return Stmts[StmtIdx];
@@ -107,6 +132,7 @@ public:
   }
   
   /// \brief Check if this AST contains the given Decl.
+  ///
   bool contains(::clang::Decl const *Decl) const {
     for (auto const D : Decls)
       if (D == Decl)
@@ -115,11 +141,30 @@ public:
   }
   
   /// \brief Check if this AST contains the given Stmt.
+  ///
   bool contains(::clang::Stmt const *Stmt) const {
     for (auto const S : Stmts)
       if (S == Stmt)
         return true;
     return false;
+  }
+  
+  /// \brief Get the parent of a Decl, if it has one.
+  ///
+  ASTNodeTy getParent(::clang::Decl const *Decl) const {
+    auto const It = DeclParents.find(Decl);
+    if (It == DeclParents.end())
+      return ASTNodeTy{};
+    return It->second;
+  }
+  
+  /// \brief Get the parent of a Stmt, if it has one.
+  ///
+  ASTNodeTy getParent(::clang::Stmt const *Stmt) const {
+    auto const It = StmtParents.find(Stmt);
+    if (It == StmtParents.end())
+      return ASTNodeTy{};
+    return It->second;
   }
   
   /// @} (Accessors)
