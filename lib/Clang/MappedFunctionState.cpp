@@ -53,6 +53,7 @@ void addVarDeclsVisible(clang::Decl const *Parent,
                         llvm::DenseSet<clang::VarDecl const *> &Set)
 {}
 
+
 //===----------------------------------------------------------------------===//
 // Add all the visible VarDecl children of a Stmt.
 //===----------------------------------------------------------------------===//
@@ -65,13 +66,113 @@ void addVarDeclsVisible(clang::DeclStmt const *Parent,
 {
   if (Parent->isSingleDecl()) {
     auto const Decl = Parent->getSingleDecl();
-    if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl)) {
+    if (PriorToDecl && Decl == PriorToDecl)
+      return;
+    
+    if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
       Set.insert(VarDecl);
-    }
   }
   else {
-  
+    for (auto const Decl : Parent->getDeclGroup()) {
+      if (PriorToDecl && Decl == PriorToDecl)
+        return;
+      
+      if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
+        Set.insert(VarDecl);
+    }
   }
+}
+
+void addVarDeclsVisible(clang::CompoundStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  for (auto const Stmt : Parent->children()) {
+    if (Stmt == PriorToStmt)
+      return;
+    
+    if (auto const DeclStmt = llvm::dyn_cast<clang::DeclStmt>(Stmt))
+      addVarDeclsVisible(DeclStmt, nullptr, nullptr, Map, Set);
+  }
+}
+
+void addVarDeclsVisible(clang::ForStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  // The initialisation statement.
+  if (auto const Init = Parent->getInit()) {
+    if (PriorToStmt && Init == PriorToStmt)
+      return;
+    
+    if (auto const DeclStmt = llvm::dyn_cast<clang::DeclStmt>(Init))
+      addVarDeclsVisible(DeclStmt, nullptr, nullptr, Map, Set);
+  }
+  
+  // The condition statement.
+  if (PriorToStmt && Parent->getCond() == PriorToStmt)
+    return;
+  
+  if (auto const CV = Parent->getConditionVariable())
+    Set.insert(CV);
+  
+  // The increment statement.
+  if (PriorToStmt && Parent->getInc() == PriorToStmt)
+    return;
+  
+  // Any VarDecls in the Body should have already been added.
+}
+
+void addVarDeclsVisible(clang::IfStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  if (PriorToStmt && Parent->getCond() == PriorToStmt)
+    return;
+  
+  if (PriorToStmt && Parent->getConditionVariableDeclStmt() == PriorToStmt)
+    return;
+  
+  if (auto const CV = Parent->getConditionVariable())
+    Set.insert(CV);
+  
+  // Any VarDecls in the Body should have already been added.
+}
+
+void addVarDeclsVisible(clang::SwitchStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  if (PriorToStmt && Parent->getCond() == PriorToStmt)
+    return;
+  
+  if (auto const CV = Parent->getConditionVariable())
+    Set.insert(CV);
+  
+  // Any VarDecls in the Body should have already been added.
+}
+
+void addVarDeclsVisible(clang::WhileStmt const *Parent,
+                        clang::Decl const *PriorToDecl,
+                        clang::Stmt const *PriorToStmt,
+                        seec::seec_clang::MappedAST const &Map,
+                        llvm::DenseSet<clang::VarDecl const *> &Set)
+{
+  if (PriorToStmt && Parent->getCond() == PriorToStmt)
+    return;
+  
+  if (auto const CV = Parent->getConditionVariable())
+    Set.insert(CV);
+  
+  // Any VarDecls in the Body should have already been added.
 }
 
 void addVarDeclsVisible(clang::Stmt const *Parent,
@@ -80,6 +181,7 @@ void addVarDeclsVisible(clang::Stmt const *Parent,
                         seec::seec_clang::MappedAST const &Map,
                         llvm::DenseSet<clang::VarDecl const *> &Set)
 {}
+
 
 //===----------------------------------------------------------------------===//
 // Find all visible VarDecls from a given location.
@@ -168,23 +270,6 @@ void getVarDeclsVisible(clang::Stmt const *FromStmt,
                        Set);
 }
 
-llvm::DenseSet<clang::VarDecl const *>
-getVarDeclsVisibleFrom(clang::Decl const *Decl,
-                       seec::seec_clang::MappedAST const &Map)
-{
-  llvm::DenseSet<clang::VarDecl const *> Set;
-  getVarDeclsVisible(Decl, nullptr, nullptr, Map, Set);
-  return Set;
-}
-
-llvm::DenseSet<clang::VarDecl const *>
-getVarDeclsVisibleFrom(clang::Stmt const *Stmt,
-                       seec::seec_clang::MappedAST const &Map)
-{
-  llvm::DenseSet<clang::VarDecl const *> Set;
-  getVarDeclsVisible(Stmt, nullptr, nullptr, Map, Set);
-  return Set;
-}
 
 //===----------------------------------------------------------------------===//
 // FunctionState
@@ -201,6 +286,15 @@ FunctionState::FunctionState(ThreadState &WithParent,
   auto const &Trace = Parent.getParent().getProcessTrace();
   auto const &MappedModule = Trace.getMapping();
   
+  // Get all visible VarDecls from this active node.
+  llvm::DenseSet<clang::VarDecl const *> VisibleDecls;
+  
+  if (auto const ActiveStmt = this->getActiveStmt()) {
+    if (auto const AST = MappedModule.getASTForStmt(ActiveStmt)) {
+      getVarDeclsVisible(ActiveStmt, nullptr, nullptr, *AST, VisibleDecls);
+    }
+  }
+  
   // Add allocas (parameters and variables).
   for (auto const AllocaRef : UnmappedState.getVisibleAllocas()) {
     seec::trace::AllocaState const &RawAlloca = AllocaRef;
@@ -213,13 +307,14 @@ FunctionState::FunctionState(ThreadState &WithParent,
     if (!Decl)
       continue;
     
-    // TODO: Check if this Decl is still in scope.
-    
     if (auto const ParmVar = llvm::dyn_cast< ::clang::ParmVarDecl>(Decl)) {
       Parameters.emplace_back(*this, RawAlloca, ParmVar);
     }
     else if (auto const Var = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
-      Variables.emplace_back(*this, RawAlloca, Var);
+      // Check if this Decl is in scope.
+      if (VisibleDecls.count(Var)) {
+        Variables.emplace_back(*this, RawAlloca, Var);
+      }
     }
   }
   
@@ -236,6 +331,33 @@ void FunctionState::print(llvm::raw_ostream &Out,
 {
   Out << Indentation.getString()
       << "Function \"" << this->getNameAsString() << "\"\n";
+  
+  // Active Stmt.
+  if (auto const Stmt = this->getActiveStmt()) {
+    auto const &Trace = Parent.getParent().getProcessTrace();
+    auto const &MappedModule = Trace.getMapping();
+    auto const MappedAST = MappedModule.getASTForStmt(Stmt);
+    
+    Out << Indentation.getString() << "Active statement: "
+        << Stmt->getStmtClassName() << " at ";
+    
+    if (MappedAST) {
+      auto const &SrcManager = MappedAST->getASTUnit().getSourceManager();
+      auto const StartLoc = Stmt->getLocStart();
+      
+      auto const Filename = SrcManager.getFilename(StartLoc);
+      auto const Line = SrcManager.getSpellingLineNumber(StartLoc);
+      auto const Column = SrcManager.getSpellingColumnNumber(StartLoc);
+      
+      Out << Filename << " line " << Line << " column " << Column << "\n";
+    }
+    else {
+      Out << "unknown location.\n";
+    }
+  }
+  else {
+    Out << Indentation.getString() << "No active statement.\n";
+  }
   
   // Parameters.
   Out << Indentation.getString() << "Parameters:\n";
@@ -272,6 +394,7 @@ void FunctionState::print(llvm::raw_ostream &Out,
     }
   }
 }
+
 
 //===----------------------------------------------------------------------===//
 // Accessors.
