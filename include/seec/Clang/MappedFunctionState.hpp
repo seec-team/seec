@@ -154,7 +154,15 @@ public:
   /// \name Local variables.
   /// @{
   
+  /// \brief Get the mapped parameters.
+  std::vector<AllocaState> const &getParameters() const {
+    return Parameters;
+  }
   
+  /// \brief Get the mapped local variables.
+  std::vector<AllocaState> const &getLocals() const {
+    return Variables;
+  }
   
   /// @} (Local variables.)
 };
