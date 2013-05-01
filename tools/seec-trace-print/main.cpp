@@ -14,6 +14,10 @@
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedValue.hpp"
+#include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
@@ -36,6 +40,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -59,6 +64,9 @@ namespace {
 
   static cl::opt<bool>
   UseClangMapping("C", cl::desc("use SeeC-Clang mapped states"));
+  
+  static cl::opt<std::string>
+  OutputDirectoryForClangMappedDot("G", cl::desc("output dot graphs to this directory"));
 
   static cl::opt<bool>
   ShowRawEvents("R", cl::desc("show raw events"));
@@ -79,6 +87,98 @@ llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
   // allow taking the address of ::main however.
   void *P = (void *) (intptr_t) GetExecutablePath;
   return llvm::sys::Path::GetMainExecutable(ArgV0, P);
+}
+
+void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
+              llvm::raw_fd_ostream &Stream)
+{
+  if (Value->isCompletelyInitialized()) {
+    Stream << Value->getValueAsStringShort();
+  }
+  else {
+    Stream << "uninitialized";
+  }
+}
+
+void WriteDot(seec::cm::AllocaState const &State,
+              llvm::raw_fd_ostream &Stream)
+{
+  Stream << "{ " << State.getDecl()->getNameAsString() << " | ";
+  WriteDot(State.getValue(), Stream);
+  Stream << " }";
+}
+
+void WriteDot(seec::cm::FunctionState const &State,
+              llvm::raw_fd_ostream &Stream,
+              std::vector<std::string> &FunctionNodes)
+{
+  std::string NodeIdentifier;
+  
+  {
+    llvm::raw_string_ostream NodeIdentifierStream {NodeIdentifier};
+    NodeIdentifierStream << "function" << reinterpret_cast<uintptr_t>(&State);
+  }
+  
+  Stream << NodeIdentifier << " [";
+  Stream << " label = \"{";
+  Stream << State.getNameAsString();
+  Stream << " | ";
+  
+  for (auto const &Parameter : State.getParameters())
+    WriteDot(Parameter, Stream);
+  
+  for (auto const &Local : State.getLocals())
+    WriteDot(Local, Stream);
+  
+  Stream << "}\" ";
+  Stream << "];\n";
+  
+  FunctionNodes.emplace_back(std::move(NodeIdentifier));
+}
+
+void WriteDot(seec::cm::ThreadState const &State,
+              llvm::raw_fd_ostream &Stream)
+{
+  auto const ID = State.getUnmappedState().getTrace().getThreadID();
+  std::vector<std::string> FunctionNodes;
+  
+  Stream << "subgraph thread" << ID << " {\n";
+  Stream << "node [shape = record];\n";
+  
+  for (auto const &FunctionState : State.getCallStack()) {
+    WriteDot(FunctionState, Stream, FunctionNodes);
+  }
+  
+  Stream << "{ rank=same; ";
+  for (auto const &FunctionNode : FunctionNodes)
+    Stream << FunctionNode << "; ";
+  Stream << "};\n";
+  
+  Stream << "}\n";
+}
+
+void WriteDotGraph(seec::cm::ProcessState const &State,
+                   char const *Filename)
+{
+  assert(Filename && "NULL Filename.");
+  
+  std::string StreamError;
+  llvm::raw_fd_ostream Stream {Filename, StreamError};
+  
+  if (!StreamError.empty()) {
+    llvm::errs() << "Error opening dot file: " << StreamError << "\n";
+    return;
+  }
+  
+  Stream << "digraph Process {\n";
+  
+  Stream << "rankdir=LR;\n";
+  
+  for (std::size_t i = 0; i < State.getThreadCount(); ++i) {
+    WriteDot(State.getThread(i), Stream);
+  }
+  
+  Stream << "}\n";
 }
 
 void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
@@ -114,12 +214,50 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
   if (ShowStates) {
     seec::cm::ProcessState State(*CMProcessTrace);
     
+    // If we're going to output dot graph files for the states, then setup the
+    // output directory now.
+    llvm::SmallString<256> OutputForDot;
+    std::string FilenameString;
+    llvm::raw_string_ostream FilenameStream {FilenameString};
+    long StateNumber = 1;
+    
+    if (!OutputDirectoryForClangMappedDot.empty()) {
+      OutputForDot = OutputDirectoryForClangMappedDot;
+      
+      bool Existed;
+      auto const Err =
+        llvm::sys::fs::create_directories(llvm::StringRef(OutputForDot),
+                                          Existed);
+      
+      if (Err != llvm::errc::success) {
+        llvm::errs() << "Couldn't create output directory.\n";
+        return;
+      }
+    }
+    
     if (State.getThreadCount() == 1) {
       llvm::outs() << "Using thread-level iterator.\n";
       
       do {
+        // Write textual description to stdout.
         llvm::outs() << State;
         llvm::outs() << "\n";
+        
+        // If enabled, write graphs in dot format.
+        if (!OutputForDot.empty()) {
+          // Add filename for this state.
+          FilenameString.clear();
+          FilenameStream << "state." << StateNumber++ << ".dot";
+          FilenameStream.flush();
+          
+          llvm::sys::path::append(OutputForDot, FilenameString);
+          
+          // Write the graph.
+          WriteDotGraph(State, OutputForDot.c_str());
+          
+          // Remove filename for this state.
+          llvm::sys::path::remove_filename(OutputForDot);
+        }
       } while (seec::cm::moveForward(State.getThread(0)));
     }
     else {
