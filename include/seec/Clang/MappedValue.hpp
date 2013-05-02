@@ -87,6 +87,12 @@ public:
   ///
   virtual bool isInMemory() const =0;
   
+  /// \brief Get the address in memory.
+  /// 
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const =0;
+  
   /// \brief Check if this value is completely initialized.
   ///
   /// If this is an aggregate value, then the result of this method is the
@@ -156,6 +162,10 @@ public:
   /// \brief Get the number of children of this value.
   ///
   virtual unsigned getChildCount() const =0;
+  
+  /// \brief Get the FieldDecl for the given child.
+  ///
+  virtual ::clang::FieldDecl const *getChildField(unsigned Index) const =0;
   
   /// \brief Get a child of this value.
   ///

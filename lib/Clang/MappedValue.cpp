@@ -331,6 +331,12 @@ public:
   ///
   virtual bool isInMemory() const override { return true; }
   
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return Address; }
+  
   virtual bool isCompletelyInitialized() const override {
     auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
     return Region.isCompletelyInitialized();
@@ -444,6 +450,12 @@ public:
   virtual ::clang::Expr const *getExpr() const override { return nullptr; }
   
   virtual bool isInMemory() const override { return true; }
+  
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return Address; }
   
   virtual bool isCompletelyInitialized() const override {
     auto const &Memory = ProcessState.getMemory();
@@ -628,6 +640,12 @@ public:
   ///
   virtual bool isInMemory() const override { return true; }
   
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return Address; }
+  
   /// \brief Check if this value is completely initialized.
   ///
   /// If this is an aggregate value, then the result of this method is the
@@ -708,6 +726,22 @@ public:
   ///
   virtual unsigned getChildCount() const override {
     return Layout.getFieldCount();
+  }
+  
+  /// \brief Get the FieldDecl for the given child.
+  ///
+  virtual ::clang::FieldDecl const *
+  getChildField(unsigned Index) const override {
+    if (Index > Layout.getFieldCount())
+      return nullptr;
+    
+    auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
+    auto const Decl = RecordTy->getDecl()->getDefinition();
+    
+    auto FieldIt = Decl->field_begin();
+    std::advance(FieldIt, Index);
+    
+    return *FieldIt;
   }
   
   /// \brief Get the Value of a member of this record.
@@ -871,6 +905,12 @@ public:
   /// \return true.
   ///
   virtual bool isInMemory() const override { return true; }
+  
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return Address; }
   
   /// \brief Check if this value is completely initialized.
   ///
@@ -1397,6 +1437,12 @@ public:
   ///
   virtual bool isInMemory() const override { return false; }
   
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return 0; }
+  
   /// \brief Runtime values are always initialized (at the moment).
   ///
   virtual bool isCompletelyInitialized() const override { return true; }
@@ -1517,6 +1563,12 @@ public:
   /// \brief Runtime values are never in memory.
   ///
   virtual bool isInMemory() const override { return false; }
+  
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual uintptr_t getAddress() const override { return 0; }
   
   /// \brief Runtime values are always initialized (at the moment).
   ///
