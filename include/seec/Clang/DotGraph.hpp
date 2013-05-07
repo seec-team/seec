@@ -23,10 +23,15 @@ namespace seec {
 
 namespace cm {
 
+
 class ProcessState;
 
+
+/// \brief Write a graph in dot format describing a complete ProcessState.
+///
 void writeDotGraph(seec::cm::ProcessState const &State,
                    llvm::raw_ostream &Stream);
+
 
 } // namespace cm (in seec)
 

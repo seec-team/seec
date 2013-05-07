@@ -66,6 +66,20 @@ std::string EscapeForHTML(llvm::StringRef String)
 }
 
 
+std::string getPortFor(seec::cm::Value const &Value)
+{
+  std::string Port = "addr";
+  {
+    // Use the Value's address rather than the runtime address, because it also
+    // specifies the type of the value (this should allow us to handle, e.g.
+    // pointers to different members of a union that occupy the same address).
+    llvm::raw_string_ostream Stream {Port};
+    Stream << reinterpret_cast<uintptr_t>(&Value);
+  }
+  return Port;
+}
+
+
 class Node {
   std::string Identifier;
   
@@ -82,24 +96,20 @@ public:
     Ports.emplace(reinterpret_cast<uintptr_t>(&ForValue));
   }
   
-  bool hasPort(seec::cm::Value const &ForValue) {
+  bool hasPort(seec::cm::Value const &ForValue) const {
     return Ports.count(reinterpret_cast<uintptr_t>(&ForValue));
+  }
+  
+  /// pre: hasPort(ForValue) == true
+  ///
+  std::string getEdgeEndForPort(seec::cm::Value const &ForValue) const {
+    return Identifier + ":" + getPortFor(ForValue);
   }
 };
 
 
-std::string getPortFor(seec::cm::Value const &Value)
-{
-  std::string Port = "addr";
-  {
-    // Use the Value's address rather than the runtime address, because it also
-    // specifies the type of the value (this should allow us to handle, e.g.
-    // pointers to different members of a union that occupy the same address).
-    llvm::raw_string_ostream Stream {Port};
-    Stream << reinterpret_cast<uintptr_t>(&Value);
-  }
-  return Port;
-}
+typedef std::pair<std::shared_ptr<seec::cm::Value const>,
+                  std::shared_ptr<seec::cm::Value const>> Edge;
 
 
 void WritePort(seec::cm::Value const &Value,
@@ -113,7 +123,8 @@ void WritePort(seec::cm::Value const &Value,
 
 void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
               llvm::raw_ostream &Stream,
-              Node &InNode)
+              Node &InNode,
+              std::set<Edge> &AllEdges)
 {
   if (!Value)
     return;
@@ -141,7 +152,7 @@ void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
           Stream << ">&#91;" << i << "&#93;</TD>";
           
           Stream << "<TD>";
-          WriteDot(ChildValue, Stream, InNode);
+          WriteDot(ChildValue, Stream, InNode, AllEdges);
           Stream << "</TD>";
           Stream << "</TR>";
         }
@@ -170,7 +181,7 @@ void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
           Stream << "</TD>";
           
           Stream << "<TD>";
-          WriteDot(ChildValue, Stream, InNode);
+          WriteDot(ChildValue, Stream, InNode, AllEdges);
           Stream << "</TD>";
           Stream << "</TR>";
         }
@@ -183,18 +194,21 @@ void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
       {
         Stream << "&nbsp;";
         
-        /*
         auto const Pointer = llvm::cast<seec::cm::ValueOfPointer>(Value.get());
         unsigned const DerefLimit = Pointer->getDereferenceIndexLimit();
+        
+        llvm::errs() << "writing pointer with limit = " << DerefLimit << "\n";
         
         for (unsigned i = 0; i < DerefLimit; ++i) {
           auto const Pointee = Pointer->getDereferenced(i);
           
-          Edges.emplace("", getPortFor(*Value), "", getPortFor(*Pointee));
+          llvm::errs() << "recording edge.\n";
           
-          Pointees.insert(Pointer->getDereferenced(i));
+          auto const Inserted = AllEdges.emplace(Value, Pointee);
+          
+          if (!Inserted.second)
+            llvm::errs() << "emplace failed.\n";
         }
-        */
       }
       break;
   }
@@ -203,22 +217,24 @@ void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
 
 void WriteDot(seec::cm::AllocaState const &State,
               llvm::raw_ostream &Stream,
-              Node &InNode)
+              Node &InNode,
+              std::set<Edge> &AllEdges)
 {
   auto const Value = State.getValue();
   
-  Stream << "<TR><TD";
-  WritePort(*Value, Stream, InNode);
-  Stream << ">"
+  Stream << "<TR><TD>"
          << State.getDecl()->getNameAsString()
-         << "</TD><TD ALIGN=\"LEFT\">";
-  WriteDot(State.getValue(), Stream, InNode);
+         << "</TD><TD ALIGN=\"LEFT\"";
+  WritePort(*Value, Stream, InNode);
+  Stream << ">";
+  WriteDot(State.getValue(), Stream, InNode, AllEdges);
   Stream << "</TD></TR>";
 }
 
 void WriteDot(seec::cm::FunctionState const &State,
               llvm::raw_ostream &Stream,
-              std::vector<Node> &FunctionNodes)
+              std::vector<Node> &FunctionNodes,
+              std::set<Edge> &AllEdges)
 {
   std::string NodeIdentifier;
   
@@ -228,7 +244,7 @@ void WriteDot(seec::cm::FunctionState const &State,
   }
   
   Stream << NodeIdentifier
-         << " [ label = < <TABLE BORDER=\"0\" CELLSPACING=\"0\">";
+         << " [ label = < <TABLE BORDER=\"1\" CELLSPACING=\"0\">";
   
   Stream << "<TR><TD COLSPAN=\"2\">"
          << State.getNameAsString()
@@ -237,26 +253,29 @@ void WriteDot(seec::cm::FunctionState const &State,
   FunctionNodes.emplace_back(std::move(NodeIdentifier));
   
   for (auto const &Parameter : State.getParameters())
-    WriteDot(Parameter, Stream, FunctionNodes.back());
+    WriteDot(Parameter, Stream, FunctionNodes.back(), AllEdges);
   
   for (auto const &Local : State.getLocals())
-    WriteDot(Local, Stream, FunctionNodes.back());
+    WriteDot(Local, Stream, FunctionNodes.back(), AllEdges);
   
   Stream << "</TABLE> > ];\n";
 }
 
+/// \brief Write the dot describing a ThreadState.
+///
 void WriteDot(seec::cm::ThreadState const &State,
               llvm::raw_ostream &Stream,
-              std::vector<Node> &AllNodes)
+              std::vector<Node> &AllNodes,
+              std::set<Edge> &AllEdges)
 {
   auto const ID = State.getUnmappedState().getTrace().getThreadID();
   std::vector<Node> FunctionNodes;
   
   Stream << "subgraph thread" << ID << " {\n";
-  Stream << "node [shape = record];\n";
+  Stream << "node [shape=plaintext];\n";
   
   for (auto const &FunctionState : State.getCallStack()) {
-    WriteDot(FunctionState, Stream, FunctionNodes);
+    WriteDot(FunctionState, Stream, FunctionNodes, AllEdges);
   }
   
   Stream << "{ rank=same; ";
@@ -270,9 +289,12 @@ void WriteDot(seec::cm::ThreadState const &State,
   AllNodes.insert(AllNodes.end(), FunctionNodes.begin(), FunctionNodes.end());
 }
 
+/// \brief Write the dot describing a GlobalVariable.
+///
 void writeDot(seec::cm::GlobalVariable const &State,
               llvm::raw_ostream &Stream,
-              std::vector<Node> &AllNodes)
+              std::vector<Node> &AllNodes,
+              std::set<Edge> &AllEdges)
 {
   std::string NodeIdentifier = "global";
   {
@@ -281,7 +303,7 @@ void writeDot(seec::cm::GlobalVariable const &State,
   }
   
   Stream << NodeIdentifier
-         << " [ label = < <TABLE BORDER=\"0\" CELLSPACING=\"0\">"
+         << " [ label = < <TABLE BORDER=\"1\" CELLSPACING=\"0\">"
          << "<TR><TD>"
          << State.getClangValueDecl()->getName()
          << "</TD>";
@@ -294,32 +316,62 @@ void writeDot(seec::cm::GlobalVariable const &State,
   if (Value)
     WritePort(*Value, Stream, AllNodes.back());
   Stream << ">";
-  WriteDot(Value, Stream, AllNodes.back());
-  Stream << "</TD></TR></TABLE> > ];";
+  WriteDot(Value, Stream, AllNodes.back(), AllEdges);
+  Stream << "</TD></TR></TABLE> > ];\n";
 }
 
+/// \brief Write a graph in dot format describing a complete ProcessState.
+///
 void writeDotGraph(seec::cm::ProcessState const &State,
                    llvm::raw_ostream &Stream)
 { 
   Stream << "digraph Process {\n";
-  Stream << "node [shape = record];\n";
+  Stream << "node [shape=plaintext];\n";
   Stream << "rankdir=LR;\n";
   
   std::vector<Node> AllNodes;
+  std::set<Edge> AllEdges;
   
   // Write all threads.
   for (std::size_t i = 0; i < State.getThreadCount(); ++i) {
-    WriteDot(State.getThread(i), Stream, AllNodes);
+    WriteDot(State.getThread(i), Stream, AllNodes, AllEdges);
   }
   
   // Write global variables.
   for (auto const &Global : State.getGlobalVariables()) {
-    writeDot(Global, Stream, AllNodes);
+    writeDot(Global, Stream, AllNodes, AllEdges);
   }
   
   // Write all referenced, but non-present nodes.
+  // One possible method for this is to expand all Value objects, then filter
+  // them according to the mallocs they belong to, then draw the mallocs as
+  // nodes. Finally we would need to draw Values that existed in Known memory
+  // (non-alloca, non-malloc, non-global).
+  
+  llvm::errs() << "got " << AllEdges.size() << " edges.\n";
   
   // Write edges.
+  for (auto const &E : AllEdges) {
+    auto const NodeStart =
+      std::find_if(AllNodes.begin(),
+                   AllNodes.end(),
+                   [&E] (Node const &N) { return N.hasPort(*(E.first)); });
+    
+    auto const NodeEnd =
+      std::find_if(AllNodes.begin(),
+                   AllNodes.end(),
+                   [&E] (Node const &N) { return N.hasPort(*(E.second)); });
+    
+    if (NodeStart == AllNodes.end() || NodeEnd == AllNodes.end()) {
+      llvm::errs() << "couldn't find start and end for edge.\n";
+      continue;
+    }
+    
+    Stream << NodeStart->getEdgeEndForPort(*(E.first))
+           << ":c -> "
+           << NodeEnd->getEdgeEndForPort(*(E.second))
+           << ";\n";
+  }
   
   Stream << "}\n";
 }
