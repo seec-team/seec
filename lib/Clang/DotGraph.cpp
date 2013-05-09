@@ -93,7 +93,7 @@ public:
   std::string const &getIdentifier() const { return Identifier; }
   
   void addPort(seec::cm::Value const &ForValue) {
-    Ports.emplace(reinterpret_cast<uintptr_t>(&ForValue));
+    Ports.insert(reinterpret_cast<uintptr_t>(&ForValue));
   }
   
   bool hasPort(seec::cm::Value const &ForValue) const {
@@ -201,13 +201,7 @@ void WriteDot(std::shared_ptr<seec::cm::Value const> Value,
         
         for (unsigned i = 0; i < DerefLimit; ++i) {
           auto const Pointee = Pointer->getDereferenced(i);
-          
-          llvm::errs() << "recording edge.\n";
-          
-          auto const Inserted = AllEdges.emplace(Value, Pointee);
-          
-          if (!Inserted.second)
-            llvm::errs() << "emplace failed.\n";
+          AllEdges.insert(std::make_pair(Value, Pointee));
         }
       }
       break;
