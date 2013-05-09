@@ -156,21 +156,19 @@ union RuntimeValueRecord {
   RuntimeValueRecord(RuntimeValueRecord const &Other) = default;
   
   /// \brief Construct a new record holding a uint32_t.
-  RuntimeValueRecord(uint32_t Value)
+  explicit RuntimeValueRecord(uint32_t Value)
   : UInt64(Value)
   {}
   
   /// \brief Construct a new record holding a uint64_t.
-  RuntimeValueRecord(uint64_t Value)
+  explicit RuntimeValueRecord(uint64_t Value)
   : UInt64(Value)
   {}
   
   /// \brief Create a new record holding a uintptr_t.
-  static RuntimeValueRecord ofPointer(uintptr_t Value) {
-    RuntimeValueRecord Record;
-    Record.UIntPtr = Value;
-    return Record;
-  }
+  explicit RuntimeValueRecord(void const *Value)
+  : UIntPtr(reinterpret_cast<uintptr_t>(Value))
+  {}
   
   /// \brief Construct a new record holding a float.
   explicit RuntimeValueRecord(float Value)

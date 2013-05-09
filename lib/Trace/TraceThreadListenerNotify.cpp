@@ -599,7 +599,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                   Index,
                                   ++Time,
                                   RTValue.getRecordOffset(),
-                                  RuntimeValueRecord::ofPointer(IntVal));
+                                  RuntimeValueRecord{Value});
 
   RTValue.set(Offset, IntVal);
 
@@ -640,7 +640,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                (Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
-                                Value);
+                                RuntimeValueRecord{Value});
 
   RTValue.set(Offset, Value);
 }
@@ -658,7 +658,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                (Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
-                                Value);
+                                RuntimeValueRecord{Value});
 
   RTValue.set(Offset, Value);
 }
@@ -712,7 +712,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                (Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
-                                RuntimeValueRecord(Value));
+                                RuntimeValueRecord{Value});
 
   RTValue.set(Offset, Value);
 }
@@ -730,7 +730,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                (Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
-                                RuntimeValueRecord(Value));
+                                RuntimeValueRecord{Value});
 
   RTValue.set(Offset, Value);
 }
@@ -748,7 +748,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                (Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
-                                RuntimeValueRecord(Value));
+                                RuntimeValueRecord{Value});
   
   RTValue.set(Offset, Value);
 }
