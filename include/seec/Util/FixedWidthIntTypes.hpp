@@ -67,6 +67,17 @@ GetFixedWidthInt<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 };
 
 
+//===----------------------------------------------------------------------===//
+// asFixedWidth()
+//===----------------------------------------------------------------------===//
+
+template<typename T>
+typename GetFixedWidthInt<T>::type
+asFixedWidth(T Value) {
+  return typename GetFixedWidthInt<T>::type {Value};
+}
+
+
 } // namespace seec
 
 
