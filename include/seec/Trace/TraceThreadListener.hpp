@@ -619,14 +619,6 @@ public:
                    char const *Str,
                    detect_calls::VarArgList<TraceThreadListener> const &Args);
   
-  // sprintf
-  void preCsprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                   char const *Str,
-                   detect_calls::VarArgList<TraceThreadListener> const &Args);
-  void postCsprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                    char const *Str,
-                    detect_calls::VarArgList<TraceThreadListener> const &Args);
-  
   // snprintf
   void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
                     std::size_t BufSize, char const *Str,

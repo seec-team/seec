@@ -15,6 +15,7 @@
 #include "Tracer.hpp"
 
 #include "seec/RuntimeErrors/FormatSelects.hpp"
+#include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
@@ -28,6 +29,7 @@
 #include <cctype>
 #include <cinttypes>
 #include <cstdio>
+#include <cstdarg>
 
 
 //===----------------------------------------------------------------------===//
@@ -1518,6 +1520,98 @@ SEEC_MANGLE_FUNCTION(sscanf)
   Listener.notifyValue(InstructionIndex, Instruction, unsigned(NumConversions));
   
   return NumConversions;
+}
+
+
+//===----------------------------------------------------------------------===//
+// sprintf
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(sprintf)
+(char * Buffer, char const * Format, ...)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+  auto Call = llvm::CallSite(Instruction);
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  Listener.acquireGlobalMemoryWriteLock();
+  
+  // Use a CIOChecker to help check memory.
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::sprintf;
+  
+  seec::trace::CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+  
+  // Use a VarArgList to access our arguments.
+  seec::trace::detect_calls::VarArgList<seec::trace::TraceThreadListener>
+    VarArgs{Listener, Call, 2};
+  
+  // Check the print format.
+  if (!Checker.checkPrintFormat(1, Format, VarArgs))
+    return -1;
+  
+  // Find size of writable memory at buffer.
+  auto const BufferAddr = reinterpret_cast<uintptr_t>(Buffer);
+  auto const Size = Checker.getSizeOfWritableAreaStartingAt(BufferAddr);
+  
+  if (Size == 0) {
+    Listener.handleRunError(
+      *seec::runtime_errors::createRunError
+        <seec::runtime_errors::RunErrorType::PassPointerToUnowned>
+        (FSFunction, BufferAddr, 0),
+      seec::trace::RunErrorSeverity::Fatal,
+      InstructionIndex);
+    
+    return -1;
+  }
+  
+  // Defer to vsnprintf.
+  va_list Args;
+  va_start(Args, Format);
+  auto const NumWritten = vsnprintf(Buffer, Size, Format, Args);
+  va_end(Args);
+  
+  // Check if sprintf would have overflowed the buffer.
+  if (NumWritten >= Size) {
+    auto const MaybeArea =
+      seec::trace::getContainingMemoryArea(Listener, BufferAddr);
+    
+    assert(MaybeArea.assigned()); // Else we raised PassPointerToUnowned above.
+    
+    Listener.handleRunError(
+      *seec::runtime_errors::createRunError
+        <seec::runtime_errors::RunErrorType::PassPointerToInsufficient>
+        (FSFunction,
+         0,
+         BufferAddr,
+         NumWritten,
+         Size,
+         seec::runtime_errors::ArgObject{},
+         MaybeArea.get<0>().address(),
+         MaybeArea.get<0>().length()),
+      seec::trace::RunErrorSeverity::Fatal,
+      InstructionIndex);
+    
+    return -1;
+  }
+  
+  // Record the produced value.
+  typedef std::make_unsigned<decltype(NumWritten)>::type ResultTy;
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       static_cast<ResultTy>(NumWritten));
+  
+  // Record the change in Buffer.
+  Listener.recordUntypedState(Buffer, NumWritten + 1);
+  
+  return NumWritten;
 }
 
 

@@ -399,45 +399,6 @@ preCfprintf(llvm::CallInst const *Call,
 
 
 //===------------------------------------------------------------------------===
-// sprintf
-//===------------------------------------------------------------------------===
-
-void
-TraceThreadListener::
-preCsprintf(llvm::CallInst const *Call,
-            uint32_t Index,
-            char *Buffer,
-            char const *Str,
-            detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  using namespace seec::runtime_errors::format_selects;
-  
-  acquireGlobalMemoryWriteLock();
-  acquireStreamsLock();
-  
-  CIOChecker Checker(*this, Index, CStdFunction::sprintf,
-                     ProcessListener.getStreams(StreamsLock));
-  
-  Checker.checkPrintFormat(1, Str, Args);
-  
-  // TODO: Check that size of Buffer is sufficient to contain size of the
-  // formatted string.
-}
-
-void
-TraceThreadListener::
-postCsprintf(llvm::CallInst const *Call,
-             uint32_t Index,
-             char *Buffer,
-             char const *Str,
-             detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  auto Length = std::strlen(Buffer) + 1;
-  recordUntypedState(Buffer, Length);
-}
-
-
-//===------------------------------------------------------------------------===
 // snprintf
 //===------------------------------------------------------------------------===
 
