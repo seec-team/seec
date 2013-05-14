@@ -176,6 +176,11 @@ public:
 /// \brief Represents a pointer's runtime value.
 ///
 class ValueOfPointer : public Value {
+private:
+  /// \brief Get the raw value of this pointer.
+  ///
+  virtual uintptr_t getRawValueImpl() const =0;
+
 public:
   /// \brief Constructor.
   ///
@@ -196,6 +201,10 @@ public:
   /// \brief Get the Value of this Value dereferenced.
   ///
   virtual std::shared_ptr<Value const> getDereferenced(unsigned Index) const =0;
+  
+  /// \brief Get the raw value of this pointer.
+  ///
+  uintptr_t getRawValue() const { return getRawValueImpl(); }
 };
 
 
@@ -205,7 +214,7 @@ class ValueStoreImpl;
 
 /// \brief Ensures that in-memory Value objects are uniqued.
 ///
-class ValueStore {
+class ValueStore final {
   /// The underlying implementation.
   std::unique_ptr<ValueStoreImpl> Impl;
   

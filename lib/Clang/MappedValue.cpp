@@ -288,7 +288,7 @@ getScalarValueAsString(::clang::Type const *Type,
 
 /// \brief Represents a simple scalar Value in memory.
 ///
-class ValueByMemoryForScalar : public Value {
+class ValueByMemoryForScalar final : public Value {
   /// The canonical Type of this value.
   ::clang::Type const * CanonicalType;
   
@@ -377,7 +377,7 @@ public:
 
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
-class ValueByMemoryForPointer : public ValueOfPointer {
+class ValueByMemoryForPointer final : public ValueOfPointer {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -393,6 +393,9 @@ class ValueByMemoryForPointer : public ValueOfPointer {
   /// The size of the pointee type.
   ::clang::CharUnits PointeeSize;
   
+  /// The raw value of this pointer.
+  uintptr_t RawValue;
+  
   /// The ProcessState that this value is for.
   seec::trace::ProcessState const &ProcessState;
   
@@ -403,14 +406,22 @@ class ValueByMemoryForPointer : public ValueOfPointer {
                           ::clang::Type const *WithCanonicalType,
                           uintptr_t WithAddress,
                           ::clang::CharUnits WithPointeeSize,
+                          uintptr_t WithRawValue,
                           seec::trace::ProcessState const &ForProcessState)
   : Store(InStore),
     ASTContext(WithASTContext),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     PointeeSize(WithPointeeSize),
+    RawValue(WithRawValue),
     ProcessState(ForProcessState)
   {}
+  
+  /// \brief Get the raw value of this pointer.
+  ///
+  virtual uintptr_t getRawValueImpl() const override {
+    return RawValue;
+  }
   
 public:
   /// \brief Attempt to create a new ValueByMemoryForPointer.
@@ -429,6 +440,14 @@ public:
     auto const PointeeQType = Type->getPointeeType();
     auto const PointeeSize = ASTContext.getTypeSizeInChars(PointeeQType);
     
+    // Calculate the raw pointer value (don't worry if the memory is
+    // uninitialized: getByteValues() will return zeros and we simply won't use
+    // the calculated value).
+    auto const &Memory = ProcessState.getMemory();
+    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
+    auto const RawBytes = Region.getByteValues();
+    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
+    
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
                           (new ValueByMemoryForPointer(Store,
@@ -436,6 +455,7 @@ public:
                                                        CanonicalType,
                                                        Address,
                                                        PointeeSize,
+                                                       PtrValue,
                                                        ProcessState));
   }
   
@@ -500,12 +520,7 @@ public:
       return 0;
     
     // TODO: Move these calculations into the construction process.
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
-    
-    auto const MaybeArea = ProcessState.getContainingMemoryArea(PtrValue);
+    auto const MaybeArea = ProcessState.getContainingMemoryArea(RawValue);
     if (!MaybeArea.assigned<MemoryArea>())
       return 0;
     
@@ -516,7 +531,7 @@ public:
     // never allow more than one dereference, because the additional memory (if
     // any) is occupied by the flexible array member.
     auto const PointeeTy = CanonicalType->getPointeeType();
-    auto const RecordTy = PointeeTy->getAs< ::clang::RecordType>();
+    auto const RecordTy = PointeeTy->getAs< ::clang::RecordType >();
     
     if (RecordTy) {
       auto const RecordDecl = RecordTy->getDecl()->getDefinition();
@@ -527,7 +542,7 @@ public:
       }
     }
     
-    auto const Area = MaybeArea.get<MemoryArea>().withStart(PtrValue);
+    auto const Area = MaybeArea.get<MemoryArea>().withStart(RawValue);
     return Area.length() / PointeeSize.getQuantity();
   }
   
@@ -540,13 +555,7 @@ public:
     if (!StorePtr)
       return std::shared_ptr<Value const>();
     
-    // TODO: Move these calculations into the construction process.
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
-    
-    auto const Address = PtrValue + (Index * PointeeSize.getQuantity());
+    auto const Address = RawValue + (Index * PointeeSize.getQuantity());
     
     return getValue(StorePtr,
                     CanonicalType->getPointeeType(),
@@ -563,7 +572,7 @@ public:
 
 /// \brief Represents a record Value in memory.
 ///
-class ValueByMemoryForRecord : public ValueOfRecord {
+class ValueByMemoryForRecord final : public ValueOfRecord {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -788,7 +797,7 @@ public:
 
 /// \brief Represents an array Value in memory.
 ///
-class ValueByMemoryForArray : public ValueOfArray {
+class ValueByMemoryForArray final : public ValueOfArray {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -1401,7 +1410,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 
 /// \brief Represents a simple scalar Value in LLVM's virtual registers.
 ///
-class ValueByRuntimeValueForScalar : public Value {
+class ValueByRuntimeValueForScalar final : public Value {
   /// The Expr that this value is for.
   ::clang::Expr const *Expression;
   
@@ -1473,7 +1482,7 @@ public:
 
 /// \brief Represents a pointer Value in LLVM's virtual registers.
 ///
-class ValueByRuntimeValueForPointer : public ValueOfPointer {
+class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   /// The Store for this Value.
   std::weak_ptr<ValueStore const> Store;
   
@@ -1507,6 +1516,10 @@ class ValueByRuntimeValueForPointer : public ValueOfPointer {
     PtrValue(WithPtrValue),
     PointeeSize(WithPointeeSize)
   {}
+  
+  /// \brief Get the raw value of this pointer.
+  ///
+  virtual uintptr_t getRawValueImpl() const override { return PtrValue; }
   
 public:
   /// \brief Attempt ot create a new ValueByRuntimeValueForPointer.
@@ -1757,7 +1770,7 @@ createValue(std::shared_ptr<ValueStore const> Store,
 // ValueStoreImpl
 //===----------------------------------------------------------------------===//
 
-class ValueStoreImpl {
+class ValueStoreImpl final {
   /// Control access to the Store variable.
   mutable std::mutex StoreAccess;
   
