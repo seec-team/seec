@@ -245,7 +245,10 @@ class GraphGenerator {
   void generate(seec::cm::AllocaState const &State,
                 std::string const &InNode);
   
-  void generate(seec::cm::FunctionState const &State);
+  /// \brief Expand and layout a function.
+  /// \return The node identifier for the function.
+  ///
+  std::string generate(seec::cm::FunctionState const &State);
   
   void generate(seec::cm::ThreadState const &State);
   
@@ -440,7 +443,7 @@ void GraphGenerator::generate(seec::cm::AllocaState const &State,
   writeln("</TR>");
 }
 
-void GraphGenerator::generate(seec::cm::FunctionState const &State)
+std::string GraphGenerator::generate(seec::cm::FunctionState const &State)
 {
   std::string NodeIdentifier;
   {
@@ -467,27 +470,34 @@ void GraphGenerator::generate(seec::cm::FunctionState const &State)
   
   Indent.unindent();
   writeln("> ];");
+  
+  return NodeIdentifier;
 }
 
 void GraphGenerator::generate(seec::cm::ThreadState const &State)
 {
   auto const ID = State.getUnmappedState().getTrace().getThreadID();
   
+  // Create a subgraph for this thread.
   Stream << Indent.getString()
          << "subgraph thread" << ID << " {\n";
   Indent.indent();
   
+  // Layout all functions.
+  std::vector<std::string> FunctionIdentifiers;
+  
   for (auto const &FunctionState : State.getCallStack())
-    generate(FunctionState);
+    FunctionIdentifiers.emplace_back(generate(FunctionState));
   
   // Make all function nodes take an equal rank.
-  /*
-  Stream << "{ rank=same; ";
-  for (auto const &FunctionNode : FunctionNodes)
-    Stream << FunctionNode.getIdentifier() << "; ";
-  Stream << "};\n";
-  */
+  Stream << Indent.getString() << "{ rank=same; ";
   
+  for (auto const &Identifier : FunctionIdentifiers)
+    Stream << Identifier << "; ";
+  
+  Stream << "};\n";
+  
+  // Finish the subgraph.
   Indent.unindent();
   writeln("}");
 }
