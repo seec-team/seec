@@ -74,7 +74,7 @@ void TraceThreadListener::checkSignals() {
     assert(Success == 0 && "sigwait() failed.");
   }
 
-#elif defined(_POSIX_REALTIME_SIGNALS)
+#elif defined(_POSIX_VERSION) && _POSIX_VERSION >= 199309L
   // Use sigtimedwait() if we possibly can.
   
   sigset_t FullSet;
