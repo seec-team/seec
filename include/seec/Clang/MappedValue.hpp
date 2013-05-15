@@ -80,6 +80,13 @@ public:
   ///
   virtual ::clang::Type const *getCanonicalType() const =0;
   
+  /// \brief Get the type of this Value as a string.
+  ///
+  std::string getTypeAsString() const {
+    ::clang::QualType QT{getCanonicalType(), /* quals */ 0};
+    return QT.getAsString();
+  }
+  
   /// \brief Get the Expr that this Value is for (if any).
   ///
   virtual ::clang::Expr const *getExpr() const =0;
