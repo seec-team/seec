@@ -92,6 +92,18 @@ static std::string getPortFor(seec::cm::Value const &Value)
 }
 
 
+/// \brief Write the standard TD attributes for a Value.
+///
+static void writeAttributesForValue(llvm::raw_ostream &Stream,
+                                    seec::cm::Value const &Value)
+{
+  auto const ValueAddr = reinterpret_cast<uintptr_t>(&Value);
+  
+  Stream << " PORT=\"" << getPortFor(Value) << "\""
+         << " HREF=\"value:" << ValueAddr << "\"";
+}
+
+
 /// \brief Represents a graph node, which may contain Value objects.
 ///
 class Node {
@@ -325,7 +337,20 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
   
   switch (Value->getKind()) {
     case seec::cm::Value::Kind::Basic:
-      Stream << EscapeForHTML(Value->getValueAsStringFull());
+      {
+        auto const Initialized = Value->isCompletelyInitialized();
+        
+        Stream << "<TD";
+        writeAttributesForValue(Stream, *Value);
+        if (!Initialized)
+          Stream << " BGCOLOR=\"grey\"";
+        Stream << ">";
+        
+        if (Initialized)
+          Stream << EscapeForHTML(Value->getValueAsStringFull());
+        
+        Stream << "</TD>";
+      }
       break;
     
     case seec::cm::Value::Kind::Array:
@@ -333,23 +358,26 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
         auto const &Array = *llvm::cast<seec::cm::ValueOfArray>(Value.get());
         unsigned const ChildCount = Array.getChildCount();
         
-        Stream << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+        Stream << "<TD";
+        writeAttributesForValue(Stream, *Value);
+        Stream << ">"
+               << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
         
         for (unsigned i = 0; i < ChildCount; ++i) {
           auto const ChildValue = Array.getChildAt(i);
           
-          Stream << "<TR><TD>&#91;"
+          Stream << "<TR><TD HREF=\"element:"
+                 << reinterpret_cast<uintptr_t>(&Array) << "," << i
+                 << " BGCOLOR=\"white\">&#91;"
                  << i
-                 << "&#93;</TD><TD PORT=\""
-                 << getPortFor(*ChildValue)
-                 << "\">";
+                 << "&#93;</TD>";
           
           generate(ChildValue, InNode);
           
-          Stream << "</TD></TR>";
+          Stream << "</TR>";
         }
         
-        Stream << "</TABLE>";
+        Stream << "</TABLE></TD>";
       }
       break;
     
@@ -358,12 +386,17 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
         auto const &Record = *llvm::cast<seec::cm::ValueOfRecord>(Value.get());
         unsigned const ChildCount = Record.getChildCount();
         
-        Stream << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+        Stream << "<TD";
+        writeAttributesForValue(Stream, *Value);
+        Stream << ">"
+               << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
         
         for (unsigned i = 0; i < ChildCount; ++i) {
           auto const ChildValue = Record.getChildAt(i);
           
-          Stream << "<TR><TD>";
+          Stream << "<TR><TD HREF=\"member:"
+                 << reinterpret_cast<uintptr_t>(&Record) << "," << i
+                 << " BGCOLOR=\"white\">";
           
           // Write identifier.
           auto const ChildField = Record.getChildField(i);
@@ -372,17 +405,15 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
           else
             Stream << " "; // TODO: Localize
           
-          Stream << "</TD><TD PORT=\""
-                 << getPortFor(*ChildValue)
-                 << "\">";
+          Stream << "</TD>";
           
           // Write value.
           generate(ChildValue, InNode);
           
-          Stream << "</TD></TR>";
+          Stream << "</TR>";
         }
         
-        Stream << "</TABLE>";
+        Stream << "</TABLE></TD>";
       }
       break;
     
@@ -391,19 +422,33 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
         auto const Ptr =
           std::static_pointer_cast<seec::cm::ValueOfPointer const>(Value);
         
-        if (Ptr->isCompletelyInitialized() && Ptr->getRawValue()) {
-          if (Ptr->getDereferenceIndexLimit() > 0) {
-            Stream << " ";
-            PointersToExpand.insert(std::make_pair(Ptr->getRawValue(),
-                                                   PointerToExpand{Ptr,
-                                                                   InNode}));
-          }
-          else {
-            Stream << "???"; // TODO: Localize.
-          }
+        if (!Ptr->isCompletelyInitialized()) {
+          // An uninitialized pointer.
+          Stream << "<TD";
+          writeAttributesForValue(Stream, *Value);
+          Stream << " BGCOLOR=\"grey\">?</TD>";
+        }
+        else if (!Ptr->getRawValue()) {
+          // A NULL pointer.
+          Stream << "<TD";
+          writeAttributesForValue(Stream, *Value);
+          Stream << " BGCOLOR=\"white\">NULL</TD>";
+        }
+        else if (Ptr->getDereferenceIndexLimit() == 0) {
+          // Probably an invalid pointer.
+          Stream << "<TD";
+          writeAttributesForValue(Stream, *Value);
+          Stream << " BGCOLOR=\"red\">!</TD>";
         }
         else {
-          Stream << "NULL";
+          // A valid pointer with at least one dereference.
+          Stream << "<TD";
+          writeAttributesForValue(Stream, *Value);
+          Stream << " BGCOLOR=\"white\"> </TD>";
+          
+          PointersToExpand.insert(std::make_pair(Ptr->getRawValue(),
+                                                 PointerToExpand{Ptr,
+                                                                 InNode}));
         }
       }
       break;
@@ -427,13 +472,11 @@ GraphGenerator::generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
     auto const Pointee = Value->getDereferenced(0);
     
     Stream << Indent.getString()
-           << "<TR><TD PORT=\""
-           << getPortFor(*Pointee)
-           << "\">";
+           << "<TR>";
     
     generate(Pointee, InNode);
     
-    Stream << "</TD></TR>\n";
+    Stream << "</TR>\n";
   }
   else {
     for (unsigned i = 0; i < Limit; ++i) {
@@ -442,16 +485,15 @@ GraphGenerator::generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
       writeln("<TR>");
       Indent.indent();
       
-      Stream << Indent.getString() << "<TD>&#91;" << i << "&#93;</TD>\n";
-      
       Stream << Indent.getString()
-             << "<TD PORT=\""
-             << getPortFor(*Pointee)
-             << "\">";
+             << "<TD HREF=\"dereference:"
+             << reinterpret_cast<uintptr_t>(&*Value) << "," << i << "\""
+             << " BGCOLOR=\"white\">&#91;"
+             << i << "&#93;</TD>\n";
       
+      Stream << Indent.getString();
       generate(Pointee, InNode);
-      
-      Stream << "</TD>\n";
+      Stream << "\n";
       
       Indent.unindent();
       writeln("</TR>");
@@ -469,12 +511,9 @@ void GraphGenerator::generate(seec::cm::AllocaState const &State,
   
   writeln("<TD>" + State.getDecl()->getNameAsString() + "</TD>");
   
-  Stream << Indent.getString()
-         << "<TD ALIGN=\"LEFT\" PORT=\""
-         << getPortFor(*Value)
-         << "\">";
+  Stream << Indent.getString();
   generate(Value, InNode);
-  Stream << "</TD>\n";
+  Stream << "\n";
   
   Indent.unindent();
   writeln("</TR>");
@@ -573,9 +612,9 @@ void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
   
   auto const Value = State.getValue();
   
-  Stream << Indent.getString() << "<TD PORT=\"" << getPortFor(*Value) << "\">";
+  Stream << Indent.getString();
   generate(Value, ThisNode);
-  Stream << "</TD>\n";
+  Stream << "\n";
   
   Indent.unindent();
   writeln("</TR>");
