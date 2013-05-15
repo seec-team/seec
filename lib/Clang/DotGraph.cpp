@@ -318,6 +318,8 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
   if (!Value)
     return;
   
+  ValuesCompleted.insert(std::make_pair(Value, std::cref(InNode)));
+  
   switch (Value->getKind()) {
     case seec::cm::Value::Kind::Basic:
       Stream << EscapeForHTML(Value->getValueAsStringFull());
@@ -682,10 +684,21 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
     
     // Create edges for the remaining pointers.
     for (auto const &PtrPair : PointersToExpand) {
-      // TODO: First determine if this pointer refers to an already-expanded
-      //       Value.
+      // First determine if this pointer refers to an already-expanded Value.
+      auto const Pointer = PtrPair.second.getValue();
+      auto const Pointee = Pointer->getDereferenced(0);
       
-      // TODO: Otherwise, we have an unmatched reference.
+      auto const It = ValuesCompleted.find(Pointee);
+      
+      if (It != ValuesCompleted.end()) {
+        PointersToLayout.emplace_back(PtrPair.second.getContainerNode(),
+                                      getPortFor(*Pointer),
+                                      It->second.get(),
+                                      getPortFor(*Pointee),
+                                      PointerResolved::EdgeKind::Normal);
+      }
+      
+      // TODO: Otherwise, we have an aliased reference.
     }
     
     PointersToExpand.clear();
