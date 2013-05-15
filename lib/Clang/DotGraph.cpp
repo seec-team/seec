@@ -590,7 +590,7 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
                                                    Malloc.getSize()});
   }
   
-  // TODO: Add Known memory regions.
+  // Add Known memory regions.
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
     AreasToReference.emplace_back(seec::MemoryArea{Known.Begin,
                                                    Known.End - Known.Begin,
