@@ -251,7 +251,7 @@ class GraphGenerator {
     ValuesCompleted;
   
   /// Pointers that are waiting to be expanded. The key is the pointee address.
-  std::map<uintptr_t, PointerToExpand> PointersToExpand;
+  std::multimap<uintptr_t, PointerToExpand> PointersToExpand;
   
   /// Pointers that have been expanded and just need to be inserted as edges.
   std::vector<PointerResolved> PointersToLayout;
@@ -283,6 +283,9 @@ class GraphGenerator {
   void generate(seec::cm::ThreadState const &State);
   
   void generate(seec::cm::GlobalVariable const &State);
+  
+  void layoutDereferences(PointerToExpand const &Pointer,
+                          Node const &InNode);
   
   void generate(ReferenceArea const &Area);
   
@@ -584,8 +587,76 @@ void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
   writeln("> ];");
 }
 
+static bool
+isChild(seec::cm::Value const &Child, seec::cm::Value const &Parent)
+{
+  if (&Child == &Parent)
+    return true;
+  
+  switch (Parent.getKind()) {
+    case seec::cm::Value::Kind::Basic:
+      return false;
+    
+    case seec::cm::Value::Kind::Array:
+    {
+      auto const &ParentArray = llvm::cast<seec::cm::ValueOfArray>(Parent);
+      auto const Limit = ParentArray.getChildCount();
+      
+      for (unsigned i = 0; i < Limit; ++i)
+        if (isChild(Child, *ParentArray.getChildAt(i)))
+          return true;
+      
+      return false;
+    }
+    
+    case seec::cm::Value::Kind::Record:
+    {
+      auto const &ParentRecord = llvm::cast<seec::cm::ValueOfRecord>(Parent);
+      auto const Limit = ParentRecord.getChildCount();
+      
+      for (unsigned i = 0; i < Limit; ++i)
+        if (isChild(Child, *ParentRecord.getChildAt(i)))
+          return true;
+      
+      return false;
+    }
+    
+    case seec::cm::Value::Kind::Pointer:
+      return false;
+  }
+  
+  return false;
+}
+
+static bool
+isChildOfAnyDereference(seec::cm::Value const &Child,
+                        seec::cm::ValueOfPointer const &ParentReference)
+{
+  auto const Limit = ParentReference.getDereferenceIndexLimit();
+  
+  for (unsigned i = 0; i < Limit; ++i)
+    if (isChild(Child, *ParentReference.getDereferenced(i)))
+      return true;
+  
+  return false;
+}
+
+void GraphGenerator::layoutDereferences(PointerToExpand const &Pointer,
+                                        Node const &InNode)
+{
+  generate(Pointer.getValue(), InNode);
+  
+  PointersToLayout.emplace_back(Pointer.getContainerNode(),
+                                getPortFor(*Pointer.getValue()),
+                                InNode,
+                                "root",
+                                PointerResolved::EdgeKind::Normal);
+}
+
 void GraphGenerator::generate(ReferenceArea const &Area)
 {
+  llvm::errs() << "generating bin.\n";
+  
   {
     std::string Identifier = "region";
     {
@@ -607,25 +678,117 @@ void GraphGenerator::generate(ReferenceArea const &Area)
   
   // Decide which pointer to expand (if any). The preference of type is:
   // (non-char non-void) > char > void.
-  auto const &References = Area.getReferences();
+  std::vector<PointerToExpand> PointersPreferred;
+  std::vector<PointerToExpand> PointersChar;
+  std::vector<PointerToExpand> PointersVoid;
+  std::vector<PointerToExpand> PointersAliased;
+  std::vector<PointerToExpand> PointersTypePunned;
   
-  if (References.size() == 1) {
+  for (auto const &Pointer : Area.getReferences()) {
+    auto const CanType = Pointer.getValue()->getCanonicalType();
+    auto const PtrType = llvm::cast< ::clang::PointerType >(CanType);
+    auto const PointeeType = PtrType->getPointeeType();
+    
+    if (PointeeType->isVoidType())
+      PointersVoid.emplace_back(Pointer);
+    else if (PointeeType->isCharType())
+      PointersChar.emplace_back(Pointer);
+    else
+      PointersPreferred.emplace_back(Pointer);
+  }
+  
+  llvm::errs() << " pointers preferred: " << PointersPreferred.size() << "\n";
+  llvm::errs() << " pointers to char  : " << PointersChar.size() << "\n";
+  llvm::errs() << " pointers to void  : " << PointersVoid.size() << "\n";
+  
+  if (PointersPreferred.size() > 1) {
+    // First sort the references in descending order of pointee size.
+    std::sort(PointersPreferred.begin(), PointersPreferred.end(),
+              [] (PointerToExpand const &LHS, PointerToExpand const &RHS) {
+                return LHS.getValue()->getPointeeSize() >
+                       RHS.getValue()->getPointeeSize();
+              });
+    
+    for (auto i = PointersPreferred.size() - 1; i != 0; --i) {
+      // Determine if PointersPreferred[i]'s zeroth dereference is a child of
+      // any of [0,i)'s dereferences.
+      auto const &Pointer = *PointersPreferred[i].getValue();
+      auto const &Pointee = *Pointer.getDereferenced(0);
+      
+      auto const ItBegin = PointersPreferred.begin();
+      auto const ItEnd = std::next(ItBegin, i);
+      
+      auto const IsChild =
+        std::any_of(ItBegin, ItEnd,
+                    [&] (PointerToExpand const &Parent) {
+                      return isChildOfAnyDereference(Pointee,
+                                                     *Parent.getValue());
+                    });
+      
+      // If it is a child then we can resolve it after the parent is laid out.
+      if (IsChild) {
+        PointersAliased.emplace_back(std::move(*ItEnd));
+        PointersPreferred.erase(ItEnd);
+        
+        llvm::errs() << " eliminated child.\n";
+      }
+    }
+  }
+  
+  if (PointersPreferred.size() > 1) {
+    // TODO: Attempt to layout as coexisting.
+    llvm::errs() << "coexisting layout not yet implemented.\n";
+  }
+  else if (PointersPreferred.size() == 1) {
     // Layout the single reference.
-    auto const Pointer = References.begin()->getValue();
-    auto const &Container = References.begin()->getContainerNode();
-    
-    generate(Pointer, ThisNode);
-    
-    PointersToLayout.emplace_back(Container,
-                                  getPortFor(*Pointer),
-                                  ThisNode,
-                                  "root",
-                                  PointerResolved::EdgeKind::Normal);
+    layoutDereferences(PointersPreferred.front(), ThisNode);
+    PointersPreferred.clear();
   }
-  else {
-    // Find all non-char non-void references.
-    llvm::errs() << "  multiple reference (not yet supported).\n";
+  else if (!PointersChar.empty()) {
+    // Find the pointer with the lowest raw value, expand it, and let the rest
+    // be resolved as aliases.
+    auto const It =
+      std::min_element(PointersChar.begin(), PointersChar.end(),
+                        [] (PointerToExpand const &LHS,
+                            PointerToExpand const &RHS)
+                        {
+                          return LHS.getValue()->getRawValue() <
+                                 RHS.getValue()->getRawValue();
+                        });
+    
+    layoutDereferences(*It, ThisNode);
+    
+    PointersChar.erase(It);
   }
+  else if (!PointersVoid.empty()) {
+    // TODO.
+    
+    // void pointers simply refer to an opaque block of memory, so there's no
+    // aliasing problem. However, if the void pointers refer to different areas
+    // within the block, then we may want to represent that in the layout.
+    
+    llvm::errs() << "void pointer layout not yet implemented.\n";
+    
+    PointersVoid.clear();
+  }
+  
+  // We can simply push the unhandled pointers back to the process layout. If
+  // they can't be resolved in the next pass, then they'll be discarded.
+  for (auto const &Pointer : PointersChar)
+    PointersToExpand.insert(std::make_pair(Pointer.getValue()->getRawValue(),
+                                           std::move(Pointer)));
+  
+  for (auto const &Pointer : PointersVoid)
+    PointersToExpand.insert(std::make_pair(Pointer.getValue()->getRawValue(),
+                                           std::move(Pointer)));
+  
+  for (auto const &Pointer : PointersAliased)
+    PointersToExpand.insert(std::make_pair(Pointer.getValue()->getRawValue(),
+                                           std::move(Pointer)));
+  
+  for (auto const &Pointer : PointersTypePunned)
+    PointersToExpand.insert(std::make_pair(Pointer.getValue()->getRawValue(),
+                                           std::move(Pointer)));
   
   Indent.unindent();
   writeln("</TABLE>");
@@ -669,6 +832,9 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
   // Now we will expand pointers. We will also expand and layout dereferences
   // when required.
   while (!PointersToExpand.empty()) {
+    llvm::errs() << "have " << PointersToExpand.size()
+                 << " pointers to expand.\n";
+    
     // Assign pointers to known/dynamic regions that own them.
     for (auto &Bin : AreasToReference) {
       auto const &Area = Bin.getArea();
@@ -676,14 +842,18 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
       auto const RangeStart = PointersToExpand.lower_bound(Area.start());
       auto const RangeEnd = PointersToExpand.lower_bound(Area.end());
       
-      for (auto It = RangeStart; It != RangeEnd; ++It)
+      for (auto It = RangeStart; It != RangeEnd; ++It) {
+        llvm::errs() << "adding pointer to bin.\n";
         Bin.addReference(std::move(It->second));
+      }
       
       PointersToExpand.erase(RangeStart, RangeEnd);
     }
     
     // Create edges for the remaining pointers.
     for (auto const &PtrPair : PointersToExpand) {
+      llvm::errs() << "resolving pointer.\n";
+      
       // First determine if this pointer refers to an already-expanded Value.
       auto const Pointer = PtrPair.second.getValue();
       auto const Pointee = Pointer->getDereferenced(0);
