@@ -423,6 +423,12 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
     return RawValue;
   }
   
+  /// \brief Get the size of the pointee type.
+  ///
+  virtual ::clang::CharUnits getPointeeSizeImpl() const override {
+    return PointeeSize;
+  }
+  
 public:
   /// \brief Attempt to create a new ValueByMemoryForPointer.
   ///
@@ -1520,6 +1526,12 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   /// \brief Get the raw value of this pointer.
   ///
   virtual uintptr_t getRawValueImpl() const override { return PtrValue; }
+  
+  /// \brief Get the size of the pointee type.
+  ///
+  virtual ::clang::CharUnits getPointeeSizeImpl() const override {
+    return PointeeSize;
+  }
   
 public:
   /// \brief Attempt ot create a new ValueByRuntimeValueForPointer.

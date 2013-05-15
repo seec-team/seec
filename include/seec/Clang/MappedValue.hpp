@@ -15,6 +15,7 @@
 #define SEEC_CLANG_MAPPEDVALUE_HPP
 
 
+#include "clang/AST/CharUnits.h"
 #include "clang/AST/Type.h"
 
 #include "llvm/Support/Casting.h"
@@ -180,6 +181,10 @@ private:
   /// \brief Get the raw value of this pointer.
   ///
   virtual uintptr_t getRawValueImpl() const =0;
+  
+  /// \brief Get the size of the pointee type.
+  ///
+  virtual ::clang::CharUnits getPointeeSizeImpl() const =0;
 
 public:
   /// \brief Constructor.
@@ -205,6 +210,10 @@ public:
   /// \brief Get the raw value of this pointer.
   ///
   uintptr_t getRawValue() const { return getRawValueImpl(); }
+  
+  /// \brief Get the size of the pointee type.
+  ///
+  ::clang::CharUnits getPointeeSize() const { return getPointeeSizeImpl(); }
 };
 
 
