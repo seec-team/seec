@@ -299,6 +299,9 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   ActiveFunction->setActiveInstruction(CallInst);
 
   detectPreCall(CallInst, Index, Address);
+  
+  // Emit a PreInstruction so that the call becomes active.
+  EventsOut.write<EventType::PreInstruction>(Index, ++Time);
 }
 
 void TraceThreadListener::notifyPostCall(uint32_t Index,
