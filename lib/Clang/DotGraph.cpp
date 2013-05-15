@@ -33,6 +33,8 @@
 #include "llvm/ADT/StringRef.h"
 
 #include <algorithm>
+#include <functional>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -90,6 +92,20 @@ static std::string getPortFor(seec::cm::Value const &Value)
 }
 
 
+/// \brief Represents a graph node, which may contain Value objects.
+///
+class Node {
+  std::string Identifier;
+  
+public:
+  explicit Node(std::string WithIdentifier)
+  : Identifier(std::move(WithIdentifier))
+  {}
+  
+  std::string const &getIdentifier() const { return Identifier; }
+};
+
+
 /// \brief Represents a completed edge.
 ///
 class PointerResolved {
@@ -100,36 +116,44 @@ public:
   };
 
 private:
-  std::string Start;
+  std::reference_wrapper<Node const> StartNode;
   
-  std::string End;
+  std::string StartPort;
+  
+  std::reference_wrapper<Node const> EndNode;
+  
+  std::string EndPort;
   
   EdgeKind Kind;
   
 public:
-  PointerResolved(std::string WithStart,
-                  std::string WithEnd,
-                  EdgeKind WithKind)
-  : Start(std::move(WithStart)),
-    End(std::move(WithEnd)),
-    Kind(WithKind)
-  {}
-  
-  PointerResolved(std::string WithStartNode,
+  PointerResolved(Node const &WithStartNode,
                   std::string WithStartPort,
-                  std::string WithEndNode,
+                  Node const &WithEndNode,
                   std::string WithEndPort,
                   EdgeKind WithKind)
-  : Start(WithStartNode + ":" + WithStartPort),
-    End(WithEndNode + ":" + WithEndPort),
+  : StartNode(WithStartNode),
+    StartPort(std::move(WithStartPort)),
+    EndNode(WithEndNode),
+    EndPort(std::move(WithEndPort)),
     Kind(WithKind)
   {}
   
-  std::string const &getStart() const { return Start; }
-  
-  std::string const &getEnd() const { return End; }
-  
-  EdgeKind getKind() const { return Kind; }
+  void write(llvm::raw_ostream &Stream) const {
+    Stream << StartNode.get().getIdentifier();
+    
+    if (!StartPort.empty())
+      Stream << ":" << StartPort;
+    
+    Stream << ":c -> ";
+    
+    Stream << EndNode.get().getIdentifier();
+    
+    if (!EndPort.empty())
+      Stream << ":" << EndPort;
+    
+    Stream << ":nw;";
+  }
 };
 
 
@@ -138,20 +162,20 @@ public:
 class PointerToExpand {
   std::shared_ptr<seec::cm::ValueOfPointer const> Value;
   
-  std::string ContainerNode;
+  std::reference_wrapper<Node const> ContainerNode;
   
 public:
   PointerToExpand(std::shared_ptr<seec::cm::ValueOfPointer const> WithValue,
-                  std::string InContainerNode)
+                  Node const &InContainerNode)
   : Value(std::move(WithValue)),
-    ContainerNode(std::move(InContainerNode))
+    ContainerNode(InContainerNode)
   {}
   
   std::shared_ptr<seec::cm::ValueOfPointer const> const &getValue() const {
     return Value;
   }
   
-  std::string const &getContainerNode() const { return ContainerNode; }
+  Node const &getContainerNode() const { return ContainerNode; }
   
   /// \brief Allow comparison so that we can put PointerToExpand in a set.
   ///
@@ -218,8 +242,13 @@ class GraphGenerator {
   /// Handles indentation for the graph.
   seec::util::IndentationGuide Indent;
   
-  /// Values that have completed layout.
-  std::set<std::shared_ptr<seec::cm::Value const>> ValuesCompleted;
+  /// List of all nodes.
+  std::vector<std::unique_ptr<Node>> Nodes;
+  
+  /// Lookup from Value to containing node.
+  std::map<std::shared_ptr<seec::cm::Value const>,
+           std::reference_wrapper<Node const>>
+    ValuesCompleted;
   
   /// Pointers that are waiting to be expanded. The key is the pointee address.
   std::map<uintptr_t, PointerToExpand> PointersToExpand;
@@ -230,6 +259,7 @@ class GraphGenerator {
   /// Areas that are not yet referenced (and thus need expanding, layout).
   std::vector<ReferenceArea> AreasToReference;
   
+  
   /// \brief Helper that writes a single line, with indentation, to the graph.
   ///
   void writeln(llvm::Twine Text) {
@@ -237,18 +267,18 @@ class GraphGenerator {
   }
   
   void generate(std::shared_ptr<seec::cm::Value const> Value,
-                std::string const &InNode);
+                Node const &InNode);
   
   void generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
-                std::string const &InNode);
+                Node const &InNode);
   
   void generate(seec::cm::AllocaState const &State,
-                std::string const &InNode);
+                Node const &InNode);
   
   /// \brief Expand and layout a function.
   /// \return The node identifier for the function.
   ///
-  std::string generate(seec::cm::FunctionState const &State);
+  Node const &generate(seec::cm::FunctionState const &State);
   
   void generate(seec::cm::ThreadState const &State);
   
@@ -256,11 +286,13 @@ class GraphGenerator {
   
   void generate(ReferenceArea const &Area);
   
+  
   // No copying or moving.
   GraphGenerator(GraphGenerator const &) = delete;
   GraphGenerator &operator=(GraphGenerator const &) = delete;
   GraphGenerator(GraphGenerator &&) = delete;
   GraphGenerator &operator=(GraphGenerator &&) = delete;
+  
   
 public:
   /// \brief Default constructor.
@@ -281,7 +313,7 @@ public:
 };
 
 void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
-                              std::string const &InNode)
+                              Node const &InNode)
 {
   if (!Value)
     return;
@@ -380,7 +412,7 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
 ///
 void
 GraphGenerator::generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
-                         std::string const &InNode)
+                         Node const &InNode)
 {
   auto const Limit = Value->getDereferenceIndexLimit();
   
@@ -423,7 +455,7 @@ GraphGenerator::generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
 }
 
 void GraphGenerator::generate(seec::cm::AllocaState const &State,
-                              std::string const &InNode)
+                              Node const &InNode)
 {
   auto const Value = State.getValue();
   
@@ -443,16 +475,23 @@ void GraphGenerator::generate(seec::cm::AllocaState const &State,
   writeln("</TR>");
 }
 
-std::string GraphGenerator::generate(seec::cm::FunctionState const &State)
+Node const &GraphGenerator::generate(seec::cm::FunctionState const &State)
 {
-  std::string NodeIdentifier;
   {
-    llvm::raw_string_ostream NodeIdentifierStream {NodeIdentifier};
-    NodeIdentifierStream << "function" << reinterpret_cast<uintptr_t>(&State);
+    std::string NodeIdentifier;
+    
+    {
+      llvm::raw_string_ostream NodeIdentifierStream {NodeIdentifier};
+      NodeIdentifierStream << "function" << reinterpret_cast<uintptr_t>(&State);
+    }
+  
+    writeln(NodeIdentifier + " [ label = <");
+    Indent.indent();
+  
+    Nodes.emplace_back(new Node{std::move(NodeIdentifier)});
   }
   
-  writeln(NodeIdentifier + " [ label = <");
-  Indent.indent();
+  auto const &ThisNode = *Nodes.back();
   
   writeln("<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">");
   Indent.indent();
@@ -460,10 +499,10 @@ std::string GraphGenerator::generate(seec::cm::FunctionState const &State)
   writeln("<TR><TD COLSPAN=\"2\">" + State.getNameAsString() + "</TD></TR>");
   
   for (auto const &Parameter : State.getParameters())
-    generate(Parameter, NodeIdentifier);
+    generate(Parameter, ThisNode);
   
   for (auto const &Local : State.getLocals())
-    generate(Local, NodeIdentifier);
+    generate(Local, ThisNode);
   
   Indent.unindent();
   writeln("</TABLE>");
@@ -471,7 +510,7 @@ std::string GraphGenerator::generate(seec::cm::FunctionState const &State)
   Indent.unindent();
   writeln("> ];");
   
-  return NodeIdentifier;
+  return ThisNode;
 }
 
 void GraphGenerator::generate(seec::cm::ThreadState const &State)
@@ -484,16 +523,16 @@ void GraphGenerator::generate(seec::cm::ThreadState const &State)
   Indent.indent();
   
   // Layout all functions.
-  std::vector<std::string> FunctionIdentifiers;
+  std::vector<std::reference_wrapper<Node const>> FunctionNodes;
   
   for (auto const &FunctionState : State.getCallStack())
-    FunctionIdentifiers.emplace_back(generate(FunctionState));
+    FunctionNodes.emplace_back(generate(FunctionState));
   
   // Make all function nodes take an equal rank.
   Stream << Indent.getString() << "{ rank=same; ";
   
-  for (auto const &Identifier : FunctionIdentifiers)
-    Stream << Identifier << "; ";
+  for (auto const &FunctionNode : FunctionNodes)
+    Stream << FunctionNode.get().getIdentifier() << "; ";
   
   Stream << "};\n";
   
@@ -504,14 +543,20 @@ void GraphGenerator::generate(seec::cm::ThreadState const &State)
 
 void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
 {
-  std::string NodeIdentifier = "global";
   {
-    llvm::raw_string_ostream IdentifierStream { NodeIdentifier };
-    IdentifierStream << State.getAddress();
+    std::string NodeIdentifier = "global";
+    {
+      llvm::raw_string_ostream IdentifierStream { NodeIdentifier };
+      IdentifierStream << State.getAddress();
+    }
+    
+    writeln(NodeIdentifier + " [ label = <");
+    Indent.indent();
+    
+    Nodes.emplace_back(new Node{std::move(NodeIdentifier)});
   }
   
-  writeln(NodeIdentifier + " [ label = <");
-  Indent.indent();
+  auto const &ThisNode = *Nodes.back();
   
   writeln("<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">");
   Indent.indent();
@@ -524,7 +569,7 @@ void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
   auto const Value = State.getValue();
   
   Stream << Indent.getString() << "<TD PORT=\"" << getPortFor(*Value) << "\">";
-  generate(Value, NodeIdentifier);
+  generate(Value, ThisNode);
   Stream << "</TD>\n";
   
   Indent.unindent();
@@ -539,16 +584,20 @@ void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
 
 void GraphGenerator::generate(ReferenceArea const &Area)
 {
-  llvm::errs() << "performing layout for bin.\n";
-  
-  std::string Identifier = "region";
   {
-    llvm::raw_string_ostream IdentifierStream { Identifier };
-    IdentifierStream << Area.getArea().start();
+    std::string Identifier = "region";
+    {
+      llvm::raw_string_ostream IdentifierStream { Identifier };
+      IdentifierStream << Area.getArea().start();
+    }
+    
+    writeln(Identifier + " [ label = <");
+    Indent.indent();
+    
+    Nodes.emplace_back(new Node{std::move(Identifier)});
   }
   
-  writeln(Identifier + " [ label = <");
-  Indent.indent();
+  auto const &ThisNode = *Nodes.back();
   
   writeln("<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\""
           " PORT=\"root\">");
@@ -561,12 +610,13 @@ void GraphGenerator::generate(ReferenceArea const &Area)
   if (References.size() == 1) {
     // Layout the single reference.
     auto const Pointer = References.begin()->getValue();
+    auto const &Container = References.begin()->getContainerNode();
     
-    generate(Pointer, Identifier);
+    generate(Pointer, ThisNode);
     
-    PointersToLayout.emplace_back(References.begin()->getContainerNode(),
+    PointersToLayout.emplace_back(Container,
                                   getPortFor(*Pointer),
-                                  Identifier,
+                                  ThisNode,
                                   "root",
                                   PointerResolved::EdgeKind::Normal);
   }
@@ -661,11 +711,9 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
   writeln("edge[tailclip=false];");
   
   for (auto const &Edge : PointersToLayout) {
-    Stream << Indent.getString()
-           << Edge.getStart()
-           << ":c -> "
-           << Edge.getEnd()
-           << ":nw;\n";
+    Stream << Indent.getString();
+    Edge.write(Stream);
+    Stream << "\n";
   }
   
   Indent.unindent();
