@@ -218,6 +218,32 @@ public:
     References()
   {}
   
+  /// \brief Copy constructor.
+  ///
+  ReferenceArea(ReferenceArea const &Other)
+  : Area(Other.Area),
+    References(Other.References)
+  {}
+  
+  /// \brief Move constructor.
+  ///
+  ReferenceArea(ReferenceArea &&Other)
+  : Area(std::move(Other.Area)),
+    References(std::move(Other.References))
+  {}
+  
+  /// \brief Copy assignment.
+  ///
+  ReferenceArea &operator=(ReferenceArea const &RHS) = default;
+  
+  /// \brief Move assignment.
+  ///
+  ReferenceArea &operator=(ReferenceArea &&RHS) {
+    Area = std::move(RHS.Area);
+    References = std::move(RHS.References);
+    return *this;
+  }
+  
   /// \brief Check if this area is referenced by a pointer.
   ///
   /// pre: Ptr.isCompletelyInitialized() == true
