@@ -47,7 +47,7 @@ namespace clang_epv {
 //===----------------------------------------------------------------------===//
 
 template<typename T>
-Formattable formatAsBool(T &&Value) {
+Formattable formatAsBool(T const &Value) {
   return Value ? Formattable("true") : Formattable("false");
 }
 
