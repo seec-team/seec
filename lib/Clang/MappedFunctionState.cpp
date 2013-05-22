@@ -13,10 +13,11 @@
 
 #include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
-#include "seec/Clang/MappedRuntimeErrorState.hpp"
-#include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedRuntimeErrorState.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Util/Printing.hpp"
 
@@ -279,6 +280,10 @@ FunctionState::FunctionState(ThreadState &WithParent,
                              seec::trace::FunctionState &ForUnmappedState)
 : Parent(WithParent),
   UnmappedState(ForUnmappedState),
+  Mapping(Parent.getParent()
+                .getProcessTrace()
+                .getMapping()
+                .getMappedFunctionDecl(UnmappedState.getFunction())),
   Parameters(),
   Variables(),
   RuntimeErrors()
@@ -401,23 +406,20 @@ void FunctionState::print(llvm::raw_ostream &Out,
 //===----------------------------------------------------------------------===//
 
 ::clang::FunctionDecl const *FunctionState::getFunctionDecl() const {
-  auto const &Trace = Parent.getParent().getProcessTrace();
-  auto const &MappedModule = Trace.getMapping();
-  auto const LLVMFunction = UnmappedState.getFunction();
-  
-  auto MappedDecl = MappedModule.getMappedFunctionDecl(LLVMFunction);
-  if (!MappedDecl)
-    return nullptr;
-  
-  return llvm::dyn_cast< ::clang::FunctionDecl>(MappedDecl->getDecl());
+  return Mapping ? llvm::dyn_cast< ::clang::FunctionDecl >(Mapping->getDecl())
+                 : nullptr;
 }
 
 std::string FunctionState::getNameAsString() const {
   auto const FunctionDecl = getFunctionDecl();
-  if (FunctionDecl)
-    return FunctionDecl->getNameAsString();
   
-  return UnmappedState.getFunction()->getName().str();
+  return FunctionDecl ? FunctionDecl->getNameAsString()
+                      : UnmappedState.getFunction()->getName().str();
+}
+
+seec::seec_clang::MappedAST const *FunctionState::getMappedAST() const {
+  return Mapping ? &Mapping->getAST()
+                 : nullptr;
 }
 
 
