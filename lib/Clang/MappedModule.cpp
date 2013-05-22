@@ -202,6 +202,10 @@ MappedModule::MappedModule(
       if (!MappedInfo)
         continue;
       
+      llvm::errs() << "got compile info for "
+                   << MappedInfo->getMainFileName()
+                   << "\n";
+      
       CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
                                         std::move(MappedInfo)));
     }

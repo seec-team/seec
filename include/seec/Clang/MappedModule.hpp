@@ -395,6 +395,21 @@ public:
   /// @}
   
   
+  /// \name Mapped compilation info.
+  /// @{
+  
+  /// \name Get mapped compile info for a main file, if it exists.
+  ///
+  MappedCompileInfo const *
+  getCompileInfoForMainFile(std::string const &Path) const {
+    auto const It = CompileInfo.find(Path);
+    return It != CompileInfo.end() ? It->second.get()
+                                   : nullptr;
+  }
+  
+  /// @}
+  
+  
   /// \name Mapped clang::Stmt pointers.
   /// @{
   
