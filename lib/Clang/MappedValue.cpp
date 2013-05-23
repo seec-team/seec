@@ -175,6 +175,7 @@ getScalarValueAsString(::clang::BuiltinType const *Type,
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
@@ -247,6 +248,7 @@ getScalarValueAsString(::clang::Type const *Type,
     SEEC_UNHANDLED_TYPE_CLASS(LValueReference) // C++
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
+    SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
@@ -1093,6 +1095,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
@@ -1260,6 +1263,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
@@ -1370,6 +1374,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_TYPE_CLASS(LValueReference) // C++
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
+    SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
@@ -1743,6 +1748,7 @@ createValue(std::shared_ptr<ValueStore const> Store,
     SEEC_UNHANDLED_TYPE_CLASS(LValueReference) // C++
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
+    SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC

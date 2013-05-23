@@ -197,7 +197,6 @@ SEEC_DECL_LINK(FieldDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
 
 SEEC_DECL_LINK(VarDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
   SEEC_PP_QUOTE(
-    ("is_thread_specified",             Bool, isThreadSpecified()),
     ("has_local_storage",               Bool, hasLocalStorage()),
     ("is_static_local",                 Bool, isStaticLocal()),
     ("has_external_storage",            Bool, hasExternalStorage()),

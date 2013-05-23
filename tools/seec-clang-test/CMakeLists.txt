@@ -2,7 +2,7 @@ add_executable(seec-clang-test main.cpp)
 
 # Determine the LLVM libraries that we need
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles mcjit jit all-targets bitreader bitwriter asmparser codegen ipo linker selectiondag instrumentation core target
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles mcjit jit all-targets bitreader bitwriter asmparser codegen ipo irreader linker selectiondag instrumentation core target
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
