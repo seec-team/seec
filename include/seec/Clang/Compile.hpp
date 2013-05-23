@@ -182,7 +182,8 @@ std::unique_ptr<clang::CompilerInvocation>
 GetCompileForSourceFile(
   char const *Filename,
   llvm::StringRef ExecutablePath,
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics);
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics,
+  bool const CheckInputExists);
 
 ///
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,

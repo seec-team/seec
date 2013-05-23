@@ -137,6 +137,20 @@ MappedModule::MappedModule(
 {
   auto const &Module = ModIndex.getModule();
   
+  // Load compile information from the Module.
+  auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
+  if (GlobalCompileInfo) {
+    for (std::size_t i = 0u; i < GlobalCompileInfo->getNumOperands(); ++i) {
+      auto Node = GlobalCompileInfo->getOperand(i);
+      auto MappedInfo = MappedCompileInfo::get(Node);
+      if (!MappedInfo)
+        continue;
+            
+      CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
+                                        std::move(MappedInfo)));
+    }
+  }
+  
   // Create the FunctionLookup and GlobalVariableLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
@@ -154,10 +168,8 @@ MappedModule::MappedModule(
       assert(!FilePath.empty());
       
       auto const Global = Node->getOperand(1u);
-      if (!Global) {
-        llvm::errs() << "Mapping to null global.\n";
+      if (!Global)
         continue;
-      }
 
       auto DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
       assert(DeclIdx);
@@ -173,10 +185,8 @@ MappedModule::MappedModule(
                                             Func)));
       }
       else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
-        if (!llvm::isa<clang::ValueDecl>(Decl)) {
-          llvm::errs() << "Global is not a ValueDecl.\n";
+        if (!llvm::isa<clang::ValueDecl>(Decl))
           continue;
-        }
         
         auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Decl);
         
@@ -187,27 +197,6 @@ MappedModule::MappedModule(
                                                   ValueDecl,
                                                   GV)));
       }
-      else {
-        llvm::errs() << "Mapping to non-Function non-GlobalVariable.\n";
-      }
-    }
-  }
-  
-  // Load compile information from the Module.
-  auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
-  if (GlobalCompileInfo) {
-    for (std::size_t i = 0u; i < GlobalCompileInfo->getNumOperands(); ++i) {
-      auto Node = GlobalCompileInfo->getOperand(i);
-      auto MappedInfo = MappedCompileInfo::get(Node);
-      if (!MappedInfo)
-        continue;
-      
-      llvm::errs() << "got compile info for "
-                   << MappedInfo->getMainFileName()
-                   << "\n";
-      
-      CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
-                                        std::move(MappedInfo)));
     }
   }
   
@@ -217,10 +206,8 @@ MappedModule::MappedModule(
     for (std::size_t i = 0u; i < GlobalStmtMaps->getNumOperands(); ++i) {
       auto Mapping = MappedStmt::fromMetadata(GlobalStmtMaps->getOperand(i),
                                               *this);
-      if (!Mapping) {
-        llvm::errs() << "couldn't get mapping from metadata.\n";
+      if (!Mapping)
         continue;
-      }
       
       auto RawPtr = Mapping.get();
       auto Values = RawPtr->getValues();
@@ -247,37 +234,93 @@ MappedModule::~MappedModule() = default;
 
 MappedAST const *
 MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
-  // check lookup to see if we've already loaded the AST
+  // TODO: We should return a seec::Error when this is unsuccessful, so that
+  //       we can describe the problem to the user rather than asserting.
+  
+  // Check lookup to see if we've already loaded the AST.
   auto It = ASTLookup.find(FileNode);
   if (It != ASTLookup.end())
     return It->second;
 
-  // if not, try to load the AST from the source file
-  auto FilePath = getPathFromFileNode(FileNode);
-  if (FilePath.empty())
+  // If not, we will try to load the AST from the source file.
+  auto const FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
+  auto const FileCompileInfo =
+    getCompileInfoForMainFile(FilenameStr->getString());
+  
+  if (!FileCompileInfo) {
+    ASTLookup[FileNode] = nullptr;
     return nullptr;
-    
-  // llvm::errs() << "Compile for " << FilePath.c_str() << "\n";
-
-  auto CI = GetCompileForSourceFile(FilePath.c_str(),
+  }
+  
+  auto FilePath = getPathFromFileNode(FileNode);
+  if (FilePath.empty()) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  auto CI = GetCompileForSourceFile(FilenameStr->getString().str().c_str(),
                                     ExecutablePath,
-                                    Diags);
+                                    Diags,
+                                    /* CheckInputExists */ false);
   if (!CI) {
     ASTLookup[FileNode] = nullptr;
     return nullptr;
   }
-
-  auto AST = MappedAST::LoadFromCompilerInvocation(std::move(CI), Diags);
+  
+  auto const Invocation = CI.release();
+  
+  // Create a new ASTUnit.
+  std::unique_ptr< ::clang::ASTUnit > ASTUnit {
+    ::clang::ASTUnit::create(Invocation,
+                             Diags,
+                             false /* CaptureDiagnostics */,
+                             false /* UserFilesAreVolatile */)
+  };
+  
+  if (!ASTUnit) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  // Override files in ASTUnit using compile info.
+  auto &FileMgr = ASTUnit->getFileManager();
+  auto &SrcMgr = ASTUnit->getSourceManager();
+  
+  for (auto const &FileInfo : FileCompileInfo->getSourceFiles()) {
+    auto &Contents = FileInfo.getContents();
+    
+    auto const Entry = FileMgr.getVirtualFile(FileInfo.getName(),
+                                              Contents.getBufferSize(),
+                                              0 /* ModificationTime */);
+    
+    SrcMgr.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
+  }
+  
+  // Load the ASTUnit.
+  auto const LoadedASTUnit =
+    ::clang::ASTUnit::LoadFromCompilerInvocationAction(Invocation,
+                                                       Diags,
+                                                       nullptr /* Action */,
+                                                       ASTUnit.get(),
+                                                       true /* Persistent */);
+  
+  if (!LoadedASTUnit) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  // Create MappedAST from ASTUnit.
+  auto AST = MappedAST::FromASTUnit(ASTUnit.release());
   if (!AST) {
     ASTLookup[FileNode] = nullptr;
     return nullptr;
   }
 
-  // get the raw pointer, because we have to push the unique_ptr onto the list
-  auto ASTRaw = AST.get();
+  // Get the raw pointer, because we have to push the unique_ptr onto the list.
+  auto const ASTRaw = AST.get();
 
   ASTLookup[FileNode] = ASTRaw;
-  ASTList.push_back(std::move(AST));
+  ASTList.emplace_back(std::move(AST));
 
   return ASTRaw;
 }
