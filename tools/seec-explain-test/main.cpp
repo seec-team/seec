@@ -99,7 +99,8 @@ int main(int argc, char **argv, char * const *envp) {
   auto Invocation =
     seec::seec_clang::GetCompileForSourceFile(InputFile.c_str(),
                                               ExecutablePath.str(),
-                                              Diagnostics);
+                                              Diagnostics,
+                                              /* CheckInputExists */ true);
   
   if (!Invocation) {
     llvm::errs() << "Couldn't get CompilerInvocation.\n";

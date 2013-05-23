@@ -30,50 +30,63 @@ enum class MemoryPermission : uint8_t {
 };
 
 
+/// \brief Represents a contiguous range of memory.
 ///
 class MemoryArea : public Interval<uintptr_t> {
   MemoryPermission Access;
   
 public:
-  /// Default constructor.
+  /// \brief Default constructor.
+  ///
   MemoryArea()
+  noexcept
   : Interval(Interval<uintptr_t>::withStartEnd(0, 0)),
     Access(MemoryPermission::ReadWrite)
   {}
 
-  /// Initializing constructor.
+  /// \brief Initializing constructor.
+  ///
   MemoryArea(uintptr_t Address, std::size_t Length)
+  noexcept
   : Interval(Interval<uintptr_t>::withStartLength(Address, Length)),
     Access(MemoryPermission::ReadWrite)
   {}
   
-  /// Initializing constructor.
+  /// \brief Initializing constructor.
+  ///
   MemoryArea(uintptr_t Address, std::size_t Length, MemoryPermission Access)
+  noexcept
   : Interval(Interval<uintptr_t>::withStartLength(Address, Length)),
     Access(Access)
   {}
 
-  /// Initializing constructor.
+  /// \brief Initializing constructor.
+  ///
   MemoryArea(void const *Start, std::size_t Length)
+  noexcept
   : Interval(
       Interval<uintptr_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
                                            static_cast<uintptr_t>(Length))),
     Access(MemoryPermission::ReadWrite)
   {}
   
-  /// Initializing constructor.
+  /// \brief Initializing constructor.
+  ///
   MemoryArea(void const *Start, std::size_t Length, MemoryPermission Access)
+  noexcept
   : Interval(
       Interval<uintptr_t>::withStartLength(reinterpret_cast<uintptr_t>(Start),
                                            static_cast<uintptr_t>(Length))),
     Access(Access)
   {}
 
-  /// Copy constructor.
-  MemoryArea(MemoryArea const &Other) = default;
+  /// \brief Copy constructor.
+  ///
+  MemoryArea(MemoryArea const &Other) noexcept = default;
 
-  /// Copy assignment.
-  MemoryArea &operator=(MemoryArea const &RHS) = default;
+  /// \brief Copy assignment.
+  ///
+  MemoryArea &operator=(MemoryArea const &RHS) noexcept = default;
 
 
   /// \name Accessors

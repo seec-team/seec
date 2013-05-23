@@ -30,6 +30,11 @@ namespace llvm {
 
 namespace seec {
 
+namespace seec_clang {
+  class MappedAST;
+  class MappedFunctionDecl;
+} // namespace seec_clang (in seec)
+
 namespace trace {
   class FunctionState;
 } // namespace trace (in seec)
@@ -54,6 +59,9 @@ class FunctionState {
   
   /// The base (unmapped) state.
   seec::trace::FunctionState &UnmappedState;
+  
+  /// The mapping information for this function.
+  seec::seec_clang::MappedFunctionDecl const *Mapping;
   
   /// The mapped parameters.
   std::vector<AllocaState> Parameters;
@@ -127,6 +135,10 @@ public:
   /// \brief Get a name for this function.
   ///
   std::string getNameAsString() const;
+  
+  /// \brief Get the mapped AST that this function belongs to.
+  ///
+  seec::seec_clang::MappedAST const *getMappedAST() const;
   
   /// @} (Accessors.)
   

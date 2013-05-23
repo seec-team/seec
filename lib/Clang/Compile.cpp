@@ -95,12 +95,16 @@ bool SeeCASTConsumer::VisitDecl(Decl *D) {
 std::unique_ptr<CompilerInvocation>
 GetCompileForSourceFile(char const *Filename,
                         StringRef ExecutablePath,
-                        IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics) {
+                        IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics,
+                        bool const CheckInputExists)
+{
   // Create a driver to build the compilation
   driver::Driver Driver(ExecutablePath.str(),
                         llvm::sys::getDefaultTargetTriple(),
                         "a.out",
                         *Diagnostics);
+  
+  Driver.setCheckInputsExist(CheckInputExists);
 
   // Find the location of the Clang resources, which should be fixed relative
   // to our executable path.

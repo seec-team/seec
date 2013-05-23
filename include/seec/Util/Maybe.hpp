@@ -583,6 +583,15 @@ public:
     typedef typename maybe_impl::MaybeValue<I, StoreT> ValueT;
     return ValueT::get(Store);
   }
+  
+  /// \brief Get an rvalue reference to the I-th element of this Maybe.
+  ///
+  template<uint8_t I>
+  typename maybe_impl::MaybeValue<I, StoreT>::type &&
+  move()
+  {
+    return std::move(get<I>());
+  }
 
   /// \brief Get a reference to the first element with type T.
   template<typename T>
@@ -611,6 +620,14 @@ public:
     
     typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
     return ValueT::get(Store);
+  }
+  
+  /// \brief Get an rvalue reference to the first element with type T.
+  ///
+  template<typename T>
+  T &&move()
+  {
+    return std::move(get<T>());
   }
 };
 

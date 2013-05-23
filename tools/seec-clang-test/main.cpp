@@ -85,7 +85,8 @@ int main(int argc, char **argv, char * const *envp) {
   // Get a CompilerInvocation to parse+sema a single C99 source file
   auto Invocation = GetCompileForSourceFile(InputFile.c_str(),
                                             ExecutablePath.str(),
-                                            Diagnostics);
+                                            Diagnostics,
+                                            /* CheckInputExists */ true);
 
   // Make Clang emit metadata with pointers to Decls
   Invocation->getCodeGenOpts().EmitDeclMetadata = 1;

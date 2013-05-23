@@ -205,6 +205,8 @@ public:
     FileInfo &operator=(FileInfo &&RHS) = default;
     
     std::string const &getName() const { return Name; }
+    
+    llvm::MemoryBuffer const &getContents() const { return *Contents; }
   };
   
 private:
@@ -220,10 +222,12 @@ private:
   /// Arguments for the invocation of this compilation.
   std::vector<std::string> InvocationArguments;
   
-  MappedCompileInfo(std::string &&TheDirectory,
-                    std::string &&TheMainFileName,
-                    std::vector<FileInfo> &&TheSourceFiles,
-                    std::vector<std::string> &&TheInvocationArguments)
+  /// \brief Constructor.
+  ///
+  MappedCompileInfo(std::string TheDirectory,
+                    std::string TheMainFileName,
+                    std::vector<FileInfo> TheSourceFiles,
+                    std::vector<std::string> TheInvocationArguments)
   : MainDirectory(std::move(TheDirectory)),
     MainFileName(std::move(TheMainFileName)),
     SourceFiles(std::move(TheSourceFiles)),
@@ -233,11 +237,23 @@ private:
 public:
   static std::unique_ptr<MappedCompileInfo> get(llvm::MDNode *CompileInfo);
   
+  /// \brief Move constructor.
+  ///
   MappedCompileInfo(MappedCompileInfo &&Other) = default;
   
+  /// \brief Move assignment.
+  ///
   MappedCompileInfo &operator=(MappedCompileInfo &&RHS) = default;
   
+  /// \brief Get the name of the main file for this compilation
+  ///
   std::string const &getMainFileName() const { return MainFileName; }
+  
+  /// \brief Get information about all source files used in this compilation.
+  ///
+  decltype(SourceFiles) const &getSourceFiles() const {
+    return SourceFiles;
+  }
 };
 
 
@@ -391,6 +407,21 @@ public:
   /// that it belongs to.
   std::pair<clang::Stmt const *, MappedAST const *>
   getStmtAndMappedAST(llvm::Instruction const *I) const;
+  
+  /// @}
+  
+  
+  /// \name Mapped compilation info.
+  /// @{
+  
+  /// \name Get mapped compile info for a main file, if it exists.
+  ///
+  MappedCompileInfo const *
+  getCompileInfoForMainFile(std::string const &Path) const {
+    auto const It = CompileInfo.find(Path);
+    return It != CompileInfo.end() ? It->second.get()
+                                   : nullptr;
+  }
   
   /// @}
   
