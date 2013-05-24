@@ -8,9 +8,19 @@ execute_process(
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
+# Determine ICU libraries that we need
+execute_process(
+ COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+ OUTPUT_VARIABLE REQ_ICU_LIBRARIES
+)
+string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
+string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+
 target_link_libraries(seec-clang-test
  # SeeC libraries
  SeeCClang
+ SeeCICU
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangCodeGen.a
@@ -28,6 +38,9 @@ target_link_libraries(seec-clang-test
 
  # LLVM libraries
  ${REQ_LLVM_LIBRARIES}
+
+ # ICU libraries
+ ${REQ_ICU_LIBRARIES}
 )
 
 INSTALL(TARGETS seec-clang-test

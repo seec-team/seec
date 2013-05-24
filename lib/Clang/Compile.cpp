@@ -54,7 +54,7 @@ namespace seec_clang {
 ASTConsumer *
 SeeCCodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   auto CodeGenConsumer = CodeGenAction::CreateASTConsumer(CI, InFile);
-  return new SeeCASTConsumer(*this, CI, CodeGenConsumer);
+  return new SeeCASTConsumer(*this, CodeGenConsumer);
 }
 
 //===----------------------------------------------------------------------===//
@@ -89,20 +89,22 @@ bool SeeCASTConsumer::VisitDecl(Decl *D) {
   return true;
 }
 
+
 //===----------------------------------------------------------------------===//
-// GetCompileForSourceFile
+// getCompileArgumentsDefault
 //===----------------------------------------------------------------------===//
-std::unique_ptr<CompilerInvocation>
-GetCompileForSourceFile(char const *Filename,
-                        StringRef ExecutablePath,
-                        IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics,
-                        bool const CheckInputExists)
+
+seec::Maybe<std::vector<std::string>, seec::Error>
+getCompileArgumentsDefault(char const *Filename,
+                           llvm::StringRef ExecutablePath,
+                           DiagnosticsEngine &Diagnostics,
+                           bool CheckInputExists)
 {
   // Create a driver to build the compilation
   driver::Driver Driver(ExecutablePath.str(),
                         llvm::sys::getDefaultTargetTriple(),
                         "a.out",
-                        *Diagnostics);
+                        Diagnostics);
   
   Driver.setCheckInputsExist(CheckInputExists);
 
@@ -130,9 +132,13 @@ GetCompileForSourceFile(char const *Filename,
   }
   
   if (!ResourcePath.canRead()) {
-    llvm::errs() << "Couldn't find resources!\n";
-    llvm::errs() << "Path = " << ResourcePath.str() << "\n";
-    exit(EXIT_FAILURE);
+    return
+      seec::Error(
+        LazyMessageByRef::create("SeeCClang",
+                                 {"errors",
+                                  "ResourcePathUnreadable"},
+                                 std::make_pair("path",
+                                                ResourcePath.str().c_str())));
   }
   
   Driver.ResourceDir = ResourcePath.str();
@@ -153,30 +159,92 @@ GetCompileForSourceFile(char const *Filename,
 
   std::unique_ptr<driver::Compilation> Compilation
     (Driver.BuildCompilation(CompilationArgs));
-  if (!Compilation)
-    return nullptr; // TODO: emit error to diagnostics?
+  
+  if (!Compilation) {
+    return seec::Error(
+              LazyMessageByRef::create("SeeCClang",
+                                       {"errors",
+                                        "DriverBuildCompilationFailed"}));
+  }
 
   driver::JobList &Jobs = Compilation->getJobs();
-  if (Jobs.size() != 1)
-    return nullptr;
+  
+  if (Jobs.size() != 1) {
+    return
+      seec::Error(
+        LazyMessageByRef::create("SeeCClang",
+                                 {"errors",
+                                  "CompilationJobsSizeUnexpected"},
+                                 std::make_pair("size",
+                                                int64_t(Jobs.size()))));
+  }
 
   driver::Command *Command = dyn_cast<driver::Command>(*Jobs.begin());
-  if (!Command)
-    return nullptr;
+  
+  if (!Command) {
+    return seec::Error(
+              LazyMessageByRef::create("SeeCClang",
+                                       {"errors",
+                                        "JobCommandNull"}));
+  }
 
-  if (StringRef(Command->getCreator().getName()) != "clang")
-    return nullptr;
+  if (StringRef(Command->getCreator().getName()) != "clang") {
+    return seec::Error(
+              LazyMessageByRef::create("SeeCClang",
+                                       {"errors",
+                                        "JobCommandNotClang"}));
+  }
 
+  // Convert the arguments into std::strings and return them.
   driver::ArgStringList const &Args = Command->getArguments();
+  
+  std::vector<std::string> StringArgs;
+  StringArgs.reserve(Args.size());
+  
+  for (auto const &Arg : Args)
+    StringArgs.emplace_back(Arg);
+  
+  return StringArgs;
+}
 
+
+//===----------------------------------------------------------------------===//
+// GetCompileForSourceFile
+//===----------------------------------------------------------------------===//
+
+std::unique_ptr<CompilerInvocation>
+GetCompileForSourceFile(char const *Filename,
+                        StringRef ExecutablePath,
+                        IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics,
+                        bool const CheckInputExists)
+{
+  auto MaybeStringArgs = getCompileArgumentsDefault(Filename,
+                                                    ExecutablePath,
+                                                    *Diagnostics,
+                                                    CheckInputExists);
+  
+  if (MaybeStringArgs.assigned<seec::Error>()) {
+    // TODO: Return seec::Error.
+    return nullptr;
+  }
+  
+  auto &StringArgs = MaybeStringArgs.get<std::vector<std::string>>();
+  
+  std::vector<char const *> Args;
+  
+  for (auto &String : StringArgs)
+    Args.emplace_back(String.c_str());
+  
   std::unique_ptr<CompilerInvocation> Invocation (new CompilerInvocation());
-
+  
   bool Created = CompilerInvocation::CreateFromArgs(*Invocation,
                                                     Args.data() + 1,
                                                     Args.data() + Args.size(),
                                                     *Diagnostics);
-  if (!Created)
+  if (!Created) {
+    // TODO: Return seec::Error.
     return nullptr;
+  }
 
   return Invocation;
 }
@@ -285,9 +353,6 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
         {
           auto It = StmtMap.find(S);
           if (It != StmtMap.end()) {
-            llvm::errs() << "Marking " << S->getStmtClassName()
-                         << " Stmt with index " << It->second << "\n";
-            
             Value *Ops[] {
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // StmtIdx
@@ -304,9 +369,6 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
         {
           auto It = DeclMap.find(D);
           if (It != DeclMap.end()) {
-            llvm::errs() << "Marking " << D->getDeclKindName()
-                         << " Decl with index " << It->second << "\n";
-            
             Value *Ops[] {
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // DeclIdx
@@ -323,9 +385,6 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
         {
           auto It = DeclMap.find(D);
           if (It != DeclMap.end()) {
-            llvm::errs() << "Marking " << D->getDeclKindName()
-                         << " Decl with index " << It->second << "\n";
-            
             Value *Ops[] {
               MainFileNode,
               ConstantInt::get(Int64Ty, It->second) // DeclIdx
@@ -355,10 +414,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       auto D = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
 
       auto It = DeclMap.find(D);
-      if (It == DeclMap.end()) {
-        llvm::errs() << "couldn't map clang::Decl.\n";
+      if (It == DeclMap.end())
         continue;
-      }
       
       llvm::Value *Ops[] = {
         MainFileNode,
@@ -394,10 +451,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       assert(Stmt && "Couldn't get clang::Stmt pointer.");
       
       auto It = StmtMap.find(Stmt);
-      if (It == StmtMap.end()) {
-        llvm::errs() << "couldn't map clang::Stmt.\n";
+      if (It == StmtMap.end())
         continue;
-      }
       
       llvm::Value *StmtIdentifierOps[] = {
         MainFileNode,

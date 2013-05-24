@@ -258,15 +258,26 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
     return nullptr;
   }
   
-  auto CI = GetCompileForSourceFile(FilenameStr->getString().str().c_str(),
-                                    ExecutablePath,
-                                    Diags,
-                                    /* CheckInputExists */ false);
-  if (!CI) {
+  // We have the original compile arguments, so we can build a compiler
+  // invocation from that.
+  auto const &StringArgs = FileCompileInfo->getInvocationArguments();
+  
+  std::vector<char const *> Args;
+  
+  for (auto &String : StringArgs)
+    Args.emplace_back(String.c_str());
+  
+  std::unique_ptr<CompilerInvocation> CI {new CompilerInvocation()};
+  
+  bool Created = CompilerInvocation::CreateFromArgs(*CI,
+                                                    Args.data() + 1,
+                                                    Args.data() + Args.size(),
+                                                    *Diags);
+  if (!Created) {
     ASTLookup[FileNode] = nullptr;
     return nullptr;
   }
-  
+    
   auto const Invocation = CI.release();
   
   // Create a new ASTUnit.

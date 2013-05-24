@@ -20,6 +20,21 @@ root:table {
     SourceLocationInvalid:string {
       "Invalid source location."
     }
+
+    //
+    ResourcePathUnreadable:string { "Couldn't find resources directory (expected to be \"{path}\")." }
+
+    //
+    DriverBuildCompilationFailed:string { "Driver failed to build compilation." }
+
+    //
+    CompilationJobsSizeUnexpected:string { "Unexpected number of driver jobs: {size} (expected one)." }
+
+    //
+    JobCommandNull:string { "Job is not a Command." }
+
+    //
+    JobCommandNotClang:string { "Job is not clang." }
   }
 
   // Contains formatting for printing state information.

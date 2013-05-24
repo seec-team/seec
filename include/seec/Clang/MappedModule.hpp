@@ -254,6 +254,12 @@ public:
   decltype(SourceFiles) const &getSourceFiles() const {
     return SourceFiles;
   }
+  
+  /// \brief Get the arguments used for this compilation.
+  ///
+  decltype(InvocationArguments) const &getInvocationArguments() const {
+    return InvocationArguments;
+  }
 };
 
 

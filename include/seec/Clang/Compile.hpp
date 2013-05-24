@@ -14,6 +14,9 @@
 #ifndef SEEC_CLANG_COMPILE_HPP
 #define SEEC_CLANG_COMPILE_HPP
 
+#include "seec/Util/Error.hpp"
+#include "seec/Util/Maybe.hpp"
+
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/DeclGroup.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -99,16 +102,12 @@ class SeeCASTConsumer
 {
   SeeCCodeGenAction &Action;
 
-  clang::CompilerInstance &CI;
-
   std::unique_ptr<clang::ASTConsumer> Child;
 
 public:
   SeeCASTConsumer(SeeCCodeGenAction &Action,
-                  clang::CompilerInstance &CI,
                   clang::ASTConsumer *Child)
   : Action(Action),
-    CI(CI),
     Child(Child)
   {}
 
@@ -171,6 +170,15 @@ public:
 
   /// \}
 };
+
+/// \brief Get the arguments to compile a single C99 source file.
+///
+seec::Maybe<std::vector<std::string>, seec::Error>
+getCompileArgumentsDefault(char const *Filename,
+                           llvm::StringRef ExecutablePath,
+                           clang::DiagnosticsEngine &Diagnostics,
+                           bool CheckInputExists);
+
 
 ///
 /// \param Filename The source file to be compiled.

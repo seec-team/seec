@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/Compile.hpp"
+#include "seec/ICU/Output.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -29,6 +30,9 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
+
+#include "unicode/locid.h"
+#include "unicode/unistr.h"
 
 #include <string>
 
@@ -81,17 +85,47 @@ int main(int argc, char **argv, char * const *envp) {
         false);
 
   Diagnostics->setSuppressSystemWarnings(true);
+  
+  // Get the arguments to compile a single C99 source file.
+  auto MaybeArgs = getCompileArgumentsDefault(InputFile.c_str(),
+                                              ExecutablePath.str(),
+                                              *Diagnostics,
+                                              /* CheckInputExists */ true);
+  
+  if (MaybeArgs.assigned<seec::Error>()) {
+    // TODO: Report error to user.
+    auto const &Error = MaybeArgs.get<seec::Error>();
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Str = Error.getMessage(Status, Locale{});
+    
+    if (U_SUCCESS(Status))
+      llvm::errs() << Str << "\n";
+    
+    exit(EXIT_FAILURE);
+  }
+  
+  // Create the CompilerInvocation (this requires the arguments to be an array
+  // of C strings).
+  auto &StringArgs = MaybeArgs.get<std::vector<std::string>>();
+  
+  std::vector<char const *> Args;
+  
+  for (auto &String : StringArgs)
+    Args.emplace_back(String.c_str());
+  
+  std::unique_ptr<CompilerInvocation> Invocation {new CompilerInvocation()};
+  
+  bool Created = CompilerInvocation::CreateFromArgs(*Invocation,
+                                                    Args.data() + 1,
+                                                    Args.data() + Args.size(),
+                                                    *Diagnostics);
+  if (!Created)
+    exit(EXIT_FAILURE);
 
-  // Get a CompilerInvocation to parse+sema a single C99 source file
-  auto Invocation = GetCompileForSourceFile(InputFile.c_str(),
-                                            ExecutablePath.str(),
-                                            Diagnostics,
-                                            /* CheckInputExists */ true);
-
-  // Make Clang emit metadata with pointers to Decls
+  // Make Clang emit metadata with pointers to Decls.
   Invocation->getCodeGenOpts().EmitDeclMetadata = 1;
 
-  // Make an action to generate an LLVM Module (in memory only)
+  // Make an action to generate an LLVM Module (in memory only).
   OwningPtr<SeeCCodeGenAction> Action(new SeeCCodeGenAction());
 
   // Create a compiler instance to handle the actual work.
@@ -129,8 +163,7 @@ int main(int argc, char **argv, char * const *envp) {
                                InputFile);
   
   // Store all used source files into the LLVM Module.
-  std::vector<std::string> Args;
-  StoreCompileInformationInModule(Mod, Compiler, Args);
+  StoreCompileInformationInModule(Mod, Compiler, StringArgs);
 
   // Write the LLVM Module to a file.
   raw_fd_ostream ModOut(ModuleOutputFile.c_str(), FileError);
