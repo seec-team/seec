@@ -14,102 +14,94 @@
 #ifndef SEEC_TRACE_VIEW_THREADTIMECONTROL_HPP
 #define SEEC_TRACE_VIEW_THREADTIMECONTROL_HPP
 
-#include "seec/Trace/ProcessState.hpp"
-#include "seec/Trace/ThreadState.hpp"
 
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <memory>
+
 
 // Forward-declarations.
-class OpenTrace;
-
-namespace seec {
-  namespace trace {
-    class ThreadTrace;
-  } // namespace trace (in seec)
-} // namespace seec
+class StateAccessToken;
 
 
-/// \brief Represents events concerning the ThreadTime of a thread.
+/// \brief Represents events requesting thread movement.
 ///
-class ThreadTimeEvent : public wxEvent
+class ThreadMoveEvent : public wxEvent
 {
-  /// The Thread ID of the thread associated with this event.
-  uint32_t ThreadID;
+public:
+  enum class DirectionTy {
+    Forward,
+    Backward
+  };
 
-  /// The thread time associated with this event.
-  uint64_t ThreadTime;
+private:
+  /// The thread associated with this event.
+  size_t ThreadIndex;
+  
+  /// The direction to move the thread.
+  DirectionTy Direction; 
 
 public:
   // Make this class known to wxWidgets' class hierarchy.
-  wxDECLARE_CLASS(ThreadTimeEvent);
+  wxDECLARE_CLASS(ThreadMoveEvent);
 
-  /// Constructor.
-  ThreadTimeEvent(wxEventType EventType,
+  /// \brief Constructor.
+  ///
+  ThreadMoveEvent(wxEventType EventType,
                   int WinID,
-                  uint32_t ThreadID,
-                  uint64_t ThreadTime)
+                  size_t ForThreadIndex,
+                  DirectionTy WithDirection)
   : wxEvent(WinID, EventType),
-    ThreadID(ThreadID),
-    ThreadTime(ThreadTime)
+    ThreadIndex(ForThreadIndex),
+    Direction(WithDirection)
   {
     this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
   }
 
-  /// Copy constructor.
-  ThreadTimeEvent(ThreadTimeEvent const &Ev)
+  /// \brief Copy constructor.
+  ///
+  ThreadMoveEvent(ThreadMoveEvent const &Ev)
   : wxEvent(Ev),
-    ThreadID(Ev.ThreadID),
-    ThreadTime(Ev.ThreadTime)
+    ThreadIndex(Ev.ThreadIndex),
+    Direction(Ev.Direction)
   {
     this->m_propagationLevel = Ev.m_propagationLevel;
   }
 
-  /// wxEvent::Clone().
-  virtual wxEvent *Clone() const { return new ThreadTimeEvent(*this); }
+  /// \brief wxEvent::Clone().
+  ///
+  virtual wxEvent *Clone() const {
+    return new ThreadMoveEvent(*this);
+  }
 
   /// \name Accessors
   /// @{
-
-  /// Get the Thread ID of the thread associated with this event.
-  uint32_t getThreadID() const { return ThreadID; }
-
-  /// Get the ThreadTime associated with this event.
-  uint64_t getThreadTime() const { return ThreadTime; }
-
+  
+  size_t getThreadIndex() const { return ThreadIndex; }
+  
+  DirectionTy getDirection() const { return Direction; }
+  
   /// @}
 };
 
 // Produced when the user changes the thread time.
-wxDECLARE_EVENT(SEEC_EV_THREAD_TIME_CHANGED, ThreadTimeEvent);
+wxDECLARE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 
-// Produced when the user is "viewing" a thread time (e.g. mouse-over).
-wxDECLARE_EVENT(SEEC_EV_THREAD_TIME_VIEWED, ThreadTimeEvent);
-
-/// Used inside an event table to catch SEEC_EV_THREAD_TIME_CHANGED.
-#define SEEC_EVT_THREAD_TIME_CHANGED(id, func) \
-  wx__DECLARE_EVT1(SEEC_EV_THREAD_TIME_CHANGED, id, (&func))
-
-/// Used inside an event table to catch SEEC_EV_THREAD_TIME_VIEWED.
-#define SEEC_EVT_PROCESS_TIME_VIEWED(id, func) \
-  wx__DECLARE_EVT1(SEEC_EV_PROCESS_TIME_VIEWED, id, (&func))
+/// Used inside an event table to catch SEEC_EV_THREAD_MOVE.
+#define SEEC_EVT_THREAD_MOVE(id, func) \
+  wx__DECLARE_EVT1(SEEC_EV_THREAD_MOVE, id, (&func))
 
 
 /// \brief A control that allows the user to navigate through the ThreadTime.
 ///
 class ThreadTimeControl : public wxPanel
 {
-  /// Information about the currently open trace (if any).
-  OpenTrace *Trace;
-
-  /// Trace for the thread that we're controlling.
-  seec::trace::ThreadTrace const *ThreadTrace;
-
-  /// State of the thread that we're controlling.
-  seec::trace::ThreadState const *ThreadState;
-
+  std::shared_ptr<StateAccessToken> CurrentAccess;
+  
+  size_t CurrentThreadIndex;
+  
 public:
   // Make this class known to wxWidgets' class hierarchy, and dynamically
   // creatable.
@@ -118,52 +110,59 @@ public:
   /// \brief Constructor (without creation).
   /// A ThreadTimeControl constructed with this constructor must later be
   /// created by calling Create().
+  ///
   ThreadTimeControl()
   : wxPanel(),
-    Trace(nullptr),
-    ThreadTrace(nullptr),
-    ThreadState(nullptr)
+    CurrentAccess(),
+    CurrentThreadIndex()
   {}
 
   /// \brief Constructor (with creation).
+  ///
   ThreadTimeControl(wxWindow *Parent,
-                    OpenTrace &TheTrace,
-                    seec::trace::ThreadTrace const &TheThreadTrace,
                     wxWindowID ID = wxID_ANY)
   : wxPanel(),
-    Trace(nullptr),
-    ThreadTrace(nullptr),
-    ThreadState(nullptr)
+    CurrentAccess(),
+    CurrentThreadIndex()
   {
-    Create(Parent, TheTrace, TheThreadTrace, ID);
+    Create(Parent, ID);
   }
 
-  /// Create this object (if it was not created by the constructor).
+  /// \brief Create this object (if it was not created by the constructor).
+  ///
   bool Create(wxWindow *Parent,
-              OpenTrace &TheTrace,
-              seec::trace::ThreadTrace const &TheThreadTrace,
               wxWindowID ID = wxID_ANY);
+  
+  /// \brief Destructor.
+  ///
+  virtual ~ThreadTimeControl();
 
-  /// Update this control to reflect the given state.
-  void show(seec::trace::ProcessState &ProcessState,
-            seec::trace::ThreadState &ThreadState);
+  /// \brief Update this control to reflect the given state.
+  ///
+  void show(std::shared_ptr<StateAccessToken> Access,
+            size_t ThreadIndex);
 
   /// \name Event Handlers
   /// @{
 
-  /// Called when the GoToStart button is clicked.
+  /// \brief Called when the GoToStart button is clicked.
+  ///
   void OnGoToStart(wxCommandEvent &Event);
 
-  /// Called when the StepBack button is clicked.
+  /// \brief Called when the StepBack button is clicked.
+  ///
   void OnStepBack(wxCommandEvent &Event);
 
-  /// Called when the StepForward button is clicked.
+  /// \brief Called when the StepForward button is clicked.
+  ///
   void OnStepForward(wxCommandEvent &Event);
 
-  /// Called when the GoToNextError button is clicked.
+  /// \brief Called when the GoToNextError button is clicked.
+  ///
   void OnGoToNextError(wxCommandEvent &Event);
 
-  /// Called when the GoToEnd button is clicked.
+  /// \brief Called when the GoToEnd button is clicked.
+  ///
   void OnGoToEnd(wxCommandEvent &Event);
 
   /// @} (Event Handlers)

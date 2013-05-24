@@ -14,14 +14,14 @@
 #ifndef SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP
 
-#include "seec/Clang/MappedValue.hpp"
-
 #include <wx/wx.h>
 #include <wx/scrolwin.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <vector>
 
+
+#if 0 // NEEDS UPDATING TO USE seec::cm
 
 class FunctionStateViewerPanel;
 class OpenTrace;
@@ -86,5 +86,7 @@ public:
   void showState(seec::trace::ThreadState const &State,
                  std::shared_ptr<seec::cm::ValueStore const> ValueStore);
 };
+
+#endif // NEEDS UPDATING TO USE seec::cm
 
 #endif // SEEC_TRACE_VIEW_THREADSTATEVIEWER_HPP

@@ -29,16 +29,21 @@
 
 
 // Forward declarations.
-
 namespace clang {
   class Decl;
   class Stmt;
 } // namespace clang
 
+namespace seec {
+  namespace cm {
+    class FunctionState;
+  }
+}
+
 
 /// \brief ExplanationViewer.
 ///
-class ExplanationViewer : public wxStyledTextCtrl
+class ExplanationViewer final : public wxStyledTextCtrl
 {
   /// Hold current explanatory material.
   std::unique_ptr<seec::clang_epv::Explanation> Explanation;
@@ -53,13 +58,16 @@ class ExplanationViewer : public wxStyledTextCtrl
   ::clang::Stmt const *HighlightedStmt;
   
   /// \brief Set the contents of this viewer.
+  ///
   void setText(wxString const &Value);
   
   /// \brief Clear the current information.
+  ///
   void clearCurrent();
   
 public:
   /// \brief Construct without creating.
+  ///
   ExplanationViewer()
   : wxStyledTextCtrl(),
     Explanation(),
@@ -69,6 +77,7 @@ public:
   {}
 
   /// \brief Construct and create.
+  ///
   ExplanationViewer(wxWindow *Parent,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
@@ -83,9 +92,11 @@ public:
   }
 
   /// \brief Destructor.
+  ///
   virtual ~ExplanationViewer();
 
   /// \brief Create the viewer.
+  ///
   bool Create(wxWindow *Parent,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
@@ -108,15 +119,18 @@ public:
   /// @{
   
   /// \brief Attempt to show an explanation for the given Decl.
+  ///
   void showExplanation(::clang::Decl const *Decl);
   
   /// \brief Attempt to show an explanation for the given Stmt.
+  ///
+  /// pre: Caller must have locked access to the state containing InFunction.
+  ///
   void showExplanation(::clang::Stmt const *Statement,
-                       seec::seec_clang::MappedModule const &Mapping,
-                       seec::trace::FunctionState const &FunctionState,
-                       std::shared_ptr<seec::cm::ValueStore const> ValueStore);
+                       ::seec::cm::FunctionState const &InFunction);
   
   /// \brief Clear the display.
+  ///
   void clearExplanation();
   
   /// @} (Mutators)

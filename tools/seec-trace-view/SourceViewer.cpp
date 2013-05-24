@@ -11,25 +11,21 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/MappedStmt.hpp"
-#include "seec/Clang/MappedValue.hpp"
-#include "seec/Clang/SourceMapping.hpp"
+#include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedModule.hpp"
+#include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
-#include "seec/Trace/ProcessState.hpp"
-#include "seec/Trace/RuntimeValue.hpp"
-#include "seec/Trace/ThreadState.hpp"
-#include "seec/Trace/TraceSearch.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
-#include "clang/AST/Decl.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Module.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/font.h>
@@ -39,13 +35,124 @@
 
 #include "ExplanationViewer.hpp"
 #include "HighlightEvent.hpp"
+#include "OpenTrace.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
-#include "OpenTrace.hpp"
+#include "TraceViewerFrame.hpp"
 
 #include <list>
 
-#define SEEC_SHOW_EXPLANATION 1
+
+//------------------------------------------------------------------------------
+// SourceFileRange
+//------------------------------------------------------------------------------
+
+/// \brief A range in a source file.
+///
+struct SourceFileRange {
+  clang::FileEntry const *File;
+  
+  unsigned Start;
+  
+  unsigned StartLine;
+  
+  unsigned StartColumn;
+  
+  unsigned End;
+  
+  unsigned EndLine;
+  
+  unsigned EndColumn;
+  
+  SourceFileRange()
+  : File(nullptr),
+    Start(0),
+    StartLine(0),
+    StartColumn(0),
+    End(0),
+    EndLine(0),
+    EndColumn(0)
+  {}
+  
+  SourceFileRange(clang::FileEntry const *WithFile,
+                  unsigned WithStart,
+                  unsigned WithStartLine,
+                  unsigned WithStartColumn,
+                  unsigned WithEnd,
+                  unsigned WithEndLine,
+                  unsigned WithEndColumn)
+  : File(WithFile),
+    Start(WithStart),
+    StartLine(WithStartLine),
+    StartColumn(WithStartColumn),
+    End(WithEnd),
+    EndLine(WithEndLine),
+    EndColumn(WithEndColumn)
+  {}
+};
+
+/// \brief Get the range in the outermost file of two locations.
+///
+static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
+                                         clang::SourceLocation End,
+                                         clang::ASTContext const &AST)
+{
+  auto const &SourceManager = AST.getSourceManager();
+  
+  // Find the first character in the first token.
+  while (Start.isMacroID())
+    Start = SourceManager.getExpansionLoc(Start);
+  
+  // Find the file that the first token belongs to.
+  auto const FileID = SourceManager.getFileID(Start);
+  auto const File = SourceManager.getFileEntryForID(FileID);
+  
+  // Find the first character in the last token.
+  while (End.isMacroID())
+    End = SourceManager.getExpansionLoc(End);
+  
+  if (SourceManager.getFileID(End) != FileID)
+    return SourceFileRange{};
+  
+  // Find the first character following the last token.
+  auto const FollowingEnd =
+    clang::Lexer::getLocForEndOfToken(End,
+                                      0,
+                                      SourceManager,
+                                      AST.getLangOpts());
+  
+  // Get the file offset of the start and end.
+  auto const StartOffset = SourceManager.getFileOffset(Start);
+  
+  auto const EndOffset = FollowingEnd.isValid()
+                       ? SourceManager.getFileOffset(FollowingEnd)
+                       : SourceManager.getFileOffset(End);
+  
+  return SourceFileRange(File,
+                         StartOffset,
+                         SourceManager.getLineNumber(FileID, StartOffset),
+                         SourceManager.getColumnNumber(FileID, StartOffset),
+                         EndOffset,
+                         SourceManager.getLineNumber(FileID, EndOffset),
+                         SourceManager.getColumnNumber(FileID, EndOffset));
+}
+
+/// \brief Get the range in the outermost file that contains a Stmt.
+///
+static SourceFileRange getRangeOutermost(::clang::Stmt const *Stmt,
+                                         ::clang::ASTContext const &AST)
+{
+  return getRangeOutermost(Stmt->getLocStart(), Stmt->getLocEnd(), AST);
+}
+
+/// \brief Get the range in the outermost file that contains a Decl.
+///
+static SourceFileRange getRangeOutermost(::clang::Decl const *Decl,
+                                         ::clang::ASTContext const &AST)
+{
+  return getRangeOutermost(Decl->getLocStart(), Decl->getLocEnd(), AST);
+}
+
 
 //------------------------------------------------------------------------------
 // SourceFilePanel
@@ -72,9 +179,6 @@ class SourceFilePanel : public wxPanel {
     {}
   };
   
-  
-  /// Path to the file.
-  llvm::sys::Path FilePath;
 
   /// Text control that displays the file.
   wxStyledTextCtrl *Text;
@@ -173,7 +277,6 @@ public:
   // \brief Construct without creating.
   SourceFilePanel()
   : wxPanel(),
-    FilePath(),
     Text(nullptr),
     StateIndications(),
     StateAnnotations(),
@@ -182,18 +285,17 @@ public:
 
   // \brief Construct and create.
   SourceFilePanel(wxWindow *Parent,
-                  llvm::sys::Path File,
+                  llvm::MemoryBuffer const &Buffer,
                   wxWindowID ID = wxID_ANY,
                   wxPoint const &Position = wxDefaultPosition,
                   wxSize const &Size = wxDefaultSize)
   : wxPanel(),
-    FilePath(),
     Text(nullptr),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators()
   {
-    Create(Parent, File, ID, Position, Size);
+    Create(Parent, Buffer, ID, Position, Size);
   }
 
   /// \brief Destructor.
@@ -201,14 +303,12 @@ public:
 
   /// \brief Create the panel.
   bool Create(wxWindow *Parent,
-              llvm::sys::Path File,
+              llvm::MemoryBuffer const &Buffer,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize) {
     if (!wxPanel::Create(Parent, ID, Position, Size))
       return false;
-
-    FilePath = File;
 
     Text = new wxStyledTextCtrl(this, wxID_ANY);
 
@@ -216,9 +316,7 @@ public:
     setSTCPreferences();
     
     // Load the source code into the Scintilla control.
-    if (!Text->LoadFile(FilePath.str())) {
-      // TODO: Insert a localized error message.
-    }
+    Text->SetText(wxString(Buffer.getBufferStart(), Buffer.getBufferSize()));
     
     setFileSpecificOptions();
 
@@ -375,7 +473,30 @@ public:
 // SourceViewerPanel
 //------------------------------------------------------------------------------
 
-SourceViewerPanel::~SourceViewerPanel() {}
+SourceViewerPanel::SourceViewerPanel()
+: wxPanel(),
+  Notebook(nullptr),
+  Trace(nullptr),
+  Pages(),
+  CurrentAccess()
+{}
+
+SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
+                                     OpenTrace const &TheTrace,
+                                     wxWindowID ID,
+                                     wxPoint const &Position,
+                                     wxSize const &Size)
+: wxPanel(),
+  Notebook(nullptr),
+  Trace(nullptr),
+  Pages(),
+  CurrentAccess()
+{
+  Create(Parent, TheTrace, ID, Position, Size);
+}
+
+SourceViewerPanel::~SourceViewerPanel()
+{}
 
 bool SourceViewerPanel::Create(wxWindow *Parent,
                                OpenTrace const &TheTrace,
@@ -396,30 +517,22 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_TAB_MOVE
                                | wxAUI_NB_SCROLL_BUTTONS);
   
-#if SEEC_SHOW_EXPLANATION
   ExplanationCtrl = new ExplanationViewer(this,
                                           wxID_ANY,
                                           wxDefaultPosition,
                                           wxSize(100, 100));
-#endif
 
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
-#if SEEC_SHOW_EXPLANATION
   TopSizer->Add(ExplanationCtrl, wxSizerFlags(0).Expand());
-#endif
   SetSizerAndFit(TopSizer);
   
   // Setup highlight event handling.
-  Bind(SEEC_EV_HIGHLIGHT_ON, &SourceViewerPanel::OnHighlightOn, this);
-  
+  Bind(SEEC_EV_HIGHLIGHT_ON,  &SourceViewerPanel::OnHighlightOn,  this);  
   Bind(SEEC_EV_HIGHLIGHT_OFF, &SourceViewerPanel::OnHighlightOff, this);
 
-  // Load all source files.
-  for (auto &MapFunctionPair : Trace->getMappedModule().getFunctionLookup()) {
-    addSourceFile(MapFunctionPair.second.getFilePath());
-  }
-
+  // TODO: Load all source files.
+  
   return true;
 }
 
@@ -428,407 +541,65 @@ void SourceViewerPanel::clear() {
   Pages.clear();
 }
 
-SourceFilePanel *SourceViewerPanel::showPageForFile(llvm::sys::Path const &File)
+void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
+                             seec::cm::ProcessState const &Process,
+                             seec::cm::ThreadState const &Thread)
 {
-  // Find the SourceFilePanel.
-  auto PageIt = Pages.find(File);
-  if (PageIt == Pages.end()) {
-    wxLogDebug("Couldn't find page for file.\n");
-    return nullptr;
-  }
-  
-  // Select the SourceFilePanel in the notebook.
-  Notebook->SetSelection(Notebook->GetPageIndex(PageIt->second));
-  
-  return PageIt->second;
-}
-
-void
-SourceViewerPanel::show(seec::trace::ProcessState const &State,
-                        std::shared_ptr<seec::cm::ValueStore const> ValueStore)
-{
-  // We want to show some information about the last action that modified the
-  // shared state of the process. This can occur for one of three reasons:
-  //  1) A function was entered (particularly main(), which causes argv and
-  //     envp to be visible in the memory state).
-  //  2) A function was exited.
-  //  3) An instruction changed the state.
-  //
-  // For all of these, the first thing we need to do is find an event that
-  // modified the shared process state during the most recent process time
-  // update.
+  // Clear any existing explanation.
+  ExplanationCtrl->clearExplanation();
   
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
-
-  auto Time = State.getProcessTime();
-
-  // We'll need to search each thread to find the event.
-  for (auto &ThreadStatePtr : State.getThreadStates()) {
-    // Get the most recent state modifier from this thread, and check if it was
-    // within the most recent process time update.
-    auto MaybeModifierRef = ThreadStatePtr->getLastProcessModifier();
-    if (!MaybeModifierRef.assigned())
-      continue;
-
-    auto MaybeTime = MaybeModifierRef.get<0>()->getProcessTime();
-    if (!MaybeTime.assigned())
-      continue;
-
-    if (MaybeTime.get<0>() != Time)
-      continue;
-
-    // This event is responsible for the most recent modification to the shared
-    // process state. Now we have to find the event that it is subservient to.
-    auto EvRef = MaybeModifierRef.get<0>();
-
-    while (!EvRef->isBlockStart())
-      --EvRef;
-
-    switch (EvRef->getType()) {
-      case seec::trace::EventType::FunctionStart:
-        // Highlight the Function entry.
-        {
-          auto &StartEv = EvRef->as<seec::trace::EventType::FunctionStart>();
-          auto &ThreadTrace = ThreadStatePtr->getTrace();
-          auto FuncTrace = ThreadTrace.getFunctionTrace(StartEv.getRecord());
-          auto Func = Trace->getModuleIndex().getFunction(FuncTrace.getIndex());
-          assert(Func && "Couldn't find llvm::Function.");
-          
-          highlightFunctionEntry(Func);
-        }
-        break;
-
-      case seec::trace::EventType::FunctionEnd:
-        // Highlight the function exit.
-        {
-          auto &EndEv = EvRef->as<seec::trace::EventType::FunctionEnd>();
-          auto &ThreadTrace = ThreadStatePtr->getTrace();
-          auto FuncTrace = ThreadTrace.getFunctionTrace(EndEv.getRecord());
-          auto Func = Trace->getModuleIndex().getFunction(FuncTrace.getIndex());
-          assert(Func && "Couldn't find llvm::Function.");
-          
-          highlightFunctionExit(Func);
-        }
-        break;
-
-      // Some kind of Instruction caused the update.
-      default:
-        {
-          assert(EvRef->isInstruction()
-                 && "Unexpected event owning shared state modifier.");
-
-          // Find the function that contains the instruction.
-          auto const &ThreadTrace = ThreadStatePtr->getTrace();
-          auto MaybeFunctionTrace = ThreadTrace.getFunctionContaining(EvRef);
-          assert(MaybeFunctionTrace.assigned());
-
-          // Get the index of the llvm::Function and llvm::Instruction.
-          auto FunctionIndex = MaybeFunctionTrace.get<0>().getIndex();
-          auto InstructionIndex = EvRef->getIndex().get<0>();
-
-          auto Lookup = Trace->getModuleIndex().getFunctionIndex(FunctionIndex);
-          assert(Lookup && "Couldn't find FunctionIndex.");
-
-          auto Instruction = Lookup->getInstruction(InstructionIndex);
-          assert(Instruction && "Couldn't find Instruction.");
-          
-          // TODO: Re-enable.
-          // highlightInstruction(Instruction, nullptr);
-        }
-        break;
-    }
-
-    // We found the last modifier, so stop searching.
-    break;
-  }
-}
-
-void
-SourceViewerPanel::show(seec::trace::ProcessState const &ProcessState,
-                        std::shared_ptr<seec::cm::ValueStore const> ValueStore,
-                        seec::trace::ThreadState const &ThreadState)
-{
-  // Clear existing state information from all files.
-  for (auto &PagePair : Pages)
-    PagePair.second->clearState();
-
-  // Find the active function.
-  auto &CallStack = ThreadState.getCallStack();
+  
+  // Replace our old access token.
+  CurrentAccess = std::move(Access);
+  if (!CurrentAccess)
+    return;
+  
+  // Lock the current state while we read from it.
+  auto Lock = CurrentAccess->getAccess();
+  if (!Lock)
+    return;
+  
+  // Find the active function (if any).
+  auto const &CallStack = Thread.getCallStack();
   if (CallStack.empty())
     return;
-
-  auto &FunctionState = *(CallStack.back());
-
-  if (auto Instruction = FunctionState.getActiveInstruction()) {
-    auto const RTValue = FunctionState.getCurrentRuntimeValue(Instruction);
-    
-    auto const &RuntimeErrors = FunctionState.getRuntimeErrors();
-    seec::runtime_errors::RunError const *RuntimeError = nullptr;
-    if (!RuntimeErrors.empty()
-        && RuntimeErrors.back().getInstruction() == Instruction) {
-      RuntimeError = &RuntimeErrors.front().getRunError();
-    }
-    
-    highlightInstruction(Instruction,
-                         RTValue,
-                         RuntimeError,
-                         FunctionState,
-                         ValueStore);
-  }
-  else {
-    // If there is no active Instruction, highlight the function entry.
-    auto FunctionIndex = FunctionState.getIndex();
-    auto Func = Trace->getModuleIndex().getFunction(FunctionIndex);
-    assert(Func && "Couldn't find llvm::Function.");
-    
-    highlightFunctionEntry(Func);
-  }
-}
-
-SourceFileRange SourceViewerPanel::getRange(::clang::Decl const *Decl) const {
-  auto const &AST = Decl->getASTContext();
-  auto const &SourceManager = AST.getSourceManager();
   
-  // Find the first character in the first token.
-  auto Start = Decl->getLocStart();
-  while (Start.isMacroID())
-    Start = SourceManager.getExpansionLoc(Start);
+  auto const &Function = CallStack.back().get();
   
-  // Find the file that the first token belongs to.
-  auto const FileID = SourceManager.getFileID(Start);
-  auto const Filename = SourceManager.getFilename(Start);
+  // TODO: Show active runtime errors.
   
-  // Find the first character in the last token.
-  auto End = Decl->getLocEnd();
-  while (End.isMacroID())
-    End = SourceManager.getExpansionLoc(End);
-  
-  // Find the first character following the last token.
-  auto const FollowingEnd =
-    clang::Lexer::getLocForEndOfToken(End,
-                                      0,
-                                      SourceManager,
-                                      AST.getLangOpts());
-  
-  // Get the file offset of the start and end.
-  auto const StartOffset = SourceManager.getFileOffset(Start);
-  auto const EndOffset = FollowingEnd.isValid()
-                       ? SourceManager.getFileOffset(End)
-                       : SourceManager.getFileOffset(FollowingEnd);
-  
-  return SourceFileRange(Filename.str(),
-                         StartOffset,
-                         SourceManager.getLineNumber(FileID, StartOffset),
-                         SourceManager.getColumnNumber(FileID, StartOffset),
-                         EndOffset,
-                         SourceManager.getLineNumber(FileID, EndOffset),
-                         SourceManager.getColumnNumber(FileID, EndOffset));
-}
-
-SourceFileRange
-SourceViewerPanel::getRange(::clang::Stmt const *Stmt,
-                            ::clang::ASTContext const &AST) const
-{
-  auto const &SourceManager = AST.getSourceManager();
-  
-  // Find the first character in the first token.
-  auto Start = Stmt->getLocStart();
-  while (Start.isMacroID())
-    Start = SourceManager.getExpansionLoc(Start);
-  
-  // Find the file that the first token belongs to.
-  auto const FileID = SourceManager.getFileID(Start);
-  auto const Filename = SourceManager.getFilename(Start);
-  
-  // Find the first character in the last token.
-  auto End = Stmt->getLocEnd();
-  while (End.isMacroID())
-    End = SourceManager.getExpansionLoc(End);
-  
-  // Find the first character following the last token.
-  auto const FollowingEnd =
-    clang::Lexer::getLocForEndOfToken(End,
-                                      0,
-                                      SourceManager,
-                                      AST.getLangOpts());
-  
-  // Get the file offset of the start and end.
-  auto const StartOffset = SourceManager.getFileOffset(Start);
-  
-  auto const EndOffset = FollowingEnd.isValid()
-                       ? SourceManager.getFileOffset(FollowingEnd)
-                       : SourceManager.getFileOffset(End);
-  
-  return SourceFileRange(Filename.str(),
-                         StartOffset,
-                         SourceManager.getLineNumber(FileID, StartOffset),
-                         SourceManager.getColumnNumber(FileID, StartOffset),
-                         EndOffset,
-                         SourceManager.getLineNumber(FileID, EndOffset),
-                         SourceManager.getColumnNumber(FileID, EndOffset));
-}
-
-SourceFileRange SourceViewerPanel::getRange(::clang::Stmt const *Stmt) const {
-  // This lookup is very inefficient.
-  auto const MappedASTPtr = Trace->getMappedModule().getASTForStmt(Stmt);
-  if (!MappedASTPtr) {
-    wxLogDebug("highlightOn: couldn't find AST for Stmt.");
-    return SourceFileRange();
+  auto const ActiveStmt = Function.getActiveStmt();
+  if (ActiveStmt) {
+    showActiveStmt(ActiveStmt, Function);
   }
   
-  return getRange(Stmt, MappedASTPtr->getASTUnit().getASTContext());
-}
-
-void SourceViewerPanel::highlightOn(::clang::Decl const *Decl) {
-  auto const Range = getRange(Decl);
-  if (Range.Filename.empty())
-    return;
-  
-  // Find the SourceFilePanel for this file.
-  llvm::sys::Path FilenamePath(Range.Filename);
-  auto const PageIt = Pages.find(FilenamePath);
-  if (PageIt == Pages.end()) {
-    wxLogDebug("highlightOn: page not found for source file.");
-    return;
-  }
-  
-  // Now highlight this location.
-  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
-                                        Range.Start,
-                                        Range.End);
-}
-
-void SourceViewerPanel::highlightOn(::clang::Stmt const *Stmt) {
-  auto const Range = getRange(Stmt);
-  if (Range.Filename.empty())
-    return;
-  
-  // Find the SourceFilePanel for this file.
-  llvm::sys::Path FilenamePath(Range.Filename);
-  auto const PageIt = Pages.find(FilenamePath);
-  if (PageIt == Pages.end()) {
-    wxLogDebug("highlightOn: page not found for source file.");
-    return;
-  }
-  
-  // Now highlight this location.
-  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
-                                        Range.Start,
-                                        Range.End);
-}
-
-void SourceViewerPanel::highlightOff() {
-  for (auto &Page : Pages) {
-    Page.second->temporaryIndicatorRemoveAll();
-  }
-}
-
-void SourceViewerPanel::OnHighlightOn(HighlightEvent const &Ev) {
-  switch (Ev.getType()) {
-    case HighlightEvent::ItemType::Decl:
-      highlightOn(Ev.getDecl());
-      break;
-    case HighlightEvent::ItemType::Stmt:
-      highlightOn(Ev.getStmt());
-      break;
-  }
-}
-
-void SourceViewerPanel::OnHighlightOff(HighlightEvent const &Ev) {
-  highlightOff();
-}
-
-void SourceViewerPanel::highlightFunctionEntry(llvm::Function *Function) {
-#if SEEC_SHOW_EXPLANATION
-  // Clear the current explanation.
-  ExplanationCtrl->clearExplanation();
-#endif
-
-  // Get the Function mapping.
-  auto Mapping = Trace->getMappedModule().getMappedFunctionDecl(Function);
-  if (!Mapping) {
-    wxLogDebug("No mapping for Function '%s'",
-               Function->getName().str().c_str());
-    return;
-  }
-
-  auto const Decl = Mapping->getDecl();  
-  auto const Range = getRange(Decl);
-
-  llvm::sys::Path FilePath(Range.Filename);
-
-  auto Panel = showPageForFile(FilePath);
-  if (!Panel)
-    return;
-
-  // TODO: Clear highlight on current source file?
-  Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
-                           Range.Start,
-                           Range.End);
-}
-
-void SourceViewerPanel::highlightFunctionExit(llvm::Function *Function) {
-  highlightFunctionEntry(Function);
+  // TODO: We could highlight the Function if !ActiveStmt.
 }
 
 void
-SourceViewerPanel::showActiveRange(SourceFilePanel *Page,
-                                   seec::seec_clang::SimpleRange const &Range)
+SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
+                                  ::seec::cm::FunctionState const &InFunction)
 {
-  Page->setStateIndicator(SciIndicatorType::CodeActive,
-                          Range.Start.Line, Range.Start.Column,
-                          Range.End.Line, Range.End.Column);
-}
-
-void SourceViewerPanel::showActiveDecl(::clang::Decl const *Decl,
-                                       seec::seec_clang::MappedAST const &AST)
-{
-  auto const Range = getRange(Decl);
-  if (Range.Filename.empty()) {
-    wxLogDebug("No range for Stmt.");
+  auto const MappedAST = InFunction.getMappedAST();
+  if (!MappedAST)
+    return;
+  
+  auto &ASTUnit = MappedAST->getASTUnit();
+  
+  auto const Range = getRangeOutermost(Statement, ASTUnit.getASTContext());
+  
+  if (!Range.File) {
+    wxLogDebug("Couldn't find file for Stmt.");
     return;
   }
   
-  llvm::sys::Path FilePath(Range.Filename);
-  auto Panel = showPageForFile(FilePath);
+  auto const Panel = loadAndShowFile(Range.File, *MappedAST);
   if (!Panel) {
-    wxLogDebug("No page for source file %s.", Range.Filename.c_str());
-    return;
-  }
-  
-  // Show that the Decl is active.
-  Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
-                           Range.Start,
-                           Range.End);
-  
-#if SEEC_SHOW_EXPLANATION
-  // Show an explanation for the Decl.
-  ExplanationCtrl->showExplanation(Decl);
-#endif
-}
-
-void
-SourceViewerPanel::
-showActiveStmt(::clang::Stmt const *Statement,
-               seec::seec_clang::MappedAST const &AST,
-               seec::trace::FunctionState const &FunctionState,
-               std::shared_ptr<seec::cm::ValueStore const> ValueStore,
-               llvm::StringRef Value,
-               wxString const &Error)
-{
-  auto &ClangAST = AST.getASTUnit();
-  auto const Range = getRange(Statement, ClangAST.getASTContext());
-  if (Range.Filename.empty()) {
-    wxLogDebug("No range for Stmt.");
-    return;
-  }
-  
-  llvm::sys::Path FilePath(Range.Filename);
-  auto Panel = showPageForFile(FilePath);
-  if (!Panel) {
-    wxLogDebug("No page for source file %s.", Range.Filename.c_str());
+    wxLogDebug("Couldn't show source panel for file %s.",
+               Range.File->getName());
     return;
   }
   
@@ -837,87 +608,15 @@ showActiveStmt(::clang::Stmt const *Statement,
                            Range.Start,
                            Range.End);
   
-  // Show the value beneath the Stmt.
-  if (!Value.empty()) {
+  auto const Value = InFunction.getStmtValue(Statement);
+  if (Value) {
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,
-                        wxString(Value),
+                        wxString(Value->getValueAsStringFull()),
                         SciLexerType::SeeCRuntimeValue);
   }
   
-  // Show the error beneath the Stmt.
-  if (!Error.empty()) {
-    Panel->annotateLine(Range.EndLine - 1,
-                        Error,
-                        SciLexerType::SeeCRuntimeError);
-  }
-  
-#if SEEC_SHOW_EXPLANATION
-  // Show an explanation for the Stmt.
-  ExplanationCtrl->showExplanation(Statement,
-                                   Trace->getMappedModule(),
-                                   FunctionState,
-                                   ValueStore);
-#endif
-}
-
-void
-SourceViewerPanel::
-highlightInstruction(llvm::Instruction const *Instruction,
-                     seec::trace::RuntimeValue const *Value,
-                     seec::runtime_errors::RunError const *Error,
-                     seec::trace::FunctionState const &FunctionState,
-                     std::shared_ptr<seec::cm::ValueStore const> ValueStore)
-{
-  assert(Trace);
-  
-#if SEEC_SHOW_EXPLANATION
-  // Clear the current explanation.
-  ExplanationCtrl->clearExplanation();
-#endif
-  
-  // TODO: Clear state mapping on the current source file.
-
-  auto &ClangMap = Trace->getMappedModule();
-  
-  // Find the clang::Stmt or clang::Decl that the Instruction belongs to.
-  auto InstructionMap = ClangMap.getMapping(Instruction);
-  if (!InstructionMap.getAST())
-    return; // Instruction has no ownership mapping.
-  
-  if (auto const Statement = InstructionMap.getStmt()) {
-    // If the Instruction is owned by a Stmt, try to find a perfect mapping for
-    // the owning Stmt.
-    if (Value && Value->assigned()) {
-      auto Mappings = ClangMap.getMappedStmtsForValue(Instruction);
-      
-      for (auto &Mapping : seec::range(Mappings.first, Mappings.second)) {
-        if (Statement != Mapping.second->getStatement())
-          continue;
-        
-        // Try to get the SeeC-Clang mapped Value for this Stmt.
-        auto const Value = seec::cm::getValue(ValueStore,
-                                              *Mapping.second,
-                                              FunctionState);
-        if (!Value)
-          continue;
-        
-        // Show the Stmt with the SeeC-Clang mapped Value inline.
-        auto StrValue = Value->getValueAsStringFull();
-        
-        showActiveStmt(Mapping.second->getStatement(),
-                       Mapping.second->getAST(),
-                       FunctionState,
-                       ValueStore,
-                       StrValue,
-                       wxEmptyString);
-        
-        return;
-      }
-    }
-    
-    // Highlight the Stmt with no in-line Value. If there is an Error, then
-    // display a description of the Error in-line.
+#if 0 // TODO.
     wxString ErrorStr;
     if (Error) {
       using namespace seec::runtime_errors;
@@ -940,37 +639,112 @@ highlightInstruction(llvm::Instruction const *Instruction,
       }
     }
     
-    showActiveStmt(Statement,
-                   *InstructionMap.getAST(),
-                   FunctionState,
-                   ValueStore,
-                   "",
-                   ErrorStr);
+  // Show the error beneath the Stmt.
+  if (!Error.empty()) {
+    Panel->annotateLine(Range.EndLine - 1,
+                        Error,
+                        SciLexerType::SeeCRuntimeError);
   }
-  else if (auto const Decl = InstructionMap.getDecl()) {
-    // Highlight the active Decl.
-    showActiveDecl(Decl, *InstructionMap.getAST());
-  }
+#endif
+  
+  // Show an explanation for the Stmt.
+  ExplanationCtrl->showExplanation(Statement, InFunction);
 }
 
-void SourceViewerPanel::addSourceFile(llvm::sys::Path FilePath) {
-  if (Pages.count(FilePath))
+SourceFilePanel *
+SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
+                                   seec::seec_clang::MappedAST const &MAST)
+{
+  auto const It = Pages.find(File);
+  if (It != Pages.end()) {
+    auto const Index = Notebook->GetPageIndex(It->second);
+    Notebook->SetSelection(Index);
+    return It->second;
+  }
+  
+  // Create a new panel for this file.
+  auto &ASTUnit = MAST.getASTUnit();
+  auto &SrcMgr = ASTUnit.getSourceManager();
+  
+  bool Invalid = false;
+  auto const Buffer = SrcMgr.getMemoryBufferForFile(File, &Invalid);
+  
+  if (Invalid)
+    return nullptr;
+  
+  auto const SourcePanel = new SourceFilePanel(this, *Buffer);
+  Pages.insert(std::make_pair(File, SourcePanel));
+  Notebook->AddPage(SourcePanel, File->getName());
+  
+  return SourcePanel;
+}
+
+void SourceViewerPanel::highlightOn(::clang::Decl const *Decl) {
+  if (!Trace)
     return;
-
-  auto SourcePanel = new SourceFilePanel(this, FilePath);
-
-  Pages.insert(std::make_pair(FilePath, SourcePanel));
-
-  Notebook->AddPage(SourcePanel, FilePath.c_str());
+  
+  auto const &ProcessTrace = Trace->getTrace();
+  auto const &MappedModule = ProcessTrace.getMapping();
+  auto const MappedAST = MappedModule.getASTForDecl(Decl);
+  if (!MappedAST)
+    return;
+  
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(Decl, ASTUnit.getASTContext());
+  
+  if (!Range.File)
+    return;
+  
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+  
+  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                        Range.Start,
+                                        Range.End);
 }
 
-bool SourceViewerPanel::showSourceFile(llvm::sys::Path FilePath) {
-  auto It = Pages.find(FilePath);
-  if (It == Pages.end())
-    return false;
+void SourceViewerPanel::highlightOn(::clang::Stmt const *Stmt) {
+  if (!Trace)
+    return;
+  
+  auto const &ProcessTrace = Trace->getTrace();
+  auto const &MappedModule = ProcessTrace.getMapping();
+  auto const MappedAST = MappedModule.getASTForStmt(Stmt);
+  if (!MappedAST)
+    return;
+  
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(Stmt, ASTUnit.getASTContext());
+  
+  if (!Range.File)
+    return;
+  
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+  
+  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                        Range.Start,
+                                        Range.End);
+}
 
-  auto Index = Notebook->GetPageIndex(It->second);
-  Notebook->SetSelection(Index);
+void SourceViewerPanel::highlightOff() {
+  for (auto &Page : Pages)
+    Page.second->temporaryIndicatorRemoveAll();
+}
 
-  return true;
+void SourceViewerPanel::OnHighlightOn(HighlightEvent const &Ev) {
+  switch (Ev.getType()) {
+    case HighlightEvent::ItemType::Decl:
+      highlightOn(Ev.getDecl());
+      break;
+    case HighlightEvent::ItemType::Stmt:
+      highlightOn(Ev.getStmt());
+      break;
+  }
+}
+
+void SourceViewerPanel::OnHighlightOff(HighlightEvent const &Ev) {
+  highlightOff();
 }

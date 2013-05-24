@@ -12,7 +12,6 @@ set(SEEC_TRACE_VIEW_HEADERS
   HighlightEvent.hpp
   MallocViewer.hpp
   OpenTrace.hpp
-  ProcessTimeControl.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
   SourceViewerSettingsTypes.def
@@ -30,7 +29,6 @@ set(SEEC_TRACE_VIEW_SRCS
   HighlightEvent.cpp
   MallocViewer.cpp
   OpenTrace.cpp
-  ProcessTimeControl.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
   StateViewer.cpp

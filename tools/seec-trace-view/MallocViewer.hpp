@@ -18,11 +18,7 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
-namespace seec {
-  namespace trace {
-    class ProcessState;
-  }
-}
+#if 0 // NEEDS UPDATING TO USE seec::cm
 
 class MallocListModel;
 class wxDataViewCtrl;
@@ -61,5 +57,7 @@ public:
 
   void clear();
 };
+
+#endif // NEEDS UPDATING TO USE seec::cm
 
 #endif // SEEC_TRACE_VIEW_MALLOCVIEWER_HPP

@@ -14,54 +14,45 @@
 #ifndef SEEC_TRACE_VIEW_STATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_STATEVIEWER_HPP
 
-#include "seec/Clang/MappedValue.hpp"
-#include "seec/Trace/ProcessState.hpp"
-
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <memory>
 #include <vector>
 
-class OpenTrace;
-class ThreadStateViewerPanel;
-class MallocViewerPanel;
-class wxAuiNotebook;
-class wxDataViewCtrl;
 
+namespace seec {
+  namespace cm {
+    class ProcessState;
+    class ThreadState;
+  }
+}
+
+class OpenTrace;
+class StateAccessToken;
+class wxAuiNotebook;
+
+
+/// \brief Displays a collection of state viewers.
 ///
-class StateViewerPanel : public wxPanel
+class StateViewerPanel final : public wxPanel
 {
-  /// \name Thread-specific state.
-  /// @{
-  
-  wxAuiNotebook *ThreadBook;
-  
-  std::vector<ThreadStateViewerPanel *> ThreadViewers;
-  
-  /// @} (Thread-specific state)
-  
-  
-  /// \name Process-wide state.
-  /// @{
-  
+  /// Holds all state viewer panels.
   wxAuiNotebook *StateBook;
   
-  MallocViewerPanel *MallocViewer;
-  
-  /// @} (Process-wide state)
-  
+  // MallocViewerPanel *MallocViewer;
   
   /// The associated trace information.
   OpenTrace const *Trace;
+  
+  /// Token for accessing the current state.
+  std::shared_ptr<StateAccessToken> CurrentAccess;
 
 public:
   StateViewerPanel()
   : wxPanel(),
-    ThreadBook(),
-    ThreadViewers(),
     StateBook(nullptr),
-    MallocViewer(nullptr),
     Trace(nullptr)
   {}
 
@@ -71,10 +62,7 @@ public:
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
   : wxPanel(),
-    ThreadBook(),
-    ThreadViewers(),
     StateBook(nullptr),
-    MallocViewer(nullptr),
     Trace(nullptr)
   {
     Create(Parent, TheTrace, ID, Position, Size);
@@ -88,8 +76,11 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 
-  void show(seec::trace::ProcessState &State,
-            std::shared_ptr<seec::cm::ValueStore const> ValueStore);
+  /// \brief Update this panel to reflect the given state.
+  ///
+  void show(std::shared_ptr<StateAccessToken> Access,
+            seec::cm::ProcessState const &Process,
+            seec::cm::ThreadState const &Thread);
 
   void clear();
 };

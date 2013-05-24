@@ -68,10 +68,12 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
   auto NewTrace = OpenTrace::FromFilePath(FileName);
   assert(NewTrace.assigned());
 
-  if (NewTrace.assigned(0)) {
+  if (NewTrace.assigned<std::unique_ptr<OpenTrace>>()) {
     // The trace was read successfully, so create a new viewer to display it.
-    auto TraceViewer = new TraceViewerFrame(nullptr,
-                                            std::move(NewTrace.get<0>()));
+    auto TraceViewer =
+      new TraceViewerFrame(nullptr,
+                           NewTrace.move<std::unique_ptr<OpenTrace>>());
+    
     TopLevelFrames.insert(TraceViewer);
     TraceViewer->Show(true);
 
@@ -86,9 +88,15 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
     }
 #endif
   }
-  else if (NewTrace.assigned(1)) {
+  else if (NewTrace.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Message = NewTrace.get<seec::Error>
+                                     ().getMessage(Status, Locale{});
+    
+    
+    
     // Display the error that occured.
-    auto ErrorDialog = new wxMessageDialog(nullptr, NewTrace.get<1>());
+    auto ErrorDialog = new wxMessageDialog(nullptr, seec::towxString(Message));
     ErrorDialog->ShowModal();
     ErrorDialog->Destroy();
   }

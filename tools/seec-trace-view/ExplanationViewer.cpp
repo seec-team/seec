@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -20,6 +21,7 @@
 #include "ExplanationViewer.hpp"
 #include "HighlightEvent.hpp"
 #include "SourceViewerSettings.hpp"
+
 
 void ExplanationViewer::setText(wxString const &Value)
 {
@@ -181,20 +183,14 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 void
 ExplanationViewer::
 showExplanation(::clang::Stmt const *Statement,
-                seec::seec_clang::MappedModule const &Mapping,
-                seec::trace::FunctionState const &FunctionState,
-                std::shared_ptr<seec::cm::ValueStore const> ValueStore)
+                       ::seec::cm::FunctionState const &InFunction)
 {
   auto MaybeExplanation =
     seec::clang_epv::explain(
       Statement,
       seec::clang_epv::makeRuntimeValueLookupByLambda(
         [&](::clang::Stmt const *S) -> std::string {
-          auto const Value = seec::cm::getValue(ValueStore,
-                                                S,
-                                                Mapping,
-                                                FunctionState);
-          
+          auto const Value = InFunction.getStmtValue(S);
           return Value ? Value->getValueAsStringFull() : std::string();
         }));
   
@@ -214,7 +210,8 @@ showExplanation(::clang::Stmt const *Statement,
     }
   }
   else if (!MaybeExplanation.assigned()) {
-    wxLogDebug("No explanation for Stmt %s", Statement->getStmtClassName());
+    wxLogDebug("No explanation for Stmt of class %s.",
+               Statement->getStmtClassName());
   }
 }
 

@@ -14,21 +14,14 @@
 #ifndef SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP
 #define SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP
 
-#include "seec/Clang/MappedValue.hpp"
-
 #include <wx/wx.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 
+#if 0 // NEEDS UPDATING TO USE seec::cm
 
 class OpenTrace;
-
-namespace seec {
-  namespace trace {
-    class FunctionState;
-  }
-}
 
 
 /// \brief Shows state information for a single function invocation.
@@ -74,5 +67,7 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
 };
+
+#endif // NEEDS UPDATING TO USE seec::cm
 
 #endif // SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP

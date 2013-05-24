@@ -23,6 +23,8 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 
+#if 0 // NEEDS UPDATING TO USE seec::cm
+
 //------------------------------------------------------------------------------
 // MallocListModel
 //------------------------------------------------------------------------------
@@ -257,3 +259,6 @@ void MallocViewerPanel::show(seec::trace::ProcessState &State) {
 void MallocViewerPanel::clear() {
   DataModel->clearState();
 }
+
+#endif // NEEDS UPDATING TO USE seec::cm
+

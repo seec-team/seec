@@ -11,11 +11,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Trace/ThreadState.hpp"
-
 #include "FunctionStateViewer.hpp"
 #include "ThreadStateViewer.hpp"
 
+
+#if 0 // NEEDS UPDATING TO USE seec::cm
 
 //------------------------------------------------------------------------------
 // ThreadStateViewerPanel
@@ -68,3 +68,5 @@ showState(seec::trace::ThreadState const &State,
   
   Layout();
 }
+
+#endif // NEEDS UPDATING TO USE seec::cm

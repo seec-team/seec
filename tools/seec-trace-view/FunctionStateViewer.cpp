@@ -29,6 +29,8 @@
 #include "OpenTrace.hpp"
 
 
+#if 0 // NEEDS UPDATING TO USE seec::cm
+
 //------------------------------------------------------------------------------
 // FunctionStateViewerPanel
 //------------------------------------------------------------------------------
@@ -134,3 +136,5 @@ Create(wxWindow *Parent,
   
   return true;
 }
+
+#endif // NEEDS UPDATING TO USE seec::cm
