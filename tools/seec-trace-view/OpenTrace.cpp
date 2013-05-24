@@ -16,8 +16,8 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/IRReader.h"
 #include "llvm/Support/Path.h"
 
 #include <wx/wx.h>

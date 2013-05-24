@@ -12,6 +12,7 @@ set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundl
 set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
+set(GV_INSTALL "/usr" CACHE PATH "Root of graphviz install.") 
 
 #--------------------------------------------------------------------------------
 # find LLVM
@@ -48,14 +49,6 @@ if( NOT EXISTS ${WX_INSTALL}/bin/wx-config )
   message(FATAL_ERROR "WX_INSTALL (${WX_INSTALL}) is not a valid wxWidgets installation.")
 endif()
 
-# set(wxWidgets_USE_UNICODE true)
-# set(wxWidgets_USE_STATIC true)
-# FIND_PACKAGE(wxWidgets REQUIRED html stc core base aui adv)
-# INCLUDE(${wxWidgets_USE_FILE})
-
-# fix CMAKE_CXX_FLAGS after wxWidgets sets it
-# string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
 execute_process(
  COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --cflags
  OUTPUT_VARIABLE WX_C_FLAGS
@@ -70,6 +63,18 @@ string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
 
 message("WX_C_FLAGS ${WX_C_FLAGS}")
 message("WX_CXX_FLAGS ${WX_CXX_FLAGS}")
+
+#--------------------------------------------------------------------------------
+# find graphviz
+#--------------------------------------------------------------------------------
+if( NOT EXISTS ${GV_INSTALL}/include/graphviz/gvc.h )
+  message(FATAL_ERROR "GV_INSTALL (${GV_INSTALL}) is not a valid Graphviz installation.")
+endif()
+
+message("Using Graphviz at ${GV_INSTALL}")
+include_directories( BEFORE ${GV_INSTALL}/include/graphviz )
+
+set(REQ_GV_LIBRARIES "cgraph;cdt")
 
 #--------------------------------------------------------------------------------
 # setup compiler options

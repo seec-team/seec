@@ -15,7 +15,7 @@
 #include "seec/Util/MakeUnique.hpp"
 
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 
 
 namespace seec {

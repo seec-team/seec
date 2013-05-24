@@ -137,6 +137,7 @@ toString(clang::BuiltinType const *Type, llvm::ArrayRef<char> State) {
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)

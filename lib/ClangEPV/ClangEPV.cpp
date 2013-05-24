@@ -21,6 +21,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -46,8 +47,7 @@ namespace clang_epv {
 // Formattable helpers.
 //===----------------------------------------------------------------------===//
 
-template<typename T>
-Formattable formatAsBool(T const &Value) {
+Formattable formatAsBool(bool Value) {
   return Value ? Formattable("true") : Formattable("false");
 }
 
