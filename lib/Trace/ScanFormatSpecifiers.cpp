@@ -71,10 +71,10 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
   
   // Special case for parsing set specifier.
   if (Result.Conversion == Specifier::set) {
-    auto const UCharValues = std::numeric_limits<unsigned char>::max() + 1;
+    int const UCharValues = std::numeric_limits<unsigned char>::max() + 1;
     
     Result.SetLookup.reset(new bool[UCharValues]);
-    for (unsigned i = 0; i < UCharValues; ++i)
+    for (int i = 0; i < UCharValues; ++i)
       Result.SetLookup[i] = false;
     
     if (*++Remainder == '\0')
@@ -112,7 +112,7 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
     }
     
     if (Result.SetNegation) {
-      for (unsigned i = 0; i < UCharValues; ++i)
+      for (int i = 0; i < UCharValues; ++i)
         Result.SetLookup[i] = !Result.SetLookup[i];
     }
   }
