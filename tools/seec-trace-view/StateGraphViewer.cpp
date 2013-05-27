@@ -33,7 +33,7 @@
 #include <memory>
 
 #include "StateGraphViewer.hpp"
-#include "TraceviewerFrame.hpp"
+#include "TraceViewerFrame.hpp"
 
 
 //------------------------------------------------------------------------------
