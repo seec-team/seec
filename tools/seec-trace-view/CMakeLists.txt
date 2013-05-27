@@ -120,7 +120,7 @@ target_link_libraries(seec-trace-view
  ${REQ_ICU_LIBRARIES}
 
  # Graphviz libraries
- ${REQ_GV_LIBRARIES}
+ ${REQ_GVC_LIBRARIES}
 )
 
 #--------------------------------------------------------------------------------
