@@ -131,7 +131,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Create a text control to show the current state.
     StateViewer = new StateViewerPanel(this,
-                                       *Trace,
                                        wxID_ANY,
                                        wxDefaultPosition,
                                        wxDefaultSize);

@@ -11,22 +11,16 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
-#include <wx/dataview.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/auibook.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
-#include <set>
-#include <map>
 #include <memory>
 
 #include "StateViewer.hpp"
-#include "OpenTrace.hpp"
 
 
 //------------------------------------------------------------------------------
@@ -36,16 +30,12 @@
 StateViewerPanel::~StateViewerPanel() = default;
 
 bool StateViewerPanel::Create(wxWindow *Parent,
-                              OpenTrace const &TheTrace,
                               wxWindowID ID,
                               wxPoint const &Position,
                               wxSize const &Size) {
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
   
-  // Set the associated trace.
-  Trace = &TheTrace;
-
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",

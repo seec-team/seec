@@ -19,7 +19,6 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
-#include <vector>
 
 
 namespace seec {
@@ -29,7 +28,6 @@ namespace seec {
   }
 }
 
-class OpenTrace;
 class StateAccessToken;
 class wxAuiNotebook;
 
@@ -43,35 +41,28 @@ class StateViewerPanel final : public wxPanel
   
   // MallocViewerPanel *MallocViewer;
   
-  /// The associated trace information.
-  OpenTrace const *Trace;
-  
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
 
 public:
   StateViewerPanel()
   : wxPanel(),
-    StateBook(nullptr),
-    Trace(nullptr)
+    StateBook(nullptr)
   {}
 
   StateViewerPanel(wxWindow *Parent,
-                   OpenTrace const &TheTrace,
                    wxWindowID ID = wxID_ANY,
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
   : wxPanel(),
-    StateBook(nullptr),
-    Trace(nullptr)
+    StateBook(nullptr)
   {
-    Create(Parent, TheTrace, ID, Position, Size);
+    Create(Parent, ID, Position, Size);
   }
 
   ~StateViewerPanel();
 
   bool Create(wxWindow *Parent,
-              OpenTrace const &TheTrace,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
