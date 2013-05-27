@@ -394,7 +394,7 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
           
           Stream << "<TR><TD HREF=\"element:"
                  << reinterpret_cast<uintptr_t>(&Array) << "," << i
-                 << " BGCOLOR=\"white\">&#91;"
+                 << "\" BGCOLOR=\"white\">&#91;"
                  << i
                  << "&#93;</TD>";
           
