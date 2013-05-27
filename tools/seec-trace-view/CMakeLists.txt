@@ -15,6 +15,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   SourceViewer.hpp
   SourceViewerSettings.hpp
   SourceViewerSettingsTypes.def
+  StateGraphViewer.hpp
   StateViewer.hpp
   ThreadStateViewer.hpp
   ThreadTimeControl.hpp
@@ -31,6 +32,7 @@ set(SEEC_TRACE_VIEW_SRCS
   OpenTrace.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
+  StateGraphViewer.cpp
   StateViewer.cpp
   ThreadStateViewer.cpp
   ThreadTimeControl.cpp
@@ -73,7 +75,7 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs html stc core base aui adv
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs html stc core base aui adv webview
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)

@@ -77,7 +77,7 @@ include_directories( BEFORE ${GV_INSTALL}/include/graphviz )
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${GV_INSTALL}/lib")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${GV_INSTALL}/lib")
 
-set(REQ_GV_LIBRARIES "cgraph;cdt")
+set(REQ_GV_LIBRARIES "gvc;cgraph;cdt;graph")
 
 #--------------------------------------------------------------------------------
 # setup compiler options

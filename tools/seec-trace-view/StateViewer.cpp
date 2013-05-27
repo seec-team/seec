@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include "StateGraphViewer.hpp"
 #include "StateViewer.hpp"
 
 
@@ -61,6 +62,10 @@ bool StateViewerPanel::Create(wxWindow *Parent,
                      seec::getwxStringExOrEmpty(TextTable, "MallocView_Title"));
 
 #endif
+  
+  // Create the graph viewer.
+  GraphViewer = new StateGraphViewerPanel(this);
+  StateBook->AddPage(GraphViewer, wxString("Graph"));
 
   // Use a sizer to layout the thread view and process view notebook.
   auto TopSizer = new wxGridSizer(/* Rows */ 1,
@@ -79,9 +84,16 @@ StateViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
                        seec::cm::ProcessState const &Process,
                        seec::cm::ThreadState const &Thread)
 {
-  // TODO: Forward to individual viewers.
+  CurrentAccess = std::move(Access);
+  
+  if (GraphViewer)
+    GraphViewer->show(CurrentAccess, Process, Thread);
 }
 
-void StateViewerPanel::clear() {
-  // TODO: Forward to individual viewers.
+void StateViewerPanel::clear()
+{
+  CurrentAccess.reset();
+  
+  if (GraphViewer)
+    GraphViewer->clear();
 }

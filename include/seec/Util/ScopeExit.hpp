@@ -14,6 +14,8 @@
 #ifndef SEEC_UTIL_SCOPEEXIT_HPP
 #define SEEC_UTIL_SCOPEEXIT_HPP
 
+#include <utility>
+
 namespace seec {
 
 

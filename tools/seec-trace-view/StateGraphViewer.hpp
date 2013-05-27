@@ -1,4 +1,4 @@
-//===- tools/seec-trace-view/StateViewer.hpp ------------------------------===//
+//===- tools/seec-trace-view/StateGraphViewer.hpp -------------------------===//
 //
 //                                    SeeC
 //
@@ -11,12 +11,14 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef SEEC_TRACE_VIEW_STATEVIEWER_HPP
-#define SEEC_TRACE_VIEW_STATEVIEWER_HPP
+#ifndef SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
+#define SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include <gvc.h>
 
 #include <memory>
 
@@ -29,45 +31,41 @@ namespace seec {
 }
 
 class StateAccessToken;
-class StateGraphViewerPanel;
-class wxAuiNotebook;
+class wxWebView;
 
 
 /// \brief Displays a collection of state viewers.
 ///
-class StateViewerPanel final : public wxPanel
+class StateGraphViewerPanel final : public wxPanel
 {
-  /// Holds all state viewer panels.
-  wxAuiNotebook *StateBook;
-  
-  // MallocViewerPanel *MallocViewer;
-  
-  StateGraphViewerPanel *GraphViewer;
-  
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
+  
+  GVC_t *GraphvizContext;
+  
+  wxWebView *WebView;
 
 public:
-  StateViewerPanel()
+  StateGraphViewerPanel()
   : wxPanel(),
-    StateBook(nullptr),
-    GraphViewer(nullptr),
-    CurrentAccess()
+    CurrentAccess(),
+    GraphvizContext(nullptr),
+    WebView(nullptr)
   {}
 
-  StateViewerPanel(wxWindow *Parent,
-                   wxWindowID ID = wxID_ANY,
-                   wxPoint const &Position = wxDefaultPosition,
-                   wxSize const &Size = wxDefaultSize)
+  StateGraphViewerPanel(wxWindow *Parent,
+                        wxWindowID ID = wxID_ANY,
+                        wxPoint const &Position = wxDefaultPosition,
+                        wxSize const &Size = wxDefaultSize)
   : wxPanel(),
-    StateBook(nullptr),
-    GraphViewer(nullptr),
-    CurrentAccess()
+    CurrentAccess(),
+    GraphvizContext(nullptr),
+    WebView(nullptr)
   {
     Create(Parent, ID, Position, Size);
   }
 
-  ~StateViewerPanel();
+  ~StateGraphViewerPanel();
 
   bool Create(wxWindow *Parent,
               wxWindowID ID = wxID_ANY,
@@ -80,7 +78,9 @@ public:
             seec::cm::ProcessState const &Process,
             seec::cm::ThreadState const &Thread);
 
+  /// \brief Clear the display of this panel.
+  ///
   void clear();
 };
 
-#endif // SEEC_TRACE_VIEW_STATEVIEWER_HPP
+#endif // SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
