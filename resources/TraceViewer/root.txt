@@ -124,6 +124,12 @@ root:table {
   }
 
 
+  // StateGraphViewerPanel resources
+  StateGraphViewer:table {
+    WebViewHTML:import {"HTML/StateGraphViewer.html"}
+  }
+
+
   // Keywords used by Scintilla lexers.
   ScintillaKeywords:table {
     CPP:array {

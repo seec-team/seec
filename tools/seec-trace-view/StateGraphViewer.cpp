@@ -12,7 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/DotGraph.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
@@ -26,6 +28,8 @@
 #endif
 
 #include <wx/webview.h>
+#include <wx/webviewfshandler.h>
+#include <wx/wfstream.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <gvc.h>
@@ -54,6 +58,16 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
   
+  // Get our resources from ICU.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto Resources = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "StateGraphViewer");
+  
+  if (!U_SUCCESS(Status))
+    return false;
+  
   auto Sizer = new wxBoxSizer(wxVERTICAL);
   
   WebView = wxWebView::New(this, wxID_ANY);
@@ -66,6 +80,24 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   SetSizerAndFit(Sizer);
   
   GraphvizContext = gvContext();
+  
+  auto const HTMLResource = Resources.get("WebViewHTML", Status);
+  if (!U_SUCCESS(Status)) {
+    wxLogDebug("Couldn't get WebViewHTML!");
+    return false;
+  }
+  
+  int32_t BinLength = 0;
+  auto const BinData = HTMLResource.getBinary(BinLength, Status);
+  if (!U_SUCCESS(Status)) {
+    wxLogDebug("Couldn't get binary!");
+    return false;
+  }
+  
+  wxString HTMLString {reinterpret_cast<char const *>(BinData),
+                       std::size_t(BinLength)};
+  
+  WebView->SetPage(HTMLString, wxString{});
   
   return true;
 }
@@ -121,8 +153,29 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   gvRenderData(GraphvizContext, Graph, "svg", &RenderedData, &RenderedLength);
   
-  // Show the SVG as the webpage.
-  WebView->SetPage(wxString{RenderedData, RenderedLength}, wxString{});
+  // Remove all non-print characters from the SVG.
+  std::string SVGString(RenderedData, RenderedLength);
+  
+  for (std::string::size_type i = 0; i < SVGString.length(); ) {
+    if (!std::isprint(SVGString[i])) {
+      SVGString.erase(i, 1);
+      continue;
+    }
+    
+    if (SVGString[i] == '\\' || SVGString[i] == '"') {
+      SVGString.insert(i, 1, '\\');
+      i += 2;
+      continue;
+    }
+    
+    ++i;
+  }
+  
+  // Send the SVG to the webpage via javascript.
+  wxString Script;
+  Script << "SetState(\"" << SVGString << "\");";
+  
+  WebView->RunScript(Script);
 }
 
 void StateGraphViewerPanel::clear()
