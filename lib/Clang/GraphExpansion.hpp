@@ -65,6 +65,12 @@ public:
   
   std::vector<Dereference>
   getReferencesOf(std::shared_ptr<Value const> const &Value) const;
+  
+  std::vector<std::shared_ptr<ValueOfPointer const>>
+  getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
+  
+  std::vector<std::shared_ptr<ValueOfPointer const>>
+  getAllPointers() const;
 };
 
 

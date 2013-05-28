@@ -69,6 +69,19 @@ public:
   
   std::vector<Dereference>
   getReferencesOf(Value const &Val) const;
+  
+  std::vector<std::shared_ptr<ValueOfPointer const>>
+  getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
+  
+  std::vector<std::shared_ptr<ValueOfPointer const>>
+  getAllPointers() const {
+    std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+    
+    for (auto const &Pair : Pointers)
+      Ret.emplace_back(Pair.second);
+    
+    return Ret;
+  }
 };
 
 std::vector<Dereference>
@@ -77,6 +90,20 @@ ExpansionImpl::getReferencesOf(Value const &Val) const
   std::vector<Dereference> Ret;
   
   for (auto const &Pair : seec::range(Edges.equal_range(&Val)))
+    Ret.emplace_back(Pair.second);
+  
+  return Ret;
+}
+
+std::vector<std::shared_ptr<ValueOfPointer const>>
+ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+{
+  auto const Range = seec::range(Pointers.lower_bound(Start),
+                                 Pointers.lower_bound(End));
+  
+  std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+  
+  for (auto const &Pair : Range)
     Ret.emplace_back(Pair.second);
   
   return Ret;
@@ -202,6 +229,18 @@ std::vector<Dereference>
 Expansion::getReferencesOf(std::shared_ptr<Value const> const &Value) const
 {
   return Impl->getReferencesOf(*Value);
+}
+
+std::vector<std::shared_ptr<ValueOfPointer const>>
+Expansion::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+{
+  return Impl->getReferencesOfArea(Start, End);
+}
+
+std::vector<std::shared_ptr<ValueOfPointer const>>
+Expansion::getAllPointers() const
+{
+  return Impl->getAllPointers();
 }
 
 

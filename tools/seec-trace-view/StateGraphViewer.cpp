@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/DotGraph.hpp"
+#include "seec/Clang/GraphLayout.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -44,6 +45,27 @@
 // StateGraphViewerPanel
 //------------------------------------------------------------------------------
 
+StateGraphViewerPanel::StateGraphViewerPanel()
+: wxPanel(),
+  CurrentAccess(),
+  GraphvizContext(nullptr),
+  WebView(nullptr),
+  LayoutHandler()
+{}
+
+StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
+                                             wxWindowID ID,
+                                             wxPoint const &Position,
+                                             wxSize const &Size)
+: wxPanel(),
+  CurrentAccess(),
+  GraphvizContext(nullptr),
+  WebView(nullptr),
+  LayoutHandler()
+{
+  Create(Parent, ID, Position, Size);
+}
+
 StateGraphViewerPanel::~StateGraphViewerPanel()
 {
   if (GraphvizContext)
@@ -70,6 +92,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   auto Sizer = new wxBoxSizer(wxVERTICAL);
   
+  // Setup the webview.
   WebView = wxWebView::New(this, wxID_ANY);
   if (!WebView) {
     wxLogDebug("wxWebView::New failed.");
@@ -79,8 +102,14 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
   
+  // Setup Graphviz.
   GraphvizContext = gvContext();
   
+  // Setup the layout handler.
+  LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
+  LayoutHandler->addBuiltinLayoutEngines();
+  
+  // Load the webpage.
   auto const HTMLResource = Resources.get("WebViewHTML", Status);
   if (!U_SUCCESS(Status)) {
     wxLogDebug("Couldn't get WebViewHTML!");
@@ -121,9 +150,14 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     if (!Lock)
       return;
     
-    llvm::raw_string_ostream GraphStream {GraphString};
-    seec::cm::writeDotGraph(Process, GraphStream);
+    // llvm::raw_string_ostream GraphStream {GraphString};
+    // seec::cm::writeDotGraph(Process, GraphStream);
+    
+    auto const Layout = LayoutHandler->doLayout(Process);
+    GraphString = Layout.getDotString();
   }
+  
+  wxLogDebug("Graph in dot:\n%s", GraphString);
   
   std::unique_ptr<char []> Buffer {new char [GraphString.size() + 1]};
   if (!Buffer)

@@ -16,9 +16,11 @@
 
 
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -39,66 +41,158 @@ class Expansion;
 class LayoutHandler;
 
 
-/// \brief Represents the layout of a seec::cm::Value.
+/// \brief Get the standard port string for a Value.
+///
+std::string getStandardPortFor(Value const &V);
+
+
+/// \brief Type of the end of an edge.
+///
+enum class EdgeEndType {
+  Standard,
+  Punned,
+  Elided
+};
+
+
+/// \brief Contains information about the location of a single seec::cm::Value.
+///
+class ValuePort {
+  EdgeEndType EdgeEnd;
+  
+  std::string CustomPort;
+  
+public:
+  ValuePort(EdgeEndType WithEdgeEnd)
+  : EdgeEnd(WithEdgeEnd),
+    CustomPort()
+  {}
+  
+  ValuePort(EdgeEndType WithEdgeEnd,
+            std::string WithCustomPort)
+  : EdgeEnd(WithEdgeEnd),
+    CustomPort(std::move(WithCustomPort))
+  {}
+  
+  EdgeEndType getEdgeEnd() const { return EdgeEnd; }
+  
+  /// \brief Get the custom port for this Value, or an empty string if there is
+  ///        none.
+  ///
+  /// A custom port is used if the standard port that would be returned from
+  /// getStandardPortFor() does not exist, but a useful port is still available.
+  /// For example, if a layout engine elides a number of values, but shows a
+  /// marker where the values would be, then a port for this marker may be a
+  /// reasonable custom port for all of the elided values.
+  ///
+  std::string getCustomPort() const {
+    return CustomPort;
+  }
+};
+
+
+/// \brief Contains several ValuePorts.
+///
+class ValuePortMap {
+  std::map<Value const *, ValuePort> Map;
+  
+public:
+  /// \brief Find the port for a Value, if it exists.
+  ///
+  seec::Maybe<ValuePort> getPortForValue(Value const &Val) const {
+    auto const It = Map.find(&Val);
+    return It != Map.end() ? seec::Maybe<ValuePort>(It->second)
+                           : seec::Maybe<ValuePort>();
+  }
+  
+  /// \brief Add a single port.
+  ///
+  void add(Value const &Val, ValuePort Port) {
+    Map.insert(std::make_pair(&Val, Port));
+  }
+  
+  /// \brief Add all ports from Other to this.
+  ///
+  void addAllFrom(ValuePortMap const &Other) {
+    Map.insert(Other.Map.begin(), Other.Map.end());
+  }
+};
+
+
+/// \brief Represents the layout of a seec::cm::Value and its children.
 ///
 class LayoutOfValue {
   std::string DotString;
   
+  ValuePortMap Ports;
+  
 public:
-  LayoutOfValue(std::string WithDotString)
-  : DotString(std::move(WithDotString))
+  /// \brief Constructor.
+  ///
+  LayoutOfValue(std::string WithDotString,
+                ValuePortMap WithPorts)
+  : DotString(std::move(WithDotString)),
+    Ports(std::move(WithPorts))
   {}
   
-  LayoutOfValue(LayoutOfValue const &Other) = default;
+  /// \name Accessors.
+  /// @{
   
-  LayoutOfValue(LayoutOfValue &&Other) = default;
-  
-  LayoutOfValue &operator=(LayoutOfValue const &Other) = default;
-  
-  LayoutOfValue &operator=(LayoutOfValue &&Other) = default;
-  
+  /// \brief Get a string describing the layout for dot.
+  ///
   std::string const &getDotString() const { return DotString; }
+  
+  /// \brief Find the port for a Value, if any was created.
+  ///
+  seec::Maybe<ValuePort> getPortForValue(Value const &Val) const {
+    return Ports.getPortForValue(Val);
+  }
+  
+  /// \brief Get all ports.
+  ///
+  decltype(Ports) const &getPorts() const { return Ports; }
+  
+  /// @} (Accessors.)
 };
+
 
 /// \brief Represents the layout of an area.
 ///
 class LayoutOfArea {
-};
-
-/// \brief Represents the layout of a seec::cm::FunctionState.
-///
-class LayoutOfFunction {
+  std::string ID;
+  
   std::string DotString;
   
+  ValuePortMap Ports;
+  
 public:
-  LayoutOfFunction(std::string WithDotString)
-  : DotString(std::move(WithDotString))
+  LayoutOfArea(std::string WithID,
+               std::string WithDotString,
+               ValuePortMap WithPorts)
+  : ID(std::move(WithID)),
+    DotString(std::move(WithDotString)),
+    Ports(std::move(WithPorts))
   {}
   
-  LayoutOfFunction(LayoutOfFunction const &Other) = default;
-  
-  LayoutOfFunction(LayoutOfFunction &&Other) = default;
-  
-  LayoutOfFunction &operator=(LayoutOfFunction const &Other) = default;
-  
-  LayoutOfFunction &operator=(LayoutOfFunction &&Other) = default;
+  std::string const &getID() const { return ID; }
   
   std::string const &getDotString() const { return DotString; }
+  
+  decltype(Ports) const &getPorts() const { return Ports; }
 };
 
-/// \brief Represents the layout of a seec::cm::ThreadState.
-///
-class LayoutOfThread {
-};
-
-/// \brief Represents the layout of a seec::cm::GlobalVariable.
-///
-class LayoutOfGlobalVariable {
-};
 
 /// \brief Represents the layout of a seec::cm::ProcessState.
 ///
 class LayoutOfProcess {
+  std::string DotString;
+  
+public:
+  LayoutOfProcess(std::string WithDotString)
+  : DotString(std::move(WithDotString))
+  {}
+  
+  std::string const &getDotString() const { return DotString; }
 };
 
 
@@ -175,6 +269,18 @@ public:
 /// \brief Interface for area layout engines.
 ///
 class LayoutEngineForArea : public LayoutEngine {
+  /// \brief Internal implementation of canLayout().
+  ///
+  virtual bool
+  canLayoutImpl(seec::MemoryArea const &Area,
+                seec::cm::ValueOfPointer const &Reference) const =0;
+  
+  /// \brief Internal implementation of doLayout().
+  ///
+  virtual LayoutOfArea
+  doLayoutImpl(seec::MemoryArea const &Area,
+               seec::cm::ValueOfPointer const &Reference) const =0;
+  
 protected:
   /// \brief Constructor.
   ///
@@ -183,6 +289,22 @@ protected:
   {}
   
 public:
+  /// \brief Check if this engine is capable of laying out an area.
+  /// \return true iff this engine is capable of laying out the area.
+  ///
+  bool canLayout(seec::MemoryArea const &Area,
+                 seec::cm::ValueOfPointer const &Reference) const
+  {
+    return canLayoutImpl(Area, Reference);
+  }
+  
+  /// \brief Layout an area.
+  ///
+  LayoutOfArea doLayout(seec::MemoryArea const &Area,
+                        seec::cm::ValueOfPointer const &Reference) const
+  {
+    return doLayoutImpl(Area, Reference);
+  }
 };
 
 
@@ -240,37 +362,18 @@ public:
   /// \name Layout Creation
   /// @{
   
-private:
+public:
   /// \brief Perform the layout for a value.
   ///
   seec::Maybe<LayoutOfValue>
   doLayout(seec::cm::Value const &State) const;
   
-  /// \brief Perform the layout for an expanded function state.
+  /// \brief Perform the layout for an area.
   ///
-  LayoutOfFunction
-  doLayout(seec::cm::FunctionState const &State,
-           seec::cm::graph::Expansion const &Expansion) const;
+  seec::Maybe<LayoutOfArea>
+  doLayout(seec::MemoryArea const &Area,
+           seec::cm::ValueOfPointer const &Reference) const;
   
-  /// \brief Perform the layout for an expanded thread state.
-  ///
-  LayoutOfThread
-  doLayout(seec::cm::ThreadState const &State,
-           seec::cm::graph::Expansion const &Expansion) const;
-  
-  /// \brief Perform the layout for an expanded global variable state.
-  ///
-  LayoutOfGlobalVariable
-  doLayout(seec::cm::GlobalVariable const &State,
-           seec::cm::graph::Expansion const &Expansion) const;
-  
-  /// \brief Perform the layout for an expanded process state.
-  ///
-  LayoutOfProcess
-  doLayout(seec::cm::ProcessState const &State,
-           seec::cm::graph::Expansion const &Expansion) const;
-  
-public:
   /// \brief Perform expansion and layout for a process state.
   ///
   LayoutOfProcess

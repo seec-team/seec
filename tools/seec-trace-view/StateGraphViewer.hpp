@@ -27,6 +27,10 @@ namespace seec {
   namespace cm {
     class ProcessState;
     class ThreadState;
+    
+    namespace graph {
+      class LayoutHandler;
+    }
   }
 }
 
@@ -44,26 +48,16 @@ class StateGraphViewerPanel final : public wxPanel
   GVC_t *GraphvizContext;
   
   wxWebView *WebView;
+  
+  std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
 
 public:
-  StateGraphViewerPanel()
-  : wxPanel(),
-    CurrentAccess(),
-    GraphvizContext(nullptr),
-    WebView(nullptr)
-  {}
+  StateGraphViewerPanel();
 
   StateGraphViewerPanel(wxWindow *Parent,
                         wxWindowID ID = wxID_ANY,
                         wxPoint const &Position = wxDefaultPosition,
-                        wxSize const &Size = wxDefaultSize)
-  : wxPanel(),
-    CurrentAccess(),
-    GraphvizContext(nullptr),
-    WebView(nullptr)
-  {
-    Create(Parent, ID, Position, Size);
-  }
+                        wxSize const &Size = wxDefaultSize);
 
   ~StateGraphViewerPanel();
 

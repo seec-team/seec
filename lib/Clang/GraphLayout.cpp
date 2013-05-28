@@ -23,6 +23,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
 #include <future>
@@ -38,6 +39,18 @@ namespace graph {
 //===----------------------------------------------------------------------===//
 // Helper functions
 //===----------------------------------------------------------------------===//
+
+std::string getStandardPortFor(Value const &V)
+{
+  std::string Port;
+  
+  {
+    llvm::raw_string_ostream PortStream {Port};
+    PortStream << "value_at_" << reinterpret_cast<uintptr_t>(&V);
+  }
+  
+  return Port;
+}
 
 static std::string EscapeForHTML(llvm::StringRef String)
 {
@@ -70,6 +83,116 @@ static std::string EscapeForHTML(llvm::StringRef String)
 
 
 //===----------------------------------------------------------------------===//
+// Value types
+//===----------------------------------------------------------------------===//
+
+
+/// \brief Represents an edge that has been laid out.
+///
+class LayoutOfPointer {
+  EdgeEndType TailType;
+  
+  EdgeEndType HeadType;
+  
+public:
+  LayoutOfPointer(EdgeEndType WithTailType,
+                  EdgeEndType WithHeadType)
+  : TailType(WithTailType),
+    HeadType(WithHeadType)
+  {}
+  
+  EdgeEndType getTailType() const { return TailType; }
+  
+  EdgeEndType getHeadType() const { return HeadType; }
+};
+
+
+/// \brief Represents the layout of a seec::cm::AllocaState.
+///
+class LayoutOfAlloca {
+  std::string DotString;
+  
+  ValuePortMap Ports;
+  
+public:
+  LayoutOfAlloca(std::string WithDotString,
+                 ValuePortMap WithPorts)
+  : DotString(std::move(WithDotString)),
+    Ports(std::move(WithPorts))
+  {}
+  
+  std::string const &getDotString() const { return DotString; }
+  
+  decltype(Ports) const &getPorts() const { return Ports; }
+};
+
+
+/// \brief Represents the layout of a seec::cm::FunctionState.
+///
+class LayoutOfFunction {
+  std::string ID;
+  
+  std::string DotString;
+  
+  ValuePortMap Ports;
+  
+public:
+  LayoutOfFunction(std::string WithID,
+                   std::string WithDotString,
+                   ValuePortMap WithPorts)
+  : ID(std::move(WithID)),
+    DotString(std::move(WithDotString)),
+    Ports(std::move(WithPorts))
+  {}
+  
+  std::string const &getID() const { return ID; }
+  
+  std::string const &getDotString() const { return DotString; }
+  
+  decltype(Ports) const &getPorts() const { return Ports; }
+};
+
+
+/// \brief Represents the layout of a seec::cm::ThreadState.
+///
+class LayoutOfThread {
+  std::string DotString;
+  
+public:
+  LayoutOfThread(std::string WithDotString)
+  : DotString(std::move(WithDotString))
+  {}
+  
+  std::string const &getDotString() const { return DotString; }
+};
+
+/// \brief Represents the layout of a seec::cm::GlobalVariable.
+///
+class LayoutOfGlobalVariable {
+  std::string ID;
+  
+  std::string DotString;
+  
+  ValuePortMap Ports;
+  
+public:
+  LayoutOfGlobalVariable(std::string WithID,
+                         std::string WithDotString,
+                         ValuePortMap WithPorts)
+  : ID(std::move(WithID)),
+    DotString(std::move(WithDotString)),
+    Ports(std::move(WithPorts))
+  {}
+  
+  std::string const &getID() const { return ID; }
+  
+  std::string const &getDotString() const { return DotString; }
+  
+  decltype(Ports) const &getPorts() const { return Ports; }
+};
+
+
+//===----------------------------------------------------------------------===//
 // LEVStandard
 //===----------------------------------------------------------------------===//
 
@@ -81,24 +204,160 @@ class LEVStandard final : public LayoutEngineForValue {
                                     {"Graph", "Layout", "LEVStandard", "Name"});
   }
   
-  virtual bool canLayoutImpl(seec::cm::Value const &Value) const override {
+  virtual bool canLayoutImpl(Value const &V) const override {
     return true;
   }
   
   virtual LayoutOfValue
-  doLayoutImpl(seec::cm::Value const &Value) const override {
-    std::string DotString;
-    
-    DotString = EscapeForHTML(Value.getValueAsStringFull());
-    
-    return LayoutOfValue{std::move(DotString)};
-  }
+  doLayoutImpl(Value const &V) const override;
   
 public:
   LEVStandard(LayoutHandler const &InHandler)
   : LayoutEngineForValue{InHandler}
   {}
 };
+
+LayoutOfValue
+LEVStandard::doLayoutImpl(Value const &V) const
+{
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  switch (V.getKind()) {
+    case Value::Kind::Basic:
+    {
+      auto const IsInit = V.isCompletelyInitialized();
+      
+      Stream << "<TD PORT=\""
+             << getStandardPortFor(V)
+             << "\">";
+      
+      if (IsInit)
+        Stream << EscapeForHTML(V.getValueAsStringFull());
+      
+      Stream << "</TD>";
+      
+      break;
+    }
+    
+    case Value::Kind::Array:
+    {
+      auto const &Array = static_cast<ValueOfArray const &>(V);
+      unsigned const ChildCount = Array.getChildCount();
+      
+      Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      
+      for (unsigned i = 0; i < ChildCount; ++i) {
+        auto const ChildValue = Array.getChildAt(i);
+        if (!ChildValue)
+          continue;
+        
+        Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
+        
+        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue);
+        if (!MaybeLayout.assigned<LayoutOfValue>()) {
+          Stream << "<TD></TD></TR>";
+          continue;
+        }
+        
+        auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+        
+        Stream << Layout.getDotString()
+               << "</TR>";
+        
+        Ports.addAllFrom(Layout.getPorts());
+      }
+      
+      Stream << "</TABLE></TD>";
+      
+      break;
+    }
+    
+    case Value::Kind::Record:
+    {
+      auto const &Record = static_cast<ValueOfRecord const &>(V);
+      unsigned const ChildCount = Record.getChildCount();
+      
+      Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      
+      for (unsigned i = 0; i < ChildCount; ++i) {
+        auto const ChildValue = Record.getChildAt(i);
+        if (!ChildValue)
+          continue;
+        
+        Stream << "<TR><TD>";
+        
+        auto const ChildField = Record.getChildField(i);
+        if (ChildField)
+          Stream << ChildField->getName();
+        else
+          Stream << "unknown field"; // TODO: Localize
+        
+        Stream << "</TD>";
+        
+        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue);
+        if (!MaybeLayout.assigned<LayoutOfValue>()) {
+          Stream << "<TD></TD></TR>";
+          continue;
+        }
+        
+        auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+        
+        Stream << Layout.getDotString()
+               << "</TR>";
+        
+        Ports.addAllFrom(Layout.getPorts());
+      }
+      
+      Stream << "</TABLE></TD>";
+      
+      break;
+    }
+    
+    case Value::Kind::Pointer:
+    {
+      auto const &Ptr = static_cast<ValueOfPointer const &>(V);
+      
+      if (!Ptr.isCompletelyInitialized()) {
+        // An uninitialized pointer.
+        Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\">?</TD>";
+      }
+      else if (!Ptr.getRawValue()) {
+        // A NULL pointer.
+        Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\">NULL</TD>";
+      }
+      else if (Ptr.getDereferenceIndexLimit() == 0) {
+        // An invalid pointer (as far as we're concerned).
+        Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\">!</TD>";
+      }
+      else {
+        // A valid pointer with at least one dereference.
+        Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\"> </TD>";
+      }
+      
+      break;
+    }
+  }
+  
+  Ports.add(V, ValuePort{EdgeEndType::Standard});
+  
+  Stream.flush();
+  return LayoutOfValue{std::move(DotString), std::move(Ports)};
+}
 
 
 //===----------------------------------------------------------------------===//
@@ -113,11 +372,441 @@ class LEAStandard final : public LayoutEngineForArea {
                                     {"Graph", "Layout", "LEAStandard", "Name"});
   }
   
+  virtual bool
+  canLayoutImpl(seec::MemoryArea const &Area,
+                seec::cm::ValueOfPointer const &Reference) const override
+  {
+    return true;
+  }
+  
+  virtual LayoutOfArea
+  doLayoutImpl(seec::MemoryArea const &Area,
+               seec::cm::ValueOfPointer const &Reference) const override;
+  
 public:
   LEAStandard(LayoutHandler const &InHandler)
   : LayoutEngineForArea{InHandler}
   {}
 };
+
+LayoutOfArea
+LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
+                          seec::cm::ValueOfPointer const &Reference) const
+{
+  // Generate the identifier for this node.
+  std::string IDString;
+  
+  {
+    llvm::raw_string_ostream IDStream {IDString};
+    IDStream << "area_at_" << Area.start();
+  }
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  ValuePortMap Ports;
+  
+  DotStream << IDString
+            << " [ label = <"
+            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+  
+  auto const &Handler = this->getHandler();
+  auto const Limit = Reference.getDereferenceIndexLimit();
+  
+  if (Limit == 1) {
+    auto const Pointee = Reference.getDereferenced(0);
+    if (Pointee) {
+      auto const MaybeLayout = Handler.doLayout(*Pointee);
+      if (MaybeLayout.assigned<LayoutOfValue>()) {
+        auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+        DotStream << "<TR>" << Layout.getDotString() << "</TR>";
+        Ports.addAllFrom(Layout.getPorts());
+      }
+    }
+  }
+  else {
+    for (unsigned i = 0; i < Limit; ++i) {
+      auto const Pointee = Reference.getDereferenced(i);
+      if (Pointee) {
+        auto const MaybeLayout = Handler.doLayout(*Pointee);
+        if (MaybeLayout.assigned<LayoutOfValue>()) {
+          auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+          DotStream << "<TR><TD>&#91;" << i << "&#93;</TD>"
+                    << Layout.getDotString()
+                    << "</TR>";
+          Ports.addAllFrom(Layout.getPorts());
+        }
+      }
+    }
+  }
+  
+  DotStream << "</TABLE>> ];\n";
+  DotStream.flush();
+  
+  return LayoutOfArea{std::move(IDString),
+                      std::move(DotString),
+                      std::move(Ports)};
+}
+
+
+//===----------------------------------------------------------------------===//
+// Layout creation
+//===----------------------------------------------------------------------===//
+
+static
+LayoutOfAlloca
+doLayout(LayoutHandler const &Handler,
+         seec::cm::AllocaState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Attempt to get the value.
+  auto const Value = State.getValue();
+  if (!Value)
+    return LayoutOfAlloca{std::string{}, ValuePortMap{}};
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  ValuePortMap Ports;
+  
+  DotStream << "<TR><TD>"
+            << State.getDecl()->getNameAsString()
+            << "</TD>";
+  
+  // Attempt to layout the value.
+  auto MaybeLayout = Handler.doLayout(*Value);
+  if (MaybeLayout.assigned<LayoutOfValue>()) {
+    auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+    DotStream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+  }
+  else {
+    DotStream << "<TD>no layout</TD>";
+  }
+  
+  DotStream << "</TR>";
+  DotStream.flush();
+  
+  return LayoutOfAlloca{std::move(DotString), std::move(Ports)};
+}
+
+static
+LayoutOfFunction
+doLayout(LayoutHandler const &Handler,
+         seec::cm::FunctionState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Generate the identifier for this node.
+  std::string IDString;
+  
+  {
+    llvm::raw_string_ostream IDStream {IDString};
+    IDStream << "function_at_" << reinterpret_cast<uintptr_t>(&State);
+  }
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  ValuePortMap Ports;
+  
+  DotStream << IDString
+            << " [ label = <"
+            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">"
+            << "<TR><TD COLSPAN=\"2\">"
+            << State.getNameAsString()
+            << "</TD></TR>";
+  
+  for (auto const &Parameter : State.getParameters()) {
+    auto const Layout = doLayout(Handler, Parameter, Expansion);
+    DotStream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+  }
+  
+  for (auto const &Local : State.getLocals()) {
+    auto const Layout = doLayout(Handler, Local, Expansion);
+    DotStream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+  }
+  
+  DotStream << "</TABLE>> ];\n";
+  DotStream.flush();
+  
+  return LayoutOfFunction{std::move(IDString),
+                          std::move(DotString),
+                          std::move(Ports)};
+}
+
+static
+LayoutOfThread
+doLayout(LayoutHandler const &Handler,
+         seec::cm::ThreadState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Generate the identifier for this subgraph.
+  std::string IDString;
+  
+  {
+    llvm::raw_string_ostream IDStream {IDString};
+    IDStream << "thread_at_" << reinterpret_cast<uintptr_t>(&State);
+  }
+  
+  // 
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  DotStream << "subgraph " << IDString << " {\n";
+  
+  // Layout all functions.
+  std::vector<LayoutOfFunction> FunctionLayouts;
+  
+  for (auto const &FunctionState : State.getCallStack()) {
+    FunctionLayouts.emplace_back(doLayout(Handler, FunctionState, Expansion));
+    DotStream << FunctionLayouts.back().getDotString();
+  }
+  
+  // Make all function nodes take an equal rank.
+  DotStream << "{ rank=same; ";
+  
+  for (auto const &FunctionLayout : FunctionLayouts)
+    DotStream << FunctionLayout.getID() << "; ";
+  
+  DotStream << "};\n}\n";
+  DotStream.flush();
+  
+  return LayoutOfThread{std::move(DotString)};
+}
+
+static
+LayoutOfGlobalVariable
+doLayout(LayoutHandler const &Handler,
+         seec::cm::GlobalVariable const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Generate the identifier for this node.
+  std::string IDString;
+  
+  {
+    llvm::raw_string_ostream IDStream {IDString};
+    IDStream << "global_at_" << reinterpret_cast<uintptr_t>(&State);
+  }
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  ValuePortMap Ports;
+  
+  DotStream << IDString
+            << " [ label = <"
+            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">"
+            << "<TR><TD>"
+            << State.getClangValueDecl()->getName()
+            << "</TD>";
+  
+  auto const Value = State.getValue();
+  if (Value) {
+    auto const MaybeLayout = Handler.doLayout(*Value);
+    if (MaybeLayout.assigned<LayoutOfValue>()) {
+      auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+      DotStream << Layout.getDotString();
+      Ports.addAllFrom(Layout.getPorts());
+    }
+  }
+  
+  DotStream << "</TR></TABLE>> ];\n";
+  DotStream.flush();
+  
+  return LayoutOfGlobalVariable{std::move(IDString),
+                                std::move(DotString),
+                                std::move(Ports)};
+}
+
+static
+seec::Maybe<LayoutOfArea>
+doLayout(LayoutHandler const &Handler,
+         seec::MemoryArea const &Area,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  auto const Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  
+  if (Refs.empty())
+    return seec::Maybe<LayoutOfArea>();
+  
+  // TODO: Get the reference-picking algorithm from
+  //       GraphGenerator::generate(ReferenceArea const &Area).
+  
+  return Handler.doLayout(Area, *Refs[0]);
+}
+
+class NodeInfo {
+  std::string ID;
+  
+  MemoryArea Area;
+  
+  ValuePortMap Ports;
+  
+public:
+  NodeInfo(std::string WithID,
+           MemoryArea WithArea,
+           ValuePortMap WithPorts)
+  : ID(std::move(WithID)),
+    Area(std::move(WithArea)),
+    Ports(std::move(WithPorts))
+  {}
+  
+  std::string const &getID() const { return ID; }
+  
+  MemoryArea const &getArea() const { return Area; }
+  
+  seec::Maybe<ValuePort> getPortForValue(Value const &Val) const {
+    return Ports.getPortForValue(Val);
+  }
+};
+
+static
+LayoutOfProcess
+doLayout(LayoutHandler const &Handler,
+         seec::cm::ProcessState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Create tasks to generate global variable layouts.
+  std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
+  
+  auto const Globals = State.getGlobalVariables();
+  for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
+    GlobalVariableLayouts.emplace_back(
+      std::async( [&, It] () {
+                    return doLayout(Handler, *It, Expansion);
+                  } ));
+  }
+  
+  // Create tasks to generate thread layouts.
+  auto const ThreadCount = State.getThreadCount();
+  
+  std::vector<std::future<LayoutOfThread>> ThreadLayouts;
+  ThreadLayouts.reserve(ThreadCount);
+  
+  for (std::size_t i = 0; i < ThreadCount; ++i) {
+    ThreadLayouts.emplace_back(
+      std::async( [&, i] () {
+                    return doLayout(Handler, State.getThread(i), Expansion);
+                  } ));
+  }
+  
+  // Create tasks to generate malloc area layouts.
+  std::vector<std::future<seec::Maybe<LayoutOfArea>>> MallocLayouts;
+  
+  for (auto const &Malloc : State.getDynamicMemoryAllocations()) {
+    auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
+    
+    MallocLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+  }
+  
+  // Create tasks to generate known memory area layouts.
+  std::vector<std::future<seec::Maybe<LayoutOfArea>>> KnownAreaLayouts;
+  
+  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
+    auto const Area = seec::MemoryArea(Known.Begin,
+                                       Known.End - Known.Begin,
+                                       Known.Value);
+    
+    KnownAreaLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+  }
+  
+  // Retrieve results and combine layouts.
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  std::vector<NodeInfo> AllNodeInfo;
+  
+  DotStream << "digraph Process {\n"
+            << "node [shape=plaintext];\n"
+            << "rankdir=LR;\n";
+  
+  for (auto &GlobalFuture : GlobalVariableLayouts) {
+    auto const Layout = GlobalFuture.get();
+    DotStream << Layout.getDotString();
+  }
+  
+  for (auto &ThreadFuture : ThreadLayouts) {
+    auto const Layout = ThreadFuture.get();
+    DotStream << Layout.getDotString();
+  }
+  
+  for (auto &MallocFuture : MallocLayouts) {
+    auto const MaybeLayout = MallocFuture.get();
+    if (!MaybeLayout.assigned<LayoutOfArea>())
+      continue;
+    
+    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
+    DotStream << Layout.getDotString();
+  }
+  
+  for (auto &KnownAreaFuture : KnownAreaLayouts) {
+    auto const MaybeLayout = KnownAreaFuture.get();
+    if (!MaybeLayout.assigned<LayoutOfArea>())
+      continue;
+    
+    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
+    DotStream << Layout.getDotString();
+  }
+  
+  // Layout all pointers.
+  for (auto const &Pointer : Expansion.getAllPointers()) {
+    if (!Pointer->isInMemory())
+      continue;
+    
+    if (Pointer->getDereferenceIndexLimit() == 0)
+      continue;
+    
+    auto const TailAddress = Pointer->getAddress();
+    auto const TailIt =
+      std::find_if(AllNodeInfo.begin(),
+                   AllNodeInfo.end(),
+                   [=] (NodeInfo const &NI) { return NI.getArea()
+                                                       .contains(TailAddress);
+                                            });
+    
+    if (TailIt == AllNodeInfo.end()) {
+      llvm::errs() << "pointer: tail not found.\n";
+      continue;
+    }
+    
+    auto const HeadAddress = Pointer->getRawValue();
+    auto const HeadIt =
+      std::find_if(AllNodeInfo.begin(),
+                   AllNodeInfo.end(),
+                   [=] (NodeInfo const &NI) { return NI.getArea()
+                                                       .contains(HeadAddress);
+                                            });
+    
+    if (HeadIt == AllNodeInfo.end()) {
+      llvm::errs() << "pointer: head not found.\n";
+      continue;
+    }
+    
+    auto const MaybeTailPort = TailIt->getPortForValue(*Pointer);
+    if (!MaybeTailPort.assigned<ValuePort>()) {
+      llvm::errs() << "pointer: tail port not found.\n";
+      continue;
+    }
+    
+    auto const Pointee = Pointer->getDereferenced(0);
+    auto const MaybeHeadPort = HeadIt->getPortForValue(*Pointee);
+    if (!MaybeHeadPort.assigned<ValuePort>()) {
+      llvm::errs() << "pointer: head port not found.\n";
+      continue;
+    }
+    
+    llvm::errs() << "pointer: have tail and head.\n";
+  }
+  
+  DotStream << "}\n"; // Close the digraph.
+  DotStream.flush();
+  
+  return LayoutOfProcess{std::move(DotString)};
+}
 
 
 //===----------------------------------------------------------------------===//
@@ -148,7 +837,8 @@ LayoutHandler::addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine) {
 //===----------------------------------------------------------------------===//
 
 seec::Maybe<LayoutOfValue>
-LayoutHandler::doLayout(seec::cm::Value const &State) const {
+LayoutHandler::doLayout(seec::cm::Value const &State) const
+{
   for (auto const &EnginePtr : ValueEngines)
     if (EnginePtr->canLayout(State))
       return EnginePtr->doLayout(State);
@@ -156,140 +846,21 @@ LayoutHandler::doLayout(seec::cm::Value const &State) const {
   return seec::Maybe<LayoutOfValue>();
 }
 
-// doLayoutForAlloca LayoutHandler, Expansion, Alloca -> LayoutOfAlloca
-
-LayoutOfFunction
-LayoutHandler::doLayout(seec::cm::FunctionState const &State,
-                        seec::cm::graph::Expansion const &Expansion) const
+seec::Maybe<LayoutOfArea>
+LayoutHandler::doLayout(seec::MemoryArea const &Area,
+                        seec::cm::ValueOfPointer const &Reference) const
 {
-  // Generate the identifier for this node.
-  std::string IDString;
+  for (auto const &EnginePtr : AreaEngines)
+    if (EnginePtr->canLayout(Area, Reference))
+      return EnginePtr->doLayout(Area, Reference);
   
-  {
-    llvm::raw_string_ostream IDStream {IDString};
-    IDStream << "function_at_" << reinterpret_cast<uintptr_t>(&State);
-  }
-  
-  std::vector<LayoutOfValue> ParameterLayouts;
-  std::vector<LayoutOfValue> LocalLayouts;
-  
-  std::string DotString;
-  llvm::raw_string_ostream DotStream {DotString};
-  
-  DotStream << IDString
-            << " [ label = <"
-            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">"
-            << "<TR><TD COLSPAN=\"2\">"
-            << State.getNameAsString()
-            << "</TD></TR>";
-  
-  for (auto const &Parameter : State.getParameters()) {
-    // Attempt to get the value.
-    auto const Value = Parameter.getValue();
-    if (!Value)
-      continue;
-    
-    DotStream << "<TR><TD>"
-              << Parameter.getDecl()->getNameAsString()
-              << "</TD><TD>";
-    
-    // Attempt to layout the value.
-    auto MaybeLayout = doLayout(*Value);
-    if (MaybeLayout.assigned<LayoutOfValue>()) {
-      ParameterLayouts.emplace_back(MaybeLayout.move<LayoutOfValue>());
-      DotStream << ParameterLayouts.back().getDotString();
-    }
-    else {
-      DotStream << "~";
-    }
-    
-    DotStream << "</TD></TR>";
-  }
-  
-  for (auto const &Local : State.getLocals()) {
-    auto const Value = Local.getValue();
-    if (!Value)
-      continue;
-    
-    DotStream << "<TR><TD>"
-              << Local.getDecl()->getNameAsString()
-              << "</TD><TD>";
-    
-    auto MaybeLayout = doLayout(*Value);
-    if (MaybeLayout.assigned<LayoutOfValue>()) {
-      LocalLayouts.emplace_back(MaybeLayout.move<LayoutOfValue>());
-      DotStream << LocalLayouts.back().getDotString();
-    }
-    else {
-      DotStream << "~";
-    }
-    
-    DotStream << "</TD></TR>";
-  }
-  
-  DotStream << "</TABLE>> ];\n";
-  DotStream.flush();
-  
-  return LayoutOfFunction{std::move(DotString)};
-}
-
-LayoutOfThread
-LayoutHandler::doLayout(seec::cm::ThreadState const &State,
-                        seec::cm::graph::Expansion const &Expansion) const
-{
-  return LayoutOfThread{};
-}
-
-LayoutOfGlobalVariable
-LayoutHandler::doLayout(seec::cm::GlobalVariable const &State,
-                        seec::cm::graph::Expansion const &Expansion) const
-{
-  return LayoutOfGlobalVariable{};
-}
-
-LayoutOfProcess
-LayoutHandler::doLayout(seec::cm::ProcessState const &State,
-                        seec::cm::graph::Expansion const &Expansion) const
-{
-  // Create tasks to generate global variable layouts.
-  std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
-  
-  auto const Globals = State.getGlobalVariables();
-  for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It)
-    GlobalVariableLayouts.emplace_back(
-      std::async( [&, It, this] () {
-                    return this->doLayout(*It, Expansion);
-                  } ));
-  
-  // Create tasks to generate thread layouts.
-  auto const ThreadCount = State.getThreadCount();
-  
-  std::vector<std::future<LayoutOfThread>> ThreadLayouts;
-  ThreadLayouts.reserve(ThreadCount);
-  
-  for (std::size_t i = 0; i < ThreadCount; ++i)
-    ThreadLayouts.emplace_back(
-      std::async( [&, i, this] () {
-                    return this->doLayout(State.getThread(i), Expansion);
-                  } ));
-  
-  // TODO: Create tasks to generate malloc area layouts.
-  // foreach malloc:
-  //   async lambda doLayoutOfArea
-  
-  // TODO: Create tasks to generate known memory area layouts.
-  // foreach known:
-  //   async lambda doLayoutOfArea
-  
-  // TODO: Retrieve results and combine layouts.
-  
-  return LayoutOfProcess{};
+  return seec::Maybe<LayoutOfArea>();
 }
 
 LayoutOfProcess
 LayoutHandler::doLayout(seec::cm::ProcessState const &State) const
 {
-  return doLayout(State, Expansion::from(State));
+  return seec::cm::graph::doLayout(*this, State, Expansion::from(State));
 }
 
 
