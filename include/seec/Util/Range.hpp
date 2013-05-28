@@ -14,6 +14,8 @@
 #ifndef SEEC_UTIL_RANGE_HPP
 #define SEEC_UTIL_RANGE_HPP
 
+#include <utility>
+
 namespace seec {
 
 /// \brief A pair of iterators that can be used in a ranged for loop.
@@ -55,6 +57,13 @@ Range<IterT> range(IterT Begin, IterT End) {
 template<typename ElemT, unsigned ElemN>
 Range<ElemT *> range(ElemT(&Array)[ElemN]) {
   return Range<ElemT *>(Array[0], Array[ElemN]);
+}
+
+/// \brief Get a range from a pair.
+///
+template<typename IterT>
+Range<IterT> range(std::pair<IterT, IterT> const &Iters) {
+  return Range<IterT>(Iters.first, Iters.second);
 }
 
 } // namespace seec
