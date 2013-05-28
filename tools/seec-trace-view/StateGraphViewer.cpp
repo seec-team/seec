@@ -156,6 +156,8 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   // Remove all non-print characters from the SVG.
   std::string SVGString(RenderedData, RenderedLength);
   
+  // TODO: Trim everything before <svg
+  
   for (std::string::size_type i = 0; i < SVGString.length(); ) {
     if (!std::isprint(SVGString[i])) {
       SVGString.erase(i, 1);
@@ -175,10 +177,13 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   wxString Script;
   Script << "SetState(\"" << SVGString << "\");";
   
+  wxLogDebug("Setting state to:\n%s", SVGString);
+  
   WebView->RunScript(Script);
 }
 
 void StateGraphViewerPanel::clear()
 {
-  WebView->SetPage(wxString{}, wxString{});
+  if (WebView)
+    WebView->RunScript(wxString{"ClearState();"});
 }

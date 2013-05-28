@@ -2,11 +2,17 @@
  <head>
   <script type="text/javascript">
     function SetState(SVGString) {
-      document.getElementById("SVGContainer").innerHTML = SVGString;
+      var Container = document.getElementById("SVGContainer");
+
+      Container.innerHTML = SVGString;
 
       // TODO: Cleanup the SVG.
 
       // TODO: Add mouseover hooks.
+    }
+
+    function ClearState() {
+      document.getElementById("SVGContainer").innerHTML = "";
     }
   </script>
  </head>
