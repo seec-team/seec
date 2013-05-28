@@ -37,6 +37,7 @@ INSTALL(TARGETS SeeCClang
 
 set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/DotGraph.hpp
+  ../../include/seec/Clang/GraphLayout.hpp
   ../../include/seec/Clang/MappedAllocaState.hpp
   ../../include/seec/Clang/MappedFunctionState.hpp
   ../../include/seec/Clang/MappedGlobalVariable.hpp
@@ -47,10 +48,13 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/MappedStateMovement.hpp
   ../../include/seec/Clang/MappedThreadState.hpp
   ../../include/seec/Clang/MappedValue.hpp
+  GraphExpansion.hpp
 )
 
 set(SEEC_CLANG_MAPPED_TRACE_SOURCES
   DotGraph.cpp
+  GraphExpansion.cpp
+  GraphLayout.cpp
   MappedAllocaState.cpp
   MappedFunctionState.cpp
   MappedGlobalVariable.cpp
