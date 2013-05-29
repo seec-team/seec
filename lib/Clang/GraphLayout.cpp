@@ -87,6 +87,31 @@ static std::string EscapeForHTML(llvm::StringRef String)
 //===----------------------------------------------------------------------===//
 
 
+class NodeInfo {
+  std::string ID;
+  
+  MemoryArea Area;
+  
+  ValuePortMap Ports;
+  
+public:
+  NodeInfo(std::string WithID,
+           MemoryArea WithArea,
+           ValuePortMap WithPorts)
+  : ID(std::move(WithID)),
+    Area(std::move(WithArea)),
+    Ports(std::move(WithPorts))
+  {}
+  
+  std::string const &getID() const { return ID; }
+  
+  MemoryArea const &getArea() const { return Area; }
+  
+  seec::Maybe<ValuePort> getPortForValue(Value const &Val) const {
+    return Ports.getPortForValue(Val);
+  }
+};
+
 /// \brief Represents an edge that has been laid out.
 ///
 class LayoutOfPointer {
@@ -112,16 +137,22 @@ public:
 class LayoutOfAlloca {
   std::string DotString;
   
+  MemoryArea Area;
+  
   ValuePortMap Ports;
   
 public:
   LayoutOfAlloca(std::string WithDotString,
+                 MemoryArea WithArea,
                  ValuePortMap WithPorts)
   : DotString(std::move(WithDotString)),
+    Area(std::move(WithArea)),
     Ports(std::move(WithPorts))
   {}
   
   std::string const &getDotString() const { return DotString; }
+  
+  decltype(Area) const &getArea() const { return Area; }
   
   decltype(Ports) const &getPorts() const { return Ports; }
 };
@@ -134,20 +165,26 @@ class LayoutOfFunction {
   
   std::string DotString;
   
+  MemoryArea Area;
+  
   ValuePortMap Ports;
   
 public:
   LayoutOfFunction(std::string WithID,
                    std::string WithDotString,
+                   MemoryArea WithArea,
                    ValuePortMap WithPorts)
   : ID(std::move(WithID)),
     DotString(std::move(WithDotString)),
+    Area(std::move(WithArea)),
     Ports(std::move(WithPorts))
   {}
   
   std::string const &getID() const { return ID; }
   
   std::string const &getDotString() const { return DotString; }
+  
+  decltype(Area) const &getArea() const { return Area; }
   
   decltype(Ports) const &getPorts() const { return Ports; }
 };
@@ -158,13 +195,20 @@ public:
 class LayoutOfThread {
   std::string DotString;
   
+  std::vector<NodeInfo> Nodes;
+  
 public:
-  LayoutOfThread(std::string WithDotString)
-  : DotString(std::move(WithDotString))
+  LayoutOfThread(std::string WithDotString,
+                 std::vector<NodeInfo> WithNodes)
+  : DotString(std::move(WithDotString)),
+    Nodes(std::move(WithNodes))
   {}
   
   std::string const &getDotString() const { return DotString; }
+  
+  decltype(Nodes) const &getNodes() const { return Nodes; }
 };
+
 
 /// \brief Represents the layout of a seec::cm::GlobalVariable.
 ///
@@ -173,20 +217,26 @@ class LayoutOfGlobalVariable {
   
   std::string DotString;
   
+  MemoryArea Area;
+  
   ValuePortMap Ports;
   
 public:
   LayoutOfGlobalVariable(std::string WithID,
                          std::string WithDotString,
+                         MemoryArea WithArea,
                          ValuePortMap WithPorts)
   : ID(std::move(WithID)),
     DotString(std::move(WithDotString)),
+    Area(std::move(WithArea)),
     Ports(std::move(WithPorts))
   {}
   
   std::string const &getID() const { return ID; }
   
   std::string const &getDotString() const { return DotString; }
+  
+  decltype(Area) const &getArea() const { return Area; }
   
   decltype(Ports) const &getPorts() const { return Ports; }
 };
@@ -462,10 +512,12 @@ doLayout(LayoutHandler const &Handler,
   // Attempt to get the value.
   auto const Value = State.getValue();
   if (!Value)
-    return LayoutOfAlloca{std::string{}, ValuePortMap{}};
+    return LayoutOfAlloca{std::string{}, MemoryArea{}, ValuePortMap{}};
   
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
+  
+  MemoryArea Area;
   
   ValuePortMap Ports;
   
@@ -481,13 +533,19 @@ doLayout(LayoutHandler const &Handler,
     Ports.addAllFrom(Layout.getPorts());
   }
   else {
-    DotStream << "<TD>no layout</TD>";
+    DotStream << "<TD>no layout</TD>"; // TODO: Localise
   }
   
   DotStream << "</TR>";
   DotStream.flush();
   
-  return LayoutOfAlloca{std::move(DotString), std::move(Ports)};
+  if (Value->isInMemory())
+    Area = MemoryArea(Value->getAddress(),
+                      Value->getTypeSizeInChars().getQuantity());
+  
+  return LayoutOfAlloca{std::move(DotString),
+                        std::move(Area),
+                        std::move(Ports)};
 }
 
 static
@@ -507,6 +565,8 @@ doLayout(LayoutHandler const &Handler,
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
   
+  MemoryArea Area;
+  
   ValuePortMap Ports;
   
   DotStream << IDString
@@ -518,14 +578,30 @@ doLayout(LayoutHandler const &Handler,
   
   for (auto const &Parameter : State.getParameters()) {
     auto const Layout = doLayout(Handler, Parameter, Expansion);
+    
     DotStream << Layout.getDotString();
+    
     Ports.addAllFrom(Layout.getPorts());
+    
+    auto const &AllocaArea = Layout.getArea();
+    if (AllocaArea.end() > Area.end())
+      Area.setEnd(AllocaArea.end());
+    if (Area.start() == 0 || AllocaArea.start() < Area.start())
+      Area.setStart(AllocaArea.start());
   }
   
   for (auto const &Local : State.getLocals()) {
     auto const Layout = doLayout(Handler, Local, Expansion);
+    
     DotStream << Layout.getDotString();
+    
     Ports.addAllFrom(Layout.getPorts());
+    
+    auto const &AllocaArea = Layout.getArea();
+    if (AllocaArea.end() > Area.end())
+      Area.setEnd(AllocaArea.end());
+    if (Area.start() == 0 || AllocaArea.start() < Area.start())
+      Area.setStart(AllocaArea.start());
   }
   
   DotStream << "</TABLE>> ];\n";
@@ -533,6 +609,7 @@ doLayout(LayoutHandler const &Handler,
   
   return LayoutOfFunction{std::move(IDString),
                           std::move(DotString),
+                          std::move(Area),
                           std::move(Ports)};
 }
 
@@ -550,9 +627,10 @@ doLayout(LayoutHandler const &Handler,
     IDStream << "thread_at_" << reinterpret_cast<uintptr_t>(&State);
   }
   
-  // 
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
+  
+  std::vector<NodeInfo> FunctionNodes;
   
   DotStream << "subgraph " << IDString << " {\n";
   
@@ -561,7 +639,14 @@ doLayout(LayoutHandler const &Handler,
   
   for (auto const &FunctionState : State.getCallStack()) {
     FunctionLayouts.emplace_back(doLayout(Handler, FunctionState, Expansion));
-    DotStream << FunctionLayouts.back().getDotString();
+    
+    auto const &Layout = FunctionLayouts.back();
+    
+    DotStream << Layout.getDotString();
+    
+    FunctionNodes.emplace_back(Layout.getID(),
+                               Layout.getArea(),
+                               Layout.getPorts());
   }
   
   // Make all function nodes take an equal rank.
@@ -573,7 +658,7 @@ doLayout(LayoutHandler const &Handler,
   DotStream << "};\n}\n";
   DotStream.flush();
   
-  return LayoutOfThread{std::move(DotString)};
+  return LayoutOfThread{std::move(DotString), std::move(FunctionNodes)};
 }
 
 static
@@ -602,6 +687,8 @@ doLayout(LayoutHandler const &Handler,
             << State.getClangValueDecl()->getName()
             << "</TD>";
   
+  MemoryArea Area;
+  
   auto const Value = State.getValue();
   if (Value) {
     auto const MaybeLayout = Handler.doLayout(*Value);
@@ -610,6 +697,11 @@ doLayout(LayoutHandler const &Handler,
       DotStream << Layout.getDotString();
       Ports.addAllFrom(Layout.getPorts());
     }
+    
+    if (Value->isInMemory()) {
+      Area = MemoryArea(Value->getAddress(),
+                        Value->getTypeSizeInChars().getQuantity());
+    }
   }
   
   DotStream << "</TR></TABLE>> ];\n";
@@ -617,141 +709,31 @@ doLayout(LayoutHandler const &Handler,
   
   return LayoutOfGlobalVariable{std::move(IDString),
                                 std::move(DotString),
+                                std::move(Area),
                                 std::move(Ports)};
 }
 
 static
-seec::Maybe<LayoutOfArea>
+std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>
 doLayout(LayoutHandler const &Handler,
-         seec::MemoryArea const &Area,
-         seec::cm::graph::Expansion const &Expansion)
+         MemoryArea const &Area,
+         Expansion const &Expansion)
 {
   auto const Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
   
   if (Refs.empty())
-    return seec::Maybe<LayoutOfArea>();
+    return std::make_pair(seec::Maybe<LayoutOfArea>(), Area);
   
   // TODO: Get the reference-picking algorithm from
   //       GraphGenerator::generate(ReferenceArea const &Area).
   
-  return Handler.doLayout(Area, *Refs[0]);
+  return std::make_pair(Handler.doLayout(Area, *Refs[0]), Area);
 }
 
-class NodeInfo {
-  std::string ID;
-  
-  MemoryArea Area;
-  
-  ValuePortMap Ports;
-  
-public:
-  NodeInfo(std::string WithID,
-           MemoryArea WithArea,
-           ValuePortMap WithPorts)
-  : ID(std::move(WithID)),
-    Area(std::move(WithArea)),
-    Ports(std::move(WithPorts))
-  {}
-  
-  std::string const &getID() const { return ID; }
-  
-  MemoryArea const &getArea() const { return Area; }
-  
-  seec::Maybe<ValuePort> getPortForValue(Value const &Val) const {
-    return Ports.getPortForValue(Val);
-  }
-};
-
-static
-LayoutOfProcess
-doLayout(LayoutHandler const &Handler,
-         seec::cm::ProcessState const &State,
-         seec::cm::graph::Expansion const &Expansion)
+static void renderEdges(llvm::raw_string_ostream &DotStream,
+                        std::vector<NodeInfo> const &AllNodeInfo,
+                        Expansion const &Expansion)
 {
-  // Create tasks to generate global variable layouts.
-  std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
-  
-  auto const Globals = State.getGlobalVariables();
-  for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
-    GlobalVariableLayouts.emplace_back(
-      std::async( [&, It] () {
-                    return doLayout(Handler, *It, Expansion);
-                  } ));
-  }
-  
-  // Create tasks to generate thread layouts.
-  auto const ThreadCount = State.getThreadCount();
-  
-  std::vector<std::future<LayoutOfThread>> ThreadLayouts;
-  ThreadLayouts.reserve(ThreadCount);
-  
-  for (std::size_t i = 0; i < ThreadCount; ++i) {
-    ThreadLayouts.emplace_back(
-      std::async( [&, i] () {
-                    return doLayout(Handler, State.getThread(i), Expansion);
-                  } ));
-  }
-  
-  // Create tasks to generate malloc area layouts.
-  std::vector<std::future<seec::Maybe<LayoutOfArea>>> MallocLayouts;
-  
-  for (auto const &Malloc : State.getDynamicMemoryAllocations()) {
-    auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
-    
-    MallocLayouts.emplace_back(
-      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
-  }
-  
-  // Create tasks to generate known memory area layouts.
-  std::vector<std::future<seec::Maybe<LayoutOfArea>>> KnownAreaLayouts;
-  
-  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
-    auto const Area = seec::MemoryArea(Known.Begin,
-                                       Known.End - Known.Begin,
-                                       Known.Value);
-    
-    KnownAreaLayouts.emplace_back(
-      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
-  }
-  
-  // Retrieve results and combine layouts.
-  std::string DotString;
-  llvm::raw_string_ostream DotStream {DotString};
-  
-  std::vector<NodeInfo> AllNodeInfo;
-  
-  DotStream << "digraph Process {\n"
-            << "node [shape=plaintext];\n"
-            << "rankdir=LR;\n";
-  
-  for (auto &GlobalFuture : GlobalVariableLayouts) {
-    auto const Layout = GlobalFuture.get();
-    DotStream << Layout.getDotString();
-  }
-  
-  for (auto &ThreadFuture : ThreadLayouts) {
-    auto const Layout = ThreadFuture.get();
-    DotStream << Layout.getDotString();
-  }
-  
-  for (auto &MallocFuture : MallocLayouts) {
-    auto const MaybeLayout = MallocFuture.get();
-    if (!MaybeLayout.assigned<LayoutOfArea>())
-      continue;
-    
-    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
-    DotStream << Layout.getDotString();
-  }
-  
-  for (auto &KnownAreaFuture : KnownAreaLayouts) {
-    auto const MaybeLayout = KnownAreaFuture.get();
-    if (!MaybeLayout.assigned<LayoutOfArea>())
-      continue;
-    
-    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
-    DotStream << Layout.getDotString();
-  }
-  
   // Layout all pointers.
   for (auto const &Pointer : Expansion.getAllPointers()) {
     if (!Pointer->isInMemory())
@@ -787,20 +769,196 @@ doLayout(LayoutHandler const &Handler,
     }
     
     auto const MaybeTailPort = TailIt->getPortForValue(*Pointer);
-    if (!MaybeTailPort.assigned<ValuePort>()) {
-      llvm::errs() << "pointer: tail port not found.\n";
-      continue;
-    }
     
     auto const Pointee = Pointer->getDereferenced(0);
     auto const MaybeHeadPort = HeadIt->getPortForValue(*Pointee);
-    if (!MaybeHeadPort.assigned<ValuePort>()) {
-      llvm::errs() << "pointer: head port not found.\n";
-      continue;
+    
+    // Accumulate all attributes.
+    std::string EdgeAttributes;
+    bool IsPunned = false;
+    
+    // Write the tail.
+    DotStream << TailIt->getID();
+    
+    if (MaybeTailPort.assigned<ValuePort>()) {
+      // Tail port was explicitly defined during layout.
+      auto const &TailPort = MaybeTailPort.get<ValuePort>();
+      
+      if (!TailPort.getCustomPort().empty())
+        DotStream << ':' << TailPort.getCustomPort();
+      else if (TailPort.getEdgeEnd() == EdgeEndType::Standard)
+        DotStream << ':'
+                  << getStandardPortFor(*Pointer)
+                  << ":c";
+      
+      EdgeAttributes += "tailclip=false;";
+    }
+    else {
+      // The tail port wasn't found, we must consider it punned.
+      llvm::errs() << "tail considered punned.\n";
+      
+      EdgeAttributes += "dir=both;arrowtail=odot;";
+      
+      IsPunned = true;
     }
     
-    llvm::errs() << "pointer: have tail and head.\n";
+    // Write the arrow.
+    DotStream << " -> ";
+    
+    // Write the head.
+    DotStream << HeadIt->getID();
+    
+    if (MaybeHeadPort.assigned<ValuePort>()) {
+      // Tail port was explicitly defined during layout.
+      auto const &HeadPort = MaybeHeadPort.get<ValuePort>();
+      
+      if (!HeadPort.getCustomPort().empty())
+        DotStream << ':' << HeadPort.getCustomPort();
+      else if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
+        DotStream << ':'
+                  << getStandardPortFor(*Pointee)
+                  << ":nw";
+    }
+    else {
+      // The tail port wasn't found, we must consider it punned.
+      llvm::errs() << "head considered punned.\n";
+      
+      EdgeAttributes += "arrowhead=odot;";
+      
+      IsPunned = true;
+    }
+    
+    if (IsPunned)
+      EdgeAttributes += "style=dashed;";
+    
+    // Write attributes.
+    if (!EdgeAttributes.empty()) {
+      EdgeAttributes.pop_back();
+      DotStream << " [" << EdgeAttributes << "]";
+    }
+    
+    DotStream << ";\n";
   }
+}
+
+static
+LayoutOfProcess
+doLayout(LayoutHandler const &Handler,
+         seec::cm::ProcessState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Create tasks to generate global variable layouts.
+  std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
+  
+  auto const Globals = State.getGlobalVariables();
+  for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
+    GlobalVariableLayouts.emplace_back(
+      std::async( [&, It] () {
+                    return doLayout(Handler, *It, Expansion);
+                  } ));
+  }
+  
+  // Create tasks to generate thread layouts.
+  auto const ThreadCount = State.getThreadCount();
+  
+  std::vector<std::future<LayoutOfThread>> ThreadLayouts;
+  ThreadLayouts.reserve(ThreadCount);
+  
+  for (std::size_t i = 0; i < ThreadCount; ++i) {
+    ThreadLayouts.emplace_back(
+      std::async( [&, i] () {
+                    return doLayout(Handler, State.getThread(i), Expansion);
+                  } ));
+  }
+  
+  // Create tasks to generate malloc area layouts.
+  std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
+    MallocLayouts;
+  
+  for (auto const &Malloc : State.getDynamicMemoryAllocations()) {
+    auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
+    
+    MallocLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+  }
+  
+  // Create tasks to generate known memory area layouts.
+  std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
+    KnownAreaLayouts;
+  
+  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
+    auto const Area = seec::MemoryArea(Known.Begin,
+                                       Known.End - Known.Begin,
+                                       Known.Value);
+    
+    KnownAreaLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+  }
+  
+  // Retrieve results and combine layouts.
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  std::vector<NodeInfo> AllNodeInfo;
+  
+  DotStream << "digraph Process {\n"
+            << "node [shape=plaintext];\n"
+            << "rankdir=LR;\n";
+  
+  for (auto &GlobalFuture : GlobalVariableLayouts) {
+    auto const Layout = GlobalFuture.get();
+
+    DotStream << Layout.getDotString();
+    
+    AllNodeInfo.emplace_back(Layout.getID(),
+                             Layout.getArea(),
+                             Layout.getPorts());
+  }
+  
+  for (auto &ThreadFuture : ThreadLayouts) {
+    auto const Layout = ThreadFuture.get();
+    
+    DotStream << Layout.getDotString();
+    
+    AllNodeInfo.insert(AllNodeInfo.end(),
+                       Layout.getNodes().begin(),
+                       Layout.getNodes().end());
+  }
+  
+  for (auto &MallocFuture : MallocLayouts) {
+    auto const Result = MallocFuture.get();
+    
+    auto const &MaybeLayout = Result.first;
+    if (!MaybeLayout.assigned<LayoutOfArea>())
+      continue;
+    
+    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
+    
+    DotStream << Layout.getDotString();
+    
+    AllNodeInfo.emplace_back(Layout.getID(),
+                             Result.second,
+                             Layout.getPorts());
+  }
+  
+  for (auto &KnownAreaFuture : KnownAreaLayouts) {
+    auto const Result = KnownAreaFuture.get();
+    
+    auto const &MaybeLayout = Result.first;
+    if (!MaybeLayout.assigned<LayoutOfArea>())
+      continue;
+    
+    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
+    
+    DotStream << Layout.getDotString();
+    
+    AllNodeInfo.emplace_back(Layout.getID(),
+                             Result.second,
+                             Layout.getPorts());
+  }
+  
+  // Render all of the pointers.
+  renderEdges(DotStream, AllNodeInfo, Expansion);
   
   DotStream << "}\n"; // Close the digraph.
   DotStream.flush();
