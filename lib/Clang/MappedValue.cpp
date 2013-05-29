@@ -303,6 +303,12 @@ class ValueByMemoryForScalar final : public Value {
   /// The state of recorded memory.
   seec::trace::MemoryState const &Memory;
   
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return Size;
+  }
+  
 public:
   /// \brief Constructor.
   ///
@@ -387,7 +393,7 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   ::clang::ASTContext const &ASTContext;
   
   /// The canonical Type of this value.
-  ::clang::Type const * CanonicalType;
+  ::clang::Type const *CanonicalType;
   
   /// The address of this pointer (not the value of the pointer).
   uintptr_t Address;
@@ -418,6 +424,12 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
     RawValue(WithRawValue),
     ProcessState(ForProcessState)
   {}
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return ASTContext.getTypeSizeInChars(CanonicalType);
+  }
   
   /// \brief Get the raw value of this pointer.
   ///
@@ -591,7 +603,7 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
   ::clang::ASTRecordLayout const &Layout;
   
   /// The canonical Type of this value.
-  ::clang::Type const * CanonicalType;
+  ::clang::Type const *CanonicalType;
   
   /// The memory address of this Value.
   uintptr_t Address;
@@ -614,6 +626,12 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
     Address(WithAddress),
     ProcessState(ForProcessState)
   {}
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return ASTContext.getTypeSizeInChars(CanonicalType);
+  }
   
 public:
   /// \brief Attempt to create a new instance of this class.
@@ -813,7 +831,7 @@ class ValueByMemoryForArray final : public ValueOfArray {
   ::clang::ASTContext const &ASTContext;
   
   /// The canonical Type of this value.
-  ::clang::ArrayType const * CanonicalType;
+  ::clang::ArrayType const *CanonicalType;
   
   /// The memory address of this Value.
   uintptr_t Address;
@@ -844,6 +862,12 @@ class ValueByMemoryForArray final : public ValueOfArray {
     ElementCount(WithElementCount),
     ProcessState(ForProcessState)
   {}
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return ASTContext.getTypeSizeInChars(CanonicalType);
+  }
   
 public:
   /// \brief Attempt to create a new instance of this class.
@@ -1431,16 +1455,27 @@ class ValueByRuntimeValueForScalar final : public Value {
   /// The LLVM Value for this value.
   llvm::Value const *LLVMValue;
   
+  /// The size of this value.
+  ::clang::CharUnits TypeSizeInChars;
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return TypeSizeInChars;
+  }
+  
 public:
   /// \brief Constructor.
   ///
   ValueByRuntimeValueForScalar(::clang::Expr const *ForExpression,
                                seec::trace::FunctionState const &ForState,
-                               llvm::Value const *WithLLVMValue)
+                               llvm::Value const *WithLLVMValue,
+                               ::clang::CharUnits WithTypeSizeInChars)
   : Value(Value::Kind::Basic),
     Expression(ForExpression),
     FunctionState(ForState),
-    LLVMValue(WithLLVMValue)
+    LLVMValue(WithLLVMValue),
+    TypeSizeInChars(WithTypeSizeInChars)
   {}
   
   /// \brief Get the canonical type of this Value.
@@ -1527,6 +1562,14 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
     PtrValue(WithPtrValue),
     PointeeSize(WithPointeeSize)
   {}
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return MappedAST.getASTUnit()
+                    .getASTContext()
+                    .getTypeSizeInChars(Expression->getType());
+  }
   
   /// \brief Get the raw value of this pointer.
   ///
@@ -1951,10 +1994,16 @@ getValue(std::shared_ptr<ValueStore const> Store,
         }
         else {
           // All other types use a single implementation.
+          auto const TypeSize = SMap.getAST()
+                                    .getASTUnit()
+                                    .getASTContext()
+                                    .getTypeSizeInChars(Expression->getType());
+          
           return std::make_shared<ValueByRuntimeValueForScalar>
                                  (Expression,
                                   FunctionState,
-                                  LLVMValues.first);
+                                  LLVMValues.first,
+                                  TypeSize);
         }
       }
       

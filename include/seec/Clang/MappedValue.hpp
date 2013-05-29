@@ -60,6 +60,10 @@ public:
 private:
   /// General Kind of this Value.
   Kind ThisKind;
+  
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const =0;
 
 public:
   /// \brief Constructor.
@@ -100,6 +104,12 @@ public:
   /// pre: isInMemory() == true
   ///
   virtual uintptr_t getAddress() const =0;
+  
+  /// \brief Get the size of the value's type.
+  ///
+  ::clang::CharUnits getTypeSizeInChars() const {
+    return getTypeSizeInCharsImpl();
+  }
   
   /// \brief Check if this value is completely initialized.
   ///
