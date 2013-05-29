@@ -653,55 +653,17 @@ void GraphGenerator::generate(seec::cm::GlobalVariable const &State)
 }
 
 static bool
-isChild(seec::cm::Value const &Child, seec::cm::Value const &Parent)
-{
-  if (&Child == &Parent)
-    return true;
-  
-  switch (Parent.getKind()) {
-    case seec::cm::Value::Kind::Basic:
-      return false;
-    
-    case seec::cm::Value::Kind::Array:
-    {
-      auto const &ParentArray = llvm::cast<seec::cm::ValueOfArray>(Parent);
-      auto const Limit = ParentArray.getChildCount();
-      
-      for (unsigned i = 0; i < Limit; ++i)
-        if (isChild(Child, *ParentArray.getChildAt(i)))
-          return true;
-      
-      return false;
-    }
-    
-    case seec::cm::Value::Kind::Record:
-    {
-      auto const &ParentRecord = llvm::cast<seec::cm::ValueOfRecord>(Parent);
-      auto const Limit = ParentRecord.getChildCount();
-      
-      for (unsigned i = 0; i < Limit; ++i)
-        if (isChild(Child, *ParentRecord.getChildAt(i)))
-          return true;
-      
-      return false;
-    }
-    
-    case seec::cm::Value::Kind::Pointer:
-      return false;
-  }
-  
-  return false;
-}
-
-static bool
 isChildOfAnyDereference(seec::cm::Value const &Child,
                         seec::cm::ValueOfPointer const &ParentReference)
 {
   auto const Limit = ParentReference.getDereferenceIndexLimit();
   
-  for (unsigned i = 0; i < Limit; ++i)
-    if (isChild(Child, *ParentReference.getDereferenced(i)))
+  for (unsigned i = 0; i < Limit; ++i) {
+    auto const &Deref = *ParentReference.getDereferenced(i);
+    
+    if (&Child == &Deref || isContainedChild(Child, Deref))
       return true;
+  }
   
   return false;
 }

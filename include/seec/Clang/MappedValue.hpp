@@ -271,6 +271,9 @@ public:
 };
 
 
+/// \name Value Creation
+/// @{
+
 /// \brief Get a Value for a given type in memory.
 ///
 std::shared_ptr<Value const>
@@ -296,6 +299,25 @@ getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::Stmt const *Statement,
          seec::seec_clang::MappedModule const &Mapping,
          seec::trace::FunctionState const &FunctionState);
+
+/// @} (Value Creation)
+
+
+/// \name Utilities
+/// @{
+
+/// \brief Check if a Value is a contained child of another Value.
+///
+/// This function considers array elements and record members to be children,
+/// but will not follow pointers.
+///
+bool isContainedChild(Value const &Child, Value const &Parent);
+
+/// \brief Check if two pointers reference the same Value.
+///
+bool doReferenceSameValue(ValueOfPointer const &A, ValueOfPointer const &B);
+
+/// @} (Utilities)
 
 
 } // namespace cm (in seec)

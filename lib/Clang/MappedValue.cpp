@@ -2066,6 +2066,83 @@ getValue(std::shared_ptr<ValueStore const> Store,
 }
 
 
+//===----------------------------------------------------------------------===//
+// Utilities
+//===----------------------------------------------------------------------===//
+
+// Documented in MappedValue.hpp
+//
+bool isContainedChild(Value const &Child, Value const &Parent)
+{
+  switch (Parent.getKind()) {
+    case Value::Kind::Basic:
+      return false;
+    
+    case Value::Kind::Array:
+    {
+      auto const &ParentArray = static_cast<ValueOfArray const &>(Parent);
+      auto const Limit = ParentArray.getChildCount();
+      
+      for (unsigned i = 0; i < Limit; ++i) {
+        auto const Element = ParentArray.getChildAt(i);
+        if (&Child == Element.get() || isContainedChild(Child, *Element))
+          return true;
+      }
+      
+      return false;
+    }
+    
+    case Value::Kind::Record:
+    {
+      auto const &ParentRecord = static_cast<ValueOfRecord const &>(Parent);
+      auto const Limit = ParentRecord.getChildCount();
+      
+      for (unsigned i = 0; i < Limit; ++i) {
+        auto const Member = ParentRecord.getChildAt(i);
+        if (&Child == Member.get() || isContainedChild(Child, *Member))
+          return true;
+      }
+      
+      return false;
+    }
+    
+    case Value::Kind::Pointer:
+      return false;
+  }
+  
+  return false;
+}
+
+// Documented in MappedValue.hpp
+//
+bool doReferenceSameValue(ValueOfPointer const &LHS, ValueOfPointer const &RHS)
+{
+  auto const L0 = LHS.getDereferenced(0);
+  auto const R0 = RHS.getDereferenced(0);
+  
+  // Fail quickly if the pointees have different types.
+  if (L0->getCanonicalType() != R0->getCanonicalType())
+    return false;
+  
+  if (LHS.getRawValue() <= RHS.getRawValue()) {
+    auto const Limit = LHS.getDereferenceIndexLimit();
+    
+    for (unsigned i = 0; i < Limit; ++i)
+      if (LHS.getDereferenced(i) == R0)
+        return true;
+  }
+  else {
+    auto const Limit = RHS.getDereferenceIndexLimit();
+    
+    for (unsigned i = 0; i < Limit; ++i)
+      if (RHS.getDereferenced(i) == L0)
+        return true;
+  }
+  
+  return false;
+}
+
+
 } // namespace cm (in seec)
 
 } // namespace seec
