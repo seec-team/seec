@@ -45,4 +45,15 @@ root:table {
     //
     MallocStateAllocatedAt:string { "allocated in file {filename} at line {line}, column {column}." }
   }
+
+  Graph:table {
+    Layout:table {
+      LEVStandard:table {
+        Name:string { "Standard" }
+      }
+      LEAStandard:table {
+        Name:string { "Standard" }
+      }
+    }
+  }
 }

@@ -23,8 +23,11 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/MakeUnique.hpp"
+
+#include "unicode/locid.h"
 
 #include <future>
 
@@ -79,6 +82,70 @@ static std::string EscapeForHTML(llvm::StringRef String)
   }
   
   return Escaped;
+}
+
+static void encodePropertyChar(llvm::raw_ostream &Out, char Character)
+{
+  if (std::isalnum(Character)) {
+    Out << Character;
+    return;
+  }
+  
+  // Escape the character if necessary.
+  switch (Character) {
+    case '=':
+    case '.':
+    case '~':
+      Out << '~';
+      break;
+  }
+  
+  // Write the character raw if unreserved.
+  switch (Character) {
+    case '-':
+    case '.':
+    case '_':
+    case '~':
+      Out << Character;
+      return;
+  }
+  
+  // Use percent encoding for all others.
+  auto const High = Character / 16;
+  auto const Low  = Character % 16;
+  
+  Out << '%';
+  Out << (High < 10 ? ('0' + High) : ('A' + (High - 10)));
+  Out << (Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
+}
+
+void encodeProperty(llvm::raw_ostream &Out,
+                    llvm::Twine Property)
+{
+  auto const String = Property.str();
+  
+  for (auto const Character : String)
+    encodePropertyChar(Out, Character);
+  
+  Out << '.';
+}
+
+void encodeProperty(llvm::raw_ostream &Out,
+                    llvm::Twine Key,
+                    llvm::Twine Value)
+{
+  auto const KeyString = Key.str();
+  auto const ValueString = Value.str();
+  
+  for (auto const Character : KeyString)
+    encodePropertyChar(Out, Character);
+  
+  encodePropertyChar(Out, '=');
+  
+  for (auto const Character : ValueString)
+    encodePropertyChar(Out, Character);
+  
+  Out << '.';
 }
 
 
@@ -282,7 +349,11 @@ LEVStandard::doLayoutImpl(Value const &V) const
       
       Stream << "<TD PORT=\""
              << getStandardPortFor(V)
-             << "\">";
+             << "\" HREF=\"seecproperties:";
+      
+      getHandler().writeValidEnginesProperty(Stream, V);
+      
+      Stream << "\">";
       
       if (IsInit)
         Stream << EscapeForHTML(V.getValueAsStringFull());
@@ -298,8 +369,12 @@ LEVStandard::doLayoutImpl(Value const &V) const
       unsigned const ChildCount = Array.getChildCount();
       
       Stream << "<TD PORT=\""
-               << getStandardPortFor(V)
-               << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+             << getStandardPortFor(V)
+             << "\" HREF=\"seecproperties:";
+      
+      getHandler().writeValidEnginesProperty(Stream, V);
+      
+      Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Array.getChildAt(i);
@@ -333,8 +408,12 @@ LEVStandard::doLayoutImpl(Value const &V) const
       unsigned const ChildCount = Record.getChildCount();
       
       Stream << "<TD PORT=\""
-               << getStandardPortFor(V)
-               << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+             << getStandardPortFor(V)
+             << "\" HREF=\"seecproperties:";
+      
+      getHandler().writeValidEnginesProperty(Stream, V);
+      
+      Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Record.getChildAt(i);
@@ -378,25 +457,41 @@ LEVStandard::doLayoutImpl(Value const &V) const
         // An uninitialized pointer.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\">?</TD>";
+               << "\" HREF=\"seecproperties:";
+        
+        getHandler().writeValidEnginesProperty(Stream, V);
+        
+        Stream << "\">?</TD>";
       }
       else if (!Ptr.getRawValue()) {
         // A NULL pointer.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\">NULL</TD>";
+               << "\" HREF=\"seecproperties:";
+        
+        getHandler().writeValidEnginesProperty(Stream, V);
+        
+        Stream << "\">NULL</TD>";
       }
       else if (Ptr.getDereferenceIndexLimit() == 0) {
         // An invalid pointer (as far as we're concerned).
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\">!</TD>";
+               << "\" HREF=\"seecproperties:";
+        
+        getHandler().writeValidEnginesProperty(Stream, V);
+        
+        Stream << "\">!</TD>";
       }
       else {
         // A valid pointer with at least one dereference.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\"> </TD>";
+               << "\" HREF=\"seecproperties:";
+        
+        getHandler().writeValidEnginesProperty(Stream, V);
+        
+        Stream << "\"> </TD>";
       }
       
       break;
@@ -1104,6 +1199,69 @@ LayoutHandler::addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine) {
   AreaEngines.emplace_back(std::move(Engine));
 }
 
+void
+LayoutHandler::writeValidEnginesProperty(llvm::raw_ostream &Out,
+                                         Value const &ForValue) const
+{
+  std::string PropertyValue;
+  
+  {
+    llvm::raw_string_ostream Stream {PropertyValue};
+    
+    for (auto const &EnginePtr : ValueEngines) {
+      if (EnginePtr->canLayout(ForValue)) {
+        auto const LazyName = EnginePtr->getName();
+        if (!LazyName) {
+          llvm::errs() << "failed to get layout engine name.";
+          continue;
+        }
+        
+        UErrorCode Status = U_ZERO_ERROR;
+        auto const UniName = LazyName->get(Status, Locale{});
+        
+        if (U_FAILURE(Status)) {
+          llvm::errs() << "failed to get layout engine name as string.";
+          continue;
+        }
+        
+        std::string UTF8Name;
+        UniName.toUTF8String(UTF8Name);
+        
+        Stream << reinterpret_cast<uintptr_t>(EnginePtr.get())
+               << ','
+               << ','
+               << UTF8Name
+               << ';';
+      }
+    }
+  }
+  
+  encodeProperty(Out, "valid-engines", PropertyValue);
+}
+
+bool
+LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
+  if (!ForValue.isInMemory())
+    return false;
+  
+  // Attempt to find the engine.
+  auto const EngineIt =
+    std::find_if(ValueEngines.begin(), ValueEngines.end(),
+                [=] (std::unique_ptr<LayoutEngineForValue> const &Engine) {
+                  return reinterpret_cast<uintptr_t>(Engine.get()) == EngineID;
+                });
+  
+  if (EngineIt == ValueEngines.end())
+    return false;
+  
+  auto const Ptr = EngineIt->get();
+  
+  ValueEngineOverride[std::make_pair(ForValue.getAddress(),
+                                     ForValue.getCanonicalType())] = Ptr;
+
+  return true;
+}
+
 
 //===----------------------------------------------------------------------===//
 // LayoutHandler - Layout Creation
@@ -1112,6 +1270,21 @@ LayoutHandler::addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine) {
 seec::Maybe<LayoutOfValue>
 LayoutHandler::doLayout(seec::cm::Value const &State) const
 {
+  // If there's an engine for this exact Value, try to use that.
+  if (State.isInMemory()) {
+    auto const It =
+      ValueEngineOverride.find(std::make_pair(State.getAddress(),
+                                              State.getCanonicalType()));
+    
+    if (It != ValueEngineOverride.end() && It->second->canLayout(State))
+      return It->second->doLayout(State);
+  }
+  
+  // Otherwise try to use the user-selected global default.
+  if (ValueEngineDefault && ValueEngineDefault->canLayout(State))
+    return ValueEngineDefault->doLayout(State);
+  
+  // Otherwise try to use any engine that will work.
   for (auto const &EnginePtr : ValueEngines)
     if (EnginePtr->canLayout(State))
       return EnginePtr->doLayout(State);

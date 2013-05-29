@@ -45,6 +45,17 @@ class LayoutHandler;
 ///
 std::string getStandardPortFor(Value const &V);
 
+/// \brief Write a property.
+///
+void encodeProperty(llvm::raw_ostream &Out,
+                    llvm::Twine Property);
+
+/// \brief Write a (key,value) pair property.
+///
+void encodeProperty(llvm::raw_ostream &Out,
+                    llvm::Twine Key,
+                    llvm::Twine Value);
+
 
 /// \brief Type of the end of an edge.
 ///
@@ -316,9 +327,10 @@ class LayoutHandler final {
   
   std::vector<std::unique_ptr<LayoutEngineForValue>> ValueEngines;
   
-  // TODO: User-selected default engine.
+  LayoutEngineForValue const *ValueEngineDefault;
   
-  // TODO: Per-Value override.
+  std::map<std::pair<uintptr_t, clang::Type const *>,
+           LayoutEngineForValue const *> ValueEngineOverride;
   
   /// @}
   
@@ -334,7 +346,12 @@ class LayoutHandler final {
 public:
   /// \brief Default constructor.
   ///
-  LayoutHandler() {}
+  LayoutHandler()
+  : ValueEngines(),
+    ValueEngineDefault(nullptr),
+    ValueEngineOverride(),
+    AreaEngines()
+  {}
   
   
   /// \name Layout Engine Handling
@@ -354,7 +371,16 @@ public:
   
   // TODO: List the Value layout engines.
   
+  /// \brief Write the valid-engines property for a value.
+  ///
+  void writeValidEnginesProperty(llvm::raw_ostream &Out,
+                                 Value const &ForValue) const;
+  
   // TODO: Set the Value layout engine to use for a particular Value.
+  
+  /// \brief Set the layout engine to use for a particular value.
+  ///
+  bool setLayoutEngine(Value const &ForValue, uintptr_t EngineID);
   
   /// @}
   
