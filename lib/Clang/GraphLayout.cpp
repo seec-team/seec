@@ -500,7 +500,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
 
 
 //===----------------------------------------------------------------------===//
-// Layout creation
+// Layout Alloca
 //===----------------------------------------------------------------------===//
 
 static
@@ -547,6 +547,11 @@ doLayout(LayoutHandler const &Handler,
                         std::move(Area),
                         std::move(Ports)};
 }
+
+
+//===----------------------------------------------------------------------===//
+// Layout Function
+//===----------------------------------------------------------------------===//
 
 static
 LayoutOfFunction
@@ -613,6 +618,11 @@ doLayout(LayoutHandler const &Handler,
                           std::move(Ports)};
 }
 
+
+//===----------------------------------------------------------------------===//
+// Layout Thread
+//===----------------------------------------------------------------------===//
+
 static
 LayoutOfThread
 doLayout(LayoutHandler const &Handler,
@@ -660,6 +670,11 @@ doLayout(LayoutHandler const &Handler,
   
   return LayoutOfThread{std::move(DotString), std::move(FunctionNodes)};
 }
+
+
+//===----------------------------------------------------------------------===//
+// Layout Global Variable
+//===----------------------------------------------------------------------===//
 
 static
 LayoutOfGlobalVariable
@@ -713,22 +728,117 @@ doLayout(LayoutHandler const &Handler,
                                 std::move(Ports)};
 }
 
+
+//===----------------------------------------------------------------------===//
+// Layout Memory Area
+//===----------------------------------------------------------------------===//
+
+static
+bool
+isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
+                        std::shared_ptr<ValueOfPointer const> const &Ptr)
+{
+  auto const Limit = Ptr->getDereferenceIndexLimit();
+  
+  for (unsigned i = 0; i < Limit; ++i) {
+    auto const Pointee = Ptr->getDereferenced(i);
+    if (isContainedChild(*Child, *Pointee))
+      return true;
+  }
+  
+  return false;
+}
+
+/// \brief Select a reference to an area and use it to perform the layout.
+///
 static
 std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>
 doLayout(LayoutHandler const &Handler,
          MemoryArea const &Area,
          Expansion const &Expansion)
 {
-  auto const Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  typedef std::shared_ptr<ValueOfPointer const> ValOfPtr;
   
+  auto Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  
+  // TODO: Layout as an unreferenced area? We should only do this for mallocs.
   if (Refs.empty())
     return std::make_pair(seec::Maybe<LayoutOfArea>(), Area);
   
-  // TODO: Get the reference-picking algorithm from
-  //       GraphGenerator::generate(ReferenceArea const &Area).
+  if (Refs.size() == 1)
+    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
   
-  return std::make_pair(Handler.doLayout(Area, *Refs[0]), Area);
+  // TODO: Select the user-selected ref, if there is one.
+  
+  // Move all the void pointers to the end of the list. If we have nothing but
+  // void pointers then layout using any one of them, otherwise remove all of
+  // them from consideration.
+  auto const VoidIt =
+    std::partition(Refs.begin(), Refs.end(),
+                  [] (ValOfPtr const &Ptr) -> bool {
+                    auto const CanTy = Ptr->getCanonicalType();
+                    auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
+                    return !PtrTy->getPointeeType()->isVoidType();
+                  });
+  
+  if (VoidIt == Refs.begin())
+    return std::make_pair(Handler.doLayout(Area, **VoidIt), Area);
+  
+  Refs.erase(VoidIt, Refs.end());
+  
+  if (Refs.size() == 1)
+    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+  
+  // Remove all references which refer to a child of another reference. E.g. if
+  // we have a pointer to a struct, and a pointer to a member of that struct,
+  // then we should remove the member pointer (if the struct is selected for
+  // layout then the pointer will be rendered correctly, otherwise it will be
+  // rendered as punned).
+  //
+  // Also remove references which refer either to the same value as another
+  // reference. If one of these references has a lower raw value then it should
+  // be kept, as it will have more dereferences (and thus a more complete
+  // layout will be produced using it).
+  {
+    auto const CurrentRefs = Refs;
+    
+    auto const RemovedIt =
+      std::remove_if(Refs.begin(), Refs.end(),
+        [&] (ValOfPtr const &Ptr) -> bool
+        {
+          auto const Pointee = Ptr->getDereferenced(0);
+          return std::any_of(CurrentRefs.begin(), CurrentRefs.end(),
+                    [&] (ValOfPtr const &Other) -> bool {
+                      if (Ptr == Other)
+                        return false;
+                      
+                      // Check if we directly reference another pointer's
+                      // dereference. If so, don't bother checking children, as
+                      // either us or the other pointer will be removed anyway.
+                      auto const Direct = doReferenceSameValue(*Ptr, *Other);
+                      if (Direct)
+                        return Ptr->getRawValue() >= Other->getRawValue();
+                      
+                      // Check if this pointer directly references a child.
+                      return isChildOfAnyDereference(Pointee, Other);
+                    });
+        });
+    
+    Refs.erase(RemovedIt, Refs.end());
+  }
+  
+  if (Refs.size() == 1)
+    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+  
+  // TODO: Layout as type-punned (or pass to a layout engine that supports
+  //       multiple references).
+  return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
 }
+
+
+//===----------------------------------------------------------------------===//
+// Render Pointers
+//===----------------------------------------------------------------------===//
 
 static void renderEdges(llvm::raw_string_ostream &DotStream,
                         std::vector<NodeInfo> const &AllNodeInfo,
@@ -840,6 +950,11 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     DotStream << ";\n";
   }
 }
+
+
+//===----------------------------------------------------------------------===//
+// Layout Process State
+//===----------------------------------------------------------------------===//
 
 static
 LayoutOfProcess
