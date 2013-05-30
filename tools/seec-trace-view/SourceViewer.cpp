@@ -575,8 +575,12 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   if (ActiveStmt) {
     showActiveStmt(ActiveStmt, Function);
   }
-  
-  // TODO: We could highlight the Function if !ActiveStmt.
+  else {
+    auto const FunctionDecl = Function.getFunctionDecl();
+    if (FunctionDecl) {
+      showActiveDecl(FunctionDecl, Function);
+    }
+  }
 }
 
 void
@@ -649,6 +653,39 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   
   // Show an explanation for the Stmt.
   ExplanationCtrl->showExplanation(Statement, InFunction);
+}
+
+void
+SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
+                                  ::seec::cm::FunctionState const &InFunction)
+{
+  auto const MappedAST = InFunction.getMappedAST();
+  if (!MappedAST)
+    return;
+  
+  auto &ASTUnit = MappedAST->getASTUnit();
+  
+  auto const Range = getRangeOutermost(Declaration, ASTUnit.getASTContext());
+  
+  if (!Range.File) {
+    wxLogDebug("Couldn't find file for Decl.");
+    return;
+  }
+  
+  auto const Panel = loadAndShowFile(Range.File, *MappedAST);
+  if (!Panel) {
+    wxLogDebug("Couldn't show source panel for file %s.",
+               Range.File->getName());
+    return;
+  }
+  
+  // Show that the Decl is active.
+  Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
+                           Range.Start,
+                           Range.End);
+  
+  // Show an explanation for the Decl.
+  ExplanationCtrl->showExplanation(Declaration);
 }
 
 SourceFilePanel *

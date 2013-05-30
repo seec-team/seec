@@ -122,6 +122,11 @@ private:
   void showActiveStmt(::clang::Stmt const *Statement,
                       ::seec::cm::FunctionState const &InFunction);
   
+  /// \brief Show the given Decl in the source code view.
+  ///
+  void showActiveDecl(::clang::Decl const *Declaration,
+                      ::seec::cm::FunctionState const &InFunction);
+  
   /// @} (State display.)
   
   
