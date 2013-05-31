@@ -1143,6 +1143,11 @@ void ThreadState::removePreviousEvent() {
   }
 }
 
+
+//------------------------------------------------------------------------------
+// Memory.
+//------------------------------------------------------------------------------
+
 seec::Maybe<MemoryArea>
 ThreadState::getContainingMemoryArea(uintptr_t Address) const {
   seec::Maybe<MemoryArea> Area;
@@ -1156,10 +1161,20 @@ ThreadState::getContainingMemoryArea(uintptr_t Address) const {
   return Area;
 }
 
+
+//------------------------------------------------------------------------------
+// Searching.
+//------------------------------------------------------------------------------
+
 seec::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
   return rfind(rangeBefore(Trace.events(), NextEvent),
                [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});
 }
+
+
+//------------------------------------------------------------------------------
+// Printing.
+//------------------------------------------------------------------------------
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ThreadState const &State) {
@@ -1173,6 +1188,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
 
   return Out;
 }
+
 
 } // namespace trace (in seec)
 

@@ -305,6 +305,22 @@ public:
   /// @} (Accessors)
   
   
+  /// \name Queries.
+  /// @{
+  
+  /// \brief Check if this thread is at the beginning of its trace.
+  /// \return true iff this thread has not added any events.
+  ///
+  bool isAtStart() const { return NextEvent == Trace.events().begin(); }
+  
+  /// \brief Check if this thread is at the end of its trace.
+  /// \return true iff this thread has no more events to add.
+  ///
+  bool isAtEnd() const { return NextEvent == Trace.events().end(); }
+  
+  /// @} (Queries.)
+  
+  
   /// \name Memory.
   /// @{
   
