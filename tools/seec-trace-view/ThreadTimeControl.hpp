@@ -24,6 +24,14 @@
 
 // Forward-declarations.
 class StateAccessToken;
+class wxButton;
+
+namespace seec {
+  namespace cm {
+    class ProcessState;
+    class ThreadState;
+  }
+}
 
 
 /// \brief Represents events requesting thread movement.
@@ -98,6 +106,16 @@ wxDECLARE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 ///
 class ThreadTimeControl : public wxPanel
 {
+  wxButton *ButtonGoToStart;
+  
+  wxButton *ButtonStepBack;
+  
+  wxButton *ButtonStepForward;
+  
+  wxButton *ButtonGoToNextError;
+  
+  wxButton *ButtonGoToEnd;
+  
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
   size_t CurrentThreadIndex;
@@ -113,6 +131,11 @@ public:
   ///
   ThreadTimeControl()
   : wxPanel(),
+    ButtonGoToStart(nullptr),
+    ButtonStepBack(nullptr),
+    ButtonStepForward(nullptr),
+    ButtonGoToNextError(nullptr),
+    ButtonGoToEnd(nullptr),
     CurrentAccess(),
     CurrentThreadIndex()
   {}
@@ -122,6 +145,11 @@ public:
   ThreadTimeControl(wxWindow *Parent,
                     wxWindowID ID = wxID_ANY)
   : wxPanel(),
+    ButtonGoToStart(nullptr),
+    ButtonStepBack(nullptr),
+    ButtonStepForward(nullptr),
+    ButtonGoToNextError(nullptr),
+    ButtonGoToEnd(nullptr),
     CurrentAccess(),
     CurrentThreadIndex()
   {
@@ -140,6 +168,8 @@ public:
   /// \brief Update this control to reflect the given state.
   ///
   void show(std::shared_ptr<StateAccessToken> Access,
+            seec::cm::ProcessState const &Process,
+            seec::cm::ThreadState const &Thread,
             size_t ThreadIndex);
 
   /// \name Event Handlers

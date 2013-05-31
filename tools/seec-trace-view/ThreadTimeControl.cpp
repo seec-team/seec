@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/ImageResources.hpp"
@@ -82,7 +83,6 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 
   // Create stepping buttons to control the thread time.
 #define SEEC_BUTTON(NAME, TEXT_KEY, IMAGE_KEY)                                 \
-  wxButton *Button##NAME = nullptr;                                            \
   auto Text##NAME = seec::getwxStringExOrEmpty(TextTable, TEXT_KEY);           \
   auto Img##NAME = seec::getwxImageEx(ImageTable, IMAGE_KEY, Status);          \
   if (Img##NAME.IsOk()) {                                                      \
@@ -92,6 +92,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   else {                                                                       \
     Button##NAME = new wxButton(this, ControlID_Button##NAME, Text##NAME);     \
   }                                                                            \
+  Button##NAME->Disable();
   
   SEEC_BUTTON(GoToStart,     "GoToStart",     "BackwardArrowToBlock")
   SEEC_BUTTON(StepBack,      "StepBack",      "BackwardArrow")
@@ -122,10 +123,30 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 ThreadTimeControl::~ThreadTimeControl() = default;
 
 void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
+                             seec::cm::ProcessState const &Process,
+                             seec::cm::ThreadState const &Thread,
                              size_t ThreadIndex)
 {
   CurrentAccess = std::move(Access);
   CurrentThreadIndex = ThreadIndex;
+  
+  if (Thread.isAtStart()) {
+    ButtonGoToStart->Disable();
+    ButtonStepBack->Disable();
+  }
+  else {
+    ButtonGoToStart->Enable();
+    ButtonStepBack->Enable();
+  }
+  
+  if (Thread.isAtEnd()) {
+    ButtonStepForward->Disable();
+    ButtonGoToEnd->Disable();
+  }
+  else {
+    ButtonStepForward->Enable();
+    ButtonGoToEnd->Enable();
+  }
 }
 
 void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {

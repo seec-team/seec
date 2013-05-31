@@ -149,7 +149,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Display the initial state.
     // StateViewer->show(StateAccess, *State);
     SourceViewer->show(StateAccess, *State, State->getThread(0));
-    ThreadTime->show(StateAccess, 0);
+    ThreadTime->show(StateAccess, *State, State->getThread(0), 0);
   }
   else {
     // TODO: Setup the view for a multi-threaded trace.
@@ -189,5 +189,5 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   // Display the new state.
   StateViewer->show(StateAccess, *State, State->getThread(Index));
   SourceViewer->show(StateAccess, *State, State->getThread(Index));
-  ThreadTime->show(StateAccess, Index);
+  ThreadTime->show(StateAccess, *State, State->getThread(Index), Index);
 }
