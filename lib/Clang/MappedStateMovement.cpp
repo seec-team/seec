@@ -31,10 +31,28 @@ bool moveForward(ThreadState &Thread) {
   return Success;
 }
 
+bool moveForwardToEnd(ThreadState &Thread) {
+  auto const Moved = moveForward(Thread);
+  
+  if (Moved)
+    while (moveForward(Thread)) ; // Intentionally empty.
+  
+  return Moved;
+}
+
 bool moveBackward(ThreadState &Thread) {
   auto const Success = seec::trace::moveBackward(Thread.getUnmappedState());
   Thread.getParent().cacheClear();
   return Success;
+}
+
+bool moveBackwardToEnd(ThreadState &Thread) {
+  auto const Moved = moveBackward(Thread);
+  
+  if (Moved)
+    while (moveBackward(Thread)) ; // Intentionally empty.
+  
+  return Moved;
 }
 
 // (Thread movement.)

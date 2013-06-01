@@ -30,11 +30,23 @@ class ThreadState;
 
 /// \brief Move Thread's state to the next logical thread time.
 /// \return true iff the state was moved.
+///
 bool moveForward(ThreadState &Thread);
+
+/// \brief Move Thread's state forward to the end of the trace.
+/// \return true iff the state was moved.
+///
+bool moveForwardToEnd(ThreadState &Thread);
 
 /// \brief Move Thread's state to the previous logical thread time.
 /// \return true iff the state was moved.
+///
 bool moveBackward(ThreadState &Thread);
+
+/// \brief Move Thread's state backward to the end of the trace.
+/// \return true iff the state was moved.
+///
+bool moveBackwardToEnd(ThreadState &Thread);
 
 /// @} (Thread movement.)
 //===----------------------------------------------------------------------===//
