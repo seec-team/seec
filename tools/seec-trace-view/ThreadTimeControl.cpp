@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/ImageResources.hpp"
@@ -165,7 +166,9 @@ void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
     SEEC_EV_THREAD_MOVE,
     GetId(),
     CurrentThreadIndex,
-    ThreadMoveEvent::DirectionTy::Backward
+    [] (seec::cm::ThreadState &Thread) -> bool {
+      return seec::cm::moveBackward(Thread);
+    }
   };
   
   Ev.SetEventObject(this);
@@ -187,7 +190,9 @@ void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
     SEEC_EV_THREAD_MOVE,
     GetId(),
     CurrentThreadIndex,
-    ThreadMoveEvent::DirectionTy::Forward
+    [] (seec::cm::ThreadState &Thread) -> bool {
+      return seec::cm::moveForward(Thread);
+    }
   };
   
   Ev.SetEventObject(this);

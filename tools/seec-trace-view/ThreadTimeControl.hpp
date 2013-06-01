@@ -19,6 +19,7 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <functional>
 #include <memory>
 
 
@@ -38,18 +39,11 @@ namespace seec {
 ///
 class ThreadMoveEvent : public wxEvent
 {
-public:
-  enum class DirectionTy {
-    Forward,
-    Backward
-  };
-
-private:
   /// The thread associated with this event.
   size_t ThreadIndex;
   
-  /// The direction to move the thread.
-  DirectionTy Direction; 
+  /// Callback that will move the event.
+  std::function<bool (seec::cm::ThreadState &State)> Mover;
 
 public:
   // Make this class known to wxWidgets' class hierarchy.
@@ -57,13 +51,14 @@ public:
 
   /// \brief Constructor.
   ///
+  template<typename MoverT>
   ThreadMoveEvent(wxEventType EventType,
                   int WinID,
                   size_t ForThreadIndex,
-                  DirectionTy WithDirection)
+                  MoverT &&WithMover)
   : wxEvent(WinID, EventType),
     ThreadIndex(ForThreadIndex),
-    Direction(WithDirection)
+    Mover(std::forward<MoverT>(WithMover))
   {
     this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
   }
@@ -73,7 +68,7 @@ public:
   ThreadMoveEvent(ThreadMoveEvent const &Ev)
   : wxEvent(Ev),
     ThreadIndex(Ev.ThreadIndex),
-    Direction(Ev.Direction)
+    Mover(Ev.Mover)
   {
     this->m_propagationLevel = Ev.m_propagationLevel;
   }
@@ -89,7 +84,7 @@ public:
   
   size_t getThreadIndex() const { return ThreadIndex; }
   
-  DirectionTy getDirection() const { return Direction; }
+  decltype(Mover) const &getMover() const { return Mover; }
   
   /// @}
 };
