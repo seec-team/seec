@@ -51,14 +51,13 @@ public:
 
   /// \brief Constructor.
   ///
-  template<typename MoverT>
   ThreadMoveEvent(wxEventType EventType,
                   int WinID,
                   size_t ForThreadIndex,
-                  MoverT &&WithMover)
+                  std::function<bool (seec::cm::ThreadState &State)> WithMover)
   : wxEvent(WinID, EventType),
     ThreadIndex(ForThreadIndex),
-    Mover(std::forward<MoverT>(WithMover))
+    Mover(std::move(WithMover))
   {
     this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
   }
