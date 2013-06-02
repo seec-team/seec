@@ -452,6 +452,24 @@ FunctionState::getStmtValue(::clang::Stmt const *S) const {
 
 
 //===----------------------------------------------------------------------===//
+// Runtime errors.
+//===----------------------------------------------------------------------===//
+
+auto
+FunctionState::getRuntimeErrorsActive() const
+-> seec::Range<decltype(RuntimeErrors)::const_iterator>
+{
+  auto const It = std::find_if(RuntimeErrors.begin(), RuntimeErrors.end(),
+                               [] (RuntimeErrorState const &Err) {
+                                return Err.isActive();
+                               });
+  
+  return seec::Range<decltype(RuntimeErrors)::const_iterator>
+                    (It, RuntimeErrors.end());
+}
+
+
+//===----------------------------------------------------------------------===//
 // llvm::raw_ostream output
 //===----------------------------------------------------------------------===//
 

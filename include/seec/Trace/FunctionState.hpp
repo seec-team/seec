@@ -20,6 +20,7 @@
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
+#include "seec/Util/Range.hpp"
 
 #include "llvm/IR/Instructions.h"
 
@@ -128,15 +129,20 @@ class RuntimeErrorState {
   /// The runtime error.
   std::unique_ptr<seec::runtime_errors::RunError> Error;
   
+  /// The thread time at which this error occurred.
+  uint64_t ThreadTime;
+  
 public:
   /// \brief Constructor.
   ///
   RuntimeErrorState(FunctionState const &WithParent,
                     uint32_t WithInstructionIndex,
-                    std::unique_ptr<seec::runtime_errors::RunError> WithError)
+                    std::unique_ptr<seec::runtime_errors::RunError> WithError,
+                    uint64_t AtThreadTime)
   : Parent(WithParent),
     InstructionIndex(WithInstructionIndex),
-    Error(std::move(WithError))
+    Error(std::move(WithError)),
+    ThreadTime(AtThreadTime)
   {}
   
   /// \brief Get the function state that this runtime error belongs to.
@@ -154,6 +160,20 @@ public:
   /// \brief Get the RunError itself.
   ///
   seec::runtime_errors::RunError const &getRunError() const { return *Error; }
+  
+  /// \brief Get the thread time at which this error occurred.
+  ///
+  uint64_t getThreadTime() const { return ThreadTime; }
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Check if this runtime error is currently active.
+  ///
+  bool isActive() const;
+  
+  /// @} (Queries.)
 };
 
 
@@ -366,6 +386,9 @@ public:
   std::vector<RuntimeErrorState> const &getRuntimeErrors() const {
     return RuntimeErrors;
   }
+  
+  seec::Range<decltype(RuntimeErrors)::const_iterator>
+  getRuntimeErrorsActive() const;
   
   void addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error);
   

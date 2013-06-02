@@ -15,6 +15,7 @@
 #define SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Util/Range.hpp"
 
 #include <string>
 
@@ -177,6 +178,23 @@ public:
   }
   
   /// @} (Local variables.)
+  
+  
+  /// \name Runtime Errors.
+  /// @{
+  
+  /// \brief Get all runtime errors.
+  ///
+  decltype(RuntimeErrors) const &getRuntimeErrors() const {
+    return RuntimeErrors;
+  }
+  
+  /// \brief Get active runtime errors.
+  ///
+  seec::Range<decltype(RuntimeErrors)::const_iterator>
+  getRuntimeErrorsActive() const;
+  
+  /// @} (Runtime Errors.)
 };
 
 

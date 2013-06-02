@@ -53,6 +53,10 @@ llvm::Instruction const *RuntimeErrorState::getInstruction() const {
   return Index.getInstruction(InstructionIndex);
 }
 
+bool RuntimeErrorState::isActive() const {
+  return ThreadTime == getParent().getParent().getThreadTime();
+}
+
 
 //===------------------------------------------------------------------------===
 // FunctionState
@@ -148,6 +152,19 @@ FunctionState::getVisibleAllocas() const {
   return RetVal;
 }
 
+auto
+FunctionState::getRuntimeErrorsActive() const
+-> seec::Range<decltype(RuntimeErrors)::const_iterator>
+{
+  auto const It = std::find_if(RuntimeErrors.begin(), RuntimeErrors.end(),
+                               [] (RuntimeErrorState const &Err) {
+                                return Err.isActive();
+                               });
+  
+  return seec::Range<decltype(RuntimeErrors)::const_iterator>
+                    (It, RuntimeErrors.end());
+}
+
 void
 FunctionState::
 addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error) {
@@ -156,7 +173,8 @@ addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error) {
   
   RuntimeErrors.emplace_back(*this,
                              ActiveInstruction.get<0>(),
-                             std::move(Error));
+                             std::move(Error),
+                             getParent().getThreadTime());
 }
 
 void FunctionState::removeLastRuntimeError() {
