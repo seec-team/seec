@@ -15,8 +15,10 @@
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Format.hpp"
+#include "seec/ICU/LineWrapper.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Util/Range.hpp"
@@ -33,6 +35,8 @@
 #include <wx/stc/stc.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "unicode/brkiter.h"
+
 #include "ExplanationViewer.hpp"
 #include "HighlightEvent.hpp"
 #include "OpenTrace.hpp"
@@ -41,6 +45,7 @@
 #include "TraceViewerFrame.hpp"
 
 #include <list>
+#include <memory>
 
 
 //------------------------------------------------------------------------------
@@ -183,6 +188,9 @@ class SourceFilePanel : public wxPanel {
   /// Text control that displays the file.
   wxStyledTextCtrl *Text;
   
+  /// Used to perform line wrapping.
+  std::unique_ptr<BreakIterator> Breaker;
+  
   /// Regions that have indicators for the current state.
   std::vector<IndicatedRegion> StateIndications;
   
@@ -278,6 +286,7 @@ public:
   SourceFilePanel()
   : wxPanel(),
     Text(nullptr),
+    Breaker(nullptr),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators()
@@ -291,6 +300,7 @@ public:
                   wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     Text(nullptr),
+    Breaker(nullptr),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators()
@@ -323,6 +333,15 @@ public:
     auto Sizer = new wxBoxSizer(wxHORIZONTAL);
     Sizer->Add(Text, wxSizerFlags().Proportion(1).Expand());
     SetSizerAndFit(Sizer);
+    
+    // Setup the BreakIterator used for line wrapping.
+    UErrorCode Status = U_ZERO_ERROR;
+    Breaker.reset(BreakIterator::createLineInstance(Locale(), Status));
+    
+    if (U_FAILURE(Status)) {
+      Breaker.reset();
+      return false;
+    }
 
     return true;
   }
@@ -388,6 +407,48 @@ public:
     assert(Start != -1 && End != -1);
     
     return stateIndicatorAdd(Indicator, Start, End);
+  }
+  
+  /// \brief Annotate a line for this state, and wrap the annotation text.
+  ///
+  /// The annotation text will be wrapped to the width of the window.
+  ///
+  void annotateLineWrapped(long Line,
+                           UnicodeString const &AnnoText,
+                           SciLexerType AnnoStyle)
+  {
+    if (!Breaker)
+      return;
+    
+    auto const Style = static_cast<int>(AnnoStyle);
+    
+    auto const MarginLineNumber = static_cast<int>(SciMargin::LineNumber);
+    auto const ClientSize = Text->GetClientSize();
+    auto const Width = ClientSize.GetWidth()
+                       - Text->GetMarginWidth(MarginLineNumber);
+    
+    auto const Wrappings =
+      seec::wrapParagraph(*Breaker,
+                          AnnoText,
+                          [=] (UnicodeString const &Line) -> bool {
+                            return Text->TextWidth(Style,
+                                                   seec::towxString(Line))
+                                   < Width;
+                          });
+    
+    UnicodeString WrappedString;
+    
+    for (auto const &Wrapping : Wrappings) {
+      if (!WrappedString.isEmpty())
+        WrappedString += "\n";
+      
+      auto const Length = Wrapping.End - Wrapping.TrailingWhitespace;
+      WrappedString += AnnoText.tempSubStringBetween(Wrapping.Start, Length);
+    }
+    
+    Text->AnnotationSetText(Line, seec::towxString(WrappedString));
+    Text->AnnotationSetStyle(Line, Style);
+    StateAnnotations.push_back(Line);
   }
 
   /// \brief Annotate a line for this state.
@@ -569,8 +630,6 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   auto const &Function = CallStack.back().get();
   
-  // TODO: Show active runtime errors.
-  
   auto const ActiveStmt = Function.getActiveStmt();
   if (ActiveStmt) {
     showActiveStmt(ActiveStmt, Function);
@@ -581,6 +640,64 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
       showActiveDecl(FunctionDecl, Function);
     }
   }
+  
+  // Show all active runtime errors.
+  for (auto const &RuntimeError : Function.getRuntimeErrorsActive())
+    showRuntimeError(RuntimeError, Function);
+}
+
+void
+SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
+                                    seec::cm::FunctionState const &InFunction)
+{
+  // Generate a localised textual description of the error.
+  auto MaybeDesc = Error.getDescription();
+  
+  if (MaybeDesc.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    
+    auto const Str = MaybeDesc.get<seec::Error>().getMessage(Status, Locale());
+    
+    if (U_SUCCESS(Status)) {
+      wxLogDebug("Error getting runtime error description: %s.",
+                 seec::towxString(Str));
+    }
+    
+    return;
+  }
+  
+  seec::runtime_errors::DescriptionPrinterUnicode Printer { MaybeDesc.move<0>(),
+                                                            "\n",
+                                                            " " };
+  
+  // Find the source location of the Stmt that caused the error.
+  auto const Statement = Error.getStmt();
+  if (!Statement)
+    return;
+  
+  auto const MappedAST = InFunction.getMappedAST();
+  if (!MappedAST)
+    return;
+  
+  auto &ASTUnit = MappedAST->getASTUnit();
+  
+  auto const Range = getRangeOutermost(Statement, ASTUnit.getASTContext());
+  
+  if (!Range.File) {
+    wxLogDebug("Couldn't find file for Stmt.");
+    return;
+  }
+  
+  auto const Panel = loadAndShowFile(Range.File, *MappedAST);
+  if (!Panel) {
+    wxLogDebug("Couldn't show source panel for file %s.",
+               Range.File->getName());
+    return;
+  }
+  
+  Panel->annotateLineWrapped(Range.EndLine - 1,
+                             Printer.getString(),
+                             SciLexerType::SeeCRuntimeError);
 }
 
 void
@@ -619,37 +736,6 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                         wxString(Value->getValueAsStringFull()),
                         SciLexerType::SeeCRuntimeValue);
   }
-  
-#if 0 // TODO.
-    wxString ErrorStr;
-    if (Error) {
-      using namespace seec::runtime_errors;
-      
-      auto MaybeDesc = Description::create(*Error);
-      
-      wxASSERT(MaybeDesc.assigned());
-      
-      if (MaybeDesc.assigned(0)) {
-        DescriptionPrinterUnicode Printer(std::move(MaybeDesc.get<0>()),
-                                          "\n",
-                                          "  ");
-        
-        ErrorStr = seec::towxString(Printer.getString());
-      }
-      else if (MaybeDesc.assigned<seec::Error>()) {
-        UErrorCode Status = U_ZERO_ERROR;
-        ErrorStr = seec::towxString(MaybeDesc.get<seec::Error>()
-                                             .getMessage(Status, Locale()));
-      }
-    }
-    
-  // Show the error beneath the Stmt.
-  if (!Error.empty()) {
-    Panel->annotateLine(Range.EndLine - 1,
-                        Error,
-                        SciLexerType::SeeCRuntimeError);
-  }
-#endif
   
   // Show an explanation for the Stmt.
   ExplanationCtrl->showExplanation(Statement, InFunction);
