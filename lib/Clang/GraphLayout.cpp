@@ -996,13 +996,13 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
                   << getStandardPortFor(*Pointer)
                   << ":c";
       
-      EdgeAttributes += "tailclip=false;";
+      EdgeAttributes += "tailclip=false ";
     }
     else {
       // The tail port wasn't found, we must consider it punned.
       llvm::errs() << "tail considered punned.\n";
       
-      EdgeAttributes += "dir=both;arrowtail=odot;";
+      EdgeAttributes += "dir=both arrowtail=odot ";
       
       IsPunned = true;
     }
@@ -1028,13 +1028,13 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       // The tail port wasn't found, we must consider it punned.
       llvm::errs() << "head considered punned.\n";
       
-      EdgeAttributes += "arrowhead=odot;";
+      EdgeAttributes += "arrowhead=odot ";
       
       IsPunned = true;
     }
     
     if (IsPunned)
-      EdgeAttributes += "style=dashed;";
+      EdgeAttributes += "style=dashed ";
     
     // Write attributes.
     if (!EdgeAttributes.empty()) {
