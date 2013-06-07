@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/Trace/ProcessState.hpp"

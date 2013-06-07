@@ -1060,11 +1060,11 @@ doLayout(LayoutHandler const &Handler,
   // Create tasks to generate global variable layouts.
   std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
   
-  auto const Globals = State.getGlobalVariables();
+  auto const &Globals = State.getGlobalVariables();
   for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
     GlobalVariableLayouts.emplace_back(
       std::async( [&, It] () {
-                    return doLayout(Handler, *It, Expansion);
+                    return doLayout(Handler, **It, Expansion);
                   } ));
   }
   
@@ -1081,27 +1081,31 @@ doLayout(LayoutHandler const &Handler,
                   } ));
   }
   
-  // Create tasks to generate malloc area layouts.
+  // This will hold all of the general area layouts.
   std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
-    MallocLayouts;
+    AreaLayouts;
   
+  // Generate layouts for unmapped static areas (unmapped globals).
+  for (auto const &Area : State.getUnmappedStaticAreas()) {
+    AreaLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); }));
+  }
+  
+  // Create tasks to generate malloc area layouts.
   for (auto const &Malloc : State.getDynamicMemoryAllocations()) {
     auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
     
-    MallocLayouts.emplace_back(
+    AreaLayouts.emplace_back(
       std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
   }
   
   // Create tasks to generate known memory area layouts.
-  std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
-    KnownAreaLayouts;
-  
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
     auto const Area = seec::MemoryArea(Known.Begin,
                                        Known.End - Known.Begin,
                                        Known.Value);
     
-    KnownAreaLayouts.emplace_back(
+    AreaLayouts.emplace_back(
       std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
   }
   
@@ -1135,24 +1139,8 @@ doLayout(LayoutHandler const &Handler,
                        Layout.getNodes().end());
   }
   
-  for (auto &MallocFuture : MallocLayouts) {
-    auto const Result = MallocFuture.get();
-    
-    auto const &MaybeLayout = Result.first;
-    if (!MaybeLayout.assigned<LayoutOfArea>())
-      continue;
-    
-    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
-    
-    DotStream << Layout.getDotString();
-    
-    AllNodeInfo.emplace_back(Layout.getID(),
-                             Result.second,
-                             Layout.getPorts());
-  }
-  
-  for (auto &KnownAreaFuture : KnownAreaLayouts) {
-    auto const Result = KnownAreaFuture.get();
+  for (auto &AreaFuture : AreaLayouts) {
+    auto const Result = AreaFuture.get();
     
     auto const &MaybeLayout = Result.first;
     if (!MaybeLayout.assigned<LayoutOfArea>())

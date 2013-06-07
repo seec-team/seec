@@ -192,7 +192,7 @@ void expand(ExpansionImpl &EI, seec::cm::ProcessState const &State)
     expand(EI, State.getThread(i));
   
   for (auto const &Global : State.getGlobalVariables())
-    expand(EI, Global);
+    expand(EI, *Global);
 }
 
 

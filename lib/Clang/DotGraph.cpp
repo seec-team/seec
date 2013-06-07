@@ -854,7 +854,7 @@ void GraphGenerator::generate(seec::cm::ProcessState const &State)
   // Generate all global variable states. This will expand and layout, but will
   // not dereference pointers - they will be added to PointersToExpand.
   for (auto const &Global : State.getGlobalVariables())
-    generate(Global);
+    generate(*Global);
   
   // Now we will expand pointers. We will also expand and layout dereferences
   // when required.
