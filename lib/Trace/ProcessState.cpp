@@ -69,8 +69,11 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
       continue;
     
     auto const Global = Module->getGlobal(Index);
-    auto const Size = DL.getTypeAllocSize(Global->getType());
-    auto const Area = MemoryArea(Begin, Size);
+    auto const Size = DL.getTypeStoreSize(Global->getType()->getElementType());
+    auto const Permission = Global->isConstant() ? MemoryPermission::ReadOnly
+                                                 : MemoryPermission::ReadWrite;
+    
+    auto const Area = MemoryArea(Begin, Size, Permission);
     
     if (Area.contains(Address))
       return Area;

@@ -134,10 +134,14 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
   {
     auto GlobIt = GlobalVariableLookup.find(Address);
     if (GlobIt != GlobalVariableLookup.end()) {
-      auto Begin = GlobIt->Begin;
+      auto const Begin = GlobIt->Begin;
       // Range of interval is inclusive: [Begin, End]
-      auto Length = (GlobIt->End - GlobIt->Begin) + 1;
-      return seec::Maybe<MemoryArea>(MemoryArea(Begin, Length));
+      auto const Length = (GlobIt->End - GlobIt->Begin) + 1;
+      auto const Permission =
+        GlobIt->Value->isConstant() ? MemoryPermission::ReadOnly
+                                    : MemoryPermission::ReadWrite;
+      
+      return MemoryArea(Begin, Length, Permission);
     }
   }
   
