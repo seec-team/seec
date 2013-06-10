@@ -11,6 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "MappedLLVMValue.hpp"
+
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedStmt.hpp"
@@ -42,47 +44,6 @@ getTypeFromMDString(llvm::MDString const *MDStr)
   return seec::Maybe<MappedStmt::Type>();
 }
 
-llvm::Value const *
-getMappedValueFromMD(llvm::MDNode const *ValueMap,
-                     ModuleIndex const &ModIndex)
-{
-  if (!ValueMap || ValueMap->getNumOperands() == 0) {
-    return nullptr;
-  }
-  
-  auto Type = llvm::dyn_cast<llvm::MDString>(ValueMap->getOperand(0u));
-  auto TypeStr = Type->getString();
-  
-  if (TypeStr.equals("instruction")) {
-    assert(ValueMap->getNumOperands() == 3);
-    auto Func = llvm::dyn_cast<llvm::Function>(ValueMap->getOperand(1u));
-    auto Idx = llvm::dyn_cast<llvm::ConstantInt>(ValueMap->getOperand(2u));
-    assert(Func && Idx);
-    auto FuncIndex = ModIndex.getFunctionIndex(Func);
-    assert(FuncIndex);
-    auto IdxValue = static_cast<uint32_t>(Idx->getZExtValue());
-    return FuncIndex->getInstruction(IdxValue);
-  }
-  else if (TypeStr.equals("value")) {
-    assert(ValueMap->getNumOperands() == 2);
-    return ValueMap->getOperand(1u);
-  }
-  else if (TypeStr.equals("argument")) {
-    assert(ValueMap->getNumOperands() == 3);
-    auto Func = llvm::dyn_cast<llvm::Function>(ValueMap->getOperand(1u));
-    auto Idx = llvm::dyn_cast<llvm::ConstantInt>(ValueMap->getOperand(2u));
-    assert(Func && Idx);
-    auto FuncIndex = ModIndex.getFunctionIndex(Func);
-    assert(FuncIndex);
-    auto IdxValue = static_cast<uint32_t>(Idx->getZExtValue());
-    return FuncIndex->getArgument(IdxValue);
-  }
-  else {
-    llvm_unreachable("Encountered unknown value type.");
-    return nullptr;
-  }
-}
-
 std::unique_ptr<MappedStmt>
 MappedStmt::fromMetadata(llvm::MDNode *RootMD,
                          MappedModule const &Module)
@@ -109,8 +70,10 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   auto MapVal1MD = llvm::dyn_cast_or_null<llvm::MDNode>(RootMD->getOperand(2u));
   auto MapVal2MD = llvm::dyn_cast_or_null<llvm::MDNode>(RootMD->getOperand(3u));
   
-  auto Val1 = getMappedValueFromMD(MapVal1MD, Module.getModuleIndex());
-  auto Val2 = getMappedValueFromMD(MapVal2MD, Module.getModuleIndex());
+  auto Val1 = seec::cm::getMappedValueFromMD(MapVal1MD,
+                                             Module.getModuleIndex());
+  auto Val2 = seec::cm::getMappedValueFromMD(MapVal2MD,
+                                             Module.getModuleIndex());
   if (!Val1)
     return nullptr;
   

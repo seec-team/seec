@@ -9,12 +9,14 @@ set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/Search.hpp
   ../../include/seec/Clang/SourceMapping.hpp
   ../../include/seec/Clang/StateMapping.hpp
+  MappedLLVMValue.hpp
 )
 
 set(SEEC_CLANG_SOURCES
   Compile.cpp
   MappedAST.cpp
   MappedFile.cpp
+  MappedLLVMValue.cpp
   MappedModule.cpp
   MappedStmt.cpp
   RuntimeValueMapping.cpp

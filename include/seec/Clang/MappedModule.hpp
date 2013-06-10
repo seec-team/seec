@@ -56,7 +56,8 @@ class MappedFunctionDecl {
   llvm::Function const *Function;
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
+  ///
   MappedFunctionDecl(llvm::sys::Path FilePath,
                      MappedAST const &AST,
                      clang::Decl const *Decl,
@@ -67,22 +68,28 @@ public:
     Function(Function)
   {}
 
-  /// Copy constructor.
+  /// \brief Copy constructor.
+  ///
   MappedFunctionDecl(MappedFunctionDecl const &) = default;
 
-  /// Copy assignment.
+  /// \brief Copy assignment.
+  ///
   MappedFunctionDecl &operator=(MappedFunctionDecl const &) = default;
 
-  /// Get the path to the source file that this mapping refers to.
+  /// \brief Get the path to the source file that this mapping refers to.
+  ///
   llvm::sys::Path const &getFilePath() const { return FilePath; }
 
-  /// Get the AST that this clang::Decl belongs to.
+  /// \brief Get the AST that this clang::Decl belongs to.
+  ///
   MappedAST const &getAST() const { return AST; }
   
-  /// Get the clang::Decl that is mapped to.
+  /// \brief Get the clang::Decl that is mapped to.
+  ///
   clang::Decl const *getDecl() const { return Decl; }
 
-  /// Get the llvm::Function that is mapped from.
+  /// \brief Get the llvm::Function that is mapped from.
+  ///
   llvm::Function const *getFunction() const { return Function; }
 };
 
@@ -181,6 +188,7 @@ public:
 };
 
 
+/// \brief Information about the original Clang compilation.
 ///
 class MappedCompileInfo {
 public:
@@ -310,15 +318,17 @@ class MappedModule {
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
   /// \param ModIndex Indexed view of the llvm::Module to map.
   /// \param ExecutablePath Used by the Clang driver to find resources.
   /// \param Diags The diagnostics engine to use during compilation.
+  ///
   MappedModule(seec::ModuleIndex const &ModIndex,
                llvm::StringRef ExecutablePath,
                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
 
-  /// Destructor.
+  /// \brief Destructor.
+  ///
   ~MappedModule();
 
 
@@ -326,16 +336,20 @@ public:
   /// @{
   
   /// \brief Get the indexed view of the llvm::Module.
+  ///
   seec::ModuleIndex const &getModuleIndex() const { return ModIndex; }
   
   /// \brief Get the AST for the given file.
+  ///
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
   
   /// \brief Get the AST and clang::Stmt for the given Statement Identifier.
+  ///
   std::pair<MappedAST const *, clang::Stmt const *>
   getASTAndStmt(llvm::MDNode const *StmtIdentifier) const;
   
   /// \brief Get the FunctionLookup.
+  ///
   decltype(FunctionLookup) const &getFunctionLookup() const {
     return FunctionLookup;
   }
@@ -361,10 +375,12 @@ public:
   /// @{
   
   /// \brief Find the clang::Decl mapping for an llvm::Function, if one exists.
+  ///
   MappedFunctionDecl const *
   getMappedFunctionDecl(llvm::Function const *F) const;
 
   /// \brief Find the clang::Decl for an llvm::Function, if one exists.
+  ///
   clang::Decl const *getDecl(llvm::Function const *F) const;
   
   /// @}
@@ -396,9 +412,11 @@ public:
   /// @{
   
   /// \brief Get Clang mapping information for the given llvm::Instruction.
+  ///
   MappedInstruction getMapping(llvm::Instruction const *I) const;
   
   /// \brief For the given llvm::Instruction, find the clang::Decl.
+  ///
   clang::Decl const *getDecl(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Decl and the MappedAST
@@ -407,6 +425,7 @@ public:
   getDeclAndMappedAST(llvm::Instruction const *I) const;
 
   /// \brief For the given llvm::Instruction, find the clang::Stmt.
+  ///
   clang::Stmt const *getStmt(llvm::Instruction const *I) const;
 
   /// For the given llvm::Instruction, find the clang::Stmt and the MappedAST
@@ -443,6 +462,7 @@ public:
   }
   
   /// \brief Get all MappedStmt objects containing the given llvm::Value.
+  ///
   std::pair<decltype(ValueToMappedStmt)::const_iterator,
             decltype(ValueToMappedStmt)::const_iterator>
   getMappedStmtsForValue(llvm::Value const *Value) const {
