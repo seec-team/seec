@@ -117,6 +117,34 @@ public:
 };
 
 
+/// \brief Information about a parameter passed byval.
+///
+class ParamByValState {
+  /// The parameter's llvm::Argument.
+  llvm::Argument const *Arg;
+  
+  /// The memory area occupied by the parameter.
+  MemoryArea Area;
+  
+public:
+  /// \brief Constructor.
+  ///
+  ParamByValState(llvm::Argument const *ForArg,
+                  MemoryArea const &WithArea)
+  : Arg(ForArg),
+    Area(WithArea)
+  {}
+  
+  /// \brief Get the parameter's llvm::Argument.
+  ///
+  llvm::Argument const *getArgument() const { return Arg; }
+  
+  /// \brief Get the memory area occupied by the parameter.
+  ///
+  MemoryArea const &getArea() const { return Area; }
+};
+
+
 /// \brief Represents a single RunError.
 ///
 class RuntimeErrorState {
@@ -202,7 +230,7 @@ class FunctionState {
   std::vector<AllocaState> Allocas;
   
   /// All byval argument memory areas for this function.
-  std::vector<MemoryArea> ByValAreas;
+  std::vector<ParamByValState> ParamByVals;
   
   /// All runtime errors seen in this function.
   std::vector<RuntimeErrorState> RuntimeErrors;
@@ -359,6 +387,12 @@ public:
   
   /// \name Argument byval memory area tracking.
   /// @{
+  
+  /// \brief Get information about all parameters passed byval.
+  ///
+  decltype(ParamByVals) const &getParamByValStates() const {
+    return ParamByVals;
+  }
   
   /// \brief Add an argument byval memory area.
   ///

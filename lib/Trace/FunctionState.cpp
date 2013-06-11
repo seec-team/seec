@@ -73,7 +73,7 @@ FunctionState::FunctionState(ThreadState &Parent,
   ActiveInstruction(),
   InstructionValues(Function.getInstructionCount()),
   Allocas(),
-  ByValAreas(),
+  ParamByVals(),
   RuntimeErrors()
 {
   assert(FunctionLookup);
@@ -103,9 +103,9 @@ FunctionState::getContainingMemoryArea(uintptr_t Address) const {
   if (Alloca)
     return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
   
-  for (auto const &ByValArea : ByValAreas)
-    if (ByValArea.contains(Address))
-      return ByValArea;
+  for (auto const &ParamByVal : ParamByVals)
+    if (ParamByVal.getArea().contains(Address))
+      return ParamByVal.getArea();
   
   return seec::Maybe<MemoryArea>();
 }
@@ -187,17 +187,25 @@ void FunctionState::addByValArea(unsigned ArgumentNumber,
                                  uintptr_t Address,
                                  std::size_t Size)
 {
-  ByValAreas.push_back(MemoryArea(Address, Size));
+  auto const Fn = getFunction();
+  assert(ArgumentNumber < Fn->arg_size());
+  
+  auto ArgIt = Fn->arg_begin();
+  std::advance(ArgIt, ArgumentNumber);
+  
+  ParamByVals.emplace_back(&*ArgIt, MemoryArea(Address, Size));
 }
 
 void FunctionState::removeByValArea(uintptr_t Address)
 {
-  for (auto It = ByValAreas.begin(), End = ByValAreas.end(); It != End; ++It){
-    if (It->contains(Address)) {
-      ByValAreas.erase(It);
-      break;
-    }
-  }
+  auto const It = std::find_if(ParamByVals.begin(),
+                               ParamByVals.end(),
+                               [=] (ParamByValState const &P) {
+                                  return P.getArea().contains(Address);
+                               });
+  
+  if (It != ParamByVals.end())
+    ParamByVals.erase(It);
 }
 
 
