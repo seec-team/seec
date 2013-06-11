@@ -153,7 +153,7 @@ macro(icu_resources package)
     # genrb command to build the resource
     add_custom_command(OUTPUT ${${package}_icu_${resource}_res}
                        COMMAND ${ICU_INSTALL}/bin/genrb
-                       ARGS -d ${${package}_res_dir} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
+                       ARGS -e UTF-8 -d ${${package}_res_dir} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
                        DEPENDS ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
                        COMMENT "genrb ${resource}"
                        )
