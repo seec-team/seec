@@ -362,20 +362,13 @@ public:
   
   /// \brief Add an argument byval memory area.
   ///
-  void addByValArea(uintptr_t Address, std::size_t Size) {
-    ByValAreas.push_back(MemoryArea(Address, Size));
-  }
+  void addByValArea(unsigned ArgumentNumber,
+                    uintptr_t Address,
+                    std::size_t Size);
   
   /// \brief Remove the argument byval memory area that begins at Address.
   ///
-  void removeByValArea(uintptr_t Address) {
-    for (auto It = ByValAreas.begin(), End = ByValAreas.end(); It != End; ++It){
-      if (It->contains(Address)) {
-        ByValAreas.erase(It);
-        break;
-      }
-    }
-  }
+  void removeByValArea(uintptr_t Address);
   
   /// @} (Argument byval memory area tracking.)
   

@@ -127,7 +127,9 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   auto const PointeeSize = DataLayout.getTypeStoreSize(PointeeType);
   
   // Record this memory area in the trace.
-  EventsOut.write<EventType::ByValRegionAdd>(AddressInt, PointeeSize);
+  EventsOut.write<EventType::ByValRegionAdd>(Arg->getArgNo(),
+                                             AddressInt,
+                                             PointeeSize);
   
   // Lock global memory, and release when we exit scope.
   acquireGlobalMemoryWriteLock();

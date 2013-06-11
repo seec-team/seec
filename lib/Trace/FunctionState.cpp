@@ -183,6 +183,23 @@ void FunctionState::removeLastRuntimeError() {
   RuntimeErrors.pop_back();
 }
 
+void FunctionState::addByValArea(unsigned ArgumentNumber,
+                                 uintptr_t Address,
+                                 std::size_t Size)
+{
+  ByValAreas.push_back(MemoryArea(Address, Size));
+}
+
+void FunctionState::removeByValArea(uintptr_t Address)
+{
+  for (auto It = ByValAreas.begin(), End = ByValAreas.end(); It != End; ++It){
+    if (It->contains(Address)) {
+      ByValAreas.erase(It);
+      break;
+    }
+  }
+}
+
 
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,

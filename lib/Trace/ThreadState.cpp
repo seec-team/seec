@@ -582,7 +582,7 @@ void ThreadState::addEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
 void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 {
   auto &FuncState = *(CallStack.back());
-  FuncState.addByValArea(Ev.getAddress(), Ev.getSize());
+  FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
