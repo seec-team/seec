@@ -23,6 +23,7 @@
 namespace clang {
   class FunctionDecl;
   class Stmt;
+  class VarDecl;
 }
 
 namespace llvm {
@@ -48,8 +49,62 @@ namespace util {
 namespace cm {
 
 class AllocaState;
+class FunctionState;
 class RuntimeErrorState;
 class ThreadState;
+
+
+/// \brief SeeC-Clang-mapped parameter state.
+///
+class ParamState {
+  /// The function state that this parameter belongs to.
+  FunctionState &Parent;
+  
+  /// The address of the parameter in memory.
+  uintptr_t Address;
+  
+  /// The mapped Decl.
+  ::clang::VarDecl const *Decl;
+  
+public:
+  /// \brief Constructor.
+  ///
+  ParamState(FunctionState &WithParent,
+             uintptr_t WithAddress,
+             ::clang::VarDecl const *ForDecl)
+  : Parent(WithParent),
+    Address(WithAddress),
+    Decl(ForDecl)
+  {}
+  
+  // Allow moving.
+  ParamState(ParamState &&) = default;
+  ParamState &operator=(ParamState &&) = default;
+  
+  // No copying.
+  ParamState(ParamState const &) = delete;
+  ParamState &operator=(ParamState const &) = delete;
+  
+  
+  /// \brief Print a textual description of the state.
+  ///
+  void print(llvm::raw_ostream &Out,
+             seec::util::IndentationGuide &Indentation) const;
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the VarDecl for this alloca.
+  ///
+  ::clang::VarDecl const *getDecl() const { return Decl; }
+  
+  /// \brief Get the current mapped Value of this alloca.
+  ///
+  std::shared_ptr<Value const> getValue() const;
+  
+  /// @} (Accessors.)
+};
 
 
 /// \brief SeeC-Clang-mapped function state.
@@ -65,7 +120,7 @@ class FunctionState {
   seec::seec_clang::MappedFunctionDecl const *Mapping;
   
   /// The mapped parameters.
-  std::vector<AllocaState> Parameters;
+  std::vector<ParamState> Parameters;
   
   /// The mapped local variables.
   std::vector<AllocaState> Variables;
@@ -168,7 +223,7 @@ public:
   /// @{
   
   /// \brief Get the mapped parameters.
-  std::vector<AllocaState> const &getParameters() const {
+  std::vector<ParamState> const &getParameters() const {
     return Parameters;
   }
   

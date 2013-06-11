@@ -313,6 +313,9 @@ class GraphGenerator {
   void generate(seec::cm::AllocaState const &State,
                 Node const &InNode);
   
+  void generate(seec::cm::ParamState const &State,
+                Node const &InNode);
+  
   /// \brief Expand and layout a function.
   /// \return The node identifier for the function.
   ///
@@ -528,6 +531,24 @@ GraphGenerator::generate(std::shared_ptr<seec::cm::ValueOfPointer const> Value,
 }
 
 void GraphGenerator::generate(seec::cm::AllocaState const &State,
+                              Node const &InNode)
+{
+  auto const Value = State.getValue();
+  
+  writeln("<TR>");
+  Indent.indent();
+  
+  writeln("<TD>" + State.getDecl()->getNameAsString() + "</TD>");
+  
+  Stream << Indent.getString();
+  generate(Value, InNode);
+  Stream << "\n";
+  
+  Indent.unindent();
+  writeln("</TR>");
+}
+
+void GraphGenerator::generate(seec::cm::ParamState const &State,
                               Node const &InNode)
 {
   auto const Value = State.getValue();

@@ -645,6 +645,56 @@ doLayout(LayoutHandler const &Handler,
 
 
 //===----------------------------------------------------------------------===//
+// Layout Parameter
+//===----------------------------------------------------------------------===//
+
+static
+LayoutOfAlloca
+doLayout(LayoutHandler const &Handler,
+         seec::cm::ParamState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Attempt to get the value.
+  auto const Value = State.getValue();
+  if (!Value)
+    return LayoutOfAlloca{std::string{}, MemoryArea{}, ValuePortMap{}};
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  MemoryArea Area;
+  
+  ValuePortMap Ports;
+  
+  DotStream << "<TR><TD>"
+            << State.getDecl()->getNameAsString()
+            << "</TD>";
+  
+  // Attempt to layout the value.
+  auto MaybeLayout = Handler.doLayout(*Value);
+  if (MaybeLayout.assigned<LayoutOfValue>()) {
+    auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+    DotStream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+  }
+  else {
+    DotStream << "<TD>no layout</TD>"; // TODO: Localise
+  }
+  
+  DotStream << "</TR>";
+  DotStream.flush();
+  
+  if (Value->isInMemory())
+    Area = MemoryArea(Value->getAddress(),
+                      Value->getTypeSizeInChars().getQuantity());
+  
+  return LayoutOfAlloca{std::move(DotString),
+                        std::move(Area),
+                        std::move(Ports)};
+}
+
+
+//===----------------------------------------------------------------------===//
 // Layout Function
 //===----------------------------------------------------------------------===//
 
