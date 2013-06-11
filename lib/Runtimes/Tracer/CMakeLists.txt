@@ -1,3 +1,7 @@
+set (RUNTIME_TRACER_VERSION_MAJOR "1")
+set (RUNTIME_TRACER_VERSION_MINOR "0")
+set (RUNTIME_TRACER_VERSION "${RUNTIME_TRACER_VERSION_MAJOR}.${RUNTIME_TRACER_VERSION_MINOR}")
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -22,15 +26,10 @@ set(SOURCES
   )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
- add_library(SeeCRuntimeTracer SHARED ${HEADERS} ${SOURCES})
- add_library(SeeCRuntimeTracer-static ${HEADERS} ${SOURCES})
+ add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
 else()
- add_library(SeeCRuntimeTracer SHARED ${SOURCES})
- add_library(SeeCRuntimeTracer-static ${SOURCES})
+ add_library(seecRuntimeTracer SHARED ${SOURCES})
 endif()
-
-SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES OUTPUT_NAME "SeeCRuntimeTracer")
-SET_TARGET_PROPERTIES(SeeCRuntimeTracer-static PROPERTIES PREFIX "lib")
 
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles bitreader asmparser target jit support core
@@ -47,7 +46,7 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
-target_link_libraries(SeeCRuntimeTracer
+target_link_libraries(seecRuntimeTracer
  SeeCExecutionTracer
  SeeCTrace
  SeeCUtil
@@ -57,17 +56,14 @@ target_link_libraries(SeeCRuntimeTracer
  ${REQ_ICU_LIBRARIES}
 )
 
-target_link_libraries(SeeCRuntimeTracer-static
- SeeCExecutionTracer
- SeeCTrace
- SeeCUtil
- SeeCRuntimeErrors
- SeeCICU
- ${REQ_LLVM_LIBRARIES}
- ${REQ_ICU_LIBRARIES}
+SET_TARGET_PROPERTIES(
+  seecRuntimeTracer
+  PROPERTIES
+    VERSION ${RUNTIME_TRACER_VERSION}
+    SOVERSION ${RUNTIME_TRACER_VERSION}
 )
 
-INSTALL(TARGETS SeeCRuntimeTracer SeeCRuntimeTracer-static
+INSTALL(TARGETS seecRuntimeTracer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
