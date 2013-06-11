@@ -14,6 +14,7 @@
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
+#include "seec/Clang/MappedParam.hpp"
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MDNames.hpp"
 #include "seec/Util/ModuleIndex.hpp"
@@ -22,6 +23,8 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
+
+#include <algorithm>
 
 using namespace clang;
 using namespace llvm;
@@ -151,6 +154,24 @@ MappedModule::MappedModule(
     }
   }
   
+  // Load all parameter mappings (these will be assigned to functions in the
+  // next step).
+  std::vector<seec::cm::MappedParam> MappedParams;
+  auto const MappedParamsMD = Module.getNamedMetadata(MDGlobalParamMapStr);
+  
+  if (MappedParamsMD) {
+    for (std::size_t i = 0u; i < MappedParamsMD->getNumOperands(); ++i) {
+      auto MaybeMapped =
+        seec::cm::MappedParam::fromMetadata(MappedParamsMD->getOperand(i),
+                                            *this);
+      
+      if (MaybeMapped.assigned<seec::Error>())
+        continue; // TODO: Report this.
+      
+      MappedParams.emplace_back(MaybeMapped.move<seec::cm::MappedParam>());
+    }
+  }
+  
   // Create the FunctionLookup and GlobalVariableLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
@@ -171,18 +192,34 @@ MappedModule::MappedModule(
       if (!Global)
         continue;
 
-      auto DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
+      auto const DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
       assert(DeclIdx);
 
-      auto Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
+      auto const Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
+      if (!Decl)
+        continue;
       
       if (auto const Func = llvm::dyn_cast<llvm::Function>(Global)) {
+        auto const FnDecl = llvm::dyn_cast<clang::FunctionDecl>(Decl);
+        assert(FnDecl);
+        
+        auto const ParamBegin = FnDecl->param_begin();
+        auto const ParamEnd = FnDecl->param_end();
+      
+        // Find the mapped parameters for this function.
+        std::vector<seec::cm::MappedParam> FunctionMappedParams;
+        
+        for (auto const &MP : MappedParams)
+          if (std::find(ParamBegin, ParamEnd, MP.getDecl()) != ParamEnd)
+            FunctionMappedParams.emplace_back(MP);
+        
         FunctionLookup.insert(
           std::make_pair(Func,
                          MappedFunctionDecl(std::move(FilePath),
                                             *AST,
                                             Decl,
-                                            Func)));
+                                            Func,
+                                            std::move(FunctionMappedParams))));
       }
       else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
         if (!llvm::isa<clang::ValueDecl>(Decl))
@@ -334,6 +371,24 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   ASTList.emplace_back(std::move(AST));
 
   return ASTRaw;
+}
+
+std::pair<MappedAST const *, clang::Decl const *>
+MappedModule::getASTAndDecl(llvm::MDNode const *DeclIdentifier) const {
+  assert(DeclIdentifier && DeclIdentifier->getNumOperands() == 2);
+  
+  auto FileMD = llvm::dyn_cast<llvm::MDNode>(DeclIdentifier->getOperand(0u));
+  if (!FileMD)
+    return std::pair<MappedAST const *, clang::Decl const *>(nullptr, nullptr);
+  
+  auto AST = getASTForFile(FileMD);
+  auto DeclIdx = llvm::dyn_cast<ConstantInt>(DeclIdentifier->getOperand(1u));
+  
+  if (!AST || !DeclIdx)
+    return std::pair<MappedAST const *, clang::Decl const *>(nullptr, nullptr);
+  
+  return std::make_pair(AST,
+                        AST->getDeclFromIdx(DeclIdx->getZExtValue()));
 }
 
 std::pair<MappedAST const *, clang::Stmt const *>

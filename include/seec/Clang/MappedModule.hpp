@@ -14,6 +14,8 @@
 #ifndef SEEC_CLANG_MAPPEDMODULE_HPP
 #define SEEC_CLANG_MAPPEDMODULE_HPP
 
+#include "seec/Clang/MappedParam.hpp"
+
 #include "clang/Frontend/ASTUnit.h"
 
 #include "llvm/IR/Module.h"
@@ -54,18 +56,22 @@ class MappedFunctionDecl {
   clang::Decl const *Decl;
 
   llvm::Function const *Function;
+  
+  std::vector<seec::cm::MappedParam> MappedParameters;
 
 public:
   /// \brief Constructor.
   ///
-  MappedFunctionDecl(llvm::sys::Path FilePath,
-                     MappedAST const &AST,
-                     clang::Decl const *Decl,
-                     llvm::Function const *Function)
-  : FilePath(FilePath),
-    AST(AST),
-    Decl(Decl),
-    Function(Function)
+  MappedFunctionDecl(llvm::sys::Path WithFilePath,
+                     MappedAST const &WithAST,
+                     clang::Decl const *WithDecl,
+                     llvm::Function const *WithFunction,
+                     std::vector<seec::cm::MappedParam> WithMappedParameters)
+  : FilePath(WithFilePath),
+    AST(WithAST),
+    Decl(WithDecl),
+    Function(WithFunction),
+    MappedParameters(WithMappedParameters)
   {}
 
   /// \brief Copy constructor.
@@ -91,6 +97,12 @@ public:
   /// \brief Get the llvm::Function that is mapped from.
   ///
   llvm::Function const *getFunction() const { return Function; }
+  
+  /// \brief Get the mapped parameters.
+  ///
+  decltype(MappedParameters) const &getMappedParameters() const {
+    return MappedParameters;
+  }
 };
 
 
@@ -343,6 +355,11 @@ public:
   ///
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
   
+  /// \brief Get the AST and clang::Decl for the given Declaration Identifier.
+  ///
+  std::pair<MappedAST const *, clang::Decl const *>
+  getASTAndDecl(llvm::MDNode const *DeclIdentifier) const;
+  
   /// \brief Get the AST and clang::Stmt for the given Statement Identifier.
   ///
   std::pair<MappedAST const *, clang::Stmt const *>
@@ -472,7 +489,7 @@ public:
   /// @}
 };
 
-} // namespace clang (in seec)
+} // namespace seec_clang (in seec)
 
 } // namespace seec
 

@@ -11,6 +11,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#ifndef SEEC_LIB_CLANG_MAPPEDLLVMVALUE_HPP
+#define SEEC_LIB_CLANG_MAPPEDLLVMVALUE_HPP
+
+
 namespace llvm {
   class MDNode;
   class Value;
@@ -29,3 +33,6 @@ getMappedValueFromMD(llvm::MDNode const *ValueMap,
 } // namespace cm (in seec)
 
 } // namespace seec
+
+
+#endif // SEEC_LIB_CLANG_MAPPEDLLVMVALUE_HPP
