@@ -84,20 +84,11 @@ static std::string EscapeForHTML(llvm::StringRef String)
   return Escaped;
 }
 
-static void encodePropertyChar(llvm::raw_ostream &Out, char Character)
+static void encodeHREFChar(llvm::raw_ostream &Out, char const Character)
 {
   if (std::isalnum(Character)) {
     Out << Character;
     return;
-  }
-  
-  // Escape the character if necessary.
-  switch (Character) {
-    case '=':
-    case '.':
-    case '~':
-      Out << '~';
-      break;
   }
   
   // Write the character raw if unreserved.
@@ -115,8 +106,22 @@ static void encodePropertyChar(llvm::raw_ostream &Out, char Character)
   auto const Low  = Character % 16;
   
   Out << '%';
-  Out << (High < 10 ? ('0' + High) : ('A' + (High - 10)));
-  Out << (Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
+  Out << char(High < 10 ? ('0' + High) : ('A' + (High - 10)));
+  Out << char(Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
+}
+
+static void encodePropertyChar(llvm::raw_ostream &Out, char const Character)
+{
+  // Escape the character if necessary.
+  switch (Character) {
+    case '=':
+    case '.':
+    case '~':
+      Out << '~';
+      break;
+  }
+  
+  encodeHREFChar(Out, Character);
 }
 
 void encodeProperty(llvm::raw_ostream &Out,
@@ -140,7 +145,7 @@ void encodeProperty(llvm::raw_ostream &Out,
   for (auto const Character : KeyString)
     encodePropertyChar(Out, Character);
   
-  encodePropertyChar(Out, '=');
+  encodeHREFChar(Out, '=');
   
   for (auto const Character : ValueString)
     encodePropertyChar(Out, Character);
