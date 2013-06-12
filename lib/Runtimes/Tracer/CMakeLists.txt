@@ -54,6 +54,7 @@ target_link_libraries(seecRuntimeTracer
  SeeCICU
  ${REQ_LLVM_LIBRARIES}
  ${REQ_ICU_LIBRARIES}
+ ${LLVM_LIB_DEPS}
 )
 
 SET_TARGET_PROPERTIES(

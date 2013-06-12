@@ -43,6 +43,8 @@ target_link_libraries(seec-trace-print
 
  # ICU libraries
  ${REQ_ICU_LIBRARIES}
+
+ ${LLVM_LIB_DEPS}
 )
 
 INSTALL(TARGETS seec-trace-print

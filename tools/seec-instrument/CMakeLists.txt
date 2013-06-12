@@ -10,6 +10,7 @@ string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 target_link_libraries(seec-instrument
  SeeCRecordExternal
  ${REQ_LLVM_LIBRARIES}
+ ${LLVM_LIB_DEPS}
 )
 
 INSTALL(TARGETS seec-instrument

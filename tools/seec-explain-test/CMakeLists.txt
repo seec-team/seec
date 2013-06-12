@@ -41,6 +41,8 @@ target_link_libraries(seec-explain-test
 
  # ICU libraries
  ${REQ_ICU_LIBRARIES}
+
+ ${LLVM_LIB_DEPS}
 )
 
 INSTALL(TARGETS seec-explain-test
