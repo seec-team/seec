@@ -1,16 +1,270 @@
 <html>
  <head>
+  <style>
+.ContextMenu {
+ z-index: 1000;
+ position: absolute;
+ background-color: #BBBBBB;
+ border: 1px solid black;
+ display: block;
+ margin: 0;
+ padding: 0px;
+ list-style-type: none;
+ list-style: none;
+}
+
+.ContextMenu ul {
+ margin: 0;
+ padding: 0;
+}
+
+.ContextMenu li {
+ margin: 2px;
+ list-style: none;
+}
+
+.ContextMenuHidden {
+ display: none;
+}
+
+.ContextMenuItem {
+ cursor: pointer;
+}
+
+.ContextMenuItem:hover {
+ background-color: #AAAAAA;
+}
+
+.ContextMenuItemHidden {
+ display: none;
+}
+  </style>
   <script type="text/javascript">
+    function GetX(e) {
+      var scrollX = document.documentElement.scrollLeft
+                 || document.body.scrollLeft;
+      return e.clientX + scrollX;
+    }
+
+    function GetY(e) {
+      var scrollY = document.documentElement.scrollTop
+                 || document.body.scrollTop;
+      return e.clientY + scrollY;
+    }
+
+    // Clear the debug log.
+    //
+    function LogClear() {
+      document.getElementById("Log").innerHTML = "";
+    }
+
+    // Add a debug message to the log.
+    //
+    function Log(Message) {
+      var Container = document.getElementById("Log");
+      Container.innerHTML = Container.innerHTML
+			    + "<span>" + Message
+                            + "</span><br>";
+    }
+
+    // Override the default context menu.
+    //
+    function CustomContextMenu(e) {
+      var target = e.target;
+
+      Log("Context menu. Target is a " + target.nodeName);
+
+      // Possibly show a custom context menu (depending on the target).
+      var CMBase = document.getElementById("CMBase");
+      CMBase.className = "ContextMenu";
+      CMBase.style.left = GetX(e);
+      CMBase.style.top = GetY(e);
+
+      e.preventDefault();
+    }
+
+    function HideContextMenu(e) {
+      var CMBase = document.getElementById("CMBase");
+      CMBase.className = "ContextMenuHidden";
+    }
+
+    if (document.addEventListener) {
+      document.addEventListener('contextmenu', CustomContextMenu, false);
+      document.addEventListener('click', HideContextMenu, false);
+    }
+
+    // Event handlers for the context menu items.
+    //
+
+    function DoRewindInitialisation() {
+      Log("Rewind init");
+    }
+
+    function DoRewindLastModify() {
+      Log("Rewind last");
+    }
+
+    function DoForwardNextModify() {
+      Log("Forward next");
+    }
+
+    function DoForwardDeallocation() {
+      Log("Forward deallocation");
+    }
+
+    // Property-specific parsers.
+    //
+    var PropParsers = {};
+
+    PropParsers["valid-engines"] = function(Value) {
+      var Engines = [];
+
+      while (Value.length != 0) {
+        var EndID      = Value.indexOf(",");
+        var EndCurrent = Value.indexOf(",", EndID + 1);
+        var EndName    = Value.indexOf(";", EndCurrent + 1);
+
+        if (EndID == -1 || EndCurrent == -1 || EndName == -1)
+          break;
+
+        Engines.push({
+          id:      Value.substr(0,              EndID),
+          current: Value.substr(EndID + 1,      EndCurrent),
+          name:    Value.substr(EndCurrent + 1, EndName)
+        });
+
+        Value = Value.substr(EndName + 1, Value.length);
+      }
+
+      return Engines;
+    };
+
+    function UnescapeSeeCProp(Str) {
+      var NewStr = "";
+
+      for (var i = 0; i < Str.length; ++i) {
+        if (Str[i] == "~")
+          ++i;
+        NewStr += Str[i];
+      }
+
+      return NewStr;
+    }
+
+    // Parse a fake HREF to extract SeeC's data from it.
+    //
+    function ParseHREF(Ref) {
+      Ref = unescape(Ref);
+
+      var ColonI = Ref.indexOf(":");
+      if (ColonI == -1)
+        return null;
+
+      var Type = Ref.substring(0, ColonI);
+      var RawProps = Ref.substring(ColonI + 1, Ref.length);
+
+      var Props = {};
+      var PropText = "";
+      var PropValue = "";
+      var Start = 0;
+
+      for (var i = 0; i < RawProps.length; ++i) {
+        if (RawProps[i] == "~") {
+          // Skip escaped character.
+          ++i; continue;
+        }
+
+        if (RawProps[i] == "=") {
+          PropText = RawProps.substring(Start, i);
+          Start = i + 1;
+        }
+        else if (RawProps[i] == ".") {
+          if (PropText.length != 0)
+            PropValue = UnescapeSeeCProp(RawProps.substring(Start, i));
+          else
+            PropText = UnescapeSeeCProp(RawProps.substring(Start, i));
+
+          if (PropParsers[PropText])
+            PropValue = PropParsers[PropText](PropValue);
+
+          Props[PropText] = PropValue;
+
+          PropText = "";
+          PropValue = "";
+          Start = i + 1;
+        }
+      }
+
+      return { type: Type, properties: Props };
+    }
+
+    function FakeAnchorClick(e) {
+      e.preventDefault();
+    }
+
+    // Clean an SVG node and all of its children. If the node was an 'a'
+    // element holding seec properties, return the properties.
+    //
+    function CleanSVG(Node, Indent) {
+      Log(Indent + "Clean " + Node.nodeName);
+
+      var SeeCProperties = undefined;
+
+      if (Node.nodeName == "a") {
+        var Ref = ParseHREF(Node.href.baseVal);
+
+        if (Ref && Ref.type == "seecproperties" && Ref.properties)
+          SeeCProperties = Ref.properties;
+      }
+
+      for (var i = 0; i < Node.childNodes.length; ++i) {
+        var Child = Node.childNodes[i];
+        var Properties = CleanSVG(Child, Indent + "&nbsp;");
+
+        if (Properties) {
+          // The child was an 'a' node holding some SeeC properties.
+          Log(Indent + "Properties:");
+
+          if (Properties["valid-engines"]) {
+            var Engines = Properties["valid-engines"];
+            for (var j = 0; j < Engines.length; ++j) {
+              Log(Indent + Engines[j].id + " is " + Engines[j].name);
+            }
+          }
+
+          if (Properties["type"]) {
+            // TODO: Set a title element for this type.
+          }
+
+          // Disable the anchor behaviour.
+          Child.style.cursor = "default";
+          Child.addEventListener("click", FakeAnchorClick, false);
+        }
+      }
+
+      return SeeCProperties;
+    }
+
+    // Called from seec-trace-viewer to set a new state display.
+    //
     function SetState(SVGString) {
       var Container = document.getElementById("SVGContainer");
 
       Container.innerHTML = SVGString;
 
-      // TODO: Cleanup the SVG.
+      LogClear();
 
-      // TODO: Add mouseover hooks.
+      for (var Node = Container.firstChild; ; Node = Node.nextSibling) {
+        if (Node.nodeName == "svg")
+          CleanSVG(Node, "");
+
+        if (Node == Container.lastChild)
+          break;
+      }
     }
 
+    // Called from seec-trace-viewer to clear the state display.
+    //
     function ClearState() {
       document.getElementById("SVGContainer").innerHTML = "";
     }
@@ -18,6 +272,26 @@
  </head>
  <body>
   <div id="SVGContainer"></div>
+  <div id="Log"></div>
+  <div class="ContextMenuHidden" id="CMBase">
+   <ul>
+    <li class="ContextMenuItem" id="CMIRewindInitialisation" onclick="DoRewindInitialisation();">
+     Rewind to initialisation
+    </li>
+    <li class="ContextMenuItem" id="CMIRewindLastModify" onclick="DoRewindLastModify();">
+     Rewind to last modification
+    </li>
+    <li class="ContextMenuItem" id="CMIDisplayAs">
+     Display as
+    </li>
+    <li class="ContextMenuItem" id="CMIForwardNextModify" onclick="DoForwardNextModify();">
+     Forward to next modification
+    </li>
+    <li class="ContextMenuItem" id="CMIForwardDeallocation" onclick="DoForwardDeallocation();">
+     Forward to deallocation
+    </li>
+   </ul>
+  </div>
  </body>
 </html>
 
