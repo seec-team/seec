@@ -27,6 +27,8 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
 #include "unicode/locid.h"
 
 #include <future>
@@ -151,6 +153,21 @@ void encodeProperty(llvm::raw_ostream &Out,
     encodePropertyChar(Out, Character);
   
   Out << '.';
+}
+
+template<typename T>
+void encodePropertyAsString(llvm::raw_ostream &Out,
+                            llvm::Twine Key,
+                            T const &Value)
+{
+  std::string ValueString;
+  
+  {
+    llvm::raw_string_ostream Stream {ValueString};
+    Stream << Value;
+  }
+  
+  encodeProperty(Out, Key, ValueString);
 }
 
 
@@ -356,7 +373,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\">";
       
@@ -377,7 +394,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
@@ -416,7 +433,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
@@ -464,7 +481,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">?</TD>";
       }
@@ -474,7 +491,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">NULL</TD>";
       }
@@ -484,7 +501,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">!</TD>";
       }
@@ -494,7 +511,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\"> </TD>";
       }
@@ -1309,6 +1326,21 @@ LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
 //===----------------------------------------------------------------------===//
 // LayoutHandler - Layout Creation
 //===----------------------------------------------------------------------===//
+
+void LayoutHandler::writeDefaultProperties(llvm::raw_ostream &Out,
+                                           Value const &ForValue) const
+{
+  encodePropertyAsString(Out,
+                         "value-id",
+                         reinterpret_cast<uintptr_t>(&ForValue));
+  
+  writeValidEnginesProperty(Out, ForValue);
+  
+  encodeProperty(Out, "type", ForValue.getTypeAsString());
+  
+  if (ForValue.isInMemory())
+    encodePropertyAsString(Out, "address", ForValue.getAddress());
+}
 
 seec::Maybe<LayoutOfValue>
 LayoutHandler::doLayout(seec::cm::Value const &State) const

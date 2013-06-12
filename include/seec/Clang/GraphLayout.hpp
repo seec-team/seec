@@ -389,6 +389,11 @@ public:
   /// @{
   
 public:
+  /// \brief Write default properties for a value.
+  ///
+  void writeDefaultProperties(llvm::raw_ostream &Out,
+                              Value const &ForValue) const;
+  
   /// \brief Perform the layout for a value.
   ///
   seec::Maybe<LayoutOfValue>
