@@ -15,6 +15,7 @@
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/ICUBundleFSHandler.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
@@ -80,6 +81,9 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
   
+  // Enable wxWidgets virtual file system access to the ICU bundles.
+  wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
+  
   // Get our resources from ICU.
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("TraceViewer",
@@ -98,6 +102,9 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     wxLogDebug("wxWebView::New failed.");
     return false;
   }
+  
+  WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
+                                      (new wxWebViewFSHandler("icurb")));
   
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
