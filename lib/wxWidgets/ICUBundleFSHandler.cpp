@@ -44,6 +44,11 @@ static seec::Maybe<ResourceBundle> getResourceAt(wxString const &Location)
     Bundle = Bundle.get(Location.substr(SearchFrom, Length).utf8_str(), Status);
     if (U_FAILURE(Status))
       return seec::Maybe<ResourceBundle>();
+    
+    if (NextSlash == wxString::npos)
+      break;
+    
+    SearchFrom = NextSlash + 1;
   }
   
   return Bundle;
