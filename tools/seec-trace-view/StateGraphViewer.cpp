@@ -167,6 +167,8 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     wxLogDebug("State graph generated in %" PRIu64 " ns.", TimeTakenNS);
   }
   
+  auto const GVStart = std::chrono::steady_clock::now();
+  
   std::unique_ptr<char []> Buffer {new char [GraphString.size() + 1]};
   if (!Buffer)
     return;
@@ -195,31 +197,41 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   gvRenderData(GraphvizContext, Graph, "svg", &RenderedData, &RenderedLength);
   
-  // Remove all non-print characters from the SVG.
-  std::string SVGString(RenderedData, RenderedLength);
+  auto const GVEnd = std::chrono::steady_clock::now();
+  auto const GVNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+                                              (GVEnd - GVStart);
+  wxLogDebug("Graphviz completed in %" PRIu64 " ns", static_cast<uint64_t>
+                                                                (GVNS.count()));
   
-  // TODO: Trim everything before <svg
+  // Remove all non-print characters from the SVG and send it to the WebView
+  // via Javascript.
+  wxString Script;
+  Script.reserve(RenderedLength + 256);
+  Script << "SetState(\"";
   
-  for (std::string::size_type i = 0; i < SVGString.length(); ) {
-    if (!std::isprint(SVGString[i])) {
-      SVGString.erase(i, 1);
-      continue;
+  for (unsigned i = 0; i < RenderedLength; ++i) {
+    if (std::isprint(RenderedData[i])) {
+      if (RenderedData[i] == '\\' || RenderedData[i] == '"')
+        Script << '\\';
+      Script << RenderedData[i];
     }
-    
-    if (SVGString[i] == '\\' || SVGString[i] == '"') {
-      SVGString.insert(i, 1, '\\');
-      i += 2;
-      continue;
-    }
-    
-    ++i;
   }
   
-  // Send the SVG to the webpage via javascript.
-  wxString Script;
-  Script << "SetState(\"" << SVGString << "\");";
+  Script << "\");";
+  
+  auto const GVFixEnd = std::chrono::steady_clock::now();
+  auto const GVFixNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+                                                 (GVFixEnd - GVEnd);
+  wxLogDebug("String fixed in %" PRIu64 " ns", static_cast<uint64_t>
+                                                          (GVFixNS.count()));
   
   WebView->RunScript(Script);
+  
+  auto const ScriptEnd = std::chrono::steady_clock::now();
+  auto const ScriptNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+                                                  (ScriptEnd - GVFixEnd);
+  wxLogDebug("Script run in %" PRIu64 " ns", static_cast<uint64_t>
+                                                        (ScriptNS.count()));
 }
 
 void StateGraphViewerPanel::clear()

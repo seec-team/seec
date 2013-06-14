@@ -209,12 +209,15 @@
 
     // Called from seec-trace-viewer to set a new state display.
     //
-    function SetState(SVGString) {
+    var SetStateImplTimer = null;
+    
+    function SetStateImpl(SVGString) {
+      SetStateImplTimer = null;
+      
       var Container = document.getElementById("SVGContainer");
-
       Container.innerHTML = SVGString;
-
-      LogClear();
+      
+      return;
 
       for (var Node = Container.firstChild; ; Node = Node.nextSibling) {
         if (Node.nodeName == "svg")
@@ -223,6 +226,16 @@
         if (Node == Container.lastChild)
           break;
       }
+    }
+    
+    function SetState(SVGString) {
+      if (SetStateImplTimer != null)
+        window.clearTimeout(SetStateImplTimer);
+      
+      LogClear();
+      
+      SetStateImplTimer = setTimeout(function() { SetStateImpl(SVGString); },
+                                     0);
     }
 
     // Called from seec-trace-viewer to clear the state display.

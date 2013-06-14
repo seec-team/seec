@@ -22,6 +22,7 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <chrono>
 #include <cinttypes>
 #include <iostream>
 
@@ -173,9 +174,15 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   auto const Index = Event.getThreadIndex();
   auto &Thread = State->getThread(Index);
   
-  wxLogDebug("Moving thread.");
+  auto const MoveStart = std::chrono::steady_clock::now();
   
   Event.getMover()(Thread);
+  
+  auto const MoveEnd = std::chrono::steady_clock::now();
+  auto const MoveNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+                                                (MoveEnd - MoveStart);
+  wxLogDebug("Moved thread in %" PRIu64 " ns", static_cast<uint64_t>
+                                               (MoveNS.count()));
   
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
@@ -184,4 +191,10 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   StateViewer->show(StateAccess, *State, State->getThread(Index));
   SourceViewer->show(StateAccess, *State, State->getThread(Index));
   ThreadTime->show(StateAccess, *State, State->getThread(Index), Index);
+  
+  auto const ShowEnd = std::chrono::steady_clock::now();
+  auto const ShowNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+                                                (ShowEnd - MoveEnd);
+  wxLogDebug("Showed state in %" PRIu64 " ns", static_cast<uint64_t>
+                                               (ShowNS.count()));
 }
