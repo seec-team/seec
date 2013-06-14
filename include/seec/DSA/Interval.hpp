@@ -45,6 +45,10 @@ public:
   /// \brief Copy constructor.
   ///
   Interval(Interval const &RHS) noexcept = default;
+  
+  /// \brief Move constructor.
+  ///
+  Interval(Interval &&RHS) noexcept = default;
 
   /// \brief Construct a new interval by specifying the start and end.
   ///
@@ -73,6 +77,10 @@ public:
   /// \brief Copy assignment.
   ///
   Interval &operator=(Interval const &RHS) = default;
+  
+  /// \brief Move assignment.
+  ///
+  Interval &operator=(Interval &&RHS) = default;
 
   /// @} (Assignment)
 

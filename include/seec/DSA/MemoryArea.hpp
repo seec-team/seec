@@ -83,10 +83,18 @@ public:
   /// \brief Copy constructor.
   ///
   MemoryArea(MemoryArea const &Other) noexcept = default;
+  
+  /// \brief Move constructor.
+  ///
+  MemoryArea(MemoryArea &&Other) noexcept = default;
 
   /// \brief Copy assignment.
   ///
   MemoryArea &operator=(MemoryArea const &RHS) noexcept = default;
+  
+  /// \brief Move assignment.
+  ///
+  MemoryArea &operator=(MemoryArea &&RHS) noexcept = default;
 
 
   /// \name Accessors
