@@ -12,6 +12,8 @@ endif ()
 
 # wxWidgets for Cocoa uses RTTI, so we need to enable it for this tool.
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  string(REPLACE "-fno-rtti" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  string(REPLACE "-fno-rtti" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
   string(REPLACE "-fno-rtti" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 

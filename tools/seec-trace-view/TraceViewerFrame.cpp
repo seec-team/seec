@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeUnique.hpp"
