@@ -39,6 +39,7 @@ namespace seec {
   namespace cm {
     class FunctionState;
     class ProcessState;
+    class RuntimeErrorState;
     class ThreadState;
   }
   namespace seec_clang {
@@ -116,10 +117,20 @@ public:
   /// \name State display.
   /// @{
 
-private:  
+private:
+  /// \brief Show the given runtime error in the source code view.
+  ///
+  void showRuntimeError(seec::cm::RuntimeErrorState const &Error,
+                        seec::cm::FunctionState const &InFunction);
+  
   /// \brief Show the given Stmt in the source code view.
   ///
   void showActiveStmt(::clang::Stmt const *Statement,
+                      ::seec::cm::FunctionState const &InFunction);
+  
+  /// \brief Show the given Decl in the source code view.
+  ///
+  void showActiveDecl(::clang::Decl const *Declaration,
                       ::seec::cm::FunctionState const &InFunction);
   
   /// @} (State display.)

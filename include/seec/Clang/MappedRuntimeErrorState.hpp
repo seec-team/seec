@@ -94,6 +94,16 @@ public:
   ///
   clang::Expr const *
   getParameter(seec::runtime_errors::ArgParameter const &Param) const;
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Check if this runtime error is currently active.
+  ///
+  bool isActive() const;
+  
+  /// @} (Queries.)
 };
 
 

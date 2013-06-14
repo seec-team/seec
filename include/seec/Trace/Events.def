@@ -336,6 +336,7 @@ SEEC_TRACE_EVENT(KnownRegionRemove,
 
 SEEC_TRACE_EVENT(ByValRegionAdd,
   SEEC_PP_QUOTE(
+    (uint16_t, Argument),
     (uintptr_t, Address),
     (std::size_t, Size)
   ),

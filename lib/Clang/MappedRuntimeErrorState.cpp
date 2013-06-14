@@ -113,6 +113,10 @@ getParameter(seec::runtime_errors::ArgParameter const &Param) const {
   return Call->getArg(Index);
 }
 
+bool RuntimeErrorState::isActive() const {
+  return UnmappedState.isActive();
+}
+
 
 //===----------------------------------------------------------------------===//
 // llvm::raw_ostream output

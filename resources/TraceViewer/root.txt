@@ -127,6 +127,8 @@ root:table {
   // StateGraphViewerPanel resources
   StateGraphViewer:table {
     WebViewHTML:import {"HTML/StateGraphViewer.html"}
+
+    "Styles.css":import {"HTML/Styles.css"}
   }
 
 

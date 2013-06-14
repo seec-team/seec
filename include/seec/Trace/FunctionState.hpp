@@ -20,6 +20,7 @@
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
+#include "seec/Util/Range.hpp"
 
 #include "llvm/IR/Instructions.h"
 
@@ -116,6 +117,34 @@ public:
 };
 
 
+/// \brief Information about a parameter passed byval.
+///
+class ParamByValState {
+  /// The parameter's llvm::Argument.
+  llvm::Argument const *Arg;
+  
+  /// The memory area occupied by the parameter.
+  MemoryArea Area;
+  
+public:
+  /// \brief Constructor.
+  ///
+  ParamByValState(llvm::Argument const *ForArg,
+                  MemoryArea const &WithArea)
+  : Arg(ForArg),
+    Area(WithArea)
+  {}
+  
+  /// \brief Get the parameter's llvm::Argument.
+  ///
+  llvm::Argument const *getArgument() const { return Arg; }
+  
+  /// \brief Get the memory area occupied by the parameter.
+  ///
+  MemoryArea const &getArea() const { return Area; }
+};
+
+
 /// \brief Represents a single RunError.
 ///
 class RuntimeErrorState {
@@ -128,15 +157,20 @@ class RuntimeErrorState {
   /// The runtime error.
   std::unique_ptr<seec::runtime_errors::RunError> Error;
   
+  /// The thread time at which this error occurred.
+  uint64_t ThreadTime;
+  
 public:
   /// \brief Constructor.
   ///
   RuntimeErrorState(FunctionState const &WithParent,
                     uint32_t WithInstructionIndex,
-                    std::unique_ptr<seec::runtime_errors::RunError> WithError)
+                    std::unique_ptr<seec::runtime_errors::RunError> WithError,
+                    uint64_t AtThreadTime)
   : Parent(WithParent),
     InstructionIndex(WithInstructionIndex),
-    Error(std::move(WithError))
+    Error(std::move(WithError)),
+    ThreadTime(AtThreadTime)
   {}
   
   /// \brief Get the function state that this runtime error belongs to.
@@ -154,6 +188,20 @@ public:
   /// \brief Get the RunError itself.
   ///
   seec::runtime_errors::RunError const &getRunError() const { return *Error; }
+  
+  /// \brief Get the thread time at which this error occurred.
+  ///
+  uint64_t getThreadTime() const { return ThreadTime; }
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Check if this runtime error is currently active.
+  ///
+  bool isActive() const;
+  
+  /// @} (Queries.)
 };
 
 
@@ -182,7 +230,7 @@ class FunctionState {
   std::vector<AllocaState> Allocas;
   
   /// All byval argument memory areas for this function.
-  std::vector<MemoryArea> ByValAreas;
+  std::vector<ParamByValState> ParamByVals;
   
   /// All runtime errors seen in this function.
   std::vector<RuntimeErrorState> RuntimeErrors;
@@ -340,22 +388,21 @@ public:
   /// \name Argument byval memory area tracking.
   /// @{
   
+  /// \brief Get information about all parameters passed byval.
+  ///
+  decltype(ParamByVals) const &getParamByValStates() const {
+    return ParamByVals;
+  }
+  
   /// \brief Add an argument byval memory area.
   ///
-  void addByValArea(uintptr_t Address, std::size_t Size) {
-    ByValAreas.push_back(MemoryArea(Address, Size));
-  }
+  void addByValArea(unsigned ArgumentNumber,
+                    uintptr_t Address,
+                    std::size_t Size);
   
   /// \brief Remove the argument byval memory area that begins at Address.
   ///
-  void removeByValArea(uintptr_t Address) {
-    for (auto It = ByValAreas.begin(), End = ByValAreas.end(); It != End; ++It){
-      if (It->contains(Address)) {
-        ByValAreas.erase(It);
-        break;
-      }
-    }
-  }
+  void removeByValArea(uintptr_t Address);
   
   /// @} (Argument byval memory area tracking.)
   
@@ -366,6 +413,9 @@ public:
   std::vector<RuntimeErrorState> const &getRuntimeErrors() const {
     return RuntimeErrors;
   }
+  
+  seec::Range<decltype(RuntimeErrors)::const_iterator>
+  getRuntimeErrorsActive() const;
   
   void addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error);
   

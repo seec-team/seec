@@ -273,6 +273,42 @@ void getVarDeclsVisible(clang::Stmt const *FromStmt,
 
 
 //===----------------------------------------------------------------------===//
+// ParamState
+//===----------------------------------------------------------------------===//
+
+void ParamState::print(llvm::raw_ostream &Out,
+                       seec::util::IndentationGuide &Indentation) const
+{
+  Out << Indentation.getString() << Decl->getName() << " = ";
+  
+  auto const Value = getValue();
+  if (Value)
+    Out << Value->getValueAsStringShort();
+  else
+    Out << "<unknown>";
+  
+  Out << "\n";
+}
+
+std::shared_ptr<Value const> ParamState::getValue() const
+{
+  auto const &ProcessState = Parent.getParent().getParent();
+  
+  auto const &Mapping = ProcessState.getProcessTrace().getMapping();
+  auto const MappedAST = Mapping.getASTForDecl(Decl);
+  assert(MappedAST && "Couldn't find AST for mapped Decl.");
+  
+  auto const &ASTContext = MappedAST->getASTUnit().getASTContext();
+  
+  return seec::cm::getValue(ProcessState.getCurrentValueStore(),
+                            Decl->getType(),
+                            ASTContext,
+                            Address,
+                            ProcessState.getUnmappedProcessState());
+}
+
+
+//===----------------------------------------------------------------------===//
 // FunctionState
 //===----------------------------------------------------------------------===//
 
@@ -300,6 +336,26 @@ FunctionState::FunctionState(ThreadState &WithParent,
     }
   }
   
+  // Add byval parameters.
+  auto const &MappedParams = Mapping->getMappedParameters();
+  
+  for (auto const &ParamByVal : UnmappedState.getParamByValStates()) {
+    auto const Arg = ParamByVal.getArgument();
+    
+    auto const MappedParamIt = std::find_if(MappedParams.begin(),
+                                            MappedParams.end(),
+                                            [=] (MappedParam const &MP) {
+                                              return MP.getValue() == Arg;
+                                            });
+    
+    if (MappedParamIt == MappedParams.end())
+      continue;
+    
+    Parameters.emplace_back(*this,
+                            ParamByVal.getArea().start(),
+                            MappedParamIt->getDecl());
+  }
+  
   // Add allocas (parameters and variables).
   for (auto const AllocaRef : UnmappedState.getVisibleAllocas()) {
     seec::trace::AllocaState const &RawAlloca = AllocaRef;
@@ -313,7 +369,9 @@ FunctionState::FunctionState(ThreadState &WithParent,
       continue;
     
     if (auto const ParmVar = llvm::dyn_cast< ::clang::ParmVarDecl>(Decl)) {
-      Parameters.emplace_back(*this, RawAlloca, ParmVar);
+      Parameters.emplace_back(*this,
+                              RawAlloca.getAddress(),
+                              ParmVar);
     }
     else if (auto const Var = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
       // Check if this Decl is in scope.
@@ -449,6 +507,24 @@ FunctionState::getStmtValue(::clang::Stmt const *S) const {
 //===----------------------------------------------------------------------===//
 // Local variables.
 //===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+// Runtime errors.
+//===----------------------------------------------------------------------===//
+
+auto
+FunctionState::getRuntimeErrorsActive() const
+-> seec::Range<decltype(RuntimeErrors)::const_iterator>
+{
+  auto const It = std::find_if(RuntimeErrors.begin(), RuntimeErrors.end(),
+                               [] (RuntimeErrorState const &Err) {
+                                return Err.isActive();
+                               });
+  
+  return seec::Range<decltype(RuntimeErrors)::const_iterator>
+                    (It, RuntimeErrors.end());
+}
 
 
 //===----------------------------------------------------------------------===//

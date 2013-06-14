@@ -23,9 +23,6 @@
 #include <memory>
 #include <mutex>
 
-#include "OpenTrace.hpp"
-#include "ThreadTimeControl.hpp"
-
 
 namespace seec {
   namespace cm {
@@ -33,8 +30,11 @@ namespace seec {
   }
 }
 
+class OpenTrace;
 class SourceViewerPanel;
 class StateViewerPanel;
+class ThreadMoveEvent;
+class ThreadTimeControl;
 
 
 /// \brief Controls access to a state.

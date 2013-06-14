@@ -166,6 +166,11 @@ void expand(ExpansionImpl &EI, seec::cm::AllocaState const &State)
   expand(EI, State.getValue());
 }
 
+void expand(ExpansionImpl &EI, seec::cm::ParamState const &State)
+{
+  expand(EI, State.getValue());
+}
+
 void expand(ExpansionImpl &EI, seec::cm::FunctionState const &State)
 {
   for (auto const &Parameter : State.getParameters())
@@ -192,7 +197,7 @@ void expand(ExpansionImpl &EI, seec::cm::ProcessState const &State)
     expand(EI, State.getThread(i));
   
   for (auto const &Global : State.getGlobalVariables())
-    expand(EI, Global);
+    expand(EI, *Global);
 }
 
 

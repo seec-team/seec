@@ -13,7 +13,6 @@
 
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
-#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeUnique.hpp"
@@ -25,8 +24,10 @@
 #include <cinttypes>
 #include <iostream>
 
+#include "OpenTrace.hpp"
 #include "SourceViewer.hpp"
 #include "StateViewer.hpp"
+#include "ThreadTimeControl.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
 
@@ -149,7 +150,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Display the initial state.
     // StateViewer->show(StateAccess, *State);
     SourceViewer->show(StateAccess, *State, State->getThread(0));
-    ThreadTime->show(StateAccess, 0);
+    ThreadTime->show(StateAccess, *State, State->getThread(0), 0);
   }
   else {
     // TODO: Setup the view for a multi-threaded trace.
@@ -171,17 +172,9 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   auto const Index = Event.getThreadIndex();
   auto &Thread = State->getThread(Index);
   
-  switch (Event.getDirection()) {
-    case ThreadMoveEvent::DirectionTy::Backward:
-      wxLogDebug("Moving backward.");
-      seec::cm::moveBackward(Thread);
-      break;
-    
-    case ThreadMoveEvent::DirectionTy::Forward:
-      wxLogDebug("Moving forward.");
-      seec::cm::moveForward(Thread);
-      break;
-  }
+  wxLogDebug("Moving thread.");
+  
+  Event.getMover()(Thread);
   
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
@@ -189,5 +182,5 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   // Display the new state.
   StateViewer->show(StateAccess, *State, State->getThread(Index));
   SourceViewer->show(StateAccess, *State, State->getThread(Index));
-  ThreadTime->show(StateAccess, Index);
+  ThreadTime->show(StateAccess, *State, State->getThread(Index), Index);
 }

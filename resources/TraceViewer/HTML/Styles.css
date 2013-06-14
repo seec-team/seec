@@ -1,0 +1,38 @@
+.ContextMenu {
+ z-index: 1000;
+ position: absolute;
+ background-color: #BBBBBB;
+ border: 1px solid black;
+ display: block;
+ margin: 0;
+ padding: 0px;
+ list-style-type: none;
+ list-style: none;
+}
+
+.ContextMenu ul {
+ margin: 0;
+ padding: 0;
+}
+
+.ContextMenu li {
+ margin: 2px;
+ list-style: none;
+}
+
+.ContextMenuHidden {
+ display: none;
+}
+
+.ContextMenuItem {
+ cursor: pointer;
+}
+
+.ContextMenuItem:hover {
+ background-color: #AAAAAA;
+}
+
+.ContextMenuItemHidden {
+ display: none;
+}
+

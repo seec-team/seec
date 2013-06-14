@@ -482,6 +482,54 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       GlobalStmtIdxMD->addOperand(llvm::MDNode::get(ModContext, MappingOps));
     }
   }
+  
+  // Handle the global parameter map. Each element in this map has one
+  // one reference to a clang::Decl, which is currently a constant int holding
+  // the runtime address of the clang::Decl. We must get this value, cast it
+  // back to a clang::Decl *, find the index of that Decl using the DeclMap,
+  // and then replace the constant int with a Decl identifier MDNode of the
+  // form: [MainFileNode, Decl Index].
+  auto ParamMapName = seec::clang::ParamMapping::getGlobalMDNameForMapping();
+  llvm::NamedMDNode *GlobalParamPtrMD = Mod->getNamedMetadata(ParamMapName);
+  if (GlobalParamPtrMD) {
+    llvm::NamedMDNode *GlobalParamIdxMD
+      = Mod->getOrInsertNamedMetadata(MDGlobalParamMapStr);
+    
+    unsigned const NumOperands = GlobalParamPtrMD->getNumOperands();
+    for (unsigned i = 0; i < NumOperands; ++i) {
+      auto const MappingNode = GlobalParamPtrMD->getOperand(i);
+      assert(MappingNode->getNumOperands() == 2 && "Unexpected NumOperands!");
+      
+      auto const MDDeclPtr = MappingNode->getOperand(0);
+      auto const Decl = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
+
+      auto const It = DeclMap.find(Decl);
+      if (It == DeclMap.end())
+        continue;
+      
+      llvm::Value *DeclIdentifierOps[] = {
+        MainFileNode,
+        ConstantInt::get(Int64Ty, It->second)
+      };
+
+      // Must convert Instruction and Argument maps to use indices rather than
+      // pointers.
+      auto const Val = MakeValueMapSerializable(MappingNode->getOperand(1),
+                                                ModIndex);
+      
+      // It's possible that an Instruction is deleted after the mapping has
+      // been created for it. In this case, discard the entire mapping.
+      if (Val == nullptr)
+        continue;
+      
+      llvm::Value *MappingOps[] = {
+        llvm::MDNode::get(ModContext, DeclIdentifierOps),
+        Val
+      };
+      
+      GlobalParamIdxMD->addOperand(llvm::MDNode::get(ModContext, MappingOps));
+    }
+  }
 }
 
 void StoreCompileInformationInModule(llvm::Module *Mod,

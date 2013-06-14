@@ -11,6 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/ImageResources.hpp"
@@ -82,7 +84,6 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 
   // Create stepping buttons to control the thread time.
 #define SEEC_BUTTON(NAME, TEXT_KEY, IMAGE_KEY)                                 \
-  wxButton *Button##NAME = nullptr;                                            \
   auto Text##NAME = seec::getwxStringExOrEmpty(TextTable, TEXT_KEY);           \
   auto Img##NAME = seec::getwxImageEx(ImageTable, IMAGE_KEY, Status);          \
   if (Img##NAME.IsOk()) {                                                      \
@@ -92,11 +93,12 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   else {                                                                       \
     Button##NAME = new wxButton(this, ControlID_Button##NAME, Text##NAME);     \
   }                                                                            \
+  Button##NAME->Disable();
   
   SEEC_BUTTON(GoToStart,     "GoToStart",     "BackwardArrowToBlock")
   SEEC_BUTTON(StepBack,      "StepBack",      "BackwardArrow")
   SEEC_BUTTON(StepForward,   "StepForward",   "ForwardArrow")
-  SEEC_BUTTON(GoToNextError, "GoToNextError", "ForwardArrowToError")
+  // SEEC_BUTTON(GoToNextError, "GoToNextError", "ForwardArrowToError")
   SEEC_BUTTON(GoToEnd,       "GoToEnd",       "ForwardArrowToBlock")
   
 #undef SEEC_BUTTON
@@ -110,7 +112,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   TopSizer->Add(ButtonGoToStart,     ButtonSizer);
   TopSizer->Add(ButtonStepBack,      ButtonSizer);
   TopSizer->Add(ButtonStepForward,   ButtonSizer);
-  TopSizer->Add(ButtonGoToNextError, ButtonSizer);
+  // TopSizer->Add(ButtonGoToNextError, ButtonSizer);
   TopSizer->Add(ButtonGoToEnd,       ButtonSizer);
   
   TopSizer->AddStretchSpacer(1);
@@ -122,58 +124,84 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 ThreadTimeControl::~ThreadTimeControl() = default;
 
 void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
+                             seec::cm::ProcessState const &Process,
+                             seec::cm::ThreadState const &Thread,
                              size_t ThreadIndex)
 {
   CurrentAccess = std::move(Access);
   CurrentThreadIndex = ThreadIndex;
+  
+  if (Thread.isAtStart()) {
+    ButtonGoToStart->Disable();
+    ButtonStepBack->Disable();
+  }
+  else {
+    ButtonGoToStart->Enable();
+    ButtonStepBack->Enable();
+  }
+  
+  if (Thread.isAtEnd()) {
+    ButtonStepForward->Disable();
+    ButtonGoToEnd->Disable();
+  }
+  else {
+    ButtonStepForward->Enable();
+    ButtonGoToEnd->Enable();
+  }
+}
+
+void
+raiseMovementEvent(ThreadTimeControl &Control,
+                   std::shared_ptr<StateAccessToken> &Access,
+                   std::size_t const ThreadIndex,
+                   std::function<bool (seec::cm::ThreadState &State)> Mover)
+{
+  if (!Access)
+    return;
+  
+  auto Lock = Access->getAccess();
+  if (!Lock) // Token is out of date.
+    return;
+  
+  ThreadMoveEvent Ev {
+    SEEC_EV_THREAD_MOVE,
+    Control.GetId(),
+    ThreadIndex,
+    std::move(Mover)
+  };
+  
+  Ev.SetEventObject(&Control);
+  
+  Lock.unlock();
+  
+  Control.ProcessWindowEvent(Ev);
 }
 
 void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
-  // TODO.
+  raiseMovementEvent(*this,
+                     CurrentAccess,
+                     CurrentThreadIndex,
+                     [] (seec::cm::ThreadState &Thread) -> bool {
+                        return seec::cm::moveBackwardToEnd(Thread);
+                     });
 }
 
 void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
-  if (!CurrentAccess)
-    return;
-  
-  auto Lock = CurrentAccess->getAccess();
-  if (!Lock) // Our token is out of date.
-    return;
-  
-  ThreadMoveEvent Ev {
-    SEEC_EV_THREAD_MOVE,
-    GetId(),
-    CurrentThreadIndex,
-    ThreadMoveEvent::DirectionTy::Backward
-  };
-  
-  Ev.SetEventObject(this);
-  
-  Lock.unlock();
-  
-  ProcessWindowEvent(Ev);
+  raiseMovementEvent(*this,
+                     CurrentAccess,
+                     CurrentThreadIndex,
+                     [] (seec::cm::ThreadState &Thread) -> bool {
+                        return seec::cm::moveBackward(Thread);
+                     });
 }
 
 void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
-  if (!CurrentAccess)
-    return;
-  
-  auto Lock = CurrentAccess->getAccess();
-  if (!Lock) // Our token is out of date.
-    return;
-  
-  ThreadMoveEvent Ev {
-    SEEC_EV_THREAD_MOVE,
-    GetId(),
-    CurrentThreadIndex,
-    ThreadMoveEvent::DirectionTy::Forward
-  };
-  
-  Ev.SetEventObject(this);
-  
-  Lock.unlock();
-  
-  ProcessWindowEvent(Ev);
+  raiseMovementEvent(*this,
+                     CurrentAccess,
+                     CurrentThreadIndex,
+                     [] (seec::cm::ThreadState &Thread) -> bool {
+                        return seec::cm::moveForward(Thread);
+                     });
 }
 
 void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
@@ -181,5 +209,10 @@ void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
-  // TODO.
+  raiseMovementEvent(*this,
+                     CurrentAccess,
+                     CurrentThreadIndex,
+                     [] (seec::cm::ThreadState &Thread) -> bool {
+                        return seec::cm::moveForwardToEnd(Thread);
+                     });
 }

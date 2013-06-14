@@ -16,10 +16,9 @@
 #ifndef SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
-#include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
-#include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/DSA/MemoryArea.hpp"
 
 #include <memory>
 #include <vector>
@@ -48,6 +47,8 @@ namespace util {
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
+class GlobalVariable;
+class ProcessTrace;
 class ThreadState;
 
 
@@ -59,6 +60,12 @@ class ProcessState {
   
   /// The base (unmapped) state.
   std::unique_ptr<seec::trace::ProcessState> UnmappedState;
+  
+  /// Global variables.
+  std::vector<std::unique_ptr<seec::cm::GlobalVariable>> GlobalVariableStates;
+  
+  /// Unmapped global variables.
+  std::vector<seec::MemoryArea> UnmappedStaticAreas;
   
   /// Thread states.
   std::vector<std::unique_ptr<seec::cm::ThreadState>> ThreadStates;
@@ -155,7 +162,15 @@ public:
   
   /// \brief Get all mapped global variables.
   ///
-  std::vector<GlobalVariable> getGlobalVariables() const;
+  decltype(GlobalVariableStates) const &getGlobalVariables() const {
+    return GlobalVariableStates;
+  }
+  
+  /// \brief Get the memory areas occupied by unmapped globals.
+  ///
+  decltype(UnmappedStaticAreas) const &getUnmappedStaticAreas() const {
+    return UnmappedStaticAreas;
+  };
   
   /// @} (Global variables.)
   

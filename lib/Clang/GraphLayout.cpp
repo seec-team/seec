@@ -27,6 +27,8 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
 #include "unicode/locid.h"
 
 #include <future>
@@ -84,20 +86,11 @@ static std::string EscapeForHTML(llvm::StringRef String)
   return Escaped;
 }
 
-static void encodePropertyChar(llvm::raw_ostream &Out, char Character)
+static void encodeHREFChar(llvm::raw_ostream &Out, char const Character)
 {
   if (std::isalnum(Character)) {
     Out << Character;
     return;
-  }
-  
-  // Escape the character if necessary.
-  switch (Character) {
-    case '=':
-    case '.':
-    case '~':
-      Out << '~';
-      break;
   }
   
   // Write the character raw if unreserved.
@@ -115,8 +108,22 @@ static void encodePropertyChar(llvm::raw_ostream &Out, char Character)
   auto const Low  = Character % 16;
   
   Out << '%';
-  Out << (High < 10 ? ('0' + High) : ('A' + (High - 10)));
-  Out << (Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
+  Out << char(High < 10 ? ('0' + High) : ('A' + (High - 10)));
+  Out << char(Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
+}
+
+static void encodePropertyChar(llvm::raw_ostream &Out, char const Character)
+{
+  // Escape the character if necessary.
+  switch (Character) {
+    case '=':
+    case '.':
+    case '~':
+      Out << '~';
+      break;
+  }
+  
+  encodeHREFChar(Out, Character);
 }
 
 void encodeProperty(llvm::raw_ostream &Out,
@@ -140,12 +147,27 @@ void encodeProperty(llvm::raw_ostream &Out,
   for (auto const Character : KeyString)
     encodePropertyChar(Out, Character);
   
-  encodePropertyChar(Out, '=');
+  encodeHREFChar(Out, '=');
   
   for (auto const Character : ValueString)
     encodePropertyChar(Out, Character);
   
   Out << '.';
+}
+
+template<typename T>
+void encodePropertyAsString(llvm::raw_ostream &Out,
+                            llvm::Twine Key,
+                            T const &Value)
+{
+  std::string ValueString;
+  
+  {
+    llvm::raw_string_ostream Stream {ValueString};
+    Stream << Value;
+  }
+  
+  encodeProperty(Out, Key, ValueString);
 }
 
 
@@ -351,7 +373,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\">";
       
@@ -372,7 +394,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
@@ -411,7 +433,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
              << getStandardPortFor(V)
              << "\" HREF=\"seecproperties:";
       
-      getHandler().writeValidEnginesProperty(Stream, V);
+      getHandler().writeDefaultProperties(Stream, V);
       
       Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
@@ -459,7 +481,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">?</TD>";
       }
@@ -469,7 +491,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">NULL</TD>";
       }
@@ -479,7 +501,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\">!</TD>";
       }
@@ -489,7 +511,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
                << getStandardPortFor(V)
                << "\" HREF=\"seecproperties:";
         
-        getHandler().writeValidEnginesProperty(Stream, V);
+        getHandler().writeDefaultProperties(Stream, V);
         
         Stream << "\"> </TD>";
       }
@@ -602,6 +624,56 @@ static
 LayoutOfAlloca
 doLayout(LayoutHandler const &Handler,
          seec::cm::AllocaState const &State,
+         seec::cm::graph::Expansion const &Expansion)
+{
+  // Attempt to get the value.
+  auto const Value = State.getValue();
+  if (!Value)
+    return LayoutOfAlloca{std::string{}, MemoryArea{}, ValuePortMap{}};
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  MemoryArea Area;
+  
+  ValuePortMap Ports;
+  
+  DotStream << "<TR><TD>"
+            << State.getDecl()->getNameAsString()
+            << "</TD>";
+  
+  // Attempt to layout the value.
+  auto MaybeLayout = Handler.doLayout(*Value);
+  if (MaybeLayout.assigned<LayoutOfValue>()) {
+    auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+    DotStream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+  }
+  else {
+    DotStream << "<TD>no layout</TD>"; // TODO: Localise
+  }
+  
+  DotStream << "</TR>";
+  DotStream.flush();
+  
+  if (Value->isInMemory())
+    Area = MemoryArea(Value->getAddress(),
+                      Value->getTypeSizeInChars().getQuantity());
+  
+  return LayoutOfAlloca{std::move(DotString),
+                        std::move(Area),
+                        std::move(Ports)};
+}
+
+
+//===----------------------------------------------------------------------===//
+// Layout Parameter
+//===----------------------------------------------------------------------===//
+
+static
+LayoutOfAlloca
+doLayout(LayoutHandler const &Handler,
+         seec::cm::ParamState const &State,
          seec::cm::graph::Expansion const &Expansion)
 {
   // Attempt to get the value.
@@ -996,13 +1068,13 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
                   << getStandardPortFor(*Pointer)
                   << ":c";
       
-      EdgeAttributes += "tailclip=false;";
+      EdgeAttributes += "tailclip=false ";
     }
     else {
       // The tail port wasn't found, we must consider it punned.
       llvm::errs() << "tail considered punned.\n";
       
-      EdgeAttributes += "dir=both;arrowtail=odot;";
+      EdgeAttributes += "dir=both arrowtail=odot ";
       
       IsPunned = true;
     }
@@ -1028,13 +1100,13 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       // The tail port wasn't found, we must consider it punned.
       llvm::errs() << "head considered punned.\n";
       
-      EdgeAttributes += "arrowhead=odot;";
+      EdgeAttributes += "arrowhead=odot ";
       
       IsPunned = true;
     }
     
     if (IsPunned)
-      EdgeAttributes += "style=dashed;";
+      EdgeAttributes += "style=dashed ";
     
     // Write attributes.
     if (!EdgeAttributes.empty()) {
@@ -1060,11 +1132,11 @@ doLayout(LayoutHandler const &Handler,
   // Create tasks to generate global variable layouts.
   std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
   
-  auto const Globals = State.getGlobalVariables();
+  auto const &Globals = State.getGlobalVariables();
   for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
     GlobalVariableLayouts.emplace_back(
       std::async( [&, It] () {
-                    return doLayout(Handler, *It, Expansion);
+                    return doLayout(Handler, **It, Expansion);
                   } ));
   }
   
@@ -1081,27 +1153,31 @@ doLayout(LayoutHandler const &Handler,
                   } ));
   }
   
-  // Create tasks to generate malloc area layouts.
+  // This will hold all of the general area layouts.
   std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
-    MallocLayouts;
+    AreaLayouts;
   
+  // Generate layouts for unmapped static areas (unmapped globals).
+  for (auto const &Area : State.getUnmappedStaticAreas()) {
+    AreaLayouts.emplace_back(
+      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); }));
+  }
+  
+  // Create tasks to generate malloc area layouts.
   for (auto const &Malloc : State.getDynamicMemoryAllocations()) {
     auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
     
-    MallocLayouts.emplace_back(
+    AreaLayouts.emplace_back(
       std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
   }
   
   // Create tasks to generate known memory area layouts.
-  std::vector<std::future<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>>>
-    KnownAreaLayouts;
-  
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
     auto const Area = seec::MemoryArea(Known.Begin,
                                        Known.End - Known.Begin,
                                        Known.Value);
     
-    KnownAreaLayouts.emplace_back(
+    AreaLayouts.emplace_back(
       std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
   }
   
@@ -1135,24 +1211,8 @@ doLayout(LayoutHandler const &Handler,
                        Layout.getNodes().end());
   }
   
-  for (auto &MallocFuture : MallocLayouts) {
-    auto const Result = MallocFuture.get();
-    
-    auto const &MaybeLayout = Result.first;
-    if (!MaybeLayout.assigned<LayoutOfArea>())
-      continue;
-    
-    auto const &Layout = MaybeLayout.get<LayoutOfArea>();
-    
-    DotStream << Layout.getDotString();
-    
-    AllNodeInfo.emplace_back(Layout.getID(),
-                             Result.second,
-                             Layout.getPorts());
-  }
-  
-  for (auto &KnownAreaFuture : KnownAreaLayouts) {
-    auto const Result = KnownAreaFuture.get();
+  for (auto &AreaFuture : AreaLayouts) {
+    auto const Result = AreaFuture.get();
     
     auto const &MaybeLayout = Result.first;
     if (!MaybeLayout.assigned<LayoutOfArea>())
@@ -1266,6 +1326,21 @@ LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
 //===----------------------------------------------------------------------===//
 // LayoutHandler - Layout Creation
 //===----------------------------------------------------------------------===//
+
+void LayoutHandler::writeDefaultProperties(llvm::raw_ostream &Out,
+                                           Value const &ForValue) const
+{
+  encodePropertyAsString(Out,
+                         "value-id",
+                         reinterpret_cast<uintptr_t>(&ForValue));
+  
+  writeValidEnginesProperty(Out, ForValue);
+  
+  encodeProperty(Out, "type", ForValue.getTypeAsString());
+  
+  if (ForValue.isInMemory())
+    encodePropertyAsString(Out, "address", ForValue.getAddress());
+}
 
 seec::Maybe<LayoutOfValue>
 LayoutHandler::doLayout(seec::cm::Value const &State) const

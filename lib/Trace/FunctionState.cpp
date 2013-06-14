@@ -53,6 +53,10 @@ llvm::Instruction const *RuntimeErrorState::getInstruction() const {
   return Index.getInstruction(InstructionIndex);
 }
 
+bool RuntimeErrorState::isActive() const {
+  return ThreadTime == getParent().getParent().getThreadTime();
+}
+
 
 //===------------------------------------------------------------------------===
 // FunctionState
@@ -69,7 +73,7 @@ FunctionState::FunctionState(ThreadState &Parent,
   ActiveInstruction(),
   InstructionValues(Function.getInstructionCount()),
   Allocas(),
-  ByValAreas(),
+  ParamByVals(),
   RuntimeErrors()
 {
   assert(FunctionLookup);
@@ -99,9 +103,9 @@ FunctionState::getContainingMemoryArea(uintptr_t Address) const {
   if (Alloca)
     return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
   
-  for (auto const &ByValArea : ByValAreas)
-    if (ByValArea.contains(Address))
-      return ByValArea;
+  for (auto const &ParamByVal : ParamByVals)
+    if (ParamByVal.getArea().contains(Address))
+      return ParamByVal.getArea();
   
   return seec::Maybe<MemoryArea>();
 }
@@ -148,6 +152,19 @@ FunctionState::getVisibleAllocas() const {
   return RetVal;
 }
 
+auto
+FunctionState::getRuntimeErrorsActive() const
+-> seec::Range<decltype(RuntimeErrors)::const_iterator>
+{
+  auto const It = std::find_if(RuntimeErrors.begin(), RuntimeErrors.end(),
+                               [] (RuntimeErrorState const &Err) {
+                                return Err.isActive();
+                               });
+  
+  return seec::Range<decltype(RuntimeErrors)::const_iterator>
+                    (It, RuntimeErrors.end());
+}
+
 void
 FunctionState::
 addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error) {
@@ -156,13 +173,39 @@ addRuntimeError(std::unique_ptr<seec::runtime_errors::RunError> Error) {
   
   RuntimeErrors.emplace_back(*this,
                              ActiveInstruction.get<0>(),
-                             std::move(Error));
+                             std::move(Error),
+                             getParent().getThreadTime());
 }
 
 void FunctionState::removeLastRuntimeError() {
   assert(!RuntimeErrors.empty() && "No runtime error to remove.");
   
   RuntimeErrors.pop_back();
+}
+
+void FunctionState::addByValArea(unsigned ArgumentNumber,
+                                 uintptr_t Address,
+                                 std::size_t Size)
+{
+  auto const Fn = getFunction();
+  assert(ArgumentNumber < Fn->arg_size());
+  
+  auto ArgIt = Fn->arg_begin();
+  std::advance(ArgIt, ArgumentNumber);
+  
+  ParamByVals.emplace_back(&*ArgIt, MemoryArea(Address, Size));
+}
+
+void FunctionState::removeByValArea(uintptr_t Address)
+{
+  auto const It = std::find_if(ParamByVals.begin(),
+                               ParamByVals.end(),
+                               [=] (ParamByValState const &P) {
+                                  return P.getArea().contains(Address);
+                               });
+  
+  if (It != ParamByVals.end())
+    ParamByVals.erase(It);
 }
 
 

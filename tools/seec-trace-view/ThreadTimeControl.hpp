@@ -19,29 +19,31 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <functional>
 #include <memory>
 
 
 // Forward-declarations.
 class StateAccessToken;
+class wxButton;
+
+namespace seec {
+  namespace cm {
+    class ProcessState;
+    class ThreadState;
+  }
+}
 
 
 /// \brief Represents events requesting thread movement.
 ///
 class ThreadMoveEvent : public wxEvent
 {
-public:
-  enum class DirectionTy {
-    Forward,
-    Backward
-  };
-
-private:
   /// The thread associated with this event.
   size_t ThreadIndex;
   
-  /// The direction to move the thread.
-  DirectionTy Direction; 
+  /// Callback that will move the event.
+  std::function<bool (seec::cm::ThreadState &State)> Mover;
 
 public:
   // Make this class known to wxWidgets' class hierarchy.
@@ -52,10 +54,10 @@ public:
   ThreadMoveEvent(wxEventType EventType,
                   int WinID,
                   size_t ForThreadIndex,
-                  DirectionTy WithDirection)
+                  std::function<bool (seec::cm::ThreadState &State)> WithMover)
   : wxEvent(WinID, EventType),
     ThreadIndex(ForThreadIndex),
-    Direction(WithDirection)
+    Mover(std::move(WithMover))
   {
     this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
   }
@@ -65,7 +67,7 @@ public:
   ThreadMoveEvent(ThreadMoveEvent const &Ev)
   : wxEvent(Ev),
     ThreadIndex(Ev.ThreadIndex),
-    Direction(Ev.Direction)
+    Mover(Ev.Mover)
   {
     this->m_propagationLevel = Ev.m_propagationLevel;
   }
@@ -81,7 +83,7 @@ public:
   
   size_t getThreadIndex() const { return ThreadIndex; }
   
-  DirectionTy getDirection() const { return Direction; }
+  decltype(Mover) const &getMover() const { return Mover; }
   
   /// @}
 };
@@ -98,6 +100,16 @@ wxDECLARE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 ///
 class ThreadTimeControl : public wxPanel
 {
+  wxButton *ButtonGoToStart;
+  
+  wxButton *ButtonStepBack;
+  
+  wxButton *ButtonStepForward;
+  
+  wxButton *ButtonGoToNextError;
+  
+  wxButton *ButtonGoToEnd;
+  
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
   size_t CurrentThreadIndex;
@@ -113,6 +125,11 @@ public:
   ///
   ThreadTimeControl()
   : wxPanel(),
+    ButtonGoToStart(nullptr),
+    ButtonStepBack(nullptr),
+    ButtonStepForward(nullptr),
+    ButtonGoToNextError(nullptr),
+    ButtonGoToEnd(nullptr),
     CurrentAccess(),
     CurrentThreadIndex()
   {}
@@ -122,6 +139,11 @@ public:
   ThreadTimeControl(wxWindow *Parent,
                     wxWindowID ID = wxID_ANY)
   : wxPanel(),
+    ButtonGoToStart(nullptr),
+    ButtonStepBack(nullptr),
+    ButtonStepForward(nullptr),
+    ButtonGoToNextError(nullptr),
+    ButtonGoToEnd(nullptr),
     CurrentAccess(),
     CurrentThreadIndex()
   {
@@ -140,6 +162,8 @@ public:
   /// \brief Update this control to reflect the given state.
   ///
   void show(std::shared_ptr<StateAccessToken> Access,
+            seec::cm::ProcessState const &Process,
+            seec::cm::ThreadState const &Thread,
             size_t ThreadIndex);
 
   /// \name Event Handlers

@@ -11,9 +11,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -33,11 +36,39 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
 : Trace(ForTrace),
   UnmappedState(new seec::trace::ProcessState(ForTrace.getUnmappedTrace(),
                                               ForTrace.getModuleIndex())),
-  ThreadStates(),
-  CurrentValueStore()
+  GlobalVariableStates{},
+  UnmappedStaticAreas{},
+  ThreadStates{},
+  CurrentValueStore{}
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
-    ThreadStates.emplace_back(new seec::cm::ThreadState(*this, *StatePtr));
+    ThreadStates.emplace_back(makeUnique<ThreadState>(*this, *StatePtr));
+  
+  auto const &Mapping = Trace.getMapping();
+  auto const &Module = UnmappedState->getModule().getModule();
+  auto const &DL = UnmappedState->getDataLayout();
+  
+  for (auto const &Global : seec::range(Module.global_begin(),
+                                        Module.global_end()))
+  {
+    auto const Address = UnmappedState->getRuntimeAddress(&Global);
+    
+    if (auto const Mapped = Mapping.getMappedGlobalVariableDecl(&Global)) {
+      GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
+                                                  (*this,
+                                                   Mapped->getDecl(),
+                                                   &Global,
+                                                   Address));
+    }
+    else {
+      auto const ElemTy = Global.getType()->getElementType();
+      auto const Length = DL.getTypeStoreSize(ElemTy);
+      auto const Access = Global.isConstant() ? MemoryPermission::ReadOnly
+                                              : MemoryPermission::ReadWrite;
+      
+      UnmappedStaticAreas.emplace_back(Address, Length, Access);
+    }
+  }
   
   cacheClear();
 }
@@ -62,13 +93,13 @@ void ProcessState::print(llvm::raw_ostream &Out,
     Indentation.indent();
     
     // Print global variables.
-    auto const Globals = this->getGlobalVariables();
+    auto const &Globals = this->getGlobalVariables();
     Out << Indentation.getString() << "Globals: " << Globals.size() << "\n";
     
     {
       Indentation.indent();
       for (auto const &Global : Globals) {
-        Out << Indentation.getString() << Global << "\n";
+        Out << Indentation.getString() << *Global << "\n";
       }
       Indentation.unindent();
     }
@@ -119,28 +150,6 @@ ThreadState &ProcessState::getThread(std::size_t Index) {
 ThreadState const &ProcessState::getThread(std::size_t Index) const {
   assert(Index < ThreadStates.size());
   return *ThreadStates[Index];
-}
-
-
-//===----------------------------------------------------------------------===//
-// ProcessState: Global variables
-//===----------------------------------------------------------------------===//
-
-std::vector<GlobalVariable> ProcessState::getGlobalVariables() const
-{
-  std::vector<GlobalVariable> Globals;
-  
-  for (auto const &It : Trace.getMapping().getGlobalVariableLookup()) {
-    auto const GV = It.second.getGlobal();
-    auto const Address = UnmappedState->getRuntimeAddress(GV);
-    
-    Globals.emplace_back(*this,
-                         It.second.getDecl(),
-                         GV,
-                         Address);
-  }
-  
-  return Globals;
 }
 
 
