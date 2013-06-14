@@ -163,7 +163,7 @@ void encodePropertyAsString(llvm::raw_ostream &Out,
   std::string ValueString;
   
   {
-    llvm::raw_string_ostream Stream {ValueString};
+    llvm::raw_string_ostream Stream (ValueString);
     Stream << Value;
   }
   
@@ -1129,6 +1129,8 @@ doLayout(LayoutHandler const &Handler,
          seec::cm::ProcessState const &State,
          seec::cm::graph::Expansion const &Expansion)
 {
+#ifndef _LIBCPP_VERSION
+
   // Create tasks to generate global variable layouts.
   std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
   
@@ -1180,6 +1182,43 @@ doLayout(LayoutHandler const &Handler,
     AreaLayouts.emplace_back(
       std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
   }
+
+#else // _LIBCPP_VERSION
+
+  // Generate global variable layouts.
+  std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
+  
+  for (auto const &Global : State.getGlobalVariables())
+    GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
+  
+  // Generate thread layouts.
+  std::vector<LayoutOfThread> ThreadLayouts;
+  
+  for (std::size_t i = 0; i < State.getThreadCount(); ++i)
+    ThreadLayouts.emplace_back(doLayout(Handler,
+                               State.getThread(i),
+                               Expansion));
+  
+  // Generate area layouts.
+  std::vector<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>> AreaLayouts;
+  
+  for (auto const &Area : State.getUnmappedStaticAreas())
+    AreaLayouts.emplace_back(doLayout(Handler, Area, Expansion));
+  
+  for (auto const &Malloc : State.getDynamicMemoryAllocations())
+    AreaLayouts.emplace_back(doLayout(Handler,
+                                      MemoryArea(Malloc.getAddress(),
+                                                 Malloc.getSize()),
+                                      Expansion));
+  
+  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory())
+    AreaLayouts.emplace_back(doLayout(Handler,
+                                      MemoryArea(Known.Begin,
+                                                 Known.End - Known.Begin,
+                                                 Known.Value),
+                                      Expansion));
+  
+#endif // _LIBCPP_VERSION
   
   // Retrieve results and combine layouts.
   std::string DotString;
@@ -1192,7 +1231,11 @@ doLayout(LayoutHandler const &Handler,
             << "rankdir=LR;\n";
   
   for (auto &GlobalFuture : GlobalVariableLayouts) {
+#ifndef _LIBCPP_VERSION
     auto const Layout = GlobalFuture.get();
+#else
+    auto const &Layout = GlobalFuture;
+#endif
 
     DotStream << Layout.getDotString();
     
@@ -1202,7 +1245,11 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &ThreadFuture : ThreadLayouts) {
+#ifndef _LIBCPP_VERSION
     auto const Layout = ThreadFuture.get();
+#else
+    auto const &Layout = ThreadFuture;
+#endif
     
     DotStream << Layout.getDotString();
     
@@ -1212,8 +1259,12 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &AreaFuture : AreaLayouts) {
+#ifndef _LIBCPP_VERSION
     auto const Result = AreaFuture.get();
-    
+#else
+    auto const &Result = AreaFuture;
+#endif
+
     auto const &MaybeLayout = Result.first;
     if (!MaybeLayout.assigned<LayoutOfArea>())
       continue;
