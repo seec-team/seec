@@ -73,8 +73,8 @@ wxFSFile *ICUBundleFSHandler::OpenFile(wxFileSystem &Parent,
   if (!MaybeBundle.assigned<ResourceBundle>())
     return nullptr;
   
-  int32_t Length;
-  UErrorCode Status;
+  int32_t Length = 0;
+  UErrorCode Status = U_ZERO_ERROR;
   
   auto const Data = MaybeBundle.get<ResourceBundle>().getBinary(Length, Status);
   if (U_FAILURE(Status))
