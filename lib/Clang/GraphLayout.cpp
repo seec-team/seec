@@ -1129,6 +1129,8 @@ doLayout(LayoutHandler const &Handler,
          seec::cm::ProcessState const &State,
          seec::cm::graph::Expansion const &Expansion)
 {
+  auto const TimeStart = std::chrono::steady_clock::now();
+  
 #ifndef _LIBCPP_VERSION
 
   // Create tasks to generate global variable layouts.
@@ -1284,7 +1286,12 @@ doLayout(LayoutHandler const &Handler,
   DotStream << "}\n"; // Close the digraph.
   DotStream.flush();
   
-  return LayoutOfProcess{std::move(DotString)};
+  auto const TimeEnd = std::chrono::steady_clock::now();
+  auto const TimeTaken = TimeEnd - TimeStart;
+  
+  return LayoutOfProcess{std::move(DotString),
+                         std::chrono::duration_cast<std::chrono::nanoseconds>
+                                                   (TimeTaken)};
 }
 
 

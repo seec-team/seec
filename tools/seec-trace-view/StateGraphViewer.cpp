@@ -162,9 +162,10 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     
     auto const Layout = LayoutHandler->doLayout(Process);
     GraphString = Layout.getDotString();
+    
+    uint64_t const TimeTakenNS = Layout.getTimeTaken().count();
+    wxLogDebug("State graph generated in %" PRIu64 " ns.", TimeTakenNS);
   }
-  
-  wxLogDebug("Graph in dot:\n%s", GraphString);
   
   std::unique_ptr<char []> Buffer {new char [GraphString.size() + 1]};
   if (!Buffer)
@@ -217,8 +218,6 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   // Send the SVG to the webpage via javascript.
   wxString Script;
   Script << "SetState(\"" << SVGString << "\");";
-  
-  wxLogDebug("Setting state to:\n%s", SVGString);
   
   WebView->RunScript(Script);
 }

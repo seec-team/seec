@@ -20,6 +20,7 @@
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <vector>
@@ -198,12 +199,18 @@ public:
 class LayoutOfProcess {
   std::string DotString;
   
+  std::chrono::nanoseconds TimeTaken;
+  
 public:
-  LayoutOfProcess(std::string WithDotString)
-  : DotString(std::move(WithDotString))
+  LayoutOfProcess(std::string WithDotString,
+                  std::chrono::nanoseconds TimeTakenToGenerate)
+  : DotString(std::move(WithDotString)),
+    TimeTaken(std::move(TimeTakenToGenerate))
   {}
   
   std::string const &getDotString() const { return DotString; }
+  
+  std::chrono::nanoseconds const &getTimeTaken() const { return TimeTaken; }
 };
 
 
