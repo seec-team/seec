@@ -1,19 +1,13 @@
 <html>
  <head>
-  <link rel="stylesheet" type="text/css" href="icurb:TraceViewer/StateGraphViewer/Styles.css">
+  <script src="icurb:TraceViewer/StateGraphViewer/jquery-1.8.2.min.js" type="text/javascript"></script>
+  <script src="icurb:TraceViewer/StateGraphViewer/jquery.ui.position.js" type="text/javascript"></script>
+  <script src="icurb:TraceViewer/StateGraphViewer/jquery.contextMenu.js" type="text/javascript"></script>
+
+  <link href="icurb:TraceViewer/StateGraphViewer/jquery.contextMenu.css" rel="stylesheet" type="text/css" />
+  <link href="icurb:TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
+
   <script type="text/javascript">
-    function GetX(e) {
-      var scrollX = document.documentElement.scrollLeft
-                 || document.body.scrollLeft;
-      return e.clientX + scrollX;
-    }
-
-    function GetY(e) {
-      var scrollY = document.documentElement.scrollTop
-                 || document.body.scrollTop;
-      return e.clientY + scrollY;
-    }
-
     // Clear the debug log.
     //
     function LogClear() {
@@ -24,35 +18,10 @@
     //
     function Log(Message) {
       var Container = document.getElementById("Log");
+      
       Container.innerHTML = Container.innerHTML
 			    + "<span>" + Message
                             + "</span><br>";
-    }
-
-    // Override the default context menu.
-    //
-    function CustomContextMenu(e) {
-      var target = e.target;
-
-      Log("Context menu. Target is a " + target.nodeName);
-
-      // Possibly show a custom context menu (depending on the target).
-      var CMBase = document.getElementById("CMBase");
-      CMBase.className = "ContextMenu";
-      CMBase.style.left = GetX(e);
-      CMBase.style.top = GetY(e);
-
-      e.preventDefault();
-    }
-
-    function HideContextMenu(e) {
-      var CMBase = document.getElementById("CMBase");
-      CMBase.className = "ContextMenuHidden";
-    }
-
-    if (document.addEventListener) {
-      document.addEventListener('contextmenu', CustomContextMenu, false);
-      document.addEventListener('click', HideContextMenu, false);
     }
 
     // Event handlers for the context menu items.
@@ -74,138 +43,24 @@
       Log("Forward deallocation");
     }
 
-    // Property-specific parsers.
-    //
-    var PropParsers = {};
-
-    PropParsers["valid-engines"] = function(Value) {
-      var Engines = [];
-
-      while (Value.length != 0) {
-        var EndID      = Value.indexOf(",");
-        var EndCurrent = Value.indexOf(",", EndID + 1);
-        var EndName    = Value.indexOf(";", EndCurrent + 1);
-
-        if (EndID == -1 || EndCurrent == -1 || EndName == -1)
-          break;
-
-        Engines.push({
-          id:      Value.substr(0,              EndID),
-          current: Value.substr(EndID + 1,      EndCurrent),
-          name:    Value.substr(EndCurrent + 1, EndName)
-        });
-
-        Value = Value.substr(EndName + 1, Value.length);
-      }
-
-      return Engines;
-    };
-
-    function UnescapeSeeCProp(Str) {
-      var NewStr = "";
-
-      for (var i = 0; i < Str.length; ++i) {
-        if (Str[i] == "~")
-          ++i;
-        NewStr += Str[i];
-      }
-
-      return NewStr;
-    }
-
-    // Parse a fake HREF to extract SeeC's data from it.
-    //
-    function ParseHREF(Ref) {
-      Ref = unescape(Ref);
-
-      var ColonI = Ref.indexOf(":");
-      if (ColonI == -1)
-        return null;
-
-      var Type = Ref.substring(0, ColonI);
-      var RawProps = Ref.substring(ColonI + 1, Ref.length);
-
-      var Props = {};
-      var PropText = "";
-      var PropValue = "";
-      var Start = 0;
-
-      for (var i = 0; i < RawProps.length; ++i) {
-        if (RawProps[i] == "~") {
-          // Skip escaped character.
-          ++i; continue;
-        }
-
-        if (RawProps[i] == "=") {
-          PropText = RawProps.substring(Start, i);
-          Start = i + 1;
-        }
-        else if (RawProps[i] == ".") {
-          if (PropText.length != 0)
-            PropValue = UnescapeSeeCProp(RawProps.substring(Start, i));
-          else
-            PropText = UnescapeSeeCProp(RawProps.substring(Start, i));
-
-          if (PropParsers[PropText])
-            PropValue = PropParsers[PropText](PropValue);
-
-          Props[PropText] = PropValue;
-
-          PropText = "";
-          PropValue = "";
-          Start = i + 1;
-        }
-      }
-
-      return { type: Type, properties: Props };
-    }
-
     function FakeAnchorClick(e) {
       e.preventDefault();
     }
 
-    // Clean an SVG node and all of its children. If the node was an 'a'
-    // element holding seec properties, return the properties.
-    //
-    function CleanSVG(Node, Indent) {
-      Log(Indent + "Clean " + Node.nodeName);
-
-      var SeeCProperties = undefined;
-
-      if (Node.nodeName == "a") {
-        var Ref = ParseHREF(Node.href.baseVal);
-
-        if (Ref && Ref.type == "seecproperties" && Ref.properties)
-          SeeCProperties = Ref.properties;
-      }
-
-      for (var i = 0; i < Node.childNodes.length; ++i) {
-        var Child = Node.childNodes[i];
-        var Properties = CleanSVG(Child, Indent + "&nbsp;");
-
-        if (Properties) {
-          // The child was an 'a' node holding some SeeC properties.
-          Log(Indent + "Properties:");
-
-          if (Properties["valid-engines"]) {
-            var Engines = Properties["valid-engines"];
-            for (var j = 0; j < Engines.length; ++j) {
-              Log(Indent + Engines[j].id + " is " + Engines[j].name);
-            }
-          }
-
-          if (Properties["type"]) {
-            // TODO: Set a title element for this type.
-          }
-
-          // Disable the anchor behaviour.
-          Child.style.cursor = "default";
-          Child.addEventListener("click", FakeAnchorClick, false);
+    $(function(){
+      $.contextMenu({
+        selector: 'a',
+        callback: function(key, options) {
+          Log("clicked: " + key);
+        },
+        items: {
+          "rewind-init": {name: "Rewind to initialisation"},
+          "rewind-last": {name: "Rewind to last modification"},
+          "forward-next": {name: "Forward to next modification"},
+          "forward-dealloc": {name: "Forward to deallocation"}
         }
-      }
-
-      return SeeCProperties;
-    }
+      });
+    });
 
     // Called from seec-trace-viewer to set a new state display.
     //
@@ -216,16 +71,16 @@
       
       var Container = document.getElementById("SVGContainer");
       Container.innerHTML = SVGString;
-      
-      return;
 
-      for (var Node = Container.firstChild; ; Node = Node.nextSibling) {
-        if (Node.nodeName == "svg")
-          CleanSVG(Node, "");
+      $('title').remove();
 
-        if (Node == Container.lastChild)
-          break;
-      }
+      var refs = $('a');
+      refs.click(FakeAnchorClick);
+      refs.removeAttr("xlink:title");
+
+      refs.each(function(){
+        this.classList.add("seecValue");
+      });
     }
     
     function SetState(SVGString) {
@@ -248,25 +103,6 @@
  <body>
   <div id="SVGContainer"></div>
   <div id="Log"></div>
-  <div class="ContextMenuHidden" id="CMBase">
-   <ul>
-    <li class="ContextMenuItem" id="CMIRewindInitialisation" onclick="DoRewindInitialisation();">
-     Rewind to initialisation
-    </li>
-    <li class="ContextMenuItem" id="CMIRewindLastModify" onclick="DoRewindLastModify();">
-     Rewind to last modification
-    </li>
-    <li class="ContextMenuItem" id="CMIDisplayAs">
-     Display as
-    </li>
-    <li class="ContextMenuItem" id="CMIForwardNextModify" onclick="DoForwardNextModify();">
-     Forward to next modification
-    </li>
-    <li class="ContextMenuItem" id="CMIForwardDeallocation" onclick="DoForwardDeallocation();">
-     Forward to deallocation
-    </li>
-   </ul>
-  </div>
  </body>
 </html>
 
