@@ -396,7 +396,8 @@ LEVStandard::doLayoutImpl(Value const &V) const
       
       getHandler().writeDefaultProperties(Stream, V);
       
-      Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                    "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Array.getChildAt(i);
@@ -435,7 +436,8 @@ LEVStandard::doLayoutImpl(Value const &V) const
       
       getHandler().writeDefaultProperties(Stream, V);
       
-      Stream << "\"><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                    "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Record.getChildAt(i);
@@ -575,7 +577,8 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                "CELLSPACING=\"0\" CELLBORDER=\"1\">";
   
   auto const &Handler = this->getHandler();
   auto const Limit = Reference.getDereferenceIndexLimit();
@@ -743,7 +746,8 @@ doLayout(LayoutHandler const &Handler,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">"
+            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                "CELLSPACING=\"0\" CELLBORDER=\"1\">"
             << "<TR><TD COLSPAN=\"2\">"
             << State.getNameAsString()
             << "</TD></TR>";
@@ -864,7 +868,8 @@ doLayout(LayoutHandler const &Handler,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">"
+            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                "CELLSPACING=\"0\" CELLBORDER=\"1\">"
             << "<TR><TD>"
             << State.getClangValueDecl()->getName()
             << "</TD>";
