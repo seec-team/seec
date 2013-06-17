@@ -155,9 +155,9 @@ struct GetCurrentRuntimeValueAsImpl
       return seec::Maybe<T>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return getAs<T>(*RTValue, Instruction->getType());
-      }
+      return seec::Maybe<T>();
     }
     else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) {
       // TODO: Assert that the constant isn't too large.
@@ -185,9 +185,9 @@ struct GetCurrentRuntimeValueAsImpl
       return seec::Maybe<T>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return getAs<T>(*RTValue, Instruction->getType());
-      }
+      return seec::Maybe<T>();
     }
     else if (auto ConstantInt = llvm::dyn_cast<llvm::ConstantInt>(V)) {
       // TODO: Assert that the constant isn't too large.
@@ -209,9 +209,9 @@ struct GetCurrentRuntimeValueAsImpl<float, void> {
       return seec::Maybe<float>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return RTValue->getFloat();
-      }
+      return seec::Maybe<float>();
     }
     else if (auto ConstantFloat = llvm::dyn_cast<llvm::ConstantFP>(V)) {
       return ConstantFloat->getValueAPF().convertToFloat();
@@ -232,9 +232,9 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
       return seec::Maybe<double>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return RTValue->getDouble();
-      }
+      return seec::Maybe<double>();
     }
     else if (auto ConstantFloat = llvm::dyn_cast<llvm::ConstantFP>(V)) {
       return ConstantFloat->getValueAPF().convertToDouble();
@@ -258,9 +258,9 @@ struct GetCurrentRuntimeValueAsImpl<long double, void> {
       return seec::Maybe<long double>();
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return static_cast<long double>(RTValue->getDouble());
-      }
+      return seec::Maybe<long double>();
     }
     else if (auto ConstantFloat = llvm::dyn_cast<llvm::ConstantFP>(V)) {
       auto const DoubleVal = ConstantFloat->getValueAPF().convertToDouble();
@@ -279,9 +279,9 @@ struct GetCurrentRuntimeValueAsImpl<RuntimeValue const *, void> {
   static seec::Maybe<RuntimeValue const *>
   getCurrentRuntimeValueAs(SrcTy &Source, llvm::Value const *V) {
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction)) {
+      if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
         return RTValue;
-      }
+      return seec::Maybe<RuntimeValue const *>();
     }
     
     llvm_unreachable("Don't know how to extract RuntimeValue.");
