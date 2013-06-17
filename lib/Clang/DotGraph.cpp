@@ -26,6 +26,7 @@
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Error.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Printing.hpp"
 
@@ -365,7 +366,8 @@ void GraphGenerator::generate(std::shared_ptr<seec::cm::Value const> Value,
   ValuesCompleted.insert(std::make_pair(Value, std::cref(InNode)));
   
   switch (Value->getKind()) {
-    case seec::cm::Value::Kind::Basic:
+    case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Scalar:
       {
         auto const Initialized = Value->isCompletelyInitialized();
         

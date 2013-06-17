@@ -25,6 +25,7 @@
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -365,7 +366,8 @@ LEVStandard::doLayoutImpl(Value const &V) const
   ValuePortMap Ports;
   
   switch (V.getKind()) {
-    case Value::Kind::Basic:
+    case Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case Value::Kind::Scalar:
     {
       auto const IsInit = V.isCompletelyInitialized();
       
@@ -528,6 +530,90 @@ LEVStandard::doLayoutImpl(Value const &V) const
   return LayoutOfValue{std::move(DotString), std::move(Ports)};
 }
 
+
+//===----------------------------------------------------------------------===//
+// LEVCString
+//===----------------------------------------------------------------------===//
+
+/// \brief Value layout engine "C-String".
+///
+class LEVCString final : public LayoutEngineForValue {
+  virtual std::unique_ptr<seec::LazyMessage> getNameImpl() const override {
+    return LazyMessageByRef::create("SeeCClang",
+                                    {"Graph", "Layout", "LEVCString", "Name"});
+  }
+  
+  virtual bool canLayoutImpl(Value const &V) const override;
+  
+  virtual LayoutOfValue
+  doLayoutImpl(Value const &V) const override;
+  
+public:
+  LEVCString(LayoutHandler const &InHandler)
+  : LayoutEngineForValue{InHandler}
+  {}
+};
+
+bool LEVCString::canLayoutImpl(Value const &V) const
+{
+  if (V.getKind() != Value::Kind::Array)
+    return false;
+  
+  auto const Ty = llvm::cast< ::clang::ArrayType >(V.getCanonicalType());
+  return Ty->getElementType()->isCharType();
+}
+
+LayoutOfValue LEVCString::doLayoutImpl(Value const &V) const
+{
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  auto const &Array = static_cast<ValueOfArray const &>(V);
+  unsigned const ChildCount = Array.getChildCount();
+  
+  Stream << "<TD PORT=\""
+         << getStandardPortFor(V)
+         << "\" HREF=\"seecproperties:";
+  
+  getHandler().writeDefaultProperties(Stream, V);
+  
+  Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
+  
+  for (unsigned i = 0; i < ChildCount; ++i) {
+    auto const ChildValue = Array.getChildAt(i);
+    if (!ChildValue) {
+      Stream << "<TD></TD>";
+      continue;
+    }
+    
+    auto const &ChildScalar = llvm::cast<ValueOfScalar>(*ChildValue);
+    auto const Terminator = ChildScalar.isZero();
+    
+    auto const MaybeLayout = this->getHandler().doLayout(ChildScalar);
+    if (!MaybeLayout.assigned<LayoutOfValue>()) {
+      Stream << "<TD></TD>";
+      if (Terminator)
+        break;
+      else
+        continue;
+    }
+    
+    auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+    Stream << Layout.getDotString();
+    Ports.addAllFrom(Layout.getPorts());
+    
+    if (Terminator)
+      break;
+  }
+  
+  Stream << "</TR></TABLE></TD>";
+  Stream.flush();
+  
+  return LayoutOfValue(std::move(DotString), std::move(Ports));
+}
 
 //===----------------------------------------------------------------------===//
 // LEAStandard
@@ -1306,6 +1392,7 @@ doLayout(LayoutHandler const &Handler,
 
 void LayoutHandler::addBuiltinLayoutEngines() {
   // LayoutEngineForValue:
+  addLayoutEngine(seec::makeUnique<LEVCString>(*this));
   addLayoutEngine(seec::makeUnique<LEVStandard>(*this));
   
   // LayoutEngineForArea:

@@ -52,6 +52,7 @@ class Value {
 public:
   enum class Kind {
     Basic,
+    Scalar,
     Array,
     Record,
     Pointer
@@ -132,6 +133,36 @@ public:
   /// \brief Get a string describing the value.
   ///
   virtual std::string getValueAsStringFull() const =0;
+};
+
+
+/// \brief Represents a scalar's runtime value.
+///
+class ValueOfScalar : public Value {
+  /// \brief Check if this value is zero.
+  ///
+  /// pre: isCompletelyInitialized() == true
+  ///
+  virtual bool isZeroImpl() const =0;
+  
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfScalar()
+  : Value(Value::Kind::Scalar)
+  {}
+  
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Scalar;
+  }
+  
+  /// \brief Check if this value is zero.
+  ///
+  /// pre: isCompletelyInitialized() == true
+  ///
+  bool isZero() const { return isZeroImpl(); }
 };
 
 

@@ -290,7 +290,7 @@ getScalarValueAsString(::clang::Type const *Type,
 
 /// \brief Represents a simple scalar Value in memory.
 ///
-class ValueByMemoryForScalar final : public Value {
+class ValueByMemoryForScalar final : public ValueOfScalar {
   /// The canonical Type of this value.
   ::clang::Type const * CanonicalType;
   
@@ -309,6 +309,21 @@ class ValueByMemoryForScalar final : public Value {
     return Size;
   }
   
+  /// \brief Check if this value is zero.
+  ///
+  /// pre: isCompletelyInitialized() == true
+  ///
+  virtual bool isZeroImpl() const override {
+    auto const Region = Memory.getRegion(MemoryArea(Address,
+                                                    Size.getQuantity()));
+    
+    for (auto const Byte: Region.getByteValues())
+      if (Byte)
+        return false;
+    
+    return true;
+  }
+  
 public:
   /// \brief Constructor.
   ///
@@ -316,7 +331,7 @@ public:
                          uintptr_t WithAddress,
                          ::clang::CharUnits WithSize,
                          seec::trace::ProcessState const &ForProcessState)
-  : Value(Value::Kind::Basic),
+  : ValueOfScalar(),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     Size(WithSize),
@@ -1445,7 +1460,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 
 /// \brief Represents a simple scalar Value in LLVM's virtual registers.
 ///
-class ValueByRuntimeValueForScalar final : public Value {
+class ValueByRuntimeValueForScalar final : public ValueOfScalar {
   /// The Expr that this value is for.
   ::clang::Expr const *Expression;
   
@@ -1464,6 +1479,21 @@ class ValueByRuntimeValueForScalar final : public Value {
     return TypeSizeInChars;
   }
   
+  /// \brief Check if this value is zero.
+  ///
+  /// pre: isCompletelyInitialized() == true
+  ///
+  virtual bool isZeroImpl() const override {
+    auto const ExprTy = Expression->getType();
+    auto const CanonTy = ExprTy->getCanonicalTypeUnqualified()->getTypePtr();
+    auto const Val = getScalarValueAsAPSInt(FunctionState, CanonTy, LLVMValue);
+    
+    if (!Val.assigned<llvm::APSInt>())
+      return false;
+    
+    return Val.get<llvm::APSInt>() == 0;
+  }
+  
 public:
   /// \brief Constructor.
   ///
@@ -1471,7 +1501,7 @@ public:
                                seec::trace::FunctionState const &ForState,
                                llvm::Value const *WithLLVMValue,
                                ::clang::CharUnits WithTypeSizeInChars)
-  : Value(Value::Kind::Basic),
+  : ValueOfScalar(),
     Expression(ForExpression),
     FunctionState(ForState),
     LLVMValue(WithLLVMValue),
@@ -2075,7 +2105,8 @@ getValue(std::shared_ptr<ValueStore const> Store,
 bool isContainedChild(Value const &Child, Value const &Parent)
 {
   switch (Parent.getKind()) {
-    case Value::Kind::Basic:
+    case Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case Value::Kind::Scalar:
       return false;
     
     case Value::Kind::Array:

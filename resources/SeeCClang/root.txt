@@ -51,6 +51,9 @@ root:table {
       LEVStandard:table {
         Name:string { "Standard" }
       }
+      LEVCString:table {
+        Name:string { "C String" }
+      }
       LEAStandard:table {
         Name:string { "Standard" }
       }

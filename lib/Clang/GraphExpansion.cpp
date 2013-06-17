@@ -21,6 +21,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Range.hpp"
 
 #include <map>
@@ -119,7 +120,8 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
   assert(State);
   
   switch (State->getKind()) {
-    case seec::cm::Value::Kind::Basic:
+    case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Scalar:
       break;
     
     case seec::cm::Value::Kind::Array:
