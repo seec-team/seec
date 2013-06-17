@@ -257,7 +257,8 @@ class LayoutEngineForValue : public LayoutEngine {
   
   /// \brief Internal implementation of doLayout().
   ///
-  virtual LayoutOfValue doLayoutImpl(seec::cm::Value const &Value) const =0;
+  virtual LayoutOfValue
+  doLayoutImpl(seec::cm::Value const &Value, Expansion const &E) const =0;
   
 protected:
   /// \brief Constructor.
@@ -278,8 +279,9 @@ public:
   /// \brief Layout a Value.
   /// \param Value the Value to layout.
   ///
-  LayoutOfValue doLayout(seec::cm::Value const &Value) const {
-    return doLayoutImpl(Value);
+  LayoutOfValue doLayout(seec::cm::Value const &Value, Expansion const &E) const
+  {
+    return doLayoutImpl(Value, E);
   }
 };
 
@@ -297,7 +299,8 @@ class LayoutEngineForArea : public LayoutEngine {
   ///
   virtual LayoutOfArea
   doLayoutImpl(seec::MemoryArea const &Area,
-               seec::cm::ValueOfPointer const &Reference) const =0;
+               seec::cm::ValueOfPointer const &Reference,
+               Expansion const &E) const =0;
   
 protected:
   /// \brief Constructor.
@@ -319,9 +322,10 @@ public:
   /// \brief Layout an area.
   ///
   LayoutOfArea doLayout(seec::MemoryArea const &Area,
-                        seec::cm::ValueOfPointer const &Reference) const
+                        seec::cm::ValueOfPointer const &Reference,
+                        Expansion const &E) const
   {
-    return doLayoutImpl(Area, Reference);
+    return doLayoutImpl(Area, Reference, E);
   }
 };
 
@@ -404,13 +408,14 @@ public:
   /// \brief Perform the layout for a value.
   ///
   seec::Maybe<LayoutOfValue>
-  doLayout(seec::cm::Value const &State) const;
+  doLayout(seec::cm::Value const &State, Expansion const &Exp) const;
   
   /// \brief Perform the layout for an area.
   ///
   seec::Maybe<LayoutOfArea>
   doLayout(seec::MemoryArea const &Area,
-           seec::cm::ValueOfPointer const &Reference) const;
+           seec::cm::ValueOfPointer const &Reference,
+           Expansion const &Exp) const;
   
   /// \brief Perform expansion and layout for a process state.
   ///

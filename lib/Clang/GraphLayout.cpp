@@ -24,6 +24,7 @@
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/LazyMessage.hpp"
+#include "seec/ICU/Output.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/MakeUnique.hpp"
@@ -349,7 +350,7 @@ class LEVStandard final : public LayoutEngineForValue {
   }
   
   virtual LayoutOfValue
-  doLayoutImpl(Value const &V) const override;
+  doLayoutImpl(Value const &V, Expansion const &E) const override;
   
 public:
   LEVStandard(LayoutHandler const &InHandler)
@@ -358,7 +359,7 @@ public:
 };
 
 LayoutOfValue
-LEVStandard::doLayoutImpl(Value const &V) const
+LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
 {
   std::string DotString;
   llvm::raw_string_ostream Stream {DotString};
@@ -408,7 +409,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
         
         Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
         
-        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue);
+        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
           Stream << "<TD></TD></TR>";
           continue;
@@ -456,7 +457,7 @@ LEVStandard::doLayoutImpl(Value const &V) const
         
         Stream << "</TD>";
         
-        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue);
+        auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
           Stream << "<TD></TD></TR>";
           continue;
@@ -546,7 +547,7 @@ class LEVCString final : public LayoutEngineForValue {
   virtual bool canLayoutImpl(Value const &V) const override;
   
   virtual LayoutOfValue
-  doLayoutImpl(Value const &V) const override;
+  doLayoutImpl(Value const &V, Expansion const &E) const override;
   
 public:
   LEVCString(LayoutHandler const &InHandler)
@@ -563,7 +564,7 @@ bool LEVCString::canLayoutImpl(Value const &V) const
   return Ty->getElementType()->isCharType();
 }
 
-LayoutOfValue LEVCString::doLayoutImpl(Value const &V) const
+LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
 {
   std::string DotString;
   llvm::raw_string_ostream Stream {DotString};
@@ -582,31 +583,58 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V) const
   Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
-  for (unsigned i = 0; i < ChildCount; ++i) {
+  unsigned i = 0;
+  
+  for (bool Terminated = false; !Terminated && i < ChildCount; ++i) {
     auto const ChildValue = Array.getChildAt(i);
-    if (!ChildValue) {
-      Stream << "<TD></TD>";
+    if (!ChildValue)
       continue;
-    }
     
-    auto const &ChildScalar = llvm::cast<ValueOfScalar>(*ChildValue);
-    auto const Terminator = ChildScalar.isZero();
+    auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
     
-    auto const MaybeLayout = this->getHandler().doLayout(ChildScalar);
-    if (!MaybeLayout.assigned<LayoutOfValue>()) {
-      Stream << "<TD></TD>";
-      if (Terminator)
-        break;
-      else
-        continue;
-    }
+    if (!MaybeLayout.assigned<LayoutOfValue>())
+      break; // Layout this and all following values as elided.
     
     auto const &Layout = MaybeLayout.get<LayoutOfValue>();
     Stream << Layout.getDotString();
     Ports.addAllFrom(Layout.getPorts());
     
-    if (Terminator)
-      break;
+    auto const &ChildScalar = llvm::cast<ValueOfScalar>(*ChildValue);
+    Terminated = ChildScalar.isZero();
+  }
+  
+  if (i < ChildCount) {
+    auto const ElidedPort = getStandardPortFor(V) + "Elided";
+    unsigned ElidedReferenced = 0;
+    
+    for (; i < ChildCount; ++i) {
+      auto const ChildValue = Array.getChildAt(i);
+      if (!ChildValue)
+        continue;
+      
+      if (E.countReferencesOf(ChildValue)) {
+        ++ElidedReferenced;
+        Ports.add(*ChildValue, ValuePort(EdgeEndType::Elided, ElidedPort));
+      }
+    }
+    
+    if (ElidedReferenced) {
+      auto const Message = LazyMessageByRef::create("SeeCClang",
+                                                    {"Graph",
+                                                     "Layout",
+                                                     "LEVCString",
+                                                     "ElidedValues"});
+      
+      UErrorCode Status = U_ZERO_ERROR;
+      auto const Str = Message->get(Status, Locale());
+      
+      Stream << "<TD PORT=\"" << ElidedPort << "\">";
+      
+      if (U_SUCCESS(Status))
+        Stream << Str;
+      
+      Stream << "</TD>";
+    }
   }
   
   Stream << "</TR></TABLE></TD>";
@@ -636,7 +664,8 @@ class LEAStandard final : public LayoutEngineForArea {
   
   virtual LayoutOfArea
   doLayoutImpl(seec::MemoryArea const &Area,
-               seec::cm::ValueOfPointer const &Reference) const override;
+               seec::cm::ValueOfPointer const &Reference,
+               Expansion const &E) const override;
   
 public:
   LEAStandard(LayoutHandler const &InHandler)
@@ -646,7 +675,8 @@ public:
 
 LayoutOfArea
 LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
-                          seec::cm::ValueOfPointer const &Reference) const
+                          seec::cm::ValueOfPointer const &Reference,
+                          Expansion const &E) const
 {
   // Generate the identifier for this node.
   std::string IDString;
@@ -672,7 +702,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   if (Limit == 1) {
     auto const Pointee = Reference.getDereferenced(0);
     if (Pointee) {
-      auto const MaybeLayout = Handler.doLayout(*Pointee);
+      auto const MaybeLayout = Handler.doLayout(*Pointee, E);
       if (MaybeLayout.assigned<LayoutOfValue>()) {
         auto const &Layout = MaybeLayout.get<LayoutOfValue>();
         DotStream << "<TR>" << Layout.getDotString() << "</TR>";
@@ -684,7 +714,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
     for (unsigned i = 0; i < Limit; ++i) {
       auto const Pointee = Reference.getDereferenced(i);
       if (Pointee) {
-        auto const MaybeLayout = Handler.doLayout(*Pointee);
+        auto const MaybeLayout = Handler.doLayout(*Pointee, E);
         if (MaybeLayout.assigned<LayoutOfValue>()) {
           auto const &Layout = MaybeLayout.get<LayoutOfValue>();
           DotStream << "<TR><TD>&#91;" << i << "&#93;</TD>"
@@ -732,7 +762,7 @@ doLayout(LayoutHandler const &Handler,
             << "</TD>";
   
   // Attempt to layout the value.
-  auto MaybeLayout = Handler.doLayout(*Value);
+  auto MaybeLayout = Handler.doLayout(*Value, Expansion);
   if (MaybeLayout.assigned<LayoutOfValue>()) {
     auto const &Layout = MaybeLayout.get<LayoutOfValue>();
     DotStream << Layout.getDotString();
@@ -782,7 +812,7 @@ doLayout(LayoutHandler const &Handler,
             << "</TD>";
   
   // Attempt to layout the value.
-  auto MaybeLayout = Handler.doLayout(*Value);
+  auto MaybeLayout = Handler.doLayout(*Value, Expansion);
   if (MaybeLayout.assigned<LayoutOfValue>()) {
     auto const &Layout = MaybeLayout.get<LayoutOfValue>();
     DotStream << Layout.getDotString();
@@ -964,7 +994,7 @@ doLayout(LayoutHandler const &Handler,
   
   auto const Value = State.getValue();
   if (Value) {
-    auto const MaybeLayout = Handler.doLayout(*Value);
+    auto const MaybeLayout = Handler.doLayout(*Value, Expansion);
     if (MaybeLayout.assigned<LayoutOfValue>()) {
       auto const &Layout = MaybeLayout.get<LayoutOfValue>();
       DotStream << Layout.getDotString();
@@ -1024,7 +1054,8 @@ doLayout(LayoutHandler const &Handler,
     return std::make_pair(seec::Maybe<LayoutOfArea>(), Area);
   
   if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
+                          Area);
   
   // TODO: Select the user-selected ref, if there is one.
   
@@ -1040,12 +1071,13 @@ doLayout(LayoutHandler const &Handler,
                   });
   
   if (VoidIt == Refs.begin())
-    return std::make_pair(Handler.doLayout(Area, **VoidIt), Area);
+    return std::make_pair(Handler.doLayout(Area, **VoidIt, Expansion), Area);
   
   Refs.erase(VoidIt, Refs.end());
   
   if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
+                          Area);
   
   // Remove all references which refer to a child of another reference. E.g. if
   // we have a pointer to a struct, and a pointer to a member of that struct,
@@ -1086,11 +1118,12 @@ doLayout(LayoutHandler const &Handler,
   }
   
   if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
+                          Area);
   
   // TODO: Layout as type-punned (or pass to a layout engine that supports
   //       multiple references).
-  return std::make_pair(Handler.doLayout(Area, *Refs.front()), Area);
+  return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion), Area);
 }
 
 
@@ -1493,7 +1526,7 @@ void LayoutHandler::writeDefaultProperties(llvm::raw_ostream &Out,
 }
 
 seec::Maybe<LayoutOfValue>
-LayoutHandler::doLayout(seec::cm::Value const &State) const
+LayoutHandler::doLayout(seec::cm::Value const &State, Expansion const &E) const
 {
   // If there's an engine for this exact Value, try to use that.
   if (State.isInMemory()) {
@@ -1502,28 +1535,29 @@ LayoutHandler::doLayout(seec::cm::Value const &State) const
                                               State.getCanonicalType()));
     
     if (It != ValueEngineOverride.end() && It->second->canLayout(State))
-      return It->second->doLayout(State);
+      return It->second->doLayout(State, E);
   }
   
   // Otherwise try to use the user-selected global default.
   if (ValueEngineDefault && ValueEngineDefault->canLayout(State))
-    return ValueEngineDefault->doLayout(State);
+    return ValueEngineDefault->doLayout(State, E);
   
   // Otherwise try to use any engine that will work.
   for (auto const &EnginePtr : ValueEngines)
     if (EnginePtr->canLayout(State))
-      return EnginePtr->doLayout(State);
+      return EnginePtr->doLayout(State, E);
   
   return seec::Maybe<LayoutOfValue>();
 }
 
 seec::Maybe<LayoutOfArea>
 LayoutHandler::doLayout(seec::MemoryArea const &Area,
-                        seec::cm::ValueOfPointer const &Reference) const
+                        seec::cm::ValueOfPointer const &Reference,
+                        Expansion const &Exp) const
 {
   for (auto const &EnginePtr : AreaEngines)
     if (EnginePtr->canLayout(Area, Reference))
-      return EnginePtr->doLayout(Area, Reference);
+      return EnginePtr->doLayout(Area, Reference, Exp);
   
   return seec::Maybe<LayoutOfArea>();
 }
