@@ -570,7 +570,9 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
+  Ports.add(V, ValuePort{EdgeEndType::Standard});
   
+  auto const &Handler = getHandler();
   auto const &Array = static_cast<ValueOfArray const &>(V);
   unsigned const ChildCount = Array.getChildCount();
   
@@ -578,62 +580,35 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
          << getStandardPortFor(V)
          << "\" HREF=\"seecproperties:";
   
-  getHandler().writeDefaultProperties(Stream, V);
+  Handler.writeDefaultProperties(Stream, V);
   
   Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
-  unsigned i = 0;
-  
-  for (bool Terminated = false; !Terminated && i < ChildCount; ++i) {
+  for (unsigned i = 0; i < ChildCount; ++i) {
     auto const ChildValue = Array.getChildAt(i);
-    if (!ChildValue)
+    if (!ChildValue) {
+      Stream << "<TD></TD>";
       continue;
-    
-    auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
-    
-    if (!MaybeLayout.assigned<LayoutOfValue>())
-      break; // Layout this and all following values as elided.
-    
-    auto const &Layout = MaybeLayout.get<LayoutOfValue>();
-    Stream << Layout.getDotString();
-    Ports.addAllFrom(Layout.getPorts());
-    
-    auto const &ChildScalar = llvm::cast<ValueOfScalar>(*ChildValue);
-    Terminated = ChildScalar.isZero();
-  }
-  
-  if (i < ChildCount) {
-    auto const ElidedPort = getStandardPortFor(V) + "Elided";
-    unsigned ElidedReferenced = 0;
-    
-    for (; i < ChildCount; ++i) {
-      auto const ChildValue = Array.getChildAt(i);
-      if (!ChildValue)
-        continue;
-      
-      if (E.countReferencesOf(ChildValue)) {
-        ++ElidedReferenced;
-        Ports.add(*ChildValue, ValuePort(EdgeEndType::Elided, ElidedPort));
-      }
     }
     
-    if (ElidedReferenced) {
-      auto const Message = LazyMessageByRef::create("SeeCClang",
-                                                    {"Graph",
-                                                     "Layout",
-                                                     "LEVCString",
-                                                     "ElidedValues"});
+    auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
+    
+    if (MaybeLayout.assigned<LayoutOfValue>()) {
+      auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+      Stream << Layout.getDotString();
+      Ports.addAllFrom(Layout.getPorts());
+    }
+    else {
+      // No layout generated.
       
-      UErrorCode Status = U_ZERO_ERROR;
-      auto const Str = Message->get(Status, Locale());
+      Stream << "<TD PORT=\""
+             << getStandardPortFor(*ChildValue)
+             << "\" HREF=\"seecproperties:";
+      Handler.writeDefaultProperties(Stream, *ChildValue);
+      Stream << "\"></TD>";
       
-      Stream << "<TD PORT=\"" << ElidedPort << "\">";
-      
-      if (U_SUCCESS(Status))
-        Stream << Str;
-      
-      Stream << "</TD>";
+      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
   }
   
@@ -727,6 +702,101 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   }
   
   DotStream << "</TABLE>> ];\n";
+  DotStream.flush();
+  
+  return LayoutOfArea{std::move(IDString),
+                      std::move(DotString),
+                      std::move(Ports)};
+}
+
+
+//===----------------------------------------------------------------------===//
+// LEACString
+//===----------------------------------------------------------------------===//
+
+/// \brief Area layout engine "C String".
+///
+class LEACString final : public LayoutEngineForArea {
+  virtual std::unique_ptr<seec::LazyMessage> getNameImpl() const override {
+    return LazyMessageByRef::create("SeeCClang",
+                                    {"Graph", "Layout", "LEACString", "Name"});
+  }
+  
+  virtual bool
+  canLayoutImpl(seec::MemoryArea const &Area,
+                seec::cm::ValueOfPointer const &Reference) const override
+  {
+    auto const Ty = llvm::cast< ::clang::PointerType >
+                              (Reference.getCanonicalType());
+    return Ty->getPointeeType()->isCharType();
+  }
+  
+  virtual LayoutOfArea
+  doLayoutImpl(seec::MemoryArea const &Area,
+               seec::cm::ValueOfPointer const &Reference,
+               Expansion const &E) const override;
+  
+public:
+  LEACString(LayoutHandler const &InHandler)
+  : LayoutEngineForArea{InHandler}
+  {}
+};
+
+LayoutOfArea
+LEACString::doLayoutImpl(seec::MemoryArea const &Area,
+                         seec::cm::ValueOfPointer const &Reference,
+                         Expansion const &E) const
+{
+  // Generate the identifier for this node.
+  std::string IDString;
+  
+  {
+    llvm::raw_string_ostream IDStream {IDString};
+    IDStream << "area_at_" << Area.start();
+  }
+  
+  std::string DotString;
+  llvm::raw_string_ostream DotStream {DotString};
+  
+  ValuePortMap Ports;
+  Ports.add(Reference, ValuePort{EdgeEndType::Standard});
+  
+  DotStream << IDString
+            << " [ label = <"
+            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
+  
+  auto const &Handler = this->getHandler();
+  auto const Limit = Reference.getDereferenceIndexLimit();
+  
+  for (unsigned i = 0; i < Limit; ++i) {
+    auto const ChildValue = Reference.getDereferenced(i);
+    if (!ChildValue) {
+      DotStream << "<TD></TD>";
+      continue;
+    }
+    
+    auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
+    
+    if (MaybeLayout.assigned<LayoutOfValue>()) {
+      auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+      DotStream << Layout.getDotString();
+      Ports.addAllFrom(Layout.getPorts());
+    }
+    else {
+      // No layout generated.
+      
+      DotStream << "<TD PORT=\""
+                << getStandardPortFor(*ChildValue)
+                << "\" HREF=\"seecproperties:";
+      Handler.writeDefaultProperties(DotStream, *ChildValue);
+      DotStream << "\"></TD>";
+      
+      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+    }
+  }
+  
+  DotStream << "</TR></TABLE>> ];\n";
   DotStream.flush();
   
   return LayoutOfArea{std::move(IDString),
@@ -1429,6 +1499,7 @@ void LayoutHandler::addBuiltinLayoutEngines() {
   addLayoutEngine(seec::makeUnique<LEVStandard>(*this));
   
   // LayoutEngineForArea:
+  addLayoutEngine(seec::makeUnique<LEACString>(*this));
   addLayoutEngine(seec::makeUnique<LEAStandard>(*this));
 }
 
