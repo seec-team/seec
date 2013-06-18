@@ -1022,7 +1022,21 @@ doLayout(LayoutHandler const &Handler,
   for (auto const &FunctionLayout : FunctionLayouts)
     DotStream << FunctionLayout.getID() << "; ";
   
-  DotStream << "};\n}\n";
+  DotStream << "};\n";
+  
+  // Add edges to force function nodes to appear in order.
+  if (FunctionLayouts.size() > 1) {
+    auto const OrderEdgeCount = FunctionLayouts.size() - 1;
+    
+    for (unsigned i = 0; i < OrderEdgeCount; ++i) {
+      DotStream << FunctionLayouts[i].getID()
+                << " -> "
+                << FunctionLayouts[i+1].getID()
+                << " [style=invis weight=1000];\n";
+    }
+  }
+  
+  DotStream << "}\n";
   DotStream.flush();
   
   return LayoutOfThread{std::move(DotString), std::move(FunctionNodes)};
