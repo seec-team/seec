@@ -1372,7 +1372,7 @@ doLayout(LayoutHandler const &Handler,
   // Create tasks to generate known memory area layouts.
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory()) {
     auto const Area = seec::MemoryArea(Known.Begin,
-                                       Known.End - Known.Begin,
+                                       (Known.End - Known.Begin) + 1,
                                        Known.Value);
     
     AreaLayouts.emplace_back(
@@ -1410,7 +1410,7 @@ doLayout(LayoutHandler const &Handler,
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory())
     AreaLayouts.emplace_back(doLayout(Handler,
                                       MemoryArea(Known.Begin,
-                                                 Known.End - Known.Begin,
+                                                 (Known.End - Known.Begin) + 1,
                                                  Known.Value),
                                       Expansion));
   
