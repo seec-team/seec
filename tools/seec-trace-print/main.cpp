@@ -11,7 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/DotGraph.hpp"
+#include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
@@ -87,7 +87,8 @@ llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
 }
 
 void WriteDotGraph(seec::cm::ProcessState const &State,
-                   char const *Filename)
+                   char const *Filename,
+                   seec::cm::graph::LayoutHandler const &Handler)
 {
   assert(Filename && "NULL Filename.");
   
@@ -99,7 +100,7 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
     return;
   }
   
-  seec::cm::writeDotGraph(State, Stream);
+  Stream << Handler.doLayout(State).getDotString();
 }
 
 void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
@@ -136,7 +137,8 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
     seec::cm::ProcessState State(*CMProcessTrace);
     
     // If we're going to output dot graph files for the states, then setup the
-    // output directory now.
+    // output directory and layout handler now.
+    std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
     llvm::SmallString<256> OutputForDot;
     std::string FilenameString;
     llvm::raw_string_ostream FilenameStream {FilenameString};
@@ -154,6 +156,9 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
         llvm::errs() << "Couldn't create output directory.\n";
         return;
       }
+      
+      LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
+      LayoutHandler->addBuiltinLayoutEngines();
     }
     
     if (State.getThreadCount() == 1) {
@@ -174,7 +179,7 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
           llvm::sys::path::append(OutputForDot, FilenameString);
           
           // Write the graph.
-          WriteDotGraph(State, OutputForDot.c_str());
+          WriteDotGraph(State, OutputForDot.c_str(), *LayoutHandler);
           
           // Remove filename for this state.
           llvm::sys::path::remove_filename(OutputForDot);

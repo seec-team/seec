@@ -11,7 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/DotGraph.hpp"
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
