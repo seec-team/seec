@@ -114,64 +114,6 @@ static void encodeHREFChar(llvm::raw_ostream &Out, char const Character)
   Out << char(Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
 }
 
-static void encodePropertyChar(llvm::raw_ostream &Out, char const Character)
-{
-  // Escape the character if necessary.
-  switch (Character) {
-    case '=':
-    case '.':
-    case '~':
-      Out << '~';
-      break;
-  }
-  
-  encodeHREFChar(Out, Character);
-}
-
-void encodeProperty(llvm::raw_ostream &Out,
-                    llvm::Twine Property)
-{
-  auto const String = Property.str();
-  
-  for (auto const Character : String)
-    encodePropertyChar(Out, Character);
-  
-  Out << '.';
-}
-
-void encodeProperty(llvm::raw_ostream &Out,
-                    llvm::Twine Key,
-                    llvm::Twine Value)
-{
-  auto const KeyString = Key.str();
-  auto const ValueString = Value.str();
-  
-  for (auto const Character : KeyString)
-    encodePropertyChar(Out, Character);
-  
-  encodeHREFChar(Out, '=');
-  
-  for (auto const Character : ValueString)
-    encodePropertyChar(Out, Character);
-  
-  Out << '.';
-}
-
-template<typename T>
-void encodePropertyAsString(llvm::raw_ostream &Out,
-                            llvm::Twine Key,
-                            T const &Value)
-{
-  std::string ValueString;
-  
-  {
-    llvm::raw_string_ostream Stream (ValueString);
-    Stream << Value;
-  }
-  
-  encodeProperty(Out, Key, ValueString);
-}
-
 
 //===----------------------------------------------------------------------===//
 // Value types
@@ -374,11 +316,11 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       Stream << "<TD PORT=\""
              << getStandardPortFor(V)
-             << "\" HREF=\"seecproperties:";
+             << "\"";
       
-      getHandler().writeDefaultProperties(Stream, V);
+      getHandler().writeHREF(Stream, V);
       
-      Stream << "\">";
+      Stream << ">";
       
       if (IsInit)
         Stream << EscapeForHTML(V.getValueAsStringFull());
@@ -395,12 +337,12 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       Stream << "<TD PORT=\""
              << getStandardPortFor(V)
-             << "\" HREF=\"seecproperties:";
+             << "\"";
       
-      getHandler().writeDefaultProperties(Stream, V);
+      getHandler().writeHREF(Stream, V);
       
-      Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
-                    "CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                  "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Array.getChildAt(i);
@@ -435,12 +377,12 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       Stream << "<TD PORT=\""
              << getStandardPortFor(V)
-             << "\" HREF=\"seecproperties:";
+             << "\"";
       
-      getHandler().writeDefaultProperties(Stream, V);
+      getHandler().writeHREF(Stream, V);
       
-      Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
-                    "CELLSPACING=\"0\" CELLBORDER=\"1\">";
+      Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+                  "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
         auto const ChildValue = Record.getChildAt(i);
@@ -484,41 +426,41 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         // An uninitialized pointer.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\" HREF=\"seecproperties:";
+               << "\"";
         
-        getHandler().writeDefaultProperties(Stream, V);
+        getHandler().writeHREF(Stream, V);
         
-        Stream << "\">?</TD>";
+        Stream << ">?</TD>";
       }
       else if (!Ptr.getRawValue()) {
         // A NULL pointer.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\" HREF=\"seecproperties:";
+               << "\"";
         
-        getHandler().writeDefaultProperties(Stream, V);
+        getHandler().writeHREF(Stream, V);
         
-        Stream << "\">NULL</TD>";
+        Stream << ">NULL</TD>";
       }
       else if (Ptr.getDereferenceIndexLimit() == 0) {
         // An invalid pointer (as far as we're concerned).
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\" HREF=\"seecproperties:";
+               << "\"";
         
-        getHandler().writeDefaultProperties(Stream, V);
+        getHandler().writeHREF(Stream, V);
         
-        Stream << "\">!</TD>";
+        Stream << ">!</TD>";
       }
       else {
         // A valid pointer with at least one dereference.
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
-               << "\" HREF=\"seecproperties:";
+               << "\"";
         
-        getHandler().writeDefaultProperties(Stream, V);
+        getHandler().writeHREF(Stream, V);
         
-        Stream << "\"> </TD>";
+        Stream << "> </TD>";
       }
       
       break;
@@ -578,12 +520,12 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   
   Stream << "<TD PORT=\""
          << getStandardPortFor(V)
-         << "\" HREF=\"seecproperties:";
+         << "\"";
   
-  Handler.writeDefaultProperties(Stream, V);
+  Handler.writeHREF(Stream, V);
   
-  Stream << "\"><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
+  Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+              "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   for (unsigned i = 0; i < ChildCount; ++i) {
     auto const ChildValue = Array.getChildAt(i);
@@ -604,9 +546,9 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
       
       Stream << "<TD PORT=\""
              << getStandardPortFor(*ChildValue)
-             << "\" HREF=\"seecproperties:";
-      Handler.writeDefaultProperties(Stream, *ChildValue);
-      Stream << "\"></TD>";
+             << "\"";
+      Handler.writeHREF(Stream, *ChildValue);
+      Stream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
@@ -788,9 +730,9 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
       
       DotStream << "<TD PORT=\""
                 << getStandardPortFor(*ChildValue)
-                << "\" HREF=\"seecproperties:";
-      Handler.writeDefaultProperties(DotStream, *ChildValue);
-      DotStream << "\"></TD>";
+                << "\"";
+      Handler.writeHREF(DotStream, *ChildValue);
+      DotStream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
@@ -1527,46 +1469,6 @@ LayoutHandler::addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine) {
   AreaEngines.emplace_back(std::move(Engine));
 }
 
-void
-LayoutHandler::writeValidEnginesProperty(llvm::raw_ostream &Out,
-                                         Value const &ForValue) const
-{
-  std::string PropertyValue;
-  
-  {
-    llvm::raw_string_ostream Stream {PropertyValue};
-    
-    for (auto const &EnginePtr : ValueEngines) {
-      if (EnginePtr->canLayout(ForValue)) {
-        auto const LazyName = EnginePtr->getName();
-        if (!LazyName) {
-          llvm::errs() << "failed to get layout engine name.";
-          continue;
-        }
-        
-        UErrorCode Status = U_ZERO_ERROR;
-        auto const UniName = LazyName->get(Status, Locale{});
-        
-        if (U_FAILURE(Status)) {
-          llvm::errs() << "failed to get layout engine name as string.";
-          continue;
-        }
-        
-        std::string UTF8Name;
-        UniName.toUTF8String(UTF8Name);
-        
-        Stream << reinterpret_cast<uintptr_t>(EnginePtr.get())
-               << ','
-               << ','
-               << UTF8Name
-               << ';';
-      }
-    }
-  }
-  
-  encodeProperty(Out, "valid-engines", PropertyValue);
-}
-
 bool
 LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
   if (!ForValue.isInMemory())
@@ -1595,19 +1497,12 @@ LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
 // LayoutHandler - Layout Creation
 //===----------------------------------------------------------------------===//
 
-void LayoutHandler::writeDefaultProperties(llvm::raw_ostream &Out,
-                                           Value const &ForValue) const
+void LayoutHandler::writeHREF(llvm::raw_ostream &Out,
+                              Value const &ForValue) const
 {
-  encodePropertyAsString(Out,
-                         "value-id",
-                         reinterpret_cast<uintptr_t>(&ForValue));
-  
-  writeValidEnginesProperty(Out, ForValue);
-  
-  encodeProperty(Out, "type", ForValue.getTypeAsString());
-  
-  if (ForValue.isInMemory())
-    encodePropertyAsString(Out, "address", ForValue.getAddress());
+  Out << " HREF=\"value "
+      << reinterpret_cast<uintptr_t>(&ForValue)
+      << "\"";
 }
 
 seec::Maybe<LayoutOfValue>

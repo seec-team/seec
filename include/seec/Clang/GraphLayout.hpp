@@ -382,11 +382,6 @@ public:
   
   // TODO: List the Value layout engines.
   
-  /// \brief Write the valid-engines property for a value.
-  ///
-  void writeValidEnginesProperty(llvm::raw_ostream &Out,
-                                 Value const &ForValue) const;
-  
   // TODO: Set the Value layout engine to use for a particular Value.
   
   /// \brief Set the layout engine to use for a particular value.
@@ -400,10 +395,9 @@ public:
   /// @{
   
 public:
-  /// \brief Write default properties for a value.
+  /// \brief Write a HREF to identify a Value.
   ///
-  void writeDefaultProperties(llvm::raw_ostream &Out,
-                              Value const &ForValue) const;
+  void writeHREF(llvm::raw_ostream &Out, Value const &ForValue) const;
   
   /// \brief Perform the layout for a value.
   ///
