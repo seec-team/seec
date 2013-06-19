@@ -47,21 +47,6 @@
       e.preventDefault();
     }
 
-    $(function(){
-      $.contextMenu({
-        selector: 'a',
-        callback: function(key, options) {
-          Log("clicked: " + key);
-        },
-        items: {
-          "rewind-init": {name: "Rewind to initialisation"},
-          "rewind-last": {name: "Rewind to last modification"},
-          "forward-next": {name: "Forward to next modification"},
-          "forward-dealloc": {name: "Forward to deallocation"}
-        }
-      });
-    });
-
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
