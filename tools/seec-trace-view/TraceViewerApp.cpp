@@ -13,6 +13,7 @@
 
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/ICUBundleFSHandler.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/raw_os_ostream.h"
@@ -22,6 +23,7 @@
 #include <unicode/resbund.h>
 
 #include <wx/wx.h>
+#include <wx/filesys.h>
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
@@ -119,6 +121,9 @@ bool TraceViewerApp::OnInit() {
   
   if (!ICUResources->loadResources(ResourceList))
     HandleFatalError("Couldn't load resources!");
+  
+  // Enable wxWidgets virtual file system access to the ICU bundles.
+  wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;

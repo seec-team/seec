@@ -17,7 +17,6 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/CallbackFSHandler.hpp"
-#include "seec/wxWidgets/ICUBundleFSHandler.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
@@ -82,9 +81,6 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
 {
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
-  
-  // Enable wxWidgets virtual file system access to the ICU bundles.
-  wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
   // Enable vfs access to request information about the state.
   auto CallbackFS = seec::makeUnique<seec::CallbackFSHandler>("seec");
