@@ -85,11 +85,7 @@
       refs.click(FakeAnchorClick);
       refs.removeAttr("xlink:title");
 
-      refs.each(function(){
-        this.classList.add("seecValue");
-      });
-
-      $('a[class~="seecValue"]').on('mouseup', function(e){
+      refs.on('mouseup', function(e){
         var $this = $(this);
         var href = $this.attr('xlink:href');
         if (!href) {
@@ -153,7 +149,7 @@
         SeeCProto = window.location.hash.substring(1);
 
       $.contextMenu({
-        selector: 'a[class~="seecValue"]',
+        selector: 'a',
         trigger: 'none',
         build: function($trigger, e) {
           return $trigger.data('buildValueCM')();
