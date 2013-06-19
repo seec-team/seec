@@ -50,6 +50,14 @@
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
+
+    function buildValueCM() {
+      return {
+        items: {
+          "test": {name: "Test"}
+        }
+      };
+    }
     
     function SetStateImpl(SVGString) {
       SetStateImplTimer = null;
@@ -65,6 +73,46 @@
 
       refs.each(function(){
         this.classList.add("seecValue");
+      });
+
+      $('a[class~="seecValue"]').on('mouseup', function(e){
+        var $this = $(this);
+        var href = $this.attr('xlink:href');
+        if (!href) {
+          Log("No xlink:href found.");
+          return;
+        }
+
+        var splitref = href.split(' ');
+        if (splitref.length != 2) {
+          Log("Bad reference length.");
+          return;
+        }
+
+        var _offset = $this.offset(),
+            position = {
+              x: _offset.left + 10,
+              y: _offset.top + 10
+            };
+
+        if (splitref[0] == "value") {
+          $.getJSON("seec:get_value_type/" + splitref[1] + "?callback=?",
+          function(data) {
+            if (data.success) {
+              $this.data('buildValueCM', function() {
+                return {
+                  items: {
+                    "test": {name: data.result}
+                  }
+                };
+              });
+              $this.contextMenu(position);
+            }
+          });
+        }
+        else {
+          Log("Don't understand ref: " + splitref[0]);
+        }
       });
     }
     
@@ -83,6 +131,29 @@
     function ClearState() {
       document.getElementById("SVGContainer").innerHTML = "";
     }
+
+    // Initial page setup.
+    //
+    function DoSetup() {
+      $.contextMenu({
+        selector: 'a[class~="seecValue"]',
+        trigger: 'none',
+        build: function($trigger, e) {
+          return $trigger.data('buildValueCM')();
+        }
+      });
+    }
+
+    function WaitForSetup() {
+      if (typeof jQuery === 'function') {
+        $(DoSetup);
+      }
+      else {
+        setTimeout(WaitForSetup, 50);
+      }
+    }
+
+    WaitForSetup();
   </script>
  </head>
  <body>

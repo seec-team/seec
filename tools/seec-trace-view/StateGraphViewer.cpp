@@ -12,8 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/GraphLayout.hpp"
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/CallbackFSHandler.hpp"
 #include "seec/wxWidgets/ICUBundleFSHandler.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -83,6 +86,19 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   // Enable wxWidgets virtual file system access to the ICU bundles.
   wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
+  // Enable vfs access to request information about the state.
+  auto CallbackFS = seec::makeUnique<seec::CallbackFSHandler>("seec");
+  
+  CallbackFS->addCallback("get_value_type",
+    std::function<std::string (uintptr_t)>{
+      [this] (uintptr_t ValueID) -> std::string {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        return V.getTypeAsString();
+      }
+    });
+  
+  wxFileSystem::AddHandler(CallbackFS.release());
+  
   // Get our resources from ICU.
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("TraceViewer",
@@ -104,6 +120,8 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
                                       (new wxWebViewFSHandler("icurb")));
+  WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
+                                      (new wxWebViewFSHandler("seec")));
   
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
