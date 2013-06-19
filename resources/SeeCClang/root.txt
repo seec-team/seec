@@ -53,10 +53,12 @@ root:table {
       }
       LEVCString:table {
         Name:string { "C String" }
-        ElidedValues:string { "Elided" }
       }
       LEAStandard:table {
         Name:string { "Standard" }
+      }
+      LEACString:table {
+        Name:string { "C String" }
       }
     }
   }
