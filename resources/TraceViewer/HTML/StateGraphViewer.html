@@ -8,6 +8,8 @@
   <link href="icurb:TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
 
   <script type="text/javascript">
+    var SeeCProto = "";
+
     // Clear the debug log.
     //
     function LogClear() {
@@ -22,6 +24,18 @@
       Container.innerHTML = Container.innerHTML
 			    + "<span>" + Message
                             + "</span><br>";
+    }
+
+    // Build the URL for a SeeC function request.
+    //
+    function SeeCURL(fn, args) {
+      var str = SeeCProto + ":" + fn;
+
+      for (var i = 0; i < args.length; ++i)
+        str += "/" + args[i];
+
+      str += "?callback=?";
+      return str;
     }
 
     // Event handlers for the context menu items.
@@ -96,7 +110,7 @@
             };
 
         if (splitref[0] == "value") {
-          $.getJSON("seec:get_value_type/" + splitref[1] + "?callback=?",
+          $.getJSON(SeeCURL("get_value_type", [splitref[1]]),
           function(data) {
             if (data.success) {
               $this.data('buildValueCM', function() {
@@ -135,6 +149,9 @@
     // Initial page setup.
     //
     function DoSetup() {
+      if (window.location.hash.length)
+        SeeCProto = window.location.hash.substring(1);
+
       $.contextMenu({
         selector: 'a[class~="seecValue"]',
         trigger: 'none',

@@ -38,6 +38,7 @@
 #include <gvc.h>
 
 #include <memory>
+#include <string>
 
 #include "StateGraphViewer.hpp"
 #include "TraceViewerFrame.hpp"
@@ -52,7 +53,8 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   CurrentAccess(),
   GraphvizContext(nullptr),
   WebView(nullptr),
-  LayoutHandler()
+  LayoutHandler(),
+  CallbackFS(nullptr)
 {}
 
 StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
@@ -63,7 +65,8 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
   CurrentAccess(),
   GraphvizContext(nullptr),
   WebView(nullptr),
-  LayoutHandler()
+  LayoutHandler(),
+  CallbackFS(nullptr)
 {
   Create(Parent, ID, Position, Size);
 }
@@ -72,6 +75,8 @@ StateGraphViewerPanel::~StateGraphViewerPanel()
 {
   if (GraphvizContext)
     gvFreeContext(GraphvizContext);
+  
+  wxFileSystem::RemoveHandler(CallbackFS);
 }
 
 bool StateGraphViewerPanel::Create(wxWindow *Parent,
@@ -83,7 +88,10 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     return false;
   
   // Enable vfs access to request information about the state.
-  auto CallbackFS = seec::makeUnique<seec::CallbackFSHandler>("seec");
+  auto const ThisAddr = reinterpret_cast<uintptr_t>(this);
+  auto const CallbackProto = std::string{"seec"} + std::to_string(ThisAddr);
+  
+  CallbackFS = new seec::CallbackFSHandler(CallbackProto);
   
   CallbackFS->addCallback("get_value_type",
     std::function<std::string (uintptr_t)>{
@@ -93,7 +101,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
-  wxFileSystem::AddHandler(CallbackFS.release());
+  wxFileSystem::AddHandler(CallbackFS);
   
   // Get our resources from ICU.
   UErrorCode Status = U_ZERO_ERROR;
@@ -117,7 +125,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
                                       (new wxWebViewFSHandler("icurb")));
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
-                                      (new wxWebViewFSHandler("seec")));
+                                      (new wxWebViewFSHandler(CallbackProto)));
   
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
@@ -130,23 +138,11 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   LayoutHandler->addBuiltinLayoutEngines();
   
   // Load the webpage.
-  auto const HTMLResource = Resources.get("WebViewHTML", Status);
-  if (!U_SUCCESS(Status)) {
-    wxLogDebug("Couldn't get WebViewHTML!");
-    return false;
-  }
+  auto const WebViewURL =
+    std::string{"icurb:TraceViewer/StateGraphViewer/WebViewHTML#"}
+    + CallbackProto;
   
-  int32_t BinLength = 0;
-  auto const BinData = HTMLResource.getBinary(BinLength, Status);
-  if (!U_SUCCESS(Status)) {
-    wxLogDebug("Couldn't get binary!");
-    return false;
-  }
-  
-  wxString HTMLString {reinterpret_cast<char const *>(BinData),
-                       std::size_t(BinLength)};
-  
-  WebView->SetPage(HTMLString, wxString{});
+  WebView->LoadURL(WebViewURL);
   
   return true;
 }

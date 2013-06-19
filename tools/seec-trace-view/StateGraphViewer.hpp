@@ -32,6 +32,8 @@ namespace seec {
       class LayoutHandler;
     }
   }
+  
+  class CallbackFSHandler;
 }
 
 class StateAccessToken;
@@ -50,6 +52,8 @@ class StateGraphViewerPanel final : public wxPanel
   wxWebView *WebView;
   
   std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
+  
+  seec::CallbackFSHandler *CallbackFS;
 
 public:
   StateGraphViewerPanel();
