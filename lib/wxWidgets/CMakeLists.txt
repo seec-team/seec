@@ -19,6 +19,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(HEADERS
+  ../../include/seec/wxWidgets/CallbackFSHandler.hpp
   ../../include/seec/wxWidgets/CleanPreprocessor.h
   ../../include/seec/wxWidgets/ICUBundleFSHandler.hpp
   ../../include/seec/wxWidgets/ImageResources.hpp
@@ -26,6 +27,7 @@ set(HEADERS
   )
 
 set(SOURCES
+  CallbackFSHandler.cpp
   ICUBundleFSHandler.cpp
   ImageResources.cpp
   StringConversion.cpp
