@@ -399,6 +399,11 @@ public:
   ///
   void writeHREF(llvm::raw_ostream &Out, Value const &ForValue) const;
   
+  /// \brief Write standard properties for a Value.
+  ///
+  void writeStandardProperties(llvm::raw_ostream &Out,
+                               Value const &ForValue) const;
+  
   /// \brief Perform the layout for a value.
   ///
   seec::Maybe<LayoutOfValue>

@@ -318,7 +318,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
              << getStandardPortFor(V)
              << "\"";
       
-      getHandler().writeHREF(Stream, V);
+      getHandler().writeStandardProperties(Stream, V);
       
       Stream << ">";
       
@@ -339,7 +339,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
              << getStandardPortFor(V)
              << "\"";
       
-      getHandler().writeHREF(Stream, V);
+      getHandler().writeStandardProperties(Stream, V);
       
       Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
                   "CELLSPACING=\"0\" CELLBORDER=\"1\">";
@@ -379,7 +379,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
              << getStandardPortFor(V)
              << "\"";
       
-      getHandler().writeHREF(Stream, V);
+      getHandler().writeStandardProperties(Stream, V);
       
       Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
                   "CELLSPACING=\"0\" CELLBORDER=\"1\">";
@@ -428,7 +428,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
                << getStandardPortFor(V)
                << "\"";
         
-        getHandler().writeHREF(Stream, V);
+        getHandler().writeStandardProperties(Stream, V);
         
         Stream << ">?</TD>";
       }
@@ -438,7 +438,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
                << getStandardPortFor(V)
                << "\"";
         
-        getHandler().writeHREF(Stream, V);
+        getHandler().writeStandardProperties(Stream, V);
         
         Stream << ">NULL</TD>";
       }
@@ -448,7 +448,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
                << getStandardPortFor(V)
                << "\"";
         
-        getHandler().writeHREF(Stream, V);
+        getHandler().writeStandardProperties(Stream, V);
         
         Stream << ">!</TD>";
       }
@@ -458,7 +458,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
                << getStandardPortFor(V)
                << "\"";
         
-        getHandler().writeHREF(Stream, V);
+        getHandler().writeStandardProperties(Stream, V);
         
         Stream << "> </TD>";
       }
@@ -522,7 +522,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
          << getStandardPortFor(V)
          << "\"";
   
-  Handler.writeHREF(Stream, V);
+  Handler.writeStandardProperties(Stream, V);
   
   Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
@@ -547,7 +547,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
       Stream << "<TD PORT=\""
              << getStandardPortFor(*ChildValue)
              << "\"";
-      Handler.writeHREF(Stream, *ChildValue);
+      Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
@@ -731,7 +731,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
       DotStream << "<TD PORT=\""
                 << getStandardPortFor(*ChildValue)
                 << "\"";
-      Handler.writeHREF(DotStream, *ChildValue);
+      Handler.writeStandardProperties(DotStream, *ChildValue);
       DotStream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
@@ -1503,6 +1503,14 @@ void LayoutHandler::writeHREF(llvm::raw_ostream &Out,
   Out << " HREF=\"value "
       << reinterpret_cast<uintptr_t>(&ForValue)
       << "\"";
+}
+
+void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
+                                            Value const &ForValue) const
+{
+  writeHREF(Out, ForValue);
+  
+  Out << " BGCOLOR=\"#FFFFFF\"";
 }
 
 seec::Maybe<LayoutOfValue>
