@@ -14,9 +14,6 @@
 #ifndef SEEC_WXWIDGETS_ICUBUNDLEFSHANDLER_HPP
 #define SEEC_WXWIDGETS_ICUBUNDLEFSHANDLER_HPP
 
-#include "seec/ICU/Resources.hpp"
-#include "seec/Util/Maybe.hpp"
-
 #include <wx/filesys.h>
 
 namespace seec {

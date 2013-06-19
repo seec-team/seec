@@ -12,6 +12,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Resources.hpp"
+#include "seec/Util/Maybe.hpp"
 #include "seec/wxWidgets/ICUBundleFSHandler.hpp"
 
 #include <wx/mstream.h>
