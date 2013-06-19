@@ -179,10 +179,10 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   Event.getMover()(Thread);
   
   auto const MoveEnd = std::chrono::steady_clock::now();
-  auto const MoveNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+  auto const MoveMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                                 (MoveEnd - MoveStart);
-  wxLogDebug("Moved thread in %" PRIu64 " ns", static_cast<uint64_t>
-                                               (MoveNS.count()));
+  wxLogDebug("Moved thread in %" PRIu64 " ms",
+             static_cast<uint64_t>(MoveMS.count()));
   
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
@@ -193,8 +193,8 @@ void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
   ThreadTime->show(StateAccess, *State, State->getThread(Index), Index);
   
   auto const ShowEnd = std::chrono::steady_clock::now();
-  auto const ShowNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+  auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                                 (ShowEnd - MoveEnd);
-  wxLogDebug("Showed state in %" PRIu64 " ns", static_cast<uint64_t>
-                                               (ShowNS.count()));
+  wxLogDebug("Showed state in %" PRIu64 " ms",
+             static_cast<uint64_t>(ShowMS.count()));
 }

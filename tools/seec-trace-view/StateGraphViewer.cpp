@@ -172,8 +172,11 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     auto const Layout = LayoutHandler->doLayout(Process);
     GraphString = Layout.getDotString();
     
-    uint64_t const TimeTakenNS = Layout.getTimeTaken().count();
-    wxLogDebug("State graph generated in %" PRIu64 " ns.", TimeTakenNS);
+    auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
+                                                  (Layout.getTimeTaken());
+    
+    wxLogDebug("State graph generated in %" PRIu64 " ms.",
+               static_cast<uint64_t>(TimeMS.count()));
   }
   
   auto const GVStart = std::chrono::steady_clock::now();
@@ -207,10 +210,10 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   gvRenderData(GraphvizContext, Graph, "svg", &RenderedData, &RenderedLength);
   
   auto const GVEnd = std::chrono::steady_clock::now();
-  auto const GVNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+  auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                               (GVEnd - GVStart);
-  wxLogDebug("Graphviz completed in %" PRIu64 " ns", static_cast<uint64_t>
-                                                                (GVNS.count()));
+  wxLogDebug("Graphviz completed in %" PRIu64 " ms", static_cast<uint64_t>
+                                                                (GVMS.count()));
   
   // Remove all non-print characters from the SVG and send it to the WebView
   // via Javascript.
@@ -229,18 +232,18 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   Script << "\");";
   
   auto const GVFixEnd = std::chrono::steady_clock::now();
-  auto const GVFixNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+  auto const GVFixMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                                  (GVFixEnd - GVEnd);
-  wxLogDebug("String fixed in %" PRIu64 " ns", static_cast<uint64_t>
-                                                          (GVFixNS.count()));
+  wxLogDebug("String fixed in %" PRIu64 " ms", static_cast<uint64_t>
+                                                          (GVFixMS.count()));
   
   WebView->RunScript(Script);
   
   auto const ScriptEnd = std::chrono::steady_clock::now();
-  auto const ScriptNS = std::chrono::duration_cast<std::chrono::nanoseconds>
+  auto const ScriptMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                                   (ScriptEnd - GVFixEnd);
-  wxLogDebug("Script run in %" PRIu64 " ns", static_cast<uint64_t>
-                                                        (ScriptNS.count()));
+  wxLogDebug("Script run in %" PRIu64 " ms", static_cast<uint64_t>
+                                                        (ScriptMS.count()));
 }
 
 void StateGraphViewerPanel::clear()
