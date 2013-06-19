@@ -14,6 +14,7 @@
 #ifndef SEEC_WXWIDGETS_CALLBACKFSHANDLER_HPP
 #define SEEC_WXWIDGETS_CALLBACKFSHANDLER_HPP
 
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
@@ -25,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 namespace seec {
 
@@ -42,6 +44,12 @@ struct ParseImpl; // Undefined.
 
 template<> struct ParseImpl<int> {
   static int impl(std::string const &Arg) { return std::stoi(Arg); }
+};
+
+template<> struct ParseImpl<unsigned> {
+  static unsigned impl(std::string const &Arg) {
+    return static_cast<unsigned>(std::stoul(Arg));
+  }
 };
 
 template<> struct ParseImpl<long> {
@@ -79,26 +87,60 @@ template<> struct ParseImpl<long double> {
 // Standard response formatting
 //===----------------------------------------------------------------------===//
 
-#define SEEC_MAKE_FORMATASJSON_BASIC(TYPE)                          \
-inline void formatAsJSON(llvm::raw_ostream &Out, TYPE const Result) \
-{ Out << Result; }
+template<typename, typename Enable = void>
+struct FormatImpl; // Undefined.
 
-SEEC_MAKE_FORMATASJSON_BASIC(char)
-SEEC_MAKE_FORMATASJSON_BASIC(unsigned char)
-SEEC_MAKE_FORMATASJSON_BASIC(signed char)
+template<typename T>
+struct FormatImpl
+<T, typename std::enable_if<std::is_integral<T>::value>::type>
+{
+  static void impl(llvm::raw_ostream &Out, T const Result) {
+    Out << Result;
+  }
+};
 
-SEEC_MAKE_FORMATASJSON_BASIC(int)
-SEEC_MAKE_FORMATASJSON_BASIC(unsigned int)
+template<typename T>
+struct FormatImpl
+<T, typename std::enable_if<std::is_floating_point<T>::value>::type>
+{
+  static void impl(llvm::raw_ostream &Out, T const Result) {
+    Out << Result;
+  }
+};
 
-SEEC_MAKE_FORMATASJSON_BASIC(long)
-SEEC_MAKE_FORMATASJSON_BASIC(unsigned long)
-
-SEEC_MAKE_FORMATASJSON_BASIC(long long)
-SEEC_MAKE_FORMATASJSON_BASIC(unsigned long long)
-
-SEEC_MAKE_FORMATASJSON_BASIC(double)
-
-#undef SEEC_MAKE_FORMATASJSON_BASIC
+template<>
+struct FormatImpl<std::string>
+{
+  static void impl(llvm::raw_ostream &Out, std::string const &Result) {
+    Out << '"';
+    
+    for (auto const Char : Result) {
+      switch (Char) {
+        // Characters that must be escaped:
+        case '"':  SEEC_FALLTHROUGH;
+        case '\\': SEEC_FALLTHROUGH;
+        case '/':
+          Out << '\\';
+          break;
+        
+        // Characters that need special treatment:
+        case '\b': Out << "\b"; continue;
+        case '\f': Out << "\f"; continue;
+        case '\n': Out << "\n"; continue;
+        case '\r': Out << "\r"; continue;
+        case '\t': Out << "\t"; continue;
+        
+        // Otherwise output the character as normal.
+        default:
+          break;
+      }
+      
+      Out << Char;
+    }
+    
+    Out << '"';
+  }
+};
 
 
 //===----------------------------------------------------------------------===//
@@ -144,8 +186,10 @@ class CallbackImpl final : public CallbackBase
   {
     std::string Result;
     llvm::raw_string_ostream ResultStream {Result};
-    formatAsJSON(ResultStream,
-                 CallbackFn(ParseImpl<ArgTs>::impl(Args[ArgIs])...));
+    
+    FormatImpl<typename std::remove_reference<ResultT>::type>
+      ::impl(ResultStream, CallbackFn(ParseImpl<ArgTs>::impl(Args[ArgIs])...));
+    
     ResultStream.flush();
     return Result;
   }
