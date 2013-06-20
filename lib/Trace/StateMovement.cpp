@@ -14,6 +14,7 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
+#include "seec/Trace/TraceSearch.hpp"
 
 #include <condition_variable>
 #include <initializer_list>
@@ -395,6 +396,66 @@ bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
   
   return false;
 }
+
+
+//===------------------------------------------------------------------------===
+// ThreadState queries
+//===------------------------------------------------------------------------===
+
+llvm::Instruction const *
+getNextInstructionInActiveFunction(ThreadState const &State) {
+  auto const ActiveFunction = State.getActiveFunction();
+  if (!ActiveFunction)
+    return nullptr;
+  
+  auto const &Trace = State.getTrace();
+  
+  // Find the next instruction event that is part of the same function as the
+  // currently active event, if there is one.
+  auto const MaybeRef =
+    findInFunction(Trace,
+                   rangeAfterIncluding(Trace.events(), State.getNextEvent()),
+                   [](EventRecordBase const &Ev) {
+                     return Ev.isInstruction();
+                   });
+  
+  if (!MaybeRef.assigned<EventReference>())
+    return nullptr;
+
+  auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
+  if (!MaybeIdx.assigned())
+    return nullptr;
+  
+  return ActiveFunction->getInstruction(MaybeIdx.get<0>());
+}
+
+llvm::Instruction const *
+getPreviousInstructionInActiveFunction(ThreadState const &State) {
+  auto const ActiveFunction = State.getActiveFunction();
+  if (!ActiveFunction || !ActiveFunction->getActiveInstruction())
+    return nullptr;
+  
+  auto const &Trace = State.getTrace();
+  
+  // Find the next instruction event that is part of the same function as the
+  // currently active event, if there is one.
+  auto const MaybeRef = rfindInFunction(Trace,
+                                        rangeBefore(Trace.events(),
+                                                    --State.getNextEvent()),
+                                        [](EventRecordBase const &Ev) {
+                                          return Ev.isInstruction();
+                                        });
+  
+  if (!MaybeRef.assigned<EventReference>())
+    return nullptr;
+
+  auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
+  if (!MaybeIdx.assigned())
+    return nullptr;
+
+  return ActiveFunction->getInstruction(MaybeIdx.get<0>());
+}
+
 
 } // namespace trace (in seec)
 

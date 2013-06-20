@@ -18,6 +18,10 @@
 #include <functional>
 #include <map>
 
+namespace llvm {
+  class Instruction;
+}
+
 namespace seec {
 
 namespace trace {
@@ -94,6 +98,24 @@ bool moveBackward(ThreadState &State);
 bool moveToTime(ThreadState &State, uint64_t ThreadTime);
 
 /// @} (ThreadState movement)
+
+
+/// \name ThreadState queries.
+/// @{
+
+/// \brief Find the Instruction that will be active if State is moved forward.
+/// \return the Instruction if it exists, or nullptr.
+///
+llvm::Instruction const *
+getNextInstructionInActiveFunction(ThreadState const &State);
+
+/// \brief Find the Instruction that will be active if State is moved backward.
+/// \return the Instruction if it exists, or nullptr.
+///
+llvm::Instruction const *
+getPreviousInstructionInActiveFunction(ThreadState const &State);
+
+/// @} (ThreadState queries)
 
 } // namespace trace (in seec)
 
