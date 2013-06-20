@@ -590,6 +590,17 @@ MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) const {
   return std::make_pair(AST->getStmtFromIdx(CI->getZExtValue()), AST);
 }
 
+bool MappedModule::isMappedToStmt(llvm::Instruction const &A) const
+{
+  return A.getMetadata(MDStmtIdxKind);
+}
+
+bool MappedModule::areMappedToSameStmt(llvm::Instruction const &A,
+                                       llvm::Instruction const &B) const
+{
+  return A.getMetadata(MDStmtIdxKind) == B.getMetadata(MDStmtIdxKind);
+}
+
 
 } // namespace seec_clang (in seec)
 

@@ -450,6 +450,17 @@ public:
   std::pair<clang::Stmt const *, MappedAST const *>
   getStmtAndMappedAST(llvm::Instruction const *I) const;
   
+  /// \brief Check if an Instruction is mapped to a Stmt.
+  /// \return true iff the Instruction has Stmt mapping metadata.
+  ///
+  bool isMappedToStmt(llvm::Instruction const &A) const;
+  
+  /// \brief Check if two Instructions are mapped to the same Stmt.
+  /// \return true iff the Stmt mapping for both A and B is the same.
+  ///
+  bool areMappedToSameStmt(llvm::Instruction const &A,
+                           llvm::Instruction const &B) const;
+  
   /// @}
   
   
