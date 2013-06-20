@@ -142,8 +142,9 @@ FunctionState::getVisibleAllocas() const {
     auto const MaybeIdx = FunctionLookup->getIndexOfDbgDeclareFor(Inst);
     
     // If the index of the llvm.dbg.declare is greater than our active index,
-    // then do not show this alloca.
-    if (MaybeIdx.assigned(0) && MaybeIdx.get<0>() > ActiveIdx)
+    // then do not show this alloca. If the llvm.dbg.declare is the very next
+    // instruction, then we should still show this (hence the ActiveIdx + 1).
+    if (MaybeIdx.assigned(0) && MaybeIdx.get<0>() > ActiveIdx + 1)
       continue;
     
     RetVal.emplace_back(Alloca);
