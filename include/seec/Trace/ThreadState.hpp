@@ -308,6 +308,12 @@ public:
   /// \name Queries.
   /// @{
   
+  /// \brief Get a pointer to the active function's state, if there is one.
+  ///
+  FunctionState const *getActiveFunction() const {
+    return CallStack.empty() ? nullptr : CallStack.back().get();
+  }
+  
   /// \brief Check if this thread is at the beginning of its trace.
   /// \return true iff this thread has not added any events.
   ///
