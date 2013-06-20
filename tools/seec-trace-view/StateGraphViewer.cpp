@@ -127,6 +127,24 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
                                       (new wxWebViewFSHandler(CallbackProto)));
   
+  Bind(wxEVT_WEBVIEW_NAVIGATED,
+       [this] (wxWebViewEvent &Event) {
+          wxLogDebug("StateGraphViewer navigating to %s",
+                     Event.GetURL());
+       });
+  
+  Bind(wxEVT_WEBVIEW_LOADED,
+       [this] (wxWebViewEvent &Event) {
+          wxLogDebug("StateGraphViewer loaded.");
+       });
+  
+  Bind(wxEVT_WEBVIEW_ERROR,
+       [this] (wxWebViewEvent &Event) {
+          wxLogDebug("StateGraphViewer error: '%s' while loading %s",
+                     Event.GetString(),
+                     Event.GetURL());
+       });
+  
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
   
@@ -139,7 +157,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   // Load the webpage.
   auto const WebViewURL =
-    std::string{"icurb:TraceViewer/StateGraphViewer/WebViewHTML#"}
+    std::string{"icurb://TraceViewer/StateGraphViewer/WebViewHTML#"}
     + CallbackProto;
   
   WebView->LoadURL(WebViewURL);

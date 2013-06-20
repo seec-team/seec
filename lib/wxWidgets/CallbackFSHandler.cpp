@@ -16,6 +16,10 @@
 #include <wx/sstream.h>
 #include <wx/tokenzr.h>
 
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace seec {
 
 namespace callbackfs {
@@ -76,11 +80,12 @@ bool CallbackFSHandler::CanOpen(wxString const &Location)
   // Check the callback (first part of the path).
   auto const Right = GetRightLocation(Location);
   
-  auto const SlashPos = Right.find('/');
+  auto const PathStart = Right.StartsWith("//") ? 2 : 0;
+  auto const SlashPos = Right.find('/', PathStart);
   if (SlashPos == wxString::npos)
     return false;
   
-  return Callbacks.count(Right.substr(0, SlashPos));
+  return Callbacks.count(Right.substr(PathStart, SlashPos - PathStart));
 }
 
 wxFSFile *CallbackFSHandler::OpenFile(wxFileSystem &Parent,
@@ -89,11 +94,13 @@ wxFSFile *CallbackFSHandler::OpenFile(wxFileSystem &Parent,
   auto const Right = GetRightLocation(Location).ToStdString();
   
   // Get the callback (first part of the path).
-  auto const SlashPos = Right.find('/');
+  auto const PathStart = (Right.compare(0, 2, "//") == 0) ? 2 : 0;
+  auto const SlashPos = Right.find('/', PathStart);
   if (SlashPos == std::string::npos)
     return nullptr;
   
-  auto const CallbackIt = Callbacks.find(Right.substr(0, SlashPos));
+  auto const CallbackIt = Callbacks.find(Right.substr(PathStart,
+                                                      SlashPos - PathStart));
   if (CallbackIt == Callbacks.end())
     return nullptr;
   

@@ -38,6 +38,7 @@ namespace seec {
 
 class StateAccessToken;
 class wxWebView;
+class wxWebViewEvent;
 
 
 /// \brief Displays a collection of state viewers.

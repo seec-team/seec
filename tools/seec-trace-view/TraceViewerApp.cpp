@@ -105,6 +105,11 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
 }
 
 bool TraceViewerApp::OnInit() {
+#ifdef SEEC_SHOW_DEBUG
+  // Setup the debugging log window.
+  LogWindow = new wxLogWindow(nullptr, "Log");
+#endif
+
   // Find the path to the executable.
   wxStandardPaths StdPaths;
   llvm::sys::Path ExecutablePath(StdPaths.GetExecutablePath().ToStdString());
@@ -123,6 +128,7 @@ bool TraceViewerApp::OnInit() {
     HandleFatalError("Couldn't load resources!");
   
   // Enable wxWidgets virtual file system access to the ICU bundles.
+  wxLogDebug("Adding the icurb vfs.");
   wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
   // Get the GUIText from the TraceViewer ICU resources.
@@ -159,11 +165,6 @@ bool TraceViewerApp::OnInit() {
                              wxDefaultPosition,
                              wxDefaultSize);
   Welcome->Show(true);
-
-#ifdef SEEC_SHOW_DEBUG
-  // Setup the debugging log window.
-  LogWindow = new wxLogWindow(nullptr, "Log");
-#endif
 
   return true;
 }

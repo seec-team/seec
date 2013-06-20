@@ -1,11 +1,11 @@
 <html>
  <head>
-  <script src="icurb:TraceViewer/StateGraphViewer/jquery-1.8.2.min.js" type="text/javascript"></script>
-  <script src="icurb:TraceViewer/StateGraphViewer/jquery.ui.position.js" type="text/javascript"></script>
-  <script src="icurb:TraceViewer/StateGraphViewer/jquery.contextMenu.js" type="text/javascript"></script>
+  <script src="icurb://TraceViewer/StateGraphViewer/jquery-1.8.2.min.js" type="text/javascript"></script>
+  <script src="icurb://TraceViewer/StateGraphViewer/jquery.ui.position.js" type="text/javascript"></script>
+  <script src="icurb://TraceViewer/StateGraphViewer/jquery.contextMenu.js" type="text/javascript"></script>
 
-  <link href="icurb:TraceViewer/StateGraphViewer/jquery.contextMenu.css" rel="stylesheet" type="text/css" />
-  <link href="icurb:TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
+  <link href="icurb://TraceViewer/StateGraphViewer/jquery.contextMenu.css" rel="stylesheet" type="text/css" />
+  <link href="icurb://TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
 
   <script type="text/javascript">
     var SeeCProto = "";
@@ -29,7 +29,7 @@
     // Build the URL for a SeeC function request.
     //
     function SeeCURL(fn, args) {
-      var str = SeeCProto + ":" + fn;
+      var str = SeeCProto + "://" + fn;
 
       for (var i = 0; i < args.length; ++i)
         str += "/" + args[i];
@@ -57,10 +57,6 @@
       Log("Forward deallocation");
     }
 
-    function FakeAnchorClick(e) {
-      e.preventDefault();
-    }
-
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
@@ -82,10 +78,10 @@
       $('title').remove();
 
       var refs = $('a');
-      refs.click(FakeAnchorClick);
       refs.removeAttr("xlink:title");
-
-      refs.on('mouseup', function(e){
+      refs.on('click', function(e){
+        e.preventDefault();
+        
         var $this = $(this);
         var href = $this.attr('xlink:href');
         if (!href) {

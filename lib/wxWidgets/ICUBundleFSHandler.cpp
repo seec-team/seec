@@ -22,12 +22,14 @@ namespace seec {
 
 static seec::Maybe<ResourceBundle> getResourceAt(wxString const &Location)
 {
-  auto const FirstSlash = Location.find('/');
+  auto const PathStart = Location.StartsWith("//") ? 2 : 0;
+  auto const FirstSlash = Location.find('/', PathStart);
   if (FirstSlash == wxString::npos)
     return seec::Maybe<ResourceBundle>();
   
   UErrorCode Status = U_ZERO_ERROR;
-  ResourceBundle Bundle(Location.substr(0, FirstSlash).utf8_str(),
+  ResourceBundle Bundle(Location.substr(PathStart, FirstSlash - PathStart)
+                                .utf8_str(),
                         Locale(),
                         Status);
   if (U_FAILURE(Status))

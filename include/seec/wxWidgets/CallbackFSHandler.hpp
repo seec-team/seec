@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace seec {
 
@@ -185,7 +186,7 @@ class CallbackImpl final : public CallbackBase
                        seec::ct::sequence_int<ArgIs...>) const
   {
     std::string Result;
-    llvm::raw_string_ostream ResultStream {Result};
+    llvm::raw_string_ostream ResultStream(Result);
     
     FormatImpl<typename std::remove_reference<ResultT>::type>
       ::impl(ResultStream, CallbackFn(ParseImpl<ArgTs>::impl(Args[ArgIs])...));
