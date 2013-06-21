@@ -110,15 +110,10 @@ bool moveForward(ThreadState &Thread) {
 
 bool moveForwardToEnd(ThreadState &Thread) {
   auto &Unmapped = Thread.getUnmappedState();
-  
-  auto const Moved = seec::trace::moveForward(Unmapped);
-  
-  if (Moved)
-    while (seec::trace::moveForward(Unmapped)) ; // Intentionally empty.
-  
-  Thread.getParent().cacheClear();
-  
-  return Moved;
+  return seec::trace::moveForwardUntil(Unmapped,
+                                       [] (seec::trace::ThreadState const &T) {
+                                          return T.isAtEnd();
+                                       });
 }
 
 bool moveBackward(ThreadState &Thread) {
@@ -129,15 +124,10 @@ bool moveBackward(ThreadState &Thread) {
 
 bool moveBackwardToEnd(ThreadState &Thread) {
   auto &Unmapped = Thread.getUnmappedState();
-  
-  auto const Moved = seec::trace::moveBackward(Unmapped);
-  
-  if (Moved)
-    while (seec::trace::moveBackward(Unmapped)) ; // Intentionally empty.
-  
-  Thread.getParent().cacheClear();
-  
-  return Moved;
+  return seec::trace::moveBackwardUntil(Unmapped,
+                                        [] (seec::trace::ThreadState const &T) {
+                                          return T.isAtStart();
+                                        });
 }
 
 // (Thread movement.)
