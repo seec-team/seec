@@ -501,13 +501,43 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   Stream << "><TABLE BORDER=\"0\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
+  bool Eliding = false;
+  std::size_t ElidingFrom;
+  std::size_t ElidingCount;
+  
   for (unsigned i = 0; i < ChildCount; ++i) {
     auto const ChildValue = Array.getChildAt(i);
     if (!ChildValue) {
-      Stream << "<TD></TD>";
+      if (!Eliding)
+        Stream << "<TD></TD>";
       continue;
     }
     
+    if (Eliding) {
+      if (E.isReferenced(ChildValue)) {
+        // This char is referenced. Stop eliding and resume layout.
+        Eliding = false;
+      }
+      else {
+        // Elide this char and move to the next.
+        if (++ElidingCount == 1) {
+          // Write a cell that will be used for all elided chars.
+          Stream << "<TD PORT=\""
+                 << getStandardPortFor(V)
+                 << "_elided_" << std::to_string(ElidingFrom)
+                 << "\"></TD>";
+        }
+        
+        Ports.add(*ChildValue,
+                  ValuePort(EdgeEndType::Elided,
+                            getStandardPortFor(V)
+                            + "_elided_" + std::to_string(ElidingFrom)));
+        
+        continue;
+      }
+    }
+    
+    // Attempt to generate and use the standard layout for this char.
     auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
     
     if (MaybeLayout.assigned<LayoutOfValue>()) {
@@ -525,6 +555,14 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
       Stream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+    }
+    
+    // If this was a terminating null character, start eliding.
+    auto const &Scalar = static_cast<ValueOfScalar const &>(*ChildValue);
+    if (Scalar.isZero()) {
+      Eliding = true;
+      ElidingFrom = i + 1;
+      ElidingCount = 0;
     }
   }
   

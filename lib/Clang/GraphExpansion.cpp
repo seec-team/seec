@@ -64,6 +64,10 @@ public:
                                    std::move(Pointer)));
   }
   
+  bool isReferenced(Value const &Val) const {
+    return Edges.find(&Val) != Edges.end();
+  }
+  
   std::size_t countReferencesOf(Value const &Val) const {
     return Edges.count(&Val);
   }
@@ -224,6 +228,11 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
   E.Impl = std::move(EI);
   
   return E;
+}
+
+bool Expansion::isReferenced(std::shared_ptr<Value const> const &Value) const
+{
+  return Impl->isReferenced(*Value);
 }
 
 std::size_t

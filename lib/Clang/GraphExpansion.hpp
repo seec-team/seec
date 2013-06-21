@@ -60,6 +60,8 @@ public:
   
   static Expansion from(seec::cm::ProcessState const &State);
   
+  bool isReferenced(std::shared_ptr<Value const> const &Value) const;
+  
   std::size_t
   countReferencesOf(std::shared_ptr<Value const> const &Value) const;
   
