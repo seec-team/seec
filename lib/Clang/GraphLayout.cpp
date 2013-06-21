@@ -88,32 +88,6 @@ static std::string EscapeForHTML(llvm::StringRef String)
   return Escaped;
 }
 
-static void encodeHREFChar(llvm::raw_ostream &Out, char const Character)
-{
-  if (std::isalnum(Character)) {
-    Out << Character;
-    return;
-  }
-  
-  // Write the character raw if unreserved.
-  switch (Character) {
-    case '-':
-    case '.':
-    case '_':
-    case '~':
-      Out << Character;
-      return;
-  }
-  
-  // Use percent encoding for all others.
-  auto const High = Character / 16;
-  auto const Low  = Character % 16;
-  
-  Out << '%';
-  Out << char(High < 10 ? ('0' + High) : ('A' + (High - 10)));
-  Out << char(Low  < 10 ? ('0' + Low ) : ('A' + (Low  - 10)));
-}
-
 
 //===----------------------------------------------------------------------===//
 // Value types
@@ -341,7 +315,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       getHandler().writeStandardProperties(Stream, V);
       
-      Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+      Stream << "><TABLE BORDER=\"0\" "
                   "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
@@ -381,7 +355,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       getHandler().writeStandardProperties(Stream, V);
       
-      Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+      Stream << "><TABLE BORDER=\"0\" "
                   "CELLSPACING=\"0\" CELLBORDER=\"1\">";
       
       for (unsigned i = 0; i < ChildCount; ++i) {
@@ -524,7 +498,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   
   Handler.writeStandardProperties(Stream, V);
   
-  Stream << "><TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+  Stream << "><TABLE BORDER=\"0\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   for (unsigned i = 0; i < ChildCount; ++i) {
@@ -610,7 +584,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+            << "<TABLE BORDER=\"0\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\">";
   
   auto const &Handler = this->getHandler();
@@ -705,7 +679,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+            << "<TABLE BORDER=\"0\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   auto const &Handler = this->getHandler();
@@ -874,7 +848,7 @@ doLayout(LayoutHandler const &Handler,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+            << "<TABLE BORDER=\"0\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\">"
             << "<TR><TD COLSPAN=\"2\">"
             << State.getNameAsString()
@@ -1010,7 +984,7 @@ doLayout(LayoutHandler const &Handler,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" BGCOLOR=\"#FFFFFF\" "
+            << "<TABLE BORDER=\"0\" "
                 "CELLSPACING=\"0\" CELLBORDER=\"1\">"
             << "<TR><TD>"
             << State.getClangValueDecl()->getName()
@@ -1379,7 +1353,6 @@ doLayout(LayoutHandler const &Handler,
   std::vector<NodeInfo> AllNodeInfo;
   
   DotStream << "digraph Process {\n"
-            << "cluster [penwidth=0.5];\n"
             << "node [shape=plaintext fontsize=6 penwidth=0.5];\n"
             << "edge [penwidth=0.5];\n"
             << "rankdir=LR;\n";
@@ -1511,8 +1484,6 @@ void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
                                             Value const &ForValue) const
 {
   writeHREF(Out, ForValue);
-  
-  Out << " BGCOLOR=\"#FFFFFF\"";
 }
 
 seec::Maybe<LayoutOfValue>
