@@ -116,6 +116,8 @@ bool moveForwardToEnd(ThreadState &Thread) {
   if (Moved)
     while (seec::trace::moveForward(Unmapped)) ; // Intentionally empty.
   
+  Thread.getParent().cacheClear();
+  
   return Moved;
 }
 
@@ -132,6 +134,8 @@ bool moveBackwardToEnd(ThreadState &Thread) {
   
   if (Moved)
     while (seec::trace::moveBackward(Unmapped)) ; // Intentionally empty.
+  
+  Thread.getParent().cacheClear();
   
   return Moved;
 }
