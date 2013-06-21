@@ -27,81 +27,57 @@ namespace cm {
 //===----------------------------------------------------------------------===//
 // Thread movement.
 
-void moveToEndOfStmt(seec::trace::ThreadState &Unmapped,
-                     seec::seec_clang::MappedModule const &Mapping,
-                     llvm::Instruction const &Current)
+bool isLogicalPoint(seec::trace::ThreadState const &Thread,
+                    seec::seec_clang::MappedModule const &Mapping)
 {
-  using namespace seec::trace;
+  // Logical points:
+  // 1) No active Function.
+  // 1) End of a Function's prelude.
+  // 2) Instruction with mapping where the next active Instruction either does
+  //    not exist or has a different mapping.
   
-  while (auto const Next = getNextInstructionInActiveFunction(Unmapped)) {
-    if (!Mapping.areMappedToSameStmt(Current, *Next))
-      return;
-    if (!seec::trace::moveForward(Unmapped))
-      return;
+  // Handles 1).
+  auto const ActiveFn = Thread.getActiveFunction();
+  if (!ActiveFn)
+    return true;
+  
+  auto const ActiveInst = ActiveFn->getActiveInstruction();
+  if (!ActiveInst) {
+    // This is only a valid point if there is no active Instruction following.
+    auto const Next = trace::getNextInstructionInActiveFunction(Thread);
+    return Next == nullptr;
   }
+  
+  if (!Mapping.isMappedToStmt(*ActiveInst)) {
+    // Handle 2).
+    
+    // If there is an unmapped Instruction following this one, then it cannot
+    // be the end of the prelude (according to our definition of the prelude).
+    auto const Next = trace::getNextInstructionInActiveFunction(Thread);
+    if (Next && !Mapping.isMappedToStmt(*Next))
+      return false;
+    
+    // This point is valid iff no previously active Instruction had mapping.
+    return !trace::findPreviousInstructionInActiveFunctionIf(Thread,
+              [&] (llvm::Instruction const &I) -> bool {
+                return Mapping.isMappedToStmt(I);
+              });
+  }
+  
+  // Handles 3).
+  auto const Next = trace::getNextInstructionInActiveFunction(Thread);
+  return (!Next || !Mapping.areMappedToSameStmt(*ActiveInst, *Next));
 }
 
 bool moveForward(ThreadState &Thread) {
-  // Move forward until we reach the next "logical" state.
-  //
-  // - If we enter a new Function, we have moved to a new "logical state", but
-  //   we should not stop until the prelude is complete. We will treat the last
-  //   unmapped Instruction as the end of the prelude.
-  //
-  // - If the active Stmt changes then we have moved to a new "logical state",
-  //   but we should move to the last Instruction that is mapped to this new
-  //   Stmt, so that a block belonging to a Stmt appears to execute in one step.
-  //
-  // - If we exit a Function then this is a new "logical" state.
-  
   auto &Unmapped = Thread.getUnmappedState();
-  auto const &Trace = Thread.getParent().getProcessTrace();
-  auto const &MappedModule = Trace.getMapping();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
   
-  auto const InitialStackSize = Unmapped.getCallStack().size();
-  auto const InitialActiveFn = Unmapped.getActiveFunction();
-  
-  bool Moved = false;
-  
-  while (seec::trace::moveForward(Unmapped)) {
-    Moved = true;
-    
-    auto const ActiveFn = Unmapped.getActiveFunction();
-    
-    if (ActiveFn == InitialActiveFn) {
-      auto const ActiveInst = ActiveFn->getActiveInstruction();
-      if (!ActiveInst || !MappedModule.isMappedToStmt(*ActiveInst))
-        continue;
-      
-      // We're now on a new mapped Stmt. Move forward as far as possible while
-      // maintaining this as the active Stmt, and then we're done.
-      moveToEndOfStmt(Unmapped, MappedModule, *ActiveInst);
-    }
-    else {
-      auto const StackSize = Unmapped.getCallStack().size();
-      
-      // Function has completed, move to the end of the parent function's
-      // active Stmt.
-      if (StackSize < InitialStackSize) {
-        if (ActiveFn) {
-          auto const Call = ActiveFn->getActiveInstruction();
-          if (Call) {
-            moveToEndOfStmt(Unmapped, MappedModule, *Call);
-          }
-        }
-      }
-      else {
-        // A new function has been entered. Continue until we finish the
-        // prelude.
-        while (auto Next = trace::getNextInstructionInActiveFunction(Unmapped))
-          if (MappedModule.isMappedToStmt(*Next)
-              || !seec::trace::moveForward(Unmapped))
-            break;
-      }
-    }
-    
-    break;
-  }
+  auto const Moved = trace::moveForwardUntil(Unmapped,
+                        [&] (seec::trace::ThreadState const &T) {
+                          return isLogicalPoint(T, MappedModule);
+                        });
   
   Thread.getParent().cacheClear();
   
@@ -110,24 +86,43 @@ bool moveForward(ThreadState &Thread) {
 
 bool moveForwardToEnd(ThreadState &Thread) {
   auto &Unmapped = Thread.getUnmappedState();
-  return seec::trace::moveForwardUntil(Unmapped,
-                                       [] (seec::trace::ThreadState const &T) {
-                                          return T.isAtEnd();
-                                       });
+  
+  auto const Moved = seec::trace::moveForwardUntil(Unmapped,
+                        [] (seec::trace::ThreadState const &T) {
+                          return T.isAtEnd();
+                        });
+  
+  Thread.getParent().cacheClear();
+  
+  return Moved;
 }
 
 bool moveBackward(ThreadState &Thread) {
-  auto const Success = seec::trace::moveBackward(Thread.getUnmappedState());
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+  
+  auto const Moved = trace::moveBackwardUntil(Unmapped,
+                        [&] (seec::trace::ThreadState const &T) {
+                          return isLogicalPoint(T, MappedModule);
+                        });
+  
   Thread.getParent().cacheClear();
-  return Success;
+  
+  return Moved;
 }
 
 bool moveBackwardToEnd(ThreadState &Thread) {
   auto &Unmapped = Thread.getUnmappedState();
-  return seec::trace::moveBackwardUntil(Unmapped,
-                                        [] (seec::trace::ThreadState const &T) {
-                                          return T.isAtStart();
-                                        });
+  
+  auto const Moved = seec::trace::moveBackwardUntil(Unmapped,
+                        [] (seec::trace::ThreadState const &T) {
+                          return T.isAtStart();
+                        });
+  
+  Thread.getParent().cacheClear();
+  
+  return Moved;
 }
 
 // (Thread movement.)

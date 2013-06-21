@@ -423,7 +423,7 @@ getNextInstructionInActiveFunction(ThreadState const &State) {
     return nullptr;
 
   auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
-  if (!MaybeIdx.assigned())
+  if (!MaybeIdx.assigned(0))
     return nullptr;
   
   return ActiveFunction->getInstruction(MaybeIdx.get<0>());
@@ -450,10 +450,42 @@ getPreviousInstructionInActiveFunction(ThreadState const &State) {
     return nullptr;
 
   auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
-  if (!MaybeIdx.assigned())
+  if (!MaybeIdx.assigned(0))
     return nullptr;
 
   return ActiveFunction->getInstruction(MaybeIdx.get<0>());
+}
+
+bool
+findPreviousInstructionInActiveFunctionIf(ThreadState const &State,
+                                          InstructionPredTy Predicate)
+{
+  auto const ActiveFunction = State.getActiveFunction();
+  if (!ActiveFunction || !ActiveFunction->getActiveInstruction())
+    return false;
+  
+  auto const &Trace = State.getTrace();
+  
+  auto const MaybeRef =
+    rfindInFunction(Trace,
+                    rangeBefore(Trace.events(), --State.getNextEvent()),
+                    [=] (EventRecordBase const &Ev) -> bool {
+                      if (!Ev.isInstruction())
+                        return false;
+                      
+                      auto const MaybeIdx = Ev.getIndex();
+                      if (!MaybeIdx.assigned(0))
+                        return false;
+                      
+                      auto const Idx = MaybeIdx.get<0>();
+                      auto const Inst = ActiveFunction->getInstruction(Idx);
+                      if (!Inst)
+                        return false;
+                      
+                      return Predicate(*Inst);
+                    });
+  
+  return MaybeRef.assigned<EventReference>();
 }
 
 

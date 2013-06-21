@@ -36,6 +36,7 @@ class ThreadState;
 typedef std::function<bool (ProcessState &)> ProcessPredTy;
 typedef std::function<bool (ThreadState &)> ThreadPredTy;
 typedef std::map<ThreadState const *, ThreadPredTy> ThreadPredMapTy;
+typedef std::function<bool (llvm::Instruction const &)> InstructionPredTy;
 
 /// @}
 
@@ -114,6 +115,12 @@ getNextInstructionInActiveFunction(ThreadState const &State);
 ///
 llvm::Instruction const *
 getPreviousInstructionInActiveFunction(ThreadState const &State);
+
+/// \brief 
+///
+bool
+findPreviousInstructionInActiveFunctionIf(ThreadState const &State,
+                                          InstructionPredTy Predicate);
 
 /// @} (ThreadState queries)
 
