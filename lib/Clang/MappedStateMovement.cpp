@@ -32,14 +32,25 @@ bool isLogicalPoint(seec::trace::ThreadState const &Thread,
 {
   // Logical points:
   // 1) No active Function.
-  // 1) End of a Function's prelude.
-  // 2) Instruction with mapping where the next active Instruction either does
+  // 2) End of a Function's prelude.
+  // 3) Instruction with mapping where the next active Instruction either does
   //    not exist or has a different mapping.
+  // 4) Non-mapped Functions are not allowed.
+  // 5) System header functions are not allowed.
   
   // Handles 1).
   auto const ActiveFn = Thread.getActiveFunction();
   if (!ActiveFn)
     return true;
+  
+  // Handles 4).
+  auto const MappedFn = Mapping.getMappedFunctionDecl(ActiveFn->getFunction());
+  if (!MappedFn)
+    return false;
+  
+  // Handles 5).
+  if (MappedFn->isInSystemHeader())
+    return false;
   
   auto const ActiveInst = ActiveFn->getActiveInstruction();
   if (!ActiveInst) {

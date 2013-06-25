@@ -103,6 +103,15 @@ public:
   decltype(MappedParameters) const &getMappedParameters() const {
     return MappedParameters;
   }
+  
+  /// \name Queries.
+  /// @{
+  
+  /// \brief Check if this Function is defined in a system header.
+  ///
+  bool isInSystemHeader() const;
+  
+  /// @} (Queries)
 };
 
 
@@ -487,6 +496,14 @@ public:
   MappedStmt const *getMappedStmtForStmt(::clang::Stmt const *S) const {
     auto It = StmtToMappedStmt.find(S);
     return It != StmtToMappedStmt.end() ? It->second.get() : nullptr;
+  }
+  
+  /// \brief Get all MappedStmt objects for the given clang::Stmt.
+  ///
+  std::pair<decltype(StmtToMappedStmt)::const_iterator,
+            decltype(StmtToMappedStmt)::const_iterator>
+  getMappedStmtsForStmt(::clang::Stmt const *S) const {
+    return StmtToMappedStmt.equal_range(S);
   }
   
   /// \brief Get all MappedStmt objects containing the given llvm::Value.

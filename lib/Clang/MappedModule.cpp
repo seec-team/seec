@@ -35,6 +35,22 @@ namespace seec_clang {
 
 
 //===----------------------------------------------------------------------===//
+// MappedFunctionDecl
+//===----------------------------------------------------------------------===//
+
+bool MappedFunctionDecl::isInSystemHeader() const
+{
+  auto const &SrcMgr = AST.getASTUnit().getSourceManager();
+  
+  auto const BodyStmt = Decl->getBody();
+  if (!BodyStmt)
+    return false;
+  
+  return SrcMgr.isInSystemHeader(BodyStmt->getLocStart());
+}
+
+
+//===----------------------------------------------------------------------===//
 // class MappedCompileInfo
 //===----------------------------------------------------------------------===//
 
