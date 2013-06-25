@@ -642,7 +642,7 @@ public:
   }
 
   //
-  size_type count(key_type const &key) {
+  size_type count(key_type const &key) const {
     if (find(key) != end())
       return 1;
     return 0;
