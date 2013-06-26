@@ -1300,6 +1300,9 @@ doLayout(LayoutHandler const &Handler,
   
   auto const &Globals = State.getGlobalVariables();
   for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
+    if ((*It)->isInSystemHeader())
+      continue;
+    
     GlobalVariableLayouts.emplace_back(
       std::async( [&, It] () {
                     return doLayout(Handler, **It, Expansion);
@@ -1352,8 +1355,12 @@ doLayout(LayoutHandler const &Handler,
   // Generate global variable layouts.
   std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
   
-  for (auto const &Global : State.getGlobalVariables())
+  for (auto const &Global : State.getGlobalVariables()) {
+    if (Global->isInSystemHeader())
+      continue;
+    
     GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
+  }
   
   // Generate thread layouts.
   std::vector<LayoutOfThread> ThreadLayouts;

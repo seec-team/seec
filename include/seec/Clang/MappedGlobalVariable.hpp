@@ -33,6 +33,10 @@ namespace llvm {
 
 namespace seec {
 
+namespace seec_clang {
+  class MappedGlobalVariableDecl;
+} // namespace seec_clang
+
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
@@ -46,11 +50,8 @@ class GlobalVariable {
   /// The process state that this global variable belongs to.
   ProcessState const &State;
   
-  /// The Decl for the global variable.
-  ::clang::ValueDecl const *Decl;
-  
-  /// The GlobalVariable for this Decl.
-  ::llvm::GlobalVariable const *GV;
+  /// All mapping information for this global variable.
+  seec_clang::MappedGlobalVariableDecl const &Mapping;
   
   /// The run-time address.
   uintptr_t Address;
@@ -59,12 +60,10 @@ public:
   /// \brief Constructor.
   ///
   GlobalVariable(ProcessState const &ForState,
-                 ::clang::ValueDecl const *ForDecl,
-                 ::llvm::GlobalVariable const *ForLLVMGlobalVariable,
+                 seec_clang::MappedGlobalVariableDecl const &WithMapping,
                  uintptr_t WithAddress)
   : State(ForState),
-    Decl(ForDecl),
-    GV(ForLLVMGlobalVariable),
+    Mapping(WithMapping),
     Address(WithAddress)
   {}
   
@@ -74,22 +73,31 @@ public:
   
   /// \brief Get the clang::ValueDecl for this global.
   ///
-  ::clang::ValueDecl const *getClangValueDecl() const { return Decl; }
+  ::clang::ValueDecl const *getClangValueDecl() const;
   
   /// \brief Get the llvm::GlobalVariable for this global.
   ///
-  ::llvm::GlobalVariable const *getLLVMGlobalVariable() const { return GV; }
+  ::llvm::GlobalVariable const *getLLVMGlobalVariable() const;
   
   /// \brief Get the run-time address of this global.
   ///
   uintptr_t getAddress() const { return Address; }
   
-  /// @}
+  /// @} (Accessors)
   
+  
+  /// \name Queries.
+  /// @{
+  
+  /// \brief Check if this global is declared in a system header.
+  ///
+  bool isInSystemHeader() const;
   
   /// \brief Get the current run-time value of this global.
   ///
   std::shared_ptr<Value const> getValue() const;
+  
+  /// @} (Queries)
 };
 
 

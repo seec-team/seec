@@ -51,6 +51,17 @@ bool MappedFunctionDecl::isInSystemHeader() const
 
 
 //===----------------------------------------------------------------------===//
+// MappedGlobalVariableDecl
+//===----------------------------------------------------------------------===//
+
+bool MappedGlobalVariableDecl::isInSystemHeader() const
+{
+  auto const &SrcMgr = AST.getASTUnit().getSourceManager();
+  return SrcMgr.isInSystemHeader(Decl->getLocation());
+}
+
+
+//===----------------------------------------------------------------------===//
 // class MappedCompileInfo
 //===----------------------------------------------------------------------===//
 

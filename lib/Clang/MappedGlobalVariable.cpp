@@ -29,8 +29,25 @@ namespace cm {
 // GlobalVariable
 //===----------------------------------------------------------------------===//
 
+::clang::ValueDecl const *GlobalVariable::getClangValueDecl() const
+{
+  return Mapping.getDecl();
+}
+
+::llvm::GlobalVariable const *GlobalVariable::getLLVMGlobalVariable() const
+{
+  return Mapping.getGlobal();
+}
+
+bool GlobalVariable::isInSystemHeader() const
+{
+  return Mapping.isInSystemHeader();
+}
+
 std::shared_ptr<Value const> GlobalVariable::getValue() const
 {
+  auto const Decl = Mapping.getDecl();
+  
   return seec::cm::getValue(State.getCurrentValueStore(),
                             Decl->getType(),
                             Decl->getDeclContext()->getParentASTContext(),

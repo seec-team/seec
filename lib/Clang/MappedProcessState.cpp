@@ -56,8 +56,7 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
     if (auto const Mapped = Mapping.getMappedGlobalVariableDecl(&Global)) {
       GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
                                                   (*this,
-                                                   Mapped->getDecl(),
-                                                   &Global,
+                                                   *Mapped,
                                                    Address));
     }
     else {

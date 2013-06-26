@@ -155,6 +155,15 @@ public:
   /// \brief Get the llvm::GlobalVariable that is mapped from.
   ///
   llvm::GlobalVariable const *getGlobal() const { return Global; }
+  
+  /// \name Queries.
+  /// @{
+  
+  /// \brief Check if this global is declared in a system header.
+  ///
+  bool isInSystemHeader() const;
+  
+  /// @} (Queries)
 };
 
 
