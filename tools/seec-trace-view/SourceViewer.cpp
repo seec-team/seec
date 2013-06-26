@@ -444,23 +444,17 @@ public:
     StateAnnotations.push_back(Line);
   }
 
-  /// \brief Annotate a line for this state.
-  ///
-  void annotateLine(long Line,
-                    wxString const &AnnotationText,
-                    SciLexerType AnnotationStyle) {
-    Text->AnnotationSetText(Line, AnnotationText);
-    Text->AnnotationSetStyle(Line, static_cast<int>(AnnotationStyle));
-    StateAnnotations.push_back(Line);
-  }
-
   /// \brief Annotate a line for this state, starting at a set column.
   ///
   void annotateLine(long Line,
                     long Column,
                     wxString const &AnnotationText,
-                    SciLexerType AnnotationStyle) {
-    wxString Spacing(' ', Column);
+                    SciLexerType AnnotationStyle)
+  {
+    auto const CharPosition = Text->PositionFromLine(Line) + Column;
+    auto const RealColumn = Text->GetColumn(CharPosition);
+    
+    wxString Spacing(' ', RealColumn);
     
     // Create spaced annotation text by placing Spacing prior to each line in
     // the AnnotationText.
