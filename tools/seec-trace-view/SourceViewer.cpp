@@ -247,8 +247,7 @@ class SourceFilePanel : public wxPanel {
     // Miscellaneous.
     Text->SetIndentationGuides(true);
     Text->SetEdgeColumn(80);
-    // Text->SetEdgeMode(wxSTC_EDGE_LINE);
-    Text->SetWrapMode(wxSTC_WRAP_WORD);
+    Text->SetWrapMode(wxSTC_WRAP_NONE);
     
     Text->SetExtraDescent(2);
   }
