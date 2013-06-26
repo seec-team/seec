@@ -32,3 +32,10 @@ DETECT_CALL(C, isxdigit, SEEC_PP_QUOTE(int))
 
 DETECT_CALL(C, tolower, SEEC_PP_QUOTE(int))
 DETECT_CALL(C, toupper, SEEC_PP_QUOTE(int))
+
+
+// linux only
+
+DETECT_CALL(LINUX, __ctype_b_loc, SEEC_PP_QUOTE())
+DETECT_CALL(LINUX, __ctype_tolower_loc, SEEC_PP_QUOTE())
+DETECT_CALL(LINUX, __ctype_toupper_loc, SEEC_PP_QUOTE())

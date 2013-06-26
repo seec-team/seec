@@ -269,6 +269,9 @@ public:
                             std::size_t Length,
                             MemoryPermission Access);
   
+  /// \brief Check if there is a region of known memory at Address.
+  bool isKnownMemoryRegionAt(uintptr_t Address) const;
+  
   /// \brief Remove the region of known memory starting at Address.
   bool removeKnownMemoryRegion(uintptr_t Address);
 
@@ -532,6 +535,18 @@ public:
                    long double Value);
 
   /// @} (Thread Listener Notifications)
+  
+  
+  /// \name Detect Calls - ctype.h
+  /// @{
+  
+  void postLINUX__ctype_b_loc(llvm::CallInst const *Call, uint32_t Index);
+  
+  void postLINUX__ctype_tolower_loc(llvm::CallInst const *Call, uint32_t Index);
+  
+  void postLINUX__ctype_toupper_loc(llvm::CallInst const *Call, uint32_t Index);
+  
+  /// @}
 
 
   /// \name Detect Calls - stdio.h file access

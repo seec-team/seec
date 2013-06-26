@@ -33,6 +33,131 @@ namespace trace {
 
 
 //===------------------------------------------------------------------------===
+// __ctype_b_loc
+//===------------------------------------------------------------------------===
+
+void TraceThreadListener::postLINUX__ctype_b_loc(llvm::CallInst const *Call,
+                                                 uint32_t Index)
+{
+  // Get the pointer returned.
+  auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto const Address = RTValue->getUIntPtr();
+  if (!Address)
+    return;
+  
+  auto const Ptr = reinterpret_cast<const unsigned short int **>(Address);
+  
+  // Lock the global memory.
+  acquireGlobalMemoryWriteLock();
+  
+  // Remove knowledge of any existing pointer at this position.
+  if (!isKnownMemoryRegionAt(Address)) {
+    addKnownMemoryRegion(Address,
+                         sizeof(const unsigned short int **),
+                         MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                       sizeof(const unsigned short int **));
+  }
+  
+  auto const ArrPtr = *Ptr;
+  auto const ArrStart = &ArrPtr[-128];
+  auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
+  
+  if (!isKnownMemoryRegionAt(ArrStartAddr)) {
+    auto const ArrSize = 384 * sizeof(*ArrPtr);
+    addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(ArrStart),
+                       ArrSize);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// __ctype_tolower_loc
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::postLINUX__ctype_tolower_loc(llvm::CallInst const *Call,
+                                                  uint32_t Index)
+{
+  // Get the pointer returned.
+  auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto const Address = RTValue->getUIntPtr();
+  if (!Address)
+    return;
+  
+  auto const Ptr = reinterpret_cast<const uint32_t **>(Address);
+  
+  // Lock the global memory.
+  acquireGlobalMemoryWriteLock();
+  
+  // Remove knowledge of any existing pointer at this position.
+  if (!isKnownMemoryRegionAt(Address)) {
+    addKnownMemoryRegion(Address,
+                         sizeof(const uint32_t **),
+                         MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                       sizeof(const uint32_t **));
+  }
+  
+  auto const ArrPtr = *Ptr;
+  auto const ArrStart = &ArrPtr[-128];
+  auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
+  
+  if (!isKnownMemoryRegionAt(ArrStartAddr)) {
+    auto const ArrSize = 384 * sizeof(*ArrPtr);
+    addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(ArrStart),
+                       ArrSize);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
+// __ctype_toupper_loc
+//===------------------------------------------------------------------------===
+
+void
+TraceThreadListener::postLINUX__ctype_toupper_loc(llvm::CallInst const *Call,
+                                                  uint32_t Index)
+{
+  // Get the pointer returned.
+  auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto const Address = RTValue->getUIntPtr();
+  if (!Address)
+    return;
+  
+  auto const Ptr = reinterpret_cast<const uint32_t **>(Address);
+  
+  // Lock the global memory.
+  acquireGlobalMemoryWriteLock();
+  
+  // Remove knowledge of any existing pointer at this position.
+  if (!isKnownMemoryRegionAt(Address)) {
+    addKnownMemoryRegion(Address,
+                         sizeof(const uint32_t **),
+                         MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                       sizeof(const uint32_t **));
+  }
+  
+  auto const ArrPtr = *Ptr;
+  auto const ArrStart = &ArrPtr[-128];
+  auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
+  
+  if (!isKnownMemoryRegionAt(ArrStartAddr)) {
+    auto const ArrSize = 384 * sizeof(*ArrPtr);
+    addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
+    recordUntypedState(reinterpret_cast<char const *>(ArrStart),
+                       ArrSize);
+  }
+}
+
+
+//===------------------------------------------------------------------------===
 // fopen
 //===------------------------------------------------------------------------===
 

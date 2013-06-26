@@ -330,6 +330,12 @@ void TraceThreadListener::addKnownMemoryRegion(uintptr_t Address,
                  (Address, Length, Readable, Writable);
 }
 
+bool TraceThreadListener::isKnownMemoryRegionAt(uintptr_t Address) const
+{
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+  return ProcessListener.getKnownMemory().count(Address);
+}
+
 bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
 {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
