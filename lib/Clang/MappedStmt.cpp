@@ -48,20 +48,32 @@ std::unique_ptr<MappedStmt>
 MappedStmt::fromMetadata(llvm::MDNode *RootMD,
                          MappedModule const &Module)
 {
-  if (RootMD->getNumOperands() != 4u)
+  if (RootMD->getNumOperands() != 4u) {
+    llvm::errs() << "MappedStmt::fromMetadata(): "
+                 << "invalid number of operands.\n";
+    
     return nullptr;
+  }
   
   // Get the type of the mapping.
   auto TypeMD = llvm::dyn_cast_or_null<llvm::MDString>(RootMD->getOperand(0u));
   auto Type = getTypeFromMDString(TypeMD);
-  if (!Type.assigned())
+  if (!Type.assigned()) {
+    llvm::errs() << "MappedStmt::fromMetadata(): "
+                 << "failed to get type.\n";
+    
     return nullptr;
+  }
   
   // Find the clang::Stmt.
   auto StmtIdentMD = llvm::dyn_cast_or_null<llvm::MDNode>
                                            (RootMD->getOperand(1u));
-  if (!StmtIdentMD)
+  if (!StmtIdentMD) {
+    llvm::errs() << "MappedStmt::fromMetadata(): "
+                 << "Stmt identifier is not an MDNode.\n";
+    
     return nullptr;
+  }
   
   auto ASTAndStmt = Module.getASTAndStmt(StmtIdentMD);
   assert(ASTAndStmt.first && ASTAndStmt.second);
@@ -74,8 +86,12 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
                                              Module.getModuleIndex());
   auto Val2 = seec::cm::getMappedValueFromMD(MapVal2MD,
                                              Module.getModuleIndex());
-  if (!Val1)
+  if (!Val1) {
+    llvm::errs() << "MappedStmt::fromMetadata(): "
+                 << "llvm::Value not found.\n";
+    
     return nullptr;
+  }
   
   return std::unique_ptr<MappedStmt>(new MappedStmt(Type.get<0>(),
                                                     ASTAndStmt.first,
