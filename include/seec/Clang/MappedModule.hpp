@@ -118,8 +118,6 @@ public:
 /// \brief Represents a mapping from an llvm::GlobalVariable to a clang::Decl.
 ///
 class MappedGlobalVariableDecl {
-  llvm::sys::Path FilePath;
-  
   MappedAST const &AST;
 
   clang::ValueDecl const *Decl;
@@ -127,34 +125,35 @@ class MappedGlobalVariableDecl {
   llvm::GlobalVariable const *Global;
 
 public:
-  /// Constructor.
-  MappedGlobalVariableDecl(llvm::sys::Path FilePath,
-                           MappedAST const &AST,
+  /// \brief Constructor.
+  ///
+  MappedGlobalVariableDecl(MappedAST const &AST,
                            clang::ValueDecl const *Decl,
                            llvm::GlobalVariable const *Global)
-  : FilePath(FilePath),
-    AST(AST),
+  : AST(AST),
     Decl(Decl),
     Global(Global)
   {}
 
-  /// Copy constructor.
+  /// \brief Copy constructor.
+  ///
   MappedGlobalVariableDecl(MappedGlobalVariableDecl const &) = default;
 
-  /// Copy assignment.
+  /// \brief Copy assignment.
+  ///
   MappedGlobalVariableDecl &operator=(MappedGlobalVariableDecl const &) =
     default;
 
-  /// Get the path to the source file that this mapping refers to.
-  llvm::sys::Path const &getFilePath() const { return FilePath; }
-
-  /// Get the AST that this clang::Decl belongs to.
+  /// \brief Get the AST that this clang::Decl belongs to.
+  ///
   MappedAST const &getAST() const { return AST; }
   
-  /// Get the clang::Decl that is mapped to.
+  /// \brief Get the clang::Decl that is mapped to.
+  ///
   clang::ValueDecl const *getDecl() const { return Decl; }
 
-  /// Get the llvm::GlobalVariable that is mapped from.
+  /// \brief Get the llvm::GlobalVariable that is mapped from.
+  ///
   llvm::GlobalVariable const *getGlobal() const { return Global; }
 };
 

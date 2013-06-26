@@ -245,8 +245,7 @@ MappedModule::MappedModule(
         
         GlobalVariableLookup.insert(
           std::make_pair(GV,
-                         MappedGlobalVariableDecl(std::move(FilePath),
-                                                  *AST,
+                         MappedGlobalVariableDecl(*AST,
                                                   ValueDecl,
                                                   GV)));
       }
