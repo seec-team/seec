@@ -362,15 +362,9 @@ public:
     StateIndications.clear();
   
     // Remove temporary annotations.
-#if 0
-    // There's no way to remove annotations from a single line with
-    // wxStyledTextCtrl at the moment, so we just remove all annotations.
     for (auto Line : StateAnnotations) {
-      Text->AnnotationSetText(Line, wxEmptyString);
+      Text->AnnotationClearLine(Line);
     }
-#else
-    Text->AnnotationClearAll();
-#endif
     
     StateAnnotations.clear();
     
