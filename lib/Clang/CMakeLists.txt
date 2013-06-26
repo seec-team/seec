@@ -6,10 +6,7 @@ set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/MappedParam.hpp
   ../../include/seec/Clang/MappedStmt.hpp
   ../../include/seec/Clang/MDNames.hpp
-  ../../include/seec/Clang/RuntimeValueMapping.hpp
   ../../include/seec/Clang/Search.hpp
-  ../../include/seec/Clang/SourceMapping.hpp
-  ../../include/seec/Clang/StateMapping.hpp
   MappedLLVMValue.hpp
 )
 
@@ -21,9 +18,7 @@ set(SEEC_CLANG_SOURCES
   MappedModule.cpp
   MappedParam.cpp
   MappedStmt.cpp
-  RuntimeValueMapping.cpp
   Search.cpp
-  StateMapping.cpp
 )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
