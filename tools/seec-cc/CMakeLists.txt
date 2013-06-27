@@ -1,4 +1,4 @@
-add_executable(seec-clang-test main.cpp)
+add_executable(seec-cc main.cpp)
 
 # Determine the LLVM libraries that we need
 execute_process(
@@ -17,7 +17,7 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
-target_link_libraries(seec-clang-test
+target_link_libraries(seec-cc
  # SeeC libraries
  SeeCClang
  SeeCICU
@@ -45,7 +45,7 @@ target_link_libraries(seec-clang-test
  ${LLVM_LIB_DEPS}
 )
 
-INSTALL(TARGETS seec-clang-test
+INSTALL(TARGETS seec-cc
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
