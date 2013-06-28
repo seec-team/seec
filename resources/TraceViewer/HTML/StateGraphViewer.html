@@ -60,13 +60,19 @@
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
+    
+    function CMMoveToAllocation(valueid) {
+      $.getJSON(SeeCURL("move_to_allocation", [valueid]),
+        function(data) {
+          /* The result is not important. */
+        });
+    }
 
-    function buildValueCM() {
-      return {
-        items: {
-          "test": {name: "Test"}
-        }
-      };
+    function CMMoveToDeallocation(valueid) {
+      $.getJSON(SeeCURL("move_to_deallocation", [valueid]),
+        function(data) {
+          /* The result is not important. */
+        });
     }
     
     function SetStateImpl(SVGString) {
@@ -102,19 +108,26 @@
             };
 
         if (splitref[0] == "value") {
-          $.getJSON(SeeCURL("get_value_type", [splitref[1]]),
-          function(data) {
-            if (data.success) {
-              $this.data('buildValueCM', function() {
-                return {
-                  items: {
-                    "test": {name: data.result}
+          $this.data('buildValueCM', function() {
+            return {
+              items: {
+                "move-to-allocation": {
+                  name: "Move to allocation",
+                  callback: function(key, options) {
+                    CMMoveToAllocation(splitref[1]);
                   }
-                };
-              });
-              $this.contextMenu(position);
-            }
+                },
+                "move-to-deallocation": {
+                  name: "Move to deallocation",
+                  callback: function(key, options) {
+                    CMMoveToDeallocation(splitref[1]);
+                  }
+                }
+              }
+            };
           });
+          
+          $this.contextMenu(position);
         }
         else {
           Log("Don't understand ref: " + splitref[0]);

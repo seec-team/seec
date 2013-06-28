@@ -23,6 +23,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   HighlightEvent.hpp
   MallocViewer.hpp
   OpenTrace.hpp
+  ProcessMoveEvent.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
   SourceViewerSettingsTypes.def
@@ -42,6 +43,7 @@ set(SEEC_TRACE_VIEW_SRCS
   HighlightEvent.cpp
   MallocViewer.cpp
   OpenTrace.cpp
+  ProcessMoveEvent.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
   StateGraphViewer.cpp

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/GraphLayout.hpp"
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeUnique.hpp"
@@ -40,6 +41,7 @@
 #include <memory>
 #include <string>
 
+#include "ProcessMoveEvent.hpp"
 #include "StateGraphViewer.hpp"
 #include "TraceViewerFrame.hpp"
 
@@ -95,9 +97,33 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   CallbackFS->addCallback("get_value_type",
     std::function<std::string (uintptr_t)>{
-      [this] (uintptr_t ValueID) -> std::string {
+      [this] (uintptr_t const ValueID) -> std::string {
         auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
         return V.getTypeAsString();
+      }
+    });
+  
+  CallbackFS->addCallback("move_to_allocation",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const ValueID) -> void {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [&V] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToAllocation(V);
+          });
+      }
+    });
+
+  CallbackFS->addCallback("move_to_deallocation",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const ValueID) -> void {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [&V] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToDeallocation(V);
+          });
       }
     });
   

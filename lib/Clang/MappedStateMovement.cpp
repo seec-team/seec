@@ -18,6 +18,8 @@
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
 
+#include "llvm/Support/raw_ostream.h"
+
 
 namespace seec {
 
@@ -137,6 +139,27 @@ bool moveBackwardToEnd(ThreadState &Thread) {
 }
 
 // (Thread movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+// Contextual movement for values.
+
+bool moveToAllocation(Value const &OfValue)
+{
+  llvm::errs() << "move to allocation not implemented.\n";
+
+  return false;
+}
+
+bool moveToDeallocation(Value const &OfValue)
+{
+  llvm::errs() << "move to deallocation not implemented.\n";
+  
+  return false;
+}
+
+// (Contextual movement for values.)
 //===----------------------------------------------------------------------===//
 
 

@@ -22,6 +22,7 @@ namespace cm {
 
 
 class ThreadState;
+class Value;
 
 
 //===----------------------------------------------------------------------===//
@@ -49,6 +50,24 @@ bool moveBackward(ThreadState &Thread);
 bool moveBackwardToEnd(ThreadState &Thread);
 
 /// @} (Thread movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement for values.
+/// @{
+
+/// \brief Move backwards to the initial allocation of a Value.
+/// \return true iff the state was moved.
+///
+bool moveToAllocation(Value const &OfValue);
+
+/// \brief Move forwards until a Value is deallocated.
+/// \return true iff the state was moved.
+///
+bool moveToDeallocation(Value const &OfValue);
+
+/// @} (Contextual movement for values.)
 //===----------------------------------------------------------------------===//
 
 

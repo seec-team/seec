@@ -31,6 +31,7 @@ namespace seec {
 }
 
 class OpenTrace;
+class ProcessMoveEvent;
 class SourceViewerPanel;
 class StateViewerPanel;
 class ThreadMoveEvent;
@@ -141,6 +142,10 @@ public:
   /// \brief Close the current file.
   ///
   void OnClose(wxCommandEvent &Event);
+  
+  /// \brief Handle a request to move the process.
+  ///
+  void OnProcessMove(ProcessMoveEvent &Event);
 
   /// \brief Handle a request to move a thread.
   ///

@@ -27,6 +27,7 @@
 #include <iostream>
 
 #include "OpenTrace.hpp"
+#include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
 #include "StateViewer.hpp"
 #include "ThreadMoveEvent.hpp"
@@ -151,6 +152,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
        &TraceViewerFrame::OnClose, this,
        wxID_CLOSE);
   
+  Bind(SEEC_EV_PROCESS_MOVE, &TraceViewerFrame::OnProcessMove, this);
+  
   Bind(SEEC_EV_THREAD_MOVE, &TraceViewerFrame::OnThreadMove, this);
 
   return true;
@@ -158,6 +161,42 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
 void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
   Close(true);
+}
+
+void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
+  // Deny access to the state.
+  if (StateAccess)
+    StateAccess->invalidate();
+  
+  // Move the process.
+  auto const MoveStart = std::chrono::steady_clock::now();
+  
+  Event.getMover()(*State);
+  
+  auto const MoveEnd = std::chrono::steady_clock::now();
+  auto const MoveMS = std::chrono::duration_cast<std::chrono::milliseconds>
+                                                (MoveEnd - MoveStart);
+  wxLogDebug("Moved process in %" PRIu64 " ms",
+             static_cast<uint64_t>(MoveMS.count()));
+  
+  // Create a new access token for the state.
+  StateAccess = std::make_shared<StateAccessToken>();
+  
+  // Display the new state.
+  if (State->getThreadCount() == 1) {
+    StateViewer->show(StateAccess, *State, State->getThread(0));
+    SourceViewer->show(StateAccess, *State, State->getThread(0));
+    ThreadTime->show(StateAccess, *State, State->getThread(0), 0);
+  }
+  else {
+    // TODO: Show the state for a multi-threaded trace.
+  }
+  
+  auto const ShowEnd = std::chrono::steady_clock::now();
+  auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>
+                                                (ShowEnd - MoveEnd);
+  wxLogDebug("Showed state in %" PRIu64 " ms",
+             static_cast<uint64_t>(ShowMS.count()));
 }
 
 void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
