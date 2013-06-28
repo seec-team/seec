@@ -44,4 +44,10 @@ SEEC_FUNCTION_HANDLED(ALIAS)
 #include "seec/Runtimes/Tracer/InterceptedFunctions.def"
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+// OS X functions that don't need recording.
+//
+SEEC_FUNCTION_HANDLED(__maskrune)
+//===----------------------------------------------------------------------===//
+
 #undef SEEC_FUNCTION_HANDLED
