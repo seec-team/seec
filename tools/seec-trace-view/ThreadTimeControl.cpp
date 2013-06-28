@@ -24,12 +24,10 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "OpenTrace.hpp"
+#include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
 #include "TraceViewerFrame.hpp"
 
-
-IMPLEMENT_CLASS(ThreadMoveEvent, wxEvent)
-wxDEFINE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 
 IMPLEMENT_DYNAMIC_CLASS(ThreadTimeControl, wxPanel);
 
@@ -148,33 +146,6 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
     ButtonStepForward->Enable();
     ButtonGoToEnd->Enable();
   }
-}
-
-void
-raiseMovementEvent(ThreadTimeControl &Control,
-                   std::shared_ptr<StateAccessToken> &Access,
-                   std::size_t const ThreadIndex,
-                   std::function<bool (seec::cm::ThreadState &State)> Mover)
-{
-  if (!Access)
-    return;
-  
-  auto Lock = Access->getAccess();
-  if (!Lock) // Token is out of date.
-    return;
-  
-  ThreadMoveEvent Ev {
-    SEEC_EV_THREAD_MOVE,
-    Control.GetId(),
-    ThreadIndex,
-    std::move(Mover)
-  };
-  
-  Ev.SetEventObject(&Control);
-  
-  Lock.unlock();
-  
-  Control.ProcessWindowEvent(Ev);
 }
 
 void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {

@@ -28,6 +28,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   SourceViewerSettingsTypes.def
   StateGraphViewer.hpp
   StateViewer.hpp
+  ThreadMoveEvent.hpp
   ThreadStateViewer.hpp
   ThreadTimeControl.hpp
   TraceViewerApp.hpp
@@ -45,6 +46,7 @@ set(SEEC_TRACE_VIEW_SRCS
   SourceViewerSettings.cpp
   StateGraphViewer.cpp
   StateViewer.cpp
+  ThreadMoveEvent.cpp
   ThreadStateViewer.cpp
   ThreadTimeControl.cpp
   TraceViewerApp.cpp

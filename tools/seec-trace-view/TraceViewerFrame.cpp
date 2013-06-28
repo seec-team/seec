@@ -29,6 +29,7 @@
 #include "OpenTrace.hpp"
 #include "SourceViewer.hpp"
 #include "StateViewer.hpp"
+#include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
