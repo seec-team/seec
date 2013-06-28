@@ -151,7 +151,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
        &TraceViewerFrame::OnClose, this,
        wxID_CLOSE);
   
-  Bind(SEEC_EV_THREAD_MOVE, &TraceViewerFrame::OnThreadTimeMove, this);
+  Bind(SEEC_EV_THREAD_MOVE, &TraceViewerFrame::OnThreadMove, this);
 
   return true;
 }
@@ -160,7 +160,7 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
   Close(true);
 }
 
-void TraceViewerFrame::OnThreadTimeMove(ThreadMoveEvent &Event) {
+void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   // Deny access to the state.
   if (StateAccess)
     StateAccess->invalidate();

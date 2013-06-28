@@ -144,7 +144,7 @@ public:
 
   /// \brief Handle a request to move a thread.
   ///
-  void OnThreadTimeMove(ThreadMoveEvent &Event);
+  void OnThreadMove(ThreadMoveEvent &Event);
 };
 
 #endif // SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
