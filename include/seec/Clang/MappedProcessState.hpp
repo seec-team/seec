@@ -115,6 +115,12 @@ public:
   
   /// \brief Get the unmapped process state for this state.
   ///
+  seec::trace::ProcessState &getUnmappedProcessState() {
+    return *UnmappedState;
+  }
+  
+  /// \brief Get the unmapped process state for this state.
+  ///
   seec::trace::ProcessState const &getUnmappedProcessState() const {
     return *UnmappedState;
   }

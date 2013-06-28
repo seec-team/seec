@@ -60,12 +60,12 @@ bool moveBackwardToEnd(ThreadState &Thread);
 /// \brief Move backwards to the initial allocation of a Value.
 /// \return true iff the state was moved.
 ///
-bool moveToAllocation(Value const &OfValue);
+bool moveToAllocation(ProcessState &Process, Value const &OfValue);
 
 /// \brief Move forwards until a Value is deallocated.
 /// \return true iff the state was moved.
 ///
-bool moveToDeallocation(Value const &OfValue);
+bool moveToDeallocation(ProcessState &Process, Value const &OfValue);
 
 /// @} (Contextual movement for values.)
 //===----------------------------------------------------------------------===//

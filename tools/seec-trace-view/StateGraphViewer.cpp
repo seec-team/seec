@@ -110,7 +110,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
         
         raiseMovementEvent(*this, this->CurrentAccess,
           [&V] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToAllocation(V);
+            return seec::cm::moveToAllocation(State, V);
           });
       }
     });
@@ -122,7 +122,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
         
         raiseMovementEvent(*this, this->CurrentAccess,
           [&V] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToDeallocation(V);
+            return seec::cm::moveToDeallocation(State, V);
           });
       }
     });

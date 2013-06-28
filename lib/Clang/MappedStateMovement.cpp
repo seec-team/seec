@@ -15,6 +15,8 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/MappedValue.hpp"
+#include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
 
@@ -145,18 +147,62 @@ bool moveBackwardToEnd(ThreadState &Thread) {
 //===----------------------------------------------------------------------===//
 // Contextual movement for values.
 
-bool moveToAllocation(Value const &OfValue)
+bool moveToAllocation(ProcessState &Process, Value const &OfValue)
 {
-  llvm::errs() << "move to allocation not implemented.\n";
-
-  return false;
+  // The allocation of virtual register values is meaningless for now.
+  if (!OfValue.isInMemory())
+    return false;
+  
+  auto &Unmapped = Process.getUnmappedProcessState();
+  auto const Address = OfValue.getAddress();
+  
+  // Move backwards until the area is not allocated.
+  auto const Moved =
+    seec::trace::moveBackwardUntil(Unmapped,
+      [=] (seec::trace::ProcessState &P) -> bool {
+        return !P.getContainingMemoryArea(Address).assigned();
+      });
+  
+  // Now move forwards just enough that the area is allocated.
+  if (Moved && !Unmapped.getContainingMemoryArea(Address).assigned()) {
+    seec::trace::moveForwardUntil(Unmapped,
+      [=] (seec::trace::ProcessState &P) -> bool {
+        return P.getContainingMemoryArea(Address).assigned();
+      });
+  }
+  
+  Process.cacheClear();
+  
+  return Moved;
 }
 
-bool moveToDeallocation(Value const &OfValue)
+bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
 {
-  llvm::errs() << "move to deallocation not implemented.\n";
+  // The allocation of virtual register values is meaningless for now.
+  if (!OfValue.isInMemory())
+    return false;
   
-  return false;
+  auto &Unmapped = Process.getUnmappedProcessState();
+  auto const Address = OfValue.getAddress();
+  
+  // Move forwards until the area is not allocated.
+  auto const Moved =
+    seec::trace::moveForwardUntil(Unmapped,
+      [=] (seec::trace::ProcessState &P) -> bool {
+        return !P.getContainingMemoryArea(Address).assigned();
+      });
+  
+  // Now move backwards just enough that the area is allocated.
+  if (Moved && !Unmapped.getContainingMemoryArea(Address).assigned()) {
+    seec::trace::moveBackwardUntil(Unmapped,
+      [=] (seec::trace::ProcessState &P) -> bool {
+        return P.getContainingMemoryArea(Address).assigned();
+      });
+  }
+  
+  Process.cacheClear();
+  
+  return Moved;
 }
 
 // (Contextual movement for values.)
