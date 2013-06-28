@@ -143,6 +143,14 @@ struct FormatImpl<std::string>
   }
 };
 
+template<>
+struct FormatImpl<void>
+{
+  static void impl(llvm::raw_ostream &Out) {
+    Out << "null";
+  }
+};
+
 
 //===----------------------------------------------------------------------===//
 // CallbackBase
@@ -207,6 +215,47 @@ public:
   /// \brief Constructor.
   ///
   CallbackImpl(std::function<ResultT (ArgTs...)> WithCallback)
+  : CallbackBase(sizeof...(ArgTs)),
+    CallbackFn(std::move(WithCallback))
+  {}
+};
+
+template<typename... ArgTs>
+class CallbackImpl<void, ArgTs...> final : public CallbackBase
+{
+  // TODO: static_assert that the Args are parsable.
+  
+  typedef typename seec::ct::generate_sequence_int<0, sizeof...(ArgTs)>::type
+          IndexSeqTy;
+  
+  std::function<void (ArgTs...)> CallbackFn;
+  
+  template<int... ArgIs>
+  std::string dispatch(std::vector<std::string> const &Args,
+                       seec::ct::sequence_int<ArgIs...>) const
+  {
+    std::string Result;
+    llvm::raw_string_ostream ResultStream(Result);
+    
+    CallbackFn(ParseImpl<ArgTs>::impl(Args[ArgIs])...);
+    FormatImpl<void>::impl(ResultStream);
+    
+    ResultStream.flush();
+    return Result;
+  }
+  
+  ///
+  /// pre: Args.size() == sizeof...(ArgTs)
+  ///
+  virtual std::string impl(std::vector<std::string> const &Args) const override
+  {
+    return dispatch(Args, IndexSeqTy{});
+  }
+  
+public:
+  /// \brief Constructor.
+  ///
+  CallbackImpl(std::function<void (ArgTs...)> WithCallback)
   : CallbackBase(sizeof...(ArgTs)),
     CallbackFn(std::move(WithCallback))
   {}
