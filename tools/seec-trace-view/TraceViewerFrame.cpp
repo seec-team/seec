@@ -35,19 +35,6 @@
 #include "TraceViewerFrame.hpp"
 
 
-enum ControlIDs {
-  TraceViewer_Reset = wxID_HIGHEST,
-  TraceViewer_ProcessTime,
-  TraceViewer_ThreadTime
-};
-
-BEGIN_EVENT_TABLE(TraceViewerFrame, wxFrame)
-  EVT_MENU(wxID_CLOSE, TraceViewerFrame::OnClose)
-
-  SEEC_EVT_THREAD_MOVE(TraceViewer_ThreadTime,
-                       TraceViewerFrame::OnThreadTimeMove)
-END_EVENT_TABLE()
-
 TraceViewerFrame::TraceViewerFrame()
 : Trace(),
   State(),
@@ -124,7 +111,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Setup the view for a single-threaded trace.
 
     // Create the thread time movement control.
-    ThreadTime = new ThreadTimeControl(this, TraceViewer_ThreadTime);
+    ThreadTime = new ThreadTimeControl(this, wxID_ANY);
 
     // Create the source code viewer.
     SourceViewer = new SourceViewerPanel(this,
@@ -158,6 +145,13 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   else {
     // TODO: Setup the view for a multi-threaded trace.
   }
+  
+  // Setup the event handling.
+  Bind(wxEVT_COMMAND_MENU_SELECTED,
+       &TraceViewerFrame::OnClose, this,
+       wxID_CLOSE);
+  
+  Bind(SEEC_EV_THREAD_MOVE, &TraceViewerFrame::OnThreadTimeMove, this);
 
   return true;
 }
