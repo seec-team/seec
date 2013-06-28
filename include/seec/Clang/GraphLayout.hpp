@@ -380,6 +380,11 @@ public:
   ///
   void addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine);
   
+  /// \brief List the Value layout engines that support a Value.
+  ///
+  std::vector<LayoutEngineForValue const *>
+  listLayoutEnginesSupporting(Value const &ForValue) const;
+  
   // TODO: List the Value layout engines.
   
   // TODO: Set the Value layout engine to use for a particular Value.

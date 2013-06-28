@@ -1489,6 +1489,17 @@ LayoutHandler::addLayoutEngine(std::unique_ptr<LayoutEngineForArea> Engine) {
   AreaEngines.emplace_back(std::move(Engine));
 }
 
+std::vector<LayoutEngineForValue const *>
+LayoutHandler::listLayoutEnginesSupporting(Value const &ForValue) const {
+  std::vector<LayoutEngineForValue const *> List;
+  
+  for (auto const &EnginePtr : ValueEngines)
+    if (EnginePtr->canLayout(ForValue))
+      List.emplace_back(EnginePtr.get());
+  
+  return List;
+}
+
 bool
 LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
   if (!ForValue.isInMemory())

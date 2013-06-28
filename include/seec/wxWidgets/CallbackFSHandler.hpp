@@ -88,6 +88,16 @@ template<> struct ParseImpl<long double> {
 // Standard response formatting
 //===----------------------------------------------------------------------===//
 
+/// \brief Wraps a string to indicate that it contains already formatted data.
+///
+template<typename StringT>
+class Formatted : public StringT {
+public:
+  explicit Formatted(StringT Raw)
+  : StringT(std::move(Raw))
+  {}
+};
+
 template<typename, typename Enable = void>
 struct FormatImpl; // Undefined.
 
@@ -140,6 +150,15 @@ struct FormatImpl<std::string>
     }
     
     Out << '"';
+  }
+};
+
+template<typename StringT>
+struct FormatImpl<Formatted<StringT>>
+{
+  static void impl(llvm::raw_ostream &Out, Formatted<StringT> const &Result)
+  {
+    Out << Result;
   }
 };
 

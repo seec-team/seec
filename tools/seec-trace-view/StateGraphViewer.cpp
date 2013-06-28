@@ -127,6 +127,55 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
+  // listLayoutEnginesSupporting
+  CallbackFS->addCallback("list_layout_engines_supporting_value",
+    std::function<seec::callbackfs::Formatted<std::string> (uintptr_t)>{
+      [this] (uintptr_t const ValueID)
+        -> seec::callbackfs::Formatted<std::string>
+      {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        bool First = true;
+        
+        std::string Result {'['};
+        
+        for (auto const E : this->LayoutHandler->listLayoutEnginesSupporting(V))
+        {
+          auto const LazyName = E->getName();
+          if (!LazyName)
+            continue;
+          
+          UErrorCode Status = U_ZERO_ERROR;
+          auto const Name = LazyName->get(Status, Locale());
+          if (U_FAILURE(Status))
+            continue;
+          
+          if (First)
+            First = false;
+          else
+            Result.push_back(',');
+          
+          Result.append("{id:");
+          Result.append(std::to_string(reinterpret_cast<uintptr_t>(E)));
+          Result.append(",name:\"");
+          Name.toUTF8String(Result); // TODO: Escape this string.
+          Result.append("\"}");
+        }
+        
+        Result.push_back(']');
+        
+        return seec::callbackfs::Formatted<std::string>(std::move(Result));
+      }
+    });
+  
+  CallbackFS->addCallback("set_layout_engine_value",
+    std::function<void (uintptr_t, uintptr_t)>{
+      [this] (uintptr_t const EngineID, uintptr_t const ValueID) -> void {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        this->LayoutHandler->setLayoutEngine(V, EngineID);
+        // TODO: Recreate the graph.
+      }
+    });
+  
   wxFileSystem::AddHandler(CallbackFS);
   
   // Get our resources from ICU.

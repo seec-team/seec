@@ -75,6 +75,13 @@
         });
     }
     
+    function CMSetLayoutEngineValue(engineid, valueid) {
+      $.getJSON(SeeCURL("set_layout_engine_value", [engineid, valueid]),
+        function(data) {
+          /* The result is not important. */
+        });
+    }
+    
     function SetStateImpl(SVGString) {
       SetStateImplTimer = null;
       
@@ -108,26 +115,54 @@
             };
 
         if (splitref[0] == "value") {
-          $this.data('buildValueCM', function() {
-            return {
-              items: {
+          $.getJSON(SeeCURL("list_layout_engines_supporting_value", [splitref[1]]),
+          function(data) {
+            if (data.success) {
+              // Setup the menu items that always exist.
+              var menuitems = {
                 "move-to-allocation": {
-                  name: "Move to allocation",
-                  callback: function(key, options) {
+                  "name": "Move to allocation",
+                  "callback": function(key, options) {
                     CMMoveToAllocation(splitref[1]);
                   }
                 },
                 "move-to-deallocation": {
-                  name: "Move to deallocation",
-                  callback: function(key, options) {
+                  "name": "Move to deallocation",
+                  "callback": function(key, options) {
                     CMMoveToDeallocation(splitref[1]);
                   }
                 }
+              };
+              
+              // Setup menu items based on the layout engines available.
+              var engines = data.result;
+              
+              if (engines.length > 1) {
+                var engineitems = {};
+              
+                for (var i = 0; i < engines.length; ++i) {
+                  engineitems[engines[i].id] = {
+                    "name": engines[i].name,
+                    "callback": function(key, options) {
+                      CMSetLayoutEngineValue(key, splitref[1]);
+                    }
+                  };
+                }
+                
+                menuitems["select-engine"] = {
+                  "name": "Layout as...",
+                  "items": engineitems
+                };
               }
-            };
+              
+              // Build and show the menu.
+              $this.data('buildValueCM', function() {
+                return { "items": menuitems };
+              });
+              
+              $this.contextMenu(position);
+            }
           });
-          
-          $this.contextMenu(position);
         }
         else {
           Log("Don't understand ref: " + splitref[0]);
