@@ -18,6 +18,9 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/Stmt.h"
 
+#include <wx/cursor.h>
+#include <wx/utils.h>
+
 #include "ExplanationViewer.hpp"
 #include "HighlightEvent.hpp"
 #include "SourceViewerSettings.hpp"
@@ -37,6 +40,7 @@ void ExplanationViewer::clearCurrent()
   IndicatorClearRange(0, GetTextLength());
   
   CurrentMousePosition = wxSTC_INVALID_POSITION;
+  SetCursor(wxCursor(wxCURSOR_ARROW));
   
   if (HighlightedDecl) {
     HighlightEvent Ev(SEEC_EV_HIGHLIGHT_OFF, GetId(), HighlightedDecl);
@@ -53,6 +57,8 @@ void ExplanationViewer::clearCurrent()
     
     HighlightedStmt = nullptr;
   }
+  
+  URLHover = false;
 }
 
 ExplanationViewer::~ExplanationViewer() {}
@@ -71,6 +77,8 @@ bool ExplanationViewer::Create(wxWindow *Parent,
   Bind(wxEVT_MOTION, &ExplanationViewer::OnMotion, this);
   Bind(wxEVT_ENTER_WINDOW, &ExplanationViewer::OnEnterWindow, this);
   Bind(wxEVT_LEAVE_WINDOW, &ExplanationViewer::OnLeaveWindow, this);
+  Bind(wxEVT_LEFT_DOWN, &ExplanationViewer::OnLeftDown, this);
+  Bind(wxEVT_LEFT_UP, &ExplanationViewer::OnLeftUp, this);
   
   // setupAllSciCommonTypes(*this);
   // setupAllSciLexerTypes(*this);
@@ -97,8 +105,10 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   clearCurrent();
   CurrentMousePosition = Pos;
   
-  if (Pos == wxSTC_INVALID_POSITION)
+  if (Pos == wxSTC_INVALID_POSITION) {
+    URLClick = false;
     return;
+  }
   
   // This is the "whole character" offset (regardless of the text's encoding).
   auto const Count = CountCharacters(0, Pos);
@@ -145,15 +155,54 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
     Ev.SetEventObject(this);
     ProcessWindowEvent(Ev);
   }
+  
+  if (Links.getPrimaryIndex().indexOf("://") != -1) {
+    SetCursor(wxCursor(wxCURSOR_HAND));
+    URLHover = true;
+  }
+  else {
+    URLClick = false;
+  }
 }
 
 void ExplanationViewer::OnEnterWindow(wxMouseEvent &Event)
 {
+  Event.Skip();
 }
 
 void ExplanationViewer::OnLeaveWindow(wxMouseEvent &Event)
 {
   clearCurrent();
+  URLClick = false;
+  Event.Skip();
+}
+
+void ExplanationViewer::OnLeftDown(wxMouseEvent &Event)
+{
+  if (URLHover) {
+    URLClick = true;
+  }
+  else {
+    URLClick = false;
+    Event.Skip();
+  }
+}
+
+void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
+{
+  if (URLClick) {
+    // This is the "whole character" offset (regardless of the text's encoding).
+    auto const Count = CountCharacters(0, CurrentMousePosition);
+    
+    auto const Links = Explanation->getCharacterLinksAt(Count);
+    if (Links.getPrimaryIndex().isEmpty())
+      return;
+    
+    ::wxLaunchDefaultBrowser(seec::towxString(Links.getPrimaryIndex()));
+  }
+  else {
+    Event.Skip();
+  }
 }
 
 void ExplanationViewer::showExplanation(::clang::Decl const *Decl)

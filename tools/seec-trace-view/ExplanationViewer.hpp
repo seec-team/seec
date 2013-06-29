@@ -57,6 +57,12 @@ class ExplanationViewer final : public wxStyledTextCtrl
   /// Currently highlighted Stmt.
   ::clang::Stmt const *HighlightedStmt;
   
+  /// Is the mouse currently hovering on a URL?
+  bool URLHover;
+  
+  /// Is the mouse on the same URL as when the left button was clicked?
+  bool URLClick;
+  
   /// \brief Set the contents of this viewer.
   ///
   void setText(wxString const &Value);
@@ -73,7 +79,9 @@ public:
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
-    HighlightedStmt(nullptr)
+    HighlightedStmt(nullptr),
+    URLHover(false),
+    URLClick(false)
   {}
 
   /// \brief Construct and create.
@@ -86,7 +94,9 @@ public:
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
-    HighlightedStmt(nullptr)
+    HighlightedStmt(nullptr),
+    URLHover(false),
+    URLClick(false)
   {
     Create(Parent, ID, Position, Size);
   }
@@ -111,6 +121,10 @@ public:
   void OnEnterWindow(wxMouseEvent &Event);
   
   void OnLeaveWindow(wxMouseEvent &Event);
+  
+  void OnLeftDown(wxMouseEvent &Event);
+  
+  void OnLeftUp(wxMouseEvent &Event);
   
   /// @} (Mouse events)
   
