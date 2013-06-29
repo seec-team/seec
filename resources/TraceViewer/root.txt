@@ -7,7 +7,7 @@ root:table {
 
     Welcome_Title:string {"SeeC Trace Viewer"}
 
-    Welcome_Message:string {"Welcome to the <b>SeeC</b> Trace Viewer."}
+    "Welcome.html":import {"HTML/Welcome.html"}
 
 
     //

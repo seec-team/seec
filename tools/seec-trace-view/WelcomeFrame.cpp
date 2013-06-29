@@ -15,7 +15,13 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include <wx/wx.h>
-#include <wx/html/htmlwin.h>
+
+#if !wxUSE_WEBVIEW_WEBKIT && !wxUSE_WEBVIEW_IE
+  #error "wxWebView backend required!"
+#endif
+
+#include <wx/webview.h>
+#include <wx/webviewfshandler.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "TraceViewerApp.hpp"
@@ -40,11 +46,6 @@ bool WelcomeFrame::Create(wxWindow *Parent,
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
 
-#if 0
-  auto LogWindow = new wxLogWindow(this, wxString("Log"));
-  LogWindow->Show();
-#endif
-
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
@@ -65,14 +66,22 @@ bool WelcomeFrame::Create(wxWindow *Parent,
                   seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
 
   SetMenuBar(menuBar);
+  
+  // Setup the webview.
+  auto WebView = wxWebView::New(this, wxID_ANY);
+  if (!WebView) {
+    wxLogDebug("wxWebView::New failed.");
+    return false;
+  }
+  
+  WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
+                                      (new wxWebViewFSHandler("icurb")));
 
-  // Create a HTML window to view the welcome message.
-  auto HTMLWindow = new wxHtmlWindow(this);
-  HTMLWindow->SetPage(seec::getwxStringExOrEmpty(TextTable, "Welcome_Message"));
+  WebView->LoadURL("icurb://TraceViewer/GUIText/Welcome.html");
 
-  // Make the HTML window grow to fit the frame.
+  // Make the webview grow to fit the frame.
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
-  TopSizer->Add(HTMLWindow, wxSizerFlags().Proportion(1).Expand());
+  TopSizer->Add(WebView, wxSizerFlags().Proportion(1).Expand());
   SetSizer(TopSizer);
 
   return true;
