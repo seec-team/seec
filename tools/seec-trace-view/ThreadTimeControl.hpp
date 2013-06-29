@@ -53,6 +53,10 @@ class ThreadTimeControl : public wxPanel
   
   size_t CurrentThreadIndex;
   
+  /// \brief Disable all controls.
+  ///
+  void disableAll();
+  
 public:
   // Make this class known to wxWidgets' class hierarchy, and dynamically
   // creatable.

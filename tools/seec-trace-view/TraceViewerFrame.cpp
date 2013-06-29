@@ -41,7 +41,8 @@ TraceViewerFrame::TraceViewerFrame()
   State(),
   StateAccess(),
   SourceViewer(nullptr),
-  StateViewer(nullptr)
+  StateViewer(nullptr),
+  ThreadTime(nullptr)
 {}
 
 TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
@@ -54,7 +55,8 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
   State(),
   StateAccess(),
   SourceViewer(nullptr),
-  StateViewer(nullptr)
+  StateViewer(nullptr),
+  ThreadTime(nullptr)
 {
   Create(Parent, std::move(TracePtr), ID, Title, Position, Size);
 }

@@ -58,6 +58,21 @@ END_EVENT_TABLE()
 // method implementations
 //------------------------------------------------------------------------------
 
+void ThreadTimeControl::disableAll()
+{
+  if (ButtonGoToStart)
+    ButtonGoToStart->Disable();
+  
+  if (ButtonStepBack)
+    ButtonStepBack->Disable();
+  
+  if (ButtonStepForward)
+    ButtonStepForward->Disable();
+  
+  if (ButtonGoToEnd)
+    ButtonGoToEnd->Disable();
+}
+
 bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 {
   if (!wxPanel::Create(Parent, ID))
@@ -129,6 +144,7 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
   CurrentAccess = std::move(Access);
   CurrentThreadIndex = ThreadIndex;
   
+  // Setup the backwards movement buttons.
   if (Thread.isAtStart()) {
     ButtonGoToStart->Disable();
     ButtonStepBack->Disable();
@@ -138,6 +154,7 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
     ButtonStepBack->Enable();
   }
   
+  // Setup the forwards movement buttons.
   if (Thread.isAtEnd()) {
     ButtonStepForward->Disable();
     ButtonGoToEnd->Disable();
@@ -149,6 +166,8 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
 }
 
 void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
+  disableAll();
+  
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -158,6 +177,8 @@ void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
+  disableAll();
+  
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -167,6 +188,8 @@ void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
+  disableAll();
+  
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -180,6 +203,8 @@ void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
+  disableAll();
+  
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
