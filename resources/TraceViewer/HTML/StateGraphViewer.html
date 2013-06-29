@@ -93,19 +93,17 @@
       var refs = $('a');
       refs.removeAttr("xlink:title");
       refs.on('click', function(e){
-        e.preventDefault();
-        
         var $this = $(this);
         var href = $this.attr('xlink:href');
         if (!href) {
           Log("No xlink:href found.");
-          return;
+          return false;
         }
 
         var splitref = href.split(' ');
         if (splitref.length != 2) {
           Log("Bad reference length.");
-          return;
+          return false;
         }
 
         var _offset = $this.offset(),
@@ -167,6 +165,8 @@
         else {
           Log("Don't understand ref: " + splitref[0]);
         }
+
+        return false;
       });
     }
     
