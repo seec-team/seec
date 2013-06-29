@@ -111,8 +111,14 @@ OutputStreamAllocator::createOutputStreamAllocator()
                                                          Path.c_str())));
   
   // Create a path to the trace directory.
-  llvm::sys::path::append(Path, "p" + getPIDString() +
-                                "." + getTraceDirectoryExtension());
+  if (auto const UserPath = std::getenv("SEEC_TRACE_NAME")) {
+    llvm::sys::path::append(Path, std::string{UserPath} + "." +
+                                  getTraceDirectoryExtension());
+  }
+  else {
+    llvm::sys::path::append(Path, "p" + getPIDString() +
+                                  "." + getTraceDirectoryExtension());
+  }
   
   // Create the trace directory, but fail if it already exists.
   bool OutDirExisted;
