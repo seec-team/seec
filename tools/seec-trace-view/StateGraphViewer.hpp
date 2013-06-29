@@ -21,6 +21,7 @@
 #include <gvc.h>
 
 #include <memory>
+#include <mutex>
 
 
 namespace seec {
@@ -36,6 +37,7 @@ namespace seec {
   class CallbackFSHandler;
 }
 
+class GraphRenderedEvent;
 class StateAccessToken;
 class wxWebView;
 class wxWebViewEvent;
@@ -48,28 +50,54 @@ class StateGraphViewerPanel final : public wxPanel
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
+  /// The current process state.
+  seec::cm::ProcessState const *CurrentProcess;
+  
+  /// The Graphviz context used to render the dot state graphs to SVG.
   GVC_t *GraphvizContext;
   
+  /// The WebView used to display the rendered state graphs.
   wxWebView *WebView;
   
+  /// The LayoutHandler used to generate dot state graphs.
   std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
   
+  /// Control access to the LayoutHandler.
+  std::mutex LayoutHandlerMutex;
+  
+  /// Virtual file system used to call functions from the WebView's javascript.
   seec::CallbackFSHandler *CallbackFS;
 
 public:
+  /// \brief Construct.
+  ///
   StateGraphViewerPanel();
 
+  /// \brief Construct and create.
+  ///
   StateGraphViewerPanel(wxWindow *Parent,
                         wxWindowID ID = wxID_ANY,
                         wxPoint const &Position = wxDefaultPosition,
                         wxSize const &Size = wxDefaultSize);
 
+  /// \brief Destructor.
+  ///
   ~StateGraphViewerPanel();
 
+  /// \brief Create (if default constructed).
+  ///
   bool Create(wxWindow *Parent,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
+
+  /// \brief Handle a rendered graph.
+  ///
+  void OnGraphRendered(GraphRenderedEvent const &Ev);
+
+  /// \brief Render a graph for the current process state.
+  ///
+  void renderGraph();
 
   /// \brief Update this panel to reflect the given state.
   ///

@@ -47,6 +47,49 @@
 
 
 //------------------------------------------------------------------------------
+// GraphRenderedEvent
+//------------------------------------------------------------------------------
+
+/// \brief Used to send a rendered graph back to the GUI thread.
+///
+class GraphRenderedEvent : public wxEvent
+{
+  std::shared_ptr<wxString const> SetStateScript;
+  
+public:
+  wxDECLARE_CLASS(GraphRenderedEvent);
+  
+  /// \brief Constructor.
+  ///
+  GraphRenderedEvent(wxEventType EventType,
+                     int WinID,
+                     std::shared_ptr<wxString const> WithSetStateScript)
+  : wxEvent(WinID, EventType),
+    SetStateScript(std::move(WithSetStateScript))
+  {}
+  
+  /// \brief wxEvent::Clone().
+  ///
+  virtual wxEvent *Clone() const {
+    return new GraphRenderedEvent(*this);
+  }
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the SetState() script.
+  ///
+  wxString const &getSetStateScript() const { return *SetStateScript; }
+  
+  /// @} (Accessors.)
+};
+
+IMPLEMENT_CLASS(GraphRenderedEvent, wxEvent)
+
+wxDEFINE_EVENT(SEEC_EV_GRAPH_RENDERED, GraphRenderedEvent);
+
+
+//------------------------------------------------------------------------------
 // StateGraphViewerPanel
 //------------------------------------------------------------------------------
 
@@ -56,6 +99,7 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   GraphvizContext(nullptr),
   WebView(nullptr),
   LayoutHandler(),
+  LayoutHandlerMutex(),
   CallbackFS(nullptr)
 {}
 
@@ -68,6 +112,7 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
   GraphvizContext(nullptr),
   WebView(nullptr),
   LayoutHandler(),
+  LayoutHandlerMutex(),
   CallbackFS(nullptr)
 {
   Create(Parent, ID, Position, Size);
@@ -127,7 +172,6 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
-  // listLayoutEnginesSupporting
   CallbackFS->addCallback("list_layout_engines_supporting_value",
     std::function<seec::callbackfs::Formatted<std::string> (uintptr_t)>{
       [this] (uintptr_t const ValueID)
@@ -138,7 +182,11 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
         
         std::string Result {'['};
         
-        for (auto const E : this->LayoutHandler->listLayoutEnginesSupporting(V))
+        std::unique_lock<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+        auto const Engines = LayoutHandler->listLayoutEnginesSupporting(V);
+        LockLayoutHandler.unlock();
+        
+        for (auto const E : Engines)
         {
           auto const LazyName = E->getName();
           if (!LazyName)
@@ -171,8 +219,11 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     std::function<void (uintptr_t, uintptr_t)>{
       [this] (uintptr_t const EngineID, uintptr_t const ValueID) -> void {
         auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        this->LayoutHandler->setLayoutEngine(V, EngineID);
-        // TODO: Recreate the graph.
+        {
+          std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+          this->LayoutHandler->setLayoutEngine(V, EngineID);
+        }
+        this->renderGraph();
       }
     });
   
@@ -209,8 +260,11 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   GraphvizContext = gvContext();
   
   // Setup the layout handler.
-  LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
-  LayoutHandler->addBuiltinLayoutEngines();
+  {
+    std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+    LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
+    LayoutHandler->addBuiltinLayoutEngines();
+  }
   
   // Load the webpage.
   auto const WebViewURL =
@@ -219,16 +273,19 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   WebView->LoadURL(WebViewURL);
   
+  // Wire up our event handlers.
+  Bind(SEEC_EV_GRAPH_RENDERED, &StateGraphViewerPanel::OnGraphRendered, this);
+  
   return true;
 }
 
-void
-StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
-                            seec::cm::ProcessState const &Process,
-                            seec::cm::ThreadState const &Thread)
+void StateGraphViewerPanel::OnGraphRendered(GraphRenderedEvent const &Ev)
 {
-  CurrentAccess = std::move(Access);
-  
+  WebView->RunScript(Ev.getSetStateScript());
+}
+
+void StateGraphViewerPanel::renderGraph()
+{
   if (!WebView)
     return;
   
@@ -238,13 +295,11 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   {
     // Lock the current state while we read from it.
     auto Lock = CurrentAccess->getAccess();
-    if (!Lock)
+    if (!Lock || !CurrentProcess)
       return;
-    
-    // llvm::raw_string_ostream GraphStream {GraphString};
-    // seec::cm::writeDotGraph(Process, GraphStream);
-    
-    auto const Layout = LayoutHandler->doLayout(Process);
+      
+    std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+    auto const Layout = LayoutHandler->doLayout(*CurrentProcess);
     GraphString = Layout.getDotString();
     
     auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
@@ -284,6 +339,9 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   gvRenderData(GraphvizContext, Graph, "svg", &RenderedData, &RenderedLength);
   
+  if (!RenderedData)
+    return;
+  
   auto const GVEnd = std::chrono::steady_clock::now();
   auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
                                               (GVEnd - GVStart);
@@ -292,7 +350,9 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   // Remove all non-print characters from the SVG and send it to the WebView
   // via Javascript.
-  wxString Script;
+  auto SharedScript = std::make_shared<wxString>();
+  auto &Script = *SharedScript;
+  
   Script.reserve(RenderedLength + 256);
   Script << "SetState(\"";
   
@@ -306,7 +366,29 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   Script << "\");";
   
-  WebView->RunScript(Script);
+  GraphRenderedEvent Ev {
+    SEEC_EV_GRAPH_RENDERED,
+    this->GetId(),
+    std::move(SharedScript)
+  };
+  
+  Ev.SetEventObject(this);
+  
+  this->GetEventHandler()->AddPendingEvent(Ev);
+}
+
+void
+StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
+                            seec::cm::ProcessState const &Process,
+                            seec::cm::ThreadState const &Thread)
+{
+  CurrentAccess = std::move(Access);
+  CurrentProcess = &Process;
+  
+  if (!WebView)
+    return;
+  
+  renderGraph();
 }
 
 void StateGraphViewerPanel::clear()
