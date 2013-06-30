@@ -360,6 +360,9 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   auto &FileMgr = ASTUnit->getFileManager();
   auto &SrcMgr = ASTUnit->getSourceManager();
   
+  // SeeC-Clang specific: only allow the files and contents that we set below.
+  FileMgr.setDisableNonVirtualFiles(true);
+  
   for (auto const &FileInfo : FileCompileInfo->getSourceFiles()) {
     auto &Contents = FileInfo.getContents();
     
