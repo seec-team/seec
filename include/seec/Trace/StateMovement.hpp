@@ -68,6 +68,15 @@ bool moveBackward(ProcessState &State);
 /// \return true iff the State was moved.
 bool moveToTime(ProcessState &State, uint64_t ProcessTime);
 
+/// \brief Move State forward until the memory state in Area changes.
+/// \return true iff the State was moved.
+bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+
+/// \brief Move State backward until the memory state in Area changes.
+/// \return true iff the State was moved.
+bool
+moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+
 /// @} (ProcessState movement)
 
 

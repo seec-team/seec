@@ -14,6 +14,7 @@
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ScopeExit.hpp"
@@ -168,6 +169,40 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
         raiseMovementEvent(*this, this->CurrentAccess,
           [&V] (seec::cm::ProcessState &State) -> bool {
             return seec::cm::moveToDeallocation(State, V);
+          });
+      }
+    });
+  
+  CallbackFS->addCallback("move_to_previous_state",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const ValueID) -> void {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        if (!V.isInMemory())
+          return;
+        
+        auto const Size = V.getTypeSizeInChars().getQuantity();
+        auto const Area = seec::MemoryArea(V.getAddress(), Size);
+        
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [Area] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+          });
+      }
+    });
+  
+  CallbackFS->addCallback("move_to_next_state",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const ValueID) -> void {
+        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
+        if (!V.isInMemory())
+          return;
+        
+        auto const Size = V.getTypeSizeInChars().getQuantity();
+        auto const Area = seec::MemoryArea(V.getAddress(), Size);
+        
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [Area] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveForwardUntilMemoryChanges(State, Area);
           });
       }
     });

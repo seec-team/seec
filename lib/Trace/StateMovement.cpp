@@ -351,6 +351,32 @@ bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
   return false;
 }
 
+bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+{
+  auto const Region = State.getMemory().getRegion(Area);
+  auto const Frags = Region.getContributingFragments();
+  
+  // This takes advantage of the fact that movement modifies the ProcessState
+  // in-place.
+  return moveForwardUntil(State,
+                          [&] (ProcessState &) {
+                            return Frags != Region.getContributingFragments();
+                          });
+}
+
+bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+{
+  auto const Region = State.getMemory().getRegion(Area);
+  auto const Frags = Region.getContributingFragments();
+  
+  // This takes advantage of the fact that movement modifies the ProcessState
+  // in-place.
+  return moveBackwardUntil(State,
+                          [&] (ProcessState &) {
+                            return Frags != Region.getContributingFragments();
+                          });
+}
+
 
 //===------------------------------------------------------------------------===
 // ThreadState movement

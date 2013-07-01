@@ -63,23 +63,27 @@
     
     function CMMoveToAllocation(valueid) {
       $.getJSON(SeeCURL("move_to_allocation", [valueid]),
-        function(data) {
-          /* The result is not important. */
-        });
+        function(data) { /* The result is not important. */ });
     }
 
     function CMMoveToDeallocation(valueid) {
       $.getJSON(SeeCURL("move_to_deallocation", [valueid]),
-        function(data) {
-          /* The result is not important. */
-        });
+        function(data) { /* The result is not important. */ });
+    }
+
+    function CMMoveToPreviousState(valueid) {
+      $.getJSON(SeeCURL("move_to_previous_state", [valueid]),
+        function(data) { /* The result is not important. */ });
+    }
+
+    function CMMoveToNextState(valueid) {
+      $.getJSON(SeeCURL("move_to_next_state", [valueid]),
+        function(data) { /* The result is not important. */ });
     }
     
     function CMSetLayoutEngineValue(engineid, valueid) {
       $.getJSON(SeeCURL("set_layout_engine_value", [engineid, valueid]),
-        function(data) {
-          /* The result is not important. */
-        });
+        function(data) { /* The result is not important. */ });
     }
     
     function SetStateImpl(SVGString) {
@@ -122,6 +126,18 @@
                   "name": "Move to allocation",
                   "callback": function(key, options) {
                     CMMoveToAllocation(splitref[1]);
+                  }
+                },
+                "move-to-previous-state": {
+                  "name": "Move to previous state",
+                  "callback": function(key, options) {
+                    CMMoveToPreviousState(splitref[1]);
+                  }
+                },
+                "move-to-next-state": {
+                  "name": "Move to next state",
+                  "callback": function(key, options) {
+                    CMMoveToNextState(splitref[1]);
                   }
                 },
                 "move-to-deallocation": {

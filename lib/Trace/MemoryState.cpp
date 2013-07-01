@@ -383,6 +383,38 @@ std::vector<char> MemoryState::Region::getByteValues() const {
   return Values;
 }
 
+auto MemoryState::Region::getContributingFragments() const
+-> std::vector<decltype(FragmentMap)::const_iterator>
+{
+  std::vector<decltype(FragmentMap)::const_iterator> Contributing;
+  
+  auto const Start = Area.start();
+  
+  auto It = State.FragmentMap.lower_bound(Start);
+  
+  // Best-case scenario: this block's state was set in a single fragment.
+  if (It != State.FragmentMap.end()
+      && It->second.getBlock().area().contains(Area)) {
+    Contributing.push_back(It);
+  }
+  else {
+    // Check if the previous fragment overlaps our area.
+    if ((It == State.FragmentMap.end() || It->first > Start)
+        && It != State.FragmentMap.begin()) {
+      --It;
+      if (It->second.getBlock().area().end() > Start)
+        Contributing.push_back(It);
+      ++It;
+    }
+    
+    // Find all other overlapping fragments.
+    for (; It != State.FragmentMap.end() && It->first < Area.end(); ++It)
+      Contributing.push_back(It);
+  }
+  
+  return Contributing;
+}
+
 
 //------------------------------------------------------------------------------
 // MemoryState Printing

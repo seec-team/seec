@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 #define SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 
+#include "seec/DSA/MemoryArea.hpp"
 
 namespace seec {
 
@@ -68,6 +69,25 @@ bool moveToAllocation(ProcessState &Process, Value const &OfValue);
 bool moveToDeallocation(ProcessState &Process, Value const &OfValue);
 
 /// @} (Contextual movement for values.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement for memory.
+/// @{
+
+/// \brief Move State forward until the memory state in Area changes.
+/// \return true iff the State was moved.
+///
+bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+
+/// \brief Move State backward until the memory state in Area changes.
+/// \return true iff the State was moved.
+///
+bool
+moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+
+/// @} (Contextual movement for memory.)
 //===----------------------------------------------------------------------===//
 
 

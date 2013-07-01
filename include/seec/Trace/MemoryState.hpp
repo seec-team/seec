@@ -217,6 +217,10 @@ public:
     /// Uninitialized bytes will have a value of zero.
     ///
     std::vector<char> getByteValues() const;
+    
+    /// \brief Get iterators for all fragments that contribute to this region.
+    std::vector<decltype(FragmentMap)::const_iterator>
+    getContributingFragments() const;
 
     /// @}
   };

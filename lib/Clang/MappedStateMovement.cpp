@@ -209,6 +209,34 @@ bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
 //===----------------------------------------------------------------------===//
 
 
+//===----------------------------------------------------------------------===//
+// Contextual movement for memory.
+
+bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+{
+  auto &Unmapped = State.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveForwardUntilMemoryChanges(Unmapped, Area);
+  
+  State.cacheClear();
+  
+  return Moved;
+}
+
+bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+{
+  auto &Unmapped = State.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveBackwardUntilMemoryChanges(Unmapped,
+                                                                 Area);
+  
+  State.cacheClear();
+  
+  return Moved;
+}
+
+// (Contextual movement for memory.)
+//===----------------------------------------------------------------------===//
+
+
 } // namespace cm (in seec)
 
 } // namespace seec
