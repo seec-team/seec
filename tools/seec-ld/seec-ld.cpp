@@ -201,6 +201,8 @@ Compile(char const *ProgramName,
     exit(EXIT_FAILURE);
   }
   
+  Passes.run(Module);
+  
   return Out;
 }
 
@@ -324,20 +326,11 @@ int main(int argc, char **argv)
   
   // Call the real ld with the unused original arguments and the new temporary
   // object file.
-  
-  llvm::errs() << "Calling " << ldPath << " with args:\n";
-  for (auto const Arg : ForwardArgs)
-    llvm::errs() << Arg << "\n";
-  
   ForwardArgs.push_back(nullptr);
   
   auto const Result =
     llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(ldPath),
                                        ForwardArgs.data());
-  
-  if (Result)
-    llvm::errs() << argv[0] << ": linking failed with exit code " << Result
-                 << "\n";
   
   return Result;
 }
