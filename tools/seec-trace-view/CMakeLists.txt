@@ -166,3 +166,11 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
   INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Contents/Resources/)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+# Linux-specific installation options.
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/XDesktop/seec.desktop DESTINATION share/applications)
+  # INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/XDesktop/Icons/48x48/seec.png DESTINATION share/icons/hicolor/48x48/apps)
+  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/XDesktop/Icons/256x256/seec.png DESTINATION share/pixmaps)
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
