@@ -60,18 +60,27 @@ namespace seec {
 namespace seec_clang {
 
 class SeeCCodeGenAction : public clang::CodeGenAction {
+  char const **ArgBegin;
+  char const **ArgEnd;
+  
+  clang::CompilerInstance *Compiler;
+  std::string File;
+  
   uint64_t NextDeclIndex;
   uint64_t NextStmtIndex;
 
   llvm::DenseMap<clang::Decl const *, uint64_t> DeclMap;
   llvm::DenseMap<clang::Stmt const *, uint64_t> StmtMap;
 
-  virtual void anchor() {};
-
 public:
-  SeeCCodeGenAction(unsigned _Action,
+  SeeCCodeGenAction(const char **WithArgBegin,
+                    const char **WithArgEnd,
+                    unsigned _Action,
                     llvm::LLVMContext *_VMContext = 0)
   : CodeGenAction(_Action, _VMContext),
+    ArgBegin(WithArgBegin),
+    ArgEnd(WithArgEnd),
+    Compiler(nullptr),
     NextDeclIndex(0),
     NextStmtIndex(0),
     DeclMap(),
@@ -81,6 +90,8 @@ public:
   virtual
   clang::ASTConsumer *
   CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile);
+  
+  virtual void ModuleComplete(llvm::Module *Mod);
 
   void addDeclMap(clang::Decl const *D) {
     if (!DeclMap.count(D))
@@ -100,37 +111,49 @@ public:
 class SeeCEmitAssemblyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitAssemblyAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitAssemblyAction(const char **ArgBegin,
+                         const char **ArgEnd,
+                         llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitBCAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitBCAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitBCAction(const char **ArgBegin,
+                   const char **ArgEnd,
+                   llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitLLVMAction(const char **ArgBegin,
+                     const char **ArgEnd,
+                     llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMOnlyAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitLLVMOnlyAction(const char **ArgBegin,
+                         const char **ArgEnd,
+                         llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitCodeGenOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitCodeGenOnlyAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitCodeGenOnlyAction(const char **ArgBegin,
+                            const char **ArgEnd,
+                            llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitObjAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitObjAction(llvm::LLVMContext *_VMContext = 0);
+  SeeCEmitObjAction(const char **ArgBegin,
+                    const char **ArgEnd,
+                    llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCASTConsumer
@@ -216,6 +239,7 @@ std::string getResourcesDirectory(llvm::StringRef ExecutablePath);
 ///
 std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath);
 
+/// \brief Make all SeeC-Clang mapping information in Mod serializable.
 ///
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
@@ -223,9 +247,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::StringRef MainFilename);
 
 /// \brief Store all source files in SrcManager into the given llvm::Module.
+///
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      clang::CompilerInstance &Compiler,
-                                     std::vector<std::string> const &Args);
+                                     const char **ArgBegin,
+                                     const char **ArgEnd);
 
 } // namespace clang (in seec)
 

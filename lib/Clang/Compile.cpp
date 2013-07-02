@@ -53,43 +53,63 @@ namespace seec_clang {
 
 ASTConsumer *
 SeeCCodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
+  Compiler = &CI;
+  
+  File = InFile.str();
+  
   auto CodeGenConsumer = CodeGenAction::CreateASTConsumer(CI, InFile);
+  
   return new SeeCASTConsumer(*this, CodeGenConsumer);
 }
 
-#if 0
-  GenerateSerializableMappings(*Action,
-                               Mod,
-                               Compiler.getSourceManager(),
-                               InputFile);
+void SeeCCodeGenAction::ModuleComplete(llvm::Module *Mod) {
+  auto &SM = Compiler->getSourceManager();
+  
+  GenerateSerializableMappings(*this, Mod, SM, File);
   
   // Store all used source files into the LLVM Module.
-  StoreCompileInformationInModule(Mod, Compiler, StringArgs);
-#endif
+  StoreCompileInformationInModule(Mod, *Compiler, ArgBegin, ArgEnd);
+}
 
 void SeeCEmitAssemblyAction::anchor() {}
-SeeCEmitAssemblyAction::SeeCEmitAssemblyAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitAssembly, _VMContext) {}
+SeeCEmitAssemblyAction::SeeCEmitAssemblyAction(const char **ArgBegin,
+                                               const char **ArgEnd,
+                                               llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitAssembly, _VMContext)
+{}
 
 void SeeCEmitBCAction::anchor() {}
-SeeCEmitBCAction::SeeCEmitBCAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitBC, _VMContext) {}
+SeeCEmitBCAction::SeeCEmitBCAction(const char **ArgBegin,
+                                   const char **ArgEnd,
+                                   llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitBC, _VMContext) {}
 
 void SeeCEmitLLVMAction::anchor() {}
-SeeCEmitLLVMAction::SeeCEmitLLVMAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitLL, _VMContext) {}
+SeeCEmitLLVMAction::SeeCEmitLLVMAction(const char **ArgBegin,
+                                       const char **ArgEnd,
+                                       llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitLL, _VMContext) {}
 
 void SeeCEmitLLVMOnlyAction::anchor() {}
-SeeCEmitLLVMOnlyAction::SeeCEmitLLVMOnlyAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitNothing, _VMContext) {}
+SeeCEmitLLVMOnlyAction::SeeCEmitLLVMOnlyAction(const char **ArgBegin,
+                                               const char **ArgEnd,
+                                               llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitNothing, _VMContext)
+{}
 
 void SeeCEmitCodeGenOnlyAction::anchor() {}
-SeeCEmitCodeGenOnlyAction::SeeCEmitCodeGenOnlyAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitMCNull, _VMContext) {}
+SeeCEmitCodeGenOnlyAction::
+  SeeCEmitCodeGenOnlyAction(const char **ArgBegin,
+                            const char **ArgEnd,
+                            llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitMCNull, _VMContext)
+{}
 
 void SeeCEmitObjAction::anchor() {}
-SeeCEmitObjAction::SeeCEmitObjAction(llvm::LLVMContext *_VMContext)
-: SeeCCodeGenAction(::clang::Backend_EmitObj, _VMContext) {}
+SeeCEmitObjAction::SeeCEmitObjAction(const char **ArgBegin,
+                                     const char **ArgEnd,
+                                     llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitObj, _VMContext) {}
 
 
 //===----------------------------------------------------------------------===//
@@ -470,7 +490,9 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      ::clang::CompilerInstance &Compiler,
-                                     std::vector<std::string> const &Args) {
+                                     const char **ArgBegin,
+                                     const char **ArgEnd)
+{
   assert(Mod && "No module?");
   
   auto &LLVMContext = Mod->getContext();
@@ -516,9 +538,9 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   }
   
   // Get all compile argument nodes.
-  for (auto &Arg : Args) {
-    ArgNodes.push_back(llvm::MDString::get(LLVMContext, Arg));
-  }
+  for (auto ArgIt = ArgBegin; ArgIt != ArgEnd; ++ArgIt)
+    if (*ArgIt)
+      ArgNodes.push_back(llvm::MDString::get(LLVMContext, *ArgIt));
   
   // Create the compile info node for this unit.
   llvm::Value *CompileInfoOperands[] = {

@@ -75,7 +75,10 @@ static void LLVMErrorHandler(void *UserData, const std::string &Message,
   exit(GenCrashDiag ? 70 : 1);
 }
 
-static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI) {
+static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
+                                                const char **ArgBegin,
+                                                const char **ArgEnd)
+{
   using namespace seec::seec_clang;
   using namespace clang::frontend;
   StringRef Action("unknown");
@@ -88,17 +91,20 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI) {
   case ASTView:                return new ASTViewAction();
   case DumpRawTokens:          return new DumpRawTokensAction();
   case DumpTokens:             return new DumpTokensAction();
-  case EmitAssembly:           return new SeeCEmitAssemblyAction();
-  case EmitBC:                 return new SeeCEmitBCAction();
+  case EmitAssembly:           return new SeeCEmitAssemblyAction(ArgBegin,
+                                                                 ArgEnd);
+  case EmitBC:                 return new SeeCEmitBCAction(ArgBegin, ArgEnd);
 #ifdef CLANG_ENABLE_REWRITER
   case EmitHTML:               return new HTMLPrintAction();
 #else
   case EmitHTML:               Action = "EmitHTML"; break;
 #endif
-  case EmitLLVM:               return new SeeCEmitLLVMAction();
-  case EmitLLVMOnly:           return new SeeCEmitLLVMOnlyAction();
-  case EmitCodeGenOnly:        return new SeeCEmitCodeGenOnlyAction();
-  case EmitObj:                return new SeeCEmitBCAction();
+  case EmitLLVM:               return new SeeCEmitLLVMAction(ArgBegin, ArgEnd);
+  case EmitLLVMOnly:           return new SeeCEmitLLVMOnlyAction(ArgBegin,
+                                                                 ArgEnd);
+  case EmitCodeGenOnly:        return new SeeCEmitCodeGenOnlyAction(ArgBegin,
+                                                                    ArgEnd);
+  case EmitObj:                return new SeeCEmitBCAction(ArgBegin, ArgEnd);
 #ifdef CLANG_ENABLE_REWRITER
   case FixIt:                  return new FixItAction();
 #else
@@ -173,9 +179,11 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI) {
 #endif
 }
 
-static FrontendAction *CreateFrontendAction(CompilerInstance &CI) {
+static FrontendAction *CreateFrontendAction(CompilerInstance &CI,
+                                            const char **ArgBegin,
+                                            const char **ArgEnd) {
   // Create the underlying action.
-  FrontendAction *Act = CreateFrontendBaseAction(CI);
+  FrontendAction *Act = CreateFrontendBaseAction(CI, ArgBegin, ArgEnd);
   if (!Act)
     return 0;
 
@@ -221,7 +229,9 @@ static FrontendAction *CreateFrontendAction(CompilerInstance &CI) {
   return Act;
 }
 
-static bool DoCompilerInvocation(CompilerInstance *Clang)
+static bool DoCompilerInvocation(CompilerInstance *Clang,
+                                 const char **ArgBegin,
+                                 const char **ArgEnd)
 {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
@@ -282,7 +292,7 @@ static bool DoCompilerInvocation(CompilerInstance *Clang)
   Clang->getInvocation().getCodeGenOpts().EmitDeclMetadata = 1;
   
   // Create and execute the frontend action.
-  OwningPtr<FrontendAction> Act(CreateFrontendAction(*Clang));
+  OwningPtr<FrontendAction> Act(CreateFrontendAction(*Clang, ArgBegin, ArgEnd));
   if (!Act)
     return false;
   
@@ -343,7 +353,7 @@ int cc1_main(const char **ArgBegin,
     return 1;
   
   // Execute the frontend actions.
-  Success = DoCompilerInvocation(Clang.get());
+  Success = DoCompilerInvocation(Clang.get(), ArgBegin, ArgEnd);
 
   // If any timers were active but haven't been destroyed yet, print their
   // results now.  This happens in -disable-free mode.

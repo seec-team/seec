@@ -333,7 +333,7 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   std::unique_ptr<CompilerInvocation> CI {new CompilerInvocation()};
   
   bool Created = CompilerInvocation::CreateFromArgs(*CI,
-                                                    Args.data() + 1,
+                                                    Args.data(),
                                                     Args.data() + Args.size(),
                                                     *Diags);
   if (!Created) {
