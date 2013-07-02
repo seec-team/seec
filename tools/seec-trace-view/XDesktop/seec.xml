@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+  <mime-type type="x-content/x-seec-trace">
+    <comment>SeeC execution trace</comment>
+    <acronym>seectrace</acronym>
+    <expanded-acronym>SeeC Execution Trace</expanded-acronym>
+    <icon name="seec"/>
+    <treemagic priority="75">
+      <treematch path="st.spt" type="file"/>
+    </treemagic>
+    <glob pattern="*.seectrace"/>
+    <glob pattern="*.seectrace/"/>
+  </mime-type>
+  <mime-type type="application/x-seec-trace">
+    <comment>SeeC execution trace</comment>
+    <acronym>seectrace</acronym>
+    <expanded-acronym>SeeC Execution Trace</expanded-acronym>
+    <icon name="seec"/>
+    <glob pattern="*.spt"/>
+  </mime-type>
+</mime-info>
+
