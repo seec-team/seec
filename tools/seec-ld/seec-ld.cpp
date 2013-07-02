@@ -25,6 +25,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/PassManager.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
@@ -43,6 +44,16 @@
 
 #include <unistd.h>
 
+
+namespace {
+  using namespace llvm;
+  
+  static cl::opt<std::string>
+  LDPath("use-ld",
+         cl::desc("linker"),
+         cl::init("/usr/bin/ld"),
+         cl::value_desc("filename"));
+}
 
 static void InitializeCodegen()
 {
@@ -246,29 +257,8 @@ int main(int argc, char **argv)
   llvm::llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
   auto &Context = llvm::getGlobalContext();
   
-  char const *ldPath = nullptr;
-  int NextArgIdx = 1;
-  
   // Setup the targets and passes required by codegen.
   InitializeCodegen();
-  
-  // Determine the real ld to use. If we were invoked from another SeeC tool,
-  // then this should be the first argument.
-  if (argc >= 3 && std::string("--with-ld") == argv[1]) {
-    ldPath = argv[2];
-    NextArgIdx = 3;
-  }
-  else
-    ldPath = "/usr/bin/ld";
-  
-#if 0 // Will become available to us when we update LLVM.
-  if (!llvm::sys::fs::can_execute(ldPath)) {
-    llvm::errs() << "Error: subservient ld "
-                 << ldPath
-                 << " is not executable.\n";
-    exit(EXIT_FAILURE);
-  }
-#endif
   
   // Take all arguments that refer to LLVM bitcode files and link all of those
   // files together. The remaining arguments should be placed into ForwardArgs.
@@ -278,8 +268,16 @@ int main(int argc, char **argv)
   std::size_t InsertCompositePathAt = 0;
   std::string ErrorMessage;
   
-  for (auto i = NextArgIdx; i < argc; ++i) {
-    if (MaybeModule(argv[i])) {
+  ForwardArgs.push_back(argv[0]);
+  
+  for (auto i = 1; i < argc; ++i) {
+    if (llvm::StringRef(argv[i]) == "--seec") {
+      // Everything from here on in is a seec argument.
+      argv[i] = "seec-ld";
+      cl::ParseCommandLineOptions(argc - i, argv + i, "seec linker shim\n");
+      break;
+    }
+    else if (MaybeModule(argv[i])) {
       // This argument is a file. Attempt to load it as an llvm::Module. If the
       // load fails then silently ignore it, as the file may be a native object
       // that we will pass to the real linker.
@@ -323,13 +321,16 @@ int main(int argc, char **argv)
     ForwardArgs.insert(ForwardArgs.begin() + InsertCompositePathAt,
                        TempObjPath.c_str());
   }
+  else {
+    llvm::errs() << argv[0] << ": didn't find any llvm modules.\n";
+  }
   
   // Call the real ld with the unused original arguments and the new temporary
   // object file.
   ForwardArgs.push_back(nullptr);
   
   auto const Result =
-    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(ldPath),
+    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(LDPath),
                                        ForwardArgs.data());
   
   return Result;

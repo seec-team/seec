@@ -69,8 +69,9 @@ class SeeCCodeGenAction : public clang::CodeGenAction {
   virtual void anchor() {};
 
 public:
-  SeeCCodeGenAction(llvm::LLVMContext *_VMContext = 0)
-  : CodeGenAction(clang::Backend_EmitNothing, _VMContext),
+  SeeCCodeGenAction(unsigned _Action,
+                    llvm::LLVMContext *_VMContext = 0)
+  : CodeGenAction(_Action, _VMContext),
     NextDeclIndex(0),
     NextStmtIndex(0),
     DeclMap(),
@@ -94,6 +95,42 @@ public:
   decltype(DeclMap) const &getDeclMap() { return DeclMap; }
 
   decltype(StmtMap) const &getStmtMap() { return StmtMap; }
+};
+
+class SeeCEmitAssemblyAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitAssemblyAction(llvm::LLVMContext *_VMContext = 0);
+};
+
+class SeeCEmitBCAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitBCAction(llvm::LLVMContext *_VMContext = 0);
+};
+
+class SeeCEmitLLVMAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitLLVMAction(llvm::LLVMContext *_VMContext = 0);
+};
+
+class SeeCEmitLLVMOnlyAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitLLVMOnlyAction(llvm::LLVMContext *_VMContext = 0);
+};
+
+class SeeCEmitCodeGenOnlyAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitCodeGenOnlyAction(llvm::LLVMContext *_VMContext = 0);
+};
+
+class SeeCEmitObjAction : public SeeCCodeGenAction {
+  virtual void anchor();
+public:
+  SeeCEmitObjAction(llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCASTConsumer
@@ -171,27 +208,13 @@ public:
   /// \}
 };
 
-/// \brief Get the arguments to compile a single C99 source file.
+/// \brief Find the resources directory.
 ///
-seec::Maybe<std::vector<std::string>, seec::Error>
-getCompileArgumentsDefault(char const *Filename,
-                           llvm::StringRef ExecutablePath,
-                           clang::DiagnosticsEngine &Diagnostics,
-                           bool CheckInputExists);
+std::string getResourcesDirectory(llvm::StringRef ExecutablePath);
 
-
+/// \brief Find the runtime library directory.
 ///
-/// \param Filename The source file to be compiled.
-/// \param ExecutablePath Used by the Clang driver to find resources.
-/// \param Diagnostics The diagnostics engine for this compilation.
-/// \return A std::unique_ptr holding a clang::CompileInvocation that will
-///         parse the given source file.
-std::unique_ptr<clang::CompilerInvocation>
-GetCompileForSourceFile(
-  char const *Filename,
-  llvm::StringRef ExecutablePath,
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics,
-  bool const CheckInputExists);
+std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath);
 
 ///
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,

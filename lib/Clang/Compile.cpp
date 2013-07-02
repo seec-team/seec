@@ -57,6 +57,41 @@ SeeCCodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   return new SeeCASTConsumer(*this, CodeGenConsumer);
 }
 
+#if 0
+  GenerateSerializableMappings(*Action,
+                               Mod,
+                               Compiler.getSourceManager(),
+                               InputFile);
+  
+  // Store all used source files into the LLVM Module.
+  StoreCompileInformationInModule(Mod, Compiler, StringArgs);
+#endif
+
+void SeeCEmitAssemblyAction::anchor() {}
+SeeCEmitAssemblyAction::SeeCEmitAssemblyAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitAssembly, _VMContext) {}
+
+void SeeCEmitBCAction::anchor() {}
+SeeCEmitBCAction::SeeCEmitBCAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitBC, _VMContext) {}
+
+void SeeCEmitLLVMAction::anchor() {}
+SeeCEmitLLVMAction::SeeCEmitLLVMAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitLL, _VMContext) {}
+
+void SeeCEmitLLVMOnlyAction::anchor() {}
+SeeCEmitLLVMOnlyAction::SeeCEmitLLVMOnlyAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitNothing, _VMContext) {}
+
+void SeeCEmitCodeGenOnlyAction::anchor() {}
+SeeCEmitCodeGenOnlyAction::SeeCEmitCodeGenOnlyAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitMCNull, _VMContext) {}
+
+void SeeCEmitObjAction::anchor() {}
+SeeCEmitObjAction::SeeCEmitObjAction(llvm::LLVMContext *_VMContext)
+: SeeCCodeGenAction(::clang::Backend_EmitObj, _VMContext) {}
+
+
 //===----------------------------------------------------------------------===//
 // class SeeCASTConsumer
 //===----------------------------------------------------------------------===//
@@ -91,23 +126,11 @@ bool SeeCASTConsumer::VisitDecl(Decl *D) {
 
 
 //===----------------------------------------------------------------------===//
-// getCompileArgumentsDefault
+// getResourcesDirectory
 //===----------------------------------------------------------------------===//
 
-seec::Maybe<std::vector<std::string>, seec::Error>
-getCompileArgumentsDefault(char const *Filename,
-                           llvm::StringRef ExecutablePath,
-                           DiagnosticsEngine &Diagnostics,
-                           bool CheckInputExists)
+std::string getResourcesDirectory(llvm::StringRef ExecutablePath)
 {
-  // Create a driver to build the compilation
-  driver::Driver Driver(ExecutablePath.str(),
-                        llvm::sys::getDefaultTargetTriple(),
-                        "a.out",
-                        Diagnostics);
-  
-  Driver.setCheckInputsExist(CheckInputExists);
-
   // Find the location of the Clang resources, which should be fixed relative
   // to our executable path.
   // For Bundles find: ../../Resources/clang/CLANG_VERSION_STRING
@@ -131,124 +154,36 @@ getCompileArgumentsDefault(char const *Filename,
     ResourcePath.appendComponent(CLANG_VERSION_STRING);
   }
   
-  if (!ResourcePath.canRead()) {
-    return
-      seec::Error(
-        LazyMessageByRef::create("SeeCClang",
-                                 {"errors",
-                                  "ResourcePathUnreadable"},
-                                 std::make_pair("path",
-                                                ResourcePath.str().c_str())));
-  }
-  
-  Driver.ResourceDir = ResourcePath.str();
-
-  // Setup the command-line arguments for the compilation
-  char const * CompilationArgs[] {
-    "-std=c99",
-    "-Wall",
-    "-pedantic",
-    "-fno-builtin",
-    "-fno-stack-protector",
-    "-D_FORTIFY_SOURCE=0",
-    "-D__NO_CTYPE=1",
-    "-g",
-    "-emit-llvm",
-    "-S",
-    Filename
-  };
-
-  std::unique_ptr<driver::Compilation> Compilation
-    (Driver.BuildCompilation(CompilationArgs));
-  
-  if (!Compilation) {
-    return seec::Error(
-              LazyMessageByRef::create("SeeCClang",
-                                       {"errors",
-                                        "DriverBuildCompilationFailed"}));
-  }
-
-  driver::JobList &Jobs = Compilation->getJobs();
-  
-  if (Jobs.size() != 1) {
-    return
-      seec::Error(
-        LazyMessageByRef::create("SeeCClang",
-                                 {"errors",
-                                  "CompilationJobsSizeUnexpected"},
-                                 std::make_pair("size",
-                                                int64_t(Jobs.size()))));
-  }
-
-  driver::Command *Command = dyn_cast<driver::Command>(*Jobs.begin());
-  
-  if (!Command) {
-    return seec::Error(
-              LazyMessageByRef::create("SeeCClang",
-                                       {"errors",
-                                        "JobCommandNull"}));
-  }
-
-  if (StringRef(Command->getCreator().getName()) != "clang") {
-    return seec::Error(
-              LazyMessageByRef::create("SeeCClang",
-                                       {"errors",
-                                        "JobCommandNotClang"}));
-  }
-
-  // Convert the arguments into std::strings and return them.
-  driver::ArgStringList const &Args = Command->getArguments();
-  
-  std::vector<std::string> StringArgs;
-  StringArgs.reserve(Args.size());
-  
-  for (auto const &Arg : Args)
-    StringArgs.emplace_back(Arg);
-  
-  return StringArgs;
+  return ResourcePath.str();
 }
 
 
 //===----------------------------------------------------------------------===//
-// GetCompileForSourceFile
+// getRuntimeLibraryDirectory
 //===----------------------------------------------------------------------===//
 
-std::unique_ptr<CompilerInvocation>
-GetCompileForSourceFile(char const *Filename,
-                        StringRef ExecutablePath,
-                        IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics,
-                        bool const CheckInputExists)
+std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
 {
-  auto MaybeStringArgs = getCompileArgumentsDefault(Filename,
-                                                    ExecutablePath,
-                                                    *Diagnostics,
-                                                    CheckInputExists);
+  // The runtime library location should be fixed relative to our executable
+  // path.
   
-  if (MaybeStringArgs.assigned<seec::Error>()) {
-    // TODO: Return seec::Error.
-    return nullptr;
+  // For Bundles find: ???
+  // Otherwise find:   ../lib
+  
+  llvm::sys::Path ResourcePath (ExecutablePath);
+  ResourcePath.eraseComponent(); // remove executable name
+  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  
+  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
+    llvm_unreachable("bundle support not implemented.");
+  }
+  else {
+    ResourcePath.appendComponent("lib");
   }
   
-  auto &StringArgs = MaybeStringArgs.get<std::vector<std::string>>();
-  
-  std::vector<char const *> Args;
-  
-  for (auto &String : StringArgs)
-    Args.emplace_back(String.c_str());
-  
-  std::unique_ptr<CompilerInvocation> Invocation (new CompilerInvocation());
-  
-  bool Created = CompilerInvocation::CreateFromArgs(*Invocation,
-                                                    Args.data() + 1,
-                                                    Args.data() + Args.size(),
-                                                    *Diagnostics);
-  if (!Created) {
-    // TODO: Return seec::Error.
-    return nullptr;
-  }
-
-  return Invocation;
+  return ResourcePath.str();
 }
+
 
 //===----------------------------------------------------------------------===//
 // GetMetadataPointer

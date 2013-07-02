@@ -1,4 +1,4 @@
-add_executable(seec-cc main.cpp)
+add_executable(seec-cc main.cpp cc1_main.cpp)
 
 # Determine the LLVM libraries that we need
 execute_process(
