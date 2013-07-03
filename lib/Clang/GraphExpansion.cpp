@@ -58,10 +58,21 @@ public:
     Edges.insert(std::make_pair(&ToValue, std::move(FromPointer)));
   }
   
-  void addPointer(std::shared_ptr<ValueOfPointer const> Pointer)
+  /// \brief Add the given pointer if it doesn't already exist.
+  ///
+  /// \return true iff the Pointer didn't already exist and was added.
+  ///
+  bool addPointer(std::shared_ptr<ValueOfPointer const> Pointer)
   {
-    Pointers.insert(std::make_pair(Pointer->getRawValue(),
-                                   std::move(Pointer)));
+    auto const Address = Pointer->getRawValue();
+    
+    for (auto const &Pair : range(Pointers.equal_range(Address)))
+      if (Pair.second == Pointer)
+        return false;
+    
+    Pointers.insert(std::make_pair(Address, std::move(Pointer)));
+    
+    return true;
   }
   
   bool isReferenced(Value const &Val) const {
@@ -155,7 +166,8 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
         
         unsigned const Limit = Ptr->getDereferenceIndexLimit();
         
-        EI.addPointer(Ptr);
+        if (!EI.addPointer(Ptr)) // Pointer has already been expanded.
+          break;
         
         for (unsigned i = 0; i < Limit; ++i) {
           auto const Pointee = Ptr->getDereferenced(i);
