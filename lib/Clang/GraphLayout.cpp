@@ -639,7 +639,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
       }
     }
   }
-  else {
+  else if (Limit > 1) {
     for (unsigned i = 0; i < Limit; ++i) {
       auto const Pointee = Reference.getDereferenced(i);
       if (Pointee) {
@@ -653,6 +653,11 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
         }
       }
     }
+  }
+  else {
+    // Can't dereference the pointer. Either the memory region is insufficient,
+    // or it's a pointer to an incomplete type.
+    DotStream << "<TR><TD></TD></TR>";
   }
   
   DotStream << "</TABLE>> ];\n";
@@ -1117,6 +1122,27 @@ doLayout(LayoutHandler const &Handler,
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
                           Area);
   
+  // Remove all pointers to incomplete types to the end of the list. If we have
+  // nothing but pointers to incomplete types, then layout using any one of
+  // them (we can't do the child reference removal below).
+  auto const IncompleteIt =
+    std::partition(Refs.begin(), Refs.end(),
+                    [] (ValOfPtr const &Ptr) -> bool {
+                      auto const CanTy = Ptr->getCanonicalType();
+                      auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
+                      return !PtrTy->getPointeeType()->isIncompleteType();
+                    });
+  
+  if (IncompleteIt == Refs.begin())
+    return std::make_pair(Handler.doLayout(Area, **IncompleteIt, Expansion),
+                          Area);
+  
+  Refs.erase(IncompleteIt, Refs.end());
+  
+  if (Refs.size() == 1)
+    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
+                          Area);
+  
   // Remove all references which refer to a child of another reference. E.g. if
   // we have a pointer to a struct, and a pointer to a member of that struct,
   // then we should remove the member pointer (if the struct is selected for
@@ -1178,9 +1204,23 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     if (!Pointer->isInMemory())
       continue;
     
-    if (Pointer->getDereferenceIndexLimit() == 0)
+    // Don't layout null pointers.
+    auto const HeadAddress = Pointer->getRawValue();
+    if (!HeadAddress)
       continue;
     
+    // Find the node that owns the pointee address.
+    auto const HeadIt =
+      std::find_if(AllNodeInfo.begin(),
+                   AllNodeInfo.end(),
+                   [=] (NodeInfo const &NI) { return NI.getArea()
+                                                       .contains(HeadAddress);
+                                            });
+    
+    if (HeadIt == AllNodeInfo.end())
+      continue;
+    
+    // Find the node that owns the pointer's memory.
     auto const TailAddress = Pointer->getAddress();
     auto const TailIt =
       std::find_if(AllNodeInfo.begin(),
@@ -1189,28 +1229,10 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
                                                        .contains(TailAddress);
                                             });
     
-    if (TailIt == AllNodeInfo.end()) {
-      llvm::errs() << "pointer: tail not found.\n";
+    if (TailIt == AllNodeInfo.end())
       continue;
-    }
-    
-    auto const HeadAddress = Pointer->getRawValue();
-    auto const HeadIt =
-      std::find_if(AllNodeInfo.begin(),
-                   AllNodeInfo.end(),
-                   [=] (NodeInfo const &NI) { return NI.getArea()
-                                                       .contains(HeadAddress);
-                                            });
-    
-    if (HeadIt == AllNodeInfo.end()) {
-      llvm::errs() << "pointer: head not found.\n";
-      continue;
-    }
     
     auto const MaybeTailPort = TailIt->getPortForValue(*Pointer);
-    
-    auto const Pointee = Pointer->getDereferenced(0);
-    auto const MaybeHeadPort = HeadIt->getPortForValue(*Pointee);
     
     // Accumulate all attributes.
     std::string EdgeAttributes;
@@ -1234,10 +1256,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     }
     else {
       // The tail port wasn't found, we must consider it punned.
-      llvm::errs() << "tail considered punned.\n";
-      
       EdgeAttributes += "dir=both arrowtail=odot ";
-      
       IsPunned = true;
     }
     
@@ -1247,23 +1266,37 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     // Write the head.
     DotStream << HeadIt->getID();
     
-    if (MaybeHeadPort.assigned<ValuePort>()) {
-      // Tail port was explicitly defined during layout.
-      auto const &HeadPort = MaybeHeadPort.get<ValuePort>();
+    if (Pointer->getDereferenceIndexLimit() != 0) {
+      auto const Pointee = Pointer->getDereferenced(0);
+      auto const MaybeHeadPort = HeadIt->getPortForValue(*Pointee);
       
-      if (!HeadPort.getCustomPort().empty())
-        DotStream << ':' << HeadPort.getCustomPort();
-      else if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
-        DotStream << ':'
-                  << getStandardPortFor(*Pointee)
-                  << ":nw";
+      if (MaybeHeadPort.assigned<ValuePort>()) {
+        // Tail port was explicitly defined during layout.
+        auto const &HeadPort = MaybeHeadPort.get<ValuePort>();
+        
+        if (!HeadPort.getCustomPort().empty())
+          DotStream << ':' << HeadPort.getCustomPort();
+        else if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
+          DotStream << ':'
+                    << getStandardPortFor(*Pointee)
+                    << ":nw";
+      }
+      else {
+        if (HeadAddress == HeadIt->getArea().start())
+          DotStream << ":nw";
+        
+        EdgeAttributes += "arrowhead=odot ";
+        IsPunned = true;
+      }
     }
     else {
-      // The tail port wasn't found, we must consider it punned.
-      llvm::errs() << "head considered punned.\n";
+      // There's no pointee value. Either the memory area is too small, or the
+      // pointer's element type is incomplete. For now, make this look like a
+      // punned pointer.
+      if (HeadAddress == HeadIt->getArea().start())
+        DotStream << ":nw";
       
       EdgeAttributes += "arrowhead=odot ";
-      
       IsPunned = true;
     }
     

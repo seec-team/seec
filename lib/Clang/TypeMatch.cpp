@@ -28,6 +28,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::BuiltinType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return A->getKind() == B->getKind();
 }
 
@@ -36,6 +39,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::ComplexType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return match(AContext,
                *(A->getElementType().getTypePtr()),
                BContext,
@@ -47,6 +53,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::PointerType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return match(AContext,
                *(A->getPointeeType().getTypePtr()),
                BContext,
@@ -58,6 +67,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::BlockPointerType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return match(AContext,
                *(A->getPointeeType().getTypePtr()),
                BContext,
@@ -72,6 +84,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::ReferenceType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return match(AContext,
                *(A->getPointeeType().getTypePtr()),
                BContext,
@@ -83,6 +98,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::MemberPointerType const *B)
 {
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
+  
   return match(AContext,
                *(A->getPointeeType().getTypePtr()),
                BContext,
@@ -124,6 +142,8 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::FunctionProtoType const *B)
 {
+  // TODO.
+  
   return false;
 }
 
@@ -158,6 +178,10 @@ static bool matchType(::clang::ASTContext const &AContext,
   
   if (!ADef || !BDef)
     return false; // TODO: Can we decide if this is a match in some cases?
+  
+  // Check the size and alignment of each type.
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
   
   // Check that the fields in each definition are matching.
   auto const AEnd = ADef->field_end();
@@ -197,6 +221,10 @@ static bool matchType(::clang::ASTContext const &AContext,
   
   if (!ADef || !BDef)
     return false; // TODO: Can we decide if this is a match in some cases?
+  
+  // Check the size and alignment of each type.
+  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+    return false;
   
   // Check that the underlying type of the enums matches.
   auto const AEnumType = ADef->getIntegerType().getTypePtr();
@@ -281,11 +309,6 @@ bool matchImpl(::clang::ASTContext const &AContext,
   
   auto const ACanon = AType->getCanonicalTypeInternal().getTypePtr();
   auto const BCanon = BType->getCanonicalTypeInternal().getTypePtr();
-  
-  // We don't consider types to be equal if their size or alignment are
-  // different.
-  if (AContext.getTypeInfo(ACanon) != BContext.getTypeInfo(BCanon))
-    return false;
   
   if (ACanon->getTypeClass() != BCanon->getTypeClass())
     return false;

@@ -473,8 +473,10 @@ public:
     auto const Type = CanonicalType->getAs< ::clang::PointerType>();
     assert(Type && "Expected PointerType");
     
-    auto const PointeeQType = Type->getPointeeType();
-    auto const PointeeSize = ASTContext.getTypeSizeInChars(PointeeQType);
+    auto const PointeeQType = Type->getPointeeType().getCanonicalType();
+    auto const PointeeSize = PointeeQType->isIncompleteType()
+                           ? ::clang::CharUnits::fromQuantity(0)
+                           : ASTContext.getTypeSizeInChars(PointeeQType);
     
     // Calculate the raw pointer value (don't worry if the memory is
     // uninitialized: getByteValues() will return zeros and we simply won't use
@@ -1641,8 +1643,10 @@ public:
     // Get the size of pointee type.
     auto const Type = llvm::cast< ::clang::PointerType>
                                 (Expression->getType().getTypePtr());
-    auto const PointeeQType = Type->getPointeeType();
-    auto const PointeeSize = ASTContext.getTypeSizeInChars(PointeeQType);
+    auto const PointeeQType = Type->getPointeeType().getCanonicalType();
+    auto const PointeeSize = PointeeQType->isIncompleteType()
+                           ? ::clang::CharUnits::fromQuantity(0)
+                           : ASTContext.getTypeSizeInChars(PointeeQType);
     
     // Create the object.
     return std::shared_ptr<ValueByRuntimeValueForPointer>
@@ -1767,6 +1771,9 @@ createValue(std::shared_ptr<ValueStore const> Store,
   }
   
   auto const CanonicalType = QualType.getCanonicalType();
+  if (CanonicalType->isIncompleteType())
+    return std::shared_ptr<Value const>(); // No values for incomplete types.
+  
   auto const TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
   
   switch (CanonicalType->getTypeClass()) {
@@ -2038,8 +2045,6 @@ getValue(std::shared_ptr<ValueStore const> Store,
           if (!RTV->assigned()) {
             return std::shared_ptr<Value const>();
           }
-          
-          // TODO: Ensure that Instruction value is still valid.
         }
       }
       
@@ -2054,11 +2059,15 @@ getValue(std::shared_ptr<ValueStore const> Store,
                                                        LLVMValues.first);
         }
         else {
+          auto const ExprType = Expression->getType();
+          if (ExprType->isIncompleteType())
+            return std::shared_ptr<Value const>();
+          
           // All other types use a single implementation.
           auto const TypeSize = SMap.getAST()
                                     .getASTUnit()
                                     .getASTContext()
-                                    .getTypeSizeInChars(Expression->getType());
+                                    .getTypeSizeInChars(ExprType);
           
           return std::make_shared<ValueByRuntimeValueForScalar>
                                  (Expression,
@@ -2076,12 +2085,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
           if (!RTV->assigned()) {
             return std::shared_ptr<Value const>();
           }
-          
-          // TODO: Ensure that Instruction value is still valid.
         }
       }
       
-      // TODO.
+      // TODO: Generate complex Value.
+      
       return std::shared_ptr<Value const>();
     }
     
@@ -2179,6 +2187,13 @@ bool isContainedChild(Value const &Child, Value const &Parent)
 //
 bool doReferenceSameValue(ValueOfPointer const &LHS, ValueOfPointer const &RHS)
 {
+  // Ensure that both pointers reference at least one Value.
+  auto const LLim = LHS.getDereferenceIndexLimit();
+  auto const RLim = RHS.getDereferenceIndexLimit();
+  
+  if (LLim == 0 || RLim == 0)
+    return false;
+  
   auto const L0 = LHS.getDereferenced(0);
   auto const R0 = RHS.getDereferenced(0);
   
