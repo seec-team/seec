@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Clang/TypeMatch.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
@@ -1861,6 +1862,35 @@ createValue(std::shared_ptr<ValueStore const> Store,
 // ValueStoreImpl
 //===----------------------------------------------------------------------===//
 
+class TypedValueSet {
+  std::vector<std::pair<MatchType, std::shared_ptr<Value const>>> Items;
+
+public:
+  TypedValueSet()
+  : Items()
+  {}
+  
+  std::shared_ptr<Value const> getShared(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second;
+    
+    return std::shared_ptr<Value const>{};
+  }
+  
+  Value const *get(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second.get();
+    
+    return nullptr;
+  }
+  
+  void add(MatchType const &ForType, std::shared_ptr<Value const> Val) {
+    Items.emplace_back(ForType, std::move(Val));
+  }
+};
+
 class ValueStoreImpl final {
   /// Control access to the Store variable.
   mutable std::mutex StoreAccess;
@@ -1868,9 +1898,7 @@ class ValueStoreImpl final {
   // Two-stage lookup to find previously created Value objects.
   // The first stage is the in-memory address of the object.
   // The second stage is the canonical type of the object.
-  mutable llvm::DenseMap<uintptr_t,
-                         llvm::DenseMap< ::clang::Type const *,
-                                        std::shared_ptr<Value const>>> Store;
+  mutable llvm::DenseMap<uintptr_t, TypedValueSet> Store;
   
   // Disable copying and moving.
   ValueStoreImpl(ValueStoreImpl const &) = delete;
@@ -1894,6 +1922,8 @@ public:
            seec::trace::ProcessState const &ProcessState) const
   {
     auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
+    if (!CanonicalType)
+      return std::shared_ptr<Value const>();
     
     // Lock the Store.
     std::lock_guard<std::mutex> LockStore(StoreAccess);
@@ -1901,9 +1931,10 @@ public:
     // Get (or create) the lookup table for this memory address.
     auto &TypeMap = Store[Address];
     
-    auto const It = TypeMap.find(CanonicalType);
-    if (It != TypeMap.end())
-      return It->second;
+    auto const Matcher = MatchType(ASTContext, *CanonicalType);
+    auto const Existing = TypeMap.getShared(Matcher);
+    if (Existing)
+      return Existing;
     
     // We must create a new Value.
     auto SharedPtr = createValue(StorePtr,
@@ -1915,7 +1946,7 @@ public:
       return SharedPtr;
     
     // Store a shared_ptr for this Value in the lookup table.
-    TypeMap.insert(std::make_pair(CanonicalType, SharedPtr));
+    TypeMap.add(Matcher, SharedPtr);
     
     return SharedPtr;
   }
