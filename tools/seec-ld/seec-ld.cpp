@@ -273,7 +273,7 @@ int main(int argc, char **argv)
   for (auto i = 1; i < argc; ++i) {
     if (llvm::StringRef(argv[i]) == "--seec") {
       // Everything from here on in is a seec argument.
-      argv[i] = "seec-ld";
+      argv[i] = argv[0];
       cl::ParseCommandLineOptions(argc - i, argv + i, "seec linker shim\n");
       break;
     }
