@@ -36,8 +36,6 @@
 #include "TraceViewerFrame.hpp"
 #include "WelcomeFrame.hpp"
 
-#define SEEC_SHOW_DEBUG 1
-
 
 //------------------------------------------------------------------------------
 // TraceViewerApp
