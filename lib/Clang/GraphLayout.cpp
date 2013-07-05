@@ -94,7 +94,15 @@ static std::string EscapeForHTML(llvm::StringRef String)
 //===----------------------------------------------------------------------===//
 
 
+enum class NodeType {
+  None,
+  Function,
+  Global
+};
+
 class NodeInfo {
+  NodeType Type;
+  
   std::string ID;
   
   MemoryArea Area;
@@ -102,13 +110,17 @@ class NodeInfo {
   ValuePortMap Ports;
   
 public:
-  NodeInfo(std::string WithID,
+  NodeInfo(NodeType WithType,
+           std::string WithID,
            MemoryArea WithArea,
            ValuePortMap WithPorts)
-  : ID(std::move(WithID)),
+  : Type(WithType),
+    ID(std::move(WithID)),
     Area(std::move(WithArea)),
     Ports(std::move(WithPorts))
   {}
+  
+  NodeType getType() const { return Type; }
   
   std::string const &getID() const { return ID; }
   
@@ -970,11 +982,13 @@ doLayout(LayoutHandler const &Handler,
     
     DotStream << Layout.getDotString();
     
-    FunctionNodes.emplace_back(Layout.getID(),
+    FunctionNodes.emplace_back(NodeType::Function,
+                               Layout.getID(),
                                Layout.getArea(),
                                Layout.getPorts());
   }
-  
+
+#if 0 // Disabled until we can rely on having a modern Graphviz.  
   // Make all function nodes take an equal rank.
   DotStream << "{ rank=same; ";
   
@@ -982,16 +996,17 @@ doLayout(LayoutHandler const &Handler,
     DotStream << FunctionLayout.getID() << "; ";
   
   DotStream << "};\n";
+#endif
   
   // Add edges to force function nodes to appear in order.
   if (FunctionLayouts.size() > 1) {
     auto const OrderEdgeCount = FunctionLayouts.size() - 1;
     
     for (unsigned i = 0; i < OrderEdgeCount; ++i) {
-      DotStream << FunctionLayouts[i].getID()
-                << " -> "
-                << FunctionLayouts[i+1].getID()
-                << " [style=invis weight=1000];\n";
+      DotStream << FunctionLayouts[i+1].getID()
+                << ":sw -> "
+                << FunctionLayouts[i].getID()
+                << ":nw [constraint=false style=invis weight=1000];\n";
     }
   }
   
@@ -1303,6 +1318,12 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     if (IsPunned)
       EdgeAttributes += "style=dashed ";
     
+    // Allow functions to be stacked vertically by forcing edges between
+    // functions to not be used in ranking.
+    if (HeadIt->getType() == NodeType::Function
+        && TailIt->getType() == NodeType::Function)
+      EdgeAttributes += "constraint=false ";
+    
     // Write attributes.
     if (!EdgeAttributes.empty()) {
       EdgeAttributes.pop_back();
@@ -1444,7 +1465,8 @@ doLayout(LayoutHandler const &Handler,
 
     DotStream << Layout.getDotString();
     
-    AllNodeInfo.emplace_back(Layout.getID(),
+    AllNodeInfo.emplace_back(NodeType::Global,
+                             Layout.getID(),
                              Layout.getArea(),
                              Layout.getPorts());
   }
@@ -1478,7 +1500,8 @@ doLayout(LayoutHandler const &Handler,
     
     DotStream << Layout.getDotString();
     
-    AllNodeInfo.emplace_back(Layout.getID(),
+    AllNodeInfo.emplace_back(NodeType::None,
+                             Layout.getID(),
                              Result.second,
                              Layout.getPorts());
   }
