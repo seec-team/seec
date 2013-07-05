@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
@@ -141,6 +142,32 @@ bool moveBackwardToEnd(ThreadState &Thread) {
 }
 
 // (Thread movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+// Contextual movement for functions.
+
+bool moveToFunctionFinished(FunctionState &Function) {
+  auto &Thread = Function.getParent();
+  auto &Process = Thread.getParent();
+  auto const &MappedModule = Process.getProcessTrace().getMapping();
+  
+  auto &UnmappedThread = Thread.getUnmappedState();
+  auto const StackSize = UnmappedThread.getCallStack().size();
+  
+  auto const Moved = seec::trace::moveForwardUntil(UnmappedThread,
+                        [=, &MappedModule] (seec::trace::ThreadState const &T) {
+                          return T.getCallStack().size() < StackSize
+                                  && isLogicalPoint(T, MappedModule);
+                        });
+  
+  Process.cacheClear();
+  
+  return Moved;
+}
+
+// (Contextual movement for functions.)
 //===----------------------------------------------------------------------===//
 
 

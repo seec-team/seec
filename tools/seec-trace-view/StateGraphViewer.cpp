@@ -141,6 +141,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   CallbackFS = new seec::CallbackFSHandler(CallbackProto);
   
+  // Value context menu callbacks.
   CallbackFS->addCallback("get_value_type",
     std::function<std::string (uintptr_t)>{
       [this] (uintptr_t const ValueID) -> std::string {
@@ -262,6 +263,30 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
+  // Function context menu callbacks.
+  CallbackFS->addCallback("move_to_function_entry",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const FunctionID) -> void {
+        auto const &F =
+          *reinterpret_cast<seec::cm::FunctionState const *>(FunctionID);
+
+        wxLogDebug("move_to_function_entry not implemented.");
+      }
+    });
+
+  CallbackFS->addCallback("move_to_function_finished",
+    std::function<void (uintptr_t)>{
+      [this] (uintptr_t const FunctionID) -> void {
+        auto &F =
+          *reinterpret_cast<seec::cm::FunctionState *>(FunctionID);
+
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [&F] (seec::cm::ProcessState &) -> bool {
+            return seec::cm::moveToFunctionFinished(F);
+          });
+      }
+    });
+
   wxFileSystem::AddHandler(CallbackFS);
   
   // Get our resources from ICU.

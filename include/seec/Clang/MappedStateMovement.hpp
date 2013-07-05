@@ -22,6 +22,7 @@ namespace seec {
 namespace cm {
 
 
+class FunctionState;
 class ThreadState;
 class Value;
 
@@ -51,6 +52,19 @@ bool moveBackward(ThreadState &Thread);
 bool moveBackwardToEnd(ThreadState &Thread);
 
 /// @} (Thread movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement for functions.
+/// @{
+
+/// \brief Move forwards until a Function is finished.
+/// \return true iff the state was moved.
+///
+bool moveToFunctionFinished(FunctionState &Function);
+
+/// @} (Contextual movement for functions.)
 //===----------------------------------------------------------------------===//
 
 

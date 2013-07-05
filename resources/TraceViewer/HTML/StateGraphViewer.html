@@ -57,10 +57,9 @@
       Log("Forward deallocation");
     }
 
-    // Called from seec-trace-viewer to set a new state display.
     //
-    var SetStateImplTimer = null;
-    
+    // Context menu callbacks for Values.
+    //
     function CMMoveToAllocation(valueid) {
       $.getJSON(SeeCURL("move_to_allocation", [valueid]),
         function(data) { /* The result is not important. */ });
@@ -80,11 +79,151 @@
       $.getJSON(SeeCURL("move_to_next_state", [valueid]),
         function(data) { /* The result is not important. */ });
     }
-    
+
     function CMSetLayoutEngineValue(engineid, valueid) {
       $.getJSON(SeeCURL("set_layout_engine_value", [engineid, valueid]),
         function(data) { /* The result is not important. */ });
     }
+
+    //
+    // Context menu callbacks for Functions.
+    //
+
+    function CMMoveToFunctionEntry(functionid) {
+      $.getJSON(SeeCURL("move_to_function_entry", [functionid]),
+        function(data) { /* The result is not important. */ });
+    }
+    
+    function CMMoveToFunctionFinished(functionid) {
+      $.getJSON(SeeCURL("move_to_function_finished", [functionid]),
+        function(data) { /* The result is not important. */ });
+    }
+    
+    //
+    // Context menu handler for all anchors.
+    //
+    
+    function CMGenerate(e) {
+      var $this = $(this);
+      var href = $this.attr('xlink:href');
+      if (!href) {
+        Log("No xlink:href found.");
+        return false;
+      }
+
+      var splitref = href.split(' ');
+      if (splitref.length != 2) {
+        Log("Bad reference length.");
+        return false;
+      }
+
+      var _offset = $this.offset(),
+          position = {
+            x: _offset.left + 10,
+            y: _offset.top + 10
+          };
+
+      if (splitref[0] == "value") {
+        //
+        // Generate a value context menu.
+        //
+        $.getJSON(SeeCURL("list_layout_engines_supporting_value",
+                          [splitref[1]]),
+        function(data) {
+          if (data.success) {
+            // Setup the menu items that always exist.
+            var menuitems = {
+              "move-to-allocation": {
+                "name": "Move to allocation",
+                "callback": function(key, options) {
+                  CMMoveToAllocation(splitref[1]);
+                }
+              },
+              "move-to-previous-state": {
+                "name": "Move to previous state",
+                "callback": function(key, options) {
+                  CMMoveToPreviousState(splitref[1]);
+                }
+              },
+              "move-to-next-state": {
+                "name": "Move to next state",
+                "callback": function(key, options) {
+                  CMMoveToNextState(splitref[1]);
+                }
+              },
+              "move-to-deallocation": {
+                "name": "Move to deallocation",
+                "callback": function(key, options) {
+                  CMMoveToDeallocation(splitref[1]);
+                }
+              }
+            };
+            
+            // Setup menu items based on the layout engines available.
+            var engines = data.result;
+            
+            if (engines.length > 1) {
+              var engineitems = {};
+            
+              for (var i = 0; i < engines.length; ++i) {
+                engineitems[engines[i].id] = {
+                  "name": engines[i].name,
+                  "callback": function(key, options) {
+                    CMSetLayoutEngineValue(key, splitref[1]);
+                  }
+                };
+              }
+              
+              menuitems["select-engine"] = {
+                "name": "Layout as...",
+                "items": engineitems
+              };
+            }
+            
+            // Build and show the menu.
+            $this.data('buildCM', function() {
+              return { "items": menuitems };
+            });
+            
+            $this.contextMenu(position);
+          }
+        });
+      }
+      else if (splitref[0] == "function") {
+        //
+        // Generate a function context menu.
+        //
+        $this.data('buildCM', function() {
+          return {
+            "items": {
+              "move-to-entry": {
+                "name": "Move to function entry",
+                "callback": function(key, options) {
+                  CMMoveToFunctionEntry(splitref[1]);
+                }
+              },
+              "move-to-finished": {
+                "name": "Move until function is finished",
+                "callback": function(key, options) {
+                  CMMoveToFunctionFinished(splitref[1]);
+                }
+              }
+            }
+          };
+        });
+
+        $this.contextMenu(position);
+      }
+      else {
+        Log("Don't understand ref: " + splitref[0]);
+      }
+
+      return false;
+    }
+
+    // Called from seec-trace-viewer to set a new state display.
+    //
+    var SetStateImplTimer = null;
     
     function SetStateImpl(SVGString) {
       SetStateImplTimer = null;
@@ -96,94 +235,7 @@
 
       var refs = $('a');
       refs.removeAttr("xlink:title");
-      refs.on('click', function(e){
-        var $this = $(this);
-        var href = $this.attr('xlink:href');
-        if (!href) {
-          Log("No xlink:href found.");
-          return false;
-        }
-
-        var splitref = href.split(' ');
-        if (splitref.length != 2) {
-          Log("Bad reference length.");
-          return false;
-        }
-
-        var _offset = $this.offset(),
-            position = {
-              x: _offset.left + 10,
-              y: _offset.top + 10
-            };
-
-        if (splitref[0] == "value") {
-          $.getJSON(SeeCURL("list_layout_engines_supporting_value", [splitref[1]]),
-          function(data) {
-            if (data.success) {
-              // Setup the menu items that always exist.
-              var menuitems = {
-                "move-to-allocation": {
-                  "name": "Move to allocation",
-                  "callback": function(key, options) {
-                    CMMoveToAllocation(splitref[1]);
-                  }
-                },
-                "move-to-previous-state": {
-                  "name": "Move to previous state",
-                  "callback": function(key, options) {
-                    CMMoveToPreviousState(splitref[1]);
-                  }
-                },
-                "move-to-next-state": {
-                  "name": "Move to next state",
-                  "callback": function(key, options) {
-                    CMMoveToNextState(splitref[1]);
-                  }
-                },
-                "move-to-deallocation": {
-                  "name": "Move to deallocation",
-                  "callback": function(key, options) {
-                    CMMoveToDeallocation(splitref[1]);
-                  }
-                }
-              };
-              
-              // Setup menu items based on the layout engines available.
-              var engines = data.result;
-              
-              if (engines.length > 1) {
-                var engineitems = {};
-              
-                for (var i = 0; i < engines.length; ++i) {
-                  engineitems[engines[i].id] = {
-                    "name": engines[i].name,
-                    "callback": function(key, options) {
-                      CMSetLayoutEngineValue(key, splitref[1]);
-                    }
-                  };
-                }
-                
-                menuitems["select-engine"] = {
-                  "name": "Layout as...",
-                  "items": engineitems
-                };
-              }
-              
-              // Build and show the menu.
-              $this.data('buildValueCM', function() {
-                return { "items": menuitems };
-              });
-              
-              $this.contextMenu(position);
-            }
-          });
-        }
-        else {
-          Log("Don't understand ref: " + splitref[0]);
-        }
-
-        return false;
-      });
+      refs.on('click', CMGenerate);
     }
     
     function SetState(SVGString) {
@@ -212,7 +264,7 @@
         selector: 'a',
         trigger: 'none',
         build: function($trigger, e) {
-          return $trigger.data('buildValueCM')();
+          return $trigger.data('buildCM')();
         }
       });
     }

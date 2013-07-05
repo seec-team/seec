@@ -892,8 +892,10 @@ doLayout(LayoutHandler const &Handler,
   DotStream << IDString
             << " [ label = <"
             << "<TABLE BORDER=\"0\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\">"
-            << "<TR><TD COLSPAN=\"2\">"
+               "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"function "
+            << reinterpret_cast<uintptr_t>(&State)
+            << "\">"
+               "<TR><TD COLSPAN=\"2\">"
             << State.getNameAsString()
             << "</TD></TR>";
   
