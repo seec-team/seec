@@ -59,6 +59,11 @@ bool moveBackwardToEnd(ThreadState &Thread);
 /// \name Contextual movement for functions.
 /// @{
 
+/// \brief Move backwards to the end of the Function's entry.
+/// \return true iff the state was moved.
+///
+bool moveToFunctionEntry(FunctionState &Function);
+
 /// \brief Move forwards until a Function is finished.
 /// \return true iff the state was moved.
 ///

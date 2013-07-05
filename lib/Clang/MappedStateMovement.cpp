@@ -32,8 +32,8 @@ namespace cm {
 //===----------------------------------------------------------------------===//
 // Thread movement.
 
-bool isLogicalPoint(seec::trace::ThreadState const &Thread,
-                    seec::seec_clang::MappedModule const &Mapping)
+static bool isLogicalPoint(seec::trace::ThreadState const &Thread,
+                           seec::seec_clang::MappedModule const &Mapping)
 {
   // Logical points:
   // 1) No active Function.
@@ -148,17 +148,62 @@ bool moveBackwardToEnd(ThreadState &Thread) {
 //===----------------------------------------------------------------------===//
 // Contextual movement for functions.
 
+bool moveToFunctionEntry(FunctionState &Function) {
+  auto &UnmappedFunction = Function.getUnmappedState();
+  auto &UnmappedThread = UnmappedFunction.getParent();
+  auto &CallStack = UnmappedThread.getCallStack();
+  
+  auto const FunIt =
+    std::find_if(CallStack.begin(), CallStack.end(),
+                  [&] (std::unique_ptr<seec::trace::FunctionState> const &F) {
+                    return F.get() == &UnmappedFunction;
+                  });
+  assert(FunIt != CallStack.end() && "Function is not in parent's stack.");
+  
+  std::size_t const StackPos = std::distance(CallStack.begin(), FunIt);
+  
+  // Rewind until there's no active instruction in the selected Function.
+  seec::trace::moveBackwardUntil(UnmappedThread,
+    [=, &UnmappedFunction] (seec::trace::ThreadState const &T) -> bool {
+      auto const StackSize = T.getCallStack().size();
+      
+      if (StackSize < StackPos + 1)
+        return true;
+      else if (StackSize > StackPos + 1)
+        return false;
+      
+      auto const ActiveFn = T.getActiveFunction();
+      if (ActiveFn != &UnmappedFunction)
+        return true;
+      
+      return (ActiveFn->getActiveInstruction() == nullptr);
+    });
+  
+  // Move forwards until we're at a logical point.
+  return moveForward(Function.getParent());
+}
+
 bool moveToFunctionFinished(FunctionState &Function) {
   auto &Thread = Function.getParent();
   auto &Process = Thread.getParent();
   auto const &MappedModule = Process.getProcessTrace().getMapping();
   
   auto &UnmappedThread = Thread.getUnmappedState();
-  auto const StackSize = UnmappedThread.getCallStack().size();
+  auto const &UnmappedFunction = Function.getUnmappedState();
+  auto const &CallStack = UnmappedThread.getCallStack();
+  
+  auto const FunIt =
+    std::find_if(CallStack.begin(), CallStack.end(),
+                  [&] (std::unique_ptr<seec::trace::FunctionState> const &F) {
+                    return F.get() == &UnmappedFunction;
+                  });
+  assert(FunIt != CallStack.end() && "Function is not in parent's stack.");
+  
+  std::size_t const StackPos = std::distance(CallStack.begin(), FunIt);
   
   auto const Moved = seec::trace::moveForwardUntil(UnmappedThread,
                         [=, &MappedModule] (seec::trace::ThreadState const &T) {
-                          return T.getCallStack().size() < StackSize
+                          return T.getCallStack().size() <= StackPos
                                   && isLogicalPoint(T, MappedModule);
                         });
   
