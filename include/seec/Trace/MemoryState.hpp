@@ -87,6 +87,25 @@ public:
   EventLocation const &getStateRecordLocation() const { return StateRecord; }
 
   /// @} (Accessors)
+  
+  
+  /// \name Comparison
+  /// @{
+  
+  /// \brief Check if this fragment is equivalent to another fragment.
+  bool operator==(MemoryStateFragment const &RHS) const {
+    // The contents of a fragment should never change (only the area of the
+    // contents that is currently valid), so we only need to check that the
+    // events are the same, and the areas are the same.
+    return StateRecord == RHS.StateRecord && Block.area() == RHS.Block.area();
+  }
+  
+  /// \brief Check if this fragment differs from another fragment.
+  bool operator!=(MemoryStateFragment const &RHS) const {
+    return !operator==(RHS);
+  }
+  
+  /// @} (Comparison)
 };
 
 
@@ -219,8 +238,7 @@ public:
     std::vector<char> getByteValues() const;
     
     /// \brief Get iterators for all fragments that contribute to this region.
-    std::vector<decltype(FragmentMap)::const_iterator>
-    getContributingFragments() const;
+    std::vector<MemoryStateFragment> getContributingFragments() const;
 
     /// @}
   };

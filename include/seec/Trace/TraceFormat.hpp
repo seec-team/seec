@@ -409,6 +409,21 @@ public:
   
   /// Get the offset of the event in the thread's event trace.
   offset_uint getOffset() const { return Offset; }
+
+  /// \name Comparison
+  /// @{
+
+  /// \brief Check if this EventLocation is equal to another EventLocation.
+  bool operator==(EventLocation const &RHS) const {
+    return ThreadID == RHS.ThreadID && Offset == RHS.Offset;
+  }
+
+  /// \brief Check if this EventLocation differs from another EventLocation.
+  bool operator!=(EventLocation const &RHS) const {
+    return !operator==(RHS);
+  }
+
+  /// @} (Comparison)
 };
 
 
