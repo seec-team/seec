@@ -134,6 +134,11 @@ static void ExpandArgv(int argc, const char **argv,
   for (int i = 0; i < argc; ++i) {
     const char *Arg = argv[i];
     if (Arg[0] != '@') {
+      // The following arguments are denied by SeeC:
+      auto const Ref = llvm::StringRef(Arg);
+      if (Ref.startswith("-g"))
+        continue;
+
       ArgVector.push_back(SaveStringInSet(SavedStrings, std::string(Arg)));
       continue;
     }
@@ -318,7 +323,6 @@ int main(int argc_, const char **argv_) {
     argv.push_back("-fno-builtin");
     argv.push_back("-D_FORTIFY_SOURCE=0");
     argv.push_back("-D__NO_CTYPE=1");
-    argv.push_back("-g");
     
     using namespace seec::seec_clang;
     

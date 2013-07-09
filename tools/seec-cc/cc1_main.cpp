@@ -327,6 +327,10 @@ int cc1_main(const char **ArgBegin,
   Success = CompilerInvocation::CreateFromArgs(Clang->getInvocation(),
                                                ArgBegin, ArgEnd, Diags);
 
+  // Emit debug information, as it assists SeeC.
+  Clang->getCodeGenOpts()
+    .setDebugInfo(CodeGenOptions::DebugInfoKind::FullDebugInfo);
+
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&
       Clang->getHeaderSearchOpts().ResourceDir.empty())
