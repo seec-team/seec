@@ -134,9 +134,6 @@ target_link_libraries(seec-trace-view
  # ICU libraries
  ${REQ_ICU_LIBRARIES}
 
- # Graphviz libraries
- ${REQ_GVC_LIBRARIES}
-
  ${LLVM_LIB_DEPS}
 )
 

@@ -17,6 +17,7 @@
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeUnique.hpp"
+#include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/CallbackFSHandler.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -37,7 +38,13 @@
 #include <wx/wfstream.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
-#include <gvc.h>
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include <memory>
 #include <string>
@@ -45,6 +52,47 @@
 #include "ProcessMoveEvent.hpp"
 #include "StateGraphViewer.hpp"
 #include "TraceViewerFrame.hpp"
+
+
+//------------------------------------------------------------------------------
+// Helper functions
+//------------------------------------------------------------------------------
+
+static std::string FindDotExecutable()
+{
+  auto const DotName = "dot";
+
+  auto const LLVMSearch = llvm::sys::Program::FindProgramByName(DotName);
+  if (LLVMSearch.isValid())
+    return LLVMSearch.str();
+  
+  char const *SearchPaths[] = {
+    "/usr/bin",
+    "/usr/local/bin"
+  };
+  
+  llvm::SmallString<256> DotPath;
+  
+  for (auto const SearchPath : seec::range(SearchPaths)) {
+    DotPath = SearchPath;
+    llvm::sys::path::append(DotPath, DotName);
+    
+    llvm::sys::fs::file_status Status;
+    auto const Err = llvm::sys::fs::status(DotPath.str(), Status);
+    if (Err != llvm::errc::success)
+      continue;
+    
+    if (!llvm::sys::fs::exists(Status))
+      continue;
+    
+    if (!llvm::sys::Path(DotPath.str()).canExecute())
+      continue;
+    
+    return DotPath.str().str();
+  }
+  
+  return std::string{};
+}
 
 
 //------------------------------------------------------------------------------
@@ -96,8 +144,8 @@ wxDEFINE_EVENT(SEEC_EV_GRAPH_RENDERED, GraphRenderedEvent);
 
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
+  PathToDot(),
   CurrentAccess(),
-  GraphvizContext(nullptr),
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
@@ -109,8 +157,8 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
                                              wxPoint const &Position,
                                              wxSize const &Size)
 : wxPanel(),
+  PathToDot(),
   CurrentAccess(),
-  GraphvizContext(nullptr),
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
@@ -121,9 +169,6 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
 
 StateGraphViewerPanel::~StateGraphViewerPanel()
 {
-  if (GraphvizContext)
-    gvFreeContext(GraphvizContext);
-  
   wxFileSystem::RemoveHandler(CallbackFS);
 }
 
@@ -283,6 +328,8 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     return false;
   }
   
+  WebView->EnableContextMenu(false);
+  
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
                                       (new wxWebViewFSHandler("icurb")));
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
@@ -291,25 +338,46 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   Sizer->Add(WebView, wxSizerFlags(1).Expand());
   SetSizerAndFit(Sizer);
   
-  // Setup Graphviz.
-  GraphvizContext = gvContext();
+  // Find the dot executable.
+  PathToDot = FindDotExecutable();
   
-  // Setup the layout handler.
+  if (!PathToDot.empty())
   {
-    std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-    LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
-    LayoutHandler->addBuiltinLayoutEngines();
+    // Setup the layout handler.
+    {
+      std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+      LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
+      LayoutHandler->addBuiltinLayoutEngines();
+    }
+    
+    // Load the webpage.
+    auto const WebViewURL =
+      std::string{"icurb://TraceViewer/StateGraphViewer/WebViewHTML#"}
+      + CallbackProto;
+    
+    WebView->LoadURL(WebViewURL);
+    
+    // Wire up our event handlers.
+    Bind(SEEC_EV_GRAPH_RENDERED, &StateGraphViewerPanel::OnGraphRendered, this);
   }
-  
-  // Load the webpage.
-  auto const WebViewURL =
-    std::string{"icurb://TraceViewer/StateGraphViewer/WebViewHTML#"}
-    + CallbackProto;
-  
-  WebView->LoadURL(WebViewURL);
-  
-  // Wire up our event handlers.
-  Bind(SEEC_EV_GRAPH_RENDERED, &StateGraphViewerPanel::OnGraphRendered, this);
+  else {
+    // If the user navigates to a link, open it in the default browser.
+    WebView->Bind(wxEVT_WEBVIEW_NAVIGATING,
+      [] (wxWebViewEvent &Event) -> void {
+        if (Event.GetURL().StartsWith("http")) {
+          wxLaunchDefaultBrowser(Event.GetURL());
+          Event.Veto();
+        }
+        else
+          Event.Skip();
+      });
+    
+    std::string const WebViewURL =
+      "icurb://TraceViewer/StateGraphViewer/StateGraphViewerNoGraphviz.html";
+    
+    // Load the webpage explaining that dot is required.
+    WebView->LoadURL(WebViewURL);
+  }
   
   return true;
 }
@@ -321,7 +389,7 @@ void StateGraphViewerPanel::OnGraphRendered(GraphRenderedEvent const &Ev)
 
 void StateGraphViewerPanel::renderGraph()
 {
-  if (!WebView)
+  if (!WebView || PathToDot.empty())
     return;
   
   // Create a graph of the process state in dot format.
@@ -346,36 +414,93 @@ void StateGraphViewerPanel::renderGraph()
   
   auto const GVStart = std::chrono::steady_clock::now();
   
-  std::unique_ptr<char []> Buffer {new char [GraphString.size() + 1]};
-  if (!Buffer)
+  // Write the graph to a temporary file.
+  llvm::SmallString<256> GraphPath;
+  
+  {
+    int GraphFD;
+    auto const GraphErr =
+      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.dot", GraphFD, GraphPath);
+    
+    if (GraphErr != llvm::errc::success) {
+      wxLogDebug("Couldn't create temporary dot file.");
+      return;
+    }
+    
+    llvm::raw_fd_ostream GraphStream(GraphFD, true);
+    GraphStream << GraphString;
+  }
+  
+  // Remove the temporary file when we exit this function.
+  auto const RemoveGraph = seec::scopeExit([&] () {
+                              bool Existed = false;
+                              llvm::sys::fs::remove(GraphPath.str(), Existed);
+                            });
+  
+  // Create a temporary filename for the dot result.
+  llvm::SmallString<256> SVGPath;
+  
+  {
+    int SVGFD;
+    auto const SVGErr =
+      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.svg", SVGFD, SVGPath);
+    
+    if (SVGErr != llvm::errc::success) {
+      wxLogDebug("Couldn't create temporary svg file.");
+      return;
+    }
+    
+    // We don't want to write to this file, we just want to reserve it for dot.
+    close(SVGFD);
+  }
+  
+  auto const RemoveSVG = seec::scopeExit([&] () {
+                            bool Existed = false;
+                            llvm::sys::fs::remove(SVGPath.str(), Existed);
+                          });
+  
+  // Run dot using the temporary input/output files.
+  char const *Args[] = {
+    "dot",
+    "-o",
+    SVGPath.c_str(),
+    "-Tsvg",
+    GraphPath.c_str(),
+    nullptr
+  };
+  
+  std::string ErrorMsg;
+  
+  bool ExecFailed = false;
+  
+  auto const Result =
+    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(PathToDot),
+                                       Args,
+                                       /* env */ nullptr,
+                                       /* redirects */ nullptr,
+                                       /* wait */ 0,
+                                       /* mem */ 0,
+                                       &ErrorMsg,
+                                       &ExecFailed);
+  
+  if (!ErrorMsg.empty()) {
+    wxLogDebug("Dot failed: %s", ErrorMsg);
     return;
+  }
   
-  memcpy(Buffer.get(), GraphString.data(), GraphString.size());
-  Buffer[GraphString.size()] = 0;
-  GraphString.clear();
-  
-  // Parse the graph into Graphviz's internal format.
-  Agraph_t *Graph = agmemread(Buffer.get());
-  
-  auto const FreeGraph = seec::scopeExit([=] () { agclose(Graph); });
-  
-  // Layout the graph.
-  gvLayout(GraphvizContext, Graph, "dot");
-  
-  auto const FreeLayout =
-    seec::scopeExit([=] () { gvFreeLayout(GraphvizContext, Graph); });
-  
-  // Render the graph as SVG.
-  char *RenderedData = nullptr;
-  unsigned RenderedLength = 0;
-  
-  auto const FreeData =
-    seec::scopeExit([=] () { if (RenderedData) free(RenderedData); });
-  
-  gvRenderData(GraphvizContext, Graph, "svg", &RenderedData, &RenderedLength);
-  
-  if (!RenderedData)
+  if (Result) {
+    wxLogDebug("Dot returned non-zero.");
     return;
+  }
+  
+  // Read the dot-generated SVG from the temporary file.
+  llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
+  
+  auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath, SVGData);
+  if (ReadErr != llvm::errc::success) {
+    wxLogDebug("Couldn't read temporary svg file.");
+    return;
+  }
   
   auto const GVEnd = std::chrono::steady_clock::now();
   auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
@@ -383,19 +508,24 @@ void StateGraphViewerPanel::renderGraph()
   wxLogDebug("Graphviz completed in %" PRIu64 " ms",
              static_cast<uint64_t>(GVMS.count()));
   
-  // Remove all non-print characters from the SVG and send it to the WebView
-  // via Javascript.
+  // Remove all non-print characters from the SVG and prepare it to be sent to
+  // the WebView via javascript.
   auto SharedScript = std::make_shared<wxString>();
   auto &Script = *SharedScript;
   
-  Script.reserve(RenderedLength + 256);
+  Script.reserve(SVGData->getBufferSize() + 256);
   Script << "SetState(\"";
   
-  for (unsigned i = 0; i < RenderedLength; ++i) {
-    if (std::isprint(RenderedData[i])) {
-      if (RenderedData[i] == '\\' || RenderedData[i] == '"')
+  for (auto It = SVGData->getBufferStart(), End = SVGData->getBufferEnd();
+       It != End;
+       ++It)
+  {
+    auto const Ch = *It;
+    
+    if (std::isprint(Ch)) {
+      if (Ch == '\\' || Ch == '"')
         Script << '\\';
-      Script << RenderedData[i];
+      Script << Ch;
     }
   }
   
@@ -420,7 +550,7 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   CurrentAccess = std::move(Access);
   CurrentProcess = &Process;
   
-  if (!WebView)
+  if (!WebView || PathToDot.empty())
     return;
   
   renderGraph();
@@ -428,6 +558,6 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
 
 void StateGraphViewerPanel::clear()
 {
-  if (WebView)
+  if (WebView && !PathToDot.empty())
     WebView->RunScript(wxString{"ClearState();"});
 }

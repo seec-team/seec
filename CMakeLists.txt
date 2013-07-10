@@ -19,8 +19,6 @@ set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundl
 set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
-set(GV_INSTALL "/usr" CACHE PATH "Root of graphviz install.") 
-set(GV_LIBS "" CACHE STRING "Set the graphviz libraries to link with.")
 
 #--------------------------------------------------------------------------------
 # find LLVM
@@ -100,46 +98,6 @@ execute_process(
 )
 string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
 
-
-#--------------------------------------------------------------------------------
-# find graphviz
-#--------------------------------------------------------------------------------
-if( NOT EXISTS ${GV_INSTALL}/include/graphviz/gvc.h )
-  message(FATAL_ERROR "GV_INSTALL (${GV_INSTALL}) is not a valid Graphviz installation.")
-endif()
-
-message("Using Graphviz at ${GV_INSTALL}")
-include_directories( BEFORE ${GV_INSTALL}/include/graphviz )
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${GV_INSTALL}/lib")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${GV_INSTALL}/lib")
-
-if (GV_LIBS)
-  message("Using user-specified GV_LIBS: ${GV_LIBS}")
-  
-  set(REQ_GVC_LIBRARIES "")
-  
-  FOREACH (LIB ${GV_LIBS})
-     list(APPEND REQ_GVC_LIBRARIES ${LIB})
-  ENDFOREACH (LIB)
-else()
-  message("Getting graphviz libraries from libgvc.pc")
-  
-  execute_process(
-    COMMAND cat ${GV_INSTALL}/lib/pkgconfig/libgvc.pc
-    COMMAND grep "Libs:"
-    COMMAND tr " \t" "\n"
-    COMMAND grep "\\-l"
-    COMMAND tr "\n" " "
-    OUTPUT_VARIABLE REQ_GVC_LIBRARIES
-  )
-  
-  string(STRIP ${REQ_GVC_LIBRARIES} REQ_GVC_LIBRARIES)
-  string(REPLACE "-l" "" REQ_GVC_LIBRARIES ${REQ_GVC_LIBRARIES})
-  string(REPLACE " " ";" REQ_GVC_LIBRARIES ${REQ_GVC_LIBRARIES})
-endif()
-
-message("Graphviz libraries: ${REQ_GVC_LIBRARIES}")
 
 #--------------------------------------------------------------------------------
 # setup compiler options

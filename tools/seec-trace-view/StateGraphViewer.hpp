@@ -18,8 +18,6 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
-#include <gvc.h>
-
 #include <memory>
 #include <mutex>
 
@@ -47,14 +45,14 @@ class wxWebViewEvent;
 ///
 class StateGraphViewerPanel final : public wxPanel
 {
+  /// The location of the dot executable.
+  std::string PathToDot;
+  
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
   /// The current process state.
   seec::cm::ProcessState const *CurrentProcess;
-  
-  /// The Graphviz context used to render the dot state graphs to SVG.
-  GVC_t *GraphvizContext;
   
   /// The WebView used to display the rendered state graphs.
   wxWebView *WebView;
