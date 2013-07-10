@@ -363,14 +363,15 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   else {
     // If the user navigates to a link, open it in the default browser.
     WebView->Bind(wxEVT_WEBVIEW_NAVIGATING,
-      [] (wxWebViewEvent &Event) -> void {
-        if (Event.GetURL().StartsWith("http")) {
-          wxLaunchDefaultBrowser(Event.GetURL());
-          Event.Veto();
-        }
-        else
-          Event.Skip();
-      });
+      std::function<void (wxWebViewEvent &Event)>{
+        [] (wxWebViewEvent &Event) -> void {
+          if (Event.GetURL().StartsWith("http")) {
+            wxLaunchDefaultBrowser(Event.GetURL());
+            Event.Veto();
+          }
+          else
+            Event.Skip();
+        }});
     
     std::string const WebViewURL =
       "icurb://TraceViewer/StateGraphViewer/StateGraphViewerNoGraphviz.html";
