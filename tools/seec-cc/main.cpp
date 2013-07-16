@@ -134,6 +134,11 @@ static void ExpandArgv(int argc, const char **argv,
   for (int i = 0; i < argc; ++i) {
     const char *Arg = argv[i];
     if (Arg[0] != '@') {
+      // The following arguments are denied by SeeC:
+      auto const Ref = llvm::StringRef(Arg);
+      if (Ref.startswith("-g"))
+        continue;
+
       ArgVector.push_back(SaveStringInSet(SavedStrings, std::string(Arg)));
       continue;
     }
@@ -234,14 +239,29 @@ Command *MakeReplacementCommand(Command *C,
     {
       auto Args = C->getArguments();
       
+      // Get the path to seec-ld.
+      llvm::SmallString<256> LDPath (InstalledDir);
+      llvm::sys::path::append(LDPath, "seec-ld");
+      
+      // SeeC requires that we link additional libraries, including the runtime
+      // library containing the tracing/error detection implementation.
+      using namespace seec::seec_clang;
+      
+      auto RTPath = SaveStringInSet(SavedStrings,
+                                    getRuntimeLibraryDirectory(LDPath));
+      
+      Args.push_back("-L");
+      Args.push_back(RTPath);
+      Args.push_back("-rpath");
+      Args.push_back(RTPath);
+      Args.push_back("-lseecRuntimeTracer");
+      Args.push_back("-lpthread");
+      Args.push_back("-ldl");
+      
       // Inform seec-ld of the real linker.
       Args.push_back("--seec");
       Args.push_back("-use-ld");
       Args.push_back(C->getExecutable());
-      
-      // Get the path to seec-ld.
-      llvm::SmallString<256> LDPath (InstalledDir);
-      llvm::sys::path::append(LDPath, "seec-ld");
       
       return new Command(C->getSource(),
                          C->getCreator(),
@@ -318,20 +338,6 @@ int main(int argc_, const char **argv_) {
     argv.push_back("-fno-builtin");
     argv.push_back("-D_FORTIFY_SOURCE=0");
     argv.push_back("-D__NO_CTYPE=1");
-    argv.push_back("-g");
-    
-    using namespace seec::seec_clang;
-    
-    auto RTPath = SaveStringInSet(SavedStrings,
-                                  getRuntimeLibraryDirectory(Path.str()));
-    
-    argv.push_back("-L");
-    argv.push_back(RTPath);
-    argv.push_back("-rpath");
-    argv.push_back(RTPath);
-    argv.push_back("-lseecRuntimeTracer");
-    argv.push_back("-lpthread");
-    argv.push_back("-ldl");
   }
 
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions;

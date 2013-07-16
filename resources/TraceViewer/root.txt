@@ -128,6 +128,8 @@ root:table {
   StateGraphViewer:table {
     WebViewHTML:import {"HTML/StateGraphViewer.html"}
 
+    "StateGraphViewerNoGraphviz.html":import {"HTML/StateGraphViewerNoGraphviz.html"}
+
     "jquery.contextMenu.css":import {"HTML/jquery.contextMenu.css"}
 
     "jquery.contextMenu.js":import {"HTML/jquery.contextMenu.js"}

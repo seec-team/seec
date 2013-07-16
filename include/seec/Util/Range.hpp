@@ -56,7 +56,7 @@ Range<IterT> range(IterT Begin, IterT End) {
 ///
 template<typename ElemT, unsigned ElemN>
 Range<ElemT *> range(ElemT(&Array)[ElemN]) {
-  return Range<ElemT *>(Array[0], Array[ElemN]);
+  return Range<ElemT *>(Array, Array + ElemN);
 }
 
 /// \brief Get a range from a pair.

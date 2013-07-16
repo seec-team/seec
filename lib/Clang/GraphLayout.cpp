@@ -1454,8 +1454,8 @@ doLayout(LayoutHandler const &Handler,
   std::vector<NodeInfo> AllNodeInfo;
   
   DotStream << "digraph Process {\n"
-            << "node [shape=plaintext fontsize=6 penwidth=0.5];\n"
-            << "edge [penwidth=0.5];\n"
+            << "node [shape=plaintext fontsize=6];\n"
+            << "penwidth=0.5;\n"
             << "rankdir=LR;\n";
   
   for (auto &GlobalFuture : GlobalVariableLayouts) {
