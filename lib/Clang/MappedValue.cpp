@@ -1203,8 +1203,11 @@ struct GetValueOfBuiltinAsString {
   {
     auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
                                                                  (State, Value);
-    if (!MaybeValue.assigned())
-      return std::string("<builtin T: couldn't get current runtime value>");
+    if (!MaybeValue.assigned()) {
+      return std::string("<")
+             + __PRETTY_FUNCTION__
+             + ": couldn't get current runtime value>";
+    }
     
     std::string RetStr;
     
@@ -2039,12 +2042,12 @@ getValue(std::shared_ptr<ValueStore const> Store,
         return std::shared_ptr<Value const>();
       }
       
-      // Ensure that an Instruction has produced a value.
+      // If the first Value is an Instruction, then ensure that it has been
+      // evaluated and is still valid.
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.first)) {
-        if (auto const RTV = FunctionState.getCurrentRuntimeValue(I)) {
-          if (!RTV->assigned()) {
-            return std::shared_ptr<Value const>();
-          }
+        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
+        if (!RTV || !RTV->assigned()) {
+          return std::shared_ptr<Value const>();
         }
       }
       
@@ -2079,12 +2082,12 @@ getValue(std::shared_ptr<ValueStore const> Store,
       
       // Complex value.
       
-      // Ensure that an Instruction has produced a value.
+      // If the second Value is an Instruction, then ensure that it has been
+      // evaluated and is still valid.
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second)) {
-        if (auto const RTV = FunctionState.getCurrentRuntimeValue(I)) {
-          if (!RTV->assigned()) {
-            return std::shared_ptr<Value const>();
-          }
+        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
+        if (!RTV || !RTV->assigned()) {
+          return std::shared_ptr<Value const>();
         }
       }
       
