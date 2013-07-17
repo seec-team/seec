@@ -246,7 +246,6 @@ struct GetCurrentRuntimeValueAsImpl<double, void> {
 };
 
 // Overload for long double types.
-// TODO: add support for long double in RuntimeValueRecord, recording, etc.
 template<>
 struct GetCurrentRuntimeValueAsImpl<long double, void> {
   template<typename SrcTy>
