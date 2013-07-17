@@ -20,10 +20,14 @@
 
 namespace seec {
 
-wxString towxString(UnicodeString icu) {
+wxString towxString(UnicodeString const &icu) {
   std::string Buffer;
   icu.toUTF8String(Buffer);
   return wxString(Buffer.c_str(), wxConvUTF8);
+}
+
+UnicodeString toUnicodeString(wxString const &wx) {
+  return UnicodeString::fromUTF8(wx.utf8_str().data());
 }
 
 wxString getwxStringEx(ResourceBundle const &Bundle,

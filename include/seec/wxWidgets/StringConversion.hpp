@@ -21,8 +21,11 @@
 
 namespace seec {
 
-/// Convert a UnicodeString into a wxString.
-wxString towxString(UnicodeString icu);
+/// \brief Convert a UnicodeString into a wxString.
+wxString towxString(UnicodeString const &icu);
+
+/// \brief Convert a wxString into a UnicodeString.
+UnicodeString toUnicodeString(wxString const &wx);
 
 /// Extract a UnicodeString from a ResourceBundle and convert it into a
 /// wxString.
