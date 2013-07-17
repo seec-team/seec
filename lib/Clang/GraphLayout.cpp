@@ -972,7 +972,8 @@ doLayout(LayoutHandler const &Handler,
   
   std::vector<NodeInfo> FunctionNodes;
   
-  DotStream << "subgraph " << IDString << " {\n";
+  DotStream << "subgraph " << IDString << " {\n"
+            << "rank=same;\n";
   
   // Layout all functions.
   std::vector<LayoutOfFunction> FunctionLayouts;
@@ -989,16 +990,6 @@ doLayout(LayoutHandler const &Handler,
                                Layout.getArea(),
                                Layout.getPorts());
   }
-
-#if 0 // Disabled until we can rely on having a modern Graphviz.  
-  // Make all function nodes take an equal rank.
-  DotStream << "{ rank=same; ";
-  
-  for (auto const &FunctionLayout : FunctionLayouts)
-    DotStream << FunctionLayout.getID() << "; ";
-  
-  DotStream << "};\n";
-#endif
   
   // Add edges to force function nodes to appear in order.
   if (FunctionLayouts.size() > 1) {
@@ -1008,7 +999,7 @@ doLayout(LayoutHandler const &Handler,
       DotStream << FunctionLayouts[i+1].getID()
                 << ":sw -> "
                 << FunctionLayouts[i].getID()
-                << ":nw [constraint=false style=invis weight=1000];\n";
+                << ":nw [style=invis weight=1000];\n";
     }
   }
   
