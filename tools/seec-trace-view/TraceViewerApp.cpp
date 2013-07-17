@@ -118,8 +118,8 @@ bool TraceViewerApp::OnInit() {
   // Load ICU resources for TraceViewer.
   ICUResources.reset(new seec::ResourceLoader(ExecutablePath));
   
-  std::array<char const *, 4> ResourceList {
-    {"SeeCClang", "ClangEPV", "TraceViewer", "RuntimeErrors"}
+  std::array<char const *, 5> ResourceList {
+    {"SeeCClang", "ClangEPV", "Trace", "TraceViewer", "RuntimeErrors"}
   };
   
   if (!ICUResources->loadResources(ResourceList))
