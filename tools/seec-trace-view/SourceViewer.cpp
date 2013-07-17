@@ -45,6 +45,7 @@
 #include "TraceViewerFrame.hpp"
 
 #include <list>
+#include <map>
 #include <memory>
 
 
@@ -160,6 +161,78 @@ static SourceFileRange getRangeOutermost(::clang::Decl const *Decl,
 
 
 //------------------------------------------------------------------------------
+// Annotation
+//------------------------------------------------------------------------------
+
+/// \brief Control wrapping for annotations.
+///
+enum class WrapStyle {
+  None,
+  Wrapped
+};
+
+/// \brief Text and settings for an annotation.
+///
+class Annotation {
+  /// The text of this annotation.
+  UnicodeString Text;
+  
+  /// The style to use for this annotation's text.
+  SciLexerType Style;
+  
+  /// The wrapping style for this annotation.
+  WrapStyle Wrapping;
+  
+  /// Indent each line with this many spaces.
+  long Indent;
+  
+public:
+  /// \brief Constructor.
+  ///
+  Annotation(UnicodeString const &WithText,
+             SciLexerType const WithStyle,
+             WrapStyle const WithWrapping)
+  : Text(WithText),
+    Style(WithStyle),
+    Wrapping(WithWrapping),
+    Indent(0)
+  {}
+  
+  /// \brief Accessors.
+  /// @{
+  
+  UnicodeString const &getText() const {
+    return Text;
+  }
+  
+  SciLexerType getStyle() const {
+    return Style;
+  }
+  
+  WrapStyle getWrapping() const {
+    return Wrapping;
+  }
+  
+  long getIndent() const {
+    return Indent;
+  }
+  
+  /// @} (Accessors)
+  
+  /// \brief Mutators.
+  /// @{
+  
+  /// \brief Set the indentation of this annotation.
+  ///
+  void setIndent(long const Value) {
+    Indent = Value;
+  }
+  
+  /// @} (Mutators)
+};
+
+
+//------------------------------------------------------------------------------
 // SourceFilePanel
 //------------------------------------------------------------------------------
 
@@ -194,8 +267,8 @@ class SourceFilePanel : public wxPanel {
   /// Regions that have indicators for the current state.
   std::vector<IndicatedRegion> StateIndications;
   
-  /// Lines that are annotated for the current state.
-  std::vector<int> StateAnnotations;
+  /// Annotations for the current state, indexed by line.
+  std::multimap<int, Annotation> StateAnnotations;
   
   /// Regions that have temporary indicators (e.g. highlighting).
   std::list<IndicatedRegion> TemporaryIndicators;
@@ -274,6 +347,83 @@ class SourceFilePanel : public wxPanel {
     
     // Clear the selection.
     Text->Clear();
+  }
+  
+  /// \brief Render annotations for a specific line.
+  ///
+  void renderAnnotationsFor(int const Line) {
+    // Calculate the width of the text region, in case we do any wrapping.
+    auto const MarginLineNumber = static_cast<int>(SciMargin::LineNumber);
+    auto const ClientSize = Text->GetClientSize();
+    auto const Width = ClientSize.GetWidth()
+                       - Text->GetMarginWidth(MarginLineNumber);
+    
+    UnicodeString CompleteString;
+    int Style = -1;
+    
+    // TODO: Implement column alignment (for both wrapping types).
+#if 0
+    wxString Spacing(' ', RealColumn);
+    
+    // Create spaced annotation text by placing Spacing prior to each line in
+    // the AnnotationText.
+    wxString SpacedText;
+    wxStringTokenizer LineTokenizer(AnnotationText, "\n");
+    while (LineTokenizer.HasMoreTokens())
+      SpacedText << Spacing << LineTokenizer.GetNextToken();
+#endif
+    
+    for (auto const &LA : seec::range(StateAnnotations.equal_range(Line))) {
+      auto const &Anno = LA.second;
+      auto const &AnnoText = Anno.getText();
+      auto const Indent = Anno.getIndent();
+      
+      if (Style == -1)
+        Style = static_cast<int>(Anno.getStyle());
+      
+      switch (Anno.getWrapping()) {
+        case WrapStyle::None:
+        {
+          if (!CompleteString.isEmpty())
+            CompleteString += "\n";
+          
+          CompleteString += AnnoText;
+          
+          break;
+        }
+        
+        case WrapStyle::Wrapped:
+        {
+          auto const Wrappings =
+            seec::wrapParagraph(*Breaker, AnnoText,
+              [=] (UnicodeString const &Line) -> bool {
+                return Text->TextWidth(Style, seec::towxString(Line)) < Width;
+              });
+          
+          for (auto const &Wrapping : Wrappings) {
+            if (!CompleteString.isEmpty())
+              CompleteString += "\n";
+            
+            auto const Length = Wrapping.End - Wrapping.TrailingWhitespace;
+            CompleteString += AnnoText.tempSubStringBetween(Wrapping.Start,
+                                                            Length);
+          }
+          
+          break;
+        }
+      }
+    }
+    
+    Text->AnnotationSetText(Line, seec::towxString(CompleteString));
+    
+    if (Style != -1)
+      Text->AnnotationSetStyle(Line, Style);
+  }
+  
+  /// \brief Render all annotations.
+  ///
+  void renderAnnotations() {
+    // TODO.
   }
 
 public:
@@ -361,8 +511,8 @@ public:
     StateIndications.clear();
   
     // Remove temporary annotations.
-    for (auto Line : StateAnnotations) {
-      Text->AnnotationClearLine(Line);
+    for (auto const &LineAnno : StateAnnotations) {
+      Text->AnnotationClearLine(LineAnno.first);
     }
     
     StateAnnotations.clear();
@@ -413,35 +563,12 @@ public:
     if (!Breaker)
       return;
     
-    auto const Style = static_cast<int>(AnnoStyle);
+    StateAnnotations.insert(std::make_pair(int{Line},
+                                           Annotation{AnnoText,
+                                                      AnnoStyle,
+                                                      WrapStyle::Wrapped}));
     
-    auto const MarginLineNumber = static_cast<int>(SciMargin::LineNumber);
-    auto const ClientSize = Text->GetClientSize();
-    auto const Width = ClientSize.GetWidth()
-                       - Text->GetMarginWidth(MarginLineNumber);
-    
-    auto const Wrappings =
-      seec::wrapParagraph(*Breaker,
-                          AnnoText,
-                          [=] (UnicodeString const &Line) -> bool {
-                            return Text->TextWidth(Style,
-                                                   seec::towxString(Line))
-                                   < Width;
-                          });
-    
-    UnicodeString WrappedString;
-    
-    for (auto const &Wrapping : Wrappings) {
-      if (!WrappedString.isEmpty())
-        WrappedString += "\n";
-      
-      auto const Length = Wrapping.End - Wrapping.TrailingWhitespace;
-      WrappedString += AnnoText.tempSubStringBetween(Wrapping.Start, Length);
-    }
-    
-    Text->AnnotationSetText(Line, seec::towxString(WrappedString));
-    Text->AnnotationSetStyle(Line, Style);
-    StateAnnotations.push_back(Line);
+    renderAnnotationsFor(int{Line});
   }
 
   /// \brief Annotate a line for this state, starting at a set column.
@@ -454,19 +581,14 @@ public:
     auto const CharPosition = Text->PositionFromLine(Line) + Column;
     auto const RealColumn = Text->GetColumn(CharPosition);
     
-    wxString Spacing(' ', RealColumn);
+    auto Anno = Annotation{seec::toUnicodeString(AnnotationText),
+                           AnnotationStyle,
+                           WrapStyle::None};
+    Anno.setIndent(RealColumn);
     
-    // Create spaced annotation text by placing Spacing prior to each line in
-    // the AnnotationText.
-    wxString SpacedText;
-    wxStringTokenizer LineTokenizer(AnnotationText, "\n");
-    while (LineTokenizer.HasMoreTokens())
-      SpacedText << Spacing << LineTokenizer.GetNextToken();
+    StateAnnotations.insert(std::make_pair(int{Line}, std::move(Anno)));
     
-    // Display the spaced annotation text.
-    Text->AnnotationSetText(Line, SpacedText);
-    Text->AnnotationSetStyle(Line, static_cast<int>(AnnotationStyle));
-    StateAnnotations.push_back(Line);
+    renderAnnotationsFor(int{Line});
   }
   
   /// @} (State display)
