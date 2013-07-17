@@ -322,21 +322,12 @@ public:
   
   /// \brief Get a pointer to an Instruction's RuntimeValue, by index.
   ///
-  RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const {
-    assert(Index < InstructionValues.size());
-    
-    // If we have jumped to a prior Instruction, we consider the latter
-    // Instruction values to no longer exist.
-    if (ActiveInstruction.assigned(0) && ActiveInstruction.get<0>() < Index)
-      return nullptr;
-    
-    return &InstructionValues[Index];
-  }
+  RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const;
   
   /// \brief Get a pointer to an Instruction's RuntimeValue.
   ///
   RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
-    
+  
   /// @}
   
   

@@ -120,6 +120,18 @@ FunctionState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
 }
 
 RuntimeValue const *
+FunctionState::getCurrentRuntimeValue(uint32_t Index) const {
+  assert(Index < InstructionValues.size());
+  
+  // If we have jumped to a prior Instruction, we consider the latter
+  // Instruction values to no longer exist.
+  if (ActiveInstruction.assigned(0) && ActiveInstruction.get<0>() < Index)
+    return nullptr;
+  
+  return &InstructionValues[Index];
+}
+
+RuntimeValue const *
 FunctionState::getCurrentRuntimeValue(llvm::Instruction const *I) const {
   auto const MaybeIndex = FunctionLookup->getIndexOfInstruction(I);
   if (!MaybeIndex.assigned())
