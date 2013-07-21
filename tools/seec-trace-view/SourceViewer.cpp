@@ -236,6 +236,8 @@ public:
 // SourceFilePanel
 //------------------------------------------------------------------------------
 
+wxDEFINE_EVENT(EVT_SOURCE_ANNOTATION_RERENDER, wxCommandEvent);
+
 /// \brief Viewer for a single source code file.
 ///
 class SourceFilePanel : public wxPanel {
@@ -351,6 +353,10 @@ class SourceFilePanel : public wxPanel {
   
   /// \brief Render annotations for a specific line.
   ///
+  /// Wrapped annotations do not currently support indentation. If an annotation
+  /// has non-zero indentation and WrapStyle::Wrapped, then the indentation will
+  /// be ignored.
+  ///
   void renderAnnotationsFor(int const Line) {
     // Calculate the width of the text region, in case we do any wrapping.
     auto const MarginLineNumber = static_cast<int>(SciMargin::LineNumber);
@@ -358,36 +364,35 @@ class SourceFilePanel : public wxPanel {
     auto const Width = ClientSize.GetWidth()
                        - Text->GetMarginWidth(MarginLineNumber);
     
-    UnicodeString CompleteString;
-    int Style = -1;
-    
-    // TODO: Implement column alignment (for both wrapping types).
-#if 0
-    wxString Spacing(' ', RealColumn);
-    
-    // Create spaced annotation text by placing Spacing prior to each line in
-    // the AnnotationText.
-    wxString SpacedText;
-    wxStringTokenizer LineTokenizer(AnnotationText, "\n");
-    while (LineTokenizer.HasMoreTokens())
-      SpacedText << Spacing << LineTokenizer.GetNextToken();
-#endif
+    wxString CompleteString;
+    wxString Styles;
     
     for (auto const &LA : seec::range(StateAnnotations.equal_range(Line))) {
       auto const &Anno = LA.second;
       auto const &AnnoText = Anno.getText();
       auto const Indent = Anno.getIndent();
-      
-      if (Style == -1)
-        Style = static_cast<int>(Anno.getStyle());
+      auto const Style = static_cast<int>(Anno.getStyle());
+      wxString Spacing(' ', Indent);
       
       switch (Anno.getWrapping()) {
         case WrapStyle::None:
         {
-          if (!CompleteString.isEmpty())
+          if (!CompleteString.IsEmpty())
             CompleteString += "\n";
           
-          CompleteString += AnnoText;
+          auto const Length = AnnoText.length();
+          int32_t FragStart = 0;
+          
+          while (FragStart < Length) {
+            auto const NewlineIdx = AnnoText.indexOf('\n', FragStart);
+            auto const FragEnd = NewlineIdx != -1 ? NewlineIdx : Length;
+            
+            CompleteString += Spacing;
+            CompleteString +=
+              seec::towxString(AnnoText.tempSubStringBetween(FragStart,
+                                                             FragEnd));
+            FragStart = FragEnd + 1;
+          }
           
           break;
         }
@@ -401,29 +406,37 @@ class SourceFilePanel : public wxPanel {
               });
           
           for (auto const &Wrapping : Wrappings) {
-            if (!CompleteString.isEmpty())
+            if (!CompleteString.IsEmpty())
               CompleteString += "\n";
             
-            auto const Length = Wrapping.End - Wrapping.TrailingWhitespace;
-            CompleteString += AnnoText.tempSubStringBetween(Wrapping.Start,
-                                                            Length);
+            auto const Limit = Wrapping.End - Wrapping.TrailingWhitespace;
+            CompleteString +=
+              seec::towxString(AnnoText.tempSubStringBetween(Wrapping.Start,
+                                                             Limit));
           }
           
           break;
         }
       }
+      
+      auto const NumCharsAdded = CompleteString.size() - Styles.size();
+      if (NumCharsAdded)
+        Styles.Append(static_cast<char>(Style), NumCharsAdded);
     }
     
-    Text->AnnotationSetText(Line, seec::towxString(CompleteString));
-    
-    if (Style != -1)
-      Text->AnnotationSetStyle(Line, Style);
+    Text->AnnotationSetText(Line, CompleteString);
+    Text->AnnotationSetStyles(Line, Styles);
   }
   
   /// \brief Render all annotations.
   ///
   void renderAnnotations() {
-    // TODO.
+    for (auto It = StateAnnotations.begin(), End = StateAnnotations.end();
+         It != End;
+         It = StateAnnotations.upper_bound(It->first))
+    {
+      renderAnnotationsFor(It->first);
+    }
   }
 
 public:
@@ -491,6 +504,29 @@ public:
       Breaker.reset();
       return false;
     }
+    
+    // When the window is resized, create an event to rerender the annotations.
+    // We can't rerender them immediately, because the size of the Text control
+    // won't have been updated yet.
+    Bind(wxEVT_SIZE, std::function<void (wxSizeEvent &)> {
+      [this] (wxSizeEvent &Ev) {
+        Ev.Skip();
+        
+        wxCommandEvent EvRerender {
+          EVT_SOURCE_ANNOTATION_RERENDER,
+          this->GetId()
+        };
+        
+        EvRerender.SetEventObject(this);
+        this->AddPendingEvent(EvRerender);
+      }});
+    
+    // Handle the event to rerender annotations (created by resizing).
+    Bind(EVT_SOURCE_ANNOTATION_RERENDER,
+      std::function<void (wxCommandEvent &)> {
+        [this] (wxCommandEvent &Ev) {
+          renderAnnotations();
+        }});
 
     return true;
   }
@@ -551,39 +587,26 @@ public:
     
     return stateIndicatorAdd(Indicator, Start, End);
   }
-  
-  /// \brief Annotate a line for this state, and wrap the annotation text.
-  ///
-  /// The annotation text will be wrapped to the width of the window.
-  ///
-  void annotateLineWrapped(long Line,
-                           UnicodeString const &AnnoText,
-                           SciLexerType AnnoStyle)
-  {
-    if (!Breaker)
-      return;
-    
-    StateAnnotations.insert(std::make_pair(int{Line},
-                                           Annotation{AnnoText,
-                                                      AnnoStyle,
-                                                      WrapStyle::Wrapped}));
-    
-    renderAnnotationsFor(int{Line});
-  }
 
-  /// \brief Annotate a line for this state, starting at a set column.
+  /// \brief Annotate a line for this state.
   ///
-  void annotateLine(long Line,
-                    long Column,
-                    wxString const &AnnotationText,
-                    SciLexerType AnnotationStyle)
+  /// \param Line The line to add the annotation on.
+  /// \param Column Indent the annotation to start on this column.
+  /// \param AnnotationText The text of the annotation.
+  /// \param AnnotationStyle The style to use for the annotation.
+  /// \param Wrapping Whether or not the annotation should be wrapped to fit
+  ///                 the width of the source panel.
+  ///
+  void annotateLine(long const Line,
+                    long const Column,
+                    UnicodeString const &AnnotationText,
+                    SciLexerType const AnnotationStyle,
+                    WrapStyle const Wrapping)
   {
     auto const CharPosition = Text->PositionFromLine(Line) + Column;
     auto const RealColumn = Text->GetColumn(CharPosition);
     
-    auto Anno = Annotation{seec::toUnicodeString(AnnotationText),
-                           AnnotationStyle,
-                           WrapStyle::None};
+    auto Anno = Annotation{AnnotationText, AnnotationStyle, Wrapping};
     Anno.setIndent(RealColumn);
     
     StateAnnotations.insert(std::make_pair(int{Line}, std::move(Anno)));
@@ -804,9 +827,11 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
     return;
   }
   
-  Panel->annotateLineWrapped(Range.EndLine - 1,
-                             Printer.getString(),
-                             SciLexerType::SeeCRuntimeError);
+  Panel->annotateLine(Range.EndLine - 1,
+                      /* Column */ 0,
+                      Printer.getString(),
+                      SciLexerType::SeeCRuntimeError,
+                      WrapStyle::Wrapped);
 }
 
 void
@@ -842,8 +867,9 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   if (Value) {
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,
-                        wxString(Value->getValueAsStringFull()),
-                        SciLexerType::SeeCRuntimeValue);
+                        UnicodeString::fromUTF8(Value->getValueAsStringFull()),
+                        SciLexerType::SeeCRuntimeValue,
+                        WrapStyle::None);
   }
   
   // Show an explanation for the Stmt.
