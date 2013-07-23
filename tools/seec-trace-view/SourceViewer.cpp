@@ -609,9 +609,11 @@ public:
     auto Anno = Annotation{AnnotationText, AnnotationStyle, Wrapping};
     Anno.setIndent(RealColumn);
     
-    StateAnnotations.insert(std::make_pair(int{Line}, std::move(Anno)));
+    auto const IntLine = static_cast<int>(Line);
     
-    renderAnnotationsFor(int{Line});
+    StateAnnotations.insert(std::make_pair(IntLine, std::move(Anno)));
+    
+    renderAnnotationsFor(IntLine);
   }
   
   /// @} (State display)
