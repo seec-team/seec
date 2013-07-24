@@ -183,12 +183,29 @@ bool TraceViewerApp::OnInit() {
 }
 
 void TraceViewerApp::OnInitCmdLine(wxCmdLineParser &Parser) {
-  Parser.AddParam(wxT("Files to open"),
+  // Get the GUIText from the TraceViewer ICU resources.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto TextTable = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "GUIText");
+  if (U_FAILURE(Status))
+    HandleFatalError("Couldn't load resource bundle TraceViewer->GUIText!");
+  
+  Parser.AddSwitch(wxT("h"), wxT("help"),
+                   seec::getwxStringExOrEmpty(TextTable, "CmdLine_Help"),
+                   wxCMD_LINE_OPTION_HELP);
+  
+  Parser.AddParam(seec::getwxStringExOrEmpty(TextTable, "CmdLine_Files"),
                   wxCMD_LINE_VAL_STRING,
-                  wxCMD_LINE_PARAM_MULTIPLE);
+                  wxCMD_LINE_PARAM_MULTIPLE | wxCMD_LINE_PARAM_OPTIONAL);
 }
 
 bool TraceViewerApp::OnCmdLineParsed(wxCmdLineParser &Parser) {
+  if (Parser.Found(wxT("h"))) {
+    
+  }
+  
   for (unsigned i = 0; i < Parser.GetParamCount(); ++i) {
     CLFiles.emplace_back(Parser.GetParam(i));
   }

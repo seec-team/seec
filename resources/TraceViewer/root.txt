@@ -2,6 +2,14 @@ root:table {
   // Contains text used in the TraceViewer GUI.
   GUIText:table {
     //
+    // Command line options
+    //
+
+    CmdLine_Help:string {"Print this usage information"}
+
+    CmdLine_Files:string {"Files to open"}
+
+    //
     // Welcome frame
     //
 
