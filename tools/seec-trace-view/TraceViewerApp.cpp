@@ -23,6 +23,7 @@
 #include <unicode/resbund.h>
 
 #include <wx/wx.h>
+#include <wx/cmdline.h>
 #include <wx/filesys.h>
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -103,19 +104,13 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
 }
 
 bool TraceViewerApp::OnInit() {
-#ifdef SEEC_SHOW_DEBUG
-  // Setup the debugging log window.
-  LogWindow = new wxLogWindow(nullptr, "Log");
-#endif
-
   // Find the path to the executable.
   wxStandardPaths StdPaths;
   llvm::sys::Path ExecutablePath(StdPaths.GetExecutablePath().ToStdString());
   
-  // Initialize the wxImage image handlers.
-  wxInitAllImageHandlers();
-
-  // Load ICU resources for TraceViewer.
+  // Load ICU resources for TraceViewer. Do this before calling wxApp's default
+  // behaviour, so that OnInitCmdLine and OnCmdLineParsed have access to the
+  // localized resources.
   ICUResources.reset(new seec::ResourceLoader(ExecutablePath));
   
   std::array<char const *, 5> ResourceList {
@@ -124,6 +119,18 @@ bool TraceViewerApp::OnInit() {
   
   if (!ICUResources->loadResources(ResourceList))
     HandleFatalError("Couldn't load resources!");
+  
+  // Call default behaviour.
+  if (!wxApp::OnInit())
+    return false;
+  
+#ifdef SEEC_SHOW_DEBUG
+  // Setup the debugging log window.
+  LogWindow = new wxLogWindow(nullptr, "Log");
+#endif
+  
+  // Initialize the wxImage image handlers.
+  wxInitAllImageHandlers();
   
   // Enable wxWidgets virtual file system access to the ICU bundles.
   wxLogDebug("Adding the icurb vfs.");
@@ -163,7 +170,29 @@ bool TraceViewerApp::OnInit() {
                              wxDefaultPosition,
                              wxDefaultSize);
   Welcome->Show(true);
+  
+  // On Mac OpenFile is called automatically. On all other platforms, manually
+  // open any files that the user passed on the command line.
+#ifndef __WXMAC__
+  for (auto const &File : CLFiles) {
+    OpenFile(File);
+  }
+#endif
 
+  return true;
+}
+
+void TraceViewerApp::OnInitCmdLine(wxCmdLineParser &Parser) {
+  Parser.AddParam(wxT("Files to open"),
+                  wxCMD_LINE_VAL_STRING,
+                  wxCMD_LINE_PARAM_MULTIPLE);
+}
+
+bool TraceViewerApp::OnCmdLineParsed(wxCmdLineParser &Parser) {
+  for (unsigned i = 0; i < Parser.GetParamCount(); ++i) {
+    CLFiles.emplace_back(Parser.GetParam(i));
+  }
+  
   return true;
 }
 

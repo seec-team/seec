@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <set>
+#include <vector>
 
 //------------------------------------------------------------------------------
 // TraceViewerApp
@@ -43,6 +44,9 @@ class TraceViewerApp : public wxApp
 
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
+  
+  /// Files that the user passed on the command line.
+  std::vector<wxString> CLFiles;
 
   /// \brief Open a new trace viewer for the given file.
   void OpenFile(wxString const &FileName);
@@ -54,13 +58,18 @@ public:
     Welcome(nullptr),
     TopLevelFrames(),
     LogWindow(nullptr),
-    ICUResources()
+    ICUResources(),
+    CLFiles()
   {}
 
   /// \name Interface to wxApp.
   /// @{
 
   virtual bool OnInit();
+  
+  virtual void OnInitCmdLine(wxCmdLineParser &Parser);
+  
+  virtual bool OnCmdLineParsed(wxCmdLineParser &Parser);
 
   /// @}
 
