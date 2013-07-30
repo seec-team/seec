@@ -40,11 +40,16 @@ namespace seec {
   }
 }
 
+class ContextNotifier;
+
 
 /// \brief ExplanationViewer.
 ///
 class ExplanationViewer final : public wxStyledTextCtrl
 {
+  /// The central handler for context notifications.
+  ContextNotifier *Notifier;
+  
   /// Hold current explanatory material.
   std::unique_ptr<seec::clang_epv::Explanation> Explanation;
   
@@ -76,6 +81,7 @@ public:
   ///
   ExplanationViewer()
   : wxStyledTextCtrl(),
+    Notifier(nullptr),
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
@@ -87,10 +93,12 @@ public:
   /// \brief Construct and create.
   ///
   ExplanationViewer(wxWindow *Parent,
+                    ContextNotifier &WithNotifier,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize)
   : wxStyledTextCtrl(),
+    Notifier(nullptr),
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
@@ -98,7 +106,7 @@ public:
     URLHover(false),
     URLClick(false)
   {
-    Create(Parent, ID, Position, Size);
+    Create(Parent, WithNotifier, ID, Position, Size);
   }
 
   /// \brief Destructor.
@@ -108,6 +116,7 @@ public:
   /// \brief Create the viewer.
   ///
   bool Create(wxWindow *Parent,
+              ContextNotifier &WithNotifier,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

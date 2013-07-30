@@ -26,6 +26,7 @@
 #include <cinttypes>
 #include <iostream>
 
+#include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
@@ -40,6 +41,7 @@ TraceViewerFrame::TraceViewerFrame()
 : Trace(),
   State(),
   StateAccess(),
+  Notifier(),
   SourceViewer(nullptr),
   StateViewer(nullptr),
   ThreadTime(nullptr)
@@ -54,6 +56,7 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 : Trace(),
   State(),
   StateAccess(),
+  Notifier(),
   SourceViewer(nullptr),
   StateViewer(nullptr),
   ThreadTime(nullptr)
@@ -85,6 +88,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   
   // Create a new accessor token for this state.
   StateAccess = std::make_shared<StateAccessToken>();
+  
+  // Setup the context notifier.
+  Notifier = seec::makeUnique<ContextNotifier>();
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -119,6 +125,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Create the source code viewer.
     SourceViewer = new SourceViewerPanel(this,
                                          *Trace,
+                                         *Notifier,
                                          wxID_ANY,
                                          wxDefaultPosition,
                                          wxDefaultSize);

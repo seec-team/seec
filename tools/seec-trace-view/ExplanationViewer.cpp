@@ -22,7 +22,7 @@
 #include <wx/utils.h>
 
 #include "ExplanationViewer.hpp"
-#include "HighlightEvent.hpp"
+#include "NotifyContext.hpp"
 #include "SourceViewerSettings.hpp"
 
 
@@ -43,19 +43,15 @@ void ExplanationViewer::clearCurrent()
   SetCursor(wxCursor(wxCURSOR_ARROW));
   
   if (HighlightedDecl) {
-    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_OFF, GetId(), HighlightedDecl);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
-    
     HighlightedDecl = nullptr;
+    
+    Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
   }
   
   if (HighlightedStmt) {
-    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_OFF, GetId(), HighlightedStmt);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
-    
     HighlightedStmt = nullptr;
+    
+    Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
   }
   
   URLHover = false;
@@ -64,6 +60,7 @@ void ExplanationViewer::clearCurrent()
 ExplanationViewer::~ExplanationViewer() {}
 
 bool ExplanationViewer::Create(wxWindow *Parent,
+                               ContextNotifier &WithNotifier,
                                wxWindowID ID,
                                wxPoint const &Position,
                                wxSize const &Size)
@@ -73,6 +70,8 @@ bool ExplanationViewer::Create(wxWindow *Parent,
                                 Position,
                                 Size))
     return false;
+  
+  Notifier = &WithNotifier;
   
   Bind(wxEVT_MOTION, &ExplanationViewer::OnMotion, this);
   Bind(wxEVT_ENTER_WINDOW, &ExplanationViewer::OnEnterWindow, this);
@@ -143,17 +142,19 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   IndicatorFillRange(StartPos, EndPos - StartPos);
   
   if (auto const Decl = Links.getPrimaryDecl()) {
-    HighlightedDecl = Decl;
-    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_ON, GetId(), Decl);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
+    if (HighlightedDecl != Decl) {
+      HighlightedDecl = Decl;
+      
+      Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+    }
   }
   
   if (auto const Stmt = Links.getPrimaryStmt()) {
-    HighlightedStmt = Stmt;
-    HighlightEvent Ev(SEEC_EV_HIGHLIGHT_ON, GetId(), Stmt);
-    Ev.SetEventObject(this);
-    ProcessWindowEvent(Ev);
+    if (HighlightedStmt != Stmt) {
+      HighlightedStmt = Stmt;
+      
+      Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
+    }
   }
   
   if (Links.getPrimaryIndex().indexOf("://") != -1) {

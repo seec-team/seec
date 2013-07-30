@@ -38,7 +38,7 @@
 #include "unicode/brkiter.h"
 
 #include "ExplanationViewer.hpp"
-#include "HighlightEvent.hpp"
+#include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
@@ -672,22 +672,25 @@ SourceViewerPanel::SourceViewerPanel()
 : wxPanel(),
   Notebook(nullptr),
   Trace(nullptr),
+  Notifier(nullptr),
   Pages(),
   CurrentAccess()
 {}
 
 SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
                                      OpenTrace const &TheTrace,
+                                     ContextNotifier &WithNotifier,
                                      wxWindowID ID,
                                      wxPoint const &Position,
                                      wxSize const &Size)
 : wxPanel(),
   Notebook(nullptr),
   Trace(nullptr),
+  Notifier(nullptr),
   Pages(),
   CurrentAccess()
 {
-  Create(Parent, TheTrace, ID, Position, Size);
+  Create(Parent, TheTrace, WithNotifier, ID, Position, Size);
 }
 
 SourceViewerPanel::~SourceViewerPanel()
@@ -695,6 +698,7 @@ SourceViewerPanel::~SourceViewerPanel()
 
 bool SourceViewerPanel::Create(wxWindow *Parent,
                                OpenTrace const &TheTrace,
+                               ContextNotifier &WithNotifier,
                                wxWindowID ID,
                                wxPoint const &Position,
                                wxSize const &Size) {
@@ -702,6 +706,8 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
     return false;
 
   Trace = &TheTrace;
+  
+  Notifier = &WithNotifier;
 
   Notebook = new wxAuiNotebook(this,
                                wxID_ANY,
@@ -713,6 +719,7 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_SCROLL_BUTTONS);
   
   ExplanationCtrl = new ExplanationViewer(this,
+                                          WithNotifier,
                                           wxID_ANY,
                                           wxDefaultPosition,
                                           wxSize(100, 100));
@@ -723,8 +730,30 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
   SetSizerAndFit(TopSizer);
   
   // Setup highlight event handling.
-  Bind(SEEC_EV_HIGHLIGHT_ON,  &SourceViewerPanel::OnHighlightOn,  this);  
-  Bind(SEEC_EV_HIGHLIGHT_OFF, &SourceViewerPanel::OnHighlightOff, this);
+  Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
+    switch (Ev.getKind()) {
+      case ContextEventKind::HighlightDecl:
+        {
+          auto const &HighlightEv = llvm::cast<ConEvHighlightDecl>(Ev);
+          if (auto const TheDecl = HighlightEv.getDecl())
+            this->highlightOn(TheDecl);
+          else
+            this->highlightOff();
+          break;
+        }
+      case ContextEventKind::HighlightStmt:
+        {
+          auto const &HighlightEv = llvm::cast<ConEvHighlightStmt>(Ev);
+          if (auto const TheStmt = HighlightEv.getStmt())
+            this->highlightOn(TheStmt);
+          else
+            this->highlightOff();
+          break;
+        }
+      default:
+        break;
+    }
+  });
 
   // TODO: Load all source files.
   
@@ -992,19 +1021,4 @@ void SourceViewerPanel::highlightOn(::clang::Stmt const *Stmt) {
 void SourceViewerPanel::highlightOff() {
   for (auto &Page : Pages)
     Page.second->temporaryIndicatorRemoveAll();
-}
-
-void SourceViewerPanel::OnHighlightOn(HighlightEvent const &Ev) {
-  switch (Ev.getType()) {
-    case HighlightEvent::ItemType::Decl:
-      highlightOn(Ev.getDecl());
-      break;
-    case HighlightEvent::ItemType::Stmt:
-      highlightOn(Ev.getStmt());
-      break;
-  }
-}
-
-void SourceViewerPanel::OnHighlightOff(HighlightEvent const &Ev) {
-  highlightOff();
 }

@@ -25,11 +25,10 @@
 #include <map>
 #include <memory>
 
-#include "HighlightEvent.hpp"
-
 
 // Forward declarations.
 
+class ContextNotifier;
 class ExplanationViewer;
 class OpenTrace;
 class SourceFilePanel;
@@ -64,6 +63,9 @@ class SourceViewerPanel : public wxPanel
   /// The currently associated trace information.
   OpenTrace const *Trace;
   
+  /// The central handler for context notifications.
+  ContextNotifier *Notifier;
+  
   /// Lookup from file path to source window.
   std::map<clang::FileEntry const *, SourceFilePanel *> Pages;
   
@@ -82,6 +84,7 @@ public:
   ///
   SourceViewerPanel(wxWindow *Parent,
                     OpenTrace const &TheTrace,
+                    ContextNotifier &WithNotifier,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize);
@@ -94,6 +97,7 @@ public:
   ///
   bool Create(wxWindow *Parent,
               OpenTrace const &TheTrace,
+              ContextNotifier &WithNotifier,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
@@ -160,13 +164,6 @@ private:
   
   /// Clear all highlighting.
   void highlightOff();
-  
-public:
-  /// Set highlighting for the given event.
-  void OnHighlightOn(HighlightEvent const &Ev);
-  
-  /// Clear highlighting for the given event.
-  void OnHighlightOff(HighlightEvent const &Ev);
   
   /// @}  
 };

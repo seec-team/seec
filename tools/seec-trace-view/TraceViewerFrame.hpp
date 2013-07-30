@@ -30,6 +30,7 @@ namespace seec {
   }
 }
 
+class ContextNotifier;
 class OpenTrace;
 class ProcessMoveEvent;
 class SourceViewerPanel;
@@ -88,6 +89,9 @@ class TraceViewerFrame : public wxFrame
   
   /// Controls access to the current process state.
   std::shared_ptr<StateAccessToken> StateAccess;
+  
+  /// Central handler for context notifications.
+  std::unique_ptr<ContextNotifier> Notifier;
 
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
