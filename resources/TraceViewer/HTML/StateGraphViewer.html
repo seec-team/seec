@@ -9,6 +9,8 @@
 
   <script type="text/javascript">
     var SeeCProto = "";
+    var StateExists = false;
+    var HighlightedValues = [];
 
     // Clear the debug log.
     //
@@ -38,28 +40,10 @@
       return str;
     }
 
-    // Event handlers for the context menu items.
-    //
-
-    function DoRewindInitialisation() {
-      Log("Rewind init");
-    }
-
-    function DoRewindLastModify() {
-      Log("Rewind last");
-    }
-
-    function DoForwardNextModify() {
-      Log("Forward next");
-    }
-
-    function DoForwardDeallocation() {
-      Log("Forward deallocation");
-    }
-
     //
     // Context menu callbacks for Values.
     //
+
     function CMMoveToAllocation(valueid) {
       $.getJSON(SeeCURL("move_to_allocation", [valueid]),
         function(data) { /* The result is not important. */ });
@@ -221,6 +205,41 @@
       return false;
     }
 
+    // Highlight a Value.
+    //
+
+    function HighlightValueImpl(ValueID) {
+      $('a').each(function() {
+        var $this = $(this);
+        var href = $this.attr('xlink:href');
+        if (!href) {
+          Log("No xlink:href found.");
+          return false;
+        }
+
+        var splitref = href.split(' ');
+        if (splitref.length != 2) {
+          Log("Bad reference length.");
+          return false;
+        }
+
+        if (splitref[0] == "value" && splitref[1] == ValueID) {
+          var Elem = $this[0];
+          var Class = Elem.className.baseVal;
+          Class += ' ' + "valuehighlight";
+          Elem.setAttribute("class", Class);
+
+          for (var i = 0; i < Elem.childNodes.length; ++i) {
+            var Child = Elem.childNodes[i];
+            if (Child.nodeName == "polygon") {
+              Child.setAttribute("fill", "rgb(220,255,220)");
+              Child.setAttribute("fill-opacity", 0.5);
+            }
+          }
+        }
+      });
+    }
+
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
@@ -236,22 +255,44 @@
       var refs = $('a');
       refs.removeAttr("xlink:title");
       refs.on('click', CMGenerate);
+
+      StateExists = true;
+
+      for (var i = 0; i < HighlightedValues.length; ++i)
+        HighlightValueImpl(HighlightedValues[i]);
     }
     
     function SetState(SVGString) {
       if (SetStateImplTimer != null)
         window.clearTimeout(SetStateImplTimer);
       
+      StateExists = false;
       LogClear();
       
       SetStateImplTimer = setTimeout(function() { SetStateImpl(SVGString); },
                                      0);
     }
 
+    // Called from seec-trace-viewer to indicate that our state is out of date.
+    //
+    function InvalidateState() {
+      HighlightedValues = [];
+    }
+
     // Called from seec-trace-viewer to clear the state display.
     //
     function ClearState() {
+      StateExists = false;
+      HighlightedValues = [];
       document.getElementById("SVGContainer").innerHTML = "";
+    }
+
+    // Called from seec-trace-viewer to highlight a value.
+    //
+    function HighlightValue(ValueID) {
+      HighlightedValues.push(ValueID);
+      if (StateExists)
+        HighlightValueImpl(ValueID);
     }
 
     // Initial page setup.

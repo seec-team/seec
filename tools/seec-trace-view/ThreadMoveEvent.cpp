@@ -11,8 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "StateAccessToken.hpp"
 #include "ThreadMoveEvent.hpp"
-#include "TraceViewerFrame.hpp"
 
 IMPLEMENT_CLASS(ThreadMoveEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);

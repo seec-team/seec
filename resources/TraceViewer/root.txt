@@ -58,6 +58,15 @@ root:table {
 
     SourceView_FunctionExit:string {"Leaving function"}
 
+    //
+    // SourceViewerPanel
+    //
+    SourceViewerPanel:table {
+      ValuePointer:string {"(pointer to highlighted value)"}
+
+      ValuePointerInMemory:string {"(pointer to highlighted value)"}
+    }
+
 
     //
     // ProcessTime scroller

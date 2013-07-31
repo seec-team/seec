@@ -49,9 +49,10 @@
 #include <memory>
 #include <string>
 
+#include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
+#include "StateAccessToken.hpp"
 #include "StateGraphViewer.hpp"
-#include "TraceViewerFrame.hpp"
 
 
 //------------------------------------------------------------------------------
@@ -144,6 +145,7 @@ wxDEFINE_EVENT(SEEC_EV_GRAPH_RENDERED, GraphRenderedEvent);
 
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
+  Notifier(nullptr),
   PathToDot(),
   CurrentAccess(),
   WebView(nullptr),
@@ -153,10 +155,12 @@ StateGraphViewerPanel::StateGraphViewerPanel()
 {}
 
 StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
+                                             ContextNotifier &WithNotifier,
                                              wxWindowID ID,
                                              wxPoint const &Position,
                                              wxSize const &Size)
 : wxPanel(),
+  Notifier(nullptr),
   PathToDot(),
   CurrentAccess(),
   WebView(nullptr),
@@ -164,7 +168,7 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
   LayoutHandlerMutex(),
   CallbackFS(nullptr)
 {
-  Create(Parent, ID, Position, Size);
+  Create(Parent, WithNotifier, ID, Position, Size);
 }
 
 StateGraphViewerPanel::~StateGraphViewerPanel()
@@ -173,12 +177,15 @@ StateGraphViewerPanel::~StateGraphViewerPanel()
 }
 
 bool StateGraphViewerPanel::Create(wxWindow *Parent,
+                                   ContextNotifier &WithNotifier,
                                    wxWindowID ID,
                                    wxPoint const &Position,
                                    wxSize const &Size)
 {
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
+  
+  Notifier = &WithNotifier;
   
   // Enable vfs access to request information about the state.
   auto const ThisAddr = reinterpret_cast<uintptr_t>(this);
@@ -387,6 +394,32 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     
     // Wire up our event handlers.
     Bind(SEEC_EV_GRAPH_RENDERED, &StateGraphViewerPanel::OnGraphRendered, this);
+    
+    // Register for context notifications.
+    Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
+      switch (Ev.getKind()) {
+        case ContextEventKind::HighlightValue:
+        {
+          // Send this value to the webpage.
+          auto const &HighlightEv = llvm::cast<ConEvHighlightValue>(Ev);
+          
+          // We don't need to lock the highlight's access, as it must already
+          // be locked by whoever raised the highlight event.
+          if (CurrentAccess && CurrentAccess != HighlightEv.getAccess()) {
+            wxLogDebug("Highlight state does not match graph's state.");
+          }
+          
+          wxString Script("HighlightValue(");
+          Script << reinterpret_cast<uintptr_t>(HighlightEv.getValue())
+                 << ");";
+          WebView->RunScript(Script);
+          
+          break;
+        }
+        default:
+          break;
+      }
+    });
   }
   else {
     // If the user navigates to a link, open it in the default browser.
@@ -578,6 +611,8 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
 {
   CurrentAccess = std::move(Access);
   CurrentProcess = &Process;
+  
+  WebView->RunScript(wxString("InvalidateState();"));
   
   if (!WebView || PathToDot.empty())
     return;

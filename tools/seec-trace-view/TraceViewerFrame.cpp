@@ -30,6 +30,7 @@
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
+#include "StateAccessToken.hpp"
 #include "StateViewer.hpp"
 #include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
@@ -132,6 +133,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Create a text control to show the current state.
     StateViewer = new StateViewerPanel(this,
+                                       *Notifier,
                                        wxID_ANY,
                                        wxDefaultPosition,
                                        wxDefaultSize);

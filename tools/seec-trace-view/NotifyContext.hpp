@@ -16,8 +16,11 @@
 
 #include "llvm/Support/Casting.h"
 
+#include "StateAccessToken.hpp"
+
 #include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
 
 
@@ -130,12 +133,21 @@ class ConEvHighlightValue final : public ContextEvent {
   /// The \c seec::cm::Value that should be highlighted.
   seec::cm::Value const *TheValue;
   
+  /// Access for the state that the \c seec::cm::Value belongs to.
+  std::shared_ptr<StateAccessToken> Access;
+  
 public:
   /// \brief Constructor.
   ///
-  ConEvHighlightValue(seec::cm::Value const *WithValue)
+  /// \param WithValue The \c Value that should be highlighted.
+  /// \param WithAccess The access token associates with this \c Value's state.
+  ///                   The access must be locked while this event is raised.
+  ///
+  ConEvHighlightValue(seec::cm::Value const *WithValue,
+                      std::shared_ptr<StateAccessToken> WithAccess)
   : ContextEvent(ContextEventKind::HighlightValue),
-    TheValue(WithValue)
+    TheValue(WithValue),
+    Access(std::move(WithAccess))
   {}
   
   /// \brief Support LLVM's RTTI.
@@ -150,6 +162,10 @@ public:
   /// \brief Get the Value that should be highlighted (may be nullptr).
   ///
   seec::cm::Value const *getValue() const { return TheValue; }
+  
+  /// \brief Get the access for the Value.
+  ///
+  std::shared_ptr<StateAccessToken> const &getAccess() const { return Access; }
   
   /// @} (Accessors)
 };

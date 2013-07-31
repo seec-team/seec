@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ProcessMoveEvent.hpp"
-#include "TraceViewerFrame.hpp"
+#include "StateAccessToken.hpp"
 
 IMPLEMENT_CLASS(ProcessMoveEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_PROCESS_MOVE, ProcessMoveEvent);

@@ -31,6 +31,7 @@
 StateViewerPanel::~StateViewerPanel() = default;
 
 bool StateViewerPanel::Create(wxWindow *Parent,
+                              ContextNotifier &WithNotifier,
                               wxWindowID ID,
                               wxPoint const &Position,
                               wxSize const &Size) {
@@ -64,7 +65,7 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 #endif
   
   // Create the graph viewer.
-  GraphViewer = new StateGraphViewerPanel(this);
+  GraphViewer = new StateGraphViewerPanel(this, WithNotifier);
   StateBook->AddPage(GraphViewer, wxString("Graph"));
 
   // Use a sizer to layout the thread view and process view notebook.

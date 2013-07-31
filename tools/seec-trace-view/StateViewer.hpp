@@ -28,6 +28,7 @@ namespace seec {
   }
 }
 
+class ContextNotifier;
 class StateAccessToken;
 class StateGraphViewerPanel;
 class wxAuiNotebook;
@@ -56,6 +57,7 @@ public:
   {}
 
   StateViewerPanel(wxWindow *Parent,
+                   ContextNotifier &WithNotifier,
                    wxWindowID ID = wxID_ANY,
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
@@ -64,12 +66,13 @@ public:
     GraphViewer(nullptr),
     CurrentAccess()
   {
-    Create(Parent, ID, Position, Size);
+    Create(Parent, WithNotifier, ID, Position, Size);
   }
 
   ~StateViewerPanel();
 
   bool Create(wxWindow *Parent,
+              ContextNotifier &WithNotifier,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

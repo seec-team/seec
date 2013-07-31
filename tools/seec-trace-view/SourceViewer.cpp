@@ -42,7 +42,7 @@
 #include "OpenTrace.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
-#include "TraceViewerFrame.hpp"
+#include "StateAccessToken.hpp"
 
 #include <list>
 #include <map>
@@ -865,6 +865,43 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                       WrapStyle::Wrapped);
 }
 
+UnicodeString getStringForInlineValue(seec::cm::Value const &Value)
+{
+  auto const InMemory = Value.isInMemory();
+  auto const Kind = Value.getKind();
+  
+  if (Kind == seec::cm::Value::Kind::Pointer) {
+    // Pointers are a special case because we don't want to display raw values
+    // to the users (i.e. memory addresses).
+    
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Resources = seec::getResource("TraceViewer",
+                                       Locale::getDefault(),
+                                       Status,
+                                       "GUIText",
+                                       "SourceViewerPanel");
+    
+    if (U_FAILURE(Status))
+      return UnicodeString::fromUTF8("");
+    
+    auto const Key = InMemory ? "ValuePointerInMemory" : "ValuePointer";
+    auto const String = Resources.getStringEx(Key, Status);
+    
+    if (U_FAILURE(Status))
+      return UnicodeString::fromUTF8("");
+    
+    return String;
+  }
+  else {
+    if (InMemory) {
+      return UnicodeString::fromUTF8(Value.getValueAsStringShort());
+    }
+    else {
+      return UnicodeString::fromUTF8(Value.getValueAsStringFull());
+    }
+  }
+}
+
 void
 SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                                   ::seec::cm::FunctionState const &InFunction)
@@ -896,11 +933,28 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
+    auto const String = getStringForInlineValue(*Value);
+    
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,
-                        UnicodeString::fromUTF8(Value->getValueAsStringFull()),
+                        String,
                         SciLexerType::SeeCRuntimeValue,
                         WrapStyle::None);
+    
+    // Highlight this value.
+    Notifier->createNotify<ConEvHighlightValue>(Value.get(), CurrentAccess);
+    
+    // If this value is a pointer then also highlight the pointee.
+    if (Value->getKind() == seec::cm::Value::Kind::Pointer) {
+      auto const &Ptr = llvm::cast<seec::cm::ValueOfPointer>(*Value);
+      
+      if (Ptr.getDereferenceIndexLimit()) {
+        if (auto const Pointee = Ptr.getDereferenced(0)) {
+          Notifier->createNotify<ConEvHighlightValue>(Pointee.get(),
+                                                      CurrentAccess);
+        }
+      }
+    }
   }
   
   // Show an explanation for the Stmt.

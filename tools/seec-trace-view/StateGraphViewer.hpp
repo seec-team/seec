@@ -35,6 +35,7 @@ namespace seec {
   class CallbackFSHandler;
 }
 
+class ContextNotifier;
 class GraphRenderedEvent;
 class StateAccessToken;
 class wxWebView;
@@ -45,6 +46,9 @@ class wxWebViewEvent;
 ///
 class StateGraphViewerPanel final : public wxPanel
 {
+  /// The central handler for context notifications.
+  ContextNotifier *Notifier;
+  
   /// The location of the dot executable.
   std::string PathToDot;
   
@@ -74,6 +78,7 @@ public:
   /// \brief Construct and create.
   ///
   StateGraphViewerPanel(wxWindow *Parent,
+                        ContextNotifier &WithNotifier,
                         wxWindowID ID = wxID_ANY,
                         wxPoint const &Position = wxDefaultPosition,
                         wxSize const &Size = wxDefaultSize);
@@ -85,6 +90,7 @@ public:
   /// \brief Create (if default constructed).
   ///
   bool Create(wxWindow *Parent,
+              ContextNotifier &WithNotifier,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
