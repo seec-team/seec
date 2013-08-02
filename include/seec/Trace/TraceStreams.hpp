@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_TRACESTREAMS_HPP
 #define SEEC_TRACE_TRACESTREAMS_HPP
 
+#include "seec/Trace/TraceFormat.hpp"
+
 #include <cstdio>
 #include <map>
 #include <mutex>
@@ -47,21 +49,33 @@ public:
 /// \brief Information about a single I/O stream (i.e. a FILE *).
 ///
 class TraceStream {
+  /// The offset of the filename string in the trace's data file.
+  offset_uint FilenameOffset;
+  
+  /// The offset of the mode string in the trace's data file.
+  offset_uint ModeOffset;
+  
 public:
   /// \brief Default constructor.
-  TraceStream() {}
+  ///
+  TraceStream(offset_uint const WithFilenameOffset,
+              offset_uint const WithModeOffset)
+  : FilenameOffset(WithFilenameOffset),
+    ModeOffset(WithModeOffset)
+  {}
   
-  /// \brief Copy constructor.
-  TraceStream(TraceStream const &) = default;
+  /// \name Accessors.
+  /// @{
   
-  /// \brief Move constructor.
-  TraceStream(TraceStream &&) = default;
+  /// \brief Get the offset of the filename string in the trace's data file.
+  ///
+  offset_uint getFilenameOffset() const { return FilenameOffset; }
   
-  /// \brief Copy assignment.
-  TraceStream &operator=(TraceStream const &) = default;
+  /// \brief Get the offset of the mode string in the trace's data file.
+  ///
+  offset_uint getModeOffset() const { return ModeOffset; }
   
-  /// \brief Move assignment.
-  TraceStream &operator=(TraceStream &&) = default;
+  /// @} (Accessors)
 };
 
 
@@ -73,20 +87,30 @@ class TraceStreams {
   
 public:
   /// \brief Default constructor.
+  ///
   TraceStreams()
   : Streams()
   {}
   
   /// \brief Notify that a stream has been opened.
-  void streamOpened(FILE *stream);
+  ///
+  void streamOpened(FILE *Stream,
+                    offset_uint const FilenameOffset,
+                    offset_uint const ModeOffset);
   
   /// \brief Notify that a stream will be closed.
   ///
   /// \return true iff this stream exists and can be closed successfully.
-  bool streamWillClose(FILE *stream) const;
+  ///
+  bool streamWillClose(FILE *Stream) const;
+  
+  /// \brief Get stream information if it exists, otherwise nullptr.
+  ///
+  TraceStream const *streamInfo(FILE *Stream) const;
   
   /// \brief Notify that a stream was closed.
-  void streamClosed(FILE *stream);
+  ///
+  void streamClosed(FILE *Stream);
 };
 
 

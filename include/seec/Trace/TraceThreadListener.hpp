@@ -190,11 +190,29 @@ class TraceThreadListener
 
 public:  
   /// \brief Acquire the StreamsLock, if we don't have it already.
+  ///
   void acquireStreamsLock() {
     if (!StreamsLock) {
       StreamsLock = ProcessListener.getStreamsLock();
     }
   }
+  
+  /// \brief Record that a stream opened.
+  ///
+  /// This will acquire the StreamsLock if we don't have it already.
+  ///
+  /// pre: Filename is a valid C string.
+  /// pre: Mode is a valid C string.
+  ///
+  void recordStreamOpen(FILE *Stream,
+                        char const *Filename,
+                        char const *Mode);
+  
+  /// \brief Record that a stream closed.
+  ///
+  /// This will acquire the StreamsLock if we don't have it already.
+  ///
+  bool recordStreamClose(FILE *Stream);
 
   /// @} (Helper methods)
 

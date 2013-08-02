@@ -209,6 +209,9 @@ class TraceProcessListener {
   
   /// I/O stream information.
   TraceStreams Streams;
+  
+  /// Runtime addresses of the initial standard input/output streams.
+  std::vector<uintptr_t> StreamsInitial;
 
 
 public:

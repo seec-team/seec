@@ -585,6 +585,16 @@ void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
   FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
 }
 
+void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
+{
+  // TODO
+}
+
+void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
+{
+  // TODO
+}
+
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   if (!Ev.getIsTopLevel())
     return;
@@ -1120,6 +1130,16 @@ void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 {
   auto &FuncState = *(CallStack.back());
   FuncState.removeByValArea(Ev.getAddress());
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::FileOpen> const &Ev)
+{
+  // TODO
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
+{
+  // TODO
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {

@@ -344,6 +344,26 @@ SEEC_TRACE_EVENT(ByValRegionAdd,
     (ByValRegionAdd, is_function_level)
   ))
 
+SEEC_TRACE_EVENT(FileOpen,
+  SEEC_PP_QUOTE(
+    (uintptr_t, FileAddress),
+    (offset_uint, FilenameOffset),
+    (offset_uint, ModeOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (FileOpen, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(FileClose,
+  SEEC_PP_QUOTE(
+    (uintptr_t, FileAddress),
+    (offset_uint, FilenameOffset),
+    (offset_uint, ModeOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (FileClose, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(RuntimeError,
   SEEC_PP_QUOTE(
     (uint16_t, ErrorType),

@@ -104,6 +104,45 @@ void TraceThreadListener::checkSignals() {
   getSupportSynchronizedExit().getSynchronizedExit().exit(EXIT_FAILURE);
 }
 
+void TraceThreadListener::recordStreamOpen(FILE *Stream,
+                                           char const *Filename,
+                                           char const *Mode)
+{
+  acquireStreamsLock();
+  
+  auto &Streams = ProcessListener.getStreams(StreamsLock);
+  
+  auto const FilenameOffset =
+    ProcessListener.recordData(Filename, std::strlen(Filename) + 1);
+  auto const ModeOffset =
+    ProcessListener.recordData(Mode, std::strlen(Mode) + 1);
+  
+  Streams.streamOpened(Stream, FilenameOffset, ModeOffset);
+  
+  EventsOut.write<EventType::FileOpen>(reinterpret_cast<uintptr_t>(Stream),
+                                       FilenameOffset,
+                                       ModeOffset);
+}
+
+bool TraceThreadListener::recordStreamClose(FILE *Stream)
+{
+  acquireStreamsLock();
+  
+  auto &Streams = ProcessListener.getStreams(StreamsLock);
+  
+  auto const Info = Streams.streamInfo(Stream);
+  if (!Info)
+    return false;
+  
+  EventsOut.write<EventType::FileClose>(reinterpret_cast<uintptr_t>(Stream),
+                                        Info->getFilenameOffset(),
+                                        Info->getModeOffset());
+  
+  Streams.streamClosed(Stream);
+  
+  return true;
+}
+
 
 //------------------------------------------------------------------------------
 // Dynamic memory

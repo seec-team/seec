@@ -186,24 +186,26 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
 // ProcessTrace
 //------------------------------------------------------------------------------
 
-ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> &&Trace,
-                           std::unique_ptr<llvm::MemoryBuffer> &&Data,
-                           std::string &&ModuleIdentifier,
+ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+                           std::unique_ptr<llvm::MemoryBuffer> Data,
+                           std::string ModuleIdentifier,
                            uint32_t NumThreads,
                            uint64_t FinalProcessTime,
-                           std::vector<uintptr_t> &&GVAddresses,
-                           std::vector<offset_uint> &&GVInitialData,
-                           std::vector<uintptr_t> &&FAddresses,
-                           std::vector<std::unique_ptr<ThreadTrace>> &&TTraces
+                           std::vector<uintptr_t> GVAddresses,
+                           std::vector<offset_uint> GVInitialData,
+                           std::vector<uintptr_t> FAddresses,
+                           std::vector<uintptr_t> WithStreamsInitial,
+                           std::vector<std::unique_ptr<ThreadTrace>> TTraces
                            )
 : Trace(std::move(Trace)),
   Data(std::move(Data)),
-  ModuleIdentifier(ModuleIdentifier),
+  ModuleIdentifier(std::move(ModuleIdentifier)),
   NumThreads(NumThreads),
   FinalProcessTime(FinalProcessTime),
-  GlobalVariableAddresses(GVAddresses),
-  GlobalVariableInitialData(GVInitialData),
-  FunctionAddresses(FAddresses),
+  GlobalVariableAddresses(std::move(GVAddresses)),
+  GlobalVariableInitialData(std::move(GVInitialData)),
+  FunctionAddresses(std::move(FAddresses)),
+  StreamsInitial(std::move(WithStreamsInitial)),
   ThreadTraces(std::move(TTraces))
 {}
 
@@ -244,6 +246,7 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   std::vector<uintptr_t> GlobalVariableAddresses;
   std::vector<offset_uint> GlobalVariableInitialData;
   std::vector<uintptr_t> FunctionAddresses;
+  std::vector<uintptr_t> StreamsInitial;
   std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   TraceReader >> ModuleIdentifier
@@ -251,7 +254,8 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
               >> FinalProcessTime
               >> GlobalVariableAddresses
               >> GlobalVariableInitialData
-              >> FunctionAddresses;
+              >> FunctionAddresses
+              >> StreamsInitial;
 
   if (TraceReader.error()) {
     using namespace seec;
@@ -272,6 +276,7 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
                              std::move(GlobalVariableAddresses),
                              std::move(GlobalVariableInitialData),
                              std::move(FunctionAddresses),
+                             std::move(StreamsInitial),
                              std::move(ThreadTraces)));
 }
 

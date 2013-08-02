@@ -1721,7 +1721,11 @@ SEEC_MANGLE_FUNCTION(fdopen)
                        Result);
   
   if (Result) {
-    Streams->streamOpened(Result);
+    std::string FakeFilename = "(file descriptor ";
+    FakeFilename += std::to_string(FileDescriptor);
+    FakeFilename += ")";
+    
+    Listener.recordStreamOpen(Result, FakeFilename.c_str(), Mode);
   }
   else{
     Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),

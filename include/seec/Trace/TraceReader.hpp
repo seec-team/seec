@@ -481,21 +481,25 @@ class ProcessTrace {
 
   /// Function runtime addresses, by index.
   std::vector<uintptr_t> FunctionAddresses;
+  
+  /// Runtime addresses of the initial standard input/output streams.
+  std::vector<uintptr_t> StreamsInitial;
 
   /// Thread-specific traces, by (ThreadID - 1).
   // mutable because we lazily construct the ThreadTrace objects.
   mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   /// Constructor.
-  ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> &&Trace,
-               std::unique_ptr<llvm::MemoryBuffer> &&Data,
-               std::string &&ModuleIdentifier,
+  ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+               std::unique_ptr<llvm::MemoryBuffer> Data,
+               std::string ModuleIdentifier,
                uint32_t NumThreads,
                uint64_t FinalProcessTime,
-               std::vector<uintptr_t> &&GVAddresses,
-               std::vector<offset_uint> &&GVInitialData,
-               std::vector<uintptr_t> &&FAddresses,
-               std::vector<std::unique_ptr<ThreadTrace>> &&TTraces);
+               std::vector<uintptr_t> GVAddresses,
+               std::vector<offset_uint> GVInitialData,
+               std::vector<uintptr_t> FAddresses,
+               std::vector<uintptr_t> WithStreamsInitial,
+               std::vector<std::unique_ptr<ThreadTrace>> TTraces);
 
 public:
   /// Read a ProcessTrace using an InputBufferAllocator.
@@ -523,6 +527,12 @@ public:
 
   /// Get the process time at the end of this trace.
   uint64_t getFinalProcessTime() const { return FinalProcessTime; }
+  
+  /// \brief Get the runtime addresses of the initial standard streams.
+  ///
+  std::vector<uintptr_t> const &getStreamsInitial() const {
+    return StreamsInitial;
+  }
 
   /// @} (Accessors)
 

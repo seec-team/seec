@@ -34,18 +34,31 @@ namespace trace {
 // TraceStreams
 //===------------------------------------------------------------------------===
 
-void TraceStreams::streamOpened(FILE *stream) {
-  Streams.insert(std::make_pair(stream, TraceStream{}));
+void TraceStreams::streamOpened(FILE *Stream,
+                                offset_uint const FilenameOffset,
+                                offset_uint const ModeOffset)
+{
+  Streams.insert(std::make_pair(Stream,
+                                TraceStream{FilenameOffset, ModeOffset}));
 }
   
-bool TraceStreams::streamWillClose(FILE *stream) const {
-  auto It = Streams.find(stream);
+bool TraceStreams::streamWillClose(FILE *Stream) const
+{
+  auto It = Streams.find(Stream);
   
   return It != Streams.end();
 }
 
-void TraceStreams::streamClosed(FILE *stream) {
-  auto It = Streams.find(stream);
+TraceStream const *TraceStreams::streamInfo(FILE *Stream) const
+{
+  auto const It = Streams.find(Stream);
+  
+  return (It != Streams.end()) ? &It->second : nullptr;
+}
+
+void TraceStreams::streamClosed(FILE *Stream)
+{
+  auto It = Streams.find(Stream);
   assert(It != Streams.end());
   
   Streams.erase(It);

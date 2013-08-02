@@ -56,14 +56,26 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   DynamicMemoryAllocations(),
   DynamicMemoryAllocationsMutex(),
   StreamsMutex(),
-  Streams()
+  Streams(),
+  StreamsInitial()
 {
   // Open traces and enable output.
   traceOpen();
   
-  Streams.streamOpened(stdout);
-  Streams.streamOpened(stderr);
-  Streams.streamOpened(stdin);
+  StreamsInitial.emplace_back(reinterpret_cast<uintptr_t>(stdin));
+  Streams.streamOpened(stdin,
+                       recordData("stdin", std::strlen("stdin") + 1),
+                       recordData("r", std::strlen("r") + 1));
+  
+  StreamsInitial.emplace_back(reinterpret_cast<uintptr_t>(stdout));
+  Streams.streamOpened(stdout,
+                       recordData("stdout", std::strlen("stdout") + 1),
+                       recordData("w", std::strlen("w") + 1));
+  
+  StreamsInitial.emplace_back(reinterpret_cast<uintptr_t>(stderr));
+  Streams.streamOpened(stderr,
+                       recordData("stderr", std::strlen("stderr") + 1),
+                       recordData("w", std::strlen("w") + 1));
 }
 
 TraceProcessListener::~TraceProcessListener() {
@@ -98,6 +110,7 @@ void TraceProcessListener::traceWrite() {
   writeBinary(*Out, GlobalVariableAddresses);
   writeBinary(*Out, GlobalVariableInitialData);
   writeBinary(*Out, FunctionAddresses);
+  writeBinary(*Out, StreamsInitial);
 }
 
 void TraceProcessListener::traceFlush() {

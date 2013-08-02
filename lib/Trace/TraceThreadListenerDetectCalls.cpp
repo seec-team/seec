@@ -183,8 +183,7 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
   auto Address = RTValue->getUIntPtr();
   
   if (Address) {
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    StreamsAccessor->streamOpened(reinterpret_cast<FILE *>(Address));
+    recordStreamOpen(reinterpret_cast<FILE *>(Address), Filename, Mode);
   }
 }
 
@@ -221,9 +220,8 @@ void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
   auto Address = RTValue->getUIntPtr();
   
   if (Address) {
-    auto &Streams = ProcessListener.getStreams(StreamsLock);
-    Streams.streamClosed(Stream);
-    Streams.streamOpened(reinterpret_cast<FILE *>(Address));
+    recordStreamClose(Stream);
+    recordStreamOpen(reinterpret_cast<FILE *>(Address), Filename, Mode);
   }
 }
 
@@ -247,9 +245,9 @@ void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
 
 void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
                                       uint32_t Index,
-                                      FILE *Stream) {
-  auto &Streams = ProcessListener.getStreams(StreamsLock);
-  Streams.streamClosed(Stream);
+                                      FILE *Stream)
+{
+  recordStreamClose(Stream);
 }
 
 
