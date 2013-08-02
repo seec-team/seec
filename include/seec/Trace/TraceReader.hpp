@@ -524,6 +524,11 @@ public:
     auto DataPtr = reinterpret_cast<char const *>(DataStart);
     return llvm::ArrayRef<char>(DataPtr, Size);
   }
+  
+  /// \brief Get a raw pointer into the process' data record.
+  char const *getDataRaw(offset_uint const Offset) const {
+    return Data->getBufferStart() + Offset;
+  }
 
   /// Get the process time at the end of this trace.
   uint64_t getFinalProcessTime() const { return FinalProcessTime; }
