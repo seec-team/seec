@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -38,7 +39,8 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   ThreadStates(Trace->getNumThreads()),
   Mallocs(),
   Memory(),
-  KnownMemory()
+  KnownMemory(),
+  Streams()
 {
   // Setup initial memory state for global variables.
   for (std::size_t i = 0; i < Module->getGlobalCount(); ++i) {
@@ -53,12 +55,32 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
     Memory.add(MappedMemoryBlock(Start, Size, Data.data()), EventLocation());
   }
   
+  // Setup initial open streams.
+  auto const &StreamsInitial = Trace->getStreamsInitial();
+  
+  switch (StreamsInitial.size()) {
+    default:
+      SEEC_FALLTHROUGH;
+    case 3:
+      addStream(StreamState{StreamsInitial[2], "stderr", "w"});
+      SEEC_FALLTHROUGH;
+    case 2:
+      addStream(StreamState{StreamsInitial[1], "stdout", "w"});
+      SEEC_FALLTHROUGH;
+    case 1:
+      addStream(StreamState{StreamsInitial[0], "stdin", "r"});
+      SEEC_FALLTHROUGH;
+    case 0: break;
+  }
+  
   // Setup ThreadState objects for each thread.
   auto NumThreads = Trace->getNumThreads();
   for (std::size_t i = 0; i < NumThreads; ++i) {
     ThreadStates[i].reset(new ThreadState(*this, Trace->getThreadTrace(i+1)));
   }
 }
+
+ProcessState::~ProcessState() = default;
 
 seec::Maybe<MemoryArea>
 ProcessState::getContainingMemoryArea(uintptr_t Address) const {
@@ -117,6 +139,25 @@ ProcessState::getContainingMemoryArea(uintptr_t Address) const {
   return seec::Maybe<MemoryArea>();
 }
 
+bool ProcessState::addStream(StreamState Stream)
+{
+  auto const Address = Stream.getAddress();
+  auto const Result = Streams.insert(std::make_pair(Address,
+                                                    std::move(Stream)));
+  return Result.second;
+}
+
+bool ProcessState::removeStream(uintptr_t const Address)
+{
+  return Streams.erase(Address);
+}
+
+StreamState const *ProcessState::getStream(uintptr_t const Address) const
+{
+  auto const It = Streams.find(Address);
+  return It != Streams.end() ? &It->second : nullptr;
+}
+
 uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
   assert(MaybeIndex.assigned());
@@ -141,6 +182,11 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Memory State Fragments: "
       << State.getMemory().getNumberOfFragments() << "\n";
   Out << State.getMemory();
+  
+  Out << " Open Streams: " << State.getStreams().size() << "\n";
+  for (auto const &Stream : State.getStreams()) {
+    Out << Stream.second;
+  }
   
   for (auto &ThreadStatePtr : State.getThreadStates()) {
     Out << *ThreadStatePtr;

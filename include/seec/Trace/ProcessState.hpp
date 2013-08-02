@@ -16,6 +16,7 @@
 
 #include "seec/DSA/IntervalMapVector.hpp"
 #include "seec/Trace/MemoryState.hpp"
+#include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 
@@ -198,6 +199,9 @@ private:
   
   /// Known, but unowned, regions of memory.
   IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
+  
+  /// Currently open streams.
+  llvm::DenseMap<uintptr_t, StreamState> Streams;
 
   /// @} (Variable data.)
 
@@ -211,6 +215,10 @@ public:
   ///
   ProcessState(std::shared_ptr<ProcessTrace const> Trace,
                std::shared_ptr<ModuleIndex const> ModIndex);
+  
+  /// \brief Destructor.
+  ///
+  ~ProcessState();
 
 
   /// \name Accessors.
@@ -307,6 +315,30 @@ public:
   getContainingMemoryArea(uintptr_t Address) const;
   
   /// @} (Memory.)
+  
+  
+  /// \name Streams.
+  /// @{
+  
+  /// \brief Get the currently open streams.
+  ///
+  decltype(Streams) const &getStreams() const { return Streams; }
+  
+  /// \brief Add a stream to the currently open streams.
+  /// \return true iff the stream was added (did not already exist).
+  ///
+  bool addStream(StreamState Stream);
+  
+  /// \brief Remove a stream from the currently open streams.
+  /// \return true iff the stream was removed (existed).
+  ///
+  bool removeStream(uintptr_t Address);
+  
+  /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
+  ///
+  StreamState const *getStream(uintptr_t Address) const;
+  
+  /// @} (Streams.)
   
   
   /// \name Get run-time addresses.

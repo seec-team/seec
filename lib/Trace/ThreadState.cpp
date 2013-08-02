@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceSearch.hpp"
@@ -587,12 +588,18 @@ void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 
 void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
 {
-  // TODO
+  auto const &Trace = Parent.getTrace();
+  auto const Filename = Trace.getDataRaw(Ev.getFilenameOffset());
+  auto const Mode = Trace.getDataRaw(Ev.getModeOffset());
+  
+  Parent.addStream(StreamState{Ev.getFileAddress(),
+                               std::string{Filename},
+                               std::string{Mode}});
 }
 
 void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
 {
-  // TODO
+  Parent.removeStream(Ev.getFileAddress());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
@@ -1134,12 +1141,18 @@ void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 
 void ThreadState::removeEvent(EventRecord<EventType::FileOpen> const &Ev)
 {
-  // TODO
+  Parent.removeStream(Ev.getFileAddress());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
 {
-  // TODO
+  auto const &Trace = Parent.getTrace();
+  auto const Filename = Trace.getDataRaw(Ev.getFilenameOffset());
+  auto const Mode = Trace.getDataRaw(Ev.getModeOffset());
+  
+  Parent.addStream(StreamState{Ev.getFileAddress(),
+                               std::string{Filename},
+                               std::string{Mode}});
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {
