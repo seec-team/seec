@@ -39,7 +39,8 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
   GlobalVariableStates{},
   UnmappedStaticAreas{},
   ThreadStates{},
-  CurrentValueStore{}
+  CurrentValueStore{},
+  Streams{}
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
     ThreadStates.emplace_back(makeUnique<ThreadState>(*this, *StatePtr));
@@ -77,6 +78,11 @@ ProcessState::~ProcessState() = default;
 void ProcessState::cacheClear() {
   // Clear process-level cached information.
   CurrentValueStore = seec::cm::ValueStore::create();
+  Streams.clear();
+  
+  // Generate stream information.
+  for (auto const &Pair : UnmappedState->getStreams())
+    Streams.insert(std::make_pair(Pair.first, StreamState(Pair.second)));
   
   // Clear thread-level cached information.
   for (auto &ThreadPtr : ThreadStates)
@@ -116,6 +122,20 @@ void ProcessState::print(llvm::raw_ostream &Out,
         }
         Indentation.unindent();
       }
+    }
+    
+    // Print streams.
+    if (!Streams.empty()) {
+      Out << Indentation.getString()
+          << "Streams: " << Streams.size() << "\n";
+      
+      Indentation.indent();
+      
+      for (auto const &Pair : Streams) {
+        Out << Indentation.getString() << Pair.second << "\n";
+      }
+      
+      Indentation.unindent();
     }
     
     // Print thread states.
@@ -165,6 +185,17 @@ std::vector<MallocState> ProcessState::getDynamicMemoryAllocations() const
   }
   
   return States;
+}
+
+
+//===----------------------------------------------------------------------===//
+// ProcessState: Streams
+//===----------------------------------------------------------------------===//
+
+StreamState const *ProcessState::getStream(uintptr_t const Address) const
+{
+  auto const It = Streams.find(Address);
+  return It != Streams.end() ? &It->second : nullptr;
 }
 
 

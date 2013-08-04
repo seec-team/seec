@@ -44,6 +44,7 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/MappedProcessTrace.hpp
   ../../include/seec/Clang/MappedRuntimeErrorState.hpp
   ../../include/seec/Clang/MappedStateMovement.hpp
+  ../../include/seec/Clang/MappedStreamState.hpp
   ../../include/seec/Clang/MappedThreadState.hpp
   ../../include/seec/Clang/MappedValue.hpp
   ../../include/seec/Clang/TypeMatch.hpp
@@ -61,6 +62,7 @@ set(SEEC_CLANG_MAPPED_TRACE_SOURCES
   MappedProcessTrace.cpp
   MappedRuntimeErrorState.cpp
   MappedStateMovement.cpp
+  MappedStreamState.cpp
   MappedThreadState.cpp
   MappedValue.cpp
   TypeMatch.cpp

@@ -17,8 +17,12 @@
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
 #include "seec/Clang/MappedMallocState.hpp"
+#include "seec/Clang/MappedStreamState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
+#include "seec/Util/Maybe.hpp"
+
+#include "llvm/ADT/DenseMap.h"
 
 #include <memory>
 #include <vector>
@@ -72,6 +76,9 @@ class ProcessState {
   
   /// The current Value store.
   std::shared_ptr<ValueStore const> CurrentValueStore;
+  
+  /// Currently open streams.
+  llvm::DenseMap<uintptr_t, StreamState> Streams;
   
 public:
   /// \brief Constructor.
@@ -195,6 +202,20 @@ public:
   /// @{
   
   /// @} (Memory state.)
+  
+  
+  /// \name Streams.
+  /// @{
+  
+  /// \brief Get the currently open streams.
+  ///
+  decltype(Streams) const &getStreams() const { return Streams; }
+  
+  /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
+  ///
+  StreamState const *getStream(uintptr_t Address) const;
+  
+  /// @} (Streams.)
 };
 
 
