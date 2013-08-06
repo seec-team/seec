@@ -227,6 +227,11 @@ public:
 
     /// \brief Find out if the contained bytes are initialized.
     bool isCompletelyInitialized() const;
+    
+    /// \brief Find out if any contained byte is initialized.
+    /// If the region is completely initialized, this method will also return
+    /// true.
+    bool isPartiallyInitialized() const;
 
     /// \brief Find out whether each contained byte is initialized.
     std::vector<char> getByteInitialization() const;

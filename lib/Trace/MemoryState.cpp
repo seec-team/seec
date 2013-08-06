@@ -262,6 +262,31 @@ bool MemoryState::Region::isCompletelyInitialized() const {
   return false;
 }
 
+bool MemoryState::Region::isPartiallyInitialized() const {
+  auto It = State.FragmentMap.lower_bound(Area.start());
+  
+  // Check if this fragment intersects the area (meaning that the intersection
+  // must be initialized).
+  if (It != State.FragmentMap.end()
+      && It->second.getBlock().area().intersects(Area))
+  {
+    return true;
+  }
+  
+  // Check the previous fragment to see if it intersects our area.
+  if (It != State.FragmentMap.begin()
+      && (It == State.FragmentMap.end() || It->first > Area.start()))
+  {
+    --It;
+    
+    if (It->second.getBlock().area().intersects(Area))
+      return true;
+  }
+  
+  // No fragments intersected our area.
+  return false;
+}
+
 std::vector<char> MemoryState::Region::getByteInitialization() const {
   auto const Start = Area.start();
   auto const Length = Area.length();
