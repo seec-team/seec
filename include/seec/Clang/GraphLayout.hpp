@@ -385,10 +385,6 @@ public:
   std::vector<LayoutEngineForValue const *>
   listLayoutEnginesSupporting(Value const &ForValue) const;
   
-  // TODO: List the Value layout engines.
-  
-  // TODO: Set the Value layout engine to use for a particular Value.
-  
   /// \brief Set the layout engine to use for a particular value.
   ///
   bool setLayoutEngine(Value const &ForValue, uintptr_t EngineID);

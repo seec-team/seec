@@ -45,6 +45,8 @@ namespace trace {
 // Documented in MappedProcessTrace.hpp
 namespace cm {
 
+class StreamState;
+
 
 /// \brief Represents a runtime value.
 ///
@@ -55,7 +57,8 @@ public:
     Scalar,
     Array,
     Record,
-    Pointer
+    Pointer,
+    PointerToFILE
   };
 
 private:
@@ -262,6 +265,41 @@ public:
   /// \brief Get the size of the pointee type.
   ///
   ::clang::CharUnits getPointeeSize() const { return getPointeeSizeImpl(); }
+};
+
+
+/// \brief Represents a FILE pointer's runtime value.
+///
+class ValueOfPointerToFILE : public Value {
+private:
+  /// \brief Get the raw value of this pointer.
+  ///
+  virtual uintptr_t getRawValueImpl() const =0;
+  
+  /// \brief Check whether this FILE pointer is valid (an open stream).
+  ///
+  virtual bool isValidImpl() const =0;
+  
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfPointerToFILE()
+  : Value(Value::Kind::PointerToFILE)
+  {}
+  
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::PointerToFILE;
+  }
+  
+  /// \brief Get the raw value of this pointer.
+  ///
+  uintptr_t getRawValue() const { return getRawValueImpl(); }
+  
+  /// \brief Check whether this FILE pointer is valid (an open stream).
+  ///
+  virtual bool isValid() const { return isValidImpl(); }
 };
 
 
