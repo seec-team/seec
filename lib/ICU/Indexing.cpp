@@ -38,10 +38,10 @@ IndexedString::from(UnicodeString const &String)
   UnicodeString CleanedString; // String with index indicators removed.
   std::multimap<UnicodeString, Needle> Needles;
   
-  std::vector<std::pair<UnicodeString, uint32_t>> IndexStack;
+  std::vector<std::pair<UnicodeString, int32_t>> IndexStack;
   
-  uint32_t SearchFrom = 0; // Current offset in String.
-  uint32_t FoundStart; // Position of matched index indicator.
+  int32_t SearchFrom = 0; // Current offset in String.
+  int32_t FoundStart; // Position of matched index indicator.
   
   while ((FoundStart = String.indexOf(NeedleStart, SearchFrom)) != -1) {
     // Copy all the literal string data.
@@ -55,7 +55,7 @@ IndexedString::from(UnicodeString const &String)
     }
     
     // Find the end of this sequence.
-    uint32_t FoundEnd = String.indexOf(NeedleEnd, SearchFrom);
+    int32_t FoundEnd = String.indexOf(NeedleEnd, SearchFrom);
     if (FoundEnd == -1)
       return seec::Maybe<IndexedString>();
     
@@ -65,7 +65,7 @@ IndexedString::from(UnicodeString const &String)
         return seec::Maybe<IndexedString>();
       
       // Pop the starting details of the last-opened sequence.
-      auto Start = IndexStack.back();
+      auto const Start = IndexStack.back();
       IndexStack.pop_back();
       
       // Store the needle for this sequence.
@@ -75,8 +75,8 @@ IndexedString::from(UnicodeString const &String)
     }
     else {
       // This is an opening sequence.
-      uint32_t const NameStart = FoundStart + NeedleStart.length();
-      uint32_t const NameLength = FoundEnd - NameStart;
+      int32_t const NameStart = FoundStart + NeedleStart.length();
+      int32_t const NameLength = FoundEnd - NameStart;
       
       IndexStack.emplace_back(UnicodeString(String, NameStart, NameLength),
                               CleanedString.countChar32());
