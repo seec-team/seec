@@ -817,6 +817,9 @@ public:
     auto const Result = Function(std::forward<ArgTs>(Args)...);
     bool const Success = SuccessPred(Result);
     
+    // Silence warnings about unused Success.
+    (void)Success;
+    
     // Notify the TraceThreadListener of the new value.
     typedef typename std::remove_reference<FnT>::type FnTLessReference;
     ListenerNotifier<RetT> Notifier;
