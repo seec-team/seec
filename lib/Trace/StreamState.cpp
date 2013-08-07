@@ -25,6 +25,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << "  @" << State.getAddress()
       << ": " << State.getFilename()
       << " (" << State.getMode() << ")\n";
+  return Out;
 }
 
 } // namespace trace (in seec)
