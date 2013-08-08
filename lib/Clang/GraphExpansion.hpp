@@ -30,17 +30,38 @@ class StreamState;
 namespace graph {
 
 
+/// \brief Represents a dereference of a pointer with a given index (e.g. p[i]).
+///
 class Dereference {
+  /// The base pointer.
   std::shared_ptr<ValueOfPointer const> Pointer;
   
+  /// The index dereferenced.
   unsigned Index;
   
 public:
+  /// \brief Constructor.
+  ///
   Dereference(std::shared_ptr<ValueOfPointer const> OfPointer,
               unsigned WithIndex)
   : Pointer(std::move(OfPointer)),
     Index(WithIndex)
   {}
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the pointer that is the source of this reference.
+  ///
+  std::shared_ptr<ValueOfPointer const> const &getPointer() const {
+    return Pointer;
+  }
+  
+  /// \brief Get the index used with the pointer to achieve this reference.
+  ///
+  unsigned getIndex() const { return Index; }
+  
+  /// @} (Accessors.)
 };
 
 
@@ -50,30 +71,56 @@ class ExpansionImpl;
 /// \brief Stores information about a state that has been expanded for graphing.
 ///
 class Expansion final {
+  /// Internal implementation.
   std::unique_ptr<ExpansionImpl const> Impl;
   
+  /// \brief Constructor.
+  ///
   Expansion();
   
 public:
+  /// \brief Move constructor.
+  ///
   Expansion(Expansion &&) = default;
   
+  /// \brief Destructor.
+  ///
   ~Expansion();
   
+  /// \brief Create an \c Expansion for a \c seec::cm::ProcessState.
+  ///
   static Expansion from(seec::cm::ProcessState const &State);
   
+  
+  /// \name Pointers.
+  /// @{
+  
+  /// \brief Check if a \c Value is referenced by a pointer.
+  ///
   bool isReferenced(std::shared_ptr<Value const> const &Value) const;
   
+  /// \brief Count how many pointers reference a \c Value.
+  ///
   std::size_t
   countReferencesOf(std::shared_ptr<Value const> const &Value) const;
   
+  /// \brief Get all pointers that reference a \c Value, either directly or when
+  ///        dereferenced with a index.
+  ///
   std::vector<Dereference>
   getReferencesOf(std::shared_ptr<Value const> const &Value) const;
   
+  /// \brief Get all pointers that point directly into a memory area.
+  ///
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
   
+  /// \brief Get all pointers.
+  ///
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getAllPointers() const;
+  
+  /// @} (Pointers.)
   
   
   /// \name Stream information.
