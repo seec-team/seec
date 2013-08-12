@@ -118,10 +118,10 @@ public:
   
   /// @} (Mutators).
 
+private:
   /// \name State display.
   /// @{
 
-private:
   /// \brief Show the given runtime error in the source code view.
   ///
   void showRuntimeError(seec::cm::RuntimeErrorState const &Error,
@@ -143,7 +143,6 @@ private:
   /// \name File management.
   /// @{
 
-private:
   /// \brief Show the given source file.
   ///
   SourceFilePanel *loadAndShowFile(clang::FileEntry const *File,
@@ -155,7 +154,6 @@ private:
   /// \name Highlighting.
   /// @{
 
-private:
   /// Set highlighting for a Decl.
   void highlightOn(::clang::Decl const *Decl);
   
