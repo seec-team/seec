@@ -72,6 +72,11 @@ search(::clang::ASTUnit &AST,
        unsigned Line,
        unsigned Column);
 
+seec::Maybe<SearchResult, seec::Error>
+search(::clang::ASTUnit &AST,
+       llvm::StringRef Filename,
+       unsigned Offset);
+
 
 } // namespace seec_clang (in seec)
 

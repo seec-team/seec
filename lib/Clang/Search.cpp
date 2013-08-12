@@ -91,23 +91,11 @@ public:
 
 
 seec::Maybe<SearchResult, seec::Error>
-search(::clang::ASTUnit &AST,
-       llvm::StringRef Filename,
-       unsigned Line,
-       unsigned Column)
+searchImpl(clang::ASTUnit &AST,
+           clang::SourceManager &SourceMgr,
+           clang::FileID FileID,
+           clang::SourceLocation SLoc)
 {
-  auto &FileMgr = AST.getFileManager();
-    
-  auto const File = FileMgr.getFile(Filename, false);
-  if (!File)
-    return seec::Error(LazyMessageByRef::create("SeeCClang",
-                                                {"errors",
-                                                 "FileManagerGetFileFail"}));
-  
-  auto &SourceMgr = AST.getSourceManager();
-  auto const FileID = SourceMgr.translateFile(File);
-  auto const SLoc = SourceMgr.translateLineCol(FileID, Line, Column);
-  
   if (SLoc.isInvalid())
     return seec::Error(LazyMessageByRef::create("SeeCClang",
                                                 {"errors",
@@ -146,6 +134,48 @@ search(::clang::ASTUnit &AST,
   }
   
   return SearchResult(nullptr, nullptr, SearchResult::EFoundKind::None);
+}
+
+seec::Maybe<SearchResult, seec::Error>
+search(::clang::ASTUnit &AST,
+       llvm::StringRef Filename,
+       unsigned Line,
+       unsigned Column)
+{
+  auto &FileMgr = AST.getFileManager();
+    
+  auto const File = FileMgr.getFile(Filename, false);
+  if (!File)
+    return seec::Error(LazyMessageByRef::create("SeeCClang",
+                                                {"errors",
+                                                 "FileManagerGetFileFail"}));
+  
+  auto &SourceMgr = AST.getSourceManager();
+  auto const FileID = SourceMgr.translateFile(File);
+  auto const SLoc = SourceMgr.translateLineCol(FileID, Line, Column);
+  
+  return searchImpl(AST, SourceMgr, FileID, SLoc);
+}
+
+seec::Maybe<SearchResult, seec::Error>
+search(::clang::ASTUnit &AST,
+       llvm::StringRef Filename,
+       unsigned Offset)
+{
+  auto &FileMgr = AST.getFileManager();
+    
+  auto const File = FileMgr.getFile(Filename, false);
+  if (!File)
+    return seec::Error(LazyMessageByRef::create("SeeCClang",
+                                                {"errors",
+                                                 "FileManagerGetFileFail"}));
+  
+  auto &SourceMgr = AST.getSourceManager();
+  auto const FileID = SourceMgr.translateFile(File);
+  auto const SLocStart = SourceMgr.getLocForStartOfFile(FileID);
+  auto const SLoc = SLocStart.getLocWithOffset(Offset);
+  
+  return searchImpl(AST, SourceMgr, FileID, SLoc);
 }
 
 
