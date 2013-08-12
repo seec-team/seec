@@ -17,11 +17,13 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/Search.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/LineWrapper.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Util/Range.hpp"
+#include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "clang/Basic/SourceManager.h"
@@ -159,6 +161,71 @@ static SourceFileRange getRangeOutermost(::clang::Decl const *Decl,
   return getRangeOutermost(Decl->getLocStart(), Decl->getLocEnd(), AST);
 }
 
+/// \brief Get the range of two locations in a specific FileEntry.
+///
+static SourceFileRange getRangeInFile(clang::SourceLocation Start,
+                                      clang::SourceLocation End,
+                                      clang::ASTContext const &AST,
+                                      clang::FileEntry const *FileEntry)
+{
+  auto const &SrcMgr = AST.getSourceManager();
+  
+  // Take the expansion location of the Start until it is in the requested file.
+  while (SrcMgr.getFileEntryForID(SrcMgr.getFileID(Start)) != FileEntry) {
+    if (!Start.isMacroID())
+      return SourceFileRange{};
+    
+    Start = SrcMgr.getExpansionLoc(Start);
+  }
+  
+  auto const FileID = SrcMgr.getFileID(Start);
+  
+  // Take the expansion location of the End until it is in the requested file.
+  while (SrcMgr.getFileID(End) != FileID) {
+    if (!End.isMacroID())
+      return SourceFileRange{};
+    
+    End = SrcMgr.getExpansionLoc(End);
+  }
+  
+  // Find the first character following the last token.
+  auto const FollowingEnd =
+    clang::Lexer::getLocForEndOfToken(End, 0, SrcMgr, AST.getLangOpts());
+  
+  // Get the file offset of the start and end.
+  auto const StartOffset = SrcMgr.getFileOffset(Start);
+  
+  auto const EndOffset = FollowingEnd.isValid()
+                       ? SrcMgr.getFileOffset(FollowingEnd)
+                       : SrcMgr.getFileOffset(End);
+  
+  return SourceFileRange(FileEntry,
+                         StartOffset,
+                         SrcMgr.getLineNumber(FileID, StartOffset),
+                         SrcMgr.getColumnNumber(FileID, StartOffset),
+                         EndOffset,
+                         SrcMgr.getLineNumber(FileID, EndOffset),
+                         SrcMgr.getColumnNumber(FileID, EndOffset));
+}
+
+/// \brief Get the range of a Decl in a specific FileEntry.
+///
+static SourceFileRange getRangeInFile(clang::Decl const *Decl,
+                                      clang::ASTContext const &AST,
+                                      clang::FileEntry const *FileEntry)
+{
+  return getRangeInFile(Decl->getLocStart(), Decl->getLocEnd(), AST, FileEntry);
+}
+
+/// \brief Get the range of a Stmt in a specific FileEntry.
+///
+static SourceFileRange getRangeInFile(clang::Stmt const *Stmt,
+                                      clang::ASTContext const &AST,
+                                      clang::FileEntry const *FileEntry)
+{
+  return getRangeInFile(Stmt->getLocStart(), Stmt->getLocEnd(), AST, FileEntry);
+}
+
 
 //------------------------------------------------------------------------------
 // Annotation
@@ -260,6 +327,12 @@ class SourceFilePanel : public wxPanel {
   };
   
 
+  /// The ASTUnit that the file belongs to.
+  clang::ASTUnit *AST;
+  
+  /// The file entry.
+  clang::FileEntry const *File;
+  
   /// Text control that displays the file.
   wxStyledTextCtrl *Text;
   
@@ -274,6 +347,18 @@ class SourceFilePanel : public wxPanel {
   
   /// Regions that have temporary indicators (e.g. highlighting).
   std::list<IndicatedRegion> TemporaryIndicators;
+  
+  /// Caches the current mouse position.
+  int CurrentMousePosition;
+  
+  /// Decl that the mouse is currently hovering over.
+  clang::Decl const *HoverDecl;
+  
+  /// Stmt that the mouse is currently hovering over.
+  clang::Stmt const *HoverStmt;
+  
+  /// Temporary indicator for the node that the mouse is hovering over.
+  decltype(TemporaryIndicators)::iterator HoverIndicator;
   
   
   /// \brief Setup the Scintilla preferences.
@@ -438,51 +523,100 @@ class SourceFilePanel : public wxPanel {
       renderAnnotationsFor(It->first);
     }
   }
+  
+  
+  /// \name Mouse events.
+  /// @{
+  
+  /// \brief Clear hover nodes and indicators.
+  ///
+  void clearHoverNode();
+  
+  /// \brief Called when the mouse moves in the Text (Scintilla) window.
+  ///
+  void OnTextMotion(wxMouseEvent &Event);
+  
+  /// \brief Called when the mouse leaves the Text (Scintilla) window.
+  ///
+  void OnTextLeaveWindow(wxMouseEvent &Event) {
+    CurrentMousePosition = -1;
+    clearHoverNode();
+    Event.Skip();
+  }
+  
+  /// @} (Mouse events.)
+  
 
 public:
   /// Type used to reference temporary indicators.
   typedef decltype(TemporaryIndicators)::iterator
           temporary_indicator_token;
   
-  // \brief Construct without creating.
+  /// \brief Construct without creating.
+  ///
   SourceFilePanel()
   : wxPanel(),
+    AST(nullptr),
+    File(nullptr),
     Text(nullptr),
     Breaker(nullptr),
     StateIndications(),
     StateAnnotations(),
-    TemporaryIndicators()
+    TemporaryIndicators(),
+    CurrentMousePosition(-1),
+    HoverDecl(nullptr),
+    HoverStmt(nullptr),
+    HoverIndicator(TemporaryIndicators.end())
   {}
 
-  // \brief Construct and create.
+  /// \brief Construct and create.
+  ///
   SourceFilePanel(wxWindow *Parent,
+                  clang::ASTUnit &WithAST,
+                  clang::FileEntry const *WithFile,
                   llvm::MemoryBuffer const &Buffer,
                   wxWindowID ID = wxID_ANY,
                   wxPoint const &Position = wxDefaultPosition,
                   wxSize const &Size = wxDefaultSize)
   : wxPanel(),
+    AST(nullptr),
+    File(nullptr),
     Text(nullptr),
     Breaker(nullptr),
     StateIndications(),
     StateAnnotations(),
-    TemporaryIndicators()
+    TemporaryIndicators(),
+    CurrentMousePosition(-1),
+    HoverDecl(nullptr),
+    HoverStmt(nullptr),
+    HoverIndicator(TemporaryIndicators.end())
   {
-    Create(Parent, Buffer, ID, Position, Size);
+    Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
   }
 
   /// \brief Destructor.
+  ///
   virtual ~SourceFilePanel() {}
 
   /// \brief Create the panel.
+  ///
   bool Create(wxWindow *Parent,
+              clang::ASTUnit &WithAST,
+              clang::FileEntry const *WithFile,
               llvm::MemoryBuffer const &Buffer,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
-              wxSize const &Size = wxDefaultSize) {
+              wxSize const &Size = wxDefaultSize)
+  {
     if (!wxPanel::Create(Parent, ID, Position, Size))
       return false;
 
+    AST = &WithAST;
+    File = WithFile;
+
     Text = new wxStyledTextCtrl(this, wxID_ANY);
+    if (!Text)
+      return false;
 
     // Setup the preferences of Text.
     setSTCPreferences();
@@ -527,6 +661,10 @@ public:
         [this] (wxCommandEvent &Ev) {
           renderAnnotations();
         }});
+    
+    // Setup mouse handling.
+    Text->Bind(wxEVT_MOTION, &SourceFilePanel::OnTextMotion, this);
+    Text->Bind(wxEVT_LEAVE_WINDOW, &SourceFilePanel::OnTextLeaveWindow, this);
 
     return true;
   }
@@ -558,6 +696,7 @@ public:
   }
   
   /// \brief Set an indicator on a range of text for the current state.
+  ///
   bool stateIndicatorAdd(SciIndicatorType Indicator, int Start, int End) {
     auto const IndicatorInt = static_cast<int>(Indicator);
     
@@ -662,6 +801,79 @@ public:
   
   /// @} (Temporary display)
 };
+
+void SourceFilePanel::clearHoverNode() {
+  HoverDecl = nullptr;
+  HoverStmt = nullptr;
+  
+  if (HoverIndicator != TemporaryIndicators.end()) {
+    temporaryIndicatorRemove(HoverIndicator);
+    HoverIndicator = TemporaryIndicators.end();
+  }
+}
+
+void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
+  // When we exit this scope, call Event.Skip() so that it is handled by the
+  // default handler.
+  auto const SkipEvent = seec::scopeExit([&](){ Event.Skip(); });
+  
+  auto const Pos = Text->CharPositionFromPointClose(Event.GetPosition().x,
+                                                    Event.GetPosition().y);
+  
+  if (Pos == CurrentMousePosition)
+    return;
+  
+  CurrentMousePosition = Pos;
+  clearHoverNode();
+  
+  if (Pos == wxSTC_INVALID_POSITION)
+    return;
+  
+  auto const MaybeResult = seec::seec_clang::search(*AST, File->getName(), Pos);
+  
+  if (MaybeResult.assigned<seec::Error>()) {
+    wxLogDebug("Search failed!");
+    return;
+  }
+  
+  auto const &Result = MaybeResult.get<seec::seec_clang::SearchResult>();
+  auto const &ASTContext = AST->getASTContext();
+  
+  switch (Result.getFoundLast()) {
+    case seec::seec_clang::SearchResult::EFoundKind::None:
+      break;
+    
+    case seec::seec_clang::SearchResult::EFoundKind::Decl:
+    {
+      HoverDecl = Result.getFoundDecl();
+      
+      auto const Range = getRangeInFile(HoverDecl, ASTContext, File);
+      
+      if (Range.File) {
+        HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                               Range.Start,
+                                               Range.End);
+      }
+      
+      break;
+    }
+    
+    case seec::seec_clang::SearchResult::EFoundKind::Stmt:
+    {
+      HoverStmt = Result.getFoundStmt();
+      
+      auto const Range = getRangeInFile(HoverStmt, ASTContext, File);
+      
+      if (Range.File) {
+        HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                               Range.Start,
+                                               Range.End);
+      }
+      
+      break;
+    }
+  }
+}
 
 
 //------------------------------------------------------------------------------
@@ -1015,7 +1227,10 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
   if (Invalid)
     return nullptr;
   
-  auto const SourcePanel = new SourceFilePanel(this, *Buffer);
+  auto const SourcePanel = new SourceFilePanel(this,
+                                               ASTUnit,
+                                               File,
+                                               *Buffer);
   Pages.insert(std::make_pair(File, SourcePanel));
   Notebook->AddPage(SourcePanel, File->getName());
   
