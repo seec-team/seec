@@ -141,6 +141,14 @@ root:table {
   }
 
 
+  // SourceFilePanel resources.
+  SourceFilePanel:table {
+    CMStmtRewind:string {"Rewind to when this statement was last evaluated"}
+
+    CMStmtForward:string {"Move forward to when this statement is next evaluated"}
+  }
+
+
   // StateGraphViewerPanel resources
   StateGraphViewer:table {
     WebViewHTML:import {"HTML/StateGraphViewer.html"}

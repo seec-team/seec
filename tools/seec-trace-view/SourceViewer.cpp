@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
+#include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/Search.hpp"
 #include "seec/ICU/Format.hpp"
@@ -42,6 +43,7 @@
 #include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
+#include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
@@ -308,6 +310,14 @@ wxDEFINE_EVENT(EVT_SOURCE_ANNOTATION_RERENDER, wxCommandEvent);
 /// \brief Viewer for a single source code file.
 ///
 class SourceFilePanel : public wxPanel {
+  /// \brief IDs for controls.
+  ///
+  enum ControlIDs {
+    CID_StmtRewind = wxID_HIGHEST,
+    CID_StmtForward
+  };
+  
+  
   /// \brief Store information about an indicated region.
   ///
   struct IndicatedRegion {
@@ -339,6 +349,9 @@ class SourceFilePanel : public wxPanel {
   /// Used to perform line wrapping.
   std::unique_ptr<BreakIterator> Breaker;
   
+  /// Access to the current state.
+  std::shared_ptr<StateAccessToken> CurrentAccess;
+  
   /// Regions that have indicators for the current state.
   std::vector<IndicatedRegion> StateIndications;
   
@@ -359,6 +372,12 @@ class SourceFilePanel : public wxPanel {
   
   /// Temporary indicator for the node that the mouse is hovering over.
   decltype(TemporaryIndicators)::iterator HoverIndicator;
+  
+  /// Used to determine if the mouse remains stationary during a click.
+  bool ClickUnmoved;
+  
+  /// Stmt that the context menu was raised for.
+  clang::Stmt const *CMStmt;
   
   
   /// \brief Setup the Scintilla preferences.
@@ -544,6 +563,93 @@ class SourceFilePanel : public wxPanel {
     Event.Skip();
   }
   
+  /// \brief Called when the mouse's right button is pressed in the Text window.
+  ///
+  void OnTextRightDown(wxMouseEvent &Event) {
+    ClickUnmoved = true;
+  }
+  
+  /// \brief Called when a context menu item is clicked.
+  ///
+  void OnContextMenuClick(wxCommandEvent &Event) {
+    switch (Event.GetId()) {
+      case CID_StmtRewind:
+      {
+        raiseMovementEvent(*this, CurrentAccess,
+          [this] (seec::cm::ProcessState &P) -> bool {
+            if (P.getThreadCount() == 1) {
+              auto &Thread = P.getThread(0);
+              return seec::cm::moveBackwardUntilEvaluated(Thread, CMStmt);
+            }
+            else {
+              wxLogDebug("Multithread rewind not yet implemented.");
+              return false;
+            }
+          });
+        
+        break;
+      }
+      
+      case CID_StmtForward:
+      {
+        raiseMovementEvent(*this, CurrentAccess,
+          [this] (seec::cm::ProcessState &P) -> bool {
+            if (P.getThreadCount() == 1) {
+              auto &Thread = P.getThread(0);
+              return seec::cm::moveForwardUntilEvaluated(Thread, CMStmt);
+            }
+            else {
+              wxLogDebug("Multithread forward not yet implemented.");
+              return false;
+            }
+          });
+        
+        break;
+      }
+    }
+  }
+  
+  /// \brief Called when the mouse's right button is released in the Text
+  ///        window.
+  ///
+  void OnTextRightUp(wxMouseEvent &Event) {
+    if (!ClickUnmoved)
+      return;
+    
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const TextTable = seec::getResource("TraceViewer",
+                                             Locale::getDefault(),
+                                             Status,
+                                            "SourceFilePanel");
+    if (U_FAILURE(Status))
+      return;
+    
+    if (HoverDecl)
+      return;
+    
+    if (HoverStmt) {
+      // Save the HoverStmt, because it will be cleared before the user can
+      // click on any of the context menu items.
+      CMStmt = HoverStmt;
+      
+      wxMenu ContextMenu{};
+      
+      ContextMenu.Append(CID_StmtRewind,
+                         seec::getwxStringExOrEmpty(TextTable,
+                                                    "CMStmtRewind"));
+      
+      ContextMenu.Append(CID_StmtForward,
+                         seec::getwxStringExOrEmpty(TextTable,
+                                                    "CMStmtForward"));
+      
+      ContextMenu.Bind(wxEVT_COMMAND_MENU_SELECTED,
+                       &SourceFilePanel::OnContextMenuClick,
+                       this);
+      
+      PopupMenu(&ContextMenu);
+    }
+  }
+  
   /// @} (Mouse events.)
   
 
@@ -560,13 +666,16 @@ public:
     File(nullptr),
     Text(nullptr),
     Breaker(nullptr),
+    CurrentAccess(),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators(),
     CurrentMousePosition(-1),
     HoverDecl(nullptr),
     HoverStmt(nullptr),
-    HoverIndicator(TemporaryIndicators.end())
+    HoverIndicator(TemporaryIndicators.end()),
+    ClickUnmoved(false),
+    CMStmt(nullptr)
   {}
 
   /// \brief Construct and create.
@@ -583,13 +692,16 @@ public:
     File(nullptr),
     Text(nullptr),
     Breaker(nullptr),
+    CurrentAccess(),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators(),
     CurrentMousePosition(-1),
     HoverDecl(nullptr),
     HoverStmt(nullptr),
-    HoverIndicator(TemporaryIndicators.end())
+    HoverIndicator(TemporaryIndicators.end()),
+    ClickUnmoved(false),
+    CMStmt(nullptr)
   {
     Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
   }
@@ -663,8 +775,10 @@ public:
         }});
     
     // Setup mouse handling.
-    Text->Bind(wxEVT_MOTION, &SourceFilePanel::OnTextMotion, this);
+    Text->Bind(wxEVT_MOTION,       &SourceFilePanel::OnTextMotion,      this);
     Text->Bind(wxEVT_LEAVE_WINDOW, &SourceFilePanel::OnTextLeaveWindow, this);
+    Text->Bind(wxEVT_RIGHT_DOWN,   &SourceFilePanel::OnTextRightDown,   this);
+    Text->Bind(wxEVT_RIGHT_UP,     &SourceFilePanel::OnTextRightUp,     this);
 
     return true;
   }
@@ -693,6 +807,15 @@ public:
     
     // wxStyledTextCtrl doesn't automatically redraw after the above.
     Text->Refresh();
+  }
+  
+  /// \brief Update this panel to reflect the given state.
+  ///
+  void show(std::shared_ptr<StateAccessToken> Access,
+            seec::cm::ProcessState const &Process,
+            seec::cm::ThreadState const &Thread)
+  {
+    CurrentAccess = std::move(Access);
   }
   
   /// \brief Set an indicator on a range of text for the current state.
@@ -816,6 +939,8 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
   // When we exit this scope, call Event.Skip() so that it is handled by the
   // default handler.
   auto const SkipEvent = seec::scopeExit([&](){ Event.Skip(); });
+  
+  ClickUnmoved = false;
   
   auto const Pos = Text->CharPositionFromPointClose(Event.GetPosition().x,
                                                     Event.GetPosition().y);
@@ -992,6 +1117,13 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   CurrentAccess = std::move(Access);
   if (!CurrentAccess)
     return;
+  
+  // Give access to the new state to the SourceFilePanels, before exiting this
+  // function (we may create additional SourceFilePanels before that happens).
+  auto const GiveState = seec::scopeExit([&] () {
+    for (auto &PagePair : Pages)
+      PagePair.second->show(CurrentAccess, Process, Thread);
+  });
   
   // Lock the current state while we read from it.
   auto Lock = CurrentAccess->getAccess();
