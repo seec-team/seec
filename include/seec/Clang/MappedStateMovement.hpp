@@ -16,6 +16,10 @@
 
 #include "seec/DSA/MemoryArea.hpp"
 
+namespace clang {
+  class Stmt;
+}
+
 namespace seec {
 
 // Documented in MappedProcessTrace.hpp
@@ -23,6 +27,7 @@ namespace cm {
 
 
 class FunctionState;
+class ProcessState;
 class ThreadState;
 class Value;
 
@@ -107,6 +112,22 @@ bool
 moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
 
 /// @} (Contextual movement for memory.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement based on AST nodes.
+/// @{
+
+/// \brief Move State forward until the Stmt is next evaluated.
+///
+bool moveForwardUntilEvaluated(ThreadState &State, clang::Stmt const *S);
+
+/// \brief Move State backward until the Stmt is last evaluated.
+///
+bool moveBackwardUntilEvaluated(ThreadState &State, clang::Stmt const *S);
+
+/// @} (Contextual movement based on AST nodes.)
 //===----------------------------------------------------------------------===//
 
 

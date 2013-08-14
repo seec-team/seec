@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/Trace/ProcessState.hpp"
@@ -306,6 +307,131 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 }
 
 // (Contextual movement for memory.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+// \name Contextual movement based on AST nodes.
+
+bool moveForwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
+{
+  using namespace seec::trace;
+  
+  // This movement passes through three distinct states. We being at PreStmt,
+  // and continue moving forward until the active Instruction is "in" the
+  // requested Stmt (S) -- it is mapped to either S or one of S's children. At
+  // that point we move to StmtPartial. We continue moving forward until the
+  // next Instruction that would be active (but is not yet) is not "in" S (it
+  // is neither S nor any of S's children), at which point we move to
+  // StmtComplete. In StmtComplete we move forward until we are at a logical
+  // point to stop.
+  enum class MoveStateEn {
+    PreStmt,
+    StmtPartial,
+    StmtComplete
+  };
+  
+  if (!S)
+    return false;
+  
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+  auto const StmtChildren = seec::seec_clang::getAllChildren(S);
+  
+  MoveStateEn MoveState = MoveStateEn::PreStmt;
+  
+  auto const Moved =
+    trace::moveForwardUntil(Unmapped,
+      [&] (seec::trace::ThreadState const &T) {
+        if (MoveState == MoveStateEn::PreStmt)
+          if (auto const ActiveFn = T.getActiveFunction())
+            if (auto const ActiveInst = ActiveFn->getActiveInstruction())
+              if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst))
+                if (S == ActiveStmt || StmtChildren.count(ActiveStmt))
+                  MoveState = MoveStateEn::StmtPartial;
+        
+        if (MoveState == MoveStateEn::StmtPartial)
+          if (auto const Next = getNextInstructionInActiveFunction(T))
+            if (auto const NextStmt = MappedModule.getStmt(Next))
+              if (S != NextStmt && !StmtChildren.count(NextStmt))
+                MoveState = MoveStateEn::StmtComplete;
+        
+        if (MoveState == MoveStateEn::StmtComplete)
+          return isLogicalPoint(T, MappedModule);
+        
+        return false;
+      });
+  
+  Thread.getParent().cacheClear();
+  
+  return Moved;
+}
+
+bool moveBackwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
+{
+  using namespace seec::trace;
+  
+  enum class MoveStateEn {
+    InitiallyInStmt,
+    OutsideOfStmt
+  };
+  
+  if (!S)
+    return false;
+  
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+  auto const StmtChildren = seec::seec_clang::getAllChildren(S);
+  
+  MoveStateEn MoveState = MoveStateEn::OutsideOfStmt;
+  
+  // Check if we are starting movement from "within" the Stmt (in which case
+  // we must rewind to the previous execution of the Stmt).
+  if (auto const ActiveFn = Unmapped.getActiveFunction())
+    if (auto const ActiveInst = ActiveFn->getActiveInstruction())
+      if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst))
+        if (S == ActiveStmt || StmtChildren.count(ActiveStmt))
+          MoveState = MoveStateEn::InitiallyInStmt;
+  
+  // First move backward until we are "within" the Stmt S (if we started in S,
+  // then move until we are within the previous execution).
+  auto const Moved =
+    trace::moveBackwardUntil(Unmapped,
+      [&] (seec::trace::ThreadState const &T) {
+        if (auto const ActiveFn = T.getActiveFunction()) {
+          if (auto const ActiveInst = ActiveFn->getActiveInstruction()) {
+            if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst)) {
+              if (S == ActiveStmt || StmtChildren.count(ActiveStmt)) {
+                if (MoveState == MoveStateEn::OutsideOfStmt) {
+                  return true;
+                }
+              }
+              else if (MoveState == MoveStateEn::InitiallyInStmt) {
+                MoveState = MoveStateEn::OutsideOfStmt;
+              }
+            }
+          }
+        }
+        
+        return false;
+      });
+  
+  // If we have to, move forward until we're at a logical point.
+  if (Moved && !isLogicalPoint(Unmapped, MappedModule)) {
+    trace::moveForwardUntil(Unmapped,
+      [&] (seec::trace::ThreadState const &T) {
+        return isLogicalPoint(T, MappedModule);
+      });
+  }
+  
+  Thread.getParent().cacheClear();
+  
+  return Moved;
+}
+
+// (Contextual movement based on AST nodes.)
 //===----------------------------------------------------------------------===//
 
 
