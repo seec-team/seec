@@ -26,6 +26,10 @@ namespace seec {
 
 namespace seec_clang {
 
+//===----------------------------------------------------------------------===//
+// MappedStmt
+//===----------------------------------------------------------------------===//
+
 seec::Maybe<MappedStmt::Type>
 getTypeFromMDString(llvm::MDString const *MDStr)
 {
@@ -98,6 +102,28 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
                                                     ASTAndStmt.second,
                                                     Val1,
                                                     Val2));
+}
+
+//===----------------------------------------------------------------------===//
+// getAllChildren()
+//===----------------------------------------------------------------------===//
+
+static void
+addAllChildren(llvm::DenseSet<clang::Stmt const *> &Set, clang::Stmt const *S)
+{
+  for (auto const &Child : S->children()) {
+    if (Child) {
+      Set.insert(Child);
+      addAllChildren(Set, Child);
+    }
+  }
+}
+
+llvm::DenseSet<clang::Stmt const *> getAllChildren(clang::Stmt const *S)
+{
+  llvm::DenseSet<clang::Stmt const *> Set;
+  addAllChildren(Set, S);
+  return Set;
 }
 
 } // namespace seec_clang (in seec)

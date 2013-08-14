@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDSTMT_HPP
 #define SEEC_CLANG_MAPPEDSTMT_HPP
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Metadata.h"
 
 #include <memory>
@@ -118,6 +119,10 @@ public:
   
   /// @}
 };
+
+/// \brief Get all children of a Stmt.
+///
+llvm::DenseSet<clang::Stmt const *> getAllChildren(clang::Stmt const *S);
 
 } // namespace seec_clang (in seec)
 
