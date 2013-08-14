@@ -125,6 +125,8 @@ static bool matchType(::clang::ASTContext const &AContext,
                       ::clang::ASTContext const &BContext,
                       ::clang::VectorType const *B)
 {
+  assert(A && B);
+  
   if (A->getNumElements() != B->getNumElements())
     return false;
   
