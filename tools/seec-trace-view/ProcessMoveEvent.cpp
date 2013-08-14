@@ -23,15 +23,21 @@ raiseMovementEvent(wxWindow &Control,
                    std::function<bool (seec::cm::ProcessState &State)> Mover)
 {
   auto const Handler = Control.GetEventHandler();
-  if (!Handler)
+  if (!Handler) {
+    wxLogDebug("raiseMovementEvent: wxWindow does not have an event handler.");
     return;
+  }
   
-  if (!Access)
+  if (!Access) {
+    wxLogDebug("raiseMovementEvent: no access provided.");
     return;
+  }
   
   auto Lock = Access->getAccess();
-  if (!Lock) // Token is out of date.
+  if (!Lock) { // Token is out of date.
+    wxLogDebug("raiseMovementEvent: access token is outdated.");
     return;
+  }
   
   ProcessMoveEvent Ev {
     SEEC_EV_PROCESS_MOVE,
