@@ -282,18 +282,27 @@ void addRuntimeValue(::clang::Stmt const *ForStatement,
 {
   UnicodeString UnicodeName(Name);
   UnicodeString UnicodeHasName = UnicodeString("has_") + UnicodeName;
+  UnicodeString UnicodeHasBoolName = UnicodeString("has_bool_") + UnicodeName;
   
-  if (ForStatement) {
+  if (ForStatement && ValueLookup.isValueAvailableFor(ForStatement)) {
     auto const ValueString = ValueLookup.getValueString(ForStatement);
     if (!ValueString.empty()) {
       // Add the runtime value.
       Arguments.add(UnicodeHasName, formatAsBool(true));
       Arguments.add(UnicodeName, formatAsString(ValueString));
     }
+    
+    auto const ValueAsBool = ValueLookup.getValueAsBool(ForStatement);
+    if (ValueAsBool.assigned()) {
+      UnicodeString UnicodeBoolName = UnicodeString("bool_") + UnicodeName;
+      Arguments.add(UnicodeHasBoolName, formatAsBool(true));
+      Arguments.add(UnicodeBoolName, formatAsBool(ValueAsBool.get<bool>()));
+    }
   }
   
   // No runtime value found.
   Arguments.add(UnicodeHasName, formatAsBool(false));
+  Arguments.add(UnicodeHasBoolName, formatAsBool(false));
 }
 
 

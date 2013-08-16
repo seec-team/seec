@@ -239,9 +239,22 @@ showExplanation(::clang::Stmt const *Statement,
     seec::clang_epv::explain(
       Statement,
       seec::clang_epv::makeRuntimeValueLookupByLambda(
+        [&](::clang::Stmt const *S) -> bool {
+          return InFunction.getStmtValue(S) ? true : false;
+        },
         [&](::clang::Stmt const *S) -> std::string {
           auto const Value = InFunction.getStmtValue(S);
           return Value ? Value->getValueAsStringFull() : std::string();
+        },
+        [&](::clang::Stmt const *S) -> seec::Maybe<bool> {
+          auto const Value = InFunction.getStmtValue(S);
+          if (Value && Value->isCompletelyInitialized()
+              && llvm::isa<seec::cm::ValueOfScalar>(*Value))
+          {
+            auto &Scalar = llvm::cast<seec::cm::ValueOfScalar>(*Value);
+            return !Scalar.isZero();
+          }
+          return seec::Maybe<bool>();
         }));
   
   if (MaybeExplanation.assigned(0)) {

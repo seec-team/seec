@@ -175,34 +175,117 @@ public:
 /// \brief Interface for providing value information.
 ///
 class RuntimeValueLookup {
-public:
+  /// \brief Check if a value is available for a Statement.
+  ///
+  virtual
+  bool isValueAvailableForImpl(::clang::Stmt const *Statement) const = 0;
+  
   /// \brief Get a string describing the current runtime value of Statement.
   ///
-  virtual std::string getValueString(::clang::Stmt const *Statement) const = 0;
+  virtual
+  std::string getValueStringImpl(::clang::Stmt const *Statement) const = 0;
+  
+  /// \brief Check if a value is considered to be true, if possible.
+  ///
+  /// pre: isValueAvailableFor(Statement) == true
+  ///
+  virtual seec::Maybe<bool>
+  getValueAsBoolImpl(::clang::Stmt const *Statement) const = 0;
+  
+public:
+  /// \brief Allow destruction from pointer to this interface.
+  ///
+  virtual ~RuntimeValueLookup() = default;
+  
+  /// \brief Check if a value is available for a Statement.
+  ///
+  bool isValueAvailableFor(::clang::Stmt const *Statement) const {
+    return isValueAvailableForImpl(Statement);
+  }
+  
+  /// \brief Get a string describing the current runtime value of Statement.
+  ///
+  std::string getValueString(::clang::Stmt const *Statement) const {
+    return getValueStringImpl(Statement);
+  }
+  
+  /// \brief Check if a value is considered to be true, if possible.
+  ///
+  /// pre: isValueAvailableFor(Statement) == true
+  ///
+  seec::Maybe<bool> getValueAsBool(::clang::Stmt const *Statement) const {
+    return getValueAsBoolImpl(Statement);
+  }
 };
 
 
 /// \brief Lambda-based implementation of RuntimeValueLookup.
 ///
-template<typename StmtToValueStringT>
-class RuntimeValueLookupByLambda : public RuntimeValueLookup {
-  StmtToValueStringT StmtToValueString;
+template<typename IsValueAvailableT,
+         typename GetValueStringT,
+         typename GetValueAsBoolT>
+class RuntimeValueLookupByLambda final : public RuntimeValueLookup {
+  /// The callback for isValueAvailableForImpl().
+  IsValueAvailableT IsValueAvailable;
+  
+  /// The callback for getValueStringImpl().
+  GetValueStringT GetValueString;
+  
+  /// The callback for getValueAsBoolImpl().
+  GetValueAsBoolT GetValueAsBool;
+  
+  /// \brief Check if a value is available for a Statement.
+  ///
+  virtual
+  bool isValueAvailableForImpl(::clang::Stmt const *Statement) const override {
+    return IsValueAvailable(Statement);
+  }
+  
+  /// \brief Get a string describing the current runtime value of Statement.
+  ///
+  virtual
+  std::string getValueStringImpl(::clang::Stmt const *Statement) const override
+  {
+    return GetValueString(Statement);
+  }
+  
+  /// \brief Check if a value is considered to be true, if possible.
+  ///
+  /// pre: isValueAvailableFor(Statement) == true
+  ///
+  virtual seec::Maybe<bool>
+  getValueAsBoolImpl(::clang::Stmt const *Statement) const override {
+    return GetValueAsBool(Statement);
+  }
   
 public:
-  RuntimeValueLookupByLambda(StmtToValueStringT &&StmtToValueStringFunction)
-  : StmtToValueString(std::move(StmtToValueStringFunction))
+  /// \brief Construct a new RuntimeValueLookupByLambda.
+  ///
+  RuntimeValueLookupByLambda(IsValueAvailableT IsValueAvailableFn,
+                             GetValueStringT GetValueStringFn,
+                             GetValueAsBoolT GetValueAsBoolFn)
+  : IsValueAvailable(std::move(IsValueAvailableFn)),
+    GetValueString(std::move(GetValueStringFn)),
+    GetValueAsBool(std::move(GetValueAsBoolFn))
   {}
-  
-  virtual std::string getValueString(::clang::Stmt const *Statement) const {
-    return Statement ? StmtToValueString(Statement) : std::string{};
-  }
 };
 
-template<typename StmtToValueStringT>
-RuntimeValueLookupByLambda<StmtToValueStringT>
-makeRuntimeValueLookupByLambda(StmtToValueStringT &&StmtToValueStringFunction) {
-  return RuntimeValueLookupByLambda<StmtToValueStringT>
-                                   (std::move(StmtToValueStringFunction));
+/// \brief Helper function for creating RuntimeValueLookupByLambda objects.
+///
+template<typename IsValueAvailableT,
+         typename GetValueStringT,
+         typename GetValueAsBoolT>
+RuntimeValueLookupByLambda<IsValueAvailableT, GetValueStringT, GetValueAsBoolT>
+makeRuntimeValueLookupByLambda(IsValueAvailableT IsValueAvailable,
+                               GetValueStringT GetValueString,
+                               GetValueAsBoolT GetValueAsBool)
+{
+  return RuntimeValueLookupByLambda<IsValueAvailableT,
+                                    GetValueStringT,
+                                    GetValueAsBoolT>
+                                   (std::move(IsValueAvailable),
+                                    std::move(GetValueString),
+                                    std::move(GetValueAsBool));
 }
 
 
@@ -210,6 +293,8 @@ makeRuntimeValueLookupByLambda(StmtToValueStringT &&StmtToValueStringFunction) {
 ///
 class Explanation {
 public:
+  /// \brief All types of nodes that may be explained by an \c Explanation.
+  ///
   enum class ENodeType {
     Decl,
     Stmt
@@ -298,6 +383,7 @@ explain(::clang::Stmt const *Node,
 /// \brief A textual explanation of a clang::Decl.
 ///
 class ExplanationOfDecl : public Explanation {
+  /// The \c clang::Decl that this explanation is for.
   ::clang::Decl const * const TheDecl;
   
   /// \brief Constructor.
@@ -312,13 +398,18 @@ class ExplanationOfDecl : public Explanation {
   {}
   
 public:
-  
+  /// \brief Get the \c clang::Decl that this explanation is for.
+  ///
   ::clang::Decl const *getDecl() const { return TheDecl; }
   
+  /// \brief Check if Object is an \c ExplanationOfDecl.
+  ///
   static bool classof(Explanation const *Object) {
     return Object->getNodeType() == Explanation::ENodeType::Decl;
   }
   
+  /// \brief Attempt to create an explanation for a \c clang::Decl.
+  ///
   static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
   create(::clang::Decl const *Node, RuntimeValueLookup const *ValueLookup);
 };
@@ -327,6 +418,7 @@ public:
 /// \brief A textual explanation of a clang::Stmt.
 ///
 class ExplanationOfStmt : public Explanation {
+  /// The \c clang::Stmt that this explanation is for.
   ::clang::Stmt const * const TheStmt;
   
   /// \brief Constructor.
@@ -341,13 +433,18 @@ class ExplanationOfStmt : public Explanation {
   {}
 
 public:
-  
+  /// \brief Get the \c clang::Stmt that this explanation is for.
+  ///
   ::clang::Stmt const *getStmt() const { return TheStmt; }
   
+  /// \brief Check if Object is an \c ExplanationOfStmt.
+  ///
   static bool classof(Explanation const *Object) {
     return Object->getNodeType() == Explanation::ENodeType::Stmt;
   }
   
+  /// \brief Attempt to create an explanation for a \c clang::Stmt.
+  ///
   static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
   create(::clang::Stmt const *Node, RuntimeValueLookup const *ValueLookup);
 };
