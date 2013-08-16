@@ -737,16 +737,49 @@ root:table {
     //   has_condition_variable
     //   has_else
     // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_cond
+    //   [has_][bool_]rtv_of_this
+    //   [has_][bool_]rtv_of_cond
     // Outputs:
     //   cond
     //   then
     //   else
     //
     IfStmt:string {
-      "This is an if statement. It consists of a @[cond]condition@[], a @[then]body statement@[], and an optional @[else]else statement@[]. If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body statement@[] will be executed, otherwise the @[else]else statement@[] will be executed (if it exists)."
-      "{has_else, select, true { This if statement has an else branch.} false { This if statement does not have an else branch.} other { Very sad.}}"
+      "This is an if statement. "
+      "{has_else, select, "
+       "true {It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. }"
+       "false {It consists of a @[cond]condition@[] and a @[then]body[]. }"
+       "other {}"
+      "}"
+      "{has_bool_rtv_of_cond, select, "
+       "true {"
+        "{bool_rtv_of_cond, select, "
+         "true {"
+          "{has_else, select, "
+           "true {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be true} other {a value that is considered to be true}}, so the @[then]body@[] is evaluated, and the @[else]else section@[] is ignored.}"
+           "false {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be true} other {a value that is considered to be true}}, so the @[then]body@[] is evaluated.}"
+           "other {}"
+          "}"
+         "}"
+         "false {"
+          "{has_else, select, "
+           "true {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be false} other {a value that is considered to be false}}, so the @[else]else section@[] is evaluated.}"
+           "false {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be false} other {a value that is considered to be false}}, so execution skips the @[then]body@[].}"
+           "other {}"
+          "}"
+         "}"
+         "other {}"
+        "}"
+       "}"
+       "false {"
+        "{has_else, select, "
+         "true {If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body@[] will be evaluated, otherwise the @[else]else section@[] will be evaluated.}"
+         "false {If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body@[] will be evaluated, otherwise execution will skip the @[then]body@[].}"
+         "other {}"
+        "}"
+       "}"
+       "other {}"
+      "}"
     }
 
     // ImaginaryLiteral description.
