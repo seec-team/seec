@@ -2344,7 +2344,7 @@ getValue(std::shared_ptr<ValueStore const> Store,
           auto const PointeeType = PtrType->getPointeeType();
           auto const FILEType = ASTContext.getFILEType();
           
-          if (PointeeType.getTypePtr() == FILEType.getTypePtr()) {
+          if (PointeeType.getTypePtrOrNull() == FILEType.getTypePtrOrNull()) {
             return ValueByRuntimeValueForPointerToFILE
                     ::create(Expression, FunctionState, LLVMValues.first);
           }
