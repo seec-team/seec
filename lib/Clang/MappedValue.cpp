@@ -2069,7 +2069,8 @@ createValue(std::shared_ptr<ValueStore const> Store,
       auto const DesugaredPointee = DesugaredPointer->getPointeeType();
       auto const FILEType = ASTContext.getFILEType();
       
-      if (DesugaredPointee.getTypePtr() == FILEType.getTypePtr()) {
+      if (DesugaredPointee.getTypePtrOrNull() == FILEType.getTypePtrOrNull())
+      {
         return ValueByMemoryForPointerToFILE::create(CanonicalType.getTypePtr(),
                                                      Address,
                                                      ProcessState);
