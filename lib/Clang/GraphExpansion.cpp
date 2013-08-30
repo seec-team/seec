@@ -13,7 +13,6 @@
 
 #include "GraphExpansion.hpp"
 
-#include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedGlobalVariable.hpp"
@@ -225,7 +224,7 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
   }
 }
 
-void expand(ExpansionImpl &EI, seec::cm::AllocaState const &State)
+void expand(ExpansionImpl &EI, seec::cm::LocalState const &State)
 {
   expand(EI, State.getValue());
 }

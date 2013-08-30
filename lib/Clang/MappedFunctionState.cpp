@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
@@ -309,6 +310,42 @@ std::shared_ptr<Value const> ParamState::getValue() const
 
 
 //===----------------------------------------------------------------------===//
+// LocalState
+//===----------------------------------------------------------------------===//
+
+void LocalState::print(llvm::raw_ostream &Out,
+                       seec::util::IndentationGuide &Indentation) const
+{
+  Out << Indentation.getString() << Decl->getName() << " = ";
+  
+  auto const Value = getValue();
+  if (Value)
+    Out << Value->getValueAsStringShort();
+  else
+    Out << "<unknown>";
+  
+  Out << "\n";
+}
+
+std::shared_ptr<Value const> LocalState::getValue() const
+{
+  auto const &ProcessState = Parent.getParent().getParent();
+  
+  auto const &Mapping = ProcessState.getProcessTrace().getMapping();
+  auto const MappedAST = Mapping.getASTForDecl(Decl);
+  assert(MappedAST && "Couldn't find AST for mapped Decl.");
+  
+  auto const &ASTContext = MappedAST->getASTUnit().getASTContext();
+  
+  return seec::cm::getValue(ProcessState.getCurrentValueStore(),
+                            Decl->getType(),
+                            ASTContext,
+                            Address,
+                            ProcessState.getUnmappedProcessState());
+}
+
+
+//===----------------------------------------------------------------------===//
 // FunctionState
 //===----------------------------------------------------------------------===//
 
@@ -356,29 +393,58 @@ FunctionState::FunctionState(ThreadState &WithParent,
                             MappedParamIt->getDecl());
   }
   
-  // Add allocas (parameters and variables).
-  for (auto const AllocaRef : UnmappedState.getVisibleAllocas()) {
-    seec::trace::AllocaState const &RawAlloca = AllocaRef;
-    auto const AllocaInst = RawAlloca.getInstruction();
-    auto const Mapping = MappedModule.getMapping(AllocaInst);
-    if (!Mapping.getAST())
+  // Add remaining parameters.
+  auto const &VisibleAllocas = UnmappedState.getVisibleAllocas();
+  
+  for (auto const &MP : MappedParams) {
+    auto const Value = MP.getValue();
+    
+    if (llvm::isa<llvm::Argument>(Value))
+      continue; // Already added above.
+    
+    if (llvm::isa<llvm::AllocaInst>(Value)) {
+      auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
+        [=] (seec::trace::AllocaState const &Alloca) {
+          return Alloca.getInstruction() == Value;
+        });
+      
+      if (It == VisibleAllocas.end())
+        continue; // Alloca should not yet be visible.
+    }
+    
+    auto const MaybeAddress =
+      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
+    
+    if (!MaybeAddress.assigned<uintptr_t>())
       continue;
     
-    auto const Decl = Mapping.getDecl();
-    if (!Decl)
+    Parameters.emplace_back(*this, MaybeAddress.get<uintptr_t>(), MP.getDecl());
+  }
+  
+  // Add locals.
+  for (auto const &ML : Mapping->getMappedLocals()) {
+    auto const Value = ML.getValue();
+    
+    if (!VisibleDecls.count(ML.getDecl()))
       continue;
     
-    if (auto const ParmVar = llvm::dyn_cast< ::clang::ParmVarDecl>(Decl)) {
-      Parameters.emplace_back(*this,
-                              RawAlloca.getAddress(),
-                              ParmVar);
+    if (llvm::isa<llvm::AllocaInst>(Value)) {
+      auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
+        [=] (seec::trace::AllocaState const &Alloca) {
+          return Alloca.getInstruction() == Value;
+        });
+      
+      if (It == VisibleAllocas.end())
+        continue; // Alloca should not yet be visible.
     }
-    else if (auto const Var = llvm::dyn_cast< ::clang::VarDecl>(Decl)) {
-      // Check if this Decl is in scope.
-      if (VisibleDecls.count(Var)) {
-        Variables.emplace_back(*this, RawAlloca, Var);
-      }
-    }
+    
+    auto const MaybeAddress =
+      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
+    
+    if (!MaybeAddress.assigned<uintptr_t>())
+      continue;
+    
+    Variables.emplace_back(*this, MaybeAddress.get<uintptr_t>(), ML.getDecl());
   }
   
   // Add runtime errors.

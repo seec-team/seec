@@ -199,6 +199,24 @@ MappedModule::MappedModule(
     }
   }
   
+  // Load all local mappings (these will be assigned to functions in the next
+  // step).
+  std::vector<seec::cm::MappedLocal> MappedLocals;
+  auto const MappedLocalsMD = Module.getNamedMetadata(MDGlobalLocalMapStr);
+  
+  if (MappedLocalsMD) {
+    for (std::size_t i = 0u; i < MappedLocalsMD->getNumOperands(); ++i) {
+      auto MaybeMapped =
+        seec::cm::MappedLocal::fromMetadata(MappedLocalsMD->getOperand(i),
+                                            *this);
+      
+      if (MaybeMapped.assigned<seec::Error>())
+        continue; // TODO: Report this.
+      
+      MappedLocals.emplace_back(MaybeMapped.move<seec::cm::MappedLocal>());
+    }
+  }
+  
   // Create the FunctionLookup and GlobalVariableLookup.
   auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
@@ -240,13 +258,21 @@ MappedModule::MappedModule(
           if (std::find(ParamBegin, ParamEnd, MP.getDecl()) != ParamEnd)
             FunctionMappedParams.emplace_back(MP);
         
+        // Find the mapped locals for this function.
+        std::vector<seec::cm::MappedLocal> FunctionMappedLocals;
+        
+        for (auto const &ML : MappedLocals)
+          if (AST->isParent(FnDecl, ML.getDecl()))
+            FunctionMappedLocals.emplace_back(ML);
+        
         FunctionLookup.insert(
           std::make_pair(Func,
                          MappedFunctionDecl(std::move(FilePath),
                                             *AST,
                                             Decl,
                                             Func,
-                                            std::move(FunctionMappedParams))));
+                                            std::move(FunctionMappedParams),
+                                            std::move(FunctionMappedLocals))));
       }
       else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
         if (!llvm::isa<clang::ValueDecl>(Decl))

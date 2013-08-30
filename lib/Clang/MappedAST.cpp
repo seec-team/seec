@@ -197,6 +197,40 @@ MappedAST::LoadFromCompilerInvocation(
           ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
 }
 
+bool MappedAST::isParent(::clang::Decl const *Parent,
+                         ::clang::Decl const *Child) const
+{
+  auto const DP = getParent(Child);
+  
+  if (DP.assigned<clang::Decl const *>()) {
+    auto const DPDecl = DP.get<clang::Decl const *>();
+    return DPDecl == Parent ? true : isParent(Parent, DPDecl);
+  }
+  else if (DP.assigned<clang::Stmt const *>()) {
+    auto const DPStmt = DP.get<clang::Stmt const *>();
+    return isParent(Parent, DPStmt);
+  }
+  
+  return false;
+}
+
+bool MappedAST::isParent(::clang::Decl const *Parent,
+                         ::clang::Stmt const *Child) const
+{
+  auto const DP = getParent(Child);
+  
+  if (DP.assigned<clang::Decl const *>()) {
+    auto const DPDecl = DP.get<clang::Decl const *>();
+    return DPDecl == Parent ? true : isParent(Parent, DPDecl);
+  }
+  else if (DP.assigned<clang::Stmt const *>()) {
+    auto const DPStmt = DP.get<clang::Stmt const *>();
+    return isParent(Parent, DPStmt);
+  }
+  
+  return false;
+}
+
 
 } // namespace seec_clang (in seec)
 

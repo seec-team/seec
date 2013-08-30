@@ -107,6 +107,59 @@ public:
 };
 
 
+/// \brief SeeC-Clang-mapped local state.
+///
+class LocalState {
+  /// The function state that this local belongs to.
+  FunctionState &Parent;
+  
+  /// The address of the variable in memory.
+  uintptr_t Address;
+  
+  /// The mapped Decl.
+  ::clang::VarDecl const *Decl;
+  
+public:
+  /// \brief Constructor.
+  ///
+  LocalState(FunctionState &WithParent,
+             uintptr_t WithAddress,
+             ::clang::VarDecl const *ForDecl)
+  : Parent(WithParent),
+    Address(WithAddress),
+    Decl(ForDecl)
+  {}
+  
+  // Allow moving.
+  LocalState(LocalState &&) = default;
+  LocalState &operator=(LocalState &&) = default;
+  
+  // No copying.
+  LocalState(LocalState const &) = delete;
+  LocalState &operator=(LocalState const &) = delete;
+  
+  
+  /// \brief Print a textual description of the state.
+  ///
+  void print(llvm::raw_ostream &Out,
+             seec::util::IndentationGuide &Indentation) const;
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the VarDecl for this alloca.
+  ///
+  ::clang::VarDecl const *getDecl() const { return Decl; }
+  
+  /// \brief Get the current mapped Value of this alloca.
+  ///
+  std::shared_ptr<Value const> getValue() const;
+  
+  /// @} (Accessors.)
+};
+
+
 /// \brief SeeC-Clang-mapped function state.
 ///
 class FunctionState {
@@ -123,7 +176,7 @@ class FunctionState {
   std::vector<ParamState> Parameters;
   
   /// The mapped local variables.
-  std::vector<AllocaState> Variables;
+  std::vector<LocalState> Variables;
   
   /// The mapped runtime errors.
   std::vector<RuntimeErrorState> RuntimeErrors;
@@ -228,7 +281,7 @@ public:
   }
   
   /// \brief Get the mapped local variables.
-  std::vector<AllocaState> const &getLocals() const {
+  std::vector<LocalState> const &getLocals() const {
     return Variables;
   }
   

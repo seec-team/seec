@@ -55,6 +55,13 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
     auto const Address = UnmappedState->getRuntimeAddress(&Global);
     
     if (auto const Mapped = Mapping.getMappedGlobalVariableDecl(&Global)) {
+      auto const TheDecl = llvm::dyn_cast<clang::VarDecl>(Mapped->getDecl());
+      if (!TheDecl)
+        continue;
+      
+      if (TheDecl->isStaticLocal())
+        continue;
+      
       GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
                                                   (*this,
                                                    *Mapped,

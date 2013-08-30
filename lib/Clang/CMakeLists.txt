@@ -2,6 +2,7 @@ set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/Compile.hpp
   ../../include/seec/Clang/MappedAST.hpp
   ../../include/seec/Clang/MappedFile.hpp
+  ../../include/seec/Clang/MappedLocal.hpp
   ../../include/seec/Clang/MappedModule.hpp
   ../../include/seec/Clang/MappedParam.hpp
   ../../include/seec/Clang/MappedStmt.hpp
@@ -15,6 +16,7 @@ set(SEEC_CLANG_SOURCES
   MappedAST.cpp
   MappedFile.cpp
   MappedLLVMValue.cpp
+  MappedLocal.cpp
   MappedModule.cpp
   MappedParam.cpp
   MappedStmt.cpp

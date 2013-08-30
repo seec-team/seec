@@ -15,7 +15,6 @@
 #include "GraphExpansion.hpp"
 
 #include "seec/Clang/GraphLayout.hpp"
-#include "seec/Clang/MappedAllocaState.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedGlobalVariable.hpp"
@@ -151,9 +150,9 @@ public:
 };
 
 
-/// \brief Represents the layout of a seec::cm::AllocaState.
+/// \brief Represents the layout of a seec::cm::LocalState.
 ///
-class LayoutOfAlloca {
+class LayoutOfLocal {
   std::string DotString;
   
   MemoryArea Area;
@@ -161,9 +160,9 @@ class LayoutOfAlloca {
   ValuePortMap Ports;
   
 public:
-  LayoutOfAlloca(std::string WithDotString,
-                 MemoryArea WithArea,
-                 ValuePortMap WithPorts)
+  LayoutOfLocal(std::string WithDotString,
+                MemoryArea WithArea,
+                ValuePortMap WithPorts)
   : DotString(std::move(WithDotString)),
     Area(std::move(WithArea)),
     Ports(std::move(WithPorts))
@@ -803,19 +802,19 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
 
 
 //===----------------------------------------------------------------------===//
-// Layout Alloca
+// Layout Local
 //===----------------------------------------------------------------------===//
 
 static
-LayoutOfAlloca
+LayoutOfLocal
 doLayout(LayoutHandler const &Handler,
-         seec::cm::AllocaState const &State,
+         seec::cm::LocalState const &State,
          seec::cm::graph::Expansion const &Expansion)
 {
   // Attempt to get the value.
   auto const Value = State.getValue();
   if (!Value)
-    return LayoutOfAlloca{std::string{}, MemoryArea{}, ValuePortMap{}};
+    return LayoutOfLocal{std::string{}, MemoryArea{}, ValuePortMap{}};
   
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
@@ -846,9 +845,9 @@ doLayout(LayoutHandler const &Handler,
     Area = MemoryArea(Value->getAddress(),
                       Value->getTypeSizeInChars().getQuantity());
   
-  return LayoutOfAlloca{std::move(DotString),
-                        std::move(Area),
-                        std::move(Ports)};
+  return LayoutOfLocal{std::move(DotString),
+                       std::move(Area),
+                       std::move(Ports)};
 }
 
 
@@ -857,7 +856,7 @@ doLayout(LayoutHandler const &Handler,
 //===----------------------------------------------------------------------===//
 
 static
-LayoutOfAlloca
+LayoutOfLocal
 doLayout(LayoutHandler const &Handler,
          seec::cm::ParamState const &State,
          seec::cm::graph::Expansion const &Expansion)
@@ -865,7 +864,7 @@ doLayout(LayoutHandler const &Handler,
   // Attempt to get the value.
   auto const Value = State.getValue();
   if (!Value)
-    return LayoutOfAlloca{std::string{}, MemoryArea{}, ValuePortMap{}};
+    return LayoutOfLocal{std::string{}, MemoryArea{}, ValuePortMap{}};
   
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
@@ -896,9 +895,9 @@ doLayout(LayoutHandler const &Handler,
     Area = MemoryArea(Value->getAddress(),
                       Value->getTypeSizeInChars().getQuantity());
   
-  return LayoutOfAlloca{std::move(DotString),
-                        std::move(Area),
-                        std::move(Ports)};
+  return LayoutOfLocal{std::move(DotString),
+                       std::move(Area),
+                       std::move(Ports)};
 }
 
 
@@ -1471,8 +1470,8 @@ doLayout(LayoutHandler const &Handler,
   std::vector<NodeInfo> AllNodeInfo;
   
   DotStream << "digraph Process {\n"
-            << "node [shape=plaintext fontsize=6];\n"
-            << "penwidth=0.5;\n"
+            << "node [shape=plaintext];\n" //  fontsize=6
+            // << "penwidth=0.5;\n"
             << "rankdir=LR;\n";
   
   for (auto &GlobalFuture : GlobalVariableLayouts) {

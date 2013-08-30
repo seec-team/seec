@@ -167,6 +167,14 @@ public:
     return It->second;
   }
   
+  /// \brief Check if a Decl is a parent of a Decl.
+  ///
+  bool isParent(::clang::Decl const *Parent, ::clang::Decl const *Child) const;
+  
+  /// \brief Check if a Decl is a parent of a Stmt.
+  ///
+  bool isParent(::clang::Decl const *Parent, ::clang::Stmt const *Child) const;
+  
   /// @} (Accessors)
 };
 

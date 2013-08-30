@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDMODULE_HPP
 #define SEEC_CLANG_MAPPEDMODULE_HPP
 
+#include "seec/Clang/MappedLocal.hpp"
 #include "seec/Clang/MappedParam.hpp"
 
 #include "clang/Frontend/ASTUnit.h"
@@ -58,6 +59,8 @@ class MappedFunctionDecl {
   llvm::Function const *Function;
   
   std::vector<seec::cm::MappedParam> MappedParameters;
+  
+  std::vector<seec::cm::MappedLocal> MappedLocals;
 
 public:
   /// \brief Constructor.
@@ -66,12 +69,14 @@ public:
                      MappedAST const &WithAST,
                      clang::Decl const *WithDecl,
                      llvm::Function const *WithFunction,
-                     std::vector<seec::cm::MappedParam> WithMappedParameters)
+                     std::vector<seec::cm::MappedParam> WithMappedParameters,
+                     std::vector<seec::cm::MappedLocal> WithMappedLocals)
   : FilePath(WithFilePath),
     AST(WithAST),
     Decl(WithDecl),
     Function(WithFunction),
-    MappedParameters(WithMappedParameters)
+    MappedParameters(WithMappedParameters),
+    MappedLocals(WithMappedLocals)
   {}
 
   /// \brief Copy constructor.
@@ -102,6 +107,12 @@ public:
   ///
   decltype(MappedParameters) const &getMappedParameters() const {
     return MappedParameters;
+  }
+  
+  /// \brief Get the mapped locals.
+  ///
+  decltype(MappedLocals) const &getMappedLocals() const {
+    return MappedLocals;
   }
   
   /// \name Queries.

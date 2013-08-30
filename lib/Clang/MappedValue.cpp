@@ -92,8 +92,6 @@ struct GetMemoryOfBuiltinAsString<char> {
       auto const Bytes = Region.getByteValues();
       auto const Character = *reinterpret_cast<char const *>(Bytes.data());
       
-      Stream << '\'';
-      
       if (std::isprint(Character))
         Stream << Character;
       else {
@@ -108,8 +106,6 @@ struct GetMemoryOfBuiltinAsString<char> {
           default:   Stream << int(Character); break;
         }
       }
-      
-      Stream << '\'';
     }
     
     return RetStr;
