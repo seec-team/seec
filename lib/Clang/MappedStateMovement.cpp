@@ -317,7 +317,7 @@ bool moveForwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
 {
   using namespace seec::trace;
   
-  // This movement passes through three distinct states. We being at PreStmt,
+  // This movement passes through three distinct states. We begin at PreStmt,
   // and continue moving forward until the active Instruction is "in" the
   // requested Stmt (S) -- it is mapped to either S or one of S's children. At
   // that point we move to StmtPartial. We continue moving forward until the
@@ -340,22 +340,38 @@ bool moveForwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
   auto const StmtChildren = seec::seec_clang::getAllChildren(S);
   
   MoveStateEn MoveState = MoveStateEn::PreStmt;
+  seec::trace::FunctionState const *InFunction = nullptr;
   
   auto const Moved =
     trace::moveForwardUntil(Unmapped,
       [&] (seec::trace::ThreadState const &T) {
-        if (MoveState == MoveStateEn::PreStmt)
-          if (auto const ActiveFn = T.getActiveFunction())
-            if (auto const ActiveInst = ActiveFn->getActiveInstruction())
-              if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst))
-                if (S == ActiveStmt || StmtChildren.count(ActiveStmt))
-                  MoveState = MoveStateEn::StmtPartial;
+        auto const ActiveFn = T.getActiveFunction();
         
-        if (MoveState == MoveStateEn::StmtPartial)
-          if (auto const Next = getNextInstructionInActiveFunction(T))
-            if (auto const NextStmt = MappedModule.getStmt(Next))
-              if (S != NextStmt && !StmtChildren.count(NextStmt))
+        if (MoveState == MoveStateEn::PreStmt && ActiveFn) {
+          if (auto const ActiveInst = ActiveFn->getActiveInstruction()) {
+            if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst)) {
+              if (S == ActiveStmt || StmtChildren.count(ActiveStmt)) {
+                MoveState = MoveStateEn::StmtPartial;
+                InFunction = ActiveFn;
+              }
+            }
+          }
+        }
+        
+        if (MoveState == MoveStateEn::StmtPartial && ActiveFn == InFunction) {
+          if (auto const Next = getNextInstructionInActiveFunction(T)) {
+            if (auto const NextStmt = MappedModule.getStmt(Next)) {
+              if (S != NextStmt && !StmtChildren.count(NextStmt)) {
                 MoveState = MoveStateEn::StmtComplete;
+              }
+            }
+          }
+          else { 
+            // There are no more instructions in this function call, so the
+            // Stmt must have completed.
+            MoveState = MoveStateEn::StmtComplete;
+          }
+        }
         
         if (MoveState == MoveStateEn::StmtComplete)
           return isLogicalPoint(T, MappedModule);
