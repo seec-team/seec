@@ -543,7 +543,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   
   Handler.writeStandardProperties(Stream, V);
   
-  Stream << "><TABLE BORDER=\"0\" "
+  Stream << "><TABLE BORDER=\"0\" CELLPADDING=\"0\" COLOR=\"#BBBBBB\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   bool Eliding = false;
@@ -559,7 +559,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     }
     
     if (Eliding) {
-      if (E.isReferenced(ChildValue)) {
+      if (E.isReferencedDirectly(ChildValue)) {
         // This char is referenced. Stop eliding and resume layout.
         Eliding = false;
       }
@@ -767,7 +767,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   
   Stream << IDString
          << " [ label = <"
-         << "<TABLE BORDER=\"0\" "
+         << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" COLOR=\"#BBBBBB\" "
              "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   auto const &Handler = this->getHandler();
@@ -786,7 +786,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     }
     
     if (Eliding) {
-      if (E.isReferenced(ChildValue)) {
+      if (E.isReferencedDirectly(ChildValue)) {
         // This char is referenced. Stop eliding and resume layout.
         Eliding = false;
       }

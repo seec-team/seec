@@ -292,6 +292,15 @@ bool Expansion::isReferenced(std::shared_ptr<Value const> const &Value) const
   return Impl->isReferenced(*Value);
 }
 
+bool
+Expansion::isReferencedDirectly(std::shared_ptr<Value const> const &Value) const
+{
+  for (auto const &Deref : Impl->getReferencesOf(*Value))
+    if (Deref.getIndex() == 0)
+      return true;
+  return false;
+}
+
 std::size_t
 Expansion::countReferencesOf(std::shared_ptr<Value const> const &Value) const
 {
