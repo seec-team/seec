@@ -64,9 +64,10 @@ static std::string EscapeForHTML(llvm::StringRef String)
   Escaped.reserve(String.size());
   
   for (auto const Char : String) {
-    if (std::isalnum(Char))
+    if (std::isalnum(Char)) {
       Escaped.push_back(Char);
-    else {
+    }
+    else if (std::isprint(Char)) {
       Escaped.push_back('&');
       Escaped.push_back('#');
       
@@ -79,8 +80,15 @@ static std::string EscapeForHTML(llvm::StringRef String)
         Escaped.push_back('0' + (Char / 10));
         Escaped.push_back('0' + (Char % 10));
       }
+      else {
+        Escaped.push_back('0' + Char);
+      }
       
       Escaped.push_back(';');
+    }
+    else {
+      Escaped += "&#92;";
+      Escaped += std::to_string(Char);
     }
   }
   
