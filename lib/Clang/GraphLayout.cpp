@@ -760,48 +760,86 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   }
   
   std::string DotString;
-  llvm::raw_string_ostream DotStream {DotString};
+  llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
   Ports.add(Reference, ValuePort{EdgeEndType::Standard});
   
-  DotStream << IDString
-            << " [ label = <"
-            << "<TABLE BORDER=\"0\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
+  Stream << IDString
+         << " [ label = <"
+         << "<TABLE BORDER=\"0\" "
+             "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   auto const &Handler = this->getHandler();
   auto const Limit = Reference.getDereferenceIndexLimit();
   
+  bool Eliding = false;
+  std::size_t ElidingFrom;
+  std::size_t ElidingCount;
+  
   for (unsigned i = 0; i < Limit; ++i) {
     auto const ChildValue = Reference.getDereferenced(i);
     if (!ChildValue) {
-      DotStream << "<TD></TD>";
+      if (!Eliding)
+        Stream << "<TD></TD>";
       continue;
     }
     
+    if (Eliding) {
+      if (E.isReferenced(ChildValue)) {
+        // This char is referenced. Stop eliding and resume layout.
+        Eliding = false;
+      }
+      else {
+        // Elide this char and move to the next.
+        if (++ElidingCount == 1) {
+          // Write a cell that will be used for all elided chars.
+          Stream << "<TD PORT=\""
+                 << IDString
+                 << "_elided_" << std::to_string(ElidingFrom)
+                 << "\"></TD>";
+        }
+        
+        Ports.add(*ChildValue,
+                  ValuePort(EdgeEndType::Elided,
+                            IDString
+                            + "_elided_" + std::to_string(ElidingFrom)));
+        
+        continue;
+      }
+    }
+    
+    // Attempt to generate and use the standard layout for this char.
     auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
     
     if (MaybeLayout.assigned<LayoutOfValue>()) {
       auto const &Layout = MaybeLayout.get<LayoutOfValue>();
-      DotStream << Layout.getDotString();
+      Stream << Layout.getDotString();
       Ports.addAllFrom(Layout.getPorts());
     }
     else {
       // No layout generated.
       
-      DotStream << "<TD PORT=\""
-                << getStandardPortFor(*ChildValue)
-                << "\"";
-      Handler.writeStandardProperties(DotStream, *ChildValue);
-      DotStream << "></TD>";
+      Stream << "<TD PORT=\""
+             << getStandardPortFor(*ChildValue)
+             << "\"";
+      Handler.writeStandardProperties(Stream, *ChildValue);
+      Stream << "></TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
+    
+    // If this was a terminating null character, start eliding.
+    auto const &Scalar = static_cast<ValueOfScalar const &>(*ChildValue);
+    if (Scalar.isZero()) {
+      Eliding = true;
+      ElidingFrom = i + 1;
+      ElidingCount = 0;
+    }
   }
   
-  DotStream << "</TR></TABLE>> ];\n";
-  DotStream.flush();
+  Stream << "</TR></TABLE>> ];\n";
+  Stream.flush();
   
   return LayoutOfArea{std::move(IDString),
                       std::move(DotString),
