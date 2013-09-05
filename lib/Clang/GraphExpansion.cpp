@@ -94,6 +94,8 @@ public:
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
   
+  bool isAreaReferenced(uintptr_t Start, uintptr_t End) const;
+  
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getAllPointers() const {
     std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
@@ -161,10 +163,42 @@ ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
   return Ret;
 }
 
+bool ExpansionImpl::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+{
+  return Pointers.lower_bound(Start) != Pointers.lower_bound(End);
+}
+
 
 //===----------------------------------------------------------------------===//
 // expand
 //===----------------------------------------------------------------------===//
+
+static bool containsPointerType(clang::Type const *CanonTy)
+{
+  if (!CanonTy)
+    return false;
+  
+  if (CanonTy->isAnyPointerType())
+    return true;
+  
+  if (auto const ArrayTy = llvm::dyn_cast<clang::ArrayType>(CanonTy)) {
+    auto const ElemTy = ArrayTy->getElementType().getCanonicalType();
+    return containsPointerType(ElemTy.getTypePtrOrNull());
+  }
+  else if (auto const RecordTy = llvm::dyn_cast<clang::RecordType>(CanonTy)) {
+    auto const Decl = RecordTy->getDecl();
+    
+    for (auto Field : seec::range(Decl->field_begin(), Decl->field_end())) {
+      auto const FieldTy = Field->getType().getCanonicalType();
+      if (containsPointerType(FieldTy.getTypePtrOrNull()))
+        return true;
+    }
+    
+    return false;
+  }
+  
+  return false;
+}
 
 void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
 {
@@ -177,11 +211,13 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
     
     case seec::cm::Value::Kind::Array:
       {
-        auto const &Array = *llvm::cast<seec::cm::ValueOfArray>(State.get());
-        unsigned const ChildCount = Array.getChildCount();
-        
-        for (unsigned i = 0; i < ChildCount; ++i)
-          expand(EI, Array.getChildAt(i));
+        if (containsPointerType(State->getCanonicalType())) {
+          auto const &Array = *llvm::cast<seec::cm::ValueOfArray>(State.get());
+          unsigned const ChildCount = Array.getChildCount();
+          
+          for (unsigned i = 0; i < ChildCount; ++i)
+            expand(EI, Array.getChildAt(i));
+        }
       }
       break;
     
@@ -241,6 +277,10 @@ void expand(ExpansionImpl &EI, seec::cm::FunctionState const &State)
   
   for (auto const &Local : State.getLocals())
     expand(EI, Local);
+  
+  if (auto const ActiveStmt = State.getActiveStmt())
+    if (auto const Value = State.getStmtValue(ActiveStmt))
+      expand(EI, Value);
 }
 
 void expand(ExpansionImpl &EI, seec::cm::ThreadState const &State)
@@ -317,6 +357,11 @@ std::vector<std::shared_ptr<ValueOfPointer const>>
 Expansion::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
 {
   return Impl->getReferencesOfArea(Start, End);
+}
+
+bool Expansion::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+{
+  return Impl->isAreaReferenced(Start, End);
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>

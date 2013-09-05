@@ -119,6 +119,10 @@ public:
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
   
+  /// \brief Check if any pointer points into a memory area.
+  ///
+  bool isAreaReferenced(uintptr_t Start, uintptr_t End) const;
+  
   /// \brief Get all pointers.
   ///
   std::vector<std::shared_ptr<ValueOfPointer const>>
