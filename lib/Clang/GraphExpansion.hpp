@@ -101,7 +101,7 @@ public:
   
   /// \brief Check if a \c Value is directly referenced by a pointer.
   ///
-  bool isReferencedDirectly(std::shared_ptr<Value const> const &Value) const;
+  bool isReferencedDirectly(Value const &Value) const;
   
   /// \brief Count how many pointers reference a \c Value.
   ///

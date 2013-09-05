@@ -54,6 +54,9 @@ root:table {
       LEVCString:table {
         Name:string { "C String" }
       }
+      LEVElideUnreferenced:table {
+        Name:string { "Elide unreferenced elements" }
+      }
       LEAStandard:table {
         Name:string { "Standard" }
       }

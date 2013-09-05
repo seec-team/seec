@@ -293,9 +293,9 @@ bool Expansion::isReferenced(std::shared_ptr<Value const> const &Value) const
 }
 
 bool
-Expansion::isReferencedDirectly(std::shared_ptr<Value const> const &Value) const
+Expansion::isReferencedDirectly(Value const &Value) const
 {
-  for (auto const &Deref : Impl->getReferencesOf(*Value))
+  for (auto const &Deref : Impl->getReferencesOf(Value))
     if (Deref.getIndex() == 0)
       return true;
   return false;
