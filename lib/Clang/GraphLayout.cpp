@@ -671,55 +671,65 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
   std::size_t ElidingFrom;
   std::string ElidedPort;
   
-  for (unsigned i = 0; i < ChildCount; ++i) {
-    auto const ChildValue = Array.getChildAt(i);
-    if (!ChildValue)
-      continue;
-    
-    auto const Start = ChildValue->getAddress();
-    auto const End = Start + ChildValue->getTypeSizeInChars().getQuantity();
-    auto const IsReferenced = E.isAreaReferenced(Start, End)
-                            ? searchChildren(*ChildValue,
+  auto const ArrayStart = Array.getAddress();
+  auto const ArrayEnd = ArrayStart + Array.getTypeSizeInChars().getQuantity();
+  if (!E.isAreaReferenced(ArrayStart, ArrayEnd)) {
+    Eliding = true;
+    ElidingFrom = 0;
+    ElidedPort = getStandardPortFor(V) + "_elided_" +
+                 std::to_string(ElidingFrom);
+  }
+  else {
+    for (unsigned i = 0; i < ChildCount; ++i) {
+      auto const ChildValue = Array.getChildAt(i);
+      if (!ChildValue)
+        continue;
+      
+      auto const Start = ChildValue->getAddress();
+      auto const End = Start + ChildValue->getTypeSizeInChars().getQuantity();
+      auto const IsReferenced = E.isAreaReferenced(Start, End)
+                              ? searchChildren(*ChildValue,
                                             [&] (Value const &V) {
                                               return E.isReferencedDirectly(V);
                                             })
-                            : false;
-    
-    if (!IsReferenced) {
-      if (!Eliding) {
-        Eliding = true;
-        ElidingFrom = i;
-        ElidedPort = getStandardPortFor(V) + "_elided_" +
-                     std::to_string(ElidingFrom);
+                              : false;
+      
+      if (!IsReferenced) {
+        if (!Eliding) {
+          Eliding = true;
+          ElidingFrom = i;
+          ElidedPort = getStandardPortFor(V) + "_elided_" +
+                       std::to_string(ElidingFrom);
+        }
+        
+        Ports.add(*ChildValue, ValuePort(EdgeEndType::Elided, ElidedPort));
+        
+        continue;
       }
       
-      Ports.add(*ChildValue, ValuePort(EdgeEndType::Elided, ElidedPort));
+      if (Eliding) {
+        // This element is referenced. Stop eliding and resume layout.
+        Eliding = false;
+        
+        // Write a row for the elided elements.
+        Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
+        if (ElidingFrom < i - 1)
+          Stream << " &#45; " << (i - 1);
+        Stream << "&#93;</TD><TD>Elided</TD></TR>";
+      }
       
-      continue;
-    }
-    
-    if (Eliding) {
-      // This element is referenced. Stop eliding and resume layout.
-      Eliding = false;
+      // Layout this referenced value.
+      Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
       
-      // Write a row for the elided elements.
-      Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
-      if (ElidingFrom < i - 1)
-        Stream << " &#45; " << (i - 1);
-      Stream << "&#93;</TD><TD>Elided</TD></TR>";
-    }
-    
-    // Layout this referenced value.
-    Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
-    
-    auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
-    if (MaybeLayout.assigned<LayoutOfValue>()) {
-      auto const &Layout = MaybeLayout.get<LayoutOfValue>();
-      Stream << Layout.getDotString() << "</TR>";
-      Ports.addAllFrom(Layout.getPorts());
-    }
-    else {
-      Stream << "<TD></TD></TR>";
+      auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
+      if (MaybeLayout.assigned<LayoutOfValue>()) {
+        auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+        Stream << Layout.getDotString() << "</TR>";
+        Ports.addAllFrom(Layout.getPorts());
+      }
+      else {
+        Stream << "<TD></TD></TR>";
+      }
     }
   }
   
