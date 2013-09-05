@@ -676,10 +676,14 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
     if (!ChildValue)
       continue;
     
-    auto const IsReferenced = searchChildren(*ChildValue,
-                                [&] (Value const &V) {
-                                  return E.isReferencedDirectly(V);
-                                });
+    auto const Start = ChildValue->getAddress();
+    auto const End = Start + ChildValue->getTypeSizeInChars().getQuantity();
+    auto const IsReferenced = E.isAreaReferenced(Start, End)
+                            ? searchChildren(*ChildValue,
+                                            [&] (Value const &V) {
+                                              return E.isReferencedDirectly(V);
+                                            })
+                            : false;
     
     if (!IsReferenced) {
       if (!Eliding) {
@@ -701,7 +705,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
       // Write a row for the elided elements.
       Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
       if (ElidingFrom < i - 1)
-        Stream << "&ndash;" << (i - 1);
+        Stream << " &#45; " << (i - 1);
       Stream << "&#93;</TD><TD>Elided</TD></TR>";
     }
     
@@ -723,7 +727,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
   if (Eliding) {
     Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
     if (ElidingFrom < ChildCount - 1)
-      Stream << "&ndash;" << (ChildCount - 1);
+      Stream << " &#45; " << (ChildCount - 1);
     Stream << "&#93;</TD><TD>Elided</TD></TR>";
   }
   
