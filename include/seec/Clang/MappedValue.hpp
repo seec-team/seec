@@ -15,6 +15,8 @@
 #define SEEC_CLANG_MAPPEDVALUE_HPP
 
 
+#include "seec/Util/Fallthrough.hpp"
+
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Type.h"
 
@@ -385,6 +387,84 @@ bool isContainedChild(Value const &Child, Value const &Parent);
 /// \brief Check if two pointers reference the same Value.
 ///
 bool doReferenceSameValue(ValueOfPointer const &A, ValueOfPointer const &B);
+
+/// \brief Visit a value and all of its direct descendents using a callback.
+///
+template<typename FnT>
+void visitChildren(Value const &V, FnT &&Callback) {
+  Callback(V);
+  
+  switch (V.getKind()) {
+    case Value::Kind::Array:
+    {
+      auto const &A = llvm::cast<ValueOfArray>(V);
+      auto const ChildCount = A.getChildCount();
+      
+      for (unsigned i = 0; i < ChildCount; ++i)
+        if (auto const Child = A.getChildAt(i))
+          visit(*Child, Callback);
+      
+      break;
+    }
+    
+    case Value::Kind::Record:
+    {
+      auto const &R = llvm::cast<ValueOfRecord>(V);
+      auto const ChildCount = R.getChildCount();
+      
+      for (unsigned i = 0; i < ChildCount; ++i)
+        if (auto const Child = R.getChildAt(i))
+          visit(*Child, Callback);
+      
+      break;
+    }
+  }
+}
+
+/// \brief Search a value and all of its direct descendents for a value that
+///        matches a predicate.
+///
+template<typename FnT>
+bool searchChildren(Value const &V, FnT &&Predicate) {
+  if (Predicate(V))
+    return true;
+  
+  switch (V.getKind()) {
+    case Value::Kind::Array:
+    {
+      auto const &A = llvm::cast<ValueOfArray>(V);
+      auto const ChildCount = A.getChildCount();
+      
+      for (unsigned i = 0; i < ChildCount; ++i)
+        if (auto const Child = A.getChildAt(i))
+          if (searchChildren(*Child, Predicate))
+            return true;
+      
+      break;
+    }
+    
+    case Value::Kind::Record:
+    {
+      auto const &R = llvm::cast<ValueOfRecord>(V);
+      auto const ChildCount = R.getChildCount();
+      
+      for (unsigned i = 0; i < ChildCount; ++i)
+        if (auto const Child = R.getChildAt(i))
+          if (searchChildren(*Child, Predicate))
+            return true;
+      
+      break;
+    }
+    
+    // The following values kinds do not have direct descendents.
+    case Value::Kind::Basic:         SEEC_FALLTHROUGH;
+    case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
+    case Value::Kind::Pointer:       SEEC_FALLTHROUGH;
+    case Value::Kind::PointerToFILE: break;
+  }
+  
+  return false;
+}
 
 /// @} (Utilities)
 
