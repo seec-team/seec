@@ -69,7 +69,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   
   auto const Value = State.getValue();
   if (Value)
-    Out << Value->getValueAsStringFull();
+    Out << Value->getValueAsStringShort();
   else
     Out << "<couldn't get value>";
   
