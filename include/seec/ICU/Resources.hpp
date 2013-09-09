@@ -90,6 +90,16 @@ ResourceBundle getResource(char const *Package,
                      std::forward<KeyTs>(Keys)...);
 }
 
+/// \brief Get the ICU ResourceBundle at a given position in the heirarchy.
+///
+seec::Maybe<ResourceBundle, UErrorCode>
+getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys);
+
+/// \brief Get the ICU UnicodeString at a given position in the heirarchy.
+///
+seec::Maybe<UnicodeString, UErrorCode>
+getString(char const *Package, llvm::ArrayRef<char const *> const &Keys);
+
 /// \brief Returns a signed integer in a resource that has a given key.
 ///
 /// This is analagous to getStringEx().

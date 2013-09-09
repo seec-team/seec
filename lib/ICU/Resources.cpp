@@ -32,6 +32,39 @@ std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
   return nullptr;
 }
 
+seec::Maybe<ResourceBundle, UErrorCode>
+getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
+  UErrorCode Status = U_ZERO_ERROR;
+  ResourceBundle Bundle(Package, Locale{}, Status);
+  
+  if (U_FAILURE(Status))
+    return Status;
+  
+  for (auto const &Key : Keys) {
+    Bundle = Bundle.get(Key, Status);
+    if (U_FAILURE(Status))
+      return Status;
+  }
+  
+  return Bundle;
+}
+
+seec::Maybe<UnicodeString, UErrorCode>
+getString(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
+  auto const MaybeBundle = getResource(Package, Keys);
+  if (MaybeBundle.assigned<UErrorCode>())
+    return MaybeBundle.get<UErrorCode>();
+  
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const &Bundle = MaybeBundle.get<ResourceBundle>();
+  auto const String = Bundle.getString(Status);
+  
+  if (U_FAILURE(Status))
+    return Status;
+  
+  return String;
+}
+
 
 //------------------------------------------------------------------------------
 // ResourceLoader
