@@ -488,15 +488,26 @@ root:table {
              " =1 {{general_type, select,"
                   " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
 
-                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}"
+                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by parentheses containing a sequence of expressions separated by commas. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}"
 
              //
              // Direct callee with N>1 arguments.
              //
              " other {{general_type, select,"
-                     " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
+                     " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
 
-                     " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}}}"
+                     " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by parentheses containing a sequence of expressions separated by commas."
+                             "{num_args, plural, "
+                             " =2 { In this case there are two expressions. }"
+                             " =3 { In this case there are three expressions. }"
+                             " =4 { In this case there are four expressions. }"
+                             " =5 { In this case there are five expressions. }"
+                             " =6 { In this case there are six expressions. }"
+                             " =7 { In this case there are seven expressions. }"
+                             " =8 { In this case there are eight expressions. }"
+                             " =9 { In this case there are nine expressions. }"
+                             " other { In this case there are {num_args} expressions. }}"
+                             "Each of these expressions will be evaluated, and the produced values will be copied to the parameters of the @[direct_callee_decl]function@[]. Execution will then enter the @[direct_callee_decl]function@[] and continue until it reaches a return statement. The value provided to this return statement will become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}}}"
 
       //
       // Indirect call.
@@ -748,7 +759,7 @@ root:table {
       "This is an if statement. "
       "{has_else, select, "
        "true {It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. }"
-       "false {It consists of a @[cond]condition@[] and a @[then]body[]. }"
+       "false {It consists of a @[cond]condition@[] and a @[then]body@[]. }"
        "other {}"
       "}"
       "{has_bool_rtv_of_cond, select, "
