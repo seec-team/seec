@@ -382,31 +382,33 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   
   auto const &Area = MaybeArea.get<0>();
   auto const Size = Area.length();
-  auto const Elements = Size / sizeof(char *);
+  auto const MaxElements = Size / sizeof(char *);
+  bool IsNullTerminated = false;
+  unsigned Element;
   
   // This should be guaranteed by the success of memoryExitsForParameter().
-  assert(Elements > 0);
+  assert(MaxElements > 0);
   
-  // Ensure that all of the elements are initialized.
-  if (!checkMemoryAccessForParameter(Parameter,
-                                     ArrayAddress,
-                                     Elements * sizeof(char *),
-                                     format_selects::MemoryAccess::Read,
-                                     Area)) {
-    return 0;
-  }
-  
-  // Now check that each element is a valid C string.
-  for (unsigned Element = 0; Element < Elements - 1; ++Element) {
-    // TODO: When we modify the runtime error system to allow attaching
-    //       information piecemeal, make this indicate the exact element in the
-    //       array that is in error.
-    if (checkCStringRead(Parameter, Array[Element]) == 0) {
+  for (Element = 0; Element < MaxElements; ++Element) {
+    auto const ElementAddress = ArrayAddress + (Element * sizeof(char *));
+    if (!checkMemoryAccessForParameter(Parameter,
+                                       ElementAddress,
+                                       1,
+                                       format_selects::MemoryAccess::Read,
+                                       Area)) {
       return 0;
     }
+    
+    if (Array[Element] == nullptr) {
+      IsNullTerminated = true;
+      break;
+    }
+    
+    if (checkCStringRead(Parameter, Array[Element]) == 0)
+      return 0;
   }
   
-  if (Array[Elements - 1] != nullptr) {
+  if (!IsNullTerminated) {
     Thread.handleRunError(
       *createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
                      (Function, Parameter),
@@ -415,7 +417,8 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
     return 0;
   }
   
-  return Elements;
+  // Return the number of elements, including the terminating null pointer.
+  return Element + 1;
 }
 
 bool
