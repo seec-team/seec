@@ -23,6 +23,7 @@
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/LazyMessage.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/Fallthrough.hpp"
@@ -31,6 +32,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "unicode/locid.h"
+#include "unicode/unistr.h"
 
 #include <future>
 
@@ -89,6 +91,29 @@ static std::string EscapeForHTML(llvm::StringRef String)
     else {
       Escaped += "&#92;";
       Escaped += std::to_string(Char);
+    }
+  }
+  
+  return Escaped;
+}
+
+static std::string EscapeForHTML(UnicodeString const &String)
+{
+  auto const Length = String.length();
+  
+  std::string Escaped;
+  Escaped.reserve(Length);
+  
+  for (int32_t i = 0; i < Length; ++i) {
+    auto const Char = String[i];
+    
+    if (std::isalnum(Char))
+      Escaped.push_back(Char);
+    else {
+      Escaped.push_back('&');
+      Escaped.push_back('#');
+      Escaped += std::to_string(Char);
+      Escaped.push_back(';');
     }
   }
   
@@ -624,6 +649,9 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
 /// \brief Value layout engine "Elide Unreferenced".
 ///
 class LEVElideUnreferenced final : public LayoutEngineForValue {
+  /// Placeholder text to use for elided values.
+  UnicodeString ElidedText;
+  
   virtual std::unique_ptr<seec::LazyMessage> getNameImpl() const override {
     return LazyMessageByRef::create("SeeCClang",
                                     {"Graph", "Layout",
@@ -637,8 +665,20 @@ class LEVElideUnreferenced final : public LayoutEngineForValue {
   
 public:
   LEVElideUnreferenced(LayoutHandler const &InHandler)
-  : LayoutEngineForValue{InHandler}
-  {}
+  : LayoutEngineForValue{InHandler},
+    ElidedText()
+  {
+    // Attempt to load placeholder text from the resource bundle.
+    auto const MaybeText =
+      seec::getString("SeeCClang",
+                      (char const *[]){ "Graph", "Layout",
+                                        "LEVElideUnreferenced", "Elided" });
+    
+    if (MaybeText.assigned<UnicodeString>())
+      ElidedText = MaybeText.get<UnicodeString>();
+  }
+  
+  ~LEVElideUnreferenced() noexcept(true) {}
 };
 
 bool LEVElideUnreferenced::canLayoutImpl(Value const &V) const
@@ -715,7 +755,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
         Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
         if (ElidingFrom < i - 1)
           Stream << " &#45; " << (i - 1);
-        Stream << "&#93;</TD><TD>Elided</TD></TR>";
+        Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
       }
       
       // Layout this referenced value.
@@ -738,7 +778,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
     Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
     if (ElidingFrom < ChildCount - 1)
       Stream << " &#45; " << (ChildCount - 1);
-    Stream << "&#93;</TD><TD>Elided</TD></TR>";
+    Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
   }
   
   Stream << "</TABLE></TD>";
