@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SimpleWrapper.hpp"
 #include "Tracer.hpp"
 
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -41,7 +42,7 @@ SEEC_MANGLE_FUNCTION(execl)
 {
   // ... = argN..., 0
   
-  llvm_unreachable("execl not yet implemented.");
+  llvm_unreachable("SeeC: execl not yet implemented.");
   
   return -1;
 }
@@ -128,7 +129,7 @@ SEEC_MANGLE_FUNCTION(execle)
 {
   // ... = argN..., 0, char * const envp[]
   
-  llvm_unreachable("execle not yet implemented.");
+  llvm_unreachable("SeeC: execle not yet implemented.");
   
   return -1;
 }
@@ -218,7 +219,7 @@ SEEC_MANGLE_FUNCTION(execlp)
 {
   // ... = argN..., 0
   
-  llvm_unreachable("execlp not yet implemented.");
+  llvm_unreachable("SeeC: execlp not yet implemented.");
   
   return -1;
 }
@@ -397,6 +398,26 @@ SEEC_MANGLE_FUNCTION(pipe)
   }
   
   return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// unlink
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(unlink)
+(char const *pathname)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::unlink}
+      (unlink,
+       [](int const Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(pathname));
 }
 
 
