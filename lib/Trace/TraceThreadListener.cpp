@@ -15,6 +15,7 @@
 
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
 #include "llvm/Support/ErrorHandling.h"
@@ -88,14 +89,24 @@ void TraceThreadListener::checkSignals() {
   // If no signal is found then sigtimedwait() returns an error (-1).
   if (Caught == -1)
     return;
-  
-  // Caught > 0 indicates the signal number of the caught signal.
 
 #else
   // All other platforms - no implementation currently.
   return;
 
 #endif
+
+  // Caught > 0 indicates the signal number of the caught signal.
+  switch (Caught) {
+    // The default disposition for these signals is to ignore them, so we will
+    // also ignore them.
+    case SIGCHLD: SEEC_FALLTHROUGH;
+    case SIGURG:
+      return;
+    
+    default:
+      break;
+  }
 
   // TODO: Write the signal into the trace.
   // Describe signal using strsignal().
