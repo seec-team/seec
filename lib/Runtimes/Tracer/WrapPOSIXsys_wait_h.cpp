@@ -45,20 +45,21 @@ SEEC_MANGLE_FUNCTION(wait)
   Listener.enterNotification();
   auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
   
-  // Lock global memory.
-  Listener.acquireGlobalMemoryWriteLock();
-  
-  // Use a CIOChecker to help check memory.
-  auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
-  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
-  
   // Ensure that writing to *stat_loc will be OK.
-  if (stat_loc)
+  if (stat_loc) {
+    // Lock global memory.
+    Listener.acquireGlobalMemoryWriteLock();
+    
+    // Use a CIOChecker to help check memory.
+    auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
+    CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+    
     Checker.checkMemoryExistsAndAccessibleForParameter
               (0,
                reinterpret_cast<uintptr_t>(stat_loc),
                sizeof(*stat_loc),
                seec::runtime_errors::format_selects::MemoryAccess::Write);
+  }
   
   auto Result = wait(stat_loc);
   
