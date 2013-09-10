@@ -22,6 +22,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/ICU/Format.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/ICU/Output.hpp"
@@ -758,12 +759,18 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
           // Write a row for the elided elements.
           Stream << "<TR><TD PORT=\"" << ElidedPort
                  << "\">&#91;" << ElidingFrom;
-          
           if (ElidingFrom < i - 1)
             Stream << " &#45; " << (i - 1);
+          Stream << "&#93;</TD><TD>";
           
-          Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText)
-                 << "</TD></TR>";
+          // Attempt to format and insert the elision placeholder text.
+          UErrorCode Status = U_ZERO_ERROR;
+          auto const Formatted = seec::format(ElidedText, Status,
+                                              int64_t(i - ElidingFrom));
+          if (U_SUCCESS(Status))
+            Stream << EscapeForHTML(Formatted);
+          
+          Stream << "</TD></TR>";
         }
         
         // Layout this referenced value.
@@ -787,7 +794,16 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
     Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
     if (ElidingFrom < ChildCount - 1)
       Stream << " &#45; " << (ChildCount - 1);
-    Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
+    Stream << "&#93;</TD><TD>";
+    
+    // Attempt to format and insert the elision placeholder text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(ElidedText, Status,
+                                        int64_t(ChildCount - ElidingFrom));
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+    
+    Stream << "</TD></TR>";
   }
   
   Stream << "</TABLE></TD>";
@@ -933,12 +949,18 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
         // Write a row for the elided elements.
         Stream << "<TR><TD PORT=\"" << ElidedPort
                << "\">&#91;" << ElidingFrom;
-        
         if (ElidingFrom < i - 1)
           Stream << " &#45; " << (i - 1);
+        Stream << "&#93;</TD><TD>";
         
-        Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText)
-               << "</TD></TR>";
+        // Attempt to format and insert the elision placeholder text.
+        UErrorCode Status = U_ZERO_ERROR;
+        auto const Formatted = seec::format(ElidedText, Status,
+                                            int64_t(i - ElidingFrom));
+        if (U_SUCCESS(Status))
+          Stream << EscapeForHTML(Formatted);
+        
+        Stream << "</TD></TR>";
       }
       
       // Layout this referenced value.
@@ -961,7 +983,16 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
     Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
     if (ElidingFrom < ChildCount - 1)
       Stream << " &#45; " << (ChildCount - 1);
-    Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
+    Stream << "&#93;</TD><TD>";
+    
+    // Attempt to format and insert the elision placeholder text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(ElidedText, Status,
+                                        int64_t(ChildCount - ElidingFrom));
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+    
+    Stream << "</TD></TR>";
   }
   
   Stream << "</TABLE></TD>";
@@ -1088,12 +1119,18 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
       // Write a row for the elided elements.
       Stream << "<TR><TD PORT=\"" << ElidedPort
              << "\">&#91;" << ElidingFrom;
-      
       if (ElidingFrom < i - 1)
         Stream << " &#45; " << (i - 1);
+      Stream << "&#93;</TD><TD>";
       
-      Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText)
-             << "</TD></TR>";
+      // Attempt to format and insert the elision placeholder text.
+      UErrorCode Status = U_ZERO_ERROR;
+      auto const Formatted = seec::format(ElidedText, Status,
+                                          int64_t(i - ElidingFrom));
+      if (U_SUCCESS(Status))
+        Stream << EscapeForHTML(Formatted);
+      
+      Stream << "</TD></TR>";
     }
     
     // Layout this referenced value.
@@ -1115,7 +1152,16 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
     Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
     if (ElidingFrom < ChildCount - 1)
       Stream << " &#45; " << (ChildCount - 1);
-    Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
+    Stream << "&#93;</TD><TD>";
+    
+    // Attempt to format and insert the elision placeholder text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(ElidedText, Status,
+                                        int64_t(ChildCount - ElidingFrom));
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+    
+    Stream << "</TD></TR>";
   }
   
   Stream << "</TABLE></TD>";

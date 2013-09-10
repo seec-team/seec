@@ -56,15 +56,15 @@ root:table {
       }
       LEVElideUnreferenced:table {
         Name:string { "Elide unreferenced elements" }
-        Elided:string { "<values elided>" }
+        Elided:string { "<{0, plural, =1 {value elided} other {values elided}}>" }
       }
       LEVElideEmptyUnreferencedStrings:table {
         Name:string { "Elide empty unreferenced strings" }
-        Elided:string { "<strings elided>" }
+        Elided:string { "<{0, plural, =1 {string elided} other {strings elided}}>" }
       }
       LEVElideUninitOrZeroElements:table {
         Name:string { "Elide uninitialized or zero values" }
-        Elided:string { "<values elided>" }
+        Elided:string { "<{0, plural, =1 {value elided} other {values elided}}>" }
       }
       LEAStandard:table {
         Name:string { "Standard" }
