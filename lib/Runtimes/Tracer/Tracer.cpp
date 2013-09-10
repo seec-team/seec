@@ -95,20 +95,6 @@ ProcessEnvironment::ProcessEnvironment()
   // Setup multithreading support for LLVM.
   llvm::llvm_start_multithreaded();
   
-  // Create the output stream allocator.
-  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
-  if (MaybeOutput.assigned(0)) {
-    StreamAllocator = std::move(MaybeOutput.get<0>());
-  }
-  else if (MaybeOutput.assigned(1)) {
-    llvm::errs() << "\nError returned from createOutputStreamAllocator().\n";
-    exit(EXIT_FAILURE);
-  }
-  else {
-    llvm::errs() << "\nNo return from createOutputStreamAllocator().\n";
-    exit(EXIT_FAILURE);
-  }
-  
   // Parse the Module bitcode, which is stored in a global variable.
   llvm::StringRef BitcodeRef {
     SeeCInfoModuleBitcode,
@@ -121,6 +107,20 @@ ProcessEnvironment::ProcessEnvironment()
   
   if (!Mod) {
     llvm::errs() << "\nFailed to parse module bitcode.\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  // Create the output stream allocator.
+  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
+  if (MaybeOutput.assigned(0)) {
+    StreamAllocator = std::move(MaybeOutput.get<0>());
+  }
+  else if (MaybeOutput.assigned(1)) {
+    llvm::errs() << "\nError returned from createOutputStreamAllocator().\n";
+    exit(EXIT_FAILURE);
+  }
+  else {
+    llvm::errs() << "\nNo return from createOutputStreamAllocator().\n";
     exit(EXIT_FAILURE);
   }
   
