@@ -972,6 +972,160 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
 
 
 //===----------------------------------------------------------------------===//
+// LEVElideUninitOrZeroElements
+//===----------------------------------------------------------------------===//
+
+/// \brief Value layout engine "Elide uninitialized or zero elements".
+///
+class LEVElideUninitOrZeroElements final : public LayoutEngineForValue {
+  /// Placeholder text to use for elided values.
+  UnicodeString ElidedText;
+  
+  virtual std::unique_ptr<seec::LazyMessage> getNameImpl() const override {
+    return LazyMessageByRef::create("SeeCClang",
+                                    {"Graph", "Layout",
+                                     "LEVElideUninitOrZeroElements",
+                                     "Name"});
+  }
+  
+  virtual bool canLayoutImpl(Value const &V) const override;
+  
+  virtual LayoutOfValue
+  doLayoutImpl(Value const &V, Expansion const &E) const override;
+  
+public:
+  LEVElideUninitOrZeroElements(LayoutHandler const &InHandler)
+  : LayoutEngineForValue{InHandler},
+    ElidedText()
+  {
+    // Attempt to load placeholder text from the resource bundle.
+    auto const MaybeText =
+      seec::getString("SeeCClang",
+                      (char const *[]){ "Graph", "Layout",
+                                        "LEVElideUninitOrZeroElements",
+                                        "Elided" });
+    
+    if (MaybeText.assigned<UnicodeString>())
+      ElidedText = MaybeText.get<UnicodeString>();
+  }
+  
+  ~LEVElideUninitOrZeroElements() noexcept(true) {}
+};
+
+bool LEVElideUninitOrZeroElements::canLayoutImpl(Value const &V) const
+{
+  if (V.getKind() != Value::Kind::Array)
+    return false;
+  
+  auto const ArrayTy = llvm::dyn_cast<clang::ArrayType>(V.getCanonicalType());
+  if (!ArrayTy)
+    return false;
+  
+  auto const ElemTy = ArrayTy->getElementType().getTypePtrOrNull();
+  if (!ElemTy)
+    return false;
+  
+  return ElemTy->isScalarType();
+}
+
+LayoutOfValue
+LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
+                                           Expansion const &E) const
+{
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  Ports.add(V, ValuePort{EdgeEndType::Standard});
+  
+  auto const &Handler = getHandler();
+  auto const &Array = llvm::cast<ValueOfArray const>(V);
+  unsigned const ChildCount = Array.getChildCount();
+  
+  Stream << "<TD PORT=\""
+         << getStandardPortFor(V)
+         << "\"";
+  Handler.writeStandardProperties(Stream, V);
+  Stream << ">";
+  
+  // Exit early if the array has no children.
+  if (ChildCount == 0) {
+    Stream << "</TD>";
+    Stream.flush();
+    return LayoutOfValue(std::move(DotString), std::move(Ports));
+  }
+  
+  Stream << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
+  
+  bool Eliding = false;
+  std::size_t ElidingFrom;
+  std::string ElidedPort;
+  
+  for (unsigned i = 0; i < ChildCount; ++i) {
+    auto const ChildValue = Array.getChildAt(i);
+    if (!ChildValue)
+      continue;
+    
+    auto const &Scalar = llvm::cast<ValueOfScalar const>(*ChildValue);
+    auto const Elide = (!Scalar.isCompletelyInitialized() || Scalar.isZero())
+                        && !E.isReferencedDirectly(*ChildValue);
+    
+    if (Elide) {
+      if (!Eliding) {
+        Eliding = true;
+        ElidingFrom = i;
+        ElidedPort = getStandardPortFor(V) + "_elided_" +
+                     std::to_string(ElidingFrom);
+      }
+      
+      continue;
+    }
+    
+    if (Eliding) {
+      // This element is non-zero or referenced, so stop eliding.
+      Eliding = false;
+      
+      // Write a row for the elided elements.
+      Stream << "<TR><TD PORT=\"" << ElidedPort
+             << "\">&#91;" << ElidingFrom;
+      
+      if (ElidingFrom < i - 1)
+        Stream << " &#45; " << (i - 1);
+      
+      Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText)
+             << "</TD></TR>";
+    }
+    
+    // Layout this referenced value.
+    Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
+    
+    auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
+    if (MaybeLayout.assigned<LayoutOfValue>()) {
+      auto const &Layout = MaybeLayout.get<LayoutOfValue>();
+      Stream << Layout.getDotString() << "</TR>";
+      Ports.addAllFrom(Layout.getPorts());
+    }
+    else {
+      Stream << "<TD></TD></TR>";
+    }
+  }
+  
+  // Write one final row for the trailing elided elements.
+  if (Eliding) {
+    Stream << "<TR><TD PORT=\"" << ElidedPort << "\">&#91;" << ElidingFrom;
+    if (ElidingFrom < ChildCount - 1)
+      Stream << " &#45; " << (ChildCount - 1);
+    Stream << "&#93;</TD><TD>" << EscapeForHTML(ElidedText) << "</TD></TR>";
+  }
+  
+  Stream << "</TABLE></TD>";
+  Stream.flush();
+  
+  return LayoutOfValue(std::move(DotString), std::move(Ports));
+}
+
+
+//===----------------------------------------------------------------------===//
 // LEAStandard
 //===----------------------------------------------------------------------===//
 
@@ -1947,6 +2101,7 @@ void LayoutHandler::addBuiltinLayoutEngines() {
   // LayoutEngineForValue:
   addLayoutEngine(seec::makeUnique<LEVCString>(*this));
   addLayoutEngine(seec::makeUnique<LEVElideEmptyUnreferencedStrings>(*this));
+  addLayoutEngine(seec::makeUnique<LEVElideUninitOrZeroElements>(*this));
   addLayoutEngine(seec::makeUnique<LEVStandard>(*this));
   // addLayoutEngine(seec::makeUnique<LEVElideUnreferenced>(*this));
   

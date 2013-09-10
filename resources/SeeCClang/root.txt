@@ -62,6 +62,10 @@ root:table {
         Name:string { "Elide empty unreferenced strings" }
         Elided:string { "<strings elided>" }
       }
+      LEVElideUninitOrZeroElements:table {
+        Name:string { "Elide uninitialized or zero values" }
+        Elided:string { "<values elided>" }
+      }
       LEAStandard:table {
         Name:string { "Standard" }
       }
