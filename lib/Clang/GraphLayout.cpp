@@ -598,11 +598,6 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
                  << "\"></TD>";
         }
         
-        Ports.add(*ChildValue,
-                  ValuePort(EdgeEndType::Elided,
-                            getStandardPortFor(V)
-                            + "_elided_" + std::to_string(ElidingFrom)));
-        
         continue;
       }
     }
