@@ -80,14 +80,6 @@ public:
     return true;
   }
   
-  bool isReferenced(Value const &Val) const {
-    return Edges.find(&Val) != Edges.end();
-  }
-  
-  std::size_t countReferencesOf(Value const &Val) const {
-    return Edges.count(&Val);
-  }
-  
   std::vector<Dereference>
   getReferencesOf(Value const &Val) const;
   
@@ -236,10 +228,22 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
         auto const Ptr =
           std::static_pointer_cast<seec::cm::ValueOfPointer const>(State);
         
-        unsigned const Limit = Ptr->getDereferenceIndexLimit();
-        
         if (!EI.addPointer(Ptr)) // Pointer has already been expanded.
           break;
+        
+        // If the pointee contains a pointer type, then expand all possible
+        // dereferences so that we generate a complete graph. Otherwise, only
+        // expand the direct dereference.
+        
+        unsigned Limit = Ptr->getDereferenceIndexLimit();
+        
+        if (Limit > 1) {
+          auto const CanonTy = Ptr->getCanonicalType();
+          auto const PtrTy = llvm::cast<clang::PointerType>(CanonTy);
+          auto const PointeeTy = PtrTy->getPointeeType().getTypePtrOrNull();
+          if (!containsPointerType(PointeeTy))
+            Limit = 1;
+        }
         
         for (unsigned i = 0; i < Limit; ++i) {
           auto const Pointee = Ptr->getDereferenced(i);
@@ -327,11 +331,6 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
   return E;
 }
 
-bool Expansion::isReferenced(std::shared_ptr<Value const> const &Value) const
-{
-  return Impl->isReferenced(*Value);
-}
-
 bool
 Expansion::isReferencedDirectly(Value const &Value) const
 {
@@ -339,18 +338,6 @@ Expansion::isReferencedDirectly(Value const &Value) const
     if (Deref.getIndex() == 0)
       return true;
   return false;
-}
-
-std::size_t
-Expansion::countReferencesOf(std::shared_ptr<Value const> const &Value) const
-{
-  return Impl->countReferencesOf(*Value);
-}
-
-std::vector<Dereference>
-Expansion::getReferencesOf(std::shared_ptr<Value const> const &Value) const
-{
-  return Impl->getReferencesOf(*Value);
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>

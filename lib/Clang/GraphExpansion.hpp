@@ -95,24 +95,9 @@ public:
   /// \name Pointers.
   /// @{
   
-  /// \brief Check if a \c Value is referenced by a pointer.
-  ///
-  bool isReferenced(std::shared_ptr<Value const> const &Value) const;
-  
   /// \brief Check if a \c Value is directly referenced by a pointer.
   ///
   bool isReferencedDirectly(Value const &Value) const;
-  
-  /// \brief Count how many pointers reference a \c Value.
-  ///
-  std::size_t
-  countReferencesOf(std::shared_ptr<Value const> const &Value) const;
-  
-  /// \brief Get all pointers that reference a \c Value, either directly or when
-  ///        dereferenced with a index.
-  ///
-  std::vector<Dereference>
-  getReferencesOf(std::shared_ptr<Value const> const &Value) const;
   
   /// \brief Get all pointers that point directly into a memory area.
   ///
