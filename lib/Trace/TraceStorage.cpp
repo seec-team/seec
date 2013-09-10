@@ -84,6 +84,12 @@ OutputStreamAllocator::OutputStreamAllocator(llvm::StringRef Directory)
 seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
 OutputStreamAllocator::createOutputStreamAllocator()
 {
+  return createOutputStreamAllocator("p");
+}
+
+seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
+OutputStreamAllocator::createOutputStreamAllocator(llvm::StringRef Identifier)
+{
   llvm::error_code ErrCode;
   llvm::SmallString<32> Path;
   
@@ -116,8 +122,20 @@ OutputStreamAllocator::createOutputStreamAllocator()
                                   getTraceDirectoryExtension());
   }
   else {
-    llvm::sys::path::append(Path, "p" + getPIDString() +
-                                  "." + getTraceDirectoryExtension());
+    std::string TraceName;
+    
+    for (auto const Char : Identifier)
+      if (std::isalnum(Char))
+        TraceName.push_back(Char);
+    
+    if (TraceName.empty())
+      TraceName.push_back('p');
+    TraceName.push_back('.');
+    TraceName += getPIDString();
+    TraceName.push_back('.');
+    TraceName += getTraceDirectoryExtension();
+    
+    llvm::sys::path::append(Path, TraceName);
   }
   
   // Create the trace directory, but fail if it already exists.

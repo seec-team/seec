@@ -111,7 +111,9 @@ ProcessEnvironment::ProcessEnvironment()
   }
   
   // Create the output stream allocator.
-  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
+  auto MaybeOutput = OutputStreamAllocator::
+                     createOutputStreamAllocator(Mod->getModuleIdentifier());
+  
   if (MaybeOutput.assigned(0)) {
     StreamAllocator = std::move(MaybeOutput.get<0>());
   }

@@ -76,6 +76,14 @@ public:
   seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
   createOutputStreamAllocator();
   
+  /// \brief Attempt to create OutputStreamAllocator.
+  ///
+  /// \param Identifier an identifier to use in the output trace's name.
+  ///
+  static 
+  seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
+  createOutputStreamAllocator(llvm::StringRef Identifier);
+  
   
   /// \name Mutators
   /// @{
