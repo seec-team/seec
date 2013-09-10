@@ -38,6 +38,7 @@ class StateAccessToken;
 class StateViewerPanel;
 class ThreadMoveEvent;
 class ThreadTimeControl;
+class wxXmlDocument;
 
 
 /// \brief Displays a SeeC-Clang Mapped process trace.
@@ -61,6 +62,9 @@ class TraceViewerFrame : public wxFrame
 
   /// Shows the current state.
   StateViewerPanel *StateViewer;
+  
+  /// Used to record user interactions.
+  std::unique_ptr<wxXmlDocument> ActionRecord;
   
   
   /// \name Multi-threaded traces

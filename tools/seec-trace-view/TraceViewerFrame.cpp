@@ -22,6 +22,8 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <wx/xml/xml.h>
+
 #include <chrono>
 #include <cinttypes>
 #include <iostream>
@@ -45,6 +47,7 @@ TraceViewerFrame::TraceViewerFrame()
   Notifier(),
   SourceViewer(nullptr),
   StateViewer(nullptr),
+  ActionRecord(nullptr),
   ThreadTime(nullptr)
 {}
 
@@ -60,6 +63,7 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
   Notifier(),
   SourceViewer(nullptr),
   StateViewer(nullptr),
+  ActionRecord(nullptr),
   ThreadTime(nullptr)
 {
   Create(Parent, std::move(TracePtr), ID, Title, Position, Size);
@@ -81,6 +85,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
 
+  // Setup the action record.
+  ActionRecord = seec::makeUnique<wxXmlDocument>();
+  
   // Set the trace.
   Trace = std::move(TracePtr);
   
