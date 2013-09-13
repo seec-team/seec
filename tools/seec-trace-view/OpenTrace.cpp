@@ -29,7 +29,7 @@ seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
 OpenTrace::FromFilePath(wxString const &FilePath)
 {
   // Create an InputBufferAllocator for the folder containing the trace file.
-  wxStandardPaths StdPaths;
+  auto &StdPaths = wxStandardPaths::Get();
   auto const &ExecutablePath = StdPaths.GetExecutablePath().ToStdString();
 
   llvm::error_code ErrCode;

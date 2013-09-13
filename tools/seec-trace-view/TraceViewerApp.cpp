@@ -105,7 +105,7 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
 
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
-  wxStandardPaths StdPaths;
+  auto &StdPaths = wxStandardPaths::Get();
   llvm::sys::Path ExecutablePath(StdPaths.GetExecutablePath().ToStdString());
   
   // Load ICU resources for TraceViewer. Do this before calling wxApp's default
