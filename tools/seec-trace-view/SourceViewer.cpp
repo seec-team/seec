@@ -906,6 +906,18 @@ public:
   }
   
   /// @} (Temporary display)
+  
+  
+  /// \name Display control
+  /// @{
+  
+  /// \brief Scroll enough to make the given line visible.
+  ///
+  void scrollToLine(int const Line) {
+    Text->ScrollToLine(Line);
+  }
+  
+  /// @} (Display control)
 };
 
 void SourceFilePanel::clearHoverNode() {
@@ -1258,6 +1270,10 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                            Range.Start,
                            Range.End);
   
+  // Scroll to the active Stmt.
+  Panel->scrollToLine(Range.EndLine - 1);
+  Panel->scrollToLine(Range.StartLine - 1);
+  
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
     auto const String = getStringForInlineValue(*Value);
@@ -1316,6 +1332,10 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
   Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
                            Range.Start,
                            Range.End);
+  
+  // Scroll to the active Decl.
+  Panel->scrollToLine(Range.EndLine - 1);
+  Panel->scrollToLine(Range.StartLine - 1);
   
   // Show an explanation for the Decl.
   ExplanationCtrl->showExplanation(Declaration);
