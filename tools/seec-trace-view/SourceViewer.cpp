@@ -832,23 +832,6 @@ public:
     
     return true;
   }
-  
-  /// \brief Set an indicator on a range of text for this state.
-  ///
-  bool setStateIndicator(SciIndicatorType Indicator,
-                         long StartLine,
-                         long StartColumn,
-                         long EndLine,
-                         long EndColumn) {
-    // Find the position for the new highlight.
-    // wxTextCtrl line and column numbers are zero-based, whereas Clang's line
-    // and column information is 1-based.
-    int Start = Text->XYToPosition(StartColumn - 1, StartLine - 1);
-    int End = Text->XYToPosition(EndColumn - 1, EndLine - 1);
-    assert(Start != -1 && End != -1);
-    
-    return stateIndicatorAdd(Indicator, Start, End);
-  }
 
   /// \brief Annotate a line for this state.
   ///
