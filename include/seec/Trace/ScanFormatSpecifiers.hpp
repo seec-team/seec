@@ -190,38 +190,42 @@ public:
     return false;
   }
   
+  /// Represents the destination/pointee of a pointer argument.
+  typedef std::pair<char const *, std::size_t> pointee_ty;
+  
 private:
-  /// \brief For pointer types return the MemoryArea of the pointee.
+  /// \brief For pointer types return the area of the pointee.
   ///
   template<typename T>
   typename std::enable_if<std::is_pointer<T>::value,
-                          seec::Maybe<MemoryArea>>::type
+                          seec::Maybe<pointee_ty>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     if (ArgIndex < Args.size()) {
       auto MaybeArg = Args.getAs<T>(ArgIndex);
       if (MaybeArg.assigned()) {
         auto const Ptr = MaybeArg.template get<0>();
-        return MemoryArea(Ptr, sizeof(*Ptr));
+        return std::make_pair(reinterpret_cast<char const *>(Ptr),
+                              sizeof(*Ptr));
       }
     }
     
-    return seec::Maybe<MemoryArea>();
+    return seec::Maybe<pointee_ty>();
   }
   
   /// \brief For non-pointer types return an uninitialized Maybe.
   template<typename T>
   typename std::enable_if<!std::is_pointer<T>::value,
-                          seec::Maybe<MemoryArea>>::type
+                          seec::Maybe<pointee_ty>>::type
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
-    return seec::Maybe<MemoryArea>();
+    return seec::Maybe<pointee_ty>();
   }
 
 public:
   /// \brief Get the address and size of the pointee of a pointer argument.
   ///
-  seec::Maybe<MemoryArea>
+  seec::Maybe<pointee_ty>
   getArgumentPointee(detect_calls::VarArgList<TraceThreadListener> const &Args,
                      unsigned ArgIndex) const {
     // We use the X-Macro to generate a two levels of switching. The outer
@@ -230,7 +234,7 @@ public:
     // return an unassigned Maybe.
     
     switch (Conversion) {
-      case Specifier::none: return seec::Maybe<MemoryArea>();
+      case Specifier::none: return seec::Maybe<pointee_ty>();
 
 #define SEEC_PP_CHECK_LENGTH(LENGTH, TYPE)                                     \
         case LengthModifier::LENGTH:                                           \
@@ -240,7 +244,7 @@ public:
       case Specifier::ID:                                                      \
         switch (Length) {                                                      \
           SEEC_PP_APPLY(SEEC_PP_CHECK_LENGTH, LENS)                            \
-          default: return seec::Maybe<MemoryArea>();                           \
+          default: return seec::Maybe<pointee_ty>();                           \
         }
 
 #include "seec/Trace/ScanFormatSpecifiers.def"
@@ -248,7 +252,7 @@ public:
     }
     
     llvm_unreachable("illegal conversion specifier");
-    return seec::Maybe<MemoryArea>();
+    return seec::Maybe<pointee_ty>();
   }
   
 private:
@@ -281,10 +285,6 @@ private:
     
     auto Ptr = MaybeArg.template get<0>();
     auto Result = assignPointee(*Ptr, Src);
-    
-    if (Result) {
-      Listener.recordUntypedState(reinterpret_cast<char *>(Ptr), sizeof(*Ptr));
-    }
     
     return Result;
   }
