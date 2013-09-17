@@ -39,9 +39,15 @@ root:table {
     // size
     MemoryUnowned:string {
       "{access_type, select, "
-        "read {Attempt to read unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
-        "write {Attempt to write unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
-        "other {Attempt to {access_type} unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}"
+        "read {{address, select, "
+          "NULL {Attempt to dereference NULL pointer for memory read.}"
+          "other {Attempt to read unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+        "write {{address, select, "
+          "NULL {Attempt to dereference NULL pointer for memory write.}"
+          "other {Attempt to write unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+        "other {{address, select, "
+          "NULL {Attempt to dereference NULL pointer.}"
+          "other {Attempt to {access_type} unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
       "}"
     }
 
