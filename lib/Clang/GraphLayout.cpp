@@ -1207,12 +1207,8 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
                           Expansion const &E) const
 {
   // Generate the identifier for this node.
-  std::string IDString;
-  
-  {
-    llvm::raw_string_ostream IDStream {IDString};
-    IDStream << "area_at_" << Area.start();
-  }
+  auto const IDString = std::string{"area_at_"} + std::to_string(Area.start());
+  auto const &Handler = this->getHandler();
   
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
@@ -1221,10 +1217,15 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   
   DotStream << IDString
             << " [ label = <"
-            << "<TABLE BORDER=\"0\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\">";
+               "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  Handler.writeHREF(DotStream, Area, Reference);
+  DotStream << "><TR><TD>"
+               "<TABLE"
+               " BORDER=\"0\""
+               " CELLSPACING=\"0\""
+               " CELLBORDER=\"1\""
+               " CELLPADDING=\"0\">";
   
-  auto const &Handler = this->getHandler();
   auto const Limit = Reference.getDereferenceIndexLimit();
   
   if (Limit == 1) {
@@ -1259,7 +1260,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
     DotStream << "<TR><TD></TD></TR>";
   }
   
-  DotStream << "</TABLE>> ];\n";
+  DotStream << "</TABLE></TD></TR></TABLE>> ];\n";
   DotStream.flush();
   
   return LayoutOfArea{std::move(IDString),
@@ -1306,12 +1307,8 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
                          Expansion const &E) const
 {
   // Generate the identifier for this node.
-  std::string IDString;
-  
-  {
-    llvm::raw_string_ostream IDStream {IDString};
-    IDStream << "area_at_" << Area.start();
-  }
+  auto const IDString = std::string{"area_at_"} + std::to_string(Area.start());
+  auto const &Handler = this->getHandler();
   
   std::string DotString;
   llvm::raw_string_ostream Stream {DotString};
@@ -1321,10 +1318,17 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   
   Stream << IDString
          << " [ label = <"
-         << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" COLOR=\"#BBBBBB\" "
-             "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
+            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  Handler.writeHREF(Stream, Area, Reference);
+  Stream << "><TR><TD>"
+            "<TABLE"
+            " BORDER=\"0\""
+            " CELLSPACING=\"0\""
+            " COLOR=\"#BBBBBB\""
+            " CELLBORDER=\"1\""
+            " CELLPADDING=\"0\">"
+            "<TR>";
   
-  auto const &Handler = this->getHandler();
   auto const Limit = Reference.getDereferenceIndexLimit();
   
   bool Eliding = false;
@@ -1392,7 +1396,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     }
   }
   
-  Stream << "</TR></TABLE>> ];\n";
+  Stream << "</TR></TABLE></TD></TR></TABLE>> ];\n";
   Stream.flush();
   
   return LayoutOfArea{std::move(IDString),
@@ -2200,6 +2204,43 @@ LayoutHandler::setLayoutEngine(Value const &ForValue, uintptr_t EngineID) {
   return true;
 }
 
+std::vector<LayoutEngineForArea const *>
+LayoutHandler::
+listLayoutEnginesSupporting(MemoryArea const &Area,
+                            ValueOfPointer const &Reference) const
+{
+  std::vector<LayoutEngineForArea const *> List;
+  
+  for (auto const &EnginePtr : AreaEngines)
+    if (EnginePtr->canLayout(Area, Reference))
+      List.emplace_back(EnginePtr.get());
+  
+  return List;
+}
+
+bool
+LayoutHandler::setLayoutEngine(MemoryArea const &ForArea,
+                               ValueOfPointer const &ForReference,
+                               uintptr_t EngineID)
+{
+  // Attempt to find the engine.
+  auto const EngineIt =
+    std::find_if(AreaEngines.begin(), AreaEngines.end(),
+                [=] (std::unique_ptr<LayoutEngineForArea> const &Engine) {
+                  return reinterpret_cast<uintptr_t>(Engine.get()) == EngineID;
+                });
+  
+  if (EngineIt == AreaEngines.end())
+    return false;
+  
+  auto const Ptr = EngineIt->get();
+  
+  AreaEngineOverride[std::make_pair(ForArea.start(),
+                                    ForReference.getCanonicalType())] = Ptr;
+
+  return true;
+}
+
 
 //===----------------------------------------------------------------------===//
 // LayoutHandler - Layout Creation
@@ -2210,6 +2251,16 @@ void LayoutHandler::writeHREF(llvm::raw_ostream &Out,
 {
   Out << " HREF=\"value "
       << reinterpret_cast<uintptr_t>(&ForValue)
+      << "\"";
+}
+
+void LayoutHandler::writeHREF(llvm::raw_ostream &Out,
+                              MemoryArea const &ForArea,
+                              ValueOfPointer const &ForReference) const
+{
+  Out << " HREF=\"area "
+      << ForArea.start() << "," << ForArea.end() << ","
+      << reinterpret_cast<uintptr_t>(&ForReference)
       << "\"";
 }
 
@@ -2249,6 +2300,15 @@ LayoutHandler::doLayout(seec::MemoryArea const &Area,
                         seec::cm::ValueOfPointer const &Reference,
                         Expansion const &Exp) const
 {
+  // If there's a user-selected engine, try to use that.
+  auto const It =
+    AreaEngineOverride.find(std::make_pair(Area.start(),
+                                           Reference.getCanonicalType()));
+  
+  if (It != AreaEngineOverride.end() && It->second->canLayout(Area, Reference))
+    return It->second->doLayout(Area, Reference, Exp);
+  
+  // Otherwise try to use any engine that will work.
   for (auto const &EnginePtr : AreaEngines)
     if (EnginePtr->canLayout(Area, Reference))
       return EnginePtr->doLayout(Area, Reference, Exp);

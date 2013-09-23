@@ -315,6 +315,74 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
+  CallbackFS->addCallback("list_layout_engines_supporting_area",
+    std::function<
+      seec::callbackfs::Formatted<std::string> (uint64_t, uint64_t, uintptr_t)>
+    {
+      [this] (uint64_t const Start, uint64_t const End, uintptr_t const RefID)
+        -> seec::callbackfs::Formatted<std::string>
+      {
+        auto const Area = seec::MemoryArea(Start, End);
+        auto const &Ref =
+          *reinterpret_cast<seec::cm::ValueOfPointer const *>(RefID);
+        bool First = true;
+        
+        std::string Result {'['};
+        
+        std::unique_lock<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+        auto const Engines = LayoutHandler->listLayoutEnginesSupporting(Area,
+                                                                        Ref);
+        LockLayoutHandler.unlock();
+        
+        for (auto const E : Engines)
+        {
+          auto const LazyName = E->getName();
+          if (!LazyName)
+            continue;
+          
+          UErrorCode Status = U_ZERO_ERROR;
+          auto const Name = LazyName->get(Status, Locale());
+          if (U_FAILURE(Status))
+            continue;
+          
+          if (First)
+            First = false;
+          else
+            Result.push_back(',');
+          
+          Result.append("{id:");
+          Result.append(std::to_string(reinterpret_cast<uintptr_t>(E)));
+          Result.append(",name:\"");
+          Name.toUTF8String(Result); // TODO: Escape this string.
+          Result.append("\"}");
+        }
+        
+        Result.push_back(']');
+        
+        return seec::callbackfs::Formatted<std::string>(std::move(Result));
+      }
+    });
+  
+  CallbackFS->addCallback("set_layout_engine_area",
+    std::function<void (uintptr_t, uint64_t, uint64_t, uintptr_t)>{
+      [this] (uintptr_t const EngineID,
+              uint64_t const AreaStart,
+              uint64_t const AreaEnd,
+              uintptr_t const PointerID) -> void
+      {
+        auto const &Ptr = *reinterpret_cast<seec::cm::ValueOfPointer const *>
+                                           (PointerID);
+        auto const Area = seec::MemoryArea(AreaStart, AreaEnd);
+        
+        {
+          std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+          this->LayoutHandler->setLayoutEngine(Area, Ptr, EngineID);
+        }
+        
+        this->renderGraph();
+      }
+    });
+  
   // Function context menu callbacks.
   CallbackFS->addCallback("move_to_function_entry",
     std::function<void (uintptr_t)>{

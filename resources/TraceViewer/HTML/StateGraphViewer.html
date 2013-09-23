@@ -69,6 +69,11 @@
         function(data) { /* The result is not important. */ });
     }
 
+    function CMSetLayoutEngineArea(engineid, area) {
+      $.getJSON(SeeCURL("set_layout_engine_area", [engineid, area[0], area[1], area[2]]),
+        function(data) { /* The result is not important. */ });
+    }
+
     //
     // Context menu callbacks for Functions.
     //
@@ -197,6 +202,56 @@
         });
 
         $this.contextMenu(position);
+      }
+      else if (splitref[0] == "area") {
+        //
+        // Generate an area context menu.
+        //
+        var splitarea = splitref[1].split(',');
+        if (splitarea.length != 3) {
+          Log("Bad area identifier.");
+          return false;
+        }
+
+        $.getJSON(SeeCURL("list_layout_engines_supporting_area", splitarea),
+        function(data) {
+          if (data.success) {
+            // Setup menu items based on the layout engines available.
+            var menuitems = {};
+            var engines = data.result;
+
+            if (engines.length > 1) {
+              var engineitems = {};
+
+              for (var i = 0; i < engines.length; ++i) {
+                engineitems[engines[i].id] = {
+                  "name": engines[i].name,
+                  "callback": function(key, options) {
+                    CMSetLayoutEngineArea(key, splitarea);
+                  }
+                };
+              }
+
+              menuitems = {
+                "select-engine": {
+                  "name": "Layout as...",
+                  "items": engineitems
+                }
+              };
+            }
+            else {
+              // Not enough engines to generate a menu.
+              return;
+            }
+
+            // Build and show the menu.
+            $this.data('buildCM', function() {
+              return { "items": menuitems };
+            });
+
+            $this.contextMenu(position);
+          }
+        });
       }
       else {
         Log("Don't understand ref: " + splitref[0]);
