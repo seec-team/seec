@@ -310,11 +310,12 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                              char const *String)
 {
-  auto StrAddr = reinterpret_cast<uintptr_t>(String);
+  auto const ReadAccess = format_selects::MemoryAccess::Read;
+  auto const StrAddr = reinterpret_cast<uintptr_t>(String);
 
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExists(StrAddr, 1, format_selects::MemoryAccess::Read, Area))
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
     return 0;
 
   // Check if Str points to a valid C string.
@@ -330,7 +331,7 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
   checkMemoryAccessForParameter(Parameter,
                                 StrAddr,
                                 StrLength,
-                                format_selects::MemoryAccess::Read,
+                                ReadAccess,
                                 StrArea.get<0>());
   
   return StrLength;
@@ -340,17 +341,13 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                                     char const *String,
                                                     std::size_t Limit)
 {
-  auto StrAddr = reinterpret_cast<uintptr_t>(String);
+  auto const ReadAccess = format_selects::MemoryAccess::Read;
+  auto const StrAddr = reinterpret_cast<uintptr_t>(String);
   
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExistsForParameter(Parameter,
-                                StrAddr,
-                                1,
-                                format_selects::MemoryAccess::Read,
-                                Area)) {
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
     return 0;
-  }
   
   // Find the C string that String refers to, within Limit.
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
@@ -615,8 +612,17 @@ checkPrintFormat(unsigned Parameter,
           return false;
         }
         
-        if (!checkCStringRead(Args.offset() + NextArg, MaybePointer.get<0>()))
-          return false;
+        auto const TheParam = Args.offset() + NextArg;
+        auto const TheString = MaybePointer.get<0>();
+        
+        if (Conversion.WidthSpecified) {
+          if (!checkLimitedCStringRead(TheParam, TheString, Conversion.Width))
+            return false;
+        }
+        else {
+          if (!checkCStringRead(TheParam, TheString))
+            return false;
+        }
       }
     }
     else {
@@ -627,7 +633,7 @@ checkPrintFormat(unsigned Parameter,
           Args.offset() + NextArg,
           Area.address(),
           Area.length(),
-          format_selects::MemoryAccess::Write);
+          format_selects::MemoryAccess::Read);
       }
     }
     
