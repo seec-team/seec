@@ -1389,7 +1389,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     
     // If this was a terminating null character, start eliding.
     auto const &Scalar = static_cast<ValueOfScalar const &>(*ChildValue);
-    if (Scalar.isZero()) {
+    if (Scalar.isCompletelyInitialized() && Scalar.isZero()) {
       Eliding = true;
       ElidingFrom = i + 1;
       ElidingCount = 0;
