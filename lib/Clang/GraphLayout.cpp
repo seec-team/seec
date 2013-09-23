@@ -2268,6 +2268,20 @@ void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
                                             Value const &ForValue) const
 {
   writeHREF(Out, ForValue);
+  
+  // For some values, show initialization as a style.
+  switch (ForValue.getKind()) {
+    case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Pointer: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::PointerToFILE:
+      if (!ForValue.isCompletelyInitialized())
+        Out << " BGCOLOR=\"#AAAAAA\"";
+      break;
+    
+    case seec::cm::Value::Kind::Array: break;
+    case seec::cm::Value::Kind::Record: break;
+  }
 }
 
 seec::Maybe<LayoutOfValue>
