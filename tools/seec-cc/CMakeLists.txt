@@ -20,6 +20,7 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 target_link_libraries(seec-cc
  # SeeC libraries
  SeeCClang
+ SeeCBreakConstantGEPs
  SeeCICU
 
  # Clang libraries
