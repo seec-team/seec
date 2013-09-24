@@ -8,7 +8,6 @@ string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
 target_link_libraries(seec-ld
- SeeCBreakConstantGEPs
  SeeCRecordExternal
  ${REQ_LLVM_LIBRARIES}
  ${LLVM_LIB_DEPS}

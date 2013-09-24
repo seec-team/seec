@@ -11,7 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
@@ -87,33 +86,11 @@ static std::unique_ptr<llvm::Module> LoadFile(char const *ProgramName,
   return Result;
 }
 
-/// \brief Prepare the Module for instrumentation.
-/// This uses SAFECode's BreakConstantGEPs pass to transform ConstantExpr
-/// getelementptrs into Instructions, so that their values can be recorded.
-///
-static void PrepareForInstrumentation(llvm::Module &Module)
-{
-  llvm::PassManager Passes;
-
-  // Add SAFEcode's BreakConstantGEPs pass
-  auto const BreakConstantGEPsPass = new llvm::BreakConstantGEPs();
-  assert(BreakConstantGEPsPass);
-  Passes.add(BreakConstantGEPsPass);
-
-  // Verify the final module
-  Passes.add(llvm::createVerifierPass());
-
-  // Run the passes
-  Passes.run(Module);
-}
-
 /// \brief Add SeeC's instrumentation to the given Module.
 /// \return true if the instrumentation was successful.
 ///
 static bool Instrument(char const *ProgramName, llvm::Module &Module)
 {
-  PrepareForInstrumentation(Module);
-  
   llvm::PassManager Passes;
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
