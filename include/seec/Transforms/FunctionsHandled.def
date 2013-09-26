@@ -48,6 +48,8 @@ SEEC_FUNCTION_HANDLED(ALIAS)
 // OS X functions that don't need recording.
 //
 SEEC_FUNCTION_HANDLED(__maskrune)
+SEEC_FUNCTION_HANDLED(__toupper)
+SEEC_FUNCTION_HANDLED(__tolower)
 //===----------------------------------------------------------------------===//
 
 #undef SEEC_FUNCTION_HANDLED
