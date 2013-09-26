@@ -73,5 +73,9 @@ root:table {
         Name:string { "C String" }
       }
     }
+
+    Descriptions:table {
+      UnreferencedDynamic:string { "<{0, plural, =1 {1 byte of dynamically allocated memory} other {{0} bytes of dynamically allocated memory}}>" }
+    }
   }
 }
