@@ -832,23 +832,6 @@ public:
     
     return true;
   }
-  
-  /// \brief Set an indicator on a range of text for this state.
-  ///
-  bool setStateIndicator(SciIndicatorType Indicator,
-                         long StartLine,
-                         long StartColumn,
-                         long EndLine,
-                         long EndColumn) {
-    // Find the position for the new highlight.
-    // wxTextCtrl line and column numbers are zero-based, whereas Clang's line
-    // and column information is 1-based.
-    int Start = Text->XYToPosition(StartColumn - 1, StartLine - 1);
-    int End = Text->XYToPosition(EndColumn - 1, EndLine - 1);
-    assert(Start != -1 && End != -1);
-    
-    return stateIndicatorAdd(Indicator, Start, End);
-  }
 
   /// \brief Annotate a line for this state.
   ///
@@ -923,6 +906,18 @@ public:
   }
   
   /// @} (Temporary display)
+  
+  
+  /// \name Display control
+  /// @{
+  
+  /// \brief Scroll enough to make the given line visible.
+  ///
+  void scrollToLine(int const Line) {
+    Text->ScrollToLine(Line);
+  }
+  
+  /// @} (Display control)
 };
 
 void SourceFilePanel::clearHoverNode() {
@@ -1275,6 +1270,10 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                            Range.Start,
                            Range.End);
   
+  // Scroll to the active Stmt.
+  Panel->scrollToLine(Range.EndLine - 1);
+  Panel->scrollToLine(Range.StartLine - 1);
+  
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
     auto const String = getStringForInlineValue(*Value);
@@ -1333,6 +1332,10 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
   Panel->stateIndicatorAdd(SciIndicatorType::CodeActive,
                            Range.Start,
                            Range.End);
+  
+  // Scroll to the active Decl.
+  Panel->scrollToLine(Range.EndLine - 1);
+  Panel->scrollToLine(Range.StartLine - 1);
   
   // Show an explanation for the Decl.
   ExplanationCtrl->showExplanation(Declaration);

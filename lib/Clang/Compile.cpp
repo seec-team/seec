@@ -13,6 +13,7 @@
 
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MDNames.hpp"
+#include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/Decl.h"
@@ -25,6 +26,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Serialization/ASTWriter.h"
 
+#include "llvm/PassManager.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -47,6 +49,26 @@ namespace seec {
 
 namespace seec_clang {
 
+/// \brief Prepare the Module for instrumentation.
+/// This uses SAFECode's BreakConstantGEPs pass to transform ConstantExpr
+/// getelementptrs into Instructions, so that their values can be recorded.
+///
+static void PrepareForInstrumentation(llvm::Module &Module)
+{
+  llvm::PassManager Passes;
+
+  // Add SAFEcode's BreakConstantGEPs pass
+  auto const BreakConstantGEPsPass = new llvm::BreakConstantGEPs();
+  assert(BreakConstantGEPsPass);
+  Passes.add(BreakConstantGEPsPass);
+
+  // Verify the final module
+  Passes.add(llvm::createVerifierPass());
+
+  // Run the passes
+  Passes.run(Module);
+}
+
 //===----------------------------------------------------------------------===//
 // class SeeCCodeGenAction
 //===----------------------------------------------------------------------===//
@@ -65,6 +87,11 @@ SeeCCodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 void SeeCCodeGenAction::ModuleComplete(llvm::Module *Mod) {
   auto &SM = Compiler->getSourceManager();
   
+  // Transform the Module to be friendlier for the recording process.
+  if (Mod)
+    PrepareForInstrumentation(*Mod);
+  
+  // Transform the mapping information to use indices rather than pointers.
   GenerateSerializableMappings(*this, Mod, SM, File);
   
   // Store all used source files into the LLVM Module.

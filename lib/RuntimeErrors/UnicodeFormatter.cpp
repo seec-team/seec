@@ -41,7 +41,12 @@ Formattable formatArg(ArgAddress const &A) {
   std::string AddressString;
 
   llvm::raw_string_ostream AddressStringStream(AddressString);
-  seec::util::write_hex_padded(AddressStringStream, A.address());
+  
+  if (auto const Address = A.address())
+    seec::util::write_hex_padded(AddressStringStream, A.address());
+  else
+    AddressStringStream << "NULL";
+  
   AddressStringStream.flush();
 
   return Formattable(AddressString.c_str());

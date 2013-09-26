@@ -271,7 +271,7 @@ root:table {
     SeeCRuntimeValue:table {
       Name:string {"Runtime value"}
       Foreground:string {"BLACK"}
-      Background:string {"rgb(220,255,220)"}
+      Background:string {"rgb(200,255,200)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -281,7 +281,7 @@ root:table {
     SeeCRuntimeInformation:table {
       Name:string {"Runtime information"}
       Foreground:string {"BLACK"}
-      Background:string {"rgb(220,220,255)"}
+      Background:string {"rgb(200,200,255)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -495,8 +495,8 @@ root:table {
       Name:string {"Active code"}
       Style:string {"STRAIGHTBOX"}      
       Foreground:string {"YELLOW"}
-      Alpha:int {30}
-      OutlineAlpha:int {30}
+      Alpha:int {60}
+      OutlineAlpha:int {80}
       Under:string {"False"}
     }
 

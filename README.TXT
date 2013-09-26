@@ -5,6 +5,11 @@ This directory and its subdirectories contain source code for SeeC, which is bot
 
 SeeC is open source software, distributed under The MIT License (MIT). See LICENSE.TXT for details.
 
+SeeC uses code from the SAFECode project, specifically:
+  include/seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h
+  lib/Transforms/BreakConstantGEPs/BreakConstantGEPs.cpp
+The SAFECode license is available in the LICENSE.txt in either of those directories.
+
 SeeC uses and contains copies of the following libraries:
 * The jQuery library, contained in resources/TraceViewer/HTML/jquery-1.8.2.min.js, which is distributed under The MIT License (MIT). See https://jquery.org/license/ for more details.
 * The jQuery contextMenu plugin, contained in resources/TraceViewer/HTML/jquery.contextMenu.*, under The MIT License (MIT). See http://www.opensource.org/licenses/mit-license for more details.

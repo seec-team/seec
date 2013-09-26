@@ -350,7 +350,8 @@ class LayoutHandler final {
   
   std::vector<std::unique_ptr<LayoutEngineForArea>> AreaEngines;
   
-  // TODO: Per-Area override.
+  std::map<std::pair<uintptr_t, clang::Type const *>,
+           LayoutEngineForArea const *> AreaEngineOverride;
   
   /// @}
   
@@ -361,7 +362,8 @@ public:
   : ValueEngines(),
     ValueEngineDefault(nullptr),
     ValueEngineOverride(),
-    AreaEngines()
+    AreaEngines(),
+    AreaEngineOverride()
   {}
   
   
@@ -389,6 +391,18 @@ public:
   ///
   bool setLayoutEngine(Value const &ForValue, uintptr_t EngineID);
   
+  /// \brief List the Area layout engines that support an Area and Pointer.
+  ///
+  std::vector<LayoutEngineForArea const *>
+  listLayoutEnginesSupporting(seec::MemoryArea const &Area,
+                              seec::cm::ValueOfPointer const &Reference) const;
+  
+  /// \brief Set the Area layout engine to use for an Area and Pointer.
+  ///
+  bool setLayoutEngine(seec::MemoryArea const &ForArea,
+                       seec::cm::ValueOfPointer const &ForReference,
+                       uintptr_t EngineID);
+  
   /// @}
   
   
@@ -399,6 +413,12 @@ public:
   /// \brief Write a HREF to identify a Value.
   ///
   void writeHREF(llvm::raw_ostream &Out, Value const &ForValue) const;
+  
+  /// \brief Write a HREF to identify an Area.
+  ///
+  void writeHREF(llvm::raw_ostream &Out,
+                 seec::MemoryArea const &ForArea,
+                 seec::cm::ValueOfPointer const &ForReference) const;
   
   /// \brief Write standard properties for a Value.
   ///

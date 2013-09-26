@@ -24,6 +24,7 @@
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CallSite.h"
 
 #include <cctype>
@@ -293,6 +294,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   // Check and perform the (f)scanf.
   auto FormatSize = Checker.checkCStringRead(VarArgsStartIndex - 1, Format);
   if (!FormatSize) {
+    Listener.notifyValue(InstructionIndex, Instruction, unsigned(0));
     return 0;
   }
   
@@ -302,8 +304,10 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   unsigned NextArg = 0;
   char const *NextChar = Format;
   bool InputFailure = false;
+  bool CriticalError = false;
+  llvm::SmallVector<std::pair<char const *, std::size_t>, 8> StateChanges;
   
-  while (true) {
+  while (!CriticalError) {
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextChar);
     if (!Conversion.Start) {
       // Attempt to match and consume remaining characters.
@@ -325,7 +329,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                        (FSFunction, VarArgsStartIndex - 1, StartIndex),
         RunErrorSeverity::Fatal,
         InstructionIndex);
-      return NumAssignments;
+      
+      CriticalError = true;
+      break; // Leave the main processing loop.
     }
     
     auto const EndIndex = Conversion.End - Format;
@@ -341,7 +347,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                           EndIndex),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return NumAssignments;
+        
+        CriticalError = true;
+        break; // Leave the main processing loop.
       }
     }
     else {
@@ -360,7 +368,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                           VarArgs.offset() + NextArg),
           RunErrorSeverity::Fatal,
           InstructionIndex);
-        return NumAssignments;
+        
+        CriticalError = true;
+        break; // Leave the main processing loop.
       }
 
       // If the argument type is a pointer, check that the destination is
@@ -377,20 +387,22 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           
           if (!Checker.checkMemoryExistsAndAccessibleForParameter(
                   VarArgs.offset() + NextArg,
-                  MaybeArea.get<0>().address(),
+                  reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
                   Size,
                   seec::runtime_errors::format_selects::MemoryAccess::Write))
-            return NumAssignments;
+            
+            CriticalError = true;
+            break; // Leave the main processing loop.
         }
       }
       else {
         auto MaybePointeeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
         if (MaybePointeeArea.assigned()) {
-          auto Area = MaybePointeeArea.get<0>();
+          auto const &Area = MaybePointeeArea.get<0>();
           Checker.checkMemoryExistsAndAccessibleForParameter(
             VarArgs.offset() + NextArg,
-            Area.address(),
-            Area.length(),
+            reinterpret_cast<uintptr_t>(Area.first),
+            Area.second,
             seec::runtime_errors::format_selects::MemoryAccess::Write);
         }
       }
@@ -450,8 +462,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               case 1:
                 ++NumConversions;
                 ++NumAssignments;
-                Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                            sizeof(*Ptr));
+                StateChanges.push_back(
+                  std::make_pair(reinterpret_cast<char const *>(Ptr),
+                                 sizeof(*Ptr)));
                 break;
               case 0:
                 ConversionSuccessful = false;
@@ -480,8 +493,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
               case 1:
                 ++NumConversions;
                 ++NumAssignments;
-                Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                            sizeof(*Ptr));
+                StateChanges.push_back(
+                  std::make_pair(reinterpret_cast<char const *>(Ptr),
+                                 sizeof(*Ptr)));
                 break;
               case 0:
                 ConversionSuccessful = false;
@@ -562,7 +576,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                   // record the strings new state to the trace.
                   if (WrittenChars < Writable) {
                     Dest[WrittenChars++] = '\0';
-                    Listener.recordUntypedState(Dest, WrittenChars);
+                    StateChanges.push_back(std::make_pair(Dest, WrittenChars));
                     ++NumAssignments;
                   }
                   else
@@ -586,7 +600,8 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
               
-              return NumAssignments;
+              CriticalError = true;
+              break; // Leave the switch.
             }
           }
           else if (Conversion.Length == LengthModifier::l) {
@@ -659,7 +674,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                   // record the strings new state to the trace.
                   if (WrittenChars < Writable) {
                     Dest[WrittenChars++] = '\0';
-                    Listener.recordUntypedState(Dest, WrittenChars);
+                    StateChanges.push_back(std::make_pair(Dest, WrittenChars));
                     ++NumAssignments;
                   }
                   else
@@ -683,7 +698,8 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                 seec::trace::RunErrorSeverity::Fatal,
                 InstructionIndex);
               
-              return NumAssignments;
+              CriticalError = true;
+              break; // Leave the switch.
             }
           }
           else if (Conversion.Length == LengthModifier::l) {
@@ -713,8 +729,13 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           if (!Conversion.SuppressAssignment && NextArg < VarArgs.size()) {
             ConversionSuccessful
               = Conversion.assignPointee(Listener, VarArgs, NextArg, ReadInt);
-            if (ConversionSuccessful)
+            if (ConversionSuccessful) {
+              auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                   NextArg);
+              auto const &Area = MaybeArea.get<0>();
+              StateChanges.push_back(std::make_pair(Area.first, Area.second));
               ++NumAssignments;
+            }
           }
         }
         break;
@@ -727,8 +748,13 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                                           VarArgs,
                                                           NextArg,
                                                           NumCharsRead);
-          if (ConversionSuccessful)
+          if (ConversionSuccessful) {
+            auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                 NextArg);
+            auto const &Area = MaybeArea.get<0>();
+            StateChanges.push_back(std::make_pair(Area.first, Area.second));
             ++NumAssignments;
+          }
         }
         
         break;
@@ -784,8 +810,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                                                     VarArgs,
                                                                     NextArg,
                                                                     Value);
-                    if (ConversionSuccessful)
+                    if (ConversionSuccessful) {
+                      auto const MaybeArea =
+                        Conversion.getArgumentPointee(VarArgs, NextArg);
+                      auto const &Area = MaybeArea.get<0>();
+                      StateChanges.push_back(std::make_pair(Area.first,
+                                                            Area.second));
                       ++NumAssignments;
+                    }
                   }
                 }
               }
@@ -803,8 +835,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                                                     VarArgs,
                                                                     NextArg,
                                                                     Value);
-                    if (ConversionSuccessful)
+                    if (ConversionSuccessful) {
+                      auto const MaybeArea =
+                        Conversion.getArgumentPointee(VarArgs, NextArg);
+                      auto const &Area = MaybeArea.get<0>();
+                      StateChanges.push_back(std::make_pair(Area.first,
+                                                            Area.second));
                       ++NumAssignments;
+                    }
                   }
                 }
               }
@@ -822,8 +860,14 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                                                                     VarArgs,
                                                                     NextArg,
                                                                     Value);
-                    if (ConversionSuccessful)
+                    if (ConversionSuccessful) {
+                      auto const MaybeArea =
+                        Conversion.getArgumentPointee(VarArgs, NextArg);
+                      auto const &Area = MaybeArea.get<0>();
+                      StateChanges.push_back(std::make_pair(Area.first,
+                                                            Area.second));
                       ++NumAssignments;
+                    }
                   }
                 }
               }
@@ -856,8 +900,9 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
             case 1:
               ++NumConversions;
               ++NumAssignments;
-              Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
-                                          sizeof(*Ptr));
+              StateChanges.push_back(
+                std::make_pair(reinterpret_cast<char const *>(Ptr),
+                               sizeof(*Ptr)));
               break;
             case 0:
               ConversionSuccessful = false;
@@ -899,11 +944,16 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                             InstructionIndex);
   }
   
+  if (InputFailure && NumConversions == 0) {
+    NumAssignments = EOF;
+  }
+  
   // Record the produced value.
   Listener.notifyValue(InstructionIndex, Instruction, unsigned(NumAssignments));
   
-  if (InputFailure && NumConversions == 0)
-    return EOF;
+  // Record all state changes.
+  for (auto const &StateChange : StateChanges)
+    Listener.recordUntypedState(StateChange.first, StateChange.second);
   
   return NumAssignments;
 }
@@ -1036,8 +1086,10 @@ SEEC_MANGLE_FUNCTION(sscanf)
   unsigned NextArg = 0;
   char const *NextFormatChar = Format;
   char const *NextBufferChar = Buffer;
+  bool CriticalError = false;
+  llvm::SmallVector<std::pair<char const *, std::size_t>, 8> StateChanges;
   
-  while (true) {
+  while (!CriticalError) {
     auto Conversion = ScanConversionSpecifier::readNextFrom(NextFormatChar);
     if (!Conversion.Start) {
       // We don't need to match and consume remaining characters, because it
@@ -1094,7 +1146,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        return NumConversions;
+        CriticalError = true;
+        break;
       }
     }
     else {
@@ -1114,7 +1167,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        return NumConversions;
+        CriticalError = true;
+        break;
       }
 
       // If the argument type is a pointer, check that the destination is
@@ -1131,20 +1185,23 @@ SEEC_MANGLE_FUNCTION(sscanf)
           
           if (!Checker.checkMemoryExistsAndAccessibleForParameter(
                   VarArgs.offset() + NextArg,
-                  MaybeArea.get<0>().address(),
+                  reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
                   Size,
                   seec::runtime_errors::format_selects::MemoryAccess::Write))
-            return false;
+          {
+            CriticalError = true;
+            break;
+          }
         }
       }
       else {
         auto MaybePointeeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
         if (MaybePointeeArea.assigned()) {
-          auto Area = MaybePointeeArea.get<0>();
+          auto const &Area = MaybePointeeArea.get<0>();
           Checker.checkMemoryExistsAndAccessibleForParameter(
             VarArgs.offset() + NextArg,
-            Area.address(),
-            Area.length(),
+            reinterpret_cast<uintptr_t>(Area.first),
+            Area.second,
             seec::runtime_errors::format_selects::MemoryAccess::Write);
         }
       }
@@ -1182,8 +1239,13 @@ SEEC_MANGLE_FUNCTION(sscanf)
                                                               VarArgs,
                                                               NextArg,
                                                               *NextBufferChar);
-              if (ConversionSuccessful)
+              if (ConversionSuccessful) {
+                auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                     NextArg);
+                auto const &Area = MaybeArea.get<0>();
+                StateChanges.push_back(std::make_pair(Area.first, Area.second));
                 ++NumConversions;
+              }
             }
             
             ++NextBufferChar;
@@ -1245,7 +1307,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 if (WrittenChars < Writable) {
                   Dest[WrittenChars++] = '\0';
-                  Listener.recordUntypedState(Dest, WrittenChars);
+                  StateChanges.push_back(std::make_pair(Dest, WrittenChars));
                   ++NumConversions;
                 }
                 else
@@ -1267,7 +1329,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
                   seec::trace::RunErrorSeverity::Fatal,
                   InstructionIndex);
                 
-                return NumConversions;
+                CriticalError = true;
+                break;
               }
             }
           }
@@ -1325,7 +1388,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 if (WrittenChars < Writable) {
                   Dest[WrittenChars++] = '\0';
-                  Listener.recordUntypedState(Dest, WrittenChars);
+                  StateChanges.push_back(std::make_pair(Dest, WrittenChars));
                   ++NumConversions;
                 }
                 else
@@ -1347,7 +1410,8 @@ SEEC_MANGLE_FUNCTION(sscanf)
                   seec::trace::RunErrorSeverity::Fatal,
                   InstructionIndex);
                 
-                return NumConversions;
+                CriticalError = true;
+                break;
               }
             }
           }
@@ -1391,6 +1455,12 @@ SEEC_MANGLE_FUNCTION(sscanf)
                                                           VarArgs,
                                                           NextArg,
                                                           NumCharsRead);
+          if (ConversionSuccessful) {
+            auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                 NextArg);
+            auto const &Area = MaybeArea.get<0>();
+            StateChanges.push_back(std::make_pair(Area.first, Area.second));
+          }
         }
         break;
       
@@ -1413,8 +1483,14 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
-                if (ConversionSuccessful)
+                if (ConversionSuccessful) {
+                  auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                       NextArg);
+                  auto const &Area = MaybeArea.get<0>();
+                  StateChanges.push_back(std::make_pair(Area.first,
+                                                        Area.second));
                   ++NumConversions;
+                }
               }
             }
             else {
@@ -1430,8 +1506,14 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
-                if (ConversionSuccessful)
+                if (ConversionSuccessful) {
+                  auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                       NextArg);
+                  auto const &Area = MaybeArea.get<0>();
+                  StateChanges.push_back(std::make_pair(Area.first,
+                                                        Area.second));
                   ++NumConversions;
+                }
               }
             }
             else {
@@ -1447,8 +1529,14 @@ SEEC_MANGLE_FUNCTION(sscanf)
               if (!Conversion.SuppressAssignment) {
                 ConversionSuccessful
                   = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
-                if (ConversionSuccessful)
+                if (ConversionSuccessful) {
+                  auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                       NextArg);
+                  auto const &Area = MaybeArea.get<0>();
+                  StateChanges.push_back(std::make_pair(Area.first,
+                                                        Area.second));
                   ++NumConversions;
+                }
               }
             }
             else {
@@ -1482,8 +1570,13 @@ SEEC_MANGLE_FUNCTION(sscanf)
         if (!Conversion.SuppressAssignment) {
           ConversionSuccessful
             = Conversion.assignPointee(Listener, VarArgs, NextArg, Value);
-          if (ConversionSuccessful)
+          if (ConversionSuccessful) {
+            auto const MaybeArea = Conversion.getArgumentPointee(VarArgs,
+                                                                 NextArg);
+            auto const &Area = MaybeArea.get<0>();
+            StateChanges.push_back(std::make_pair(Area.first, Area.second));
             ++NumConversions;
+          }
         }
       }
       else {
@@ -1506,18 +1599,23 @@ SEEC_MANGLE_FUNCTION(sscanf)
     NextFormatChar = Conversion.End;
   }
   
-  // Ensure that we got a sufficient number of arguments.
-  if (NextArg > VarArgs.size()) {
-    Listener.handleRunError(*createRunError<RunErrorType::VarArgsInsufficient>
-                                           (FSFunction,
-                                            NextArg,
-                                            VarArgs.size()),
-                            RunErrorSeverity::Fatal,
-                            InstructionIndex);
+  if (!CriticalError) {
+    // Ensure that we got a sufficient number of arguments.
+    if (NextArg > VarArgs.size()) {
+      Listener.handleRunError(*createRunError<RunErrorType::VarArgsInsufficient>
+                                             (FSFunction,
+                                              NextArg,
+                                              VarArgs.size()),
+                              RunErrorSeverity::Fatal,
+                              InstructionIndex);
+    }
   }
   
   // Record the produced value.
   Listener.notifyValue(InstructionIndex, Instruction, unsigned(NumConversions));
+  
+  for (auto const &StateChange : StateChanges)
+    Listener.recordUntypedState(StateChange.first, StateChange.second);
   
   return NumConversions;
 }

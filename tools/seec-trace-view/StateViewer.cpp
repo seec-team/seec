@@ -68,13 +68,9 @@ bool StateViewerPanel::Create(wxWindow *Parent,
   GraphViewer = new StateGraphViewerPanel(this, WithNotifier);
   StateBook->AddPage(GraphViewer, wxString("Graph"));
 
-  // Use a sizer to layout the thread view and process view notebook.
-  auto TopSizer = new wxGridSizer(/* Rows */ 1,
-                                  /* Cols */ 1,
-                                  /* Gap */  wxSize(0,0));
-  
-  TopSizer->Add(StateBook, wxSizerFlags().Expand());
-  
+  // Use a box sizer to make the notebook fill the panel.
+  auto TopSizer = new wxBoxSizer(wxHORIZONTAL);
+  TopSizer->Add(StateBook, wxSizerFlags().Proportion(1).Expand());
   SetSizerAndFit(TopSizer);
 
   return true;

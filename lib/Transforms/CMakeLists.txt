@@ -1,3 +1,4 @@
+add_subdirectory(BreakConstantGEPs)
 add_subdirectory(RecordExternal)
 # add_subdirectory(RecordInternal)
 add_subdirectory(ReplaceCStdLibIntrinsics)
