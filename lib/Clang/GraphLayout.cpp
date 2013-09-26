@@ -339,10 +339,12 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       getHandler().writeStandardProperties(Stream, V);
       
-      Stream << ">";
+      Stream << '>';
       
       if (IsInit)
         Stream << EscapeForHTML(V.getValueAsStringFull());
+      else
+        Stream << ' ';
       
       Stream << "</TD>";
       
@@ -372,7 +374,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         
         auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
           continue;
         }
         
@@ -420,7 +422,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         
         auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
           continue;
         }
         
@@ -580,7 +582,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     auto const ChildValue = Array.getChildAt(i);
     if (!ChildValue) {
       if (!Eliding)
-        Stream << "<TD></TD>";
+        Stream << "<TD> </TD>";
       continue;
     }
     
@@ -596,7 +598,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
           Stream << "<TD PORT=\""
                  << getStandardPortFor(V)
                  << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"></TD>";
+                 << "\"> </TD>";
         }
         
         continue;
@@ -618,7 +620,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
-      Stream << "></TD>";
+      Stream << "> </TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
@@ -783,7 +785,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
           Ports.addAllFrom(Layout.getPorts());
         }
         else {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
         }
       }
     }
@@ -973,7 +975,7 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
         Ports.addAllFrom(Layout.getPorts());
       }
       else {
-        Stream << "<TD></TD></TR>";
+        Stream << "<TD> </TD></TR>";
       }
     }
   }
@@ -1143,7 +1145,7 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
       Ports.addAllFrom(Layout.getPorts());
     }
     else {
-      Stream << "<TD></TD></TR>";
+      Stream << "<TD> </TD></TR>";
     }
   }
   
@@ -1257,7 +1259,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   else {
     // Can't dereference the pointer. Either the memory region is insufficient,
     // or it's a pointer to an incomplete type.
-    DotStream << "<TR><TD></TD></TR>";
+    DotStream << "<TR><TD> </TD></TR>";
   }
   
   DotStream << "</TABLE></TD></TR></TABLE>> ];\n";
@@ -1339,7 +1341,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     auto const ChildValue = Reference.getDereferenced(i);
     if (!ChildValue) {
       if (!Eliding)
-        Stream << "<TD></TD>";
+        Stream << "<TD> </TD>";
       continue;
     }
     
@@ -1355,7 +1357,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
           Stream << "<TD PORT=\""
                  << IDString
                  << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"></TD>";
+                 << "\"> </TD>";
         }
         
         Ports.add(*ChildValue,
@@ -1382,7 +1384,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
-      Stream << "></TD>";
+      Stream << "> </TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
