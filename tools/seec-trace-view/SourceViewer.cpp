@@ -1204,6 +1204,26 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                       WrapStyle::Wrapped);
 }
 
+static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
+{
+  if (P.isInMemory()) {
+    if (!P.isCompletelyInitialized())
+      return "ValuePointerInMemoryUninitialized";
+    if (P.getRawValue() == 0)
+      return "ValuePointerInMemoryNULL";
+    if (P.getDereferenceIndexLimit() == 0)
+      return "ValuePointerInMemoryInvalid";
+    return "ValuePointerInMemory";
+  }
+  else {
+    if (P.getRawValue() == 0)
+      return "ValuePointerNULL";
+    if (P.getDereferenceIndexLimit() == 0)
+      return "ValuePointerInvalid";
+    return "ValuePointer";  
+  }
+}
+
 UnicodeString getStringForInlineValue(seec::cm::Value const &Value)
 {
   auto const InMemory = Value.isInMemory();
@@ -1223,7 +1243,8 @@ UnicodeString getStringForInlineValue(seec::cm::Value const &Value)
     if (U_FAILURE(Status))
       return UnicodeString::fromUTF8("");
     
-    auto const Key = InMemory ? "ValuePointerInMemory" : "ValuePointer";
+    auto const &Pointer = llvm::cast<seec::cm::ValueOfPointer>(Value);
+    auto const Key = getPointerDescriptionKey(Pointer);
     auto const String = Resources.getStringEx(Key, Status);
     
     if (U_FAILURE(Status))
