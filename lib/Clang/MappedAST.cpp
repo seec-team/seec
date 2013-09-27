@@ -85,6 +85,13 @@ public:
   /// \name RecursiveASTVisitor Methods
   /// @{
   
+  /// \brief Return whether \param S should be traversed using data recursion
+  /// to avoid a stack overflow with extreme cases.
+  ///
+  bool shouldUseDataRecursionFor(Stmt *S) const {
+    return false;
+  }
+  
   /// \brief Traverse a Stmt.
   ///
   bool TraverseStmt(::clang::Stmt *S) {
