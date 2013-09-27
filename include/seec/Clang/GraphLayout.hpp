@@ -67,6 +67,14 @@ enum class EdgeEndType {
 };
 
 
+/// \brief Type of a memory area.
+///
+enum class AreaType {
+  Static,
+  Dynamic
+};
+
+
 /// \brief Contains information about the location of a single seec::cm::Value.
 ///
 class ValuePort {

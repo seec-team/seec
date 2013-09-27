@@ -339,10 +339,12 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       getHandler().writeStandardProperties(Stream, V);
       
-      Stream << ">";
+      Stream << '>';
       
       if (IsInit)
         Stream << EscapeForHTML(V.getValueAsStringFull());
+      else
+        Stream << ' ';
       
       Stream << "</TD>";
       
@@ -372,7 +374,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         
         auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
           continue;
         }
         
@@ -420,7 +422,7 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         
         auto const MaybeLayout = this->getHandler().doLayout(*ChildValue, E);
         if (!MaybeLayout.assigned<LayoutOfValue>()) {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
           continue;
         }
         
@@ -580,7 +582,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     auto const ChildValue = Array.getChildAt(i);
     if (!ChildValue) {
       if (!Eliding)
-        Stream << "<TD></TD>";
+        Stream << "<TD> </TD>";
       continue;
     }
     
@@ -596,7 +598,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
           Stream << "<TD PORT=\""
                  << getStandardPortFor(V)
                  << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"></TD>";
+                 << "\"> </TD>";
         }
         
         continue;
@@ -618,7 +620,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
-      Stream << "></TD>";
+      Stream << "> </TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
@@ -783,7 +785,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
           Ports.addAllFrom(Layout.getPorts());
         }
         else {
-          Stream << "<TD></TD></TR>";
+          Stream << "<TD> </TD></TR>";
         }
       }
     }
@@ -973,7 +975,7 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
         Ports.addAllFrom(Layout.getPorts());
       }
       else {
-        Stream << "<TD></TD></TR>";
+        Stream << "<TD> </TD></TR>";
       }
     }
   }
@@ -1143,7 +1145,7 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
       Ports.addAllFrom(Layout.getPorts());
     }
     else {
-      Stream << "<TD></TD></TR>";
+      Stream << "<TD> </TD></TR>";
     }
   }
   
@@ -1257,7 +1259,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
   else {
     // Can't dereference the pointer. Either the memory region is insufficient,
     // or it's a pointer to an incomplete type.
-    DotStream << "<TR><TD></TD></TR>";
+    DotStream << "<TR><TD> </TD></TR>";
   }
   
   DotStream << "</TABLE></TD></TR></TABLE>> ];\n";
@@ -1339,7 +1341,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     auto const ChildValue = Reference.getDereferenced(i);
     if (!ChildValue) {
       if (!Eliding)
-        Stream << "<TD></TD>";
+        Stream << "<TD> </TD>";
       continue;
     }
     
@@ -1355,7 +1357,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
           Stream << "<TD PORT=\""
                  << IDString
                  << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"></TD>";
+                 << "\"> </TD>";
         }
         
         Ports.add(*ChildValue,
@@ -1382,7 +1384,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
-      Stream << "></TD>";
+      Stream << "> </TD>";
       
       Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
@@ -1717,13 +1719,70 @@ isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
   return false;
 }
 
+/// \brief Generate a placeholder layout for an unreferenced memory area.
+///
+static
+std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>
+layoutUnreferencedArea(LayoutHandler const &Handler,
+                       MemoryArea const &Area,
+                       AreaType const Type)
+{
+  // Don't generate placeholder layouts for unreferenced static memory.
+  switch (Type) {
+    case AreaType::Static:
+      return std::make_pair(seec::Maybe<LayoutOfArea>(), Area);
+    
+    case AreaType::Dynamic:
+      break;
+  }
+  
+  // Generate the identifier for this node.
+  auto const IDString = std::string{"area_at_"} + std::to_string(Area.start());
+  
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  Stream << IDString
+         << " [ label = <"
+            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  // TODO: Make a href for unreferenced areas.
+  Stream << "><TR><TD>";
+  
+  // Attempt to load placeholder text from the resource bundle.
+  auto const MaybeText =
+    seec::getString("SeeCClang",
+                    (char const *[]){"Graph", "Descriptions",
+                                     "UnreferencedDynamic"});
+  
+  if (MaybeText.assigned<UnicodeString>()) {
+    // Attempt to format and insert the elision placeholder text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(MaybeText.get<UnicodeString>(), Status,
+                                        int64_t(Area.length()));
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+  }
+  
+  Stream << "</TD></TR></TABLE>> ];\n";
+  Stream.flush();
+  
+  return std::make_pair(seec::Maybe<LayoutOfArea>
+                                   (LayoutOfArea{std::move(IDString),
+                                    std::move(DotString),
+                                    ValuePortMap{}}),
+                        Area);
+}
+
 /// \brief Select a reference to an area and use it to perform the layout.
 ///
 static
 std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>
 doLayout(LayoutHandler const &Handler,
          MemoryArea const &Area,
-         Expansion const &Expansion)
+         Expansion const &Expansion,
+         AreaType const Type)
 {
   typedef std::shared_ptr<ValueOfPointer const> ValOfPtr;
   
@@ -1731,7 +1790,7 @@ doLayout(LayoutHandler const &Handler,
   
   // TODO: Layout as an unreferenced area? We should only do this for mallocs.
   if (Refs.empty())
-    return std::make_pair(seec::Maybe<LayoutOfArea>(), Area);
+    return layoutUnreferencedArea(Handler, Area, Type);
   
   if (Refs.size() == 1)
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
@@ -2005,7 +2064,8 @@ doLayout(LayoutHandler const &Handler,
   // Generate layouts for unmapped static areas (unmapped globals).
   for (auto const &Area : State.getUnmappedStaticAreas()) {
     AreaLayouts.emplace_back(
-      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); }));
+      std::async([&, Area] () {
+        return doLayout(Handler, Area, Expansion, AreaType::Static); }));
   }
   
   // Create tasks to generate malloc area layouts.
@@ -2013,7 +2073,8 @@ doLayout(LayoutHandler const &Handler,
     auto const Area = seec::MemoryArea(Malloc.getAddress(), Malloc.getSize());
     
     AreaLayouts.emplace_back(
-      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+      std::async([&, Area] () {
+        return doLayout(Handler, Area, Expansion, AreaType::Dynamic); } ));
   }
   
   // Create tasks to generate known memory area layouts.
@@ -2023,7 +2084,8 @@ doLayout(LayoutHandler const &Handler,
                                        Known.Value);
     
     AreaLayouts.emplace_back(
-      std::async([&, Area] () { return doLayout(Handler, Area, Expansion); } ));
+      std::async([&, Area] () {
+        return doLayout(Handler, Area, Expansion, AreaType::Static); } ));
   }
 
 #else // _LIBCPP_VERSION
@@ -2050,20 +2112,23 @@ doLayout(LayoutHandler const &Handler,
   std::vector<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>> AreaLayouts;
   
   for (auto const &Area : State.getUnmappedStaticAreas())
-    AreaLayouts.emplace_back(doLayout(Handler, Area, Expansion));
+    AreaLayouts.emplace_back(
+      doLayout(Handler, Area, Expansion, AreaType::Static));
   
   for (auto const &Malloc : State.getDynamicMemoryAllocations())
     AreaLayouts.emplace_back(doLayout(Handler,
                                       MemoryArea(Malloc.getAddress(),
                                                  Malloc.getSize()),
-                                      Expansion));
+                                      Expansion,
+                                      AreaType::Dynamic));
   
   for (auto const &Known : State.getUnmappedProcessState().getKnownMemory())
     AreaLayouts.emplace_back(doLayout(Handler,
                                       MemoryArea(Known.Begin,
                                                  (Known.End - Known.Begin) + 1,
                                                  Known.Value),
-                                      Expansion));
+                                      Expansion,
+                                      AreaType::Dynamic));
   
 #endif // _LIBCPP_VERSION
   
