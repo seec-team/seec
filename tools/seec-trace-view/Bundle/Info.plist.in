@@ -9,7 +9,7 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>seectrace</string>
+				<string>seec</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>SeeC Process Trace</string>

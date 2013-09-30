@@ -38,7 +38,7 @@ root:table {
 
     OpenTrace_Title:string {"Choose a trace file to open"}
 
-    OpenTrace_FileType:string {"SeeC Process Trace (*.seectrace;*.spt)|*.seectrace;*.spt"}
+    OpenTrace_FileType:string {"SeeC Process Trace (*.seec;*.spt)|*.seec;*.spt"}
 
     OpenTrace_Status_Loaded {"Loaded trace with {0} states."}
 
