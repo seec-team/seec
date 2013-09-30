@@ -86,6 +86,9 @@ class TraceThreadListener
 
   /// The unique integer identifier for this thread.
   uint32_t const ThreadID;
+  
+  /// Size limit for thread event output.
+  offset_uint const ThreadEventLimit;
 
   /// @} (Constant information)
 
@@ -300,7 +303,8 @@ public:
   /// \brief Constructor.
   ///
   TraceThreadListener(TraceProcessListener &ProcessListener,
-                      OutputStreamAllocator &StreamAllocator);
+                      OutputStreamAllocator &StreamAllocator,
+                      offset_uint const WithThreadEventLimit);
 
   /// \brief Destructor.
   ///

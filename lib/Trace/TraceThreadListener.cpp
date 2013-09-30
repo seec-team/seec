@@ -423,12 +423,14 @@ bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
 //------------------------------------------------------------------------------
 
 TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
-                                         OutputStreamAllocator &StreamAllocator)
+                                         OutputStreamAllocator &StreamAllocator,
+                                         offset_uint const WithThreadEventLimit)
 : seec::trace::CallDetector<TraceThreadListener>
                            (ProcessListener.getDetectCallsLookup()),
   ProcessListener(ProcessListener),
   SupportSyncExit(ProcessListener.syncExit()),
   ThreadID(ProcessListener.registerThreadListener(this)),
+  ThreadEventLimit(WithThreadEventLimit),
   StreamAllocator(StreamAllocator),
   OutputEnabled(false),
   EventsOut(),

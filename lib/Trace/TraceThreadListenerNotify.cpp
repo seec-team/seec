@@ -35,6 +35,13 @@ void TraceThreadListener::enterNotification() {
 
 void TraceThreadListener::exitNotification() {
   SupportSyncExit.getSynchronizedExit().check();
+  
+  if (EventsOut.offset() > ThreadEventLimit) {
+    llvm::errs() << "\nSeeC: Thread event limit reached!\n";
+    
+    // Shut down the tracing.
+    SupportSyncExit.getSynchronizedExit().exit(EXIT_SUCCESS);
+  }
 }
 
 void TraceThreadListener::exitPreNotification() {

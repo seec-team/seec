@@ -166,6 +166,9 @@ class ProcessEnvironment {
   /// Interceptor function addresses.
   llvm::DenseSet<uintptr_t> InterceptorAddresses;
   
+  /// Size limit for thread event files.
+  offset_uint ThreadEventLimit;
+  
 public:
   /// \brief Constructor.
   ///
@@ -199,6 +202,16 @@ public:
   bool isInterceptedFunction(uintptr_t Address) const {
     return InterceptorAddresses.count(Address);
   }
+  
+  /// @}
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the size limit for thread event files.
+  ///
+  offset_uint getThreadEventLimit() const { return ThreadEventLimit; }
   
   /// @}
 };

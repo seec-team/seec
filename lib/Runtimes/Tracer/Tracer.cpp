@@ -45,6 +45,14 @@ namespace seec {
 
 namespace trace {
 
+static constexpr char const *getThreadEventLimitEnvVar() {
+  return "SEEC_EVENT_LIMIT";
+}
+
+static constexpr offset_uint getDefaultThreadEventLimit() {
+  return 1024 * 1024 * 1024; // 1 GiB
+}
+
 
 //------------------------------------------------------------------------------
 // ThreadEnvironment
@@ -52,7 +60,9 @@ namespace trace {
 
 ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
 : Process(PE),
-  ThreadTracer(PE.getProcessListener(), PE.getStreamAllocator()),
+  ThreadTracer(PE.getProcessListener(),
+               PE.getStreamAllocator(),
+               PE.getThreadEventLimit()),
   FunIndex(nullptr),
   Stack()
 {}
@@ -82,6 +92,79 @@ llvm::Instruction *ThreadEnvironment::getInstruction() const {
 // ProcessEnvironment
 //------------------------------------------------------------------------------
 
+/// \brief Get the multiplier to use for a given byte multiple.
+///
+static uint64_t getMultiplierForBytes(char const *ForUnit)
+{
+  struct LookupTy {
+    char const *Unit;
+    uint64_t Multiplier;
+  };
+  
+  LookupTy LookupTable[] = {
+    {"KiB", 1024},
+    {"K"  , 1024},
+    {"MiB", 1024*1024},
+    {"M"  , 1024*1024},
+    {"GiB", 1024*1024*1024},
+    {"G"  , 1024*1024*1024}
+  };
+  
+  auto const LookupLength = sizeof(LookupTable) / sizeof(LookupTable[0]);
+  
+  for (std::size_t i = 0; i < LookupLength; ++i)
+    if(std::strcmp(ForUnit, LookupTable[i].Unit) == 0)
+      return LookupTable[i].Multiplier;
+  
+  return 1;
+}
+
+/// \brief Get the size limit to use for thread event files.
+///
+/// NOTE: This function uses std::getenv() and thus is not thread-safe.
+///
+static offset_uint getUserThreadEventLimit()
+{
+  auto const EnvVarName = getThreadEventLimitEnvVar();
+  auto const UserLimit = std::getenv(EnvVarName);
+  if (!UserLimit)
+    return getDefaultThreadEventLimit();
+  
+  char *Remainder = nullptr;
+  auto const Value = std::strtoull(UserLimit, &Remainder, 10);
+  
+  if (Remainder == UserLimit) {
+    llvm::errs() << "SeeC: Error reading " << EnvVarName << ".\n";
+    std::exit(EXIT_FAILURE);
+  }
+  
+  if (Value > std::numeric_limits<offset_uint>::max()) {
+    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
+    llvm::errs() << "\tMaximum = "
+                << std::numeric_limits<offset_uint>::max()
+                << " bytes.\n";
+    std::exit(EXIT_FAILURE);
+  }
+  
+  // Consume whitespace.
+  while (*Remainder && std::isblank(*Remainder))
+    ++Remainder;
+  
+  auto const Multiplier = getMultiplierForBytes(Remainder);
+  if (Multiplier <= 1)
+    return Value;
+  
+  if (std::numeric_limits<offset_uint>::max() / Multiplier < Value) {
+    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
+    llvm::errs() << "\tMaximum = "
+                << std::numeric_limits<offset_uint>::max()
+                << " bytes.\n";
+    std::exit(EXIT_FAILURE);
+  }
+  
+  return Value * Multiplier;
+}
+
 ProcessEnvironment::ProcessEnvironment()
 : Context(),
   Mod(),
@@ -90,7 +173,8 @@ ProcessEnvironment::ProcessEnvironment()
   SyncExit(),
   ProcessTracer(),
   ThreadLookup(),
-  InterceptorAddresses()
+  InterceptorAddresses(),
+  ThreadEventLimit(getUserThreadEventLimit())
 {
   // Setup multithreading support for LLVM.
   llvm::llvm_start_multithreaded();
