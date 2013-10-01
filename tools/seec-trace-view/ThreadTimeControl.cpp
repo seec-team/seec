@@ -100,7 +100,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   auto Text##NAME = seec::getwxStringExOrEmpty(TextTable, TEXT_KEY);           \
   auto Img##NAME = seec::getwxImageEx(ImageTable, IMAGE_KEY, Status);          \
   if (Img##NAME.IsOk()) {                                                      \
-    Img##NAME.Rescale(100, 50, wxIMAGE_QUALITY_HIGH);                          \
+    Img##NAME.Rescale(50, 25, wxIMAGE_QUALITY_HIGH);                           \
     Button##NAME = new wxBitmapButton(this, ControlID_Button##NAME, Img##NAME);\
   }                                                                            \
   else {                                                                       \
