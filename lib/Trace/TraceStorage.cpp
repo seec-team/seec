@@ -32,7 +32,7 @@ namespace trace {
 
 
 static char const *getTraceDirectoryExtension() {
-  return "seectrace";
+  return "seec";
 }
 
 static char const *getModuleFilename() {
