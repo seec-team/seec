@@ -23,6 +23,7 @@
 #include <wx/bmpbuttn.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "InternationalizedButton.hpp"
 #include "OpenTrace.hpp"
 #include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
@@ -97,15 +98,10 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
 
   // Create stepping buttons to control the thread time.
 #define SEEC_BUTTON(NAME, TEXT_KEY, IMAGE_KEY)                                 \
-  auto Text##NAME = seec::getwxStringExOrEmpty(TextTable, TEXT_KEY);           \
-  auto Img##NAME = seec::getwxImageEx(ImageTable, IMAGE_KEY, Status);          \
-  if (Img##NAME.IsOk()) {                                                      \
-    Img##NAME.Rescale(50, 25, wxIMAGE_QUALITY_HIGH);                           \
-    Button##NAME = new wxBitmapButton(this, ControlID_Button##NAME, Img##NAME);\
-  }                                                                            \
-  else {                                                                       \
-    Button##NAME = new wxButton(this, ControlID_Button##NAME, Text##NAME);     \
-  }                                                                            \
+  Button##NAME =                                                               \
+    makeInternationalizedButton(this, ControlID_Button##NAME,                  \
+                                TextTable, TEXT_KEY,                           \
+                                ImageTable, IMAGE_KEY, wxSize(50, 25));        \
   Button##NAME->Disable();
   
   SEEC_BUTTON(GoToStart,     "GoToStart",     "BackwardArrowToBlock")
