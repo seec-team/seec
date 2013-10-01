@@ -145,16 +145,16 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                        wxDefaultPosition,
                                        wxDefaultSize);
 
-    wxBoxSizer *TopSizer = new wxBoxSizer(wxVERTICAL);
-    TopSizer->Add(ThreadTime, wxSizerFlags().Expand());
+    wxBoxSizer *ParentSizer = new wxBoxSizer(wxVERTICAL);
+    ParentSizer->Add(ThreadTime, wxSizerFlags().Expand());
 
     wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
     ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
     ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(1).Expand());
 
-    TopSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
+    ParentSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
 
-    SetSizer(TopSizer);
+    SetSizer(ParentSizer);
 
     // Display the initial state.
     // StateViewer->show(StateAccess, *State);
