@@ -401,7 +401,7 @@ class SourceFilePanel : public wxPanel {
                                         Locale::getDefault(),
                                         Status,
                                         "ScintillaKeywords",
-                                        "CPP");
+                                        "C");
     if (U_SUCCESS(Status)) {
       // Setup the keywords used by the lexer.
       auto Size = KeywordRes.getSize();
