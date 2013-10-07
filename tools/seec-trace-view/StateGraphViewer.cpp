@@ -40,6 +40,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Program.h"
@@ -69,7 +70,14 @@ static std::string FindDotExecutable()
   
   char const *SearchPaths[] = {
     "/usr/bin",
-    "/usr/local/bin"
+    "/usr/local/bin",
+    // TODO: This is a temporary setting for the lab machines. Make a setting
+    //       that can be overriden at compile time.
+#if defined(__APPLE__)
+    "/cslinux/adhoc/seec/bin"
+#else
+    "/cslinux/adhoc/seec/linux/bin"
+#endif
   };
   
   llvm::SmallString<256> DotPath;
@@ -147,6 +155,7 @@ StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
   PathToDot(),
+  PathToGraphvizPlugins(),
   CurrentAccess(),
   WebView(nullptr),
   LayoutHandler(),
@@ -162,6 +171,7 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
 : wxPanel(),
   Notifier(nullptr),
   PathToDot(),
+  PathToGraphvizPlugins(),
   CurrentAccess(),
   WebView(nullptr),
   LayoutHandler(),
@@ -446,6 +456,17 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   if (!PathToDot.empty())
   {
+    // Determine the path to Graphviz's plugins, based on the location of dot.
+    llvm::SmallString<256> PluginPath (PathToDot);
+    
+    llvm::sys::path::remove_filename(PluginPath);    // */bin/dot -> */bin
+    llvm::sys::path::remove_filename(PluginPath);    // */bin    -> *
+    llvm::sys::path::append(PluginPath, "lib");      // *      -> */lib
+    llvm::sys::path::append(PluginPath, "graphviz"); // */lib -> */lib/graphviz
+    
+    PathToGraphvizPlugins = "GVBINDIR=";
+    PathToGraphvizPlugins += PluginPath.str();
+    
     // Setup the layout handler.
     {
       std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
@@ -599,6 +620,11 @@ void StateGraphViewerPanel::renderGraph()
     nullptr
   };
   
+  char const *Environment[] = {
+    PathToGraphvizPlugins.c_str(),
+    nullptr
+  };
+  
   std::string ErrorMsg;
   
   bool ExecFailed = false;
@@ -606,7 +632,7 @@ void StateGraphViewerPanel::renderGraph()
   auto const Result =
     llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(PathToDot),
                                        Args,
-                                       /* env */ nullptr,
+                                       Environment,
                                        /* redirects */ nullptr,
                                        /* wait */ 0,
                                        /* mem */ 0,
