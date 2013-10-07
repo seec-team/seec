@@ -14,6 +14,8 @@
 #ifndef SEEC_WXWIDGETS_STRINGCONVERSION_HPP
 #define SEEC_WXWIDGETS_STRINGCONVERSION_HPP
 
+#include "llvm/ADT/ArrayRef.h"
+
 #include <unicode/unistr.h>
 #include <unicode/resbund.h>
 
@@ -42,6 +44,12 @@ wxString getwxStringExOrDie(ResourceBundle const &Bundle,
 /// wxString. If the extraction fails, return an empty wxString.
 wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
                               char const *Key);
+
+/// \brief Get a string using seec::getString(), then convert it to a wxString.
+/// If the string extraction or conversion fails, return an empty string.
+///
+wxString getwxStringExOrEmpty(char const *Package,
+                              llvm::ArrayRef<char const *> const &Keys);
 
 } // namespace seec
 

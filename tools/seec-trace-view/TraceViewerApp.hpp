@@ -106,6 +106,11 @@ public:
   /// @{
 
   void HandleFatalError(wxString Description);
+  
+  /// \brief Notify that a top-level frame is being added.
+  void addTopLevelFrame(wxFrame *Frame) {
+    TopLevelFrames.insert(Frame);
+  }
 
   /// \brief Notify that the welcome frame is being destroyed.
   void removeTopLevelFrame(WelcomeFrame *Frame) {

@@ -32,6 +32,7 @@
 #include <memory>
 #include <set>
 
+#include "CommonMenus.hpp"
 #include "OpenTrace.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
@@ -150,14 +151,15 @@ bool TraceViewerApp::OnInit() {
   wxApp::SetExitOnFrameDelete(false);
 
   // Setup common menus.
-  auto menuFile = new wxMenu();
+  auto MenuFile = new wxMenu();
   menuFile->Append(wxID_OPEN);
   menuFile->AppendSeparator();
   menuFile->Append(wxID_EXIT);
 
   auto menuBar = new wxMenuBar();
-  menuBar->Append(menuFile,
+  menuBar->Append(MenuFile,
                   seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
+  append(menuBar, createRecordingMenu(*this));
 
   wxMenuBar::MacSetCommonMenuBar(menuBar);
 #endif

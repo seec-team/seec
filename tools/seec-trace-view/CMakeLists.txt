@@ -18,6 +18,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_HEADERS
+  ActionRecordSettings.hpp
+  CommonMenus.hpp
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
   InternationalizedButton.hpp
@@ -40,6 +42,8 @@ set(SEEC_TRACE_VIEW_HEADERS
   )
 
 set(SEEC_TRACE_VIEW_SRCS
+  ActionRecordSettings.cpp
+  CommonMenus.cpp
   ExplanationViewer.cpp
   FunctionStateViewer.cpp
   InternationalizedButton.cpp

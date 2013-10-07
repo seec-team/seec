@@ -31,6 +31,25 @@ root:table {
 
     Menu_File:string {"&File"}
 
+    MenuRecord:table {
+      Title:string {"&Recording"}
+
+      Settings:string {"&Settings"}
+    }
+
+
+    //
+    // Recording settings dialog
+    //
+
+    RecordingSettingsDialog:table {
+      Title:string {"Recording settings"}
+
+      Token:string {"User token"}
+
+      MaximumSize:string {"Maximum trace size"}
+    }
+
 
     //
     // Open trace dialog

@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -69,6 +70,17 @@ wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
   }
 
   return towxString(Str);
+}
+
+wxString getwxStringExOrEmpty(char const *Package,
+                              llvm::ArrayRef<char const *> const &Keys)
+{
+  auto const MaybeStr = getString(Package, Keys);
+  
+  if (MaybeStr.assigned<UnicodeString>())
+    return towxString(MaybeStr.get<UnicodeString>());
+  
+  return wxString{};
 }
 
 } // namespace seec

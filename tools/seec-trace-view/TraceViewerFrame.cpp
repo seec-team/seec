@@ -28,6 +28,7 @@
 #include <cinttypes>
 #include <iostream>
 
+#include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -109,15 +110,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   assert(U_SUCCESS(Status));
 
   // Setup the menus.
-  auto menuFile = new wxMenu();
-  menuFile->Append(wxID_OPEN);
-  menuFile->Append(wxID_CLOSE);
-  menuFile->AppendSeparator();
-  menuFile->Append(wxID_EXIT);
-
   auto menuBar = new wxMenuBar();
-  menuBar->Append(menuFile,
-                  seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
+  append(menuBar, createFileMenu());
+  append(menuBar, createRecordingMenu(*this));
 
   SetMenuBar(menuBar);
 
