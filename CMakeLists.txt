@@ -115,8 +115,8 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g")
 set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g")
 
-set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3")
-set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3")
+set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3 -DNDEBUG")
+set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
 
 #--------------------------------------------------------------------------------
 # Set build variables
