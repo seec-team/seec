@@ -349,6 +349,36 @@ SEEC_MANGLE_FUNCTION(fork)
 
 
 //===----------------------------------------------------------------------===//
+// getopt
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(getopt)
+(int const argc, char * const argv[], char const * const optstring)
+{
+  // Use the SimpleWrapper mechanism.
+  // int opterr
+  // int optopt
+  // int optind
+  // char *optarg
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getopt}
+      .trackGlobal(opterr)
+      .trackGlobal(optopt)
+      .trackGlobal(optind)
+      .trackGlobal(optarg)
+      (getopt,
+       [](int const){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       argc,
+       seec::wrapInputCStringArray(argv),
+       seec::wrapInputCString(optstring));
+}
+
+
+//===----------------------------------------------------------------------===//
 // pipe
 //===----------------------------------------------------------------------===//
 

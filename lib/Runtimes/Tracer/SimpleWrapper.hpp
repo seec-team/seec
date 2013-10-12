@@ -21,6 +21,7 @@
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -322,6 +323,73 @@ public:
       return true;
     
     return Checker.checkCStringRead(Parameter, Value);
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// WrappedInputCStringArray
+//===----------------------------------------------------------------------===//
+
+class WrappedInputCStringArray {
+  char * const *Value;
+  
+  bool IgnoreNull;
+  
+public:
+  WrappedInputCStringArray(char * const *ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
+  {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedInputCStringArray &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
+  
+  operator char * const *() const { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  /// @}
+};
+
+inline WrappedInputCStringArray wrapInputCStringArray(char * const *ForValue) {
+  return WrappedInputCStringArray(ForValue);
+}
+
+/// \brief WrappedArgumentChecker specialization for WrappedInputCStringArray.
+///
+template<>
+class WrappedArgumentChecker<WrappedInputCStringArray>
+{
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedInputCStringArray &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    return Checker.checkCStringArray(Parameter, Value) > 0;
   }
 };
 
@@ -742,6 +810,52 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// GlobalVariableTracker
+//===----------------------------------------------------------------------===//
+
+/// \brief Used to record if a wrapped function modified a global variable.
+///
+class GlobalVariableTracker {
+  /// Pointer to the tracked global.
+  char const * const Global;
+  
+  /// The size of the tracked global.
+  std::size_t const Size;
+  
+  /// Holds the pre-call contents of the global.
+  llvm::SmallVector<char, 16> PreState;
+  
+public:
+  /// \brief Constructor.
+  ///
+  template<typename T>
+  GlobalVariableTracker(T const &ForGlobal)
+  : Global(reinterpret_cast<char const *>(&ForGlobal)),
+    Size(sizeof(ForGlobal)),
+    PreState()
+  {}
+  
+  /// \brief Save the state of the global so that we can check if it changed.
+  ///
+  void savePreCallState()
+  {
+    PreState.resize(Size);
+    std::memcpy(PreState.data(), Global, Size);
+  }
+  
+  /// \brief Record the state of the global if it has changed.
+  ///
+  void recordChanges(seec::trace::TraceThreadListener &ThreadListener) const
+  {
+    // Update memory state if it has changed.
+    if (std::memcmp(PreState.data(), Global, Size)) {
+      ThreadListener.recordUntypedState(Global, Size);
+    }
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
 
@@ -752,22 +866,30 @@ template<typename RetT,
          SimpleWrapperSetting... Settings>
 class SimpleWrapperImpl
 {
+  /// The function that is wrapped.
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
   
+  /// \brief Check if the given setting is enabled for this wrapper.
+  ///
   template<SimpleWrapperSetting Setting>
   constexpr bool isEnabled() {
     return isSettingInList<Setting, Settings...>();
   }
   
 public:
+  /// \brief Construct a new wrapper implementation for the given function.
+  ///
   SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
   : FSFunction(ForFn)
   {}
   
+  /// \brief Implementation of the wrapped function.
+  ///
   template<int... ArgIs, typename... ArgTs>
   RetT impl(FnT &&Function,
             SuccessPredT &&SuccessPred,
             ResultStateRecorderT &&ResultStateRecorder,
+            llvm::SmallVectorImpl<GlobalVariableTracker> &GVTrackers,
             seec::ct::sequence_int<ArgIs...>,
             ArgTs &&... Args)
   {
@@ -806,12 +928,18 @@ public:
                              (Checker).check(Args, ArgIs))...
     };
     
+#ifndef NDEBUG
     for (auto const InputCheck : InputChecks) {
       assert(InputCheck && "Input check failed.");
     }
+#endif
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
+    
+    // Get the pre-call values of all global variables we are tracking.
+    for (auto &GVTracker : GVTrackers)
+      GVTracker.savePreCallState();
     
     // Call the original function.
     auto const Result = Function(std::forward<ArgTs>(Args)...);
@@ -831,6 +959,10 @@ public:
                                   sizeof(errno));
     }
     
+    // Record any changes to global variables we are tracking.
+    for (auto const &GVTracker : GVTrackers)
+      GVTracker.recordChanges(Listener);
+    
     // Record state changes revealed by the return value.
     ResultStateRecorder.record(ProcessListener, Listener, Result);
     
@@ -840,9 +972,11 @@ public:
                               (Listener).record(Args, Success))...
     };
     
+#ifndef NDEBUG
     for (auto const OutputRecord : OutputRecords) {
       assert(OutputRecord && "Output record failed.");
     }
+#endif
     
     // Do Listener's notification exit.
     Listener.exitPostNotification();
@@ -861,22 +995,30 @@ class SimpleWrapperImpl<void,
                         ResultStateRecorderT,
                         Settings...>
 {
+  /// The function that is wrapped.
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
   
+  /// \brief Check if the given setting is enabled for this wrapper.
+  ///
   template<SimpleWrapperSetting Setting>
   constexpr bool isEnabled() {
     return isSettingInList<Setting, Settings...>();
   }
   
 public:
+  /// \brief Construct a new wrapper implementation for the given function.
+  ///
   SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
   : FSFunction(ForFn)
   {}
   
+  /// \brief Implementation of the wrapped function.
+  ///
   template<int... ArgIs, typename... ArgTs>
   void impl(FnT &&Function,
             SuccessPredT &&SuccessPred,
             ResultStateRecorderT &&ResultStateRecorder,
+            llvm::SmallVectorImpl<GlobalVariableTracker> &GVTrackers,
             seec::ct::sequence_int<ArgIs...>,
             ArgTs &&... Args)
   {
@@ -918,6 +1060,10 @@ public:
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
     
+    // Get the pre-call values of all global variables we are tracking.
+    for (auto &GVTracker : GVTrackers)
+      GVTracker.savePreCallState();
+    
     // Call the original function.
     Function(std::forward<ArgTs>(Args)...);
     bool const Success = SuccessPred();
@@ -927,6 +1073,10 @@ public:
       Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
                                   sizeof(errno));
     }
+    
+    // Record any changes to global variables we are tracking.
+    for (auto const &GVTracker : GVTrackers)
+      GVTracker.recordChanges(Listener);
     
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
@@ -948,15 +1098,33 @@ class SimpleWrapper {
   /// \name Members
   /// @{
   
+  /// The function that is wrapped.
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
+  
+  /// Global variable trackers.
+  llvm::SmallVector<GlobalVariableTracker, 4> GVTrackers;
   
   /// @}
   
 public:
+  /// \brief Construct a new wrapper.
+  ///
   SimpleWrapper(seec::runtime_errors::format_selects::CStdFunction ForFunction)
-  : FSFunction(ForFunction)
+  : FSFunction(ForFunction),
+    GVTrackers()
   {}
   
+  /// \brief Add a global variable tracker.
+  ///
+  template<typename T>
+  SimpleWrapper &trackGlobal(T const &Global)
+  {
+    GVTrackers.push_back(GlobalVariableTracker{Global});
+    return *this;
+  }
+  
+  /// \brief Execute the wrapped function.
+  ///
   template<typename FnT,
            typename SuccessPredT,
            typename ResultStateRecorderT,
@@ -987,6 +1155,7 @@ public:
             .impl(std::forward<FnT>(Function),
                   std::forward<SuccessPredT>(SuccessPred),
                   std::forward<ResultStateRecorderT>(ResultStateRecorder),
+                  GVTrackers,
                   Indices,
                   std::forward<ArgT>(Args)...);
   }
