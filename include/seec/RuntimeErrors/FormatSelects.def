@@ -66,6 +66,16 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, mktime, "mktime")
   
   //----------------------------------------------------------------------------
+  // dirent.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, closedir,  "closedir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, opendir,   "opendir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, readdir,   "readdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, rewinddir, "rewinddir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, seekdir,   "seekdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, telldir,   "telldir")
+  
+  //----------------------------------------------------------------------------
   // sys/stat.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, stat, "stat")

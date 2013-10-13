@@ -120,6 +120,18 @@ SEEC_INTERCEPTED_FUNCTION_ALIAS(stat$INODE64, stat)
 
 
 //===----------------------------------------------------------------------===//
+// POSIX <dirent.h>
+//===----------------------------------------------------------------------===//
+
+SEEC_INTERCEPTED_FUNCTION(closedir)
+SEEC_INTERCEPTED_FUNCTION(opendir)
+SEEC_INTERCEPTED_FUNCTION(readdir)
+SEEC_INTERCEPTED_FUNCTION(rewinddir)
+SEEC_INTERCEPTED_FUNCTION(seekdir)
+SEEC_INTERCEPTED_FUNCTION(telldir)
+
+
+//===----------------------------------------------------------------------===//
 // POSIX <sys/time.h>
 //===----------------------------------------------------------------------===//
 
