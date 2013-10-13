@@ -2128,7 +2128,7 @@ doLayout(LayoutHandler const &Handler,
                                                  (Known.End - Known.Begin) + 1,
                                                  Known.Value),
                                       Expansion,
-                                      AreaType::Dynamic));
+                                      AreaType::Static));
   
 #endif // _LIBCPP_VERSION
   
