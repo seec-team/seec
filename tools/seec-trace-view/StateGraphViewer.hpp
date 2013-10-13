@@ -52,7 +52,10 @@ class StateGraphViewerPanel final : public wxPanel
   /// The location of the dot executable.
   std::string PathToDot;
   
-  /// Environment variable with the location of Graphviz's plugins.
+  /// The location of the graphviz libraries.
+  std::string PathToGraphvizLibraries;
+  
+  /// The location of the graphviz plugins.
   std::string PathToGraphvizPlugins;
   
   /// Token for accessing the current state.

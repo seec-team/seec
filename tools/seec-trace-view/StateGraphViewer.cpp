@@ -155,6 +155,7 @@ StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
   PathToDot(),
+  PathToGraphvizLibraries(),
   PathToGraphvizPlugins(),
   CurrentAccess(),
   WebView(nullptr),
@@ -171,6 +172,7 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
 : wxPanel(),
   Notifier(nullptr),
   PathToDot(),
+  PathToGraphvizLibraries(),
   PathToGraphvizPlugins(),
   CurrentAccess(),
   WebView(nullptr),
@@ -456,12 +458,16 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   if (!PathToDot.empty())
   {
-    // Determine the path to Graphviz's plugins, based on the location of dot.
+    // Determine the path to Graphviz's libraries, based on the location of dot.
     llvm::SmallString<256> PluginPath (PathToDot);
     
     llvm::sys::path::remove_filename(PluginPath);    // */bin/dot -> */bin
     llvm::sys::path::remove_filename(PluginPath);    // */bin    -> *
     llvm::sys::path::append(PluginPath, "lib");      // *      -> */lib
+    
+    PathToGraphvizLibraries = "DYLD_LIBRARY_PATH=";
+    PathToGraphvizLibraries += PluginPath.str();
+    
     llvm::sys::path::append(PluginPath, "graphviz"); // */lib -> */lib/graphviz
     
     PathToGraphvizPlugins = "GVBINDIR=";
@@ -621,6 +627,7 @@ void StateGraphViewerPanel::renderGraph()
   };
   
   char const *Environment[] = {
+    PathToGraphvizLibraries.c_str(),
     PathToGraphvizPlugins.c_str(),
     nullptr
   };
