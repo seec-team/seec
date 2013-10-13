@@ -21,6 +21,7 @@ set(SOURCES
   WrapCstdlib_h.cpp
   WrapCstring_h.cpp
   WrapCtime_h.cpp
+  WrapPOSIXsys_stat_h.cpp
   WrapPOSIXsys_time_h.cpp
   WrapPOSIXsys_wait_h.cpp
   WrapPOSIXunistd_h.cpp

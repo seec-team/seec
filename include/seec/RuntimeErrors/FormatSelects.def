@@ -66,6 +66,11 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, mktime, "mktime")
   
   //----------------------------------------------------------------------------
+  // sys/stat.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, stat, "stat")
+  
+  //----------------------------------------------------------------------------
   // sys/time.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, gettimeofday, "gettimeofday")
