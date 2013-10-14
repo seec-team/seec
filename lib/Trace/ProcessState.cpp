@@ -40,7 +40,8 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   Mallocs(),
   Memory(),
   KnownMemory(),
-  Streams()
+  Streams(),
+  Dirs()
 {
   // Setup initial memory state for global variables.
   for (std::size_t i = 0; i < Module->getGlobalCount(); ++i) {
@@ -158,6 +159,24 @@ StreamState const *ProcessState::getStream(uintptr_t const Address) const
   return It != Streams.end() ? &It->second : nullptr;
 }
 
+bool ProcessState::addDir(DIRState Dir)
+{
+  auto const Address = Dir.getAddress();
+  auto const Result = Dirs.insert(std::make_pair(Address, std::move(Dir)));
+  return Result.second;
+}
+
+bool ProcessState::removeDir(uintptr_t const Address)
+{
+  return Dirs.erase(Address);
+}
+
+DIRState const *ProcessState::getDir(uintptr_t const Address) const
+{
+  auto const It = Dirs.find(Address);
+  return It != Dirs.end() ? &It->second : nullptr;
+}
+
 uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
   assert(MaybeIndex.assigned());
@@ -186,6 +205,11 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " Open Streams: " << State.getStreams().size() << "\n";
   for (auto const &Stream : State.getStreams()) {
     Out << Stream.second;
+  }
+  
+  Out << " Open DIRs: " << State.getDirs().size() << "\n";
+  for (auto const &Dir : State.getDirs()) {
+    Out << Dir.second;
   }
   
   for (auto &ThreadStatePtr : State.getThreadStates()) {

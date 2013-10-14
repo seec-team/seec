@@ -217,6 +217,8 @@ class ThreadState {
   void addEvent(EventRecord<EventType::ByValRegionAdd> const &);
   void addEvent(EventRecord<EventType::FileOpen> const &);
   void addEvent(EventRecord<EventType::FileClose> const &);
+  void addEvent(EventRecord<EventType::DirOpen> const &);
+  void addEvent(EventRecord<EventType::DirClose> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
   /// Swallows unmatched calls to addEvent. This allows us to restrict calls to
@@ -268,6 +270,8 @@ private:
   void removeEvent(EventRecord<EventType::ByValRegionAdd> const &);
   void removeEvent(EventRecord<EventType::FileOpen> const &);
   void removeEvent(EventRecord<EventType::FileClose> const &);
+  void removeEvent(EventRecord<EventType::DirOpen> const &);
+  void removeEvent(EventRecord<EventType::DirClose> const &);
   void removeEvent(EventRecord<EventType::RuntimeError> const &);
 
   /// Swallows unmatched calls to removeEvent. This allows us to restrict calls
