@@ -453,6 +453,12 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
     return ASTContext.getTypeSizeInChars(CanonicalType);
   }
   
+  /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
+  ///
+  virtual bool isValidOpaqueImpl() const override {
+    return ProcessState.getDir(RawValue) != nullptr;
+  }
+  
   /// \brief Get the raw value of this pointer.
   ///
   virtual uintptr_t getRawValueImpl() const override {
@@ -1758,6 +1764,12 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
     return MappedAST.getASTUnit()
                     .getASTContext()
                     .getTypeSizeInChars(Expression->getType());
+  }
+  
+  /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
+  ///
+  virtual bool isValidOpaqueImpl() const override {
+    return ProcessState.getDir(PtrValue) != nullptr;
   }
   
   /// \brief Get the raw value of this pointer.
