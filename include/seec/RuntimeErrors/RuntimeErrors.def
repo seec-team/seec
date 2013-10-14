@@ -197,6 +197,16 @@ SEEC_RUNERR(UseInvalidStream,
   ))
 
 //
+// Passing an invalid DIR * to a POSIX function.
+//
+SEEC_RUNERR(PassInvalidDIR,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>),
+    (parameter, seec::runtime_errors::ArgParameter)
+  ))
+
+//
 // Error parsing a conversion specifier in a standard library string formatting
 // function.
 //   function: The function being called.

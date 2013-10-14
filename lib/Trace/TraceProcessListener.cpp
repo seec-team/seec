@@ -57,7 +57,9 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   DynamicMemoryAllocationsMutex(),
   StreamsMutex(),
   Streams(),
-  StreamsInitial()
+  StreamsInitial(),
+  DirsMutex(),
+  Dirs()
 {
   // Open traces and enable output.
   traceOpen();

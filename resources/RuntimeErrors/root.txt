@@ -185,6 +185,12 @@ root:table {
 
     // function
     // parameter
+    PassInvalidDIR:string {
+      "Parameter {parameter} passed to function {function} is not a valid DIR pointer."
+    }
+
+    // function
+    // parameter
     // start
     FormatSpecifierParse:string {
       "Failed to parse format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."

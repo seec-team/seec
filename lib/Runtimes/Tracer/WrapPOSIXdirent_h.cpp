@@ -19,6 +19,80 @@
 #include <dirent.h>
 
 
+namespace seec {
+
+//===----------------------------------------------------------------------===//
+// WrappedInputDIR
+//===----------------------------------------------------------------------===//
+
+class WrappedInputDIR {
+  DIR *Value;
+  
+  bool IgnoreNull;
+  
+public:
+  WrappedInputDIR(DIR *ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
+  {}
+  
+  /// \name Flags
+  /// @{
+  
+  WrappedInputDIR &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+  
+  /// @} (Flags)
+  
+  /// \name Value information
+  /// @{
+  
+  operator DIR *() const { return Value; }
+  
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+  
+  /// @}
+};
+
+inline WrappedInputDIR wrapInputDIR(DIR *ForValue) {
+  return WrappedInputDIR(ForValue);
+}
+
+/// \brief WrappedArgumentChecker specialization for WrappedInputDIR.
+///
+template<>
+class WrappedArgumentChecker<WrappedInputDIR>
+{
+  /// The underlying memory checker.
+  seec::trace::DIRChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CIOChecker &WithIOChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
+  : Checker(WithDIRChecker)
+  {}
+  
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedInputDIR &Value, int const Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    DIR * const DIRValue = Value;
+    
+    return Checker.checkDIRIsValid(Parameter, DIRValue);
+  }
+};
+
+} // namespace seec
+
+
 extern "C" {
 
 
@@ -37,7 +111,7 @@ SEEC_MANGLE_FUNCTION(closedir)
       (closedir,
        [](int const Result){ return Result == 0; },
        seec::ResultStateRecorderForNoOp(),
-       dirp);
+       seec::wrapInputDIR(dirp));
 }
 
 
@@ -77,7 +151,7 @@ SEEC_MANGLE_FUNCTION(readdir)
        seec::ResultStateRecorderForStaticInternalObject{
         seec::MemoryPermission::ReadWrite
        },
-       dirp);
+       seec::wrapInputDIR(dirp));
 }
 
 
@@ -95,7 +169,7 @@ SEEC_MANGLE_FUNCTION(rewinddir)
     (rewinddir,
      [](){ return true; },
      seec::ResultStateRecorderForNoOp(),
-     dirp);
+     seec::wrapInputDIR(dirp));
 }
 
 
@@ -113,7 +187,7 @@ SEEC_MANGLE_FUNCTION(seekdir)
     (seekdir,
      [](){ return true; },
      seec::ResultStateRecorderForNoOp(),
-     dirp,
+     seec::wrapInputDIR(dirp),
      loc);
 }
 
@@ -133,7 +207,7 @@ SEEC_MANGLE_FUNCTION(telldir)
       (telldir,
        [](long int const){ return true; },
        seec::ResultStateRecorderForNoOp(),
-       dirp);
+       seec::wrapInputDIR(dirp));
 }
 
 

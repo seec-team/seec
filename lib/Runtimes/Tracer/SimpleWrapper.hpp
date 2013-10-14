@@ -128,7 +128,8 @@ class WrappedArgumentChecker {
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -244,7 +245,8 @@ class WrappedArgumentChecker<WrappedInputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -312,7 +314,8 @@ class WrappedArgumentChecker<WrappedInputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -379,7 +382,8 @@ class WrappedArgumentChecker<WrappedInputCStringArray>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -446,7 +450,8 @@ class WrappedArgumentChecker<WrappedInputFILE>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -573,7 +578,8 @@ class WrappedArgumentChecker<WrappedOutputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -683,7 +689,8 @@ class WrappedArgumentChecker<WrappedOutputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
+                         seec::trace::DIRChecker &WithDIRChecker)
   : Checker(WithChecker)
   {}
   
@@ -922,10 +929,19 @@ public:
                                      FSFunction,
                                      StreamsAccessor.getObject()};
     
+    // Create a DIR checker. TODO: Don't do this if we don't need it.
+    auto DirsAccessor = Listener.getProcessListener().getDirsAccessor();
+    
+    seec::trace::DIRChecker DIRChecker {Listener,
+                                        InstructionIndex,
+                                        FSFunction,
+                                        DirsAccessor.getObject()};
+    
+    
     // Check each of the inputs.
     std::vector<bool> InputChecks {
       (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker).check(Args, ArgIs))...
+                             (Checker, DIRChecker).check(Args, ArgIs))...
     };
     
 #ifndef NDEBUG
@@ -1047,10 +1063,18 @@ public:
                                      FSFunction,
                                      StreamsAccessor.getObject()};
     
+    // Create a DIR checker. TODO: Don't do this if we don't need it.
+    auto DirsAccessor = Listener.getProcessListener().getDirsAccessor();
+    
+    seec::trace::DIRChecker DIRChecker {Listener,
+                                        InstructionIndex,
+                                        FSFunction,
+                                        DirsAccessor.getObject()};
+    
     // Check each of the inputs.
     std::vector<bool> InputChecks {
       (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker).check(Args, ArgIs))...
+                             (Checker, DIRChecker).check(Args, ArgIs))...
     };
     
     for (auto const InputCheck : InputChecks) {

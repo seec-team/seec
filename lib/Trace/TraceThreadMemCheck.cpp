@@ -719,6 +719,28 @@ bool CIOChecker::checkStandardStreamIsValid(FILE *Stream) {
 }
 
 
+//===------------------------------------------------------------------------===
+// DIRChecker
+//===------------------------------------------------------------------------===
+
+bool DIRChecker::checkDIRIsValid(unsigned int const Parameter,
+                                 void const * const TheDIR)
+{
+  using namespace seec::runtime_errors;
+  
+  if (!Dirs.DIRWillClose(TheDIR)) {
+    Thread.handleRunError(*createRunError<RunErrorType::PassInvalidDIR>
+                                         (Function, Parameter),
+                          seec::trace::RunErrorSeverity::Fatal,
+                          InstructionIndex);
+    
+    return false;
+  }
+
+  return true;
+}
+
+
 } // namespace trace (in seec)
 
 } // namespace seec
