@@ -746,6 +746,10 @@ class ResultStateRecorderForNoOp {
 public:
   ResultStateRecorderForNoOp() {}
   
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener)
+  {}
+  
   template<typename T>
   void record(seec::trace::TraceProcessListener &ProcessListener,
               seec::trace::TraceThreadListener &ThreadListener,
@@ -921,7 +925,7 @@ public:
       Listener.acquireDynamicMemoryLock();
     
     // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
     
     // Create the memory checker.
     seec::trace::CIOChecker Checker {Listener,
@@ -930,12 +934,11 @@ public:
                                      StreamsAccessor.getObject()};
     
     // Create a DIR checker. TODO: Don't do this if we don't need it.
-    auto DirsAccessor = Listener.getProcessListener().getDirsAccessor();
-    
+    // This causes the ThreadListener to acquire the DirsLock.
     seec::trace::DIRChecker DIRChecker {Listener,
                                         InstructionIndex,
                                         FSFunction,
-                                        DirsAccessor.getObject()};
+                                        Listener.getDirs()};
     
     
     // Check each of the inputs.
@@ -1038,6 +1041,9 @@ public:
             seec::ct::sequence_int<ArgIs...>,
             ArgTs &&... Args)
   {
+    auto &ProcessEnv = seec::trace::getProcessEnvironment();
+    auto &ProcessListener = ProcessEnv.getProcessListener();
+    
     auto &ThreadEnv = seec::trace::getThreadEnvironment();
     auto &Listener = ThreadEnv.getThreadListener();
     auto InstructionIndex = ThreadEnv.getInstructionIndex();
@@ -1055,7 +1061,7 @@ public:
       Listener.acquireDynamicMemoryLock();
     
     // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
     
     // Create the memory checker.
     seec::trace::CIOChecker Checker {Listener,
@@ -1064,12 +1070,11 @@ public:
                                      StreamsAccessor.getObject()};
     
     // Create a DIR checker. TODO: Don't do this if we don't need it.
-    auto DirsAccessor = Listener.getProcessListener().getDirsAccessor();
-    
+    // This causes the ThreadListener to acquire the DirsLock.
     seec::trace::DIRChecker DIRChecker {Listener,
                                         InstructionIndex,
                                         FSFunction,
-                                        DirsAccessor.getObject()};
+                                        Listener.getDirs()};
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
@@ -1101,6 +1106,9 @@ public:
     // Record any changes to global variables we are tracking.
     for (auto const &GVTracker : GVTrackers)
       GVTracker.recordChanges(Listener);
+    
+    // Record state changes revealed by the return value.
+    ResultStateRecorder.record(ProcessListener, Listener);
     
     // Record each of the outputs.
     std::vector<bool> OutputRecords {

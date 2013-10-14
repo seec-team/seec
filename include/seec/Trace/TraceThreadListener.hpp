@@ -234,6 +234,13 @@ public:
     }
   }
   
+  /// \brief Access the TraceDirs using this thread's DirsLock.
+  ///
+  TraceDirs &getDirs() {
+    acquireDirsLock();
+    return ProcessListener.getDirs(DirsLock);
+  }
+  
   /// \brief Record that a DIR opened.
   ///
   /// This will acquire the DirsLock if we don't have it already.

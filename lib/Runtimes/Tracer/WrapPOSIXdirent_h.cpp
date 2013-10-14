@@ -90,6 +90,48 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// ResultStateRecorderForDIROpen
+//===----------------------------------------------------------------------===//
+
+class ResultStateRecorderForDIROpen {
+  char const *Dirname;
+  
+public:
+  ResultStateRecorderForDIROpen(char const * const WithDirname)
+  : Dirname(WithDirname)
+  {}
+  
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              DIR const *Value)
+  {
+    if (Value)
+      ThreadListener.recordDirOpen(Value, Dirname);
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// ResultStateRecorderForDIRClose
+//===----------------------------------------------------------------------===//
+
+class ResultStateRecorderForDIRClose {
+  void const *TheDIR;
+  
+public:
+  ResultStateRecorderForDIRClose(DIR const * const WithDIR)
+  : TheDIR(WithDIR)
+  {}
+  
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              int const Value)
+  {
+    if (Value == 0)
+      ThreadListener.recordDirClose(TheDIR);
+  }
+};
+
 } // namespace seec
 
 
@@ -110,7 +152,7 @@ SEEC_MANGLE_FUNCTION(closedir)
       {seec::runtime_errors::format_selects::CStdFunction::closedir}
       (closedir,
        [](int const Result){ return Result == 0; },
-       seec::ResultStateRecorderForNoOp(),
+       seec::ResultStateRecorderForDIRClose(dirp),
        seec::wrapInputDIR(dirp));
 }
 
@@ -129,7 +171,7 @@ SEEC_MANGLE_FUNCTION(opendir)
       {seec::runtime_errors::format_selects::CStdFunction::opendir}
       (opendir,
        [](DIR const *Result){ return Result != nullptr; },
-       seec::ResultStateRecorderForNoOp(),
+       seec::ResultStateRecorderForDIROpen(dirname),
        seec::wrapInputCString(dirname));
 }
 
