@@ -93,6 +93,10 @@ public:
   ///
   bool isInSystemHeader() const;
   
+  /// \brief Check if this global variable is referenced by user code.
+  ///
+  bool isReferenced() const;
+  
   /// \brief Get the current run-time value of this global.
   ///
   std::shared_ptr<Value const> getValue() const;

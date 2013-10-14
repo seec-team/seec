@@ -2088,7 +2088,7 @@ doLayout(LayoutHandler const &Handler,
   
   auto const &Globals = State.getGlobalVariables();
   for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
-    if ((*It)->isInSystemHeader())
+    if ((*It)->isInSystemHeader() && !(*It)->isReferenced())
       continue;
     
     GlobalVariableLayouts.emplace_back(

@@ -41,6 +41,12 @@ namespace seec_clang {
 class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   typedef MappedAST::ASTNodeTy ASTNodeTy;
   
+  /// The AST that we are visiting.
+  clang::ASTUnit &AST;
+  
+  /// The SourceManager for this AST.
+  clang::SourceManager &SourceManager;
+  
   /// Current stack of visitation.
   std::vector<ASTNodeTy> VisitStack;
   
@@ -55,13 +61,22 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   
   /// Parents of Stmts.
   llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
+  
+  /// All Decls that are referred to by non-system code.
+  llvm::DenseSet<clang::Decl const *> DeclsReferenced;
 
 public:
   /// \brief Constructor.
   ///
-  MappingASTVisitor()
-  : Decls(),
-    Stmts()
+  MappingASTVisitor(clang::ASTUnit &ForAST)
+  : AST(ForAST),
+    SourceManager(ForAST.getSourceManager()),
+    VisitStack(),
+    Decls(),
+    Stmts(),
+    DeclParents(),
+    StmtParents(),
+    DeclsReferenced()
   {}
   
   /// \name Accessors.
@@ -78,6 +93,9 @@ public:
   
   /// Get all Stmt parents.
   decltype(StmtParents) &getStmtParents() { return StmtParents; }
+  
+  /// Get all Decls that are referenced by non-system code.
+  decltype(DeclsReferenced) &getDeclsReferenced() { return DeclsReferenced; }
   
   /// @}
 
@@ -144,6 +162,19 @@ public:
     return true;
   }
   
+  /// \brief Visit a DeclRefExpr.
+  ///
+  bool VisitDeclRefExpr(::clang::DeclRefExpr *DR) {
+    if (DR && !SourceManager.isInSystemHeader(DR->getLocation())) {
+      if (auto const TheDecl = DR->getDecl()) {
+        auto const Canon = TheDecl->getCanonicalDecl();
+        DeclsReferenced.insert(Canon);
+      }
+    }
+    
+    return true;
+  }
+  
   /// @}
 };
 
@@ -152,12 +183,13 @@ public:
 //===----------------------------------------------------------------------===//
 
 MappedAST::MappedAST(clang::ASTUnit *ForAST,
-                     MappingASTVisitor &&WithMapping)
+                     MappingASTVisitor WithMapping)
 : AST(ForAST),
   Decls(std::move(WithMapping.getDecls())),
   Stmts(std::move(WithMapping.getStmts())),
   DeclParents(std::move(WithMapping.getDeclParents())),
-  StmtParents(std::move(WithMapping.getStmtParents()))
+  StmtParents(std::move(WithMapping.getStmtParents())),
+  DeclsReferenced(std::move(WithMapping.getDeclsReferenced()))
 {}
 
 MappedAST::~MappedAST() {
@@ -172,7 +204,7 @@ MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   std::vector<Decl const *> Decls;
   std::vector<Stmt const *> Stmts;
 
-  MappingASTVisitor Mapper;
+  MappingASTVisitor Mapper {*AST};
 
   for (auto It = AST->top_level_begin(), End = AST->top_level_end();
        It != End; ++It) {

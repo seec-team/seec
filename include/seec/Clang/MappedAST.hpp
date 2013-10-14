@@ -53,23 +53,26 @@ public:
   
 private:
   /// The ASTUnit that is mapped.
-  clang::ASTUnit *AST;
+  clang::ASTUnit * const AST;
 
   /// All known Decl pointers in visitation order.
-  std::vector<clang::Decl const *> Decls;
+  std::vector<clang::Decl const *> const Decls;
 
   /// All known Stmt pointers in visitation order.
-  std::vector<clang::Stmt const *> Stmts;
+  std::vector<clang::Stmt const *> const Stmts;
   
   /// Parents of Decls.
-  llvm::DenseMap<clang::Decl const *, ASTNodeTy> DeclParents;
+  llvm::DenseMap<clang::Decl const *, ASTNodeTy> const DeclParents;
   
   /// Parents of Stmts.
-  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
+  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> const StmtParents;
+  
+  /// All Decls that are referred to by non-system code.
+  llvm::DenseSet<clang::Decl const *> const DeclsReferenced;
   
   /// \brief Constructor.
   MappedAST(clang::ASTUnit *ForAST,
-            MappingASTVisitor &&WithMapping);
+            MappingASTVisitor WithMapping);
 
   // Don't allow copying.
   MappedAST(MappedAST const &Other) = delete;
@@ -174,6 +177,12 @@ public:
   /// \brief Check if a Decl is a parent of a Stmt.
   ///
   bool isParent(::clang::Decl const *Parent, ::clang::Stmt const *Child) const;
+  
+  /// \brief Check if a Decl is referenced by non-system code.
+  ///
+  bool isReferenced(::clang::Decl const *D) const {
+    return DeclsReferenced.count(D);
+  }
   
   /// @} (Accessors)
 };

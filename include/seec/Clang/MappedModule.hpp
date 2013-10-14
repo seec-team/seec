@@ -134,17 +134,17 @@ class MappedGlobalVariableDecl {
   clang::ValueDecl const *Decl;
 
   llvm::GlobalVariable const *Global;
+  
+  bool const InSystemHeader;
+  
+  bool const Referenced;
 
 public:
   /// \brief Constructor.
   ///
   MappedGlobalVariableDecl(MappedAST const &AST,
                            clang::ValueDecl const *Decl,
-                           llvm::GlobalVariable const *Global)
-  : AST(AST),
-    Decl(Decl),
-    Global(Global)
-  {}
+                           llvm::GlobalVariable const *Global);
 
   /// \brief Copy constructor.
   ///
@@ -172,7 +172,11 @@ public:
   
   /// \brief Check if this global is declared in a system header.
   ///
-  bool isInSystemHeader() const;
+  bool isInSystemHeader() const { return InSystemHeader; }
+  
+  /// \brief Check if this global is reference by user code.
+  ///
+  bool isReferenced() const { return Referenced; }
   
   /// @} (Queries)
 };
