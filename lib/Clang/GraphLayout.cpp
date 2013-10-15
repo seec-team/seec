@@ -1538,7 +1538,7 @@ doLayout(LayoutHandler const &Handler,
                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"function "
             << reinterpret_cast<uintptr_t>(&State)
             << "\">"
-               "<TR><TD COLSPAN=\"2\">"
+               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"blue\">"
             << State.getNameAsString()
             << "</TD></TR>";
   
@@ -1603,8 +1603,7 @@ doLayout(LayoutHandler const &Handler,
   
   std::vector<NodeInfo> FunctionNodes;
   
-  DotStream << "subgraph " << IDString << " {\n"
-            << "rank=same;\n";
+  DotStream << "subgraph " << IDString << " {\n";
   
   // Layout all functions.
   std::vector<LayoutOfFunction> FunctionLayouts;
@@ -1628,9 +1627,11 @@ doLayout(LayoutHandler const &Handler,
     
     for (unsigned i = 0; i < OrderEdgeCount; ++i) {
       DotStream << FunctionLayouts[i+1].getID()
-                << ":sw -> "
+                << ":fname -> "
                 << FunctionLayouts[i].getID()
-                << ":nw [style=invis weight=1000];\n";
+                << ":fname "
+                   "[constraint=false dir=back color=\"blue\""
+                   " style=\"dashed\"];\n";
     }
   }
   
