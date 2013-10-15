@@ -338,6 +338,7 @@ int main(int argc_, const char **argv_) {
     argv.push_back("-fno-builtin");
     argv.push_back("-D_FORTIFY_SOURCE=0");
     argv.push_back("-D__NO_CTYPE=1");
+    argv.push_back("-D__SEEC__");
   }
 
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions;

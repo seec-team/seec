@@ -16,6 +16,7 @@
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceStorage.hpp"
+#include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
@@ -472,7 +473,7 @@ void SeeCRecordPreDivide(uint32_t Index) {
   Listener.notifyPreDivide(Index, BinOp);
 }
 
-#define SEEC_RECORD_UPDATE(NAME, TYPE)                                         \
+#define SEEC_RECORD_TYPED(NAME, TYPE)                                          \
 void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
   ThreadEnv.setInstructionIndex(Index);                                        \
@@ -480,20 +481,74 @@ void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
     return;                                                                    \
   auto &Listener = ThreadEnv.getThreadListener();                              \
   Listener.notifyValue(Index, ThreadEnv.getInstruction(), Value);              \
+}                                                                              \
+void SeeCRecordSetCurrent##NAME(TYPE Value) {                                  \
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
+  auto &Listener = ThreadEnv.getThreadListener();                              \
+  Listener.notifyValue(ThreadEnv.getInstructionIndex(),                        \
+                       ThreadEnv.getInstruction(),                             \
+                       Value);                                                 \
 }
 
-SEEC_RECORD_UPDATE(Pointer, void *)
-SEEC_RECORD_UPDATE(Int64,   uint64_t)
-SEEC_RECORD_UPDATE(Int32,   uint32_t)
-SEEC_RECORD_UPDATE(Int16,   uint16_t)
-SEEC_RECORD_UPDATE(Int8,    uint8_t)
-SEEC_RECORD_UPDATE(Float,   float)
-SEEC_RECORD_UPDATE(Double,  double)
-SEEC_RECORD_UPDATE(X86FP80, long double)
+SEEC_RECORD_TYPED(Pointer, void *)
+SEEC_RECORD_TYPED(Int64,   uint64_t)
+SEEC_RECORD_TYPED(Int32,   uint32_t)
+SEEC_RECORD_TYPED(Int16,   uint16_t)
+SEEC_RECORD_TYPED(Int8,    uint8_t)
+SEEC_RECORD_TYPED(Float,   float)
+SEEC_RECORD_TYPED(Double,  double)
+SEEC_RECORD_TYPED(X86FP80, long double)
 
 // UpdateFP128
 // UpdatePPC128
 
-#undef SEEC_RECORD_UPDATE
+#undef SEEC_RECORD_TYPED
+
+void SeeCLockDynamicMemory() {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.acquireDynamicMemoryLock();
+}
+
+void SeeCRecordMalloc(void const * const Address, size_t const Size) {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.recordMalloc(reinterpret_cast<uintptr_t>(Address), Size);
+}
+
+void SeeCRecordFree(void const * const Address) {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.recordFreeAndClear(reinterpret_cast<uintptr_t>(Address));
+}
+
+void SeeCLockMemoryForWriting() {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.acquireGlobalMemoryWriteLock();
+}
+
+void SeeCLockMemoryForReading() {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.acquireGlobalMemoryReadLock();
+}
+
+void SeeCRecordUntypedState(char const * const Data, size_t const Size) {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.recordUntypedState(Data, Size);
+}
+
+void SeeCReleaseLocks() {
+  auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
+  Listener.exitPostNotification();
+}
+
+void SeeCCheckCStringRead(char const * const CString) {
+  using namespace seec::runtime_errors::format_selects;
+  
+  auto &Env = seec::trace::getThreadEnvironment();
+  
+  seec::trace::CStdLibChecker Checker {Env.getThreadListener(),
+                                       Env.getInstructionIndex(),
+                                       CStdFunction::userdefined};
+  
+  Checker.checkCStringRead(1, CString);
+}
 
 } // extern "C"

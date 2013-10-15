@@ -33,6 +33,11 @@ SEEC_FORMAT_SELECT(MemoryAccess,
 
 SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
+  // special entry for user-defined functions
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, userdefined, "<user defined function>")
+  
+  //----------------------------------------------------------------------------
   // fenv.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fegetexceptflag, "fegetexceptflag")
