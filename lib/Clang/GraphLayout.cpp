@@ -1749,7 +1749,7 @@ layoutUnreferencedArea(LayoutHandler const &Handler,
          << " [ label = <"
             "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
   // TODO: Make a href for unreferenced areas.
-  Stream << "><TR><TD>";
+  Stream << "><TR><TD COLOR=\"red\">";
   
   // Attempt to load placeholder text from the resource bundle.
   auto const MaybeText =
