@@ -23,6 +23,26 @@ extern "C" {
 
 
 //===----------------------------------------------------------------------===//
+// mkdir
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(mkdir)
+(const char * const path, mode_t const mode)
+{
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::mkdir}
+      (mkdir,
+       [](int const Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(path),
+       mode);
+}
+
+
+//===----------------------------------------------------------------------===//
 // stat
 //===----------------------------------------------------------------------===//
 
