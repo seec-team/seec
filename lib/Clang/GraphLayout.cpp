@@ -2155,7 +2155,7 @@ doLayout(LayoutHandler const &Handler,
   std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
   
   for (auto const &Global : State.getGlobalVariables()) {
-    if (Global->isInSystemHeader())
+    if (Global->isInSystemHeader() && !Global->isReferenced())
       continue;
     
     GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
