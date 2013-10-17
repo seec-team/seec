@@ -51,5 +51,16 @@ HANDLE_RECORD_POINT(UpdateX86FP80,  void (types::i<32>, types::x86_fp80))
 HANDLE_RECORD_POINT(UpdateFP128,    void (types::i<32>, types::fp128))
 HANDLE_RECORD_POINT(UpdatePPCFP128, void (types::i<32>, types::ppc_fp128))
 
+HANDLE_RECORD_POINT(SetCurrentPointer,  void (types::i<8>*))
+HANDLE_RECORD_POINT(SetCurrentInt8,     void (types::i<8>))
+HANDLE_RECORD_POINT(SetCurrentInt16,    void (types::i<16>))
+HANDLE_RECORD_POINT(SetCurrentInt32,    void (types::i<32>))
+HANDLE_RECORD_POINT(SetCurrentInt64,    void (types::i<64>))
+HANDLE_RECORD_POINT(SetCurrentFloat,    void (types::ieee_float))
+HANDLE_RECORD_POINT(SetCurrentDouble,   void (types::ieee_double))
+HANDLE_RECORD_POINT(SetCurrentX86FP80,  void (types::x86_fp80))
+HANDLE_RECORD_POINT(SetCurrentFP128,    void (types::fp128))
+HANDLE_RECORD_POINT(SetCurrentPPCFP128, void (types::ppc_fp128))
+
 // Clean up
 #undef HANDLE_RECORD_POINT

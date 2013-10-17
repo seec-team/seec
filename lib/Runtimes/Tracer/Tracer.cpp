@@ -504,42 +504,48 @@ SEEC_RECORD_TYPED(X86FP80, long double)
 
 #undef SEEC_RECORD_TYPED
 
-void SeeCLockDynamicMemory() {
+void SEEC_MANGLE_FUNCTION(LockDynamicMemory)() {
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.acquireDynamicMemoryLock();
 }
 
-void SeeCRecordMalloc(void const * const Address, size_t const Size) {
+void
+SEEC_MANGLE_FUNCTION(RecordMalloc)
+(void const * const Address, size_t const Size)
+{
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.recordMalloc(reinterpret_cast<uintptr_t>(Address), Size);
 }
 
-void SeeCRecordFree(void const * const Address) {
+void SEEC_MANGLE_FUNCTION(RecordFree)(void const * const Address) {
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.recordFreeAndClear(reinterpret_cast<uintptr_t>(Address));
 }
 
-void SeeCLockMemoryForWriting() {
+void SEEC_MANGLE_FUNCTION(LockMemoryForWriting)() {
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.acquireGlobalMemoryWriteLock();
 }
 
-void SeeCLockMemoryForReading() {
+void SEEC_MANGLE_FUNCTION(LockMemoryForReading)() {
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.acquireGlobalMemoryReadLock();
 }
 
-void SeeCRecordUntypedState(char const * const Data, size_t const Size) {
+void
+SEEC_MANGLE_FUNCTION(RecordUntypedState)
+(char const * const Data, size_t const Size)
+{
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.recordUntypedState(Data, Size);
 }
 
-void SeeCReleaseLocks() {
+void SEEC_MANGLE_FUNCTION(ReleaseLocks)() {
   auto &Listener = seec::trace::getThreadEnvironment().getThreadListener();
   Listener.exitPostNotification();
 }
 
-void SeeCCheckCStringRead(char const * const CString) {
+void SEEC_MANGLE_FUNCTION(CheckCStringRead)(char const * const CString) {
   using namespace seec::runtime_errors::format_selects;
   
   auto &Env = seec::trace::getThreadEnvironment();

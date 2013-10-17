@@ -23,6 +23,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/Casting.h"
@@ -37,10 +38,20 @@
 
 namespace llvm {
 
-static bool IsMangledInterceptor(llvm::Function &F)
+static bool IsMangledInterceptor(Function &F)
 {
   return F.getName().startswith("__SeeC_")
       && F.getName().endswith("__");
+}
+
+static llvm::Function *GetInterceptorFor(Function &F, Module &M)
+{
+  llvm::SmallString<128> InterceptorName;
+  InterceptorName += "__SeeC_";
+  InterceptorName += F.getName();
+  InterceptorName += "__";
+  
+  return M.getFunction(InterceptorName);
 }
 
 char InsertExternalRecording::ID = 0;
@@ -297,13 +308,12 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 #define SEEC_FUNCTION_HANDLED(NAME) if (Name.equals(#NAME)) Handled = true;
 #include "seec/Transforms/FunctionsHandled.def"
 
-      if (Handled)
+#define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE) \
+      if (Name.equals("SeeCRecord" #POINT)) Handled = true;
+#include "seec/Transforms/RecordExternal/RecordPoints.def"
+
+      if (Handled || IsMangledInterceptor(F) || GetInterceptorFor(F, M))
         continue;
-      
-      if (IsMangledInterceptor(F)) {
-        Interceptors.insert(&F);
-        continue;
-      }
       
       UnhandledFunctions.insert(&F);
     }
@@ -346,10 +356,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 #undef SEEC__STRINGIZE
 #undef SEEC__STRINGIZE2
 
-    if (Intercept) {
-      F.replaceAllUsesWith(Intercept);
-      Interceptors.insert(Intercept);
-    }
+    if (!Intercept)
+      Intercept = GetInterceptorFor(F, M);
+
+    if (Intercept)
+      Interceptors.insert(std::make_pair(&F, Intercept));
   }
   
   return true;
@@ -357,6 +368,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
 bool InsertExternalRecording::runOnFunction(Function &F) {
   if (!DL)
+    return false;
+
+  // If the function is an interceptor, or has an interceptor available, then
+  // we should not instrument it.
+  if (IsMangledInterceptor(F) || Interceptors.find(&F) != Interceptors.end())
     return false;
 
   // Get a list of all the instructions in the function, so that we can visit
@@ -605,10 +621,13 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
 void InsertExternalRecording::visitCallInst(CallInst &CI) {
   Function *CalledFunction = CI.getCalledFunction();
   
-  // If this is a call to one of SeeC's interception functions, then we only
-  // need to notify the instruction index before the call. Checking, recording
-  // and value updating will happen in the intercepted function.
-  if (Interceptors.count(CalledFunction)) {
+  // Check if the call should be redirected to an interception function (either
+  // a user-defined one, or one provided by SeeC). If it is redirected then we
+  // only need to notify the instruction index before the call - checking,
+  // recording and value updating must be performed by the interceptor.
+  auto const InterceptorIt = Interceptors.find(CalledFunction);
+  if (InterceptorIt != Interceptors.end()) {
+    CI.setCalledFunction(InterceptorIt->second);
     Value *Args[] = {ConstantInt::get(Int32Ty, InstructionIndex)};
     CallInst::Create(RecordSetInstruction, Args, "", &CI);
     return;
