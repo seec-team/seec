@@ -140,6 +140,9 @@ class TraceThreadListener
   
   /// I/O streams lock owned by this thread.
   std::unique_lock<std::mutex> StreamsLock;
+  
+  /// DIR pointers lock owned by this thread.
+  std::unique_lock<std::mutex> DirsLock;
 
 
   /// \name Current instruction information.
@@ -218,6 +221,42 @@ public:
   bool recordStreamClose(FILE *Stream);
 
   /// @} (Helper methods)
+  
+  
+  /// \name DIR tracking.
+  /// @{
+  
+  /// \brief Acquire the DirsLock, if we don't have it already.
+  ///
+  void acquireDirsLock() {
+    if (!DirsLock) {
+      DirsLock = ProcessListener.getDirsLock();
+    }
+  }
+  
+  /// \brief Access the TraceDirs using this thread's DirsLock.
+  ///
+  TraceDirs &getDirs() {
+    acquireDirsLock();
+    return ProcessListener.getDirs(DirsLock);
+  }
+  
+  /// \brief Record that a DIR opened.
+  ///
+  /// This will acquire the DirsLock if we don't have it already.
+  ///
+  /// pre: Filename is a valid C string.
+  ///
+  void recordDirOpen(void const *TheDIR,
+                     char const *Filename);
+  
+  /// \brief Record that a stream closed.
+  ///
+  /// This will acquire the StreamsLock if we don't have it already.
+  ///
+  bool recordDirClose(void const *TheDIR);
+  
+  /// @}
 
 
 public:

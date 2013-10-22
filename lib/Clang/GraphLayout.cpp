@@ -463,7 +463,17 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         
         Stream << ">NULL</TD>";
       }
-      else if (Ptr.getDereferenceIndexLimit() == 0) {
+      else if (Ptr.getDereferenceIndexLimit() != 0 || Ptr.isValidOpaque()) {
+        // A valid pointer.
+        Stream << "<TD PORT=\""
+               << getStandardPortFor(V)
+               << "\"";
+        
+        getHandler().writeStandardProperties(Stream, V);
+        
+        Stream << "> </TD>";
+      }
+      else {
         // An invalid pointer (as far as we're concerned).
         Stream << "<TD PORT=\""
                << getStandardPortFor(V)
@@ -472,16 +482,6 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
         getHandler().writeStandardProperties(Stream, V);
         
         Stream << ">!</TD>";
-      }
-      else {
-        // A valid pointer with at least one dereference.
-        Stream << "<TD PORT=\""
-               << getStandardPortFor(V)
-               << "\"";
-        
-        getHandler().writeStandardProperties(Stream, V);
-        
-        Stream << "> </TD>";
       }
       
       break;
@@ -1538,7 +1538,7 @@ doLayout(LayoutHandler const &Handler,
                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"function "
             << reinterpret_cast<uintptr_t>(&State)
             << "\">"
-               "<TR><TD COLSPAN=\"2\">"
+               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"blue\">"
             << State.getNameAsString()
             << "</TD></TR>";
   
@@ -1603,8 +1603,7 @@ doLayout(LayoutHandler const &Handler,
   
   std::vector<NodeInfo> FunctionNodes;
   
-  DotStream << "subgraph " << IDString << " {\n"
-            << "rank=same;\n";
+  DotStream << "subgraph " << IDString << " {\n";
   
   // Layout all functions.
   std::vector<LayoutOfFunction> FunctionLayouts;
@@ -1628,9 +1627,11 @@ doLayout(LayoutHandler const &Handler,
     
     for (unsigned i = 0; i < OrderEdgeCount; ++i) {
       DotStream << FunctionLayouts[i+1].getID()
-                << ":sw -> "
+                << ":fname -> "
                 << FunctionLayouts[i].getID()
-                << ":nw [style=invis weight=1000];\n";
+                << ":fname "
+                   "[constraint=false dir=back color=\"blue\""
+                   " style=\"dashed\"];\n";
     }
   }
   
@@ -1748,7 +1749,7 @@ layoutUnreferencedArea(LayoutHandler const &Handler,
          << " [ label = <"
             "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
   // TODO: Make a href for unreferenced areas.
-  Stream << "><TR><TD>";
+  Stream << "><TR><TD COLOR=\"red\">";
   
   // Attempt to load placeholder text from the resource bundle.
   auto const MaybeText =
@@ -1888,6 +1889,55 @@ doLayout(LayoutHandler const &Handler,
 
 
 //===----------------------------------------------------------------------===//
+// Render DIRs
+//===----------------------------------------------------------------------===//
+
+static
+std::pair<Maybe<LayoutOfArea>, MemoryArea>
+doLayout(DIRState const &State, Expansion const &Expansion)
+{
+  auto const Address = State.getAddress();
+  
+  // Generate the identifier for this node.
+  auto const IDString = std::string{"area_at_"} + std::to_string(Address);
+  
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  Stream << IDString
+         << " [ label = <"
+            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  // TODO: Make a href for unreferenced DIRs?
+  Stream << "><TR><TD PORT=\"opaque\">";
+  
+  // Attempt to load text from the resource bundle.
+  auto const MaybeText =
+    seec::getString("SeeCClang",
+                    (char const *[]){"Graph", "Descriptions", "DIR"});
+  
+  if (MaybeText.assigned<UnicodeString>()) {
+    // Attempt to format and insert the text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(MaybeText.get<UnicodeString>(), Status,
+                                        State.getDirname().c_str());
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+  }
+  
+  Stream << "</TD></TR></TABLE>> ];\n";
+  Stream.flush();
+  
+  return std::make_pair(Maybe<LayoutOfArea>
+                             (LayoutOfArea{std::move(IDString),
+                              std::move(DotString),
+                              ValuePortMap{}}),
+                        MemoryArea{Address, 1});
+}
+
+
+//===----------------------------------------------------------------------===//
 // Render Pointers
 //===----------------------------------------------------------------------===//
 
@@ -1985,6 +2035,10 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
         IsPunned = true;
       }
     }
+    else if (Pointer->isValidOpaque()) {
+      if (HeadAddress == HeadIt->getArea().start())
+        DotStream << ":opaque:nw";
+    }
     else {
       // There's no pointee value. Either the memory area is too small, or the
       // pointer's element type is incomplete. For now, make this look like a
@@ -2035,7 +2089,7 @@ doLayout(LayoutHandler const &Handler,
   
   auto const &Globals = State.getGlobalVariables();
   for (auto It = Globals.begin(), End = Globals.end(); It != End; ++It) {
-    if ((*It)->isInSystemHeader())
+    if ((*It)->isInSystemHeader() && !(*It)->isReferenced())
       continue;
     
     GlobalVariableLayouts.emplace_back(
@@ -2087,6 +2141,13 @@ doLayout(LayoutHandler const &Handler,
       std::async([&, Area] () {
         return doLayout(Handler, Area, Expansion, AreaType::Static); } ));
   }
+  
+  // Generate DIR layouts.
+  for (auto const &Dir : State.getDIRs()) {
+    AreaLayouts.emplace_back(
+      std::async([&, Dir] () {
+        return doLayout(Dir.second, Expansion); } ));
+  }
 
 #else // _LIBCPP_VERSION
 
@@ -2094,7 +2155,7 @@ doLayout(LayoutHandler const &Handler,
   std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
   
   for (auto const &Global : State.getGlobalVariables()) {
-    if (Global->isInSystemHeader())
+    if (Global->isInSystemHeader() && !Global->isReferenced())
       continue;
     
     GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
@@ -2128,7 +2189,11 @@ doLayout(LayoutHandler const &Handler,
                                                  (Known.End - Known.Begin) + 1,
                                                  Known.Value),
                                       Expansion,
-                                      AreaType::Dynamic));
+                                      AreaType::Static));
+  
+  // Generate DIR layouts.
+  for (auto const &Dir : State.getDIRs())
+    AreaLayouts.emplace_back(doLayout(Dir.second, Expansion));
   
 #endif // _LIBCPP_VERSION
   

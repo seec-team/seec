@@ -44,8 +44,8 @@ public:
               std::string WithFilename,
               std::string WithMode)
   : Address(WithAddress),
-    Filename(WithFilename),
-    Mode(WithMode)
+    Filename(std::move(WithFilename)),
+    Mode(std::move(WithMode))
   {}
   
   /// \name Accessors
@@ -69,6 +69,43 @@ public:
 /// Print a textual description of a StreamState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               StreamState const &State);
+
+
+/// \brief State of an open DIR.
+///
+class DIRState {
+  /// The runtime address of the DIR (the raw value of the DIR *).
+  uintptr_t const Address;
+  
+  /// The path used to open the DIR.
+  std::string const Dirname;
+  
+public:
+  /// \brief Constructor.
+  ///
+  DIRState(uintptr_t WithAddress,
+           std::string WithDirname)
+  : Address(WithAddress),
+    Dirname(std::move(WithDirname))
+  {}
+  
+  /// \name Accessors
+  /// @{
+  
+  /// \brief Get the runtime address of the DIR.
+  ///
+  uintptr_t getAddress() const { return Address; }
+  
+  /// \brief Get the pathname used when opening the DIR.
+  ///
+  std::string const &getDirname() const { return Dirname; }
+  
+  /// @} (Accessors)
+};
+
+/// Print a textual description of a DIRState.
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              DIRState const &State);
 
 
 } // namespace trace (in seec)

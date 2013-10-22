@@ -21,6 +21,9 @@ set(SOURCES
   WrapCstdlib_h.cpp
   WrapCstring_h.cpp
   WrapCtime_h.cpp
+  WrapPOSIXdirent_h.cpp
+  WrapPOSIXsys_stat_h.cpp
+  WrapPOSIXsys_time_h.cpp
   WrapPOSIXsys_wait_h.cpp
   WrapPOSIXunistd_h.cpp
   )
@@ -62,6 +65,7 @@ SET_TARGET_PROPERTIES(
   PROPERTIES
     VERSION ${RUNTIME_TRACER_VERSION}
     SOVERSION ${RUNTIME_TRACER_VERSION}
+    INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib"
 )
 
 INSTALL(TARGETS seecRuntimeTracer

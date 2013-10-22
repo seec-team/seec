@@ -240,6 +240,36 @@ public:
 };
 
 
+/// \brief Helps detect and report errors with DIR usage.
+///
+class DIRChecker {
+  TraceThreadListener &Thread;
+  
+  uint32_t const InstructionIndex;
+  
+  seec::runtime_errors::format_selects::CStdFunction const Function;
+  
+  TraceDirs const &Dirs;
+  
+public:
+  DIRChecker(TraceThreadListener &InThread,
+             uint32_t WithInstructionIndex,
+             seec::runtime_errors::format_selects::CStdFunction ForFunction,
+             TraceDirs const &WithDirs)
+  : Thread(InThread),
+    InstructionIndex(WithInstructionIndex),
+    Function(ForFunction),
+    Dirs(WithDirs)
+  {}
+  
+  /// \brief Check if a DIR * is valid.
+  ///
+  /// \return true iff there were no errors.
+  bool checkDIRIsValid(unsigned const Parameter,
+                       void const * const TheDIR);
+};
+
+
 } // namespace trace (in seec)
 
 } // namespace seec

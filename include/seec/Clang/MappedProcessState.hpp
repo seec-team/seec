@@ -80,6 +80,9 @@ class ProcessState {
   /// Currently open streams.
   llvm::DenseMap<uintptr_t, StreamState> Streams;
   
+  /// Currently open DIRs.
+  llvm::DenseMap<uintptr_t, DIRState> Dirs;
+  
 public:
   /// \brief Constructor.
   ///
@@ -214,6 +217,20 @@ public:
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
   StreamState const *getStream(uintptr_t Address) const;
+  
+  /// @} (Streams.)
+  
+  
+  /// \name DIRs.
+  /// @{
+  
+  /// \brief Get the currently open DIRs.
+  ///
+  decltype(Dirs) const &getDIRs() const { return Dirs; }
+  
+  /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
+  ///
+  DIRState const *getDIR(uintptr_t Address) const;
   
   /// @} (Streams.)
 };

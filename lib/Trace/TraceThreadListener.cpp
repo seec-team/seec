@@ -156,6 +156,45 @@ bool TraceThreadListener::recordStreamClose(FILE *Stream)
 
 
 //------------------------------------------------------------------------------
+// DIR tracking
+//------------------------------------------------------------------------------
+
+void TraceThreadListener::recordDirOpen(void const * const TheDIR,
+                                        char const *Filename)
+{
+  acquireDirsLock();
+  
+  auto &Dirs = ProcessListener.getDirs(DirsLock);
+  
+  auto const FilenameOffset =
+    ProcessListener.recordData(Filename, std::strlen(Filename) + 1);
+  
+  Dirs.DIROpened(TheDIR, FilenameOffset);
+  
+  EventsOut.write<EventType::DirOpen>(reinterpret_cast<uintptr_t>(TheDIR),
+                                      FilenameOffset);
+}
+
+bool TraceThreadListener::recordDirClose(void const * const TheDIR)
+{
+  acquireDirsLock();
+  
+  auto &Dirs = ProcessListener.getDirs(DirsLock);
+  
+  auto const Info = Dirs.DIRInfo(TheDIR);
+  if (!Info)
+    return false;
+  
+  EventsOut.write<EventType::DirClose>(reinterpret_cast<uintptr_t>(TheDIR),
+                                       Info->getDirnameOffset());
+  
+  Dirs.DIRClosed(TheDIR);
+  
+  return true;
+}
+
+
+//------------------------------------------------------------------------------
 // Dynamic memory
 //------------------------------------------------------------------------------
 
@@ -443,7 +482,8 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   ActiveFunction(nullptr),
   GlobalMemoryLock(),
   DynamicMemoryLock(),
-  StreamsLock()
+  StreamsLock(),
+  DirsLock()
 {
   traceOpen();
   

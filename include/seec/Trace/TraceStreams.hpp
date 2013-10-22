@@ -79,6 +79,30 @@ public:
 };
 
 
+/// \brief Information about a single DIR.
+///
+class TraceDIR {
+  /// The offset of the dirname string in the trace's data file.
+  offset_uint DirnameOffset;
+  
+public:
+  /// \brief Default constructor.
+  ///
+  TraceDIR(offset_uint const WithDirnameOffset)
+  : DirnameOffset(WithDirnameOffset)
+  {}
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the offset of the dirname string in the trace's data file.
+  ///
+  offset_uint getDirnameOffset() const { return DirnameOffset; }
+  
+  /// @} (Accessors)
+};
+
+
 /// \brief Store information about I/O streams.
 ///
 class TraceStreams {
@@ -91,6 +115,10 @@ public:
   TraceStreams()
   : Streams()
   {}
+  
+  
+  /// \name FILE streams.
+  /// @{
   
   /// \brief Notify that a stream has been opened.
   ///
@@ -111,6 +139,48 @@ public:
   /// \brief Notify that a stream was closed.
   ///
   void streamClosed(FILE *Stream);
+  
+  /// @} (FILE streams)
+};
+
+
+/// \brief Store information about DIR pointers.
+///
+class TraceDirs {
+  /// Map of all open DIRs.
+  std::map<uintptr_t, TraceDIR> Dirs;
+  
+public:
+  /// \brief Default constructor.
+  ///
+  TraceDirs()
+  : Dirs()
+  {}
+  
+  
+  /// \name DIRs.
+  /// @{
+  
+  /// \brief Notify that a DIR has been opened.
+  ///
+  void DIROpened(void const *TheDIR,
+                 offset_uint const DirnameOffset);
+  
+  /// \brief Notify that a DIR will be closed.
+  ///
+  /// \return true iff this DIR exists and can be closed successfully.
+  ///
+  bool DIRWillClose(void const *TheDIR) const;
+  
+  /// \brief Get DIR information if it exists, otherwise nullptr.
+  ///
+  TraceDIR const *DIRInfo(void const *TheDIR) const;
+  
+  /// \brief Notify that a DIR was closed.
+  ///
+  void DIRClosed(void const *TheDIR);
+  
+  /// @} (DIRs)
 };
 
 

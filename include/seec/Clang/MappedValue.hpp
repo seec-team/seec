@@ -231,6 +231,10 @@ public:
 ///
 class ValueOfPointer : public Value {
 private:
+  /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
+  ///
+  virtual bool isValidOpaqueImpl() const =0;
+  
   /// \brief Get the raw value of this pointer.
   ///
   virtual uintptr_t getRawValueImpl() const =0;
@@ -259,6 +263,10 @@ public:
   /// \brief Get the Value of this Value dereferenced.
   ///
   virtual std::shared_ptr<Value const> getDereferenced(unsigned Index) const =0;
+  
+  /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
+  ///
+  bool isValidOpaque() const { return isValidOpaqueImpl(); }
   
   /// \brief Get the raw value of this pointer.
   ///

@@ -65,6 +65,37 @@ void TraceStreams::streamClosed(FILE *Stream)
 }
 
 
+//===------------------------------------------------------------------------===
+// TraceDirs
+//===------------------------------------------------------------------------===
+
+void TraceDirs::DIROpened(void const * const TheDIR,
+                          offset_uint const DirnameOffset)
+{
+  Dirs.insert(std::make_pair(reinterpret_cast<uintptr_t>(TheDIR),
+                             TraceDIR{DirnameOffset}));
+}
+
+bool TraceDirs::DIRWillClose(void const * const TheDIR) const
+{
+  auto const It = Dirs.find(reinterpret_cast<uintptr_t>(TheDIR));
+  return It != Dirs.end();
+}
+
+TraceDIR const *TraceDirs::DIRInfo(void const * const TheDIR) const
+{
+  auto const It = Dirs.find(reinterpret_cast<uintptr_t>(TheDIR));
+  return (It != Dirs.end()) ? &It->second : nullptr;
+}
+
+void TraceDirs::DIRClosed(void const * const TheDIR)
+{
+  auto It = Dirs.find(reinterpret_cast<uintptr_t>(TheDIR));
+  assert(It != Dirs.end());
+  Dirs.erase(It);
+}
+
+
 } // namespace trace (in seec)
 
 } // namespace seec

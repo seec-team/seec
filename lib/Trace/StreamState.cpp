@@ -28,6 +28,14 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   return Out;
 }
 
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              DIRState const &State)
+{
+  Out << "  @" << State.getAddress()
+      << ": " << State.getDirname() << "\n";
+  return Out;
+}
+
 } // namespace trace (in seec)
 
 } // namespace seec

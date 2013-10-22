@@ -212,6 +212,13 @@ class TraceProcessListener {
   
   /// Runtime addresses of the initial standard input/output streams.
   std::vector<uintptr_t> StreamsInitial;
+  
+  
+  /// DIR tracking mutex.
+  mutable std::mutex DirsMutex;
+  
+  /// DIR tracking information.
+  TraceDirs Dirs;
 
 
 public:
@@ -507,6 +514,43 @@ public:
   getStreams(std::unique_lock<std::mutex> const &Lock) const {
     assert(Lock.mutex() == &StreamsMutex && Lock.owns_lock());
     return Streams;
+  }
+  
+  /// @} (I/O streams tracking)
+  
+  
+  /// \name DIR tracking.
+  /// @{
+  
+  /// \brief Lock the DIR tracking.
+  std::unique_lock<std::mutex> getDirsLock() const {
+    return std::unique_lock<std::mutex>(DirsMutex);
+  }
+  
+  /// \brief Get an accessor to the DIR tracking information.
+  LockedObjectAccessor<TraceDirs, std::mutex>
+  getDirsAccessor() {
+    return makeLockedObjectAccessor(DirsMutex, Dirs);
+  }
+  
+  /// \brief Get an accessor to the DIR tracking information.
+  LockedObjectAccessor<TraceDirs const, std::mutex>
+  getDirsAccessor() const {
+    return makeLockedObjectAccessor(DirsMutex, Dirs);
+  }
+  
+  /// \brief Get the DIR tracking information.
+  TraceDirs &
+  getDirs(std::unique_lock<std::mutex> const &Lock) {
+    assert(Lock.mutex() == &DirsMutex && Lock.owns_lock());
+    return Dirs;
+  }
+  
+  /// \brief Get the DIR tracking information.
+  TraceDirs const &
+  getDirs(std::unique_lock<std::mutex> const &Lock) const {
+    assert(Lock.mutex() == &DirsMutex && Lock.owns_lock());
+    return Dirs;
   }
   
   /// @} (I/O streams tracking)

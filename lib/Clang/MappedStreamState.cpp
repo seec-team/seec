@@ -46,6 +46,26 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, StreamState const &State)
   return Out;
 }
 
+DIRState::DIRState(seec::trace::DIRState const &ForUnmappedState)
+: UnmappedState(ForUnmappedState)
+{}
+
+uintptr_t DIRState::getAddress() const {
+  return UnmappedState.getAddress();
+}
+
+std::string const &DIRState::getDirname() const {
+  return UnmappedState.getDirname();
+}
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, DIRState const &State)
+{
+  Out << "@" << State.getAddress()
+      << ": " << State.getDirname();
+  
+  return Out;
+}
+
 } // namespace cm (in seec)
 
 } // namespace seec

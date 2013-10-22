@@ -40,7 +40,8 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
   UnmappedStaticAreas{},
   ThreadStates{},
   CurrentValueStore{},
-  Streams{}
+  Streams{},
+  Dirs{}
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
     ThreadStates.emplace_back(makeUnique<ThreadState>(*this, *StatePtr));
@@ -86,10 +87,15 @@ void ProcessState::cacheClear() {
   // Clear process-level cached information.
   CurrentValueStore = seec::cm::ValueStore::create();
   Streams.clear();
+  Dirs.clear();
   
   // Generate stream information.
   for (auto const &Pair : UnmappedState->getStreams())
     Streams.insert(std::make_pair(Pair.first, StreamState(Pair.second)));
+  
+  // Generate DIR information.
+  for (auto const &Pair : UnmappedState->getDirs())
+    Dirs.insert(std::make_pair(Pair.first, DIRState(Pair.second)));
   
   // Clear thread-level cached information.
   for (auto &ThreadPtr : ThreadStates)
@@ -139,6 +145,20 @@ void ProcessState::print(llvm::raw_ostream &Out,
       Indentation.indent();
       
       for (auto const &Pair : Streams) {
+        Out << Indentation.getString() << Pair.second << "\n";
+      }
+      
+      Indentation.unindent();
+    }
+    
+    // Print dirs.
+    if (!Dirs.empty()) {
+      Out << Indentation.getString()
+          << "DIRs: " << Dirs.size() << "\n";
+      
+      Indentation.indent();
+      
+      for (auto const &Pair : Dirs) {
         Out << Indentation.getString() << Pair.second << "\n";
       }
       
@@ -203,6 +223,17 @@ StreamState const *ProcessState::getStream(uintptr_t const Address) const
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
+}
+
+
+//===----------------------------------------------------------------------===//
+// ProcessState: DIRs
+//===----------------------------------------------------------------------===//
+
+DIRState const *ProcessState::getDIR(uintptr_t const Address) const
+{
+  auto const It = Dirs.find(Address);
+  return It != Dirs.end() ? &It->second : nullptr;
 }
 
 

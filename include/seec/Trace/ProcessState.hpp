@@ -202,6 +202,9 @@ private:
   
   /// Currently open streams.
   llvm::DenseMap<uintptr_t, StreamState> Streams;
+  
+  /// Currently open DIRs.
+  llvm::DenseMap<uintptr_t, DIRState> Dirs;
 
   /// @} (Variable data.)
 
@@ -339,6 +342,30 @@ public:
   StreamState const *getStream(uintptr_t Address) const;
   
   /// @} (Streams.)
+  
+  
+  /// \name Dirs.
+  /// @{
+  
+  /// \brief Get the currently open DIRs.
+  ///
+  decltype(Dirs) const &getDirs() const { return Dirs; }
+  
+  /// \brief Add a DIR to the currently open DIRs.
+  /// \return true iff the DIR was added (did not already exist).
+  ///
+  bool addDir(DIRState Dir);
+  
+  /// \brief Remove a DIR from the currently open DIRs.
+  /// \return true iff the DIR was removed (existed).
+  ///
+  bool removeDir(uintptr_t Address);
+  
+  /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
+  ///
+  DIRState const *getDir(uintptr_t Address) const;
+  
+  /// @} (Dirs.)
   
   
   /// \name Get run-time addresses.

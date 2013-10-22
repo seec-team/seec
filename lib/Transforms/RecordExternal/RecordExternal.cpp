@@ -23,6 +23,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/Casting.h"
@@ -36,6 +37,22 @@
 #include <cassert>
 
 namespace llvm {
+
+static bool IsMangledInterceptor(Function &F)
+{
+  return F.getName().startswith("__SeeC_")
+      && F.getName().endswith("__");
+}
+
+static llvm::Function *GetInterceptorFor(Function &F, Module &M)
+{
+  llvm::SmallString<128> InterceptorName;
+  InterceptorName += "__SeeC_";
+  InterceptorName += F.getName();
+  InterceptorName += "__";
+  
+  return M.getFunction(InterceptorName);
+}
 
 char InsertExternalRecording::ID = 0;
 
@@ -142,63 +159,35 @@ InsertExternalRecording::insertRecordUpdateForValue(Instruction &I,
   return RecordCall;
 }
 
-/// Perform module-level initialization before the pass is run.  For this
-/// pass, we need to create function prototypes for the execution tracing
-/// functions that will be called.
-/// \param M a reference to the LLVM module to modify.
-/// \return true if this LLVM module has been modified.
-bool InsertExternalRecording::doInitialization(Module &M) {
-  // Context of the instrumented module
-  LLVMContext &Context = M.getContext();
-
-  Int32Ty = Type::getInt32Ty(Context);
-  Int64Ty = Type::getInt64Ty(Context);
-  Int8PtrTy = Type::getInt8PtrTy(Context);
-
-  // Get DataLayout
-  DL = getAnalysisIfAvailable<DataLayout>();
-  if (!DL)
-    return false;
-  
-  // Index the module (prior to adding any functions)
-  ModIndex.reset(new seec::ModuleIndex(M));
-  
-  // Get bitcode for the uninstrumented Module.
+/// \brief Get the bitcode for M as a string.
+///
+static std::string GetModuleBitcode(Module &M) {
   std::string ModuleBitcode;
   
-  {
-    llvm::raw_string_ostream BitcodeStream {ModuleBitcode};
-    llvm::WriteBitcodeToFile(&M, BitcodeStream);
-    BitcodeStream.flush();
-  }
+  llvm::raw_string_ostream BitcodeStream {ModuleBitcode};
+  llvm::WriteBitcodeToFile(&M, BitcodeStream);
+  BitcodeStream.flush();
+  
+  return ModuleBitcode;
+}
 
-  // Build a list of all the global variables used in the module
+/// \brief Get a vector of Constant pointers to the globals in M.
+///
+static std::vector<Constant *> GetGlobals(Module &M, llvm::Type *Int8PtrTy) {
   std::vector<Constant *> Globals;
+  
   for (auto GIt = M.global_begin(), GEnd = M.global_end(); GIt != GEnd; ++GIt) {
     Globals.push_back(ConstantExpr::getPointerCast(&*GIt, Int8PtrTy));
   }
+  
+  return Globals;
+}
 
-  auto GlobalsArrayType = ArrayType::get(Int8PtrTy, Globals.size());
-
-  if (auto Existing = M.getNamedGlobal("SeeCInfoGlobals")) {
-    Existing->eraseFromParent();
-  }
-
-  new GlobalVariable(M, GlobalsArrayType, true, GlobalValue::ExternalLinkage,
-                     ConstantArray::get(GlobalsArrayType, Globals),
-                     StringRef("SeeCInfoGlobals"));
-
-  // Add a constant with the size of the globals array
-  if (auto Existing = M.getNamedGlobal("SeeCInfoGlobalsLength")) {
-    Existing->eraseFromParent();
-  }
-
-  new GlobalVariable(M, Int64Ty, true, GlobalValue::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, Globals.size()),
-                     StringRef("SeeCInfoGlobalsLength"));
-
-  // Build a list of all the functions used in the module.
+/// \brief Get a vector of Constant pointers to the functions in M.
+///
+static std::vector<Constant *> GetFunctions(Module &M, llvm::Type *Int8PtrTy) {
   std::vector<Constant *> Functions;
+  
   for (auto &F: M) {
     if (F.isIntrinsic()) {
       continue;
@@ -206,25 +195,47 @@ bool InsertExternalRecording::doInitialization(Module &M) {
     
     Functions.push_back(ConstantExpr::getPointerCast(&F, Int8PtrTy));
   }
+  
+  return Functions;
+}
 
-  auto FunctionsArrayType = ArrayType::get(Int8PtrTy, Functions.size());
+/// \brief Add a lookup array to M.
+///
+static void AddLookupArray(Module &M,
+                           std::vector<Constant *> const &Contents,
+                           StringRef LookupName,
+                           StringRef LookupLengthName)
+{
+  auto &Context = M.getContext();
+  auto const Int64Ty = Type::getInt64Ty(Context);
+  auto const Int8PtrTy = Type::getInt8PtrTy(Context);
+  auto const ArrayTy = ArrayType::get(Int8PtrTy, Contents.size());
 
-  if (auto Existing = M.getNamedGlobal("SeeCInfoFunctions")) {
+  if (auto Existing = M.getNamedGlobal(LookupName)) {
     Existing->eraseFromParent();
   }
 
-  new GlobalVariable(M, FunctionsArrayType, true, GlobalValue::ExternalLinkage,
-                     ConstantArray::get(FunctionsArrayType, Functions),
-                     StringRef("SeeCInfoFunctions"));
+  new GlobalVariable(M, ArrayTy, true, GlobalValue::ExternalLinkage,
+                     ConstantArray::get(ArrayTy, Contents),
+                     LookupName);
 
-  // Add a constant with the size of the function array
-  if (auto Existing = M.getNamedGlobal("SeeCInfoFunctionsLength")) {
+  // Add a constant with the size of the array.
+  if (auto Existing = M.getNamedGlobal(LookupLengthName)) {
     Existing->eraseFromParent();
   }
 
   new GlobalVariable(M, Int64Ty, true, GlobalValue::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, Functions.size()),
-                     StringRef("SeeCInfoFunctionsLength"));
+                     ConstantInt::get(Int64Ty, Contents.size()),
+                     LookupLengthName);
+}
+
+/// \brief Add information about the Module M to itself.
+///
+static void AddModuleInfo(Module &M,
+                          std::string const &ModuleBitcode)
+{
+  auto &Context = M.getContext();
+  auto const Int64Ty = Type::getInt64Ty(Context);
   
   // Add the module's bitcode as a global.
   if (auto Existing = M.getNamedGlobal("SeeCInfoModuleBitcode")) {
@@ -251,6 +262,37 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   new GlobalVariable(M, IdentifierStrConst->getType(), true,
                      GlobalValue::ExternalLinkage, IdentifierStrConst,
                      StringRef("SeeCInfoModuleIdentifier"));
+}
+
+/// Perform module-level initialization before the pass is run.  For this
+/// pass, we need to create function prototypes for the execution tracing
+/// functions that will be called.
+/// \param M a reference to the LLVM module to modify.
+/// \return true if this LLVM module has been modified.
+bool InsertExternalRecording::doInitialization(Module &M) {
+  // Context of the instrumented module
+  LLVMContext &Context = M.getContext();
+
+  Int32Ty = Type::getInt32Ty(Context);
+  Int64Ty = Type::getInt64Ty(Context);
+  Int8PtrTy = Type::getInt8PtrTy(Context);
+
+  // Get DataLayout
+  DL = getAnalysisIfAvailable<DataLayout>();
+  if (!DL)
+    return false;
+  
+  // Index the module (prior to adding any functions)
+  ModIndex.reset(new seec::ModuleIndex(M));
+  
+  // Get bitcode for the uninstrumented Module.
+  std::string const ModuleBitcode = GetModuleBitcode(M);
+
+  AddLookupArray(M, GetGlobals(M, Int8PtrTy),
+                 "SeeCInfoGlobals", "SeeCInfoGlobalsLength");
+  AddLookupArray(M, GetFunctions(M, Int8PtrTy),
+                 "SeeCInfoFunctions", "SeeCInfoFunctionsLength");
+  AddModuleInfo(M, ModuleBitcode);
 
   // Check for unhandled external functions.
   for (auto &F : M) {
@@ -266,8 +308,14 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 #define SEEC_FUNCTION_HANDLED(NAME) if (Name.equals(#NAME)) Handled = true;
 #include "seec/Transforms/FunctionsHandled.def"
 
-      if (!Handled)
-        UnhandledFunctions.insert(&F);
+#define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE) \
+      if (Name.equals("SeeCRecord" #POINT)) Handled = true;
+#include "seec/Transforms/RecordExternal/RecordPoints.def"
+
+      if (Handled || IsMangledInterceptor(F) || GetInterceptorFor(F, M))
+        continue;
+      
+      UnhandledFunctions.insert(&F);
     }
   }
 
@@ -307,11 +355,12 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
 #undef SEEC__STRINGIZE
 #undef SEEC__STRINGIZE2
-    
-    if (Intercept) {
-      F.replaceAllUsesWith(Intercept);
-      Interceptors.insert(Intercept);
-    }
+
+    if (!Intercept)
+      Intercept = GetInterceptorFor(F, M);
+
+    if (Intercept)
+      Interceptors.insert(std::make_pair(&F, Intercept));
   }
   
   return true;
@@ -319,6 +368,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
 bool InsertExternalRecording::runOnFunction(Function &F) {
   if (!DL)
+    return false;
+
+  // If the function is an interceptor, or has an interceptor available, then
+  // we should not instrument it.
+  if (IsMangledInterceptor(F) || Interceptors.find(&F) != Interceptors.end())
     return false;
 
   // Get a list of all the instructions in the function, so that we can visit
@@ -567,10 +621,13 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
 void InsertExternalRecording::visitCallInst(CallInst &CI) {
   Function *CalledFunction = CI.getCalledFunction();
   
-  // If this is a call to one of SeeC's interception functions, then we only
-  // need to notify the instruction index before the call. Checking, recording
-  // and value updating will happen in the intercepted function.
-  if (Interceptors.count(CalledFunction)) {
+  // Check if the call should be redirected to an interception function (either
+  // a user-defined one, or one provided by SeeC). If it is redirected then we
+  // only need to notify the instruction index before the call - checking,
+  // recording and value updating must be performed by the interceptor.
+  auto const InterceptorIt = Interceptors.find(CalledFunction);
+  if (InterceptorIt != Interceptors.end()) {
+    CI.setCalledFunction(InterceptorIt->second);
     Value *Args[] = {ConstantInt::get(Int32Ty, InstructionIndex)};
     CallInst::Create(RecordSetInstruction, Args, "", &CI);
     return;

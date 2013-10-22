@@ -364,6 +364,24 @@ SEEC_TRACE_EVENT(FileClose,
     (FileClose, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(DirOpen,
+  SEEC_PP_QUOTE(
+    (uintptr_t, DirAddress),
+    (offset_uint, DirnameOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (DirOpen, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(DirClose,
+  SEEC_PP_QUOTE(
+    (uintptr_t, DirAddress),
+    (offset_uint, DirnameOffset)
+  ),
+  SEEC_PP_QUOTE(
+    (DirClose, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(RuntimeError,
   SEEC_PP_QUOTE(
     (uint16_t, ErrorType),

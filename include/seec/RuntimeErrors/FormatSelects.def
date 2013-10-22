@@ -33,6 +33,11 @@ SEEC_FORMAT_SELECT(MemoryAccess,
 
 SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
+  // special entry for user-defined functions
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, userdefined, "<user defined function>")
+  
+  //----------------------------------------------------------------------------
   // fenv.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fegetexceptflag, "fegetexceptflag")
@@ -64,6 +69,36 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, gmtime, "gmtime")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, localtime, "localtime")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, mktime, "mktime")
+  
+  //----------------------------------------------------------------------------
+  // dirent.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, closedir,  "closedir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, opendir,   "opendir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, readdir,   "readdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, rewinddir, "rewinddir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, seekdir,   "seekdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, telldir,   "telldir")
+  
+  //----------------------------------------------------------------------------
+  // sys/stat.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkdir, "mkdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, stat,  "stat")
+  
+  //----------------------------------------------------------------------------
+  // sys/time.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, gettimeofday, "gettimeofday")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, settimeofday, "settimeofday")
+  
+  //----------------------------------------------------------------------------
+  // unistd.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, close,  "close")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, getopt, "getopt")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, read,   "read")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, rmdir,  "rmdir")
   
   //----------------------------------------------------------------------------
   // other

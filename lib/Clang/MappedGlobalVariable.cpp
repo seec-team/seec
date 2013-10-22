@@ -44,6 +44,11 @@ bool GlobalVariable::isInSystemHeader() const
   return Mapping.isInSystemHeader();
 }
 
+bool GlobalVariable::isReferenced() const
+{
+  return Mapping.isReferenced();
+}
+
 std::shared_ptr<Value const> GlobalVariable::getValue() const
 {
   auto const Decl = Mapping.getDecl();

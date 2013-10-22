@@ -33,6 +33,26 @@ extern "C" {
 
 
 //===----------------------------------------------------------------------===//
+// close
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(close)
+(int const fildes)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <>
+      {seec::runtime_errors::format_selects::CStdFunction::close}
+      (close,
+       [](int const Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       fildes);
+}
+
+
+//===----------------------------------------------------------------------===//
 // execl
 //===----------------------------------------------------------------------===//
 
@@ -349,6 +369,36 @@ SEEC_MANGLE_FUNCTION(fork)
 
 
 //===----------------------------------------------------------------------===//
+// getopt
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(getopt)
+(int const argc, char * const argv[], char const * const optstring)
+{
+  // Use the SimpleWrapper mechanism.
+  // int opterr
+  // int optopt
+  // int optind
+  // char *optarg
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getopt}
+      .trackGlobal(opterr)
+      .trackGlobal(optopt)
+      .trackGlobal(optind)
+      .trackGlobal(optarg)
+      (getopt,
+       [](int const){ return true; },
+       seec::ResultStateRecorderForNoOp(),
+       argc,
+       seec::wrapInputCStringArray(argv),
+       seec::wrapInputCString(optstring));
+}
+
+
+//===----------------------------------------------------------------------===//
 // pipe
 //===----------------------------------------------------------------------===//
 
@@ -398,6 +448,48 @@ SEEC_MANGLE_FUNCTION(pipe)
   }
   
   return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// read
+//===----------------------------------------------------------------------===//
+
+ssize_t
+SEEC_MANGLE_FUNCTION(read)
+(int const fildes, void * const buf, size_t const nbyte)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::read}
+      (read,
+       [](ssize_t const Result){ return Result >= 0; },
+       seec::ResultStateRecorderForNoOp(),
+       fildes,
+       seec::wrapOutputPointer(buf).setSize(nbyte),
+       nbyte);
+}
+
+
+//===----------------------------------------------------------------------===//
+// rmdir
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(rmdir)
+(char const * const path)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::rmdir}
+      (rmdir,
+       [](int const Result){ return Result == 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapInputCString(path));
 }
 
 

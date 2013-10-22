@@ -602,6 +602,19 @@ void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
   Parent.removeStream(Ev.getFileAddress());
 }
 
+void ThreadState::addEvent(EventRecord<EventType::DirOpen> const &Ev)
+{
+  auto const &Trace = Parent.getTrace();
+  auto const Dirname = Trace.getDataRaw(Ev.getDirnameOffset());
+  
+  Parent.addDir(DIRState{Ev.getDirAddress(), std::string{Dirname}});
+}
+
+void ThreadState::addEvent(EventRecord<EventType::DirClose> const &Ev)
+{
+  Parent.removeDir(Ev.getDirAddress());
+}
+
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   if (!Ev.getIsTopLevel())
     return;
@@ -1153,6 +1166,19 @@ void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
   Parent.addStream(StreamState{Ev.getFileAddress(),
                                std::string{Filename},
                                std::string{Mode}});
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::DirOpen> const &Ev)
+{
+  Parent.removeDir(Ev.getDirAddress());
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::DirClose> const &Ev)
+{
+  auto const &Trace = Parent.getTrace();
+  auto const Dirname = Trace.getDataRaw(Ev.getDirnameOffset());
+  
+  Parent.addDir(DIRState{Ev.getDirAddress(), std::string{Dirname}});
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {

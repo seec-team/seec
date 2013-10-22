@@ -48,7 +48,7 @@ private:
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
 
   /// Set of all SeeC interceptor functions used by this Module.
-  llvm::SmallPtrSet<llvm::Function *, 16> Interceptors;
+  llvm::DenseMap<llvm::Function *, llvm::Function *> Interceptors;
   
   /// Original Instructions of the current Function
   std::vector<Instruction *> FunctionInstructions;

@@ -54,11 +54,18 @@ bool MappedFunctionDecl::isInSystemHeader() const
 // MappedGlobalVariableDecl
 //===----------------------------------------------------------------------===//
 
-bool MappedGlobalVariableDecl::isInSystemHeader() const
-{
-  auto const &SrcMgr = AST.getASTUnit().getSourceManager();
-  return SrcMgr.isInSystemHeader(Decl->getLocation());
-}
+MappedGlobalVariableDecl::
+MappedGlobalVariableDecl(MappedAST const &AST,
+                         clang::ValueDecl const *Decl,
+                         llvm::GlobalVariable const *Global)
+: AST(AST),
+  Decl(Decl),
+  Global(Global),
+  InSystemHeader(AST.getASTUnit()
+                    .getSourceManager()
+                    .isInSystemHeader(Decl->getLocation())),
+  Referenced(AST.isReferenced(Decl))
+{}
 
 
 //===----------------------------------------------------------------------===//
