@@ -14,29 +14,10 @@
 #ifndef SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
 #define SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
 
-#include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
+void showActionRecordSettings();
 
-/// \brief Shows settings for user action recording.
-///
-class ActionRecordSettingsFrame : public wxFrame
-{
-public:
-  /// \brief Constructor (without creation).
-  ///
-  ActionRecordSettingsFrame();
-  
-  /// \brief Constructor (with creation).
-  ///
-  ActionRecordSettingsFrame(wxWindow *Parent);
-  
-  /// \brief Destructor.
-  ///
-  ~ActionRecordSettingsFrame();
-  
-  /// \brief Create the frame.
-  ///
-  bool Create(wxWindow *Parent);
-};
+wxString getActionRecordToken();
+
+long getActionRecordSizeLimit();
 
 #endif // SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP

@@ -35,7 +35,7 @@ END_EVENT_TABLE()
 
 WelcomeFrame::~WelcomeFrame() {
   auto &App = wxGetApp();
-  App.removeTopLevelFrame(this);
+  App.removeTopLevelWindow(this);
 }
 
 bool WelcomeFrame::Create(wxWindow *Parent,

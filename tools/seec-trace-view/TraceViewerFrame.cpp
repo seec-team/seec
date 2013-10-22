@@ -73,7 +73,7 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 TraceViewerFrame::~TraceViewerFrame() {
   // Notify the TraceViewerApp that we have been destroyed.
   auto &App = wxGetApp();
-  App.removeTopLevelFrame(this);
+  App.removeTopLevelWindow(this);
 }
 
 bool TraceViewerFrame::Create(wxWindow *Parent,

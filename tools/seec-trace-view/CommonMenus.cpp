@@ -51,8 +51,7 @@ createRecordingMenu(wxEvtHandler &EvtHandler)
   EvtHandler.Bind(wxEVT_COMMAND_MENU_SELECTED,
                   std::function<void (wxCommandEvent &)>(
                     [] (wxCommandEvent &Event) {
-                      auto Frame = new ActionRecordSettingsFrame(nullptr);
-                      Frame->Show(true);
+                      showActionRecordSettings();
                     }
                   ),
                   SettingsItem->GetId());

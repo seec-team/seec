@@ -76,7 +76,7 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
       new TraceViewerFrame(nullptr,
                            NewTrace.move<std::unique_ptr<OpenTrace>>());
     
-    TopLevelFrames.insert(TraceViewer);
+    TopLevelWindows.insert(TraceViewer);
     TraceViewer->Show(true);
 
     // Hide the Welcome frame (on Mac OS X), or destroy it (all others).
@@ -234,7 +234,7 @@ void TraceViewerApp::MacOpenFile(wxString const &FileName) {
 }
 
 void TraceViewerApp::MacReopenApp() {  
-  if (TopLevelFrames.size() == 0) {
+  if (TopLevelWindows.size() == 0) {
     // Re-open welcome frame, if it exists.
     if (Welcome)
       Welcome->Show(true);
@@ -289,11 +289,11 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
     Welcome = nullptr;
   }
 
-  for (auto Frame : TopLevelFrames) {
-    Frame->Close(true);
+  for (auto Window : TopLevelWindows) {
+    Window->Close(true);
   }
-  TopLevelFrames.clear();
-    
+  TopLevelWindows.clear();
+  
   std::exit(EXIT_SUCCESS);
 }
 

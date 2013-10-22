@@ -36,8 +36,8 @@ class TraceViewerApp : public wxApp
   /// The welcome frame that is displayed when no files are open.
   WelcomeFrame *Welcome;
 
-  /// All other top-level frames.
-  std::set<wxFrame *> TopLevelFrames;
+  /// All other top-level windows.
+  std::set<wxWindow *> TopLevelWindows;
 
   /// The log window.
   wxLogWindow *LogWindow;
@@ -56,7 +56,7 @@ public:
   TraceViewerApp()
   : wxApp(),
     Welcome(nullptr),
-    TopLevelFrames(),
+    TopLevelWindows(),
     LogWindow(nullptr),
     ICUResources(),
     CLFiles()
@@ -107,23 +107,23 @@ public:
 
   void HandleFatalError(wxString Description);
   
-  /// \brief Notify that a top-level frame is being added.
-  void addTopLevelFrame(wxFrame *Frame) {
-    TopLevelFrames.insert(Frame);
+  /// \brief Notify that a top-level window is being added.
+  void addTopLevelWindow(wxWindow *Window) {
+    TopLevelWindows.insert(Window);
   }
 
-  /// \brief Notify that the welcome frame is being destroyed.
-  void removeTopLevelFrame(WelcomeFrame *Frame) {
+  /// \brief Notify that the welcome window is being destroyed.
+  void removeTopLevelWindow(WelcomeFrame *Window) {
     if (!Welcome)
       return;
 
-    assert(Welcome == Frame);
+    assert(Welcome == Window);
     Welcome = nullptr;
   }
 
-  /// \brief Notify that a top-level frame is being destroyed.
-  void removeTopLevelFrame(wxFrame *Frame) {
-    TopLevelFrames.erase(Frame);
+  /// \brief Notify that a top-level window is being destroyed.
+  void removeTopLevelWindow(wxWindow *Window) {
+    TopLevelWindows.erase(Window);
   }
 
   /// @}
