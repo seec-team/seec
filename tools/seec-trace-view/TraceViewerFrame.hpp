@@ -30,6 +30,7 @@ namespace seec {
   }
 }
 
+class ActionRecord;
 class ContextNotifier;
 class OpenTrace;
 class ProcessMoveEvent;
@@ -64,7 +65,7 @@ class TraceViewerFrame : public wxFrame
   StateViewerPanel *StateViewer;
   
   /// Used to record user interactions.
-  std::unique_ptr<wxXmlDocument> ActionRecord;
+  std::unique_ptr<ActionRecord> Recording;
   
   
   /// \name Multi-threaded traces

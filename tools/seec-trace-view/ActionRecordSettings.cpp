@@ -253,6 +253,9 @@ wxString getActionRecordToken()
   wxString CurrentToken;
   Config->Read(cConfigKeyForToken, &CurrentToken);
   
+  if (!validate(CurrentToken.c_str()))
+    CurrentToken.clear();
+  
   return CurrentToken;
 }
 

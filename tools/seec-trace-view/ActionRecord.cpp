@@ -17,7 +17,23 @@
 
 
 ActionRecord::ActionRecord()
-: RecordDocument()
+: Enabled(false),
+  RecordDocument(new wxXmlDocument())
 {}
 
 ActionRecord::~ActionRecord() = default;
+
+void ActionRecord::enable()
+{
+  
+}
+
+void ActionRecord::disable()
+{
+  
+}
+
+void ActionRecord::finish()
+{
+  
+}
