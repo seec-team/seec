@@ -96,6 +96,7 @@ SEEC_FORMAT_SELECT(CStdFunction,
   // unistd.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, close,  "close")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, getcwd, "getcwd")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, getopt, "getopt")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, read,   "read")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, rmdir,  "rmdir")

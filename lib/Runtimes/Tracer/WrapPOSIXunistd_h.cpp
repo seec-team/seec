@@ -369,6 +369,26 @@ SEEC_MANGLE_FUNCTION(fork)
 
 
 //===----------------------------------------------------------------------===//
+// getcwd
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(getcwd)
+(char *Buffer, size_t Size)
+{
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getcwd}
+      (getcwd,
+       [](char const * const Result){ return Result != nullptr; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputCString(Buffer).setMaximumSize(Size),
+       Size);
+}
+
+
+//===----------------------------------------------------------------------===//
 // getopt
 //===----------------------------------------------------------------------===//
 
