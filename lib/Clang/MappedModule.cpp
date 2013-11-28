@@ -300,10 +300,18 @@ MappedModule::MappedModule(
                                             std::move(FunctionMappedLocals))));
       }
       else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
-        if (!llvm::isa<clang::ValueDecl>(Decl))
+        auto const Recent = Decl->getMostRecentDecl();
+        auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Recent);
+        if (!ValueDecl) {
+          DEBUG(llvm::dbgs() << "Global is not a ValueDecl.\n");
           continue;
+        }
         
-        auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Decl);
+        if (GlobalVariableLookup.count(GV)) {
+          if (ValueDecl->getType()->isIncompleteType())
+            continue;
+          GlobalVariableLookup.erase(GV);
+        }
         
         GlobalVariableLookup.insert(
           std::make_pair(GV,
