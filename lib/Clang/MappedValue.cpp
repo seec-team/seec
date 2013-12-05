@@ -11,6 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#define DEBUG_TYPE "seec-clang"
+
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedStmt.hpp"
@@ -31,6 +33,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Frontend/ASTUnit.h"
 
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cctype>
@@ -2052,8 +2055,10 @@ createValue(std::shared_ptr<ValueStore const> Store,
   }
   
   auto const CanonicalType = QualType.getCanonicalType();
-  if (CanonicalType->isIncompleteType())
+  if (CanonicalType->isIncompleteType()) {
+    DEBUG(llvm::dbgs() << "Can't create Value for incomplete type.\n");
     return std::shared_ptr<Value const>(); // No values for incomplete types.
+  }
   
   auto const TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
   
@@ -2223,8 +2228,10 @@ public:
            seec::trace::ProcessState const &ProcessState) const
   {
     auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
-    if (!CanonicalType)
+    if (!CanonicalType) {
+      DEBUG(llvm::dbgs() << "QualType has no CanonicalType.\n");
       return std::shared_ptr<Value const>();
+    }
     
     // Lock the Store.
     std::lock_guard<std::mutex> LockStore(StoreAccess);
