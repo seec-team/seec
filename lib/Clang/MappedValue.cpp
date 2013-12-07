@@ -37,6 +37,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <cctype>
+#include <string>
 
 
 namespace seec {
@@ -70,15 +71,8 @@ struct GetMemoryOfBuiltinAsString {
     if (Region.getArea().length() != sizeof(T))
       return std::string("<size mismatch>");
     
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      auto const Bytes = Region.getByteValues();
-      Stream << *reinterpret_cast<T const *>(Bytes.data());
-    }
-    
-    return RetStr;
+    auto const Bytes = Region.getByteValues();
+    return std::to_string(*reinterpret_cast<T const *>(Bytes.data()));
   }
 };
 
@@ -116,9 +110,20 @@ struct GetMemoryOfBuiltinAsString<char> {
 };
 
 template<>
-struct GetMemoryOfBuiltinAsString<long double> {
+struct GetMemoryOfBuiltinAsString<void const *> {
   static std::string impl(seec::trace::MemoryState::Region const &Region) {
-    return std::string("<long double: not implemented>");
+    if (Region.getArea().length() != sizeof(void const *))
+      return std::string("<size mismatch>");
+    
+    std::string RetStr;
+    
+    {
+      llvm::raw_string_ostream Stream(RetStr);
+      auto const Bytes = Region.getByteValues();
+      Stream << *reinterpret_cast<void const * const *>(Bytes.data());
+    }
+    
+    return RetStr;
   }
 };
 
@@ -1371,37 +1376,28 @@ struct GetValueOfBuiltinAsString {
              + ": couldn't get current runtime value>";
     }
     
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      Stream << MaybeValue.template get<0>();
-    }
-    
-    return RetStr;
+    return std::to_string(MaybeValue.template get<0>());
   }
 };
 
 template<>
-struct GetValueOfBuiltinAsString<long double> {
+struct GetValueOfBuiltinAsString<void const *> {
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<long double>
+    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<void const *>
                                                                  (State, Value);
     if (!MaybeValue.assigned())
-      return std::string("<long double: couldn't get current runtime value>");
+      return std::string("<void const *: couldn't get current runtime value>");
     
-    auto const LDValue = MaybeValue.get<0>();
-    auto const StringLength = snprintf(nullptr, 0, "%Lf", LDValue);
-    if (StringLength < 0)
-      return std::string("<long double: snprintf failed>");
+    std::string RetStr;
     
-    char Buffer[StringLength + 1];
-    if (snprintf(Buffer, StringLength + 1, "%Lf", LDValue) < 0)
-      return std::string("<long double: snprintf failed>");
+    {
+      llvm::raw_string_ostream Stream(RetStr);
+      Stream << MaybeValue.get<0>();
+    }
     
-    return std::string(Buffer);
+    return RetStr;
   }
 };
 
