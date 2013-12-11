@@ -30,6 +30,7 @@ namespace seec {
 
 class ContextNotifier;
 class StateAccessToken;
+class StateEvaluationTreePanel;
 class StateGraphViewerPanel;
 class wxAuiNotebook;
 
@@ -43,6 +44,8 @@ class StateViewerPanel final : public wxPanel
   
   // MallocViewerPanel *MallocViewer;
   
+  StateEvaluationTreePanel *EvaluationTree;
+  
   StateGraphViewerPanel *GraphViewer;
   
   /// Token for accessing the current state.
@@ -52,6 +55,7 @@ public:
   StateViewerPanel()
   : wxPanel(),
     StateBook(nullptr),
+    EvaluationTree(nullptr),
     GraphViewer(nullptr),
     CurrentAccess()
   {}
@@ -63,6 +67,7 @@ public:
                    wxSize const &Size = wxDefaultSize)
   : wxPanel(),
     StateBook(nullptr),
+    EvaluationTree(nullptr),
     GraphViewer(nullptr),
     CurrentAccess()
   {
