@@ -46,23 +46,37 @@ class StateAccessToken;
 class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
 {
   /// \brief Information for a single node in the tree.
+  ///
   struct NodeInfo {
+    /// This node's Stmt.
     clang::Stmt const *Statement;
     
+    /// Value produced by the evaluation of this node.
     std::shared_ptr<seec::cm::Value const> Value;
     
+    /// Start of this node's text in the pretty-printed Stmt.
     uint64_t RangeStart;
     
+    /// Length of this node's text in the pretty-printed Stmt.
     std::size_t RangeLength;
     
+    /// Depth of this node in the current top-level Stmt.
     unsigned Depth;
     
+    /// Left hand side of this node's rectangle.
     wxCoord XStart;
     
+    /// Right hand side of this node's rectangle.
     wxCoord XEnd;
     
-    wxCoord YPos;
+    /// Top of this node's rectangle.
+    wxCoord YStart;
     
+    /// End of this node's rectangle.
+    wxCoord YEnd;
+    
+    /// \brief Constructor.
+    ///
     NodeInfo(clang::Stmt const *ForStatement,
              std::shared_ptr<seec::cm::Value const> WithValue,
              uint64_t WithRangeStart,
@@ -70,7 +84,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
              unsigned WithDepth,
              wxCoord WithXStart,
              wxCoord WithXEnd,
-             wxCoord WithYPos)
+             wxCoord WithYStart,
+             wxCoord WithYEnd)
     : Statement(ForStatement),
       Value(WithValue),
       RangeStart(WithRangeStart),
@@ -78,9 +93,42 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
       Depth(WithDepth),
       XStart(WithXStart),
       XEnd(WithXEnd),
-      YPos(WithYPos)
+      YStart(WithYStart),
+      YEnd(WithYEnd)
     {}
   };
+  
+  /// \brief Contains settings that control the display of the evaluation tree.
+  ///
+  struct DisplaySettings {
+    /// Horizontal space between the drawing and the edge of the window, in
+    /// characters.
+    float PageBorderHorizontal;
+    
+    /// Vertical space between the drawing and the edge of the window, in
+    /// characters.
+    float PageBorderVertical;
+    
+    /// Space placed above a node's rectangle, in characters.
+    float NodeBorderVertical;
+    
+    unsigned CodeFontSize;
+    
+    wxColour NodeBackground;
+    
+    wxColour NodeBorder;
+    
+    wxColour NodeHighlightedBackground;
+    
+    wxColour NodeHighlightedBorder;
+    
+    /// \brief Constructor.
+    ///
+    DisplaySettings();
+  };
+  
+  /// Settings for the display of the evaluation tree.
+  DisplaySettings Settings;
   
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
@@ -105,6 +153,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   
   /// Information for all sub-nodes in the Stmt.
   std::vector<NodeInfo> Nodes;
+  
+  /// The node that the mouse is currently over.
+  decltype(Nodes)::const_iterator HoverNodeIt;
 
 public:
   /// \brief Construct.
@@ -141,10 +192,18 @@ public:
   ///
   void clear();
 
-private:
+  /// \brief Render this panel using the given \c wxDC.
+  ///
   void render(wxDC &dc);
 
+  /// \name Event Handling.
+  /// @{
+  
   void OnPaint(wxPaintEvent &);
+  void OnMouseMoved(wxMouseEvent &);
+  void OnMouseLeftWindow(wxMouseEvent &);
+  
+  /// @} (Event Handling)
 
 public:
   DECLARE_EVENT_TABLE()

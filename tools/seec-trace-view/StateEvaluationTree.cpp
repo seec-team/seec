@@ -38,18 +38,33 @@
 
 BEGIN_EVENT_TABLE(StateEvaluationTreePanel, wxScrolled<wxPanel>)
   EVT_PAINT(StateEvaluationTreePanel::OnPaint)
+  EVT_MOTION(StateEvaluationTreePanel::OnMouseMoved)
+  EVT_LEAVE_WINDOW(StateEvaluationTreePanel::OnMouseLeftWindow)
 END_EVENT_TABLE()
 
 
+StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
+: PageBorderHorizontal(1.0),
+  PageBorderVertical(1.0),
+  NodeBorderVertical(0.5),
+  CodeFontSize(12),
+  NodeBackground(204, 204, 204),
+  NodeBorder(102, 102, 102),
+  NodeHighlightedBackground(102, 204, 204),
+  NodeHighlightedBorder(51, 102, 102)
+{}
+
 StateEvaluationTreePanel::StateEvaluationTreePanel()
-: Notifier(nullptr),
+: Settings(),
+  Notifier(nullptr),
   CurrentAccess(),
   CurrentProcess(nullptr),
   CurrentThread(nullptr),
   ActiveFn(nullptr),
   CodeFont(),
   Statement(),
-  Nodes()
+  Nodes(),
+  HoverNodeIt(Nodes.end())
 {}
 
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
@@ -57,14 +72,16 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
                                                    wxWindowID ID,
                                                    wxPoint const &Position,
                                                    wxSize const &Size)
-: Notifier(nullptr),
+: Settings(),
+  Notifier(nullptr),
   CurrentAccess(),
   CurrentProcess(nullptr),
   CurrentThread(nullptr),
   ActiveFn(nullptr),
   CodeFont(),
   Statement(),
-  Nodes()
+  Nodes(),
+  HoverNodeIt(Nodes.end())
 {
   Create(Parent, TheNotifier, ID, Position, Size);
 }
@@ -81,8 +98,9 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
     return false;
   
   SetBackgroundStyle(wxBG_STYLE_PAINT);
-  CodeFont = wxFont{wxFontInfo(10).Family(wxFONTFAMILY_MODERN)
-                                  .AntiAliased(true)};
+  CodeFont = wxFont{wxFontInfo(Settings.CodeFontSize)
+                    .Family(wxFONTFAMILY_MODERN)
+                    .AntiAliased(true)};
   SetScrollRate(10, 10);
   
   return true;
@@ -219,24 +237,36 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   CurrentAccess = std::move(Access);
   CurrentProcess = &Process;
   CurrentThread = &Thread;
+  ActiveFn = nullptr;
+  Statement.clear();
+  Nodes.clear();
+  HoverNodeIt = Nodes.end();
+  
+  wxClientDC dc(this);
   
   // Recalculate the data here.
-  if (!CurrentThread)
+  if (!CurrentThread) {
+    render(dc);
     return;
+  }
   
   auto &Stack = CurrentThread->getCallStack();
-  if (Stack.empty())
+  if (Stack.empty()) {
+    render(dc);
     return;
+  }
   
   ActiveFn = &(Stack.back().get());
   auto const MappedAST = ActiveFn->getMappedAST();
   auto const ActiveStmt = ActiveFn->getActiveStmt();
-  if (!ActiveStmt)
+  if (!ActiveStmt) {
+    render(dc);
     return;
+  }
   
   auto const TopStmt = getEvaluationRoot(ActiveStmt, *MappedAST);
   if (!TopStmt) {
-    wxLogDebug("active stmt is not suitable");
+    render(dc);
     return;
   }
   
@@ -267,27 +297,27 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   Statement = PrettyPrintedStmt;
   auto const &Ranges = PrinterHelper.getRanges();
   
-  wxClientDC dc(this);
-  
   // Calculate the new size of the display.
   dc.SetFont(CodeFont);
   auto const StatementExtent = dc.GetTextExtent(Statement);
   auto const CharWidth = dc.GetCharWidth();
   auto const CharHeight = dc.GetCharHeight();
   
-  auto const Spacing = 10;
-  auto const TotalWidth = StatementExtent.GetWidth() + (2 * Spacing);
-  auto const LineWithSpacing = Spacing + CharHeight;
+  wxCoord const PageBorderH = CharWidth * Settings.PageBorderHorizontal;
+  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
+  wxCoord const NodeBorderV = CharHeight * Settings.NodeBorderVertical;
+  
+  auto const TotalWidth = StatementExtent.GetWidth() + (2 * PageBorderH);
   
   // Depth is zero-based, so there are (MaxDepth+1) lines for sub-nodes, plus
   // one line for the pretty-printed top-level node.
-  auto const TotalHeight = (MaxDepth + 2) * LineWithSpacing;
+  auto const TotalHeight = ((MaxDepth + 2) * CharHeight)
+                           + ((MaxDepth + 1) * NodeBorderV)
+                           + (2 * PageBorderV);
   
   SetVirtualSize(TotalWidth, TotalHeight);
   
   // Calculate the position of each node in the display.
-  Nodes.clear();
-  
   for (auto const &StmtRange : Ranges) {
     auto const DepthIt = Depths.find(StmtRange.first);
     if (DepthIt == Depths.end()) {
@@ -296,9 +326,10 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
     }
     
     auto const Depth = DepthIt->second;
-    auto const XStart = Spacing + (StmtRange.second.first * CharWidth);
+    auto const XStart = PageBorderH + (StmtRange.second.first * CharWidth);
     auto const XEnd = XStart + (StmtRange.second.second * CharWidth);
-    auto const YPos = TotalHeight - (CharHeight + (Depth * LineWithSpacing));
+    auto const YStart = TotalHeight - PageBorderV - CharHeight
+                        - (Depth * (CharHeight + NodeBorderV));
     
     Nodes.emplace_back(StmtRange.first,
                        ActiveFn->getStmtValue(StmtRange.first),
@@ -307,10 +338,15 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
                        Depth,
                        XStart,
                        XEnd,
-                       YPos);
+                       YStart,
+                       YStart + CharHeight);
   }
   
-  render(dc);
+  HoverNodeIt = Nodes.end();
+  
+  // Create a new DC because we've changed the virtual size.
+  wxClientDC newdc(this);
+  render(newdc);
 }
 
 void StateEvaluationTreePanel::clear()
@@ -332,36 +368,56 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   PrepareDC(dc);
   
   dc.Clear();
-  if (Statement.empty())
+  if (Statement.empty()) {
+    wxLogDebug("empty stmt");
     return;
+  }
   
-  auto const Spacing = 10;
   auto const CharWidth = dc.GetCharWidth();
   auto const CharHeight = dc.GetCharHeight();
+  
+  wxCoord const PageBorderH = CharWidth * Settings.PageBorderHorizontal;
+  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
   
   dc.SetFont(CodeFont);
   dc.SetTextForeground(*wxBLACK);
   
   wxPen TreeLinePen{*wxBLACK};
   
-  wxPen TreeBackPen{wxColour{190, 190, 190}};
-  wxBrush TreeBackBrush{wxColour{200, 200, 200}};
+  wxPen TreeBackPen{Settings.NodeBorder};
+  wxBrush TreeBackBrush{Settings.NodeBackground};
   
-  // Draw the sub-Stmt's backgrounds.
+  wxPen HighlightedBackPen{Settings.NodeHighlightedBorder};
+  wxBrush HighlightedBackBrush{Settings.NodeHighlightedBackground};
+  
+  // Draw the sub-Stmt's node's backgrounds.
   for (auto const &Node : Nodes) {
     dc.SetPen(TreeBackPen);
     dc.SetBrush(TreeBackBrush);
-    dc.DrawRectangle(Node.XStart, Node.YPos,
+    dc.DrawRectangle(Node.XStart, Node.YStart,
+                     Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
+  }
+  
+  // Draw the hovered node's background.
+  if (HoverNodeIt != Nodes.end()) {
+    auto const &Node = *HoverNodeIt;
+    dc.SetPen(HighlightedBackPen);
+    dc.SetBrush(HighlightedBackBrush);
+    dc.DrawRectangle(Node.XStart, Node.YStart,
+                     Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
+    
+    // Also highlight this node's area in the pretty-printed Stmt.
+    dc.DrawRectangle(Node.XStart, PageBorderV,
                      Node.XEnd - Node.XStart, CharHeight);
   }
   
   // Draw the pretty-printed Stmt's string.
-  dc.DrawText(Statement, Spacing, Spacing);
+  dc.DrawText(Statement, PageBorderH, PageBorderV);
   
   // Draw the individual sub-Stmts' strings.
   for (auto const &Node : Nodes) {
     dc.SetPen(TreeLinePen);
-    dc.DrawLine(Node.XStart, Node.YPos, Node.XEnd, Node.YPos);
+    dc.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
     
     if (Node.Value) {
       auto ValText = Node.Value->getValueAsStringShort();
@@ -372,7 +428,7 @@ void StateEvaluationTreePanel::render(wxDC &dc)
       auto const TextWidth = CharWidth * ValText.size();
       auto const NodeWidth = CharWidth * Node.RangeLength;
       auto const Offset = (NodeWidth - TextWidth) / 2;
-      dc.DrawText(ValText, Node.XStart + Offset, Node.YPos);
+      dc.DrawText(ValText, Node.XStart + Offset, Node.YStart);
     }
   }
 }
@@ -381,4 +437,46 @@ void StateEvaluationTreePanel::OnPaint(wxPaintEvent &Ev)
 {
   wxPaintDC dc(this);
   render(dc);
+}
+
+void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
+{
+  bool DisplayChanged = false;
+  auto const Pos = CalcUnscrolledPosition(Ev.GetPosition());
+  
+  // TODO: Find if the Pos is over the pretty-printed Stmt.
+  
+  // Find if the Pos is over a node's rectangle.
+  auto const NewHoverNodeIt = std::find_if(Nodes.begin(), Nodes.end(),
+    [&Pos] (NodeInfo const &Node) -> bool {
+      return Node.XStart <= Pos.x && Pos.x <= Node.XEnd
+          && Node.YStart <= Pos.y && Pos.y <= Node.YEnd;
+    });
+  
+  if (NewHoverNodeIt != HoverNodeIt) {
+    HoverNodeIt = NewHoverNodeIt;
+    DisplayChanged = true;
+  }
+  
+  // Redraw the display.
+  if (DisplayChanged) {
+    wxClientDC dc(this);
+    render(dc);
+  }
+}
+
+void StateEvaluationTreePanel::OnMouseLeftWindow(wxMouseEvent &Ev)
+{
+  bool DisplayChanged = false;
+  
+  if (HoverNodeIt != Nodes.end()) {
+    HoverNodeIt = Nodes.end();
+    DisplayChanged = true;
+  }
+  
+  // Redraw the display.
+  if (DisplayChanged) {
+    wxClientDC dc(this);
+    render(dc);
+  }
 }
