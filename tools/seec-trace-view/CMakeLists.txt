@@ -32,6 +32,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   SourceViewerSettings.hpp
   SourceViewerSettingsTypes.def
   StateAccessToken.hpp
+  StateEvaluationTree.hpp
   StateGraphViewer.hpp
   StateViewer.hpp
   ThreadMoveEvent.hpp
@@ -55,6 +56,7 @@ set(SEEC_TRACE_VIEW_SRCS
   ProcessMoveEvent.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
+  StateEvaluationTree.cpp
   StateGraphViewer.cpp
   StateViewer.cpp
   ThreadMoveEvent.cpp

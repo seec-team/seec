@@ -11,6 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#define DEBUG_TYPE "seec-clang"
+
 #include "seec/Clang/Compile.hpp"
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
@@ -23,6 +25,7 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/Debug.h"
 
 #include <algorithm>
 
@@ -241,19 +244,34 @@ MappedModule::MappedModule(
       assert(!FilePath.empty());
       
       auto const Global = Node->getOperand(1u);
-      if (!Global)
+      if (!Global) {
+        DEBUG(dbgs() << "Global is null.\n");
         continue;
+      }
 
       auto const DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
       assert(DeclIdx);
 
       auto const Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
-      if (!Decl)
+      if (!Decl) {
+        DEBUG(dbgs() << "Global's Decl is null.\n");
         continue;
+      }
       
       if (auto const Func = llvm::dyn_cast<llvm::Function>(Global)) {
-        auto const FnDecl = llvm::dyn_cast<clang::FunctionDecl>(Decl);
+        auto FnDecl = llvm::dyn_cast<clang::FunctionDecl>(Decl);
         assert(FnDecl);
+        
+        clang::FunctionDecl const *FnDefinition = nullptr;
+        if (FnDecl->hasBody(FnDefinition)) {
+          FnDecl = FnDefinition;
+          FunctionLookup.erase(Func);
+        }
+        else if (FunctionLookup.count(Func)) {
+          // Don't overwrite the existing function mapping with one for a
+          // non-definition Decl!
+          continue;
+        }
         
         auto const ParamBegin = FnDecl->param_begin();
         auto const ParamEnd = FnDecl->param_end();
@@ -282,10 +300,18 @@ MappedModule::MappedModule(
                                             std::move(FunctionMappedLocals))));
       }
       else if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
-        if (!llvm::isa<clang::ValueDecl>(Decl))
+        auto const Recent = Decl->getMostRecentDecl();
+        auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Recent);
+        if (!ValueDecl) {
+          DEBUG(llvm::dbgs() << "Global is not a ValueDecl.\n");
           continue;
+        }
         
-        auto const ValueDecl = llvm::dyn_cast<clang::ValueDecl>(Decl);
+        if (GlobalVariableLookup.count(GV)) {
+          if (ValueDecl->getType()->isIncompleteType())
+            continue;
+          GlobalVariableLookup.erase(GV);
+        }
         
         GlobalVariableLookup.insert(
           std::make_pair(GV,

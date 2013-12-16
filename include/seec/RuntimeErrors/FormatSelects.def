@@ -83,8 +83,15 @@ SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
   // sys/stat.h
   //----------------------------------------------------------------------------
-  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkdir, "mkdir")
-  SEEC_FORMAT_SELECT_ITEM(CStdFunction, stat,  "stat")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, chmod,  "chmod")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fchmod, "fchmod")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, fstat,  "fstat")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, lstat,  "lstat")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkdir,  "mkdir")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkfifo, "mkfifo")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mknod,  "mknod")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, stat,   "stat")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, umask,  "umask")
   
   //----------------------------------------------------------------------------
   // sys/time.h
@@ -96,6 +103,7 @@ SEEC_FORMAT_SELECT(CStdFunction,
   // unistd.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, close,  "close")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, getcwd, "getcwd")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, getopt, "getopt")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, read,   "read")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, rmdir,  "rmdir")

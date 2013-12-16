@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include "StateEvaluationTree.hpp"
 #include "StateGraphViewer.hpp"
 #include "StateViewer.hpp"
 
@@ -64,6 +65,10 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 
 #endif
   
+  // Create the evaluation tree.
+  EvaluationTree = new StateEvaluationTreePanel(this, WithNotifier);
+  StateBook->AddPage(EvaluationTree, wxString("Evaluation"));
+  
   // Create the graph viewer.
   GraphViewer = new StateGraphViewerPanel(this, WithNotifier);
   StateBook->AddPage(GraphViewer, wxString("Graph"));
@@ -83,6 +88,8 @@ StateViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
 {
   CurrentAccess = std::move(Access);
   
+  if (EvaluationTree)
+    EvaluationTree->show(CurrentAccess, Process, Thread);
   if (GraphViewer)
     GraphViewer->show(CurrentAccess, Process, Thread);
 }
@@ -91,6 +98,8 @@ void StateViewerPanel::clear()
 {
   CurrentAccess.reset();
   
+  if (EvaluationTree)
+    EvaluationTree->clear();
   if (GraphViewer)
     GraphViewer->clear();
 }

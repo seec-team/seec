@@ -1789,7 +1789,7 @@ doLayout(LayoutHandler const &Handler,
   
   auto Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
   
-  // TODO: Layout as an unreferenced area? We should only do this for mallocs.
+  // Layout as an unreferenced area? We should only do this for mallocs.
   if (Refs.empty())
     return layoutUnreferencedArea(Handler, Area, Type);
   
@@ -1797,7 +1797,19 @@ doLayout(LayoutHandler const &Handler,
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
                           Area);
   
-  // TODO: Select the user-selected ref, if there is one.
+  // Use the user-selected ref, if there is one.
+  auto const OverrideType = Handler.getAreaReferenceType(Area);
+  if (OverrideType) {
+    auto const OverrideIt =
+      std::find_if(Refs.begin(), Refs.end(),
+                    [=] (ValOfPtr const &Ptr) -> bool {
+                      return Ptr->getCanonicalType() == OverrideType;
+                    });
+    
+    if (OverrideIt != Refs.end())
+      return std::make_pair(Handler.doLayout(Area, **OverrideIt, Expansion),
+                            Area);
+  }
   
   // Move all the void pointers to the end of the list. If we have nothing but
   // void pointers then layout using any one of them, otherwise remove all of
@@ -1981,7 +1993,10 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     auto const MaybeTailPort = TailIt->getPortForValue(*Pointer);
     
     // Accumulate all attributes.
-    std::string EdgeAttributes;
+    std::string EdgeAttributes = "href=\"dereference "
+                               + std::to_string(reinterpret_cast<uintptr_t>
+                                                                (Pointer.get()))
+                               + "\" ";
     bool IsPunned = false;
     
     // Write the tail.
@@ -2369,6 +2384,20 @@ LayoutHandler::setLayoutEngine(MemoryArea const &ForArea,
                                     ForReference.getCanonicalType())] = Ptr;
 
   return true;
+}
+
+bool LayoutHandler::setAreaReference(ValueOfPointer const &Reference)
+{
+  AreaReferenceOverride[Reference.getRawValue()] = Reference.getCanonicalType();
+  return true;
+}
+
+clang::Type const *
+LayoutHandler::getAreaReferenceType(seec::MemoryArea const &ForArea) const
+{
+  auto const OverrideIt = AreaReferenceOverride.find(ForArea.start());
+  return OverrideIt != AreaReferenceOverride.end() ? OverrideIt->second
+                                                   : nullptr;
 }
 
 

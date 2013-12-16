@@ -2,7 +2,9 @@ a {
  pointer-events: visible;
 }
 
-a.valuehighlight {
- 
+a:hover > polygon {
+ stroke: rgb(51, 102, 102);
+ fill: rgb(102,204,204);
+ fill-opacity: 1;
 }
 

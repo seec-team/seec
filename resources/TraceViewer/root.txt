@@ -184,15 +184,31 @@ root:table {
 
     "StateGraphViewerNoGraphviz.html":import {"HTML/StateGraphViewerNoGraphviz.html"}
 
-    "jquery.contextMenu.css":import {"HTML/jquery.contextMenu.css"}
-
-    "jquery.contextMenu.js":import {"HTML/jquery.contextMenu.js"}
-
-    "jquery.ui.position.js":import {"HTML/jquery.ui.position.js"}
-
     "jquery-1.8.2.min.js":import {"HTML/jquery-1.8.2.min.js"}
 
     "Styles.css":import {"HTML/Styles.css"}
+
+    CMValueRewindAllocation:string {"Rewind to when this memory was allocated"}
+
+    CMValueRewindModification:string {"Rewind to when this value was last changed"}
+
+    CMValueForwardModification:string {"Forward to when this value is next changed"}
+
+    CMValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
+
+    CMValueDisplayAs:string {"Display as"}
+
+    CMDereferenceUse:string {"Layout using this reference"}
+
+    CMFunctionRewindEntry:string {"Rewind to when this function was entered"}
+
+    CMFunctionForwardExit:string {"Forward to when this function is complete"}
+
+    CMAreaRewindAllocation:string {"Rewind to when this memory was allocated"}
+
+    CMAreaForwardDeallocation:string {"Forward to when this memory is deallocated"}
+
+    CMAreaDisplayAs:string {"Display as"}
   }
 
 

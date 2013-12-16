@@ -19,6 +19,7 @@ set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundl
 set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
+set(MULTIARCH "" CACHE STRING "Architecture to build for multiarch systems.")
 
 #--------------------------------------------------------------------------------
 # find LLVM
@@ -69,15 +70,21 @@ INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION lib/seec/resou
 #--------------------------------------------------------------------------------
 # find ICU
 #--------------------------------------------------------------------------------
-if( NOT EXISTS ${ICU_INSTALL}/include/unicode/unistr.h )
-  message(FATAL_ERROR "ICU_INSTALL (${ICU_INSTALL}) is not a valid ICU installation.")
+if( NOT EXISTS ${ICU_INSTALL}/include/${MULTIARCH}/unicode/unistr.h )
+  if ( NOT EXISTS ${ICU_INSTALL}/include/unicode/unistr.h )
+    message(FATAL_ERROR "ICU_INSTALL (${ICU_INSTALL}) is not a valid ICU installation.")
+  else()
+    message("Using ICU at ${ICU_INSTALL}")
+    include_directories( BEFORE ${ICU_INSTALL}/include )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ICU_INSTALL}/lib")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${ICU_INSTALL}/lib")
+  endif()
+else()
+  message("Using ICU at ${ICU_INSTALL} for architecture ${MULTIARCH}")
+  include_directories( BEFORE ${ICU_INSTALL}/include/${MULTIARCH} )
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ICU_INSTALL}/lib/${MULTIARCH}")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${ICU_INSTALL}/lib/${MULTIARCH}")
 endif()
-
-message("Using ICU at ${ICU_INSTALL}")
-include_directories( BEFORE ${ICU_INSTALL}/include )
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${ICU_INSTALL}/lib")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${ICU_INSTALL}/lib")
 
 #--------------------------------------------------------------------------------
 # find wxWidgets
