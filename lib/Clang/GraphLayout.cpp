@@ -1981,7 +1981,10 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     auto const MaybeTailPort = TailIt->getPortForValue(*Pointer);
     
     // Accumulate all attributes.
-    std::string EdgeAttributes;
+    std::string EdgeAttributes = "href=\"dereference "
+                               + std::to_string(reinterpret_cast<uintptr_t>
+                                                                (&Pointer))
+                               + "\" ";
     bool IsPunned = false;
     
     // Write the tail.

@@ -33,6 +33,7 @@
   #error "wxWebView backend required!"
 #endif
 
+#include <wx/uri.h>
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
 #include <wx/wfstream.h>
@@ -105,6 +106,13 @@ static std::string FindDotExecutable()
 
 
 //------------------------------------------------------------------------------
+// Displayable
+//------------------------------------------------------------------------------
+
+Displayable::~Displayable() = default;
+
+
+//------------------------------------------------------------------------------
 // GraphRenderedEvent
 //------------------------------------------------------------------------------
 
@@ -148,6 +156,51 @@ wxDEFINE_EVENT(SEEC_EV_GRAPH_RENDERED, GraphRenderedEvent);
 
 
 //------------------------------------------------------------------------------
+// MouseOverDisplayableEvent
+//------------------------------------------------------------------------------
+
+/// \brief Used to notify the GUI thread that the mouse has moved over an item.
+///
+class MouseOverDisplayableEvent : public wxEvent
+{
+  std::shared_ptr<Displayable const> TheDisplayable;
+  
+public:
+  wxDECLARE_CLASS(MouseOverDisplayableEvent);
+  
+  /// \brief Constructor.
+  ///
+  MouseOverDisplayableEvent(wxEventType EventType,
+                            int WinID,
+                            std::shared_ptr<Displayable const> WithDisplayable)
+  : wxEvent(WinID, EventType),
+    TheDisplayable(std::move(WithDisplayable))
+  {}
+  
+  /// \brief wxEvent::Clone().
+  ///
+  virtual wxEvent *Clone() const {
+    return new MouseOverDisplayableEvent(*this);
+  }
+  
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the Displayable.
+  ///
+  decltype(TheDisplayable) const &getDisplayableShared() const {
+    return TheDisplayable;
+  }
+  
+  /// @} (Accessors.)
+};
+
+IMPLEMENT_CLASS(MouseOverDisplayableEvent, wxEvent)
+
+wxDEFINE_EVENT(SEEC_EV_MOUSE_OVER_DISPLAYABLE, MouseOverDisplayableEvent);
+
+
+//------------------------------------------------------------------------------
 // StateGraphViewerPanel
 //------------------------------------------------------------------------------
 
@@ -161,7 +214,8 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
-  CallbackFS(nullptr)
+  CallbackFS(nullptr),
+  MouseOver()
 {}
 
 StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
@@ -178,7 +232,8 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
-  CallbackFS(nullptr)
+  CallbackFS(nullptr),
+  MouseOver()
 {
   Create(Parent, WithNotifier, ID, Position, Size);
 }
@@ -205,222 +260,24 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   
   CallbackFS = new seec::CallbackFSHandler(CallbackProto);
   
-  // Value context menu callbacks.
-  CallbackFS->addCallback("get_value_type",
-    std::function<std::string (uintptr_t)>{
-      [this] (uintptr_t const ValueID) -> std::string {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        return V.getTypeAsString();
+  CallbackFS->addCallback("notify_hover",
+    std::function<void (std::string const &)>{
+      [this] (std::string const &NodeID) -> void {
+        this->OnMouseOver(NodeID);
       }
     });
   
-  CallbackFS->addCallback("move_to_allocation",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const ValueID) -> void {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [&V] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToAllocation(State, V);
-          });
-      }
-    });
-
-  CallbackFS->addCallback("move_to_deallocation",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const ValueID) -> void {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [&V] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToDeallocation(State, V);
-          });
+  CallbackFS->addCallback("notify_contextmenu",
+    std::function<void (std::string const &)>{
+      [this] (std::string const &Foo) -> void {
+        this->RaiseContextMenu();
       }
     });
   
-  CallbackFS->addCallback("move_to_previous_state",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const ValueID) -> void {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        if (!V.isInMemory())
-          return;
-        
-        auto const Size = V.getTypeSizeInChars().getQuantity();
-        auto const Area = seec::MemoryArea(V.getAddress(), Size);
-        
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [Area] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
-          });
-      }
-    });
-  
-  CallbackFS->addCallback("move_to_next_state",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const ValueID) -> void {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        if (!V.isInMemory())
-          return;
-        
-        auto const Size = V.getTypeSizeInChars().getQuantity();
-        auto const Area = seec::MemoryArea(V.getAddress(), Size);
-        
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [Area] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveForwardUntilMemoryChanges(State, Area);
-          });
-      }
-    });
-  
-  CallbackFS->addCallback("list_layout_engines_supporting_value",
-    std::function<seec::callbackfs::Formatted<std::string> (uintptr_t)>{
-      [this] (uintptr_t const ValueID)
-        -> seec::callbackfs::Formatted<std::string>
-      {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        bool First = true;
-        
-        std::string Result {'['};
-        
-        std::unique_lock<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-        auto const Engines = LayoutHandler->listLayoutEnginesSupporting(V);
-        LockLayoutHandler.unlock();
-        
-        for (auto const E : Engines)
-        {
-          auto const LazyName = E->getName();
-          if (!LazyName)
-            continue;
-          
-          UErrorCode Status = U_ZERO_ERROR;
-          auto const Name = LazyName->get(Status, Locale());
-          if (U_FAILURE(Status))
-            continue;
-          
-          if (First)
-            First = false;
-          else
-            Result.push_back(',');
-          
-          Result.append("{id:");
-          Result.append(std::to_string(reinterpret_cast<uintptr_t>(E)));
-          Result.append(",name:\"");
-          Name.toUTF8String(Result); // TODO: Escape this string.
-          Result.append("\"}");
-        }
-        
-        Result.push_back(']');
-        
-        return seec::callbackfs::Formatted<std::string>(std::move(Result));
-      }
-    });
-  
-  CallbackFS->addCallback("set_layout_engine_value",
-    std::function<void (uintptr_t, uintptr_t)>{
-      [this] (uintptr_t const EngineID, uintptr_t const ValueID) -> void {
-        auto const &V = *reinterpret_cast<seec::cm::Value const *>(ValueID);
-        {
-          std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-          this->LayoutHandler->setLayoutEngine(V, EngineID);
-        }
-        this->renderGraph();
-      }
-    });
-  
-  CallbackFS->addCallback("list_layout_engines_supporting_area",
-    std::function<
-      seec::callbackfs::Formatted<std::string> (uint64_t, uint64_t, uintptr_t)>
-    {
-      [this] (uint64_t const Start, uint64_t const End, uintptr_t const RefID)
-        -> seec::callbackfs::Formatted<std::string>
-      {
-        auto const Area = seec::MemoryArea(Start, End);
-        auto const &Ref =
-          *reinterpret_cast<seec::cm::ValueOfPointer const *>(RefID);
-        bool First = true;
-        
-        std::string Result {'['};
-        
-        std::unique_lock<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-        auto const Engines = LayoutHandler->listLayoutEnginesSupporting(Area,
-                                                                        Ref);
-        LockLayoutHandler.unlock();
-        
-        for (auto const E : Engines)
-        {
-          auto const LazyName = E->getName();
-          if (!LazyName)
-            continue;
-          
-          UErrorCode Status = U_ZERO_ERROR;
-          auto const Name = LazyName->get(Status, Locale());
-          if (U_FAILURE(Status))
-            continue;
-          
-          if (First)
-            First = false;
-          else
-            Result.push_back(',');
-          
-          Result.append("{id:");
-          Result.append(std::to_string(reinterpret_cast<uintptr_t>(E)));
-          Result.append(",name:\"");
-          Name.toUTF8String(Result); // TODO: Escape this string.
-          Result.append("\"}");
-        }
-        
-        Result.push_back(']');
-        
-        return seec::callbackfs::Formatted<std::string>(std::move(Result));
-      }
-    });
-  
-  CallbackFS->addCallback("set_layout_engine_area",
-    std::function<void (uintptr_t, uint64_t, uint64_t, uintptr_t)>{
-      [this] (uintptr_t const EngineID,
-              uint64_t const AreaStart,
-              uint64_t const AreaEnd,
-              uintptr_t const PointerID) -> void
-      {
-        auto const &Ptr = *reinterpret_cast<seec::cm::ValueOfPointer const *>
-                                           (PointerID);
-        auto const Area = seec::MemoryArea(AreaStart, AreaEnd);
-        
-        {
-          std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-          this->LayoutHandler->setLayoutEngine(Area, Ptr, EngineID);
-        }
-        
-        this->renderGraph();
-      }
-    });
-  
-  // Function context menu callbacks.
-  CallbackFS->addCallback("move_to_function_entry",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const FunctionID) -> void {
-        auto &F =
-          *reinterpret_cast<seec::cm::FunctionState *>(FunctionID);
-
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [&F] (seec::cm::ProcessState &) -> bool {
-            return seec::cm::moveToFunctionEntry(F);
-          });
-      }
-    });
-
-  CallbackFS->addCallback("move_to_function_finished",
-    std::function<void (uintptr_t)>{
-      [this] (uintptr_t const FunctionID) -> void {
-        auto &F =
-          *reinterpret_cast<seec::cm::FunctionState *>(FunctionID);
-
-        raiseMovementEvent(*this, this->CurrentAccess,
-          [&F] (seec::cm::ProcessState &) -> bool {
-            return seec::cm::moveToFunctionFinished(F);
-          });
-      }
-    });
+  Bind(wxEVT_CONTEXT_MENU,
+       &StateGraphViewerPanel::OnContextMenu, this);
+  Bind(SEEC_EV_MOUSE_OVER_DISPLAYABLE,
+       &StateGraphViewerPanel::OnMouseOverDisplayable, this);
 
   wxFileSystem::AddHandler(CallbackFS);
   
@@ -442,8 +299,6 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     wxLogDebug("wxWebView::New failed.");
     return false;
   }
-  
-  WebView->EnableContextMenu(false);
   
   WebView->RegisterHandler(wxSharedPtr<wxWebViewHandler>
                                       (new wxWebViewFSHandler("icurb")));
@@ -542,6 +397,223 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
 void StateGraphViewerPanel::OnGraphRendered(GraphRenderedEvent const &Ev)
 {
   WebView->RunScript(Ev.getSetStateScript());
+}
+
+void
+StateGraphViewerPanel::
+OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
+{
+  MouseOver = Ev.getDisplayableShared();
+}
+
+void BindMenuItem(wxMenuItem *Item, std::function<void (wxEvent &)> Handler)
+{
+  if (!Item)
+    return;
+  
+  auto const Menu = Item->GetMenu();
+  if (!Menu)
+    return;
+  
+  Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
+}
+
+void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
+{
+  if (!MouseOver)
+    return;
+  
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const TextTable = seec::getResource("TraceViewer",
+                                           Locale::getDefault(),
+                                           Status,
+                                           "StateGraphViewer");
+  if (U_FAILURE(Status)) {
+    wxLogDebug("Couldn't get StateGraphViewer resources.");
+    return;
+  }
+  
+  auto const TheNode = MouseOver.get();
+  
+  if (auto const DV = llvm::dyn_cast<DisplayableValue>(TheNode)) {
+    auto const ValuePtr = &(DV->getValue());
+    
+    wxMenu CM{};
+    
+    // Contextual movement based on the Value's memory.
+    if (ValuePtr->isInMemory()) {
+      auto const Size = ValuePtr->getTypeSizeInChars().getQuantity();
+      auto const Area = seec::MemoryArea(ValuePtr->getAddress(), Size);
+      
+      BindMenuItem(
+        CM.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "CMValueRewindAllocation")),
+        [=] (wxEvent &Ev) -> void {
+          raiseMovementEvent(*this, this->CurrentAccess,
+            [=] (seec::cm::ProcessState &State) -> bool {
+              return seec::cm::moveToAllocation(State, *ValuePtr);
+            });
+        });
+      
+      BindMenuItem(
+        CM.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "CMValueRewindModification")),
+        [=] (wxEvent &Ev) -> void {
+          raiseMovementEvent(*this, this->CurrentAccess,
+            [=] (seec::cm::ProcessState &State) -> bool {
+              return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+            });
+        });
+      
+      BindMenuItem(
+        CM.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "CMValueForwardModification")),
+        [=] (wxEvent &Ev) -> void {
+          raiseMovementEvent(*this, this->CurrentAccess,
+            [=] (seec::cm::ProcessState &State) -> bool {
+              return seec::cm::moveForwardUntilMemoryChanges(State, Area);
+            });
+        });
+      
+      BindMenuItem(
+        CM.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "CMValueForwardDeallocation")),
+        [=] (wxEvent &Ev) -> void {
+          raiseMovementEvent(*this, this->CurrentAccess,
+            [=] (seec::cm::ProcessState &State) -> bool {
+              return seec::cm::moveToDeallocation(State, *ValuePtr);
+            });
+        });
+    }
+    
+    // Allow the user to select the Value's layout engine.
+    std::unique_lock<std::mutex> LockLayoutHandler(LayoutHandlerMutex);
+    auto const Engines = LayoutHandler->listLayoutEnginesSupporting(*ValuePtr);
+    LockLayoutHandler.unlock();
+    
+    if (Engines.size() > 1) {
+      auto SM = seec::makeUnique<wxMenu>();
+      
+      for (auto const E : Engines) {
+        auto const LazyName = E->getName();
+        if (!LazyName)
+          continue;
+        
+        UErrorCode Status = U_ZERO_ERROR;
+        auto const Name = LazyName->get(Status, Locale());
+        if (U_FAILURE(Status))
+          continue;
+        
+        std::string UTF8Name;
+        Name.toUTF8String(UTF8Name);
+        
+        auto const EngineID = reinterpret_cast<uintptr_t>(E);
+        
+        BindMenuItem(
+          SM->Append(wxID_ANY, wxString{UTF8Name}),
+          [=] (wxEvent &Ev) -> void {
+            {
+              std::lock_guard<std::mutex> LLH(this->LayoutHandlerMutex);
+              this->LayoutHandler->setLayoutEngine(*ValuePtr, EngineID);
+            }
+            this->renderGraph();
+          });
+      }
+      
+      CM.AppendSubMenu(SM.release(),
+                       seec::getwxStringExOrEmpty(TextTable,
+                                                  "CMValueDisplayAs"));
+    }
+    
+    PopupMenu(&CM);
+  }
+  else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(TheNode)) {
+    // TODO.
+  }
+  else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(TheNode)) {
+    wxMenu CM{};
+    
+    auto const FnPtr = &(DF->getFunctionState());
+    
+    BindMenuItem(
+      CM.Append(wxID_ANY,
+                seec::getwxStringExOrEmpty(TextTable,
+                                           "CMFunctionRewindEntry")),
+      [=] (wxEvent &Ev) -> void {
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [=] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToFunctionEntry(*FnPtr);
+          });
+      });
+    
+    BindMenuItem(
+      CM.Append(wxID_ANY,
+                seec::getwxStringExOrEmpty(TextTable,
+                                           "CMFunctionForwardExit")),
+      [=] (wxEvent &Ev) -> void {
+        raiseMovementEvent(*this, this->CurrentAccess,
+          [=] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToFunctionFinished(*FnPtr);
+          });
+      });
+    
+    PopupMenu(&CM);
+  }
+  else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(TheNode)) {
+    auto const Area = seec::MemoryArea(DA->getAreaStart(), DA->getAreaEnd());
+    auto const ValOfPtr = &(DA->getPointer());
+    
+    wxMenu CM{};
+    
+    // Allow the user to select the Area's layout engine.
+    std::unique_lock<std::mutex> LLH(LayoutHandlerMutex);
+    auto const Engines = LayoutHandler->listLayoutEnginesSupporting(Area,
+                                                                    *ValOfPtr);
+    LLH.unlock();
+    
+    if (Engines.size() > 1) {
+      auto SM = seec::makeUnique<wxMenu>();
+      
+      for (auto const E : Engines) {
+        auto const LazyName = E->getName();
+        if (!LazyName)
+          continue;
+        
+        UErrorCode Status = U_ZERO_ERROR;
+        auto const Name = LazyName->get(Status, Locale());
+        if (U_FAILURE(Status))
+          continue;
+        
+        std::string UTF8Name;
+        Name.toUTF8String(UTF8Name);
+        
+        auto const EngineID = reinterpret_cast<uintptr_t>(E);
+        
+        BindMenuItem(
+          SM->Append(wxID_ANY, wxString{UTF8Name}),
+          [=] (wxEvent &Ev) -> void {
+            {
+              std::lock_guard<std::mutex> LLH(this->LayoutHandlerMutex);
+              this->LayoutHandler->setLayoutEngine(Area, *ValOfPtr, EngineID);
+            }
+            this->renderGraph();
+          });
+      }
+      
+      CM.AppendSubMenu(SM.release(),
+                       seec::getwxStringExOrEmpty(TextTable,
+                                                  "CMAreaDisplayAs"));
+    }
+    
+    PopupMenu(&CM);
+  }
+  else {
+    wxLogDebug("Unknown Displayable!");
+  }
 }
 
 void StateGraphViewerPanel::renderGraph()
@@ -712,6 +784,7 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
 {
   CurrentAccess = std::move(Access);
   CurrentProcess = &Process;
+  MouseOver.reset();
   
   WebView->RunScript(wxString("InvalidateState();"));
   
@@ -725,4 +798,87 @@ void StateGraphViewerPanel::clear()
 {
   if (WebView && !PathToDot.empty())
     WebView->RunScript(wxString{"ClearState();"});
+  MouseOver.reset();
+}
+
+void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
+{
+  auto const Unescaped = wxURI::Unescape(NodeID).ToStdString();
+  auto const SpacePos = Unescaped.find(' ');
+  auto const NodeType = Unescaped.substr(0, SpacePos);
+  
+  std::shared_ptr<Displayable const> NodeDisplayable;
+
+  if (NodeType == "value") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Value = *reinterpret_cast<seec::cm::Value const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableValue>(Value);
+  }
+  else if (NodeType == "dereference") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Ptr = *reinterpret_cast<seec::cm::ValueOfPointer const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableDereference>(Ptr);
+  }
+  else if (NodeType == "function") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto &Fn = *reinterpret_cast<seec::cm::FunctionState *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableFunctionState>(Fn);
+  }
+  else if (NodeType == "area") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const Comma1 = NodeData.find(',');
+    if (Comma1 == std::string::npos) {
+      wxLogDebug("Bad area node data: %s", wxString{NodeData});
+      return;
+    }
+    
+    auto const Comma2 = NodeData.find(',', Comma1 + 1);
+    if (Comma2 == std::string::npos) {
+      wxLogDebug("Bad area node data: %s", wxString{NodeData});
+      return;
+    }
+    
+    auto const StrStart = NodeData.substr(0,          Comma1);
+    auto const StrEnd   = NodeData.substr(Comma1 + 1, Comma2 - Comma1);
+    auto const StrID    = NodeData.substr(Comma2 + 1);
+    
+    auto const Start = seec::callbackfs::ParseImpl<uint64_t>::impl(StrStart);
+    auto const End   = seec::callbackfs::ParseImpl<uint64_t>::impl(StrEnd);
+    auto const ID    = seec::callbackfs::ParseImpl<uintptr_t>::impl(StrID);
+    auto const &Ptr  = *reinterpret_cast<seec::cm::ValueOfPointer const *>(ID);
+    
+    NodeDisplayable = std::make_shared<DisplayableReferencedArea>
+                                      (Start, End, Ptr);
+  }
+  else if (NodeType != "null"){
+    wxLogDebug("Bad node: %s", wxString{Unescaped});
+    return;
+  }
+  
+  // If the node was Displayable, push the event to the GUI thread.
+  MouseOverDisplayableEvent Ev {
+    SEEC_EV_MOUSE_OVER_DISPLAYABLE,
+    this->GetId(),
+    std::move(NodeDisplayable)
+  };
+  
+  Ev.SetEventObject(this);
+    
+  this->GetEventHandler()->AddPendingEvent(Ev);
+}
+
+void StateGraphViewerPanel::RaiseContextMenu()
+{
+  wxContextMenuEvent Ev {
+    wxEVT_CONTEXT_MENU,
+    this->GetId(),
+    wxGetMousePosition()
+  };
+  
+  Ev.SetEventObject(this);
+  
+  this->GetEventHandler()->AddPendingEvent(Ev);
 }

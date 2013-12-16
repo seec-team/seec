@@ -43,6 +43,10 @@ namespace callbackfs {
 template<typename>
 struct ParseImpl; // Undefined.
 
+template<> struct ParseImpl<std::string const &> {
+  static std::string const &impl(std::string const &Arg) { return Arg; }
+};
+
 template<> struct ParseImpl<int> {
   static int impl(std::string const &Arg) { return std::stoi(Arg); }
 };

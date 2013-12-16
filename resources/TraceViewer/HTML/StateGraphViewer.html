@@ -1,10 +1,6 @@
 <html>
  <head>
   <script src="icurb://TraceViewer/StateGraphViewer/jquery-1.8.2.min.js" type="text/javascript"></script>
-  <script src="icurb://TraceViewer/StateGraphViewer/jquery.ui.position.js" type="text/javascript"></script>
-  <script src="icurb://TraceViewer/StateGraphViewer/jquery.contextMenu.js" type="text/javascript"></script>
-
-  <link href="icurb://TraceViewer/StateGraphViewer/jquery.contextMenu.css" rel="stylesheet" type="text/css" />
   <link href="icurb://TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
 
   <script type="text/javascript">
@@ -40,59 +36,17 @@
       return str;
     }
 
-    //
-    // Context menu callbacks for Values.
-    //
-
-    function CMMoveToAllocation(valueid) {
-      $.getJSON(SeeCURL("move_to_allocation", [valueid]),
+    function NotifyContextMenu() {
+      $.getJSON(SeeCURL("notify_contextmenu", ["foo"]),
         function(data) { /* The result is not important. */ });
     }
 
-    function CMMoveToDeallocation(valueid) {
-      $.getJSON(SeeCURL("move_to_deallocation", [valueid]),
+    function NotifyHover(nodeid) {
+      $.getJSON(SeeCURL("notify_hover", [nodeid]),
         function(data) { /* The result is not important. */ });
     }
 
-    function CMMoveToPreviousState(valueid) {
-      $.getJSON(SeeCURL("move_to_previous_state", [valueid]),
-        function(data) { /* The result is not important. */ });
-    }
-
-    function CMMoveToNextState(valueid) {
-      $.getJSON(SeeCURL("move_to_next_state", [valueid]),
-        function(data) { /* The result is not important. */ });
-    }
-
-    function CMSetLayoutEngineValue(engineid, valueid) {
-      $.getJSON(SeeCURL("set_layout_engine_value", [engineid, valueid]),
-        function(data) { /* The result is not important. */ });
-    }
-
-    function CMSetLayoutEngineArea(engineid, area) {
-      $.getJSON(SeeCURL("set_layout_engine_area", [engineid, area[0], area[1], area[2]]),
-        function(data) { /* The result is not important. */ });
-    }
-
-    //
-    // Context menu callbacks for Functions.
-    //
-
-    function CMMoveToFunctionEntry(functionid) {
-      $.getJSON(SeeCURL("move_to_function_entry", [functionid]),
-        function(data) { /* The result is not important. */ });
-    }
-    
-    function CMMoveToFunctionFinished(functionid) {
-      $.getJSON(SeeCURL("move_to_function_finished", [functionid]),
-        function(data) { /* The result is not important. */ });
-    }
-    
-    //
-    // Context menu handler for all anchors.
-    //
-    
-    function CMGenerate(e) {
+    function NodeMouseEnter(e) {
       var $this = $(this);
       var href = $this.attr('xlink:href');
       if (!href) {
@@ -100,164 +54,11 @@
         return false;
       }
 
-      var splitref = href.split(' ');
-      if (splitref.length != 2) {
-        Log("Bad reference length.");
-        return false;
-      }
+      NotifyHover(href);
+    }
 
-      var _offset = $this.offset(),
-          position = {
-            x: _offset.left + 10,
-            y: _offset.top + 10
-          };
-
-      if (splitref[0] == "value") {
-        //
-        // Generate a value context menu.
-        //
-        $.getJSON(SeeCURL("list_layout_engines_supporting_value",
-                          [splitref[1]]),
-        function(data) {
-          if (data.success) {
-            // Setup the menu items that always exist.
-            var menuitems = {
-              "move-to-allocation": {
-                "name": "Move to allocation",
-                "callback": function(key, options) {
-                  CMMoveToAllocation(splitref[1]);
-                }
-              },
-              "move-to-previous-state": {
-                "name": "Move to previous state",
-                "callback": function(key, options) {
-                  CMMoveToPreviousState(splitref[1]);
-                }
-              },
-              "move-to-next-state": {
-                "name": "Move to next state",
-                "callback": function(key, options) {
-                  CMMoveToNextState(splitref[1]);
-                }
-              },
-              "move-to-deallocation": {
-                "name": "Move to deallocation",
-                "callback": function(key, options) {
-                  CMMoveToDeallocation(splitref[1]);
-                }
-              }
-            };
-            
-            // Setup menu items based on the layout engines available.
-            var engines = data.result;
-            
-            if (engines.length > 1) {
-              var engineitems = {};
-            
-              for (var i = 0; i < engines.length; ++i) {
-                engineitems[engines[i].id] = {
-                  "name": engines[i].name,
-                  "callback": function(key, options) {
-                    CMSetLayoutEngineValue(key, splitref[1]);
-                  }
-                };
-              }
-              
-              menuitems["select-engine"] = {
-                "name": "Layout as...",
-                "items": engineitems
-              };
-            }
-            
-            // Build and show the menu.
-            $this.data('buildCM', function() {
-              return { "items": menuitems };
-            });
-            
-            $this.contextMenu(position);
-          }
-        });
-      }
-      else if (splitref[0] == "function") {
-        //
-        // Generate a function context menu.
-        //
-        $this.data('buildCM', function() {
-          return {
-            "items": {
-              "move-to-entry": {
-                "name": "Move to function entry",
-                "callback": function(key, options) {
-                  CMMoveToFunctionEntry(splitref[1]);
-                }
-              },
-              "move-to-finished": {
-                "name": "Move until function is finished",
-                "callback": function(key, options) {
-                  CMMoveToFunctionFinished(splitref[1]);
-                }
-              }
-            }
-          };
-        });
-
-        $this.contextMenu(position);
-      }
-      else if (splitref[0] == "area") {
-        //
-        // Generate an area context menu.
-        //
-        var splitarea = splitref[1].split(',');
-        if (splitarea.length != 3) {
-          Log("Bad area identifier.");
-          return false;
-        }
-
-        $.getJSON(SeeCURL("list_layout_engines_supporting_area", splitarea),
-        function(data) {
-          if (data.success) {
-            // Setup menu items based on the layout engines available.
-            var menuitems = {};
-            var engines = data.result;
-
-            if (engines.length > 1) {
-              var engineitems = {};
-
-              for (var i = 0; i < engines.length; ++i) {
-                engineitems[engines[i].id] = {
-                  "name": engines[i].name,
-                  "callback": function(key, options) {
-                    CMSetLayoutEngineArea(key, splitarea);
-                  }
-                };
-              }
-
-              menuitems = {
-                "select-engine": {
-                  "name": "Layout as...",
-                  "items": engineitems
-                }
-              };
-            }
-            else {
-              // Not enough engines to generate a menu.
-              return;
-            }
-
-            // Build and show the menu.
-            $this.data('buildCM', function() {
-              return { "items": menuitems };
-            });
-
-            $this.contextMenu(position);
-          }
-        });
-      }
-      else {
-        Log("Don't understand ref: " + splitref[0]);
-      }
-
-      return false;
+    function NodeMouseLeave(e) {
+      NotifyHover("null");
     }
 
     // Highlight a Value.
@@ -309,7 +110,7 @@
 
       var refs = $('a');
       refs.removeAttr("xlink:title");
-      refs.on('click', CMGenerate);
+      refs.hover(NodeMouseEnter, NodeMouseLeave);
 
       StateExists = true;
 
@@ -356,12 +157,9 @@
       if (window.location.hash.length)
         SeeCProto = window.location.hash.substring(1);
 
-      $.contextMenu({
-        selector: 'a',
-        trigger: 'none',
-        build: function($trigger, e) {
-          return $trigger.data('buildCM')();
-        }
+      $(document).bind("contextmenu", function(e) {
+        NotifyContextMenu();
+        return false;
       });
     }
 
