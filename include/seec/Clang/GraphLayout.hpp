@@ -361,6 +361,8 @@ class LayoutHandler final {
   std::map<std::pair<uintptr_t, clang::Type const *>,
            LayoutEngineForArea const *> AreaEngineOverride;
   
+  std::map<uintptr_t, clang::Type const *> AreaReferenceOverride;
+  
   /// @}
   
 public:
@@ -371,7 +373,8 @@ public:
     ValueEngineDefault(nullptr),
     ValueEngineOverride(),
     AreaEngines(),
-    AreaEngineOverride()
+    AreaEngineOverride(),
+    AreaReferenceOverride()
   {}
   
   
@@ -410,6 +413,15 @@ public:
   bool setLayoutEngine(seec::MemoryArea const &ForArea,
                        seec::cm::ValueOfPointer const &ForReference,
                        uintptr_t EngineID);
+  
+  /// \brief Set the reference to use for layout for the given area.
+  ///
+  bool setAreaReference(seec::cm::ValueOfPointer const &Reference);
+  
+  /// \brief Get the reference type to use for the given area.
+  ///
+  clang::Type const *
+  getAreaReferenceType(seec::MemoryArea const &ForArea) const;
   
   /// @}
   

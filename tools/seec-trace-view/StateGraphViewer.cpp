@@ -532,7 +532,22 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     PopupMenu(&CM);
   }
   else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(TheNode)) {
-    // TODO.
+    auto const ValOfPtr = &(DD->getPointer());
+    
+    wxMenu CM{};
+    
+    BindMenuItem(
+      CM.Append(wxID_ANY,
+                seec::getwxStringExOrEmpty(TextTable, "CMDereferenceUse")),
+      [=] (wxEvent &Ev) -> void {
+        {
+          std::lock_guard<std::mutex> LLH(this->LayoutHandlerMutex);
+          this->LayoutHandler->setAreaReference(*ValOfPtr);
+        }
+        this->renderGraph();
+      });
+    
+    PopupMenu(&CM);
   }
   else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(TheNode)) {
     wxMenu CM{};

@@ -179,6 +179,8 @@ root:table {
 
     CMValueDisplayAs:string {"Display as"}
 
+    CMDereferenceUse:string {"Layout using this reference"}
+
     CMFunctionRewindEntry:string {"Rewind to when this function was entered"}
 
     CMFunctionForwardExit:string {"Forward to when this function is complete"}
