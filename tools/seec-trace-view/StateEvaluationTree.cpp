@@ -97,6 +97,8 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   if (!wxScrolled<wxPanel>::Create(Parent, ID, Position, Size))
     return false;
   
+  Notifier = &WithNotifier;
+  
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   CodeFont = wxFont{wxFontInfo(Settings.CodeFontSize)
                     .Family(wxFONTFAMILY_MODERN)
@@ -456,6 +458,12 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
   if (NewHoverNodeIt != HoverNodeIt) {
     HoverNodeIt = NewHoverNodeIt;
     DisplayChanged = true;
+    
+    if (Notifier) {
+      auto const TheStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
+                                                      : nullptr;
+      Notifier->createNotify<ConEvHighlightStmt>(TheStmt);
+    }
   }
   
   // Redraw the display.
