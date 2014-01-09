@@ -58,25 +58,6 @@ root:table {
 
     SourceView_FunctionExit:string {"Leaving function"}
 
-    //
-    // SourceViewerPanel
-    //
-    SourceViewerPanel:table {
-      ValuePointer:string {"<pointer to highlighted value>"}
-
-      ValuePointerNULL:string {"NULL"}
-
-      ValuePointerInvalid:string {"<pointer>"}
-
-      ValuePointerInMemory:string {"<highlighted pointer to highlighted value>"}
-
-      ValuePointerInMemoryNULL:string {"<highlighted NULL pointer>"}
-
-      ValuePointerInMemoryInvalid:string {"<highlighted pointer>"}
-
-      ValuePointerInMemoryUninitialized:string {"<highlighted uninitialized pointer>"}
-    }
-
 
     //
     // ProcessTime scroller

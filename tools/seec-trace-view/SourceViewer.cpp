@@ -47,6 +47,7 @@
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "ValueFormat.hpp"
 
 #include <list>
 #include <map>
@@ -1204,64 +1205,6 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                       WrapStyle::Wrapped);
 }
 
-static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
-{
-  if (P.isInMemory()) {
-    if (!P.isCompletelyInitialized())
-      return "ValuePointerInMemoryUninitialized";
-    if (P.getRawValue() == 0)
-      return "ValuePointerInMemoryNULL";
-    if (P.getDereferenceIndexLimit() == 0)
-      return "ValuePointerInMemoryInvalid";
-    return "ValuePointerInMemory";
-  }
-  else {
-    if (P.getRawValue() == 0)
-      return "ValuePointerNULL";
-    if (P.getDereferenceIndexLimit() == 0)
-      return "ValuePointerInvalid";
-    return "ValuePointer";  
-  }
-}
-
-UnicodeString getStringForInlineValue(seec::cm::Value const &Value)
-{
-  auto const InMemory = Value.isInMemory();
-  auto const Kind = Value.getKind();
-  
-  if (Kind == seec::cm::Value::Kind::Pointer) {
-    // Pointers are a special case because we don't want to display raw values
-    // to the users (i.e. memory addresses).
-    
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Resources = seec::getResource("TraceViewer",
-                                       Locale::getDefault(),
-                                       Status,
-                                       "GUIText",
-                                       "SourceViewerPanel");
-    
-    if (U_FAILURE(Status))
-      return UnicodeString::fromUTF8("");
-    
-    auto const &Pointer = llvm::cast<seec::cm::ValueOfPointer>(Value);
-    auto const Key = getPointerDescriptionKey(Pointer);
-    auto const String = Resources.getStringEx(Key, Status);
-    
-    if (U_FAILURE(Status))
-      return UnicodeString::fromUTF8("");
-    
-    return String;
-  }
-  else {
-    if (InMemory) {
-      return UnicodeString::fromUTF8(Value.getValueAsStringShort());
-    }
-    else {
-      return UnicodeString::fromUTF8(Value.getValueAsStringFull());
-    }
-  }
-}
-
 void
 SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                                   ::seec::cm::FunctionState const &InFunction)
@@ -1297,7 +1240,8 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
-    auto const String = getStringForInlineValue(*Value);
+    auto const &Process = InFunction.getParent().getParent();
+    auto const String = getPrettyStringForInline(*Value, Process);
     
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,
