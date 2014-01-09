@@ -54,6 +54,12 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     /// Value produced by the evaluation of this node.
     std::shared_ptr<seec::cm::Value const> Value;
     
+    /// String representation of the value produced by this node.
+    wxString ValueString;
+    
+    /// Shortened string representation of the value produced by this node.
+    wxString ValueStringShort;
+    
     /// Start of this node's text in the pretty-printed Stmt.
     uint64_t RangeStart;
     
@@ -79,6 +85,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     ///
     NodeInfo(clang::Stmt const *ForStatement,
              std::shared_ptr<seec::cm::Value const> WithValue,
+             wxString WithValueString,
+             wxString WithValueStringShort,
              uint64_t WithRangeStart,
              std::size_t WithRangeLength,
              unsigned WithDepth,
@@ -87,7 +95,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
              wxCoord WithYStart,
              wxCoord WithYEnd)
     : Statement(ForStatement),
-      Value(WithValue),
+      Value(std::move(WithValue)),
+      ValueString(std::move(WithValueString)),
+      ValueStringShort(std::move(WithValueStringShort)),
       RangeStart(WithRangeStart),
       RangeLength(WithRangeLength),
       Depth(WithDepth),

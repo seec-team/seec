@@ -280,6 +280,16 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
                              std::move(ThreadTraces)));
 }
 
+Maybe<uint32_t>
+ProcessTrace::getIndexOfFunctionAt(uintptr_t const Address) const
+{
+  for (uint32_t i = 0; i < FunctionAddresses.size(); ++i)
+    if (FunctionAddresses[i] == Address)
+      return i;
+  
+  return Maybe<uint32_t>();
+}
+
 ThreadTrace const &ProcessTrace::getThreadTrace(uint32_t ThreadID) const {
   assert(ThreadID > 0 && ThreadID <= NumThreads);
   return *(ThreadTraces[ThreadID - 1]);

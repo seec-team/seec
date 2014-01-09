@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
@@ -32,6 +33,7 @@
 #include "NotifyContext.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
+#include "ValueFormat.hpp"
 
 #include <string>
 
@@ -333,8 +335,16 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
     auto const YStart = TotalHeight - PageBorderV - CharHeight
                         - (Depth * (CharHeight + NodeBorderV));
     
+    auto Value = ActiveFn->getStmtValue(StmtRange.first);
+    auto const ValueString = Value ? getPrettyStringForInline(*Value, Process)
+                                   : UnicodeString{};
+    auto const ValueStringShort = shortenValueString(ValueString,
+                                                     StmtRange.second.second);
+    
     Nodes.emplace_back(StmtRange.first,
-                       ActiveFn->getStmtValue(StmtRange.first),
+                       std::move(Value),
+                       seec::towxString(ValueString),
+                       seec::towxString(ValueStringShort),
                        StmtRange.second.first,
                        StmtRange.second.second,
                        Depth,
@@ -422,11 +432,7 @@ void StateEvaluationTreePanel::render(wxDC &dc)
     dc.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
     
     if (Node.Value) {
-      auto ValText = Node.Value->getValueAsStringShort();
-      if (ValText.size() > Node.RangeLength) {
-        ValText.erase(Node.RangeLength);
-      }
-      
+      auto const ValText = Node.ValueStringShort;
       auto const TextWidth = CharWidth * ValText.size();
       auto const NodeWidth = CharWidth * Node.RangeLength;
       auto const Offset = (NodeWidth - TextWidth) / 2;

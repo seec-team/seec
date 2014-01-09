@@ -36,6 +36,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   ThreadTimeControl.hpp
   TraceViewerApp.hpp
   TraceViewerFrame.hpp
+  ValueFormat.hpp
   WelcomeFrame.hpp
   )
 
@@ -56,6 +57,7 @@ set(SEEC_TRACE_VIEW_SRCS
   ThreadTimeControl.cpp
   TraceViewerApp.cpp
   TraceViewerFrame.cpp
+  ValueFormat.cpp
   WelcomeFrame.cpp
   )
 

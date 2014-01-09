@@ -578,6 +578,13 @@ public:
     assert(Index < FunctionAddresses.size());
     return FunctionAddresses[Index];
   }
+  
+  /// \brief Get the index of the Function with the given run-time address.
+  /// \param Address a run-time address.
+  /// \return the index of the Function with the specified run-time Address, or
+  ///         an unassigned Maybe if no such Function exists.
+  ///
+  Maybe<uint32_t> getIndexOfFunctionAt(uintptr_t const Address) const;
 
   /// @} (Functions)
 
