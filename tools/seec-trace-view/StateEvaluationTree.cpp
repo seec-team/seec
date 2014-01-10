@@ -52,6 +52,8 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   CodeFontSize(12),
   NodeBackground(204, 204, 204),
   NodeBorder(102, 102, 102),
+  NodeActiveBackground(200, 255, 200),
+  NodeActiveBorder(100, 127, 100),
   NodeHighlightedBackground(102, 204, 204),
   NodeHighlightedBorder(51, 102, 102)
 {}
@@ -380,10 +382,12 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   PrepareDC(dc);
   
   dc.Clear();
-  if (Statement.empty()) {
-    wxLogDebug("empty stmt");
+  if (Statement.empty())
     return;
-  }
+  
+  auto const ActiveStmt = ActiveFn->getActiveStmt();
+  if (!ActiveStmt)
+    return;
   
   auto const CharWidth = dc.GetCharWidth();
   auto const CharHeight = dc.GetCharHeight();
@@ -399,13 +403,23 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   wxPen TreeBackPen{Settings.NodeBorder};
   wxBrush TreeBackBrush{Settings.NodeBackground};
   
+  wxPen ActiveBackPen{Settings.NodeActiveBorder};
+  wxBrush ActiveBackBrush{Settings.NodeActiveBackground};
+  
   wxPen HighlightedBackPen{Settings.NodeHighlightedBorder};
   wxBrush HighlightedBackBrush{Settings.NodeHighlightedBackground};
   
   // Draw the sub-Stmt's node's backgrounds.
   for (auto const &Node : Nodes) {
-    dc.SetPen(TreeBackPen);
-    dc.SetBrush(TreeBackBrush);
+    if (Node.Statement == ActiveStmt) {
+      dc.SetPen(ActiveBackPen);
+      dc.SetBrush(ActiveBackBrush);
+    }
+    else {
+      dc.SetPen(TreeBackPen);
+      dc.SetBrush(TreeBackBrush);
+    }
+    
     dc.DrawRectangle(Node.XStart, Node.YStart,
                      Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
   }

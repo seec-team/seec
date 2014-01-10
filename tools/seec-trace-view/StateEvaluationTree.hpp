@@ -128,6 +128,10 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     wxColour NodeBorder;
     
+    wxColour NodeActiveBackground;
+    
+    wxColour NodeActiveBorder;
+    
     wxColour NodeHighlightedBackground;
     
     wxColour NodeHighlightedBorder;
