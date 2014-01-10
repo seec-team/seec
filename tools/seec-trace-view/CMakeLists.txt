@@ -18,6 +18,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_HEADERS
+  CommonMenus.hpp
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
   MallocViewer.hpp
@@ -41,6 +42,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   )
 
 set(SEEC_TRACE_VIEW_SRCS
+  CommonMenus.cpp
   ExplanationViewer.cpp
   FunctionStateViewer.cpp
   MallocViewer.cpp

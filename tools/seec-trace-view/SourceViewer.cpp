@@ -40,6 +40,7 @@
 
 #include "unicode/brkiter.h"
 
+#include "CommonMenus.hpp"
 #include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
@@ -311,14 +312,6 @@ wxDEFINE_EVENT(EVT_SOURCE_ANNOTATION_RERENDER, wxCommandEvent);
 /// \brief Viewer for a single source code file.
 ///
 class SourceFilePanel : public wxPanel {
-  /// \brief IDs for controls.
-  ///
-  enum ControlIDs {
-    CID_StmtRewind = wxID_HIGHEST,
-    CID_StmtForward
-  };
-  
-  
   /// \brief Store information about an indicated region.
   ///
   struct IndicatedRegion {
@@ -376,9 +369,6 @@ class SourceFilePanel : public wxPanel {
   
   /// Used to determine if the mouse remains stationary during a click.
   bool ClickUnmoved;
-  
-  /// Stmt that the context menu was raised for.
-  clang::Stmt const *CMStmt;
   
   
   /// \brief Setup the Scintilla preferences.
@@ -592,46 +582,6 @@ class SourceFilePanel : public wxPanel {
     ClickUnmoved = true;
   }
   
-  /// \brief Called when a context menu item is clicked.
-  ///
-  void OnContextMenuClick(wxCommandEvent &Event) {
-    switch (Event.GetId()) {
-      case CID_StmtRewind:
-      {
-        raiseMovementEvent(*this, CurrentAccess,
-          [this] (seec::cm::ProcessState &P) -> bool {
-            if (P.getThreadCount() == 1) {
-              auto &Thread = P.getThread(0);
-              return seec::cm::moveBackwardUntilEvaluated(Thread, CMStmt);
-            }
-            else {
-              wxLogDebug("Multithread rewind not yet implemented.");
-              return false;
-            }
-          });
-        
-        break;
-      }
-      
-      case CID_StmtForward:
-      {
-        raiseMovementEvent(*this, CurrentAccess,
-          [this] (seec::cm::ProcessState &P) -> bool {
-            if (P.getThreadCount() == 1) {
-              auto &Thread = P.getThread(0);
-              return seec::cm::moveForwardUntilEvaluated(Thread, CMStmt);
-            }
-            else {
-              wxLogDebug("Multithread forward not yet implemented.");
-              return false;
-            }
-          });
-        
-        break;
-      }
-    }
-  }
-  
   /// \brief Called when the mouse's right button is released in the Text
   ///        window.
   ///
@@ -639,35 +589,13 @@ class SourceFilePanel : public wxPanel {
     if (!ClickUnmoved)
       return;
     
-    UErrorCode Status = U_ZERO_ERROR;
-    auto const TextTable = seec::getResource("TraceViewer",
-                                             Locale::getDefault(),
-                                             Status,
-                                            "SourceFilePanel");
-    if (U_FAILURE(Status))
-      return;
-    
     if (HoverDecl)
       return;
     
     if (HoverStmt) {
-      // Save the HoverStmt, because it will be cleared before the user can
-      // click on any of the context menu items.
-      CMStmt = HoverStmt;
-      
       wxMenu ContextMenu{};
       
-      ContextMenu.Append(CID_StmtRewind,
-                         seec::getwxStringExOrEmpty(TextTable,
-                                                    "CMStmtRewind"));
-      
-      ContextMenu.Append(CID_StmtForward,
-                         seec::getwxStringExOrEmpty(TextTable,
-                                                    "CMStmtForward"));
-      
-      ContextMenu.Bind(wxEVT_COMMAND_MENU_SELECTED,
-                       &SourceFilePanel::OnContextMenuClick,
-                       this);
+      addStmtNavigation(*this, CurrentAccess, ContextMenu, HoverStmt);
       
       PopupMenu(&ContextMenu);
     }
@@ -697,8 +625,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false),
-    CMStmt(nullptr)
+    ClickUnmoved(false)
   {}
 
   /// \brief Construct and create.
@@ -723,8 +650,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false),
-    CMStmt(nullptr)
+    ClickUnmoved(false)
   {
     Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
   }

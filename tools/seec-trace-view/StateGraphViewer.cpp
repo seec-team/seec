@@ -406,7 +406,8 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
   MouseOver = Ev.getDisplayableShared();
 }
 
-void BindMenuItem(wxMenuItem *Item, std::function<void (wxEvent &)> Handler)
+static void BindMenuItem(wxMenuItem *Item,
+                         std::function<void (wxEvent &)> Handler)
 {
   if (!Item)
     return;

@@ -170,6 +170,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   
   /// The node that the mouse is currently over.
   decltype(Nodes)::const_iterator HoverNodeIt;
+  
+  /// False if there was movement between mouse down and mouse up.
+  bool ClickUnmoved;
 
 public:
   /// \brief Construct.
@@ -216,6 +219,8 @@ public:
   void OnPaint(wxPaintEvent &);
   void OnMouseMoved(wxMouseEvent &);
   void OnMouseLeftWindow(wxMouseEvent &);
+  void OnMouseRightDown(wxMouseEvent &);
+  void OnMouseRightUp(wxMouseEvent &);
   
   /// @} (Event Handling)
 

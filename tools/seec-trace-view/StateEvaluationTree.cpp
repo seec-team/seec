@@ -30,6 +30,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
@@ -42,6 +43,8 @@ BEGIN_EVENT_TABLE(StateEvaluationTreePanel, wxScrolled<wxPanel>)
   EVT_PAINT(StateEvaluationTreePanel::OnPaint)
   EVT_MOTION(StateEvaluationTreePanel::OnMouseMoved)
   EVT_LEAVE_WINDOW(StateEvaluationTreePanel::OnMouseLeftWindow)
+  EVT_RIGHT_DOWN(StateEvaluationTreePanel::OnMouseRightDown)
+  EVT_RIGHT_UP(StateEvaluationTreePanel::OnMouseRightUp)
 END_EVENT_TABLE()
 
 
@@ -85,7 +88,8 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
   CodeFont(),
   Statement(),
   Nodes(),
-  HoverNodeIt(Nodes.end())
+  HoverNodeIt(Nodes.end()),
+  ClickUnmoved(false)
 {
   Create(Parent, TheNotifier, ID, Position, Size);
 }
@@ -463,6 +467,8 @@ void StateEvaluationTreePanel::OnPaint(wxPaintEvent &Ev)
 
 void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
 {
+  ClickUnmoved = false;
+  
   bool DisplayChanged = false;
   auto const Pos = CalcUnscrolledPosition(Ev.GetPosition());
   
@@ -495,6 +501,8 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
 
 void StateEvaluationTreePanel::OnMouseLeftWindow(wxMouseEvent &Ev)
 {
+  ClickUnmoved = false;
+  
   bool DisplayChanged = false;
   
   if (HoverNodeIt != Nodes.end()) {
@@ -506,5 +514,24 @@ void StateEvaluationTreePanel::OnMouseLeftWindow(wxMouseEvent &Ev)
   if (DisplayChanged) {
     wxClientDC dc(this);
     render(dc);
+  }
+}
+
+void StateEvaluationTreePanel::OnMouseRightDown(wxMouseEvent &Ev)
+{
+  ClickUnmoved = true;
+}
+
+void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
+{
+  if (!ClickUnmoved)
+    return;
+  
+  if (HoverNodeIt != Nodes.end()) {
+    wxMenu CM{};
+    
+    addStmtNavigation(*this, CurrentAccess, CM, HoverNodeIt->Statement);
+    
+    PopupMenu(&CM);
   }
 }
