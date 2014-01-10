@@ -469,21 +469,28 @@ class SourceFilePanel : public wxPanel {
     auto const Width = ClientSize.GetWidth()
                        - Text->GetMarginWidth(MarginLineNumber);
     
+    std::string Buffer;
     wxString CompleteString;
     wxString Styles;
+    
+    auto const StyleDefault = static_cast<char>(wxSTC_STYLE_DEFAULT);
     
     for (auto const &LA : seec::range(StateAnnotations.equal_range(Line))) {
       auto const &Anno = LA.second;
       auto const &AnnoText = Anno.getText();
       auto const Indent = Anno.getIndent();
       auto const Style = static_cast<int>(Anno.getStyle());
+      
       wxString Spacing(' ', Indent);
+      wxString SpacingStyle(StyleDefault, Indent);
       
       switch (Anno.getWrapping()) {
         case WrapStyle::None:
         {
-          if (!CompleteString.IsEmpty())
+          if (!CompleteString.IsEmpty()) {
             CompleteString += "\n";
+            Styles.Append(StyleDefault, std::strlen("\n"));
+          }
           
           auto const Length = AnnoText.length();
           int32_t FragStart = 0;
@@ -492,10 +499,20 @@ class SourceFilePanel : public wxPanel {
             auto const NewlineIdx = AnnoText.indexOf('\n', FragStart);
             auto const FragEnd = NewlineIdx != -1 ? NewlineIdx : Length;
             
+            // Add the indentation for this line.
             CompleteString += Spacing;
-            CompleteString +=
-              seec::towxString(AnnoText.tempSubStringBetween(FragStart,
-                                                             FragEnd));
+            Styles         += SpacingStyle;
+            
+            // Add the fragment for this line. The style array needs to match
+            // the UTF-8 representation of the string.
+            auto const Frag = AnnoText.tempSubStringBetween(FragStart, FragEnd);
+            
+            Buffer.clear();
+            Frag.toUTF8String(Buffer);
+            
+            CompleteString += wxString(Buffer.c_str(), wxConvUTF8);
+            Styles.Append(static_cast<char>(Style), Buffer.size());
+            
             FragStart = FragEnd + 1;
           }
           
@@ -511,22 +528,27 @@ class SourceFilePanel : public wxPanel {
               });
           
           for (auto const &Wrapping : Wrappings) {
-            if (!CompleteString.IsEmpty())
+            if (!CompleteString.IsEmpty()) {
               CompleteString += "\n";
+              Styles.Append(StyleDefault, std::strlen("\n"));
+            }
             
+            // Add the fragment for this line. The style array needs to match
+            // the UTF-8 representation of the string.
             auto const Limit = Wrapping.End - Wrapping.TrailingWhitespace;
-            CompleteString +=
-              seec::towxString(AnnoText.tempSubStringBetween(Wrapping.Start,
-                                                             Limit));
+            auto const Frag = AnnoText.tempSubStringBetween(Wrapping.Start,
+                                                            Limit);
+            
+            Buffer.clear();
+            Frag.toUTF8String(Buffer);
+            
+            CompleteString += wxString(Buffer.c_str(), wxConvUTF8);
+            Styles.Append(static_cast<char>(Style), Buffer.size());
           }
           
           break;
         }
       }
-      
-      auto const NumCharsAdded = CompleteString.size() - Styles.size();
-      if (NumCharsAdded)
-        Styles.Append(static_cast<char>(Style), NumCharsAdded);
     }
     
     Text->AnnotationSetText(Line, CompleteString);
