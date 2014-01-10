@@ -16,6 +16,8 @@
 
 #include <wx/wx.h>
 #include <wx/panel.h>
+#include <wx/timer.h>
+#include <wx/tipwin.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
@@ -171,6 +173,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The node that the mouse is currently over.
   decltype(Nodes)::const_iterator HoverNodeIt;
   
+  /// Used to detect significant mouse hover over nodes.
+  wxTimer HoverTimer;
+  
   /// False if there was movement between mouse down and mouse up.
   bool ClickUnmoved;
 
@@ -221,6 +226,7 @@ public:
   void OnMouseLeftWindow(wxMouseEvent &);
   void OnMouseRightDown(wxMouseEvent &);
   void OnMouseRightUp(wxMouseEvent &);
+  void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)
 

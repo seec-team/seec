@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/ClangEPV/ClangEPV.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
@@ -71,7 +72,9 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
   CodeFont(),
   Statement(),
   Nodes(),
-  HoverNodeIt(Nodes.end())
+  HoverNodeIt(Nodes.end()),
+  HoverTimer(),
+  ClickUnmoved(false)
 {}
 
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
@@ -89,6 +92,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
   Statement(),
   Nodes(),
   HoverNodeIt(Nodes.end()),
+  HoverTimer(),
   ClickUnmoved(false)
 {
   Create(Parent, TheNotifier, ID, Position, Size);
@@ -112,6 +116,8 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
                     .Family(wxFONTFAMILY_MODERN)
                     .AntiAliased(true)};
   SetScrollRate(10, 10);
+  
+  HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   
   return true;
 }
@@ -374,6 +380,8 @@ void StateEvaluationTreePanel::clear()
   CurrentThread = nullptr;
   Statement.clear();
   Nodes.clear();
+  HoverNodeIt = Nodes.end();
+  HoverTimer.Stop();
   
   SetVirtualSize(1, 1);
   
@@ -485,6 +493,9 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
     HoverNodeIt = NewHoverNodeIt;
     DisplayChanged = true;
     
+    if (HoverNodeIt != Nodes.end())
+      HoverTimer.Start(500, wxTIMER_ONE_SHOT);
+    
     if (Notifier) {
       auto const TheStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
                                                       : nullptr;
@@ -507,6 +518,7 @@ void StateEvaluationTreePanel::OnMouseLeftWindow(wxMouseEvent &Ev)
   
   if (HoverNodeIt != Nodes.end()) {
     HoverNodeIt = Nodes.end();
+    HoverTimer.Stop();
     DisplayChanged = true;
   }
   
@@ -533,5 +545,82 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     addStmtNavigation(*this, CurrentAccess, CM, HoverNodeIt->Statement);
     
     PopupMenu(&CM);
+  }
+}
+
+void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
+{
+  if (HoverNodeIt == Nodes.end())
+    return;
+  
+  auto const Statement = HoverNodeIt->Statement;
+  wxString TipString;
+  
+  // Add the complete value string.
+  if (HoverNodeIt->ValueString.size()) {
+    TipString += HoverNodeIt->ValueString;
+    TipString += "\n";
+  }
+  
+  // Attempt to get a general explanation of the statement.
+  auto const MaybeExplanation =
+    seec::clang_epv::explain(
+      Statement,
+      seec::clang_epv::makeRuntimeValueLookupByLambda(
+        [&] (::clang::Stmt const *S) -> bool {
+          return ActiveFn->getStmtValue(S) ? true : false;
+        },
+        [&] (::clang::Stmt const *S) -> std::string {
+          auto const Value = ActiveFn->getStmtValue(S);
+          return Value ? Value->getValueAsStringFull() : std::string();
+        },
+        [&] (::clang::Stmt const *S) -> seec::Maybe<bool> {
+          auto const Value = ActiveFn->getStmtValue(S);
+          if (Value && Value->isCompletelyInitialized()
+              && llvm::isa<seec::cm::ValueOfScalar>(*Value))
+          {
+            auto &Scalar = llvm::cast<seec::cm::ValueOfScalar>(*Value);
+            return !Scalar.isZero();
+          }
+          return seec::Maybe<bool>();
+        }));
+  
+  if (MaybeExplanation.assigned(0)) {
+    auto const &Explanation = MaybeExplanation.get<0>();
+    if (TipString.size())
+      TipString += "\n";
+    TipString += seec::towxString(Explanation->getString());
+  }
+  else if (MaybeExplanation.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const String = MaybeExplanation.get<seec::Error>()
+                                        .getMessage(Status, Locale());
+    
+    if (U_SUCCESS(Status)) {
+      wxLogDebug("Error getting explanation: %s", seec::towxString(String));
+    }
+    else {
+      wxLogDebug("Indescribable error getting explanation.");
+    }
+  }
+  
+  // Display the generated tooltip (if any).
+  if (TipString.size()) {
+    int const XStart = HoverNodeIt->XStart;
+    int const YStart = HoverNodeIt->YStart;
+    
+    int const Width  = HoverNodeIt->XEnd - XStart;
+    int const Height = HoverNodeIt->YEnd - YStart;
+    
+    auto const ClientStart = CalcScrolledPosition(wxPoint(XStart, YStart));
+    auto const ScreenStart = ClientToScreen(ClientStart);
+    
+    wxRect NodeBounds{ScreenStart, wxSize{Width, Height}};
+    
+    // Determine a good maximum width for the tip window.
+    auto const WindowSize = GetSize();
+    auto const TipWidth = WindowSize.GetWidth();
+    
+    new wxTipWindow(this, TipString, TipWidth, nullptr, &NodeBounds);
   }
 }
