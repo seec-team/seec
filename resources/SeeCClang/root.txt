@@ -50,9 +50,11 @@ root:table {
     Descriptive:table {
       PointerInMemoryUninitialized:string { "↛ (uninitialized pointer in memory)" }
       PointerInMemoryNULL:string { "⇥ (NULL pointer in memory)" }
+      PointerInMemoryOpaque:string { "⇒ (opaque pointer in memory)" }
       PointerInMemoryInvalid:string { "↝ (invalid pointer in memory)" }
       PointerInMemory:string { "→ (pointer in memory)" }
       PointerNULL:string { "⇥ (NULL pointer)" }
+      PointerOpaque:string { "⇒ (opaque pointer)" }
       PointerInvalid:string { "↝ (invalid pointer)" }
       Pointer:string { "→ (pointer)" }
 
@@ -69,9 +71,11 @@ root:table {
     Micro:table {
       PointerInMemoryUninitialized:string { "↛" }
       PointerInMemoryNULL:string { "⇥" }
+      PointerInMemoryOpaque:string { "⇒" }
       PointerInMemoryInvalid:string { "↝" }
       PointerInMemory:string { "→" }
       PointerNULL:string { "⇥" }
+      PointerOpaque:string { "⇒" }
       PointerInvalid:string { "↝" }
       Pointer:string { "→" }
     }

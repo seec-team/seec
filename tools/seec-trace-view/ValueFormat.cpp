@@ -27,6 +27,8 @@ static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
       return "PointerInMemoryUninitialized";
     if (P.getRawValue() == 0)
       return "PointerInMemoryNULL";
+    if (P.isValidOpaque())
+      return "PointerInMemoryOpaque";
     if (P.getDereferenceIndexLimit() == 0)
       return "PointerInMemoryInvalid";
     return "PointerInMemory";
@@ -34,6 +36,8 @@ static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
   else {
     if (P.getRawValue() == 0)
       return "PointerNULL";
+    if (P.isValidOpaque())
+      return "PointerOpaque";
     if (P.getDereferenceIndexLimit() == 0)
       return "PointerInvalid";
     return "Pointer";  
