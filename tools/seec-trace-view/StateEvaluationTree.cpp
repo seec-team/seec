@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
@@ -590,6 +591,7 @@ void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
     if (TipString.size())
       TipString += "\n";
     TipString += seec::towxString(Explanation->getString());
+    TipString += "\n";
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -601,6 +603,32 @@ void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
     }
     else {
       wxLogDebug("Indescribable error getting explanation.");
+    }
+  }
+  
+  // Get any runtime errors related to the Stmt.
+  for (auto const &RuntimeError : ActiveFn->getRuntimeErrors()) {
+    if (RuntimeError.getStmt() != Statement)
+      continue;
+    
+    auto const MaybeDescription = RuntimeError.getDescription();
+    if (MaybeDescription.assigned(0)) {
+      auto const &Description = MaybeDescription.get<0>();
+      if (TipString.size())
+        TipString += "\n";
+      TipString += seec::towxString(Description->getString());
+    }
+    else if (MaybeDescription.assigned<seec::Error>()) {
+      UErrorCode Status = U_ZERO_ERROR;
+      auto const String = MaybeDescription.get<seec::Error>()
+                                          .getMessage(Status, Locale());
+      
+      if (U_SUCCESS(Status)) {
+        wxLogDebug("Error getting description: %s", seec::towxString(String));
+      }
+      else {
+        wxLogDebug("Indescribable error getting description.");
+      }
     }
   }
   
