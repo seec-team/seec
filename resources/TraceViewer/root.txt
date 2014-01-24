@@ -77,25 +77,6 @@ root:table {
 
     SourceView_FunctionExit:string {"Leaving function"}
 
-    //
-    // SourceViewerPanel
-    //
-    SourceViewerPanel:table {
-      ValuePointer:string {"<pointer to highlighted value>"}
-
-      ValuePointerNULL:string {"NULL"}
-
-      ValuePointerInvalid:string {"<pointer>"}
-
-      ValuePointerInMemory:string {"<highlighted pointer to highlighted value>"}
-
-      ValuePointerInMemoryNULL:string {"<highlighted NULL pointer>"}
-
-      ValuePointerInMemoryInvalid:string {"<highlighted pointer>"}
-
-      ValuePointerInMemoryUninitialized:string {"<highlighted uninitialized pointer>"}
-    }
-
 
     //
     // ProcessTime scroller
@@ -170,11 +151,11 @@ root:table {
   }
 
 
-  // SourceFilePanel resources.
-  SourceFilePanel:table {
-    CMStmtRewind:string {"Rewind to when this statement was last evaluated"}
+  // Common contextual navigation resources.
+  ContextualNavigation:table {
+    StmtRewind:string {"Rewind to when this statement was last evaluated"}
 
-    CMStmtForward:string {"Move forward to when this statement is next evaluated"}
+    StmtForward:string {"Move forward to when this statement is next evaluated"}
   }
 
 

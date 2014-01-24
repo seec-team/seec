@@ -113,6 +113,17 @@ public:
   }
   
   /// @} (Access underlying information)
+  
+  
+  /// \brief Get the mapping information for the function at the given run-time
+  ///        address.
+  /// \param Address the run-time address.
+  /// \return a pointer to the mapping information, or nullptr if no function
+  ///         is known at the given address or no mapping information is
+  ///         available for the function at the given address.
+  ///
+  seec::seec_clang::MappedFunctionDecl const *
+  getMappedFunctionAt(uintptr_t const Address) const;
 };
 
 

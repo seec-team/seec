@@ -40,6 +40,7 @@
 
 #include "unicode/brkiter.h"
 
+#include "CommonMenus.hpp"
 #include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
@@ -47,6 +48,7 @@
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "ValueFormat.hpp"
 
 #include <list>
 #include <map>
@@ -310,14 +312,6 @@ wxDEFINE_EVENT(EVT_SOURCE_ANNOTATION_RERENDER, wxCommandEvent);
 /// \brief Viewer for a single source code file.
 ///
 class SourceFilePanel : public wxPanel {
-  /// \brief IDs for controls.
-  ///
-  enum ControlIDs {
-    CID_StmtRewind = wxID_HIGHEST,
-    CID_StmtForward
-  };
-  
-  
   /// \brief Store information about an indicated region.
   ///
   struct IndicatedRegion {
@@ -375,9 +369,6 @@ class SourceFilePanel : public wxPanel {
   
   /// Used to determine if the mouse remains stationary during a click.
   bool ClickUnmoved;
-  
-  /// Stmt that the context menu was raised for.
-  clang::Stmt const *CMStmt;
   
   
   /// \brief Setup the Scintilla preferences.
@@ -468,21 +459,28 @@ class SourceFilePanel : public wxPanel {
     auto const Width = ClientSize.GetWidth()
                        - Text->GetMarginWidth(MarginLineNumber);
     
+    std::string Buffer;
     wxString CompleteString;
     wxString Styles;
+    
+    auto const StyleDefault = static_cast<char>(wxSTC_STYLE_DEFAULT);
     
     for (auto const &LA : seec::range(StateAnnotations.equal_range(Line))) {
       auto const &Anno = LA.second;
       auto const &AnnoText = Anno.getText();
       auto const Indent = Anno.getIndent();
       auto const Style = static_cast<int>(Anno.getStyle());
+      
       wxString Spacing(' ', Indent);
+      wxString SpacingStyle(StyleDefault, Indent);
       
       switch (Anno.getWrapping()) {
         case WrapStyle::None:
         {
-          if (!CompleteString.IsEmpty())
+          if (!CompleteString.IsEmpty()) {
             CompleteString += "\n";
+            Styles.Append(StyleDefault, std::strlen("\n"));
+          }
           
           auto const Length = AnnoText.length();
           int32_t FragStart = 0;
@@ -491,10 +489,20 @@ class SourceFilePanel : public wxPanel {
             auto const NewlineIdx = AnnoText.indexOf('\n', FragStart);
             auto const FragEnd = NewlineIdx != -1 ? NewlineIdx : Length;
             
+            // Add the indentation for this line.
             CompleteString += Spacing;
-            CompleteString +=
-              seec::towxString(AnnoText.tempSubStringBetween(FragStart,
-                                                             FragEnd));
+            Styles         += SpacingStyle;
+            
+            // Add the fragment for this line. The style array needs to match
+            // the UTF-8 representation of the string.
+            auto const Frag = AnnoText.tempSubStringBetween(FragStart, FragEnd);
+            
+            Buffer.clear();
+            Frag.toUTF8String(Buffer);
+            
+            CompleteString += wxString(Buffer.c_str(), wxConvUTF8);
+            Styles.Append(static_cast<char>(Style), Buffer.size());
+            
             FragStart = FragEnd + 1;
           }
           
@@ -510,22 +518,27 @@ class SourceFilePanel : public wxPanel {
               });
           
           for (auto const &Wrapping : Wrappings) {
-            if (!CompleteString.IsEmpty())
+            if (!CompleteString.IsEmpty()) {
               CompleteString += "\n";
+              Styles.Append(StyleDefault, std::strlen("\n"));
+            }
             
+            // Add the fragment for this line. The style array needs to match
+            // the UTF-8 representation of the string.
             auto const Limit = Wrapping.End - Wrapping.TrailingWhitespace;
-            CompleteString +=
-              seec::towxString(AnnoText.tempSubStringBetween(Wrapping.Start,
-                                                             Limit));
+            auto const Frag = AnnoText.tempSubStringBetween(Wrapping.Start,
+                                                            Limit);
+            
+            Buffer.clear();
+            Frag.toUTF8String(Buffer);
+            
+            CompleteString += wxString(Buffer.c_str(), wxConvUTF8);
+            Styles.Append(static_cast<char>(Style), Buffer.size());
           }
           
           break;
         }
       }
-      
-      auto const NumCharsAdded = CompleteString.size() - Styles.size();
-      if (NumCharsAdded)
-        Styles.Append(static_cast<char>(Style), NumCharsAdded);
     }
     
     Text->AnnotationSetText(Line, CompleteString);
@@ -569,46 +582,6 @@ class SourceFilePanel : public wxPanel {
     ClickUnmoved = true;
   }
   
-  /// \brief Called when a context menu item is clicked.
-  ///
-  void OnContextMenuClick(wxCommandEvent &Event) {
-    switch (Event.GetId()) {
-      case CID_StmtRewind:
-      {
-        raiseMovementEvent(*this, CurrentAccess,
-          [this] (seec::cm::ProcessState &P) -> bool {
-            if (P.getThreadCount() == 1) {
-              auto &Thread = P.getThread(0);
-              return seec::cm::moveBackwardUntilEvaluated(Thread, CMStmt);
-            }
-            else {
-              wxLogDebug("Multithread rewind not yet implemented.");
-              return false;
-            }
-          });
-        
-        break;
-      }
-      
-      case CID_StmtForward:
-      {
-        raiseMovementEvent(*this, CurrentAccess,
-          [this] (seec::cm::ProcessState &P) -> bool {
-            if (P.getThreadCount() == 1) {
-              auto &Thread = P.getThread(0);
-              return seec::cm::moveForwardUntilEvaluated(Thread, CMStmt);
-            }
-            else {
-              wxLogDebug("Multithread forward not yet implemented.");
-              return false;
-            }
-          });
-        
-        break;
-      }
-    }
-  }
-  
   /// \brief Called when the mouse's right button is released in the Text
   ///        window.
   ///
@@ -616,35 +589,13 @@ class SourceFilePanel : public wxPanel {
     if (!ClickUnmoved)
       return;
     
-    UErrorCode Status = U_ZERO_ERROR;
-    auto const TextTable = seec::getResource("TraceViewer",
-                                             Locale::getDefault(),
-                                             Status,
-                                            "SourceFilePanel");
-    if (U_FAILURE(Status))
-      return;
-    
     if (HoverDecl)
       return;
     
     if (HoverStmt) {
-      // Save the HoverStmt, because it will be cleared before the user can
-      // click on any of the context menu items.
-      CMStmt = HoverStmt;
-      
       wxMenu ContextMenu{};
       
-      ContextMenu.Append(CID_StmtRewind,
-                         seec::getwxStringExOrEmpty(TextTable,
-                                                    "CMStmtRewind"));
-      
-      ContextMenu.Append(CID_StmtForward,
-                         seec::getwxStringExOrEmpty(TextTable,
-                                                    "CMStmtForward"));
-      
-      ContextMenu.Bind(wxEVT_COMMAND_MENU_SELECTED,
-                       &SourceFilePanel::OnContextMenuClick,
-                       this);
+      addStmtNavigation(*this, CurrentAccess, ContextMenu, HoverStmt);
       
       PopupMenu(&ContextMenu);
     }
@@ -674,8 +625,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false),
-    CMStmt(nullptr)
+    ClickUnmoved(false)
   {}
 
   /// \brief Construct and create.
@@ -700,8 +650,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false),
-    CMStmt(nullptr)
+    ClickUnmoved(false)
   {
     Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
   }
@@ -1204,64 +1153,6 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                       WrapStyle::Wrapped);
 }
 
-static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
-{
-  if (P.isInMemory()) {
-    if (!P.isCompletelyInitialized())
-      return "ValuePointerInMemoryUninitialized";
-    if (P.getRawValue() == 0)
-      return "ValuePointerInMemoryNULL";
-    if (P.getDereferenceIndexLimit() == 0)
-      return "ValuePointerInMemoryInvalid";
-    return "ValuePointerInMemory";
-  }
-  else {
-    if (P.getRawValue() == 0)
-      return "ValuePointerNULL";
-    if (P.getDereferenceIndexLimit() == 0)
-      return "ValuePointerInvalid";
-    return "ValuePointer";  
-  }
-}
-
-UnicodeString getStringForInlineValue(seec::cm::Value const &Value)
-{
-  auto const InMemory = Value.isInMemory();
-  auto const Kind = Value.getKind();
-  
-  if (Kind == seec::cm::Value::Kind::Pointer) {
-    // Pointers are a special case because we don't want to display raw values
-    // to the users (i.e. memory addresses).
-    
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Resources = seec::getResource("TraceViewer",
-                                       Locale::getDefault(),
-                                       Status,
-                                       "GUIText",
-                                       "SourceViewerPanel");
-    
-    if (U_FAILURE(Status))
-      return UnicodeString::fromUTF8("");
-    
-    auto const &Pointer = llvm::cast<seec::cm::ValueOfPointer>(Value);
-    auto const Key = getPointerDescriptionKey(Pointer);
-    auto const String = Resources.getStringEx(Key, Status);
-    
-    if (U_FAILURE(Status))
-      return UnicodeString::fromUTF8("");
-    
-    return String;
-  }
-  else {
-    if (InMemory) {
-      return UnicodeString::fromUTF8(Value.getValueAsStringShort());
-    }
-    else {
-      return UnicodeString::fromUTF8(Value.getValueAsStringFull());
-    }
-  }
-}
-
 void
 SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                                   ::seec::cm::FunctionState const &InFunction)
@@ -1297,7 +1188,8 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
-    auto const String = getStringForInlineValue(*Value);
+    auto const &Process = InFunction.getParent().getParent();
+    auto const String = getPrettyStringForInline(*Value, Process);
     
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,

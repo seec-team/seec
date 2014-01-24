@@ -59,6 +59,20 @@ load(llvm::StringRef ExecutablePath,
                                                           (*Mod, true)));
 }
 
+seec::seec_clang::MappedFunctionDecl const *
+ProcessTrace::getMappedFunctionAt(uintptr_t const Address) const
+{
+  auto const MaybeIndex = UnmappedTrace->getIndexOfFunctionAt(Address);
+  if (!MaybeIndex.assigned<uint32_t>())
+    return nullptr;
+  
+  auto const LLVMFn = ModuleIndex->getFunction(MaybeIndex.get<uint32_t>());
+  if (!LLVMFn)
+    return nullptr;
+  
+  return Mapping.getMappedFunctionDecl(LLVMFn);
+}
+
 
 } // namespace cm (in seec)
 

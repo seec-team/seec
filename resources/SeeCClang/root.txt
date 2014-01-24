@@ -46,6 +46,41 @@ root:table {
     MallocStateAllocatedAt:string { "allocated in file {filename} at line {line}, column {column}." }
   }
 
+  Values:table {
+    Descriptive:table {
+      PointerInMemoryUninitialized:string { "↛ (uninitialized pointer in memory)" }
+      PointerInMemoryNULL:string { "⇥ (NULL pointer in memory)" }
+      PointerInMemoryOpaque:string { "⇒ (opaque pointer in memory)" }
+      PointerInMemoryInvalid:string { "↝ (invalid pointer in memory)" }
+      PointerInMemory:string { "→ (pointer in memory)" }
+      PointerNULL:string { "⇥ (NULL pointer)" }
+      PointerOpaque:string { "⇒ (opaque pointer)" }
+      PointerInvalid:string { "↝ (invalid pointer)" }
+      Pointer:string { "→ (pointer)" }
+
+      // Number of character spaces used by the shortened representation (e.g. the ellipsis).
+      ShortenedPadding:int { 1 }
+
+      // Format the shortened representation.
+      Shortened:string { "{shortened}…" }
+
+      // Used when the number of characters required by the shortened representation is larger than the number of characters available. This should be as short as possible.
+      TooShort:string { "…" }
+    }
+
+    Micro:table {
+      PointerInMemoryUninitialized:string { "↛" }
+      PointerInMemoryNULL:string { "⇥" }
+      PointerInMemoryOpaque:string { "⇒" }
+      PointerInMemoryInvalid:string { "↝" }
+      PointerInMemory:string { "→" }
+      PointerNULL:string { "⇥" }
+      PointerOpaque:string { "⇒" }
+      PointerInvalid:string { "↝" }
+      Pointer:string { "→" }
+    }
+  }
+
   Graph:table {
     Layout:table {
       LEVStandard:table {

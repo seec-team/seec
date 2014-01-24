@@ -16,6 +16,8 @@
 
 #include <wx/wx.h>
 #include <wx/panel.h>
+#include <wx/timer.h>
+#include <wx/tipwin.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
@@ -54,6 +56,12 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     /// Value produced by the evaluation of this node.
     std::shared_ptr<seec::cm::Value const> Value;
     
+    /// String representation of the value produced by this node.
+    wxString ValueString;
+    
+    /// Shortened string representation of the value produced by this node.
+    wxString ValueStringShort;
+    
     /// Start of this node's text in the pretty-printed Stmt.
     uint64_t RangeStart;
     
@@ -79,6 +87,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     ///
     NodeInfo(clang::Stmt const *ForStatement,
              std::shared_ptr<seec::cm::Value const> WithValue,
+             wxString WithValueString,
+             wxString WithValueStringShort,
              uint64_t WithRangeStart,
              std::size_t WithRangeLength,
              unsigned WithDepth,
@@ -87,7 +97,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
              wxCoord WithYStart,
              wxCoord WithYEnd)
     : Statement(ForStatement),
-      Value(WithValue),
+      Value(std::move(WithValue)),
+      ValueString(std::move(WithValueString)),
+      ValueStringShort(std::move(WithValueStringShort)),
       RangeStart(WithRangeStart),
       RangeLength(WithRangeLength),
       Depth(WithDepth),
@@ -117,6 +129,10 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     wxColour NodeBackground;
     
     wxColour NodeBorder;
+    
+    wxColour NodeActiveBackground;
+    
+    wxColour NodeActiveBorder;
     
     wxColour NodeHighlightedBackground;
     
@@ -156,6 +172,12 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   
   /// The node that the mouse is currently over.
   decltype(Nodes)::const_iterator HoverNodeIt;
+  
+  /// Used to detect significant mouse hover over nodes.
+  wxTimer HoverTimer;
+  
+  /// False if there was movement between mouse down and mouse up.
+  bool ClickUnmoved;
 
 public:
   /// \brief Construct.
@@ -202,6 +224,9 @@ public:
   void OnPaint(wxPaintEvent &);
   void OnMouseMoved(wxMouseEvent &);
   void OnMouseLeftWindow(wxMouseEvent &);
+  void OnMouseRightDown(wxMouseEvent &);
+  void OnMouseRightUp(wxMouseEvent &);
+  void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)
 

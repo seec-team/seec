@@ -19,7 +19,16 @@
 #include <memory>
 #include <utility>
 
+
+namespace clang {
+  class Stmt;
+} // namespace clang
+
 class wxEvtHandler;
+class wxWindow;
+
+class StateAccessToken;
+
 
 /// \brief Create the standard file menu.
 ///
@@ -34,5 +43,13 @@ createRecordingMenu(wxEvtHandler &EvtHandler);
 ///
 bool append(wxMenuBar *MenuBar,
             std::pair<std::unique_ptr<wxMenu>, wxString> MenuWithTitle);
+
+/// \brief Add contextual navigation menu items for the given Stmt.
+///
+void addStmtNavigation(wxWindow &Control,
+                       std::shared_ptr<StateAccessToken> &Access,
+                       wxMenu &Menu,
+                       clang::Stmt const *Statement);
+
 
 #endif // SEEC_TRACE_VIEW_COMMONMENUS_HPP
