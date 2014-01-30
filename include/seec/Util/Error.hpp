@@ -43,6 +43,9 @@ public:
     if (U_FAILURE(Status))
       return UnicodeString();
     
+    if (!Message)
+      return UnicodeString();
+    
     UnicodeString Msg = Message->get(Status, GetLocale);
     if (U_FAILURE(Status)) {
       return UnicodeString::fromUTF8("Couldn't load error message: ")
