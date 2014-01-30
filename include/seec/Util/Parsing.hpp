@@ -15,6 +15,7 @@
 #define SEEC_UTIL_PARSING_HPP
 
 #include <cerrno>
+#include <limits>
 #include <string>
 
 namespace seec {
@@ -22,20 +23,44 @@ namespace seec {
 template<typename>
 struct ParseToImpl;
 
+template<> struct ParseToImpl<int> {
+  static bool impl(std::string const &In, int &Out) noexcept {
+    auto const Start = In.c_str();
+    char *End = nullptr;
+    
+    errno = 0;
+    auto const Value = std::strtol(Start, &End, 0);
+    if (errno)
+      return false;
+    
+    // Check whether at least one character was converted.
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
+      return false;
+    
+    if (Value < std::numeric_limits<int>::min()
+        || Value > std::numeric_limits<int>::max())
+      return false;
+    
+    Out = Value;
+    return true;
+  }
+};
+
 template<> struct ParseToImpl<long> {
   static bool impl(std::string const &In, long &Out) noexcept {
     auto const Start = In.c_str();
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtol(Start, &End, 0);
+    auto const Value = std::strtol(Start, &End, 0);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
@@ -46,14 +71,37 @@ template<> struct ParseToImpl<long long> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtoll(Start, &End, 0);
+    auto const Value = std::strtoll(Start, &End, 0);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
+    return true;
+  }
+};
+
+template<> struct ParseToImpl<unsigned> {
+  static bool impl(std::string const &In, unsigned &Out) noexcept {
+    auto const Start = In.c_str();
+    char *End = nullptr;
+    
+    errno = 0;
+    auto const Value = std::strtoul(Start, &End, 0);
+    if (errno)
+      return false;
+    
+    // Check whether at least one character was converted.
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
+      return false;
+    
+    if (Value > std::numeric_limits<unsigned>::max())
+      return false;
+    
+    Out = Value;
     return true;
   }
 };
@@ -64,14 +112,15 @@ template<> struct ParseToImpl<unsigned long> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtoul(Start, &End, 0);
+    auto const Value = std::strtoul(Start, &End, 0);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
@@ -82,14 +131,15 @@ template<> struct ParseToImpl<unsigned long long> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtoull(Start, &End, 0);
+    auto const Value = std::strtoull(Start, &End, 0);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
@@ -100,14 +150,15 @@ template<> struct ParseToImpl<float> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtof(Start, &End);
+    auto const Value = std::strtof(Start, &End);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
@@ -118,14 +169,15 @@ template<> struct ParseToImpl<double> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtod(Start, &End);
+    auto const Value = std::strtod(Start, &End);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
@@ -136,14 +188,15 @@ template<> struct ParseToImpl<long double> {
     char *End = nullptr;
     
     errno = 0;
-    Out = std::strtold(Start, &End);
+    auto const Value = std::strtold(Start, &End);
     if (errno)
       return false;
     
     // Check whether at least one character was converted.
-    if (Out == 0 && (Start == End || *(End - 1) != '0'))
+    if (Value == 0 && (Start == End || *(End - 1) != '0'))
       return false;
     
+    Out = Value;
     return true;
   }
 };
