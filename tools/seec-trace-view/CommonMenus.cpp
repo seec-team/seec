@@ -22,8 +22,23 @@
 #include <wx/menu.h>
 
 #include "ActionRecordSettings.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "ProcessMoveEvent.hpp"
+#include "TraceViewerFrame.hpp"
+
+static void BindMenuItem(wxMenuItem *Item,
+                         std::function<void (wxEvent &)> Handler)
+{
+  if (!Item)
+    return;
+  
+  auto const Menu = Item->GetMenu();
+  if (!Menu)
+    return;
+  
+  Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
+}
 
 std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
 {
@@ -48,20 +63,35 @@ createRecordingMenu(wxEvtHandler &EvtHandler)
   
   auto Menu = seec::makeUnique<wxMenu>();
   
-  auto SettingsItem =
+  // Item for opening the recording settings menu.
+  BindMenuItem(
     Menu->Append(wxID_ANY,
                  seec::getwxStringExOrEmpty("TraceViewer",
-                    (char const * []){"GUIText", "MenuRecord", "Settings"}));
-  
-  EvtHandler.Bind(wxEVT_COMMAND_MENU_SELECTED,
-                  std::function<void (wxCommandEvent &)>(
-                    [] (wxCommandEvent &Event) {
-                      showActionRecordSettings();
-                    }
-                  ),
-                  SettingsItem->GetId());
+                    (char const * []){"GUIText", "MenuRecord", "Settings"})),
+    [] (wxEvent &) {
+      showActionRecordSettings();
+    });
   
   return std::make_pair(std::move(Menu), Title);
+}
+
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createRecordingMenu(TraceViewerFrame &Viewer)
+{
+  auto Base = createRecordingMenu(static_cast<wxEvtHandler &>(Viewer));
+  auto &Menu = Base.first;
+  
+  // Item for opening and replaying a recording.
+  BindMenuItem(
+    Menu->Append(wxID_ANY,
+                 seec::getwxStringExOrEmpty("TraceViewer",
+                    (char const * []){"GUIText", "MenuRecord", "OpenReplay"})),
+    [&Viewer] (wxEvent &) {
+      auto const Replay = Viewer.getReplay();
+      Replay->ShowOpenDialog();
+    });
+  
+  return Base;
 }
 
 bool append(wxMenuBar *MenuBar,
@@ -69,19 +99,6 @@ bool append(wxMenuBar *MenuBar,
 {
   return MenuBar->Append(MenuWithTitle.first.release(),
                          MenuWithTitle.second);
-}
-
-static void BindMenuItem(wxMenuItem *Item,
-                         std::function<void (wxEvent &)> Handler)
-{
-  if (!Item)
-    return;
-  
-  auto const Menu = Item->GetMenu();
-  if (!Menu)
-    return;
-  
-  Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
 }
 
 void addStmtNavigation(wxWindow &Control,

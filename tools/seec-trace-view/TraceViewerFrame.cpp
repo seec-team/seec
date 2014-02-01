@@ -27,6 +27,7 @@
 #include <iostream>
 
 #include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
@@ -48,6 +49,7 @@ TraceViewerFrame::TraceViewerFrame()
   SourceViewer(nullptr),
   StateViewer(nullptr),
   Recording(nullptr),
+  Replay(nullptr),
   ThreadTime(nullptr)
 {}
 
@@ -64,6 +66,7 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
   SourceViewer(nullptr),
   StateViewer(nullptr),
   Recording(nullptr),
+  Replay(nullptr),
   ThreadTime(nullptr)
 {
   Create(Parent, std::move(TracePtr), ID, Title, Position, Size);
@@ -87,6 +90,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   // Setup the action record.
   Recording = seec::makeUnique<ActionRecord>();
+  Recording->enable();
+  
+  // Setup the action replay frame.
+  Replay = new ActionReplayFrame(this);
   
   // Set the trace.
   Trace = std::move(TracePtr);
@@ -122,22 +129,17 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Setup the view for a single-threaded trace.
 
     // Create the thread time movement control.
-    ThreadTime = new ThreadTimeControl(this, wxID_ANY);
+    ThreadTime = new ThreadTimeControl(this, *Recording, Replay);
 
     // Create the source code viewer.
     SourceViewer = new SourceViewerPanel(this,
                                          *Trace,
-                                         *Notifier,
-                                         wxID_ANY,
-                                         wxDefaultPosition,
-                                         wxDefaultSize);
+                                         *Notifier);
 
     // Create a text control to show the current state.
     StateViewer = new StateViewerPanel(this,
                                        *Notifier,
-                                       wxID_ANY,
-                                       wxDefaultPosition,
-                                       wxDefaultSize);
+                                       *Recording);
 
     wxBoxSizer *ParentSizer = new wxBoxSizer(wxVERTICAL);
     ParentSizer->Add(ThreadTime, wxSizerFlags().Expand());
@@ -167,6 +169,30 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Bind(SEEC_EV_PROCESS_MOVE, &TraceViewerFrame::OnProcessMove, this);
   
   Bind(SEEC_EV_THREAD_MOVE, &TraceViewerFrame::OnThreadMove, this);
+  
+  // Setup action recording.
+  Bind(wxEVT_SIZE, std::function<void (wxSizeEvent &)> {
+    [this] (wxSizeEvent &Ev) -> void {
+      // TODO: Don't record if we're replaying.
+      if (Recording) {
+        auto const &Size = Ev.GetSize();
+        Recording->recordEventL("TraceViewerFrame.Resize",
+                                make_attribute("width", Size.GetWidth()),
+                                make_attribute("height", Size.GetHeight()));
+      }
+      
+      Ev.Skip();
+    }
+  });
+  
+  Replay->RegisterHandler("TraceViewerFrame.Resize",
+                          {"width", "height"},
+    std::function<void (int, int)>{
+      [this] (int width, int height) -> void {
+        wxLogDebug("TraceViewerFrame.Resize %d,%d", width, height);
+        this->SetSize(width, height);
+        this->Layout();
+      }});
 
   return true;
 }

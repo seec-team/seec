@@ -32,6 +32,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "ActionRecord.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "StateAccessToken.hpp"
@@ -66,6 +67,7 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
 StateEvaluationTreePanel::StateEvaluationTreePanel()
 : Settings(),
   Notifier(nullptr),
+  Recording(nullptr),
   CurrentAccess(),
   CurrentProcess(nullptr),
   CurrentThread(nullptr),
@@ -80,11 +82,13 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
 
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
                                                    ContextNotifier &TheNotifier,
+                                                   ActionRecord &TheRecording,
                                                    wxWindowID ID,
                                                    wxPoint const &Position,
                                                    wxSize const &Size)
 : Settings(),
   Notifier(nullptr),
+  Recording(nullptr),
   CurrentAccess(),
   CurrentProcess(nullptr),
   CurrentThread(nullptr),
@@ -96,13 +100,14 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
   HoverTimer(),
   ClickUnmoved(false)
 {
-  Create(Parent, TheNotifier, ID, Position, Size);
+  Create(Parent, TheNotifier, TheRecording, ID, Position, Size);
 }
 
 StateEvaluationTreePanel::~StateEvaluationTreePanel() = default;
 
 bool StateEvaluationTreePanel::Create(wxWindow *Parent,
                                       ContextNotifier &WithNotifier,
+                                      ActionRecord &WithRecording,
                                       wxWindowID ID,
                                       wxPoint const &Position,
                                       wxSize const &Size)
@@ -111,6 +116,7 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
     return false;
   
   Notifier = &WithNotifier;
+  Recording = &WithRecording;
   
   SetBackgroundStyle(wxBG_STYLE_PAINT);
   CodeFont = wxFont{wxFontInfo(Settings.CodeFontSize)
@@ -480,6 +486,11 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
   
   bool DisplayChanged = false;
   auto const Pos = CalcUnscrolledPosition(Ev.GetPosition());
+  
+  if (Recording)
+    Recording->recordEventL("StateEvaluationTree.Move",
+                            make_attribute("x", Pos.x),
+                            make_attribute("y", Pos.y));
   
   // TODO: Find if the Pos is over the pretty-printed Stmt.
   

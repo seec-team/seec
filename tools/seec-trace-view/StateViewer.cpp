@@ -33,6 +33,7 @@ StateViewerPanel::~StateViewerPanel() = default;
 
 bool StateViewerPanel::Create(wxWindow *Parent,
                               ContextNotifier &WithNotifier,
+                              ActionRecord &WithRecording,
                               wxWindowID ID,
                               wxPoint const &Position,
                               wxSize const &Size) {
@@ -66,7 +67,9 @@ bool StateViewerPanel::Create(wxWindow *Parent,
 #endif
   
   // Create the evaluation tree.
-  EvaluationTree = new StateEvaluationTreePanel(this, WithNotifier);
+  EvaluationTree = new StateEvaluationTreePanel(this,
+                                                WithNotifier,
+                                                WithRecording);
   StateBook->AddPage(EvaluationTree, wxString("Evaluation"));
   
   // Create the graph viewer.

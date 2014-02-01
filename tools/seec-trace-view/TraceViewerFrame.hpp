@@ -31,6 +31,7 @@ namespace seec {
 }
 
 class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class OpenTrace;
 class ProcessMoveEvent;
@@ -66,6 +67,9 @@ class TraceViewerFrame : public wxFrame
   
   /// Used to record user interactions.
   std::unique_ptr<ActionRecord> Recording;
+  
+  /// Used to replay user interactions.
+  ActionReplayFrame *Replay;
   
   
   /// \name Multi-threaded traces
@@ -122,6 +126,16 @@ public:
   /// \brief Handle a request to move a thread.
   ///
   void OnThreadMove(ThreadMoveEvent &Event);
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  ActionRecord &getRecording() { return *Recording; }
+  
+  ActionReplayFrame *getReplay() { return Replay; }
+  
+  /// @} (Accessors.)
 };
 
 #endif // SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP

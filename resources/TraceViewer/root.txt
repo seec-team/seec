@@ -35,6 +35,8 @@ root:table {
       Title:string {"&Recording"}
 
       Settings:string {"&Settings"}
+
+      OpenReplay:string {"&Open replay"}
     }
 
 
@@ -190,6 +192,30 @@ root:table {
     CMAreaForwardDeallocation:string {"Forward to when this memory is deallocated"}
 
     CMAreaDisplayAs:string {"Display as"}
+  }
+
+
+  // Messages for the record and replay system.
+  ActionRecording:table {
+    ErrorAttribute:string {"Failed to read attribute {name}."}
+
+    ReplayFrameTitle:string {"Action replay"}
+
+    ReplayFileOpen:string {"Select an action recording to replay"}
+
+    ReplayFileType:string {"SeeC Action Recording (*.xml)|*.xml"}
+
+    ReplayFileInvalid:string {"This does not appear to be a valid action recording."}
+
+    ReplayFileOld:string {"This action recording is for and older version of SeeC."}
+
+    ReplayFileNew:string {"A newer version of SeeC is required to view this action recording."}
+
+    ButtonPlay:string {"Play"}
+
+    ButtonPause:string {"Pause"}
+
+    ButtonStep:string {"Step"}
   }
 
 

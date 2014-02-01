@@ -39,6 +39,7 @@ namespace clang {
   class Stmt;
 }
 
+class ActionRecord;
 class ContextNotifier;
 class StateAccessToken;
 
@@ -149,6 +150,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
+  /// Used to record user interactions.
+  ActionRecord *Recording;
+  
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
@@ -188,6 +192,7 @@ public:
   ///
   StateEvaluationTreePanel(wxWindow *Parent,
                            ContextNotifier &WithNotifier,
+                           ActionRecord &WithRecording,
                            wxWindowID ID = wxID_ANY,
                            wxPoint const &Position = wxDefaultPosition,
                            wxSize const &Size = wxDefaultSize);
@@ -200,6 +205,7 @@ public:
   ///
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

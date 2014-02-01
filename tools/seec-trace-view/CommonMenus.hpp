@@ -28,16 +28,22 @@ class wxEvtHandler;
 class wxWindow;
 
 class StateAccessToken;
+class TraceViewerFrame;
 
 
 /// \brief Create the standard file menu.
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu();
 
-/// \brief Create the standard recording settings menu.
+/// \brief Create the standard recording menu.
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString>
 createRecordingMenu(wxEvtHandler &EvtHandler);
+
+/// \brief Create the recording menu for a trace viewer frame.
+///
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createRecordingMenu(TraceViewerFrame &Viewer);
 
 /// \brief Appends a wxMenu to a wxMenuBar using the menu's current title.
 ///

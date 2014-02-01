@@ -28,6 +28,7 @@ namespace seec {
   }
 }
 
+class ActionRecord;
 class ContextNotifier;
 class StateAccessToken;
 class StateEvaluationTreePanel;
@@ -62,6 +63,7 @@ public:
 
   StateViewerPanel(wxWindow *Parent,
                    ContextNotifier &WithNotifier,
+                   ActionRecord &WithRecording,
                    wxWindowID ID = wxID_ANY,
                    wxPoint const &Position = wxDefaultPosition,
                    wxSize const &Size = wxDefaultSize)
@@ -71,13 +73,14 @@ public:
     GraphViewer(nullptr),
     CurrentAccess()
   {
-    Create(Parent, WithNotifier, ID, Position, Size);
+    Create(Parent, WithNotifier, WithRecording, ID, Position, Size);
   }
 
   ~StateViewerPanel();
 
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

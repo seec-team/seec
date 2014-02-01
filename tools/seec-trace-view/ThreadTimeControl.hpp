@@ -24,6 +24,8 @@
 
 
 // Forward-declarations.
+class ActionRecord;
+class ActionReplayFrame;
 class StateAccessToken;
 class wxButton;
 
@@ -39,6 +41,8 @@ namespace seec {
 ///
 class ThreadTimeControl : public wxPanel
 {
+  ActionRecord *Recording;
+  
   wxButton *ButtonGoToStart;
   
   wxButton *ButtonStepBack;
@@ -68,6 +72,7 @@ public:
   ///
   ThreadTimeControl()
   : wxPanel(),
+    Recording(nullptr),
     ButtonGoToStart(nullptr),
     ButtonStepBack(nullptr),
     ButtonStepForward(nullptr),
@@ -80,23 +85,18 @@ public:
   /// \brief Constructor (with creation).
   ///
   ThreadTimeControl(wxWindow *Parent,
-                    wxWindowID ID = wxID_ANY)
-  : wxPanel(),
-    ButtonGoToStart(nullptr),
-    ButtonStepBack(nullptr),
-    ButtonStepForward(nullptr),
-    ButtonGoToNextError(nullptr),
-    ButtonGoToEnd(nullptr),
-    CurrentAccess(),
-    CurrentThreadIndex()
+                    ActionRecord &WithRecord,
+                    ActionReplayFrame *WithReplay)
+  : ThreadTimeControl()
   {
-    Create(Parent, ID);
+    Create(Parent, WithRecord, WithReplay);
   }
 
   /// \brief Create this object (if it was not created by the constructor).
   ///
   bool Create(wxWindow *Parent,
-              wxWindowID ID = wxID_ANY);
+              ActionRecord &WithRecord,
+              ActionReplayFrame *WithReplay);
   
   /// \brief Destructor.
   ///
@@ -111,32 +111,13 @@ public:
 
   /// \name Event Handlers
   /// @{
-
-  /// \brief Called when the GoToStart button is clicked.
-  ///
-  void OnGoToStart(wxCommandEvent &Event);
-
-  /// \brief Called when the StepBack button is clicked.
-  ///
-  void OnStepBack(wxCommandEvent &Event);
-
-  /// \brief Called when the StepForward button is clicked.
-  ///
-  void OnStepForward(wxCommandEvent &Event);
-
-  /// \brief Called when the GoToNextError button is clicked.
-  ///
-  void OnGoToNextError(wxCommandEvent &Event);
-
-  /// \brief Called when the GoToEnd button is clicked.
-  ///
-  void OnGoToEnd(wxCommandEvent &Event);
-
-  /// @} (Event Handlers)
-
+  
 private:
-  // Declare the static event table (it is defined in ThreadTimeControl.cpp)
-  DECLARE_EVENT_TABLE();
+  void GoToStart();
+  void StepBack();
+  void StepForward();
+  void GoToNextError();
+  void GoToEnd();
 };
 
 

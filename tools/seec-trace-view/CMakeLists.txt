@@ -20,6 +20,7 @@ endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(SEEC_TRACE_VIEW_HEADERS
   ActionRecord.hpp
   ActionRecordSettings.hpp
+  ActionReplay.hpp
   CommonMenus.hpp
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
@@ -47,6 +48,7 @@ set(SEEC_TRACE_VIEW_HEADERS
 set(SEEC_TRACE_VIEW_SRCS
   ActionRecord.cpp
   ActionRecordSettings.cpp
+  ActionReplay.cpp
   CommonMenus.cpp
   ExplanationViewer.cpp
   FunctionStateViewer.cpp

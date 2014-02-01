@@ -23,6 +23,8 @@
 #include <wx/bmpbuttn.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "InternationalizedButton.hpp"
 #include "OpenTrace.hpp"
 #include "ThreadMoveEvent.hpp"
@@ -31,28 +33,6 @@
 
 
 IMPLEMENT_DYNAMIC_CLASS(ThreadTimeControl, wxPanel);
-
-enum ControlIDs {
-  ControlID_Reset = wxID_HIGHEST,
-  ControlID_ButtonGoToStart,
-  ControlID_ButtonStepBack,
-  ControlID_ButtonStepForward,
-  ControlID_ButtonGoToNextError,
-  ControlID_ButtonGoToEnd
-};
-
-
-//------------------------------------------------------------------------------
-// event table
-//------------------------------------------------------------------------------
-
-BEGIN_EVENT_TABLE(ThreadTimeControl, wxPanel)
-  EVT_BUTTON(ControlID_ButtonGoToStart,     ThreadTimeControl::OnGoToStart)
-  EVT_BUTTON(ControlID_ButtonStepBack,      ThreadTimeControl::OnStepBack)
-  EVT_BUTTON(ControlID_ButtonStepForward,   ThreadTimeControl::OnStepForward)
-  EVT_BUTTON(ControlID_ButtonGoToNextError, ThreadTimeControl::OnGoToNextError)
-  EVT_BUTTON(ControlID_ButtonGoToEnd,       ThreadTimeControl::OnGoToEnd)
-END_EVENT_TABLE()
 
 
 //------------------------------------------------------------------------------
@@ -74,10 +54,14 @@ void ThreadTimeControl::disableAll()
     ButtonGoToEnd->Disable();
 }
 
-bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
+bool ThreadTimeControl::Create(wxWindow *Parent,
+                               ActionRecord &WithRecord,
+                               ActionReplayFrame *WithReplay)
 {
-  if (!wxPanel::Create(Parent, ID))
+  if (!wxPanel::Create(Parent, wxID_ANY))
     return false;
+
+  Recording = &WithRecord;
 
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -99,10 +83,19 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   // Create stepping buttons to control the thread time.
 #define SEEC_BUTTON(NAME, TEXT_KEY, IMAGE_KEY)                                 \
   Button##NAME =                                                               \
-    makeInternationalizedButton(this, ControlID_Button##NAME,                  \
+    makeInternationalizedButton(this, wxID_ANY,                                \
                                 TextTable, TEXT_KEY,                           \
                                 ImageTable, IMAGE_KEY, wxSize(50, 25));        \
-  Button##NAME->Disable();
+  Button##NAME->Disable();                                                     \
+  Button##NAME->Bind(wxEVT_BUTTON, std::function<void (wxCommandEvent &)>{     \
+    [this] (wxCommandEvent &) -> void {                                        \
+      disableAll();                                                            \
+      if (Recording)                                                           \
+        Recording->recordEventL("ThreadTimeControl.Click",                     \
+                                make_attribute("thread", CurrentThreadIndex),  \
+                                make_attribute("button", #NAME));              \
+      this->NAME();                                                            \
+    }});
   
   SEEC_BUTTON(GoToStart,     "GoToStart",     "BackwardArrowToBlock")
   SEEC_BUTTON(StepBack,      "StepBack",      "BackwardArrow")
@@ -126,6 +119,26 @@ bool ThreadTimeControl::Create(wxWindow *Parent, wxWindowID ID)
   
   TopSizer->AddStretchSpacer(1);
   SetSizerAndFit(TopSizer);
+  
+  // Setup the action replay.
+  WithReplay->RegisterHandler("ThreadTimeControl.Click",
+                              {"thread", "button"},
+    std::function<void (std::size_t, std::string &)>{
+      [this] (std::size_t Thread, std::string &Button) -> void {
+        if (Button == "GoToStart")
+          GoToStart();
+        else if (Button == "StepBack")
+          StepBack();
+        else if (Button == "StepForward")
+          StepForward();
+        else if (Button == "GoToNextError")
+          GoToNextError();
+        else if (Button == "GoToEnd")
+          GoToEnd();
+        else {
+          wxLogDebug("ThreadTimeControl.Click: Unknown button \"%s\"", Button);
+        }
+      }});
 
   return true;
 }
@@ -161,9 +174,7 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
   }
 }
 
-void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
-  disableAll();
-  
+void ThreadTimeControl::GoToStart() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -172,9 +183,7 @@ void ThreadTimeControl::OnGoToStart(wxCommandEvent &WXUNUSED(Event)) {
                      });
 }
 
-void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
-  disableAll();
-  
+void ThreadTimeControl::StepBack() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -183,9 +192,7 @@ void ThreadTimeControl::OnStepBack(wxCommandEvent &WXUNUSED(Event)) {
                      });
 }
 
-void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
-  disableAll();
-  
+void ThreadTimeControl::StepForward() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
@@ -194,13 +201,9 @@ void ThreadTimeControl::OnStepForward(wxCommandEvent &WXUNUSED(Event)) {
                      });
 }
 
-void ThreadTimeControl::OnGoToNextError(wxCommandEvent &WXUNUSED(Event)) {
-  // TODO.
-}
+void ThreadTimeControl::GoToNextError() {}
 
-void ThreadTimeControl::OnGoToEnd(wxCommandEvent &WXUNUSED(Event)) {
-  disableAll();
-  
+void ThreadTimeControl::GoToEnd() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
