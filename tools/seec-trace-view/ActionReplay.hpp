@@ -30,6 +30,9 @@
 #include <type_traits>
 
 
+class wxGauge;
+
+
 /// \brief Interface for handling recorded events.
 ///
 class IEventHandler
@@ -151,6 +154,9 @@ class ActionReplayFrame : public wxFrame
   
   /// Step to the next event in the recording.
   wxButton *ButtonStep;
+  
+  /// Shows the progress through the recording.
+  wxGauge *GaugeEventProgress;
   
   /// Event handler lookup.
   std::map<std::string, std::unique_ptr<IEventHandler>> Handlers;

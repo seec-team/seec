@@ -18,6 +18,8 @@
 
 #include "ActionReplay.hpp"
 
+#include <wx/gauge.h>
+
 #include <string>
 
 
@@ -67,6 +69,8 @@ void ActionReplayFrame::MoveToNextEvent()
     return;
   
   NextEvent = NextEvent->GetNext();
+  
+  GaugeEventProgress->SetValue(GaugeEventProgress->GetValue() + 1);
   
   if (!NextEvent) {
     ButtonPlay->Disable();
@@ -126,6 +130,7 @@ ActionReplayFrame::ActionReplayFrame()
 : ButtonPlay(nullptr),
   ButtonPause(nullptr),
   ButtonStep(nullptr),
+  GaugeEventProgress(nullptr),
   Handlers(),
   RecordDocument(seec::makeUnique<wxXmlDocument>()),
   NextEvent(nullptr),
@@ -158,6 +163,8 @@ bool ActionReplayFrame::Create(wxWindow *Parent)
   if (!wxFrame::Create(Parent, wxID_ANY, Title))
     return false;
   
+  auto const SizerTopLevel = new wxBoxSizer(wxVERTICAL);
+  
   // Add buttons for play, pause, step.
   auto const SizerForButtons = new wxBoxSizer(wxHORIZONTAL);
   
@@ -177,7 +184,13 @@ bool ActionReplayFrame::Create(wxWindow *Parent)
   SizerForButtons->Add(ButtonPause, wxSizerFlags());
   SizerForButtons->Add(ButtonStep,  wxSizerFlags());
   
-  SetSizerAndFit(SizerForButtons);
+  SizerTopLevel->Add(SizerForButtons, wxSizerFlags());
+  
+  // Add the progress gauge.
+  GaugeEventProgress = new wxGauge(this, wxID_ANY, 1);
+  SizerTopLevel->Add(GaugeEventProgress, wxSizerFlags().Expand());
+  
+  SetSizerAndFit(SizerTopLevel);
   
   // Bind the close event to hide the frame (only destroy it if the parent is
   // being closed).
@@ -196,6 +209,18 @@ bool ActionReplayFrame::Create(wxWindow *Parent)
   EventTimer.Bind(wxEVT_TIMER, &ActionReplayFrame::OnEventTimer, this);
   
   return true;
+}
+
+std::size_t countChildren(wxXmlNode *Node)
+{
+  if (!Node)
+    return 0;
+  
+  std::size_t Count = 0;
+  for (auto Child = Node->GetChildren(); Child; Child = Child->GetNext())
+    ++Count;
+  
+  return Count;
 }
 
 void ActionReplayFrame::ShowOpenDialog()
@@ -234,6 +259,8 @@ void ActionReplayFrame::ShowOpenDialog()
     return;
   }
   
+  GaugeEventProgress->SetRange(countChildren(Root));
+  GaugeEventProgress->SetValue(0);
   NextEvent = Root->GetChildren();
   
   Show();
