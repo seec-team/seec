@@ -97,14 +97,7 @@ public:
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize)
-  : wxStyledTextCtrl(),
-    Notifier(nullptr),
-    Explanation(),
-    CurrentMousePosition(wxSTC_INVALID_POSITION),
-    HighlightedDecl(nullptr),
-    HighlightedStmt(nullptr),
-    URLHover(false),
-    URLClick(false)
+  : ExplanationViewer()
   {
     Create(Parent, WithNotifier, ID, Position, Size);
   }

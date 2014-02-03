@@ -59,15 +59,7 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
                                    wxString const &Title,
                                    wxPoint const &Position,
                                    wxSize const &Size)
-: Trace(),
-  State(),
-  StateAccess(),
-  Notifier(),
-  SourceViewer(nullptr),
-  StateViewer(nullptr),
-  Recording(nullptr),
-  Replay(nullptr),
-  ThreadTime(nullptr)
+: TraceViewerFrame()
 {
   Create(Parent, std::move(TracePtr), ID, Title, Position, Size);
 }

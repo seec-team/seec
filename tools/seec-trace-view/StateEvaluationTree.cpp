@@ -86,19 +86,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
                                                    wxWindowID ID,
                                                    wxPoint const &Position,
                                                    wxSize const &Size)
-: Settings(),
-  Notifier(nullptr),
-  Recording(nullptr),
-  CurrentAccess(),
-  CurrentProcess(nullptr),
-  CurrentThread(nullptr),
-  ActiveFn(nullptr),
-  CodeFont(),
-  Statement(),
-  Nodes(),
-  HoverNodeIt(Nodes.end()),
-  HoverTimer(),
-  ClickUnmoved(false)
+: StateEvaluationTreePanel()
 {
   Create(Parent, TheNotifier, TheRecording, ID, Position, Size);
 }

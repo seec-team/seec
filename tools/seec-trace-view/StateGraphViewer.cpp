@@ -223,17 +223,7 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
                                              wxWindowID ID,
                                              wxPoint const &Position,
                                              wxSize const &Size)
-: wxPanel(),
-  Notifier(nullptr),
-  PathToDot(),
-  PathToGraphvizLibraries(),
-  PathToGraphvizPlugins(),
-  CurrentAccess(),
-  WebView(nullptr),
-  LayoutHandler(),
-  LayoutHandlerMutex(),
-  CallbackFS(nullptr),
-  MouseOver()
+: StateGraphViewerPanel()
 {
   Create(Parent, WithNotifier, ID, Position, Size);
 }

@@ -637,20 +637,7 @@ public:
                   wxWindowID ID = wxID_ANY,
                   wxPoint const &Position = wxDefaultPosition,
                   wxSize const &Size = wxDefaultSize)
-  : wxPanel(),
-    AST(nullptr),
-    File(nullptr),
-    Text(nullptr),
-    Breaker(nullptr),
-    CurrentAccess(),
-    StateIndications(),
-    StateAnnotations(),
-    TemporaryIndicators(),
-    CurrentMousePosition(-1),
-    HoverDecl(nullptr),
-    HoverStmt(nullptr),
-    HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false)
+  : SourceFilePanel()
   {
     Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
   }
@@ -964,12 +951,7 @@ SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
                                      wxWindowID ID,
                                      wxPoint const &Position,
                                      wxSize const &Size)
-: wxPanel(),
-  Notebook(nullptr),
-  Trace(nullptr),
-  Notifier(nullptr),
-  Pages(),
-  CurrentAccess()
+: SourceViewerPanel()
 {
   Create(Parent, TheTrace, WithNotifier, ID, Position, Size);
 }
