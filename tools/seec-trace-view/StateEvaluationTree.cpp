@@ -475,10 +475,12 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
   bool DisplayChanged = false;
   auto const Pos = CalcUnscrolledPosition(Ev.GetPosition());
   
+#if 0
   if (Recording)
     Recording->recordEventL("StateEvaluationTree.Move",
                             make_attribute("x", Pos.x),
                             make_attribute("y", Pos.y));
+#endif
   
   // TODO: Find if the Pos is over the pretty-printed Stmt.
   
