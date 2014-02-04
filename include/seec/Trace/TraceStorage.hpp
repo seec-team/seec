@@ -55,6 +55,7 @@ enum class ThreadSegment {
 /// \brief Allocates raw_ostreams for the various outputs required by tracing.
 ///
 /// This gives us a central area to control the output locations and filenames.
+///
 class OutputStreamAllocator {
   /// Path to the trace directory.
   std::string TraceDirectory;
@@ -112,9 +113,11 @@ public:
 /// \brief Gets MemoryBuffers for the various sections of a trace.
 ///
 class InputBufferAllocator {
+  /// Path to the directory containing the individual execution trace files.
   std::string TraceDirectory;
 
-  /// Default constructor.
+  /// \brief Default constructor.
+  ///
   InputBufferAllocator(llvm::StringRef Directory)
   : TraceDirectory(Directory)
   {}
@@ -132,26 +135,8 @@ public:
   static
   seec::Maybe<InputBufferAllocator, seec::Error>
   createFor(llvm::StringRef Directory);
-
-  /// Copy constructor.
-  InputBufferAllocator(InputBufferAllocator const &) = default;
-
-  /// Move constructor.
-  InputBufferAllocator(InputBufferAllocator &&Other) = default;
-
+  
   /// @} (Constructors.)
-  
-
-  /// \name Operators.
-  /// @{
-  
-  /// Copy assignment.
-  InputBufferAllocator &operator=(InputBufferAllocator const &) = default;
-  
-  /// Move assignment.
-  InputBufferAllocator &operator=(InputBufferAllocator &&RHS) = default;
-  
-  /// @} (Operators.)
   
   
   /// \brief Get the path of the directory containing the trace files.
@@ -165,13 +150,14 @@ public:
   seec::Maybe<llvm::Module *, seec::Error>
   getModule(llvm::LLVMContext &Context);
 
-  /// Create a MemoryBuffer containing the process data for the given Segment.
+  /// \brief Create a MemoryBuffer containing the process data for the given
+  /// Segment.
   ///
   seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
   getProcessData(ProcessSegment Segment);
 
-  /// Create a MemoryBuffer containing the data for the given thread's given
-  /// Segment.
+  /// \brief Create a MemoryBuffer containing the data for the given thread's
+  /// given Segment.
   ///
   seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
   getThreadData(uint32_t ThreadID, ThreadSegment Segment);

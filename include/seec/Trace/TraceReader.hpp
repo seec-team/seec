@@ -489,7 +489,8 @@ class ProcessTrace {
   // mutable because we lazily construct the ThreadTrace objects.
   mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
-  /// Constructor.
+  /// \brief Constructor.
+  ///
   ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
                std::unique_ptr<llvm::MemoryBuffer> Data,
                std::string ModuleIdentifier,
@@ -502,7 +503,8 @@ class ProcessTrace {
                std::vector<std::unique_ptr<ThreadTrace>> TTraces);
 
 public:
-  /// Read a ProcessTrace using an InputBufferAllocator.
+  /// \brief Read a ProcessTrace using an InputBufferAllocator.
+  ///
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
   readFrom(InputBufferAllocator &Allocator);
@@ -510,15 +512,18 @@ public:
   /// \name Accessors
   /// @{
 
-  /// Get the identifier of the Module recorded by this trace.
+  /// \brief Get the identifier of the Module recorded by this trace.
+  ///
   std::string const &getModuleIdentifier() const { return ModuleIdentifier; }
 
-  /// Get the number of distinct threads in this process trace.
+  /// \brief Get the number of distinct threads in this process trace.
+  ///
   uint32_t getNumThreads() const { return NumThreads; }
 
-  /// Get a reference to a block of data.
+  /// \brief Get a reference to a block of data.
   /// \param Offset the offset of the data in the process' data record.
   /// \param Size the number of bytes in the block.
+  ///
   llvm::ArrayRef<char> getData(offset_uint Offset, std::size_t Size) const {
     auto DataStart = Data->getBufferStart() + Offset;
     auto DataPtr = reinterpret_cast<char const *>(DataStart);
@@ -526,11 +531,13 @@ public:
   }
   
   /// \brief Get a raw pointer into the process' data record.
+  ///
   char const *getDataRaw(offset_uint const Offset) const {
     return Data->getBufferStart() + Offset;
   }
 
-  /// Get the process time at the end of this trace.
+  /// \brief Get the process time at the end of this trace.
+  ///
   uint64_t getFinalProcessTime() const { return FinalProcessTime; }
   
   /// \brief Get the runtime addresses of the initial standard streams.
@@ -545,19 +552,21 @@ public:
   /// \name Global Variables
   /// @{
 
-  /// Get the run-time address of a global variable.
+  /// \brief Get the run-time address of a global variable.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \return the run-time address of the specified GlobalVariable.
+  ///
   uintptr_t getGlobalVariableAddress(uint32_t Index) const {
     assert(Index < GlobalVariableAddresses.size());
     return GlobalVariableAddresses[Index];
   }
 
-  /// Get a reference to the block of data holding a global variable's initial
-  /// state.
+  /// \brief Get a reference to the block of data holding a global variable's
+  /// initial state.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \param Size the size of the GlobalVariable.
   /// \return an llvm::ArrayRef that references the initial state data.
+  ///
   llvm::ArrayRef<char> getGlobalVariableInitialData(uint32_t Index,
                                                     std::size_t Size) const {
     assert(Index < GlobalVariableInitialData.size());
@@ -592,9 +601,10 @@ public:
   /// \name Threads
   /// @{
 
-  /// Get a reference to the ThreadTrace for a specific thread.
+  /// \brief Get a reference to the ThreadTrace for a specific thread.
   /// \param ThreadID the unique ID of the thread to get,
   ///                 where 0 < ThreadID <= getNumThreads().
+  ///
   ThreadTrace const &getThreadTrace(uint32_t ThreadID) const;
 
   /// @} (Threads)
@@ -603,6 +613,8 @@ public:
   /// \name Events
   /// @{
 
+  /// \brief Get a reference to the event at the given location.
+  ///
   EventReference getEventReference(EventLocation Ev) const;
 
   /// @}
