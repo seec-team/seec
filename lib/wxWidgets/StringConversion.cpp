@@ -43,6 +43,21 @@ wxString getwxStringEx(ResourceBundle const &Bundle,
   return wxString{};
 }
 
+wxString getwxStringExOr(ResourceBundle const &Bundle,
+                         char const *Key,
+                         wxString const &Default)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+
+  auto Str = Bundle.getStringEx(Key, Status);
+
+  if (U_FAILURE(Status)) {
+    return Default;
+  }
+
+  return towxString(Str);
+}
+
 wxString getwxStringExOrDie(ResourceBundle const &Bundle,
                             char const *Key) {
   UErrorCode Status = U_ZERO_ERROR;
@@ -60,16 +75,15 @@ wxString getwxStringExOrDie(ResourceBundle const &Bundle,
 }
 
 wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
-                              char const *Key) {
-  UErrorCode Status = U_ZERO_ERROR;
+                              char const *Key)
+{
+  return getwxStringExOr(Bundle, Key, wxEmptyString);
+}
 
-  auto Str = Bundle.getStringEx(Key, Status);
-
-  if (U_FAILURE(Status)) {
-    return wxString();
-  }
-
-  return towxString(Str);
+wxString getwxStringExOrKey(ResourceBundle const &Bundle,
+                            char const *Key)
+{
+  return getwxStringExOr(Bundle, Key, Key);
 }
 
 wxString getwxStringExOrEmpty(char const *Package,

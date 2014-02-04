@@ -29,21 +29,45 @@ wxString towxString(UnicodeString const &icu);
 /// \brief Convert a wxString into a UnicodeString.
 UnicodeString toUnicodeString(wxString const &wx);
 
-/// Extract a UnicodeString from a ResourceBundle and convert it into a
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
 /// wxString.
+///
 wxString getwxStringEx(ResourceBundle const &Bundle,
                        char const *Key,
                        UErrorCode &Status);
 
-/// Extract a UnicodeString from a ResourceBundle and convert it into a
-/// wxString. If the extraction fails, terminate the program.
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString.
+///
+/// If the extraction fails, return the given default.
+///
+wxString getwxStringExOr(ResourceBundle const &Bundle,
+                         char const *Key,
+                         wxString const &Default = wxEmptyString);
+
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString.
+/// 
+/// If the extraction fails, terminate the program.
+///
 wxString getwxStringExOrDie(ResourceBundle const &Bundle,
                             char const *Key);
 
-/// Extract a UnicodeString from a ResourceBundle and convert it into a
-/// wxString. If the extraction fails, return an empty wxString.
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString.
+///
+/// If the extraction fails, return an empty string.
+///
 wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
                               char const *Key);
+
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString.
+///
+/// If the extraction fails, return a string containing the Key.
+///
+wxString getwxStringExOrKey(ResourceBundle const &Bundle,
+                            char const *Key);
 
 /// \brief Get a string using seec::getString(), then convert it to a wxString.
 /// If the string extraction or conversion fails, return an empty string.
