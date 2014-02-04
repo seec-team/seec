@@ -69,6 +69,14 @@ wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
 wxString getwxStringExOrKey(ResourceBundle const &Bundle,
                             char const *Key);
 
+/// \brief Extract a UnicodeString from a ResourceBundle and convert it into a
+/// wxString.
+///
+/// If the extraction fails, return an empty string.
+///
+wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
+                              llvm::ArrayRef<char const *> const &Keys);
+
 /// \brief Get a string using seec::getString(), then convert it to a wxString.
 /// If the string extraction or conversion fails, return an empty string.
 ///

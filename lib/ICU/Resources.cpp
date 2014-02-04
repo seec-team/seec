@@ -19,7 +19,8 @@
 namespace seec {
 
 std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
-                                                  Locale const &GetLocale) {
+                                                  Locale const &GetLocale)
+{
   UErrorCode Status = U_ZERO_ERROR;
 
   std::unique_ptr<ResourceBundle> Resource
@@ -33,9 +34,20 @@ std::unique_ptr<ResourceBundle> getResourceBundle(char const *Package,
 }
 
 seec::Maybe<ResourceBundle, UErrorCode>
-getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
+getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys)
+{
   UErrorCode Status = U_ZERO_ERROR;
   ResourceBundle Bundle(Package, Locale{}, Status);
+  if (U_FAILURE(Status))
+    return Status;
+  return getResource(Bundle, Keys);
+}
+
+seec::Maybe<ResourceBundle, UErrorCode>
+getResource(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  ResourceBundle Bundle(RB);
   
   if (U_FAILURE(Status))
     return Status;
@@ -50,7 +62,8 @@ getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
 }
 
 seec::Maybe<UnicodeString, UErrorCode>
-getString(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
+getString(char const *Package, llvm::ArrayRef<char const *> const &Keys)
+{
   auto const MaybeBundle = getResource(Package, Keys);
   if (MaybeBundle.assigned<UErrorCode>())
     return MaybeBundle.get<UErrorCode>();
@@ -58,7 +71,22 @@ getString(char const *Package, llvm::ArrayRef<char const *> const &Keys) {
   UErrorCode Status = U_ZERO_ERROR;
   auto const &Bundle = MaybeBundle.get<ResourceBundle>();
   auto const String = Bundle.getString(Status);
+  if (U_FAILURE(Status))
+    return Status;
   
+  return String;
+}
+
+seec::Maybe<UnicodeString, UErrorCode>
+getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
+{
+  auto const MaybeBundle = getResource(RB, Keys);
+  if (MaybeBundle.assigned<UErrorCode>())
+    return MaybeBundle.get<UErrorCode>();
+  
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const &Bundle = MaybeBundle.get<ResourceBundle>();
+  auto const String = Bundle.getString(Status);
   if (U_FAILURE(Status))
     return Status;
   
@@ -92,7 +120,8 @@ ResourceLoader::ResourceLoader(llvm::sys::Path const &ExecutablePath)
   }
 }
 
-bool ResourceLoader::loadResource(char const *Package) {
+bool ResourceLoader::loadResource(char const *Package)
+{
   std::string PackageStr (Package);
 
   // check if we've already loaded the package

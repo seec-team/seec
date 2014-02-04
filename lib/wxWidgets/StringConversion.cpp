@@ -86,6 +86,17 @@ wxString getwxStringExOrKey(ResourceBundle const &Bundle,
   return getwxStringExOr(Bundle, Key, Key);
 }
 
+wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
+                              llvm::ArrayRef<char const *> const &Keys)
+{
+  auto const MaybeStr = getString(Bundle, Keys);
+  
+  if (MaybeStr.assigned<UnicodeString>())
+    return towxString(MaybeStr.get<UnicodeString>());
+  
+  return wxString{};
+}
+
 wxString getwxStringExOrEmpty(char const *Package,
                               llvm::ArrayRef<char const *> const &Keys)
 {
