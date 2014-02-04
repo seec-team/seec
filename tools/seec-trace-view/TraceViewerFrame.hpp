@@ -16,8 +16,6 @@
 
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
-#include <wx/aui/aui.h>
-#include <wx/aui/auibook.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
@@ -33,13 +31,16 @@ namespace seec {
 class ActionRecord;
 class ActionReplayFrame;
 class ContextNotifier;
+class ExplanationViewer;
 class OpenTrace;
 class ProcessMoveEvent;
 class SourceViewerPanel;
 class StateAccessToken;
-class StateViewerPanel;
+class StateEvaluationTreePanel;
+class StateGraphViewerPanel;
 class ThreadMoveEvent;
 class ThreadTimeControl;
+class wxAuiManager;
 class wxXmlDocument;
 
 
@@ -59,11 +60,20 @@ class TraceViewerFrame : public wxFrame
   /// Central handler for context notifications.
   std::unique_ptr<ContextNotifier> Notifier;
 
+  /// Manages the layout of the individual panels.
+  wxAuiManager *Manager;
+
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
-
-  /// Shows the current state.
-  StateViewerPanel *StateViewer;
+  
+  /// Shows an explanation of the active Stmt.
+  ExplanationViewer *ExplanationCtrl;
+  
+  /// Shows a graph of the state.
+  StateGraphViewerPanel *GraphViewer;
+  
+  /// Shows an evaluation tree.
+  StateEvaluationTreePanel *EvaluationTree;
   
   /// Used to record user interactions.
   std::unique_ptr<ActionRecord> Recording;
@@ -87,6 +97,11 @@ class TraceViewerFrame : public wxFrame
   ThreadTimeControl *ThreadTime;
   
   /// @} (Single-threaded traces)
+  
+  
+  /// \brief Create a view control menu.
+  ///
+  std::pair<std::unique_ptr<wxMenu>, wxString> createViewMenu();
 
 public:
   /// \brief Constructor (without creation).

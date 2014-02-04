@@ -29,7 +29,6 @@
 // Forward declarations.
 
 class ContextNotifier;
-class ExplanationViewer;
 class OpenTrace;
 class SourceFilePanel;
 class StateAccessToken;
@@ -71,9 +70,6 @@ class SourceViewerPanel : public wxPanel
   
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
-  
-  /// Text control that holds explanatory material.
-  ExplanationViewer *ExplanationCtrl;
   
 public:
   /// \brief Construct without creating.

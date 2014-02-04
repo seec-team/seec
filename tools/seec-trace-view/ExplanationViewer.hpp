@@ -37,10 +37,12 @@ namespace clang {
 namespace seec {
   namespace cm {
     class FunctionState;
+    class ProcessState;
   }
 }
 
 class ContextNotifier;
+class StateAccessToken;
 
 
 /// \brief ExplanationViewer.
@@ -133,6 +135,10 @@ public:
   
   /// \name Mutators.
   /// @{
+  
+  void show(std::shared_ptr<StateAccessToken> Access,
+            seec::cm::ProcessState const &Process,
+            seec::cm::ThreadState const &Thread);
   
   /// \brief Attempt to show an explanation for the given Decl.
   ///

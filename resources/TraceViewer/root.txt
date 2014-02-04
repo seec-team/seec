@@ -39,6 +39,13 @@ root:table {
       OpenReplay:string {"&Open replay"}
     }
 
+    MenuView:table {
+      Title:string {"&View"}
+      Explanation:string {"&Explanation"}
+      Graph:string {"&Graph"}
+      EvaluationTree:string {"E&valuation Tree"}
+    }
+
 
     //
     // Recording settings dialog
@@ -90,7 +97,7 @@ root:table {
     // ThreadTime scroller
     //
     ScrollThreadTime:table {
-      Title:string {"Thread time"}
+      Title:string {"Thread Time"}
 
       GoToStart:string {"Go to start"}
 
@@ -103,16 +110,35 @@ root:table {
       GoToEnd:string {"Go to end"}
     }
 
-    //
-    // Status view
-    //
-    StatusView_Title:string {"Status"}
-
 
     //
     // Common
     //
     ThreadNumber:string {"Thread #{0}"}
+
+
+    //
+    // Explanation viewer
+    //
+    Explanation:table {
+      Title:string {"Explanation"}
+    }
+
+
+    //
+    // Graph viewer
+    //
+    Graph:table {
+      Title:string {"Graph"}
+    }
+
+
+    //
+    // Evaluation tree
+    //
+    EvaluationTree:table {
+      Title:string {"Evaluation Tree"}
+    }
 
 
     //

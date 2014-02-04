@@ -97,6 +97,9 @@ createRecordingMenu(TraceViewerFrame &Viewer)
 bool append(wxMenuBar *MenuBar,
             std::pair<std::unique_ptr<wxMenu>, wxString> MenuWithTitle)
 {
+  if (!MenuWithTitle.first)
+    return false;
+  
   return MenuBar->Append(MenuWithTitle.first.release(),
                          MenuWithTitle.second);
 }

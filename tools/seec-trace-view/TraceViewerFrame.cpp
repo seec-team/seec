@@ -22,6 +22,10 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <wx/aui/aui.h>
+#include <wx/aui/framemanager.h>
+#include "seec/wxWidgets/CleanPreprocessor.h"
+
 #include <chrono>
 #include <cinttypes>
 #include <iostream>
@@ -29,17 +33,70 @@
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
+#include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
 #include "StateAccessToken.hpp"
-#include "StateViewer.hpp"
+#include "StateEvaluationTree.hpp"
+#include "StateGraphViewer.hpp"
 #include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
 
+
+static void createViewButton(wxMenu &Menu,
+                             wxAuiManager &Manager,
+                             wxWindow *Window,
+                             ResourceBundle const &Table,
+                             char const * const Key)
+{
+  // This particular panel was not created for this trace viewer.
+  if (!Window)
+    return;
+  
+  auto &PaneInfo = Manager.GetPane(Window);
+  if (!PaneInfo.IsOk())
+    return;
+  
+  auto const Item = Menu.Append(wxID_ANY, seec::getwxStringExOrKey(Table, Key));
+  if (!Item)
+    return;
+  
+  Menu.Bind(
+    wxEVT_MENU,
+    std::function<void (wxEvent &)>{
+      [Window, &Manager] (wxEvent &) -> void {
+        auto &PI = Manager.GetPane(Window);
+        if (PI.IsOk()) {
+          PI.Show();
+          Manager.Update();
+        }
+      }
+    },
+    Item->GetId());
+}
+
+std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const Text =
+    seec::getResource("TraceViewer", Locale::getDefault(), Status,
+                      "GUIText", "MenuView");
+  if (U_FAILURE(Status))
+    return std::make_pair(nullptr, wxEmptyString);
+  
+  auto Menu = seec::makeUnique<wxMenu>();
+  
+  createViewButton(*Menu, *Manager, ExplanationCtrl, Text, "Explanation");
+  createViewButton(*Menu, *Manager, GraphViewer,     Text, "Graph");
+  createViewButton(*Menu, *Manager, EvaluationTree,  Text, "EvaluationTree");
+  
+  return std::make_pair(std::move(Menu),
+                        seec::getwxStringExOrKey(Text, "Title"));
+}
 
 TraceViewerFrame::TraceViewerFrame()
 : Trace(),
@@ -47,7 +104,9 @@ TraceViewerFrame::TraceViewerFrame()
   StateAccess(),
   Notifier(),
   SourceViewer(nullptr),
-  StateViewer(nullptr),
+  ExplanationCtrl(nullptr),
+  GraphViewer(nullptr),
+  EvaluationTree(nullptr),
   Recording(nullptr),
   Replay(nullptr),
   ThreadTime(nullptr)
@@ -65,6 +124,9 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 }
 
 TraceViewerFrame::~TraceViewerFrame() {
+  // Shutdown the AUI manager.
+  Manager->UnInit();
+  
   // Notify the TraceViewerApp that we have been destroyed.
   auto &App = wxGetApp();
   App.removeTopLevelWindow(this);
@@ -106,52 +168,88 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                      Status,
                                      "GUIText");
   assert(U_SUCCESS(Status));
-
-  // Setup the menus.
-  auto menuBar = new wxMenuBar();
-  append(menuBar, createFileMenu());
-  append(menuBar, createRecordingMenu(*this));
-
-  SetMenuBar(menuBar);
-
-  // Setup a status bar.
-  CreateStatusBar();
+  
+  // Setup the layout manager.
+  Manager = new wxAuiManager(this);
 
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.
+    
 
     // Create the thread time movement control.
     ThreadTime = new ThreadTimeControl(this, *Recording, Replay);
+    auto const ThreadTimeTitle =
+      seec::getwxStringExOrEmpty(TextTable,
+                                 (char const *[]){"ScrollThreadTime", "Title"});
+    Manager->AddPane(ThreadTime,
+                     wxAuiPaneInfo{}.Caption(ThreadTimeTitle)
+                                    .Top()
+                                    .ToolbarPane());
 
     // Create the source code viewer.
-    SourceViewer = new SourceViewerPanel(this,
-                                         *Trace,
-                                         *Notifier);
+    SourceViewer = new SourceViewerPanel(this, *Trace, *Notifier);
+    auto const SourceViewerTitle =
+      seec::getwxStringExOrEmpty(TextTable, "SourceBook_Title");
+    Manager->AddPane(SourceViewer,
+                     wxAuiPaneInfo{}.Caption(SourceViewerTitle)
+                                    .CentrePane());
 
-    // Create a text control to show the current state.
-    StateViewer = new StateViewerPanel(this,
-                                       *Notifier,
-                                       *Recording);
+    // Setup the explanation viewer.
+    ExplanationCtrl = new ExplanationViewer(this, *Notifier);
+    auto const ExplanationCtrlTitle =
+      seec::getwxStringExOrEmpty(TextTable,
+                                 (char const *[]){"Explanation", "Title"});
+    Manager->AddPane(ExplanationCtrl,
+                     wxAuiPaneInfo{}.Caption(ExplanationCtrlTitle)
+                                    .Bottom()
+                                    .MinimizeButton(true));
 
-    wxBoxSizer *ParentSizer = new wxBoxSizer(wxVERTICAL);
-    ParentSizer->Add(ThreadTime, wxSizerFlags().Expand());
+    // Create the evaluation tree.
+    EvaluationTree = new StateEvaluationTreePanel(this, *Notifier, *Recording);
+    auto const EvaluationTreeTitle =
+      seec::getwxStringExOrEmpty(TextTable,
+                                 (char const *[]){"EvaluationTree", "Title"});
+    Manager->AddPane(EvaluationTree,
+                     wxAuiPaneInfo{}.Caption(EvaluationTreeTitle)
+                                    .Right()
+                                    .MinimizeButton(true)
+                                    .MaximizeButton(true));
+    
+    // Create the graph viewer.
+    GraphViewer = new StateGraphViewerPanel(this, *Notifier);
+    auto const GraphViewerTitle =
+      seec::getwxStringExOrEmpty(TextTable,
+                                 (char const *[]){"Graph", "Title"});
+    Manager->AddPane(GraphViewer,
+                     wxAuiPaneInfo{}.Caption(GraphViewerTitle)
+                                    .Right()
+                                    .MinimizeButton(true)
+                                    .MaximizeButton(true));
 
-    wxBoxSizer *ViewSizer = new wxBoxSizer(wxHORIZONTAL);
-    ViewSizer->Add(SourceViewer, wxSizerFlags().Proportion(1).Expand());
-    ViewSizer->Add(StateViewer, wxSizerFlags().Proportion(1).Expand());
-
-    ParentSizer->Add(ViewSizer, wxSizerFlags().Proportion(1).Expand());
-
-    SetSizer(ParentSizer);
-
-    // Display the initial state.
-    // StateViewer->show(StateAccess, *State);
-    SourceViewer->show(StateAccess, *State, State->getThread(0));
-    ThreadTime->show(StateAccess, *State, State->getThread(0), 0);
+    // Display the initial state. Call SourceViewer's show() last, as it may
+    // produce highlight event notifications that the other controls react to.
+    auto const &ThreadState = State->getThread(0);
+    ThreadTime->show(StateAccess, *State, ThreadState, 0);
+    ExplanationCtrl->show(StateAccess, *State, ThreadState);
+    EvaluationTree->show(StateAccess, *State, ThreadState);
+    // GraphViewer->show(StateAccess, *State, ThreadState);
+    SourceViewer->show(StateAccess, *State, ThreadState);
   }
   else {
     // TODO: Setup the view for a multi-threaded trace.
   }
+  
+  Manager->Update();
+  
+  // Setup the menus.
+  auto menuBar = new wxMenuBar();
+  append(menuBar, createFileMenu());
+  append(menuBar, createViewMenu());
+  append(menuBar, createRecordingMenu(*this));
+  
+  // TODO: Setup menu to open/close individual panels.
+  
+  SetMenuBar(menuBar);
   
   // Setup the event handling.
   Bind(wxEVT_COMMAND_MENU_SELECTED,
@@ -212,11 +310,15 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
   
-  // Display the new state.
+  // Display the new state. Call SourceViewer's show() last, as it may produce
+  // highlight event notifications that the other controls react to.
   if (State->getThreadCount() == 1) {
-    StateViewer->show(StateAccess, *State, State->getThread(0));
-    SourceViewer->show(StateAccess, *State, State->getThread(0));
-    ThreadTime->show(StateAccess, *State, State->getThread(0), 0);
+    auto const &ThreadState = State->getThread(0);
+    ThreadTime->show(StateAccess, *State, ThreadState, 0);
+    ExplanationCtrl->show(StateAccess, *State, ThreadState);
+    EvaluationTree->show(StateAccess, *State, ThreadState);
+    GraphViewer->show(StateAccess, *State, ThreadState);
+    SourceViewer->show(StateAccess, *State, ThreadState);
   }
   else {
     // TODO: Show the state for a multi-threaded trace.
@@ -251,10 +353,14 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
   
-  // Display the new state.
-  StateViewer->show(StateAccess, *State, State->getThread(Index));
-  SourceViewer->show(StateAccess, *State, State->getThread(Index));
-  ThreadTime->show(StateAccess, *State, State->getThread(Index), Index);
+  // Display the new state. Call SourceViewer's show() last, as it may produce
+  // highlight event notifications that the other controls react to.
+  auto const &ThreadState = State->getThread(Index);
+  ThreadTime->show(StateAccess, *State, ThreadState, Index);
+  ExplanationCtrl->show(StateAccess, *State, ThreadState);
+  EvaluationTree->show(StateAccess, *State, ThreadState);
+  GraphViewer->show(StateAccess, *State, ThreadState);
+  SourceViewer->show(StateAccess, *State, ThreadState);
   
   auto const ShowEnd = std::chrono::steady_clock::now();
   auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>

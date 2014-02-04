@@ -41,7 +41,6 @@
 #include "unicode/brkiter.h"
 
 #include "CommonMenus.hpp"
-#include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -981,15 +980,8 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_TAB_MOVE
                                | wxAUI_NB_SCROLL_BUTTONS);
   
-  ExplanationCtrl = new ExplanationViewer(this,
-                                          WithNotifier,
-                                          wxID_ANY,
-                                          wxDefaultPosition,
-                                          wxSize(100, 100));
-
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
-  TopSizer->Add(ExplanationCtrl, wxSizerFlags(0).Expand());
   SetSizerAndFit(TopSizer);
   
   // Setup highlight event handling.
@@ -1032,9 +1024,6 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
                              seec::cm::ProcessState const &Process,
                              seec::cm::ThreadState const &Thread)
 {
-  // Clear any existing explanation.
-  ExplanationCtrl->clearExplanation();
-  
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
@@ -1194,9 +1183,6 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
       }
     }
   }
-  
-  // Show an explanation for the Stmt.
-  ExplanationCtrl->showExplanation(Statement, InFunction);
 }
 
 void
@@ -1231,9 +1217,6 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
   // Scroll to the active Decl.
   Panel->scrollToLine(Range.EndLine - 1);
   Panel->scrollToLine(Range.StartLine - 1);
-  
-  // Show an explanation for the Decl.
-  ExplanationCtrl->showExplanation(Declaration);
 }
 
 SourceFilePanel *

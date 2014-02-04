@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -24,6 +26,7 @@
 #include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "SourceViewerSettings.hpp"
+#include "StateAccessToken.hpp"
 
 
 void ExplanationViewer::setText(wxString const &Value)
@@ -206,6 +209,40 @@ void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
   }
 }
 
+void ExplanationViewer::show(std::shared_ptr<StateAccessToken> Access,
+                             seec::cm::ProcessState const &Process,
+                             seec::cm::ThreadState const &Thread)
+{
+  clearExplanation();
+  
+  if (!Access)
+    return;
+  
+  auto Lock = Access->getAccess();
+  if (!Lock)
+    return;
+  
+  // Find the active function (if any).
+  auto const &CallStack = Thread.getCallStack();
+  if (CallStack.empty())
+    return;
+  
+  auto const &Function = CallStack.back().get();
+  
+  // If there is an active Stmt then explain it. Otherwise, explain the active
+  // function's Decl.
+  auto const ActiveStmt = Function.getActiveStmt();
+  if (ActiveStmt) {
+    showExplanation(ActiveStmt, Function);
+  }
+  else {
+    auto const FunctionDecl = Function.getFunctionDecl();
+    if (FunctionDecl) {
+      showExplanation(FunctionDecl);
+    }
+  }
+}
+
 void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 {
   auto MaybeExplanation = seec::clang_epv::explain(Decl);
@@ -233,7 +270,7 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 void
 ExplanationViewer::
 showExplanation(::clang::Stmt const *Statement,
-                       ::seec::cm::FunctionState const &InFunction)
+                ::seec::cm::FunctionState const &InFunction)
 {
   auto MaybeExplanation =
     seec::clang_epv::explain(
