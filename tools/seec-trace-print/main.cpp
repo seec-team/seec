@@ -25,6 +25,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Util/Error.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
@@ -109,28 +110,26 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
   if (MaybeIBA.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeIBA.get<seec::Error>());
+    auto Error = MaybeIBA.move<seec::Error>();
     llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
   
-  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
-  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
+  auto IBA = seec::makeUnique<trace::InputBufferAllocator>
+                             (MaybeIBA.move<trace::InputBufferAllocator>());
 
   // Read the trace.
-  auto CMProcessTraceLoad
-    = cm::ProcessTrace::load(ExecutablePath.str(),
-                             seec::makeUnique<trace::InputBufferAllocator>
-                                             (std::move(BufferAllocator)));
+  auto CMProcessTraceLoad = cm::ProcessTrace::load(ExecutablePath.str(),
+                                                   std::move(IBA));
   
   if (CMProcessTraceLoad.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(CMProcessTraceLoad.get<seec::Error>());
+    auto Error = CMProcessTraceLoad.move<seec::Error>();
     llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
   
-  auto CMProcessTrace = std::move(CMProcessTraceLoad.get<0>());
+  auto CMProcessTrace = CMProcessTraceLoad.move<0>();
   
   // Print the states.
   if (ShowStates) {
@@ -201,61 +200,36 @@ void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
   if (MaybeIBA.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeIBA.get<seec::Error>());
+    auto Error = MaybeIBA.move<seec::Error>();
     llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
   
-  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
-  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
+  auto IBA = seec::makeUnique<trace::InputBufferAllocator>
+                             (MaybeIBA.move<trace::InputBufferAllocator>());
   
-  // Attempt to read the trace.
-  auto MaybeProcTrace = trace::ProcessTrace::readFrom(BufferAllocator);
+  // Load the bitcode.
+  auto MaybeMod = IBA->getModule(Context);
+  if (MaybeMod.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto Error = MaybeMod.move<seec::Error>();
+    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
+    exit(EXIT_FAILURE);
+  }
+  
+  auto const Mod = MaybeMod.get<llvm::Module *>();
+  auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);
+  
+  // Attempt to read the trace (this consumes the IBA).
+  auto MaybeProcTrace = trace::ProcessTrace::readFrom(std::move(IBA));
   if (MaybeProcTrace.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeProcTrace.get<seec::Error>());
+    auto Error = MaybeProcTrace.move<seec::Error>();
     llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
     exit(EXIT_FAILURE);
   }
   
   std::shared_ptr<trace::ProcessTrace> Trace(MaybeProcTrace.get<0>().release());
-
-  // Load the bitcode.
-  auto MaybeMod = BufferAllocator.getModule(Context);
-  if (MaybeMod.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeMod.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  assert(MaybeMod.assigned<llvm::Module *>());
-  auto Mod = MaybeMod.get<llvm::Module *>();
-
-  // Index the llvm::Module.
-  auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);
-
-  // Setup diagnostics printing for Clang diagnostics.
-  IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
-    = new clang::DiagnosticOptions();
-  DiagOpts->ShowColors = true;
-  
-  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
-
-  IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics
-    = new clang::DiagnosticsEngine(
-      IntrusiveRefCntPtr<clang::DiagnosticIDs>(new clang::DiagnosticIDs()),
-      &*DiagOpts,
-      &DiagnosticPrinter,
-      false);
-
-  Diagnostics->setSuppressSystemWarnings(true);
-  Diagnostics->setIgnoreAllWarnings(true);
-
-  // Setup the map to find Decls and Stmts from Instructions
-  seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
-                                        ExecutablePath.str(),
-                                        Diagnostics);
 
   // Print the raw events from each thread trace.
   if (ShowRawEvents) {
@@ -305,6 +279,28 @@ void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
 
   // Print basic descriptions of all run-time errors.
   if (ShowErrors) {
+    // Setup diagnostics printing for Clang diagnostics.
+    IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
+      = new clang::DiagnosticOptions();
+    DiagOpts->ShowColors = true;
+    
+    clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
+
+    IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics
+      = new clang::DiagnosticsEngine(
+        IntrusiveRefCntPtr<clang::DiagnosticIDs>(new clang::DiagnosticIDs()),
+        &*DiagOpts,
+        &DiagnosticPrinter,
+        false);
+
+    Diagnostics->setSuppressSystemWarnings(true);
+    Diagnostics->setIgnoreAllWarnings(true);
+
+    // Setup the map to find Decls and Stmts from Instructions
+    seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
+                                          ExecutablePath.str(),
+                                          Diagnostics);
+    
     clang::LangOptions LangOpt;
 
     clang::PrintingPolicy PrintPolicy(LangOpt);
@@ -346,7 +342,7 @@ void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
             auto MaybeDesc = Description::create(*RunErr.first);
             
             if (MaybeDesc.assigned(0)) {
-              DescriptionPrinterUnicode Printer(std::move(MaybeDesc.get<0>()),
+              DescriptionPrinterUnicode Printer(MaybeDesc.move<0>(),
                                                 "\n",
                                                 "  ");
               

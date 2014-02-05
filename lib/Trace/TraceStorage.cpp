@@ -248,8 +248,30 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
 // InputBufferAllocator
 //------------------------------------------------------------------------------
 
+seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+InputBufferAllocator::getBuffer(llvm::StringRef Path) const
+{
+  llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
+  
+  auto const ReadError =
+    llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
+  
+  if (ReadError != llvm::error_code::success()) {
+    auto Message = UnicodeString::fromUTF8(ReadError.message());
+    
+    return Error(
+      LazyMessageByRef::create("Trace",
+                               {"errors", "InputBufferAllocationFail"},
+                                std::make_pair("file", Path.str().c_str()),
+                                std::make_pair("error", std::move(Message))));
+  }
+  
+  return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
+}
+
 seec::Maybe<InputBufferAllocator, seec::Error>
-InputBufferAllocator::createFor(llvm::StringRef Directory) {
+InputBufferAllocator::createFor(llvm::StringRef Directory)
+{
   llvm::error_code ErrCode;
   llvm::SmallString<256> Path;
   
@@ -284,28 +306,21 @@ InputBufferAllocator::createFor(llvm::StringRef Directory) {
 }
 
 seec::Maybe<llvm::Module *, seec::Error>
-InputBufferAllocator::getModule(llvm::LLVMContext &Context) {
+InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
+{
   // Get the path to the bitcode file.
   llvm::SmallString<256> Path {TraceDirectory};
   llvm::sys::path::append(Path, getModuleFilename());
   
   // Create a MemoryBuffer for the file.
-  llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
-  
-  auto ReadError = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  if (ReadError != llvm::error_code::success()) {
-    auto Message = UnicodeString::fromUTF8(ReadError.message());
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors",
-                                           "InputBufferAllocationFail"},
-                                          std::make_pair("file", Path.c_str()),
-                                          std::make_pair("error",
-                                                         std::move(Message))));
-  }
+  auto MaybeBuffer = getBuffer(Path);
+  if (MaybeBuffer.assigned<seec::Error>())
+    return MaybeBuffer.move<seec::Error>();
+  auto &Buffer = MaybeBuffer.get<std::unique_ptr<llvm::MemoryBuffer>>();
   
   // Parse the Module from the bitcode.
   std::string ParseError;
-  auto Mod = llvm::ParseBitcodeFile(Buffer.take(), Context, &ParseError);
+  auto Mod = llvm::ParseBitcodeFile(Buffer.release(), Context, &ParseError);
   
   if (!Mod) {
     return Error(LazyMessageByRef::create("Trace",
@@ -318,32 +333,68 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) {
   return Mod;
 }
 
+seec::Maybe<TraceFile, seec::Error>
+InputBufferAllocator::getModuleFile() const
+{
+  // Get the path to the bitcode file.
+  llvm::SmallString<256> Path {TraceDirectory};
+  llvm::sys::path::append(Path, getModuleFilename());
+  
+  // Create a MemoryBuffer for the file.
+  auto MaybeBuffer = getBuffer(Path);
+  if (MaybeBuffer.assigned<seec::Error>())
+    return MaybeBuffer.move<seec::Error>();
+  
+  return TraceFile{getModuleFilename(),
+                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
+}
+
 seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-InputBufferAllocator::getProcessData(ProcessSegment Segment) {
+InputBufferAllocator::getProcessData(ProcessSegment Segment) const
+{
   // Get the path to the file.
   llvm::SmallString<256> Path {TraceDirectory};
   llvm::sys::path::append(Path, llvm::Twine("st.")
                                 + getProcessExtension(Segment));
 
   // Create a MemoryBuffer for the file.
-  llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
+  auto MaybeBuffer = getBuffer(Path);
+  if (MaybeBuffer.assigned<seec::Error>())
+    return MaybeBuffer.move<seec::Error>();
 
-  auto ReadError = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  if (ReadError != llvm::error_code::success()) {
-    auto Message = UnicodeString::fromUTF8(ReadError.message());
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors",
-                                           "InputBufferAllocationFail"},
-                                          std::make_pair("file", Path.c_str()),
-                                          std::make_pair("error",
-                                                         std::move(Message))));
-  }
+  return MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>();
+}
 
-  return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
+seec::Maybe<TraceFile, seec::Error>
+InputBufferAllocator::getProcessFile(ProcessSegment Segment) const
+{
+  auto MaybeBuffer = getProcessData(Segment);
+  if (MaybeBuffer.assigned<seec::Error>())
+    return MaybeBuffer.move<seec::Error>();
+  
+  return TraceFile{std::string{"st."} + getProcessExtension(Segment),
+                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
 }
 
 seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment) {
+InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment)
+const
+{
+  auto MaybeFile = getThreadFile(ThreadID, Segment);
+  
+  if (MaybeFile.assigned<seec::Error>())
+    return MaybeFile.move<seec::Error>();
+  
+  if (MaybeFile.assigned<TraceFile>())
+    return std::move(MaybeFile.get<TraceFile>().getContents());
+  
+  return seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>();
+}
+
+seec::Maybe<TraceFile, seec::Error>
+InputBufferAllocator::getThreadFile(uint32_t ThreadID, ThreadSegment Segment)
+const
+{
   // Get the name of the file.
   std::string Filename;
   
@@ -359,20 +410,12 @@ InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment) {
   llvm::sys::path::append(Path, Filename);
   
   // Create a MemoryBuffer for the file.
-  llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
-
-  auto ReadError = llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  if (ReadError != llvm::error_code::success()) {
-    auto Message = UnicodeString::fromUTF8(ReadError.message());
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors",
-                                           "InputBufferAllocationFail"},
-                                          std::make_pair("file", Path.c_str()),
-                                          std::make_pair("error",
-                                                         std::move(Message))));
-  }
-
-  return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
+  auto MaybeBuffer = getBuffer(Path);
+  if (MaybeBuffer.assigned<seec::Error>())
+    return MaybeBuffer.move<seec::Error>();
+  
+  return TraceFile{std::move(Filename),
+                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
 }
 
 

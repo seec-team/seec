@@ -458,6 +458,9 @@ public:
 /// \brief Trace information for a single process invocation.
 ///
 class ProcessTrace {
+  /// The allocator used to initially read the trace.
+  std::unique_ptr<InputBufferAllocator> const Allocator;
+  
   /// Process-wide trace information.
   std::unique_ptr<llvm::MemoryBuffer> const Trace;
 
@@ -486,12 +489,12 @@ class ProcessTrace {
   std::vector<uintptr_t> StreamsInitial;
 
   /// Thread-specific traces, by (ThreadID - 1).
-  // mutable because we lazily construct the ThreadTrace objects.
-  mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
+  std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   /// \brief Constructor.
   ///
-  ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+  ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
+               std::unique_ptr<llvm::MemoryBuffer> Trace,
                std::unique_ptr<llvm::MemoryBuffer> Data,
                std::string ModuleIdentifier,
                uint32_t NumThreads,
@@ -507,7 +510,7 @@ public:
   ///
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
-  readFrom(InputBufferAllocator &Allocator);
+  readFrom(std::unique_ptr<InputBufferAllocator> Allocator);
 
   /// \name Accessors
   /// @{
@@ -545,6 +548,11 @@ public:
   std::vector<uintptr_t> const &getStreamsInitial() const {
     return StreamsInitial;
   }
+  
+  /// \brief Get all files used by this trace.
+  ///
+  seec::Maybe<std::vector<TraceFile>, seec::Error>
+  getAllFileData() const;
 
   /// @} (Accessors)
 

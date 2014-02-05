@@ -110,6 +110,38 @@ public:
 };
 
 
+/// \brief Holds the name and contents of a single file in a trace.
+///
+class TraceFile {
+  /// The name of the file.
+  std::string Name;
+  
+  /// The contents of the file.
+  std::unique_ptr<llvm::MemoryBuffer> Contents;
+  
+public:
+  /// \brief Constructor.
+  ///
+  TraceFile(std::string WithName,
+            std::unique_ptr<llvm::MemoryBuffer> WithContents)
+  : Name(std::move(WithName)),
+    Contents(std::move(WithContents))
+  {}
+  
+  /// \brief Get the name of the file.
+  ///
+  decltype(Name) const &getName() const { return Name; }
+  
+  /// \brief Get the contents of the file.
+  ///
+  decltype(Contents) &getContents() { return Contents; }
+  
+  /// \brief Get the contents of the file.
+  ///
+  decltype(Contents) const &getContents() const { return Contents; }
+};
+
+
 /// \brief Gets MemoryBuffers for the various sections of a trace.
 ///
 class InputBufferAllocator {
@@ -121,6 +153,11 @@ class InputBufferAllocator {
   InputBufferAllocator(llvm::StringRef Directory)
   : TraceDirectory(Directory)
   {}
+  
+  /// \brief Get a buffer for an arbitrary file.
+  ///
+  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  getBuffer(llvm::StringRef Path) const;
   
 public:
   /// \name Constructors.
@@ -148,19 +185,33 @@ public:
   /// \brief Get the original, uninstrumented Module.
   ///
   seec::Maybe<llvm::Module *, seec::Error>
-  getModule(llvm::LLVMContext &Context);
+  getModule(llvm::LLVMContext &Context) const;
+  
+  /// \brief Get the original, uninstrumented Module's file.
+  ///
+  seec::Maybe<TraceFile, seec::Error> getModuleFile() const;
 
   /// \brief Create a MemoryBuffer containing the process data for the given
   /// Segment.
   ///
   seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-  getProcessData(ProcessSegment Segment);
+  getProcessData(ProcessSegment Segment) const;
+  
+  /// \brief Get the given process segment's file.
+  ///
+  seec::Maybe<TraceFile, seec::Error>
+  getProcessFile(ProcessSegment Segment) const;
 
   /// \brief Create a MemoryBuffer containing the data for the given thread's
   /// given Segment.
   ///
   seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-  getThreadData(uint32_t ThreadID, ThreadSegment Segment);
+  getThreadData(uint32_t ThreadID, ThreadSegment Segment) const;
+  
+  /// \brief Get the given thread segment's file.
+  ///
+  seec::Maybe<TraceFile, seec::Error>
+  getThreadFile(uint32_t ThreadID, ThreadSegment Segment) const;
 };
 
 

@@ -186,7 +186,8 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
 // ProcessTrace
 //------------------------------------------------------------------------------
 
-ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+ProcessTrace::ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
+                           std::unique_ptr<llvm::MemoryBuffer> Trace,
                            std::unique_ptr<llvm::MemoryBuffer> Data,
                            std::string ModuleIdentifier,
                            uint32_t NumThreads,
@@ -197,7 +198,8 @@ ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
                            std::vector<uintptr_t> WithStreamsInitial,
                            std::vector<std::unique_ptr<ThreadTrace>> TTraces
                            )
-: Trace(std::move(Trace)),
+: Allocator(std::move(WithAllocator)),
+  Trace(std::move(Trace)),
   Data(std::move(Data)),
   ModuleIdentifier(std::move(ModuleIdentifier)),
   NumThreads(NumThreads),
@@ -209,14 +211,14 @@ ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
   ThreadTraces(std::move(TTraces))
 {}
 
-seec::Maybe<std::unique_ptr<ProcessTrace>,
-            seec::Error>
-ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
-  auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
+seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
+ProcessTrace::readFrom(std::unique_ptr<InputBufferAllocator> Allocator)
+{
+  auto TraceBuffer = Allocator->getProcessData(ProcessSegment::Trace);
   if (TraceBuffer.assigned<seec::Error>())
     return std::move(TraceBuffer.get<seec::Error>());
   
-  auto DataBuffer = Allocator.getProcessData(ProcessSegment::Data);
+  auto DataBuffer = Allocator->getProcessData(ProcessSegment::Data);
   if (DataBuffer.assigned<seec::Error>())
     return std::move(DataBuffer.get<seec::Error>());
   
@@ -264,11 +266,12 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   }
 
   for (uint32_t i = 0; i < NumThreads; ++i) {
-    ThreadTraces.emplace_back(new ThreadTrace(Allocator, i + 1));
+    ThreadTraces.emplace_back(new ThreadTrace(*Allocator, i + 1));
   }
 
   return std::unique_ptr<ProcessTrace>(
-            new ProcessTrace(std::move(TraceBuffer.get<0>()),
+            new ProcessTrace(std::move(Allocator),
+                             std::move(TraceBuffer.get<0>()),
                              std::move(DataBuffer.get<0>()),
                              std::move(ModuleIdentifier),
                              NumThreads,
@@ -278,6 +281,44 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
                              std::move(FunctionAddresses),
                              std::move(StreamsInitial),
                              std::move(ThreadTraces)));
+}
+
+seec::Maybe<std::vector<TraceFile>, seec::Error>
+ProcessTrace::getAllFileData() const
+{
+  std::vector<TraceFile> Files;
+  
+  // Get the module.
+  auto MaybeModule = Allocator->getModuleFile();
+  if (MaybeModule.assigned<seec::Error>())
+    return MaybeModule.move<seec::Error>();
+  Files.emplace_back(MaybeModule.move<TraceFile>());
+  
+  // Get the process files.
+  auto MaybeProcessTrace = Allocator->getProcessFile(ProcessSegment::Trace);
+  if (MaybeProcessTrace.assigned<seec::Error>())
+    return MaybeProcessTrace.move<seec::Error>();
+  Files.emplace_back(MaybeProcessTrace.move<TraceFile>());
+  
+  auto MaybeProcessData = Allocator->getProcessFile(ProcessSegment::Data);
+  if (MaybeProcessData.assigned<seec::Error>())
+    return MaybeProcessData.move<seec::Error>();
+  Files.emplace_back(MaybeProcessData.move<TraceFile>());
+  
+  // Get all threads' files.
+  for (uint32_t i = 1; i <= NumThreads; ++i) {
+    auto MaybeTrace = Allocator->getThreadFile(i, ThreadSegment::Trace);
+    if (MaybeTrace.assigned<seec::Error>())
+      return MaybeTrace.move<seec::Error>();
+    Files.emplace_back(MaybeTrace.move<TraceFile>());
+    
+    auto MaybeEvents = Allocator->getThreadFile(i, ThreadSegment::Events);
+    if (MaybeEvents.assigned<seec::Error>())
+      return MaybeEvents.move<seec::Error>();
+    Files.emplace_back(MaybeEvents.move<TraceFile>());
+  }
+  
+  return std::move(Files);
 }
 
 Maybe<uint32_t>

@@ -41,9 +41,6 @@ namespace cm {
 /// \brief A SeeC-Clang-mapped process trace.
 ///
 class ProcessTrace {
-  /// The input buffer allocator for this process trace.
-  std::unique_ptr<seec::trace::InputBufferAllocator> BufferAllocator;
-  
   /// The base (unmapped) process trace.
   std::shared_ptr<seec::trace::ProcessTrace> UnmappedTrace;
   
@@ -65,12 +62,10 @@ class ProcessTrace {
   /// \brief Constructor.
   ///
   ProcessTrace(llvm::StringRef ExecutablePath,
-               std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator,
-               std::shared_ptr<seec::trace::ProcessTrace> &&Trace,
+               std::shared_ptr<seec::trace::ProcessTrace> Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
-  : BufferAllocator(std::move(Allocator)),
-    UnmappedTrace(std::move(Trace)),
-    ModuleIndex(Index),
+  : UnmappedTrace(std::move(Trace)),
+    ModuleIndex(std::move(Index)),
     DiagOpts(new clang::DiagnosticOptions()),
     DiagConsumer(),
     Diagnostics(new clang::DiagnosticsEngine(llvm::IntrusiveRefCntPtr
@@ -88,7 +83,7 @@ public:
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
   load(llvm::StringRef ExecutablePath,
-       std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator);
+       std::unique_ptr<seec::trace::InputBufferAllocator> Allocator);
   
   
   /// \name Access underlying information.
