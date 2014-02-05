@@ -23,6 +23,12 @@
 #include <vector>
 
 
+namespace seec {
+  namespace cm {
+    class ProcessTrace;
+  }
+}
+
 class wxPoint;
 class wxSize;
 class wxXmlDocument;
@@ -185,6 +191,9 @@ Attribute<T> make_attribute(std::string Name, T &&Value)
 ///
 class ActionRecord
 {
+  /// The process trace that the user is viewing.
+  seec::cm::ProcessTrace const &Trace;
+  
   /// Whether or not recording is enabled for this record.
   bool Enabled;
   
@@ -200,11 +209,7 @@ class ActionRecord
 public:
   /// \brief Create a new action record.
   ///
-  ActionRecord();
-  
-  /// \brief Finish this action record and submit it to the server.
-  ///
-  ~ActionRecord();
+  ActionRecord(seec::cm::ProcessTrace const &ForTrace);
   
   /// \brief Enable recording for this record.
   ///
@@ -228,6 +233,10 @@ public:
     recordEventV(Handler, std::vector<IAttributeReadOnly const *>
                                      {&Attributes...});
   }
+  
+  /// \brief Finish this action record and submit it to the server.
+  ///
+  bool finalize();
 };
 
 #endif // SEEC_TRACE_VIEW_ACTIONRECORD_HPP

@@ -11,8 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Trace/TraceReader.hpp"
+
 #include <wx/wx.h>
 #include <wx/debug.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 #include "ActionRecord.hpp"
 
@@ -69,8 +74,9 @@ IAttributeReadOnly::~IAttributeReadOnly()
 // ActionRecord
 //------------------------------------------------------------------------------
 
-ActionRecord::ActionRecord()
-: Enabled(false),
+ActionRecord::ActionRecord(seec::cm::ProcessTrace const &ForTrace)
+: Trace(ForTrace),
+  Enabled(false),
   Started(std::chrono::steady_clock::now()),
   RecordDocument(new wxXmlDocument()),
   LastNode(nullptr)
@@ -86,11 +92,6 @@ ActionRecord::ActionRecord()
                                   Attrs);
   
   RecordDocument->SetRoot(Root);
-}
-
-ActionRecord::~ActionRecord()
-{
-  RecordDocument->Save("record.xml");
 }
 
 void ActionRecord::enable()
@@ -133,4 +134,45 @@ ActionRecord::recordEventV(std::string const &Handler,
   
   if (Root->InsertChildAfter(Node, LastNode))
     LastNode = Node;
+}
+
+bool ActionRecord::finalize()
+{
+  // Create an archive.
+  // TODO: Delete if any of the intermediate steps fail.
+  wxFileOutputStream RawOutput{"record.seecrecord"};
+  if (!RawOutput.IsOk())
+    return false;
+  
+  wxZipOutputStream Output{RawOutput};
+  if (!Output.IsOk())
+    return false;
+  
+  // Save the recording of this session to the archive.
+  Output.PutNextEntry("record.xml"); // CHECK ME
+  RecordDocument->Save(Output); // CHECK ME
+  
+  // Save the contents of the trace to the archive.
+  Output.PutNextDirEntry("trace");
+  
+  auto const &UnmappedTrace = *(Trace.getUnmappedTrace());
+  auto MaybeFiles = UnmappedTrace.getAllFileData();
+  if (MaybeFiles.assigned<seec::Error>())
+    return false;
+  
+  auto const &Files = MaybeFiles.get<std::vector<seec::trace::TraceFile>>();
+  
+  for (auto const &File : Files) {
+    Output.PutNextEntry(wxString{"trace/"} + File.getName());
+    
+    auto const &Buffer = *(File.getContents());
+    Output.Write(Buffer.getBufferStart(), Buffer.getBufferSize());
+  }
+  
+  if (!Output.Close())
+    return false;
+  
+  // TODO: Upload the archive to the server.
+  
+  return true;
 }

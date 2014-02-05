@@ -124,6 +124,9 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 }
 
 TraceViewerFrame::~TraceViewerFrame() {
+  // Finalize the recording.
+  Recording->finalize();
+  
   // Shutdown the AUI manager.
   Manager->UnInit();
   
@@ -141,13 +144,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 {
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
-
-  // Setup the action record.
-  Recording = seec::makeUnique<ActionRecord>();
-  Recording->enable();
-  
-  // Setup the action replay frame.
-  Replay = new ActionReplayFrame(this);
   
   // Set the trace.
   Trace = std::move(TracePtr);
@@ -157,6 +153,13 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   
   // Create a new accessor token for this state.
   StateAccess = std::make_shared<StateAccessToken>();
+  
+  // Setup the action record.
+  Recording = seec::makeUnique<ActionRecord>(Trace->getTrace());
+  Recording->enable();
+  
+  // Setup the action replay frame.
+  Replay = new ActionReplayFrame(this);
   
   // Setup the context notifier.
   Notifier = seec::makeUnique<ContextNotifier>();
