@@ -33,10 +33,7 @@ root:table {
 
     MenuRecord:table {
       Title:string {"&Recording"}
-
       Settings:string {"&Settings"}
-
-      OpenReplay:string {"&Open replay"}
     }
 
     MenuView:table {

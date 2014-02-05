@@ -223,49 +223,6 @@ std::size_t countChildren(wxXmlNode *Node)
   return Count;
 }
 
-void ActionReplayFrame::ShowOpenDialog()
-{
-  UErrorCode Status = U_ZERO_ERROR;
-  auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
-                                     Status,
-                                     "ActionRecording");
-  assert(U_SUCCESS(Status));
-
-  wxFileDialog Dialog(this,
-                      seec::getwxStringExOrEmpty(TextTable, "ReplayFileOpen"),
-                      /* Default Dir */  wxEmptyString,
-                      /* Default File */ wxEmptyString,
-                      seec::getwxStringExOrEmpty(TextTable, "ReplayFileType"),
-                      wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-  
-  if (Dialog.ShowModal() != wxID_OK)
-    return;
-  
-  if (!RecordDocument->Load(Dialog.GetPath())) {
-    auto const ErrorMessage =
-      seec::getwxStringExOrEmpty(TextTable, "ReplayFileInvalid");
-    wxMessageDialog ErrorDialog{nullptr, ErrorMessage};
-    ErrorDialog.ShowModal();
-    return;
-  }
-  
-  auto const Root = RecordDocument->GetRoot();
-  if (!Root || Root->GetName() != "recording") {
-    auto const ErrorMessage =
-      seec::getwxStringExOrEmpty(TextTable, "ReplayFileInvalid");
-    wxMessageDialog ErrorDialog{nullptr, ErrorMessage};
-    ErrorDialog.ShowModal();
-    return;
-  }
-  
-  GaugeEventProgress->SetRange(countChildren(Root));
-  GaugeEventProgress->SetValue(0);
-  NextEvent = Root->GetChildren();
-  
-  Show();
-}
-
 bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
 {
   UErrorCode Status = U_ZERO_ERROR;

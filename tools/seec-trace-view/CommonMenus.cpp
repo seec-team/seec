@@ -78,20 +78,7 @@ createRecordingMenu(wxEvtHandler &EvtHandler)
 std::pair<std::unique_ptr<wxMenu>, wxString>
 createRecordingMenu(TraceViewerFrame &Viewer)
 {
-  auto Base = createRecordingMenu(static_cast<wxEvtHandler &>(Viewer));
-  auto &Menu = Base.first;
-  
-  // Item for opening and replaying a recording.
-  BindMenuItem(
-    Menu->Append(wxID_ANY,
-                 seec::getwxStringExOrEmpty("TraceViewer",
-                    (char const * []){"GUIText", "MenuRecord", "OpenReplay"})),
-    [&Viewer] (wxEvent &) {
-      auto const Replay = Viewer.getReplay();
-      Replay->ShowOpenDialog();
-    });
-  
-  return Base;
+  return createRecordingMenu(static_cast<wxEvtHandler &>(Viewer));
 }
 
 bool append(wxMenuBar *MenuBar,

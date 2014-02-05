@@ -218,10 +218,6 @@ public:
   ///
   bool Create(wxWindow *Parent);
   
-  /// \brief Show a dialog for the user to open a recording.
-  ///
-  void ShowOpenDialog();
-  
   /// \brief Load the given XML recording.
   ///
   bool LoadRecording(wxXmlDocument const &Recording);
