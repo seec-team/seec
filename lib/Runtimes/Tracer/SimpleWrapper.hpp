@@ -968,7 +968,6 @@ public:
     (void)Success;
     
     // Notify the TraceThreadListener of the new value.
-    typedef typename std::remove_reference<FnT>::type FnTLessReference;
     ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
     
