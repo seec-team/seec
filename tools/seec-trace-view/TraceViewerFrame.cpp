@@ -160,6 +160,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   
   // Setup the action replay frame.
   Replay = new ActionReplayFrame(this);
+  if (Trace->getRecording())
+    Replay->LoadRecording(*(Trace->getRecording()));
   
   // Setup the context notifier.
   Notifier = seec::makeUnique<ContextNotifier>();

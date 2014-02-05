@@ -222,6 +222,10 @@ public:
   ///
   void ShowOpenDialog();
   
+  /// \brief Load the given XML recording.
+  ///
+  bool LoadRecording(wxXmlDocument const &Recording);
+  
   /// \brief Register a handler.
   ///
   bool RegisterHandler(std::string Name, std::unique_ptr<IEventHandler> Handler)

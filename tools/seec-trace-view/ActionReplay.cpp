@@ -265,3 +265,33 @@ void ActionReplayFrame::ShowOpenDialog()
   
   Show();
 }
+
+bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto TextTable = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "ActionRecording");
+  assert(U_SUCCESS(Status));
+  
+  // Copy the recording.
+  RecordDocument = seec::makeUnique<wxXmlDocument>(Recording);
+  
+  auto const Root = RecordDocument->GetRoot();
+  if (!Root || Root->GetName() != "recording") {
+    auto const ErrorMessage =
+      seec::getwxStringExOrEmpty(TextTable, "ReplayFileInvalid");
+    wxMessageDialog ErrorDialog{nullptr, ErrorMessage};
+    ErrorDialog.ShowModal();
+    return false;
+  }
+  
+  GaugeEventProgress->SetRange(countChildren(Root));
+  GaugeEventProgress->SetValue(0);
+  NextEvent = Root->GetChildren();
+  
+  Show();
+  
+  return true;
+}
