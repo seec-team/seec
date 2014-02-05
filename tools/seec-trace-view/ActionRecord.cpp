@@ -138,6 +138,9 @@ ActionRecord::recordEventV(std::string const &Handler,
 
 bool ActionRecord::finalize()
 {
+  if (!Enabled)
+    return true;
+  
   // Create an archive.
   // TODO: Delete if any of the intermediate steps fail.
   wxFileOutputStream RawOutput{"record.seecrecord"};
