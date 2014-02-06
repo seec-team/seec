@@ -38,13 +38,13 @@ class OpenTrace
 {
   /// Path to the temporary directory containing trace files, if used.
   std::string TempDir;
-  
+
   /// Paths for the individual trace files.
   std::vector<std::string> TempFiles;
-  
+
   /// The SeeC-Clang Mapped process trace.
   std::unique_ptr<seec::cm::ProcessTrace> Trace;
-  
+
   /// The action recording.
   std::unique_ptr<wxXmlDocument> Recording;
 
@@ -58,7 +58,7 @@ class OpenTrace
   /// \brief Constructor.
   ///
   OpenTrace(std::unique_ptr<seec::cm::ProcessTrace> WithTrace);
-  
+
   /// \brief Attempt to read a trace from a file or directory.
   ///
   static seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>

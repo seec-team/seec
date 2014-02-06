@@ -172,13 +172,18 @@ OpenTrace::~OpenTrace()
 seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
 OpenTrace::FromFilePath(wxString const &FilePath)
 {
-  if (FilePath.EndsWith(".seecrecord"))
+  // Check if the path is a SeeC archive type.
+  wxFileName FileName{FilePath};
+  
+  if (FileName.FileExists() &&
+      (FilePath.EndsWith(".seecrecord") || FilePath.EndsWith(".seec")))
     return FromRecordingArchive(FilePath);
   
+  // Otherwise attempt to open it as a trace folder.
   auto MaybeTrace = ReadTraceFromFilePath(FilePath);
   if (MaybeTrace.assigned<seec::Error>())
     return MaybeTrace.move<seec::Error>();
-  
+
   return std::unique_ptr<OpenTrace>{
     new OpenTrace(MaybeTrace.move<std::unique_ptr<seec::cm::ProcessTrace>>())};
 }
