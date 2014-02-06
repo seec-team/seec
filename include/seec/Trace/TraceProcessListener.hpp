@@ -364,6 +364,9 @@ public:
   
   /// \brief Get a list of active TraceThreadListener objects.
   ///
+  /// TODO: Deprecate this. Any of the listeners could become inactive as soon
+  /// as the list is retrieved and the Lock is released.
+  ///
   std::vector<TraceThreadListener *> getThreadListeners() {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
@@ -373,6 +376,13 @@ public:
       List.push_back(Pair.second);
     
     return List;
+  }
+  
+  /// \brief Get the number of active TraceThreadListener objects.
+  ///
+  std::size_t countThreadListeners() const {
+    std::lock_guard<std::mutex> Lock{TraceThreadListenerMutex};
+    return ActiveThreadListeners.size();
   }
   
   /// @}

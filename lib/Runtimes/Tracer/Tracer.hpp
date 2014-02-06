@@ -160,9 +160,6 @@ class ProcessEnvironment {
   /// Process listener.
   std::unique_ptr<TraceProcessListener> ProcessTracer;
   
-  /// Thread listeners.
-  std::map<std::thread::id, std::unique_ptr<ThreadEnvironment>> ThreadLookup;
-  
   /// Interceptor function addresses.
   llvm::DenseSet<uintptr_t> InterceptorAddresses;
   
@@ -180,8 +177,6 @@ public:
   /// are destroyed before the shared ProcessListener object.
   ///
   ~ProcessEnvironment();
-  
-  decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
   
   llvm::LLVMContext &getContext() { return Context; }
   

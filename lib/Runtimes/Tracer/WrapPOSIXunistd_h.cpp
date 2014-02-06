@@ -88,7 +88,7 @@ SEEC_MANGLE_FUNCTION(execv)
   auto &Listener = ThreadEnv.getThreadListener();
   
   // Raise an error if there are multiple threads.
-  if (ProcessEnv.getThreadLookup().size() > 1) {
+  if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
@@ -175,7 +175,7 @@ SEEC_MANGLE_FUNCTION(execve)
   auto &Listener = ThreadEnv.getThreadListener();
   
   // Raise an error if there are multiple threads.
-  if (ProcessEnv.getThreadLookup().size() > 1) {
+  if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
@@ -265,7 +265,7 @@ SEEC_MANGLE_FUNCTION(execvp)
   auto &Listener = ThreadEnv.getThreadListener();
   
   // Raise an error if there are multiple threads.
-  if (ProcessEnv.getThreadLookup().size() > 1) {
+  if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
@@ -333,7 +333,7 @@ SEEC_MANGLE_FUNCTION(fork)
   auto &Listener = ThreadEnv.getThreadListener();
   
   // Raise an error if there are multiple threads.
-  if (ProcessEnv.getThreadLookup().size() > 1) {
+  if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(

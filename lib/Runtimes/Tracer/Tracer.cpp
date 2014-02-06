@@ -173,7 +173,6 @@ ProcessEnvironment::ProcessEnvironment()
   StreamAllocator(),
   SyncExit(),
   ProcessTracer(),
-  ThreadLookup(),
   InterceptorAddresses(),
   ThreadEventLimit(getUserThreadEventLimit())
 {
@@ -261,7 +260,6 @@ ProcessEnvironment::ProcessEnvironment()
 
 ProcessEnvironment::~ProcessEnvironment()
 {
-  ThreadLookup.clear();
   ProcessTracer.reset();
 }
 
@@ -294,19 +292,8 @@ ProcessEnvironment &getProcessEnvironment() {
 //------------------------------------------------------------------------------
 
 ThreadEnvironment &getThreadEnvironment() {
-  // Yes, this is a terrible bottleneck. When thread_local support is available,
-  // we'll be using that instead.
-  static std::mutex AccessMutex {};
-  
-  std::lock_guard<std::mutex> Lock(AccessMutex);
-  
-  auto &Lookup = getProcessEnvironment().getThreadLookup();
-  auto &ThreadEnvPtr = Lookup[std::this_thread::get_id()];
-  
-  if (!ThreadEnvPtr)
-    ThreadEnvPtr.reset(new ThreadEnvironment(getProcessEnvironment()));
-  
-  return *ThreadEnvPtr;
+  thread_local ThreadEnvironment TE{getProcessEnvironment()};
+  return TE;
 }
 
 
