@@ -173,10 +173,13 @@ class WrappedInputPointer {
   
   std::size_t Size;
   
+  bool IgnoreNull;
+  
 public:
   WrappedInputPointer(T ForValue)
   : Value(ForValue),
-    Size(sizeof(*ForValue))
+    Size(sizeof(*ForValue)),
+    IgnoreNull(false)
   {}
   
   /// \name Flags.
@@ -188,6 +191,13 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
+  
+  WrappedInputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
   
   /// @} (Flags.)
   
@@ -204,6 +214,8 @@ class WrappedInputPointer<void const *> {
   
   std::size_t Size;
   
+  bool IgnoreNull;
+  
 public:
   WrappedInputPointer(void const * ForValue)
   : Value(ForValue),
@@ -219,6 +231,13 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
+  
+  WrappedInputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
   
   /// @} (Flags.)
   
@@ -253,6 +272,9 @@ public:
   /// \brief Check if the given value is OK.
   ///
   bool check(WrappedInputPointer<T> &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),

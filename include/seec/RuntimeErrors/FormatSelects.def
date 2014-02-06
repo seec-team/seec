@@ -79,6 +79,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, rewinddir, "rewinddir")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, seekdir,   "seekdir")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, telldir,   "telldir")
+
+  //----------------------------------------------------------------------------
+  // pthread.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, pthread_create, "pthread_create")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, pthread_join,   "pthread_join")
   
   //----------------------------------------------------------------------------
   // sys/stat.h

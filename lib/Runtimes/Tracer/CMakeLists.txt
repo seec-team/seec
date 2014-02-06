@@ -22,6 +22,7 @@ set(SOURCES
   WrapCstring_h.cpp
   WrapCtime_h.cpp
   WrapPOSIXdirent_h.cpp
+  WrapPOSIXpthread_h.cpp
   WrapPOSIXsys_stat_h.cpp
   WrapPOSIXsys_time_h.cpp
   WrapPOSIXsys_wait_h.cpp
@@ -34,6 +35,9 @@ else()
  add_library(seecRuntimeTracer SHARED ${SOURCES})
 endif()
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (LLVM)
+#--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles bitreader asmparser target jit support core
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
@@ -41,6 +45,9 @@ execute_process(
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (ICU)
+#--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
@@ -49,12 +56,22 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (WX)
+#--------------------------------------------------------------------------------
+execute_process(
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs base
+ OUTPUT_VARIABLE REQ_WX_LIBRARIES
+)
+string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
+
 target_link_libraries(seecRuntimeTracer
  SeeCExecutionTracer
  SeeCTrace
  SeeCUtil
  SeeCRuntimeErrors
  SeeCICU
+ ${REQ_WX_LIBRARIES}
  ${REQ_LLVM_LIBRARIES}
  ${REQ_ICU_LIBRARIES}
  ${LLVM_LIB_DEPS}
