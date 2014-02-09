@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/TraceStorage.hpp"
+#include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -20,10 +21,15 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/system_error.h"
 
+#include <wx/longlong.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 
 #include <string>
 
+#ifdef __unix__
 #include <unistd.h>
+#endif
 
 
 namespace seec {
@@ -31,13 +37,9 @@ namespace seec {
 namespace trace {
 
 
-static char const *getTraceDirectoryExtension() {
-  return "seec";
-}
-
-static char const *getModuleFilename() {
-  return "module.bc";
-}
+static char const *getArchiveExtension()        { return "seec"; }
+static char const *getTraceDirectoryExtension() { return "seecd"; }
+static char const *getModuleFilename()          { return "module.bc"; }
 
 static char const *getProcessExtension(ProcessSegment Segment) {
   switch (Segment) {
@@ -61,117 +63,194 @@ static char const *getThreadExtension(ThreadSegment Segment) {
   return nullptr;
 }
 
-static std::string getPIDString() {
-  std::string PIDString;
-  
-  {
-    llvm::raw_string_ostream Stream(PIDString);
-    Stream << getpid();
-    Stream.flush();
-  }
-  
-  return PIDString;
-}
-
 //------------------------------------------------------------------------------
 // OutputStreamAllocator
 //------------------------------------------------------------------------------
 
-OutputStreamAllocator::OutputStreamAllocator(llvm::StringRef Directory)
-: TraceDirectory(Directory)
+OutputStreamAllocator::
+OutputStreamAllocator(llvm::StringRef WithTraceLocation,
+                      llvm::StringRef WithTraceDirectoryName,
+                      llvm::StringRef WithTraceDirectoryPath,
+                      llvm::StringRef WithTraceArchiveName)
+: TraceLocation(WithTraceLocation),
+  TraceDirectoryName(WithTraceDirectoryName),
+  TraceDirectoryPath(WithTraceDirectoryPath),
+  TraceArchiveName(WithTraceArchiveName),
+  TraceFiles()
 {}
+
+bool OutputStreamAllocator::deleteAll()
+{
+  bool Result = true;
+  
+  wxString FullPath {TraceDirectoryPath};
+  FullPath += wxFileName::GetPathSeparator();
+  auto const FullPathDirLength = FullPath.size();
+  
+  for (auto const &File : TraceFiles) {
+    // Generate the complete path.
+    FullPath.Truncate(FullPathDirLength);
+    FullPath += File;
+    Result = Result && wxRemoveFile(FullPath);
+  }
+  
+  Result = Result && wxRmdir(TraceDirectoryPath);
+  
+  return Result;
+}
+
+/// \brief Get the default location to store traces.
+///
+static void getDefaultTraceLocation(llvm::SmallVectorImpl<char> &Result)
+{
+  if (llvm::sys::fs::current_path(Result) == llvm::errc::success)
+    return;
+  
+  llvm::sys::path::system_temp_directory(true, Result);
+}
+
+/// \brief Check to see if the given path is a valid trace location.
+///
+static seec::Maybe<seec::Error> checkTraceLocation(llvm::StringRef Path)
+{
+  bool IsDirectory;
+  auto const ErrCode = llvm::sys::fs::is_directory(Path, IsDirectory);
+  
+  if (ErrCode != llvm::errc::success)
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "IsDirectoryFail"},
+                               std::make_pair("path", Path.str().c_str()))};
+  
+  if (!IsDirectory)
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "PathIsNotDirectory"},
+                               std::make_pair("path", Path.str().c_str()))};
+  
+  return seec::Maybe<seec::Error>();
+}
+
+/// \brief Construct a new trace directory.
+/// \return An Error if the directory already existed.
+///
+static seec::Maybe<seec::Error> createTraceDirectory(llvm::StringRef Path)
+{
+  bool OutDirExisted;
+  auto const ErrCode = llvm::sys::fs::create_directory(Path, OutDirExisted);
+  
+  if (ErrCode != llvm::errc::success)
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "CreateDirectoryFail"},
+                               std::make_pair("path", Path.str().c_str()))};
+  
+  if (OutDirExisted)
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "OutDirectoryExists"},
+                               std::make_pair("path", Path.str().c_str()))};
+  
+  return seec::Maybe<seec::Error>();
+}
 
 seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
 OutputStreamAllocator::createOutputStreamAllocator()
 {
-  return createOutputStreamAllocator("p");
-}
-
-seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
-OutputStreamAllocator::createOutputStreamAllocator(llvm::StringRef Identifier)
-{
-  llvm::error_code ErrCode;
-  llvm::SmallString<32> Path;
+  llvm::SmallString<256> TraceLocation;
+  llvm::SmallString<256> TraceDirectoryName;
+  llvm::SmallString<256> TraceDirectoryPath;
+  llvm::SmallString<256> TraceArchiveName;
   
-  // Use the current working directory if possible.
-  ErrCode = llvm::sys::fs::current_path(Path);
-  if (ErrCode != llvm::errc::success) {
-    // Otherwise use the system's temp directory.
-    llvm::sys::path::system_temp_directory(true, Path);
-  }
-  
-  // Check if the path is a directory.
-  bool IsDirectory;
-  ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(Path), IsDirectory);
-  if (ErrCode != llvm::errc::success) {
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "IsDirectoryFail"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
-  }
-  
-  if (!IsDirectory)
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "PathIsNotDirectory"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
-  
-  // Create a path to the trace directory.
-  if (auto const UserPath = std::getenv("SEEC_TRACE_NAME")) {
-    llvm::sys::path::append(Path, std::string{UserPath} + "." +
-                                  getTraceDirectoryExtension());
+  if (auto const UserPathEV = std::getenv("SEEC_TRACE_NAME")) {
+    if (llvm::sys::path::is_absolute(UserPathEV)) {
+      // Set the location to the directory portion of SEEC_TRACE_NAME.
+      TraceLocation = UserPathEV;
+      llvm::sys::path::remove_filename(TraceLocation);
+    }
+    else {
+      getDefaultTraceLocation(TraceLocation);
+    }
+    
+    if (llvm::sys::path::has_filename(UserPathEV)) {
+      TraceDirectoryName =
+        TraceArchiveName = llvm::sys::path::filename(UserPathEV);
+      
+      TraceDirectoryName += '.';
+      TraceDirectoryName += getTraceDirectoryExtension();
+      
+      TraceArchiveName += '.';
+      TraceArchiveName += getArchiveExtension();
+    }
   }
   else {
-    std::string TraceName;
-    
-    for (auto const Char : Identifier)
-      if (std::isalnum(Char))
-        TraceName.push_back(Char);
-    
-    if (TraceName.empty())
-      TraceName.push_back('p');
-    TraceName.push_back('.');
-    TraceName += getPIDString();
-    TraceName.push_back('.');
-    TraceName += getTraceDirectoryExtension();
-    
-    llvm::sys::path::append(Path, TraceName);
+    getDefaultTraceLocation(TraceLocation);
   }
   
-  // Create the trace directory, but fail if it already exists.
-  bool OutDirExisted;
-  ErrCode = llvm::sys::fs::create_directory(llvm::StringRef(Path),
-                                            OutDirExisted);
-  if (ErrCode != llvm::errc::success) {
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "CreateDirectoryFail"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
+  // Check that the trace location is OK.
+  auto MaybeTraceLocationError = checkTraceLocation(TraceLocation);
+  if (MaybeTraceLocationError.assigned<seec::Error>())
+    return MaybeTraceLocationError.move<seec::Error>();
+  
+  // Generate a name for the trace directory if the user didn't supply one.
+  if (TraceDirectoryName.empty()) {
+    TraceDirectoryName.append("p.");
+    TraceDirectoryName.append(std::to_string(getpid()));
+    TraceDirectoryName.push_back('.');
+    TraceDirectoryName.append(getTraceDirectoryExtension());
   }
   
-  if (OutDirExisted) {
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "OutDirectoryExists"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
-  }
+  // Attempt to setup the trace directory.
+  TraceDirectoryPath = TraceLocation;
+  llvm::sys::path::append(TraceDirectoryPath, TraceDirectoryName.str());
+  
+  auto MaybeCreateDirError = createTraceDirectory(TraceDirectoryPath);
+  if (MaybeCreateDirError.assigned<seec::Error>())
+    return MaybeCreateDirError.move<seec::Error>();
   
   // Create the OutputStreamAllocator.
   auto Allocator = new (std::nothrow)
-                   OutputStreamAllocator(llvm::StringRef(Path));
+                   OutputStreamAllocator(TraceLocation,
+                                         TraceDirectoryName,
+                                         TraceDirectoryPath,
+                                         TraceArchiveName);
   
   if (Allocator == nullptr)
-    return Error(LazyMessageByRef::create("Trace",
+    return Error{LazyMessageByRef::create("Trace",
                                           {"errors",
-                                           "OutputStreamAllocatorFail"}));
+                                           "OutputStreamAllocatorFail"})};
   
   return std::unique_ptr<OutputStreamAllocator>(Allocator);
 }
 
+seec::Maybe<uint64_t, seec::Error>
+OutputStreamAllocator::getTotalSize() const
+{
+  uint64_t TotalSize = 0;
+  
+  wxString FullPath {TraceDirectoryPath};
+  FullPath += wxFileName::GetPathSeparator();
+  auto const FullPathDirLength = FullPath.size();
+  
+  for (auto const &File : TraceFiles) {
+    // Generate the complete path.
+    FullPath.Truncate(FullPathDirLength);
+    FullPath += File;
+    
+    auto const Size = wxFileName{FullPath}.GetSize();
+    if (Size == wxInvalidSize) {
+      return Error{
+        LazyMessageByRef::create("Trace", {"errors", "GetFileSizeFail"},
+                                 std::make_pair("path", File.c_str()))};
+    }
+    
+    TotalSize += Size.GetValue();
+  }
+  
+  return TotalSize;
+}
+
 seec::Maybe<seec::Error>
-OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
+OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
+{
   // Get a path for the bitcode file.
-  llvm::SmallString<256> Path {llvm::StringRef{TraceDirectory}};
+  llvm::SmallString<256> Path {llvm::StringRef{TraceDirectoryPath}};
   llvm::sys::path::append(Path, getModuleFilename());
   
   // Attempt to open an output buffer for the bitcode file.
@@ -181,15 +260,18 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
                                                 Bitcode.size(),
                                                 Output);
   if (ErrCode != llvm::errc::success) {
-    return Error(LazyMessageByRef::create("Trace",
+    return Error{LazyMessageByRef::create("Trace",
                                           {"errors", "FileOutputBufferFail"},
                                           std::make_pair("path",
-                                                         Path.c_str())));
+                                                         Path.c_str()))};
   }
   
   // Copy the bitcode into the output buffer and commit it.
   std::memcpy(Output->getBufferStart(), Bitcode.data(), Bitcode.size());
   Output->commit();
+  
+  // Save the relative path to the module.
+  TraceFiles.emplace_back(getModuleFilename());
   
   return seec::Maybe<seec::Error>();
 }
@@ -197,20 +279,23 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode) {
 std::unique_ptr<llvm::raw_ostream>
 OutputStreamAllocator::getProcessStream(ProcessSegment Segment, unsigned Flags)
 {
-  llvm::SmallString<256> Filename {llvm::StringRef(TraceDirectory)};
+  std::string File = std::string{"st."} + getProcessExtension(Segment);
   
-  llvm::sys::path::append(Filename, llvm::Twine("st.") +
-                                    getProcessExtension(Segment));
+  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
+  llvm::sys::path::append(Path, File);
   
   Flags |= llvm::raw_fd_ostream::F_Binary;
   
   std::string ErrorInfo;
-  auto Out = new llvm::raw_fd_ostream(Filename.c_str(), ErrorInfo, Flags);
+  auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
   if (!Out) {
-    llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
+    llvm::errs() << "\nSeeC encountered a fatal error: " << ErrorInfo << "\n";
     exit(EXIT_FAILURE);
   }
 
+  // Save the relative path to the process segment.
+  TraceFiles.emplace_back(File);
+  
   return std::unique_ptr<llvm::raw_ostream>(Out);
 }
 
@@ -219,16 +304,10 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
                                        ThreadSegment Segment,
                                        unsigned Flags)
 {
-  std::string File;
+  std::string File = std::string{"st.t"} + std::to_string(ThreadID)
+                   + "." + getThreadExtension(Segment);
   
-  {
-    llvm::raw_string_ostream FileStream {File};
-    FileStream << "st.t" << ThreadID
-               << "." << getThreadExtension(Segment);
-    FileStream.flush();
-  }
-  
-  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectory)};
+  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
   
   Flags |= llvm::raw_fd_ostream::F_Binary;
@@ -236,11 +315,99 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
   std::string ErrorInfo;
   auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
   if (!Out) {
-    llvm::errs() << "\nFatal error: " << ErrorInfo << "\n";
+    llvm::errs() << "\nSeeC encountered a fatal error: " << ErrorInfo << "\n";
     exit(EXIT_FAILURE);
   }
+  
+  // Save the relative path to the thread segment.
+  TraceFiles.emplace_back(File);
 
   return std::unique_ptr<llvm::raw_ostream>(Out);
+}
+
+wxString getArchivePath(std::string const &TraceLocation,
+                        std::string const &TraceDirectoryName,
+                        std::string const &TraceArchiveName,
+                        llvm::StringRef GivenPath)
+{
+  // User-supplied archive name, with extension added previously.
+  if (!TraceArchiveName.empty())
+    return wxString{TraceLocation} + wxFileName::GetPathSeparator()
+           + TraceArchiveName;
+  
+  // Path given by the client (e.g. the executable name).
+  if (!GivenPath.empty())
+    return wxString{TraceLocation} + wxFileName::GetPathSeparator()
+           + GivenPath.str() + "." + getArchiveExtension();
+  
+  // Path based on the trace directory name.
+  wxFileName ArchiveName {TraceDirectoryName};
+  ArchiveName.SetExt(getArchiveExtension());
+  return wxString{TraceLocation} + wxFileName::GetPathSeparator()
+         + ArchiveName.GetFullPath();
+}
+
+seec::Maybe<seec::Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
+{
+  wxString const ArchivePath =
+    getArchivePath(TraceLocation, TraceDirectoryName, TraceArchiveName, Path);
+  
+  wxFileOutputStream RawOutput{ArchivePath};
+  if (!RawOutput.IsOk())
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
+                               std::make_pair("path", ArchivePath.c_str()))};
+  
+  // If we exit early because the archive creation failed, delete the file.
+  auto DeleteFailedArchive = seec::scopeExit([&]()->void{
+    wxRemoveFile(ArchivePath);
+  });
+  
+  wxZipOutputStream Output{RawOutput};
+  if (!Output.IsOk())
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
+                               std::make_pair("path", ArchivePath.c_str()))};
+  
+  // Write all trace files into the archive.
+  Output.PutNextDirEntry("trace");
+  
+  wxString FullPath {TraceDirectoryPath};
+  FullPath += wxFileName::GetPathSeparator();
+  auto const FullPathDirLength = FullPath.size();
+  
+  for (auto const &File : TraceFiles) {
+    // Generate the complete path.
+    FullPath.Truncate(FullPathDirLength);
+    FullPath += File;
+    
+    // Attempt to open the file for reading.
+    wxFFileInputStream Input{FullPath};
+    if (!Input.IsOk())
+      return Error{
+        LazyMessageByRef::create("Trace", {"errors", "ReadFileForArchiveFail"},
+                                 std::make_pair("path", FullPath.c_str()))};
+    
+    // Create the archive entry.
+    Output.PutNextEntry(wxString{"trace/"} + File);
+    Output.Write(Input);
+  }
+  
+  if (!Output.Close())
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
+                               std::make_pair("path", ArchivePath.c_str()))};
+  
+  // The archive creation was successful, so don't delete it when we exit.
+  DeleteFailedArchive.disable();
+  
+  // Attempt to delete the uncompressed trace files and directory.
+  if (!deleteAll())
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "DeleteFilesFail"})};
+  
+  // The unassigned Maybe indicates that everything was OK.
+  return seec::Maybe<seec::Error>();
 }
 
 

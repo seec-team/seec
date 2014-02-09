@@ -6,14 +6,14 @@
     <treemagic priority="75">
       <treematch path="st.spt" type="file"/>
     </treemagic>
-    <glob pattern="*.seec"/>
-    <glob pattern="*.seec/"/>
+    <glob pattern="*.seecd"/>
+    <glob pattern="*.seecd/"/>
   </mime-type>
   <mime-type type="application/x-seec-trace">
     <sub-class-of type="application/xml"/>
     <comment>SeeC Execution Trace</comment>
     <icon name="seec"/>
-    <glob pattern="*.spt"/>
+    <glob pattern="*.seec"/>
   </mime-type>
   <mime-type type="application/x-seec-record">
     <sub-class-of type="application/xml"/>

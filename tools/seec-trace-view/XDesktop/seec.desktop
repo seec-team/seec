@@ -8,5 +8,5 @@ Name=SeeC
 GenericName=Novice Debugger for C
 Icon=seec
 Categories=Development;
-MimeType=application/x-seec-trace;x-content/x-seec-trace;
+MimeType=application/x-seec-record;application/x-seec-trace;x-content/x-seec-trace;
 

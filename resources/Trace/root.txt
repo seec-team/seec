@@ -60,5 +60,25 @@ root:table {
     OutputStreamAllocatorFail:string {
       "Failed to construct new OutputStreamAllocator."
     }
+
+    //
+    CreateArchiveFail:string {
+      "Failed to create archive at \"{path}\"."
+    }
+
+    //
+    ReadFileForArchiveFail:string {
+      "Failed to read trace file \"{path}\" for archiving."
+    }
+
+    //
+    GetFileSizeFail:string {
+      "Failed to get size of trace file \"{path}\"."
+    }
+
+    //
+    DeleteFilesFail:string {
+      "Failed to delete unarchived trace files."
+    }
   }
 }

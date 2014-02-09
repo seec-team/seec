@@ -9,7 +9,7 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>seec</string>
+				<string>seecd</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>SeeC Process Trace</string>
@@ -19,6 +19,30 @@
                         <string>SeeC</string>
 			<key>LSTypeIsPackage</key>
 			<true/>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>seec</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>SeeC Process Trace</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+                        <key>CFBundleTypeIconFile</key>
+                        <string>SeeC</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>seecrecord</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>SeeC Recording</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+                        <key>CFBundleTypeIconFile</key>
+                        <string>SeeC</string>
 		</dict>
 	</array>
 	<key>CFBundleInfoDictionaryVersion</key>

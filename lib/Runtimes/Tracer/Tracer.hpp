@@ -70,9 +70,21 @@ public:
   ///
   ThreadEnvironment(ProcessEnvironment &PE);
   
+  /// \brief Destructor.
+  ///
+  ~ThreadEnvironment();
+  
   /// \brief Get this thread's listener.
   ///
   TraceThreadListener &getThreadListener() { return ThreadTracer; }
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  ProcessEnvironment &getProcessEnvironment() { return Process; }
+  
+  /// @} (Accessors.)
   
   
   /// \name Function tracking.
@@ -166,6 +178,16 @@ class ProcessEnvironment {
   /// Size limit for thread event files.
   offset_uint ThreadEventLimit;
   
+  /// Size limit for archiving traces.
+  uint64_t ArchiveSizeLimit;
+  
+  /// The program name as found in argv[0], if we were notified of it.
+  std::string ProgramName;
+  
+  /// \brief Attempt to archive the completed trace.
+  ///
+  void archive();
+  
 public:
   /// \brief Constructor.
   ///
@@ -207,6 +229,24 @@ public:
   /// \brief Get the size limit for thread event files.
   ///
   offset_uint getThreadEventLimit() const { return ThreadEventLimit; }
+  
+  /// \brief Get the size limit for archiving traces.
+  ///
+  uint64_t getArchiveSizeLimit() const { return ArchiveSizeLimit; }
+  
+  /// \brief Get the program name as found in argv[0] (may be empty).
+  ///
+  std::string const &getProgramName() const { return ProgramName; }
+  
+  /// @}
+  
+  
+  /// \name Mutators.
+  /// @{
+  
+  /// \brief Set the program name as found in argv[0].
+  ///
+  void setProgramName(llvm::StringRef Name);
   
   /// @}
 };

@@ -20,9 +20,11 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/system_error.h"
 
 #include <memory>
 #include <string>
+#include <vector>
 
 
 namespace llvm {
@@ -57,12 +59,27 @@ enum class ThreadSegment {
 /// This gives us a central area to control the output locations and filenames.
 ///
 class OutputStreamAllocator {
-  /// Path to the trace directory.
-  std::string TraceDirectory;
+  /// Path to the trace location.
+  std::string TraceLocation;
+  
+  /// Name of the directory containing the trace files.
+  std::string TraceDirectoryName;
+  
+  /// Path to the directory containing the trace files.
+  std::string TraceDirectoryPath;
+  
+  /// Name to use when creating an archive of the trace.
+  std::string TraceArchiveName;
+  
+  /// Paths for all created files.
+  std::vector<std::string> TraceFiles;
   
   /// \brief Create a new OutputStreamAllocator.
   ///
-  OutputStreamAllocator(llvm::StringRef Directory);
+  OutputStreamAllocator(llvm::StringRef WithTraceLocation,
+                        llvm::StringRef WithTraceDirectoryName,
+                        llvm::StringRef WithTraceDirectoryPath,
+                        llvm::StringRef WithTraceArchiveName);
   
   // Don't allow copying.
   OutputStreamAllocator(OutputStreamAllocator const &) = delete;
@@ -70,23 +87,34 @@ class OutputStreamAllocator {
   OutputStreamAllocator &operator=(OutputStreamAllocator const &) = delete;
   OutputStreamAllocator &operator=(OutputStreamAllocator &&) = delete;
   
+  /// \brief Attempt to delete all existing trace files, and the directory.
+  ///
+  bool deleteAll();
+  
 public:
+  /// \brief Construction.
+  /// @{
+  
   /// \brief Attempt to create OutputStreamAllocator.
   ///
   static 
   seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
   createOutputStreamAllocator();
   
-  /// \brief Attempt to create OutputStreamAllocator.
-  ///
-  /// \param Identifier an identifier to use in the output trace's name.
-  ///
-  static 
-  seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
-  createOutputStreamAllocator(llvm::StringRef Identifier);
+  /// @} (Construction.)
   
   
-  /// \name Mutators
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the combined size of all trace files (in bytes).
+  ///
+  seec::Maybe<uint64_t, seec::Error> getTotalSize() const;
+  
+  /// @} (Accessors.)
+  
+  
+  /// \name Mutators.
   /// @{
   
   /// \brief Write the Module's bitcode to the trace directory.
@@ -106,7 +134,13 @@ public:
                   ThreadSegment Segment,
                   unsigned Flags = 0);
   
-  /// @}
+  /// \brief Archive all existing trace files.
+  ///
+  /// If the files are successfully archived, the originals will be deleted.
+  ///
+  seec::Maybe<seec::Error> archiveTo(llvm::StringRef Path);
+  
+  /// @} (Mutators.)
 };
 
 

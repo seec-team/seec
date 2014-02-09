@@ -1,5 +1,8 @@
 add_executable(seec-trace-print main.cpp)
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (LLVM)
+#--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
@@ -7,6 +10,9 @@ execute_process(
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
 string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (ICU)
+#--------------------------------------------------------------------------------
 execute_process(
  COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
@@ -14,6 +20,15 @@ execute_process(
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (WX)
+#--------------------------------------------------------------------------------
+execute_process(
+ COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs base
+ OUTPUT_VARIABLE REQ_WX_LIBRARIES
+)
+string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 
 target_link_libraries(seec-trace-print
  # SeeC libraries
@@ -23,6 +38,9 @@ target_link_libraries(seec-trace-print
  SeeCRuntimeErrors
  SeeCUtil
  SeeCICU
+
+ # wxWidgets libraries
+ ${REQ_WX_LIBRARIES}
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangCodeGen.a

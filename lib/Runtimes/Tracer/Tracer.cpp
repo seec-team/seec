@@ -28,8 +28,11 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Threading.h"
+
+#include "unicode/locid.h"
 
 #include <cassert>
 #include <cstdint>
@@ -37,7 +40,9 @@
 #include <cstdlib>
 #include <thread>
 
+#ifdef __unix__
 #include <dlfcn.h>
+#endif
 
 #include "seec/Transforms/RecordExternal/RecordInfo.h" // needs <cstdint>
 
@@ -54,6 +59,14 @@ static constexpr offset_uint getDefaultThreadEventLimit() {
   return 1024 * 1024 * 1024; // 1 GiB
 }
 
+static constexpr char const *getArchiveSizeLimitEnvVar() {
+  return "SEEC_ARCHIVE_LIMIT";
+}
+
+static constexpr uint64_t getDefaultArchiveSizeLimit() {
+  return 512 * 1024 * 1024; // 0.5 GiB
+}
+
 
 //------------------------------------------------------------------------------
 // ThreadEnvironment
@@ -66,6 +79,9 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
                PE.getThreadEventLimit()),
   FunIndex(nullptr),
   Stack()
+{}
+
+ThreadEnvironment::~ThreadEnvironment()
 {}
 
 void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
@@ -120,34 +136,32 @@ static uint64_t getMultiplierForBytes(char const *ForUnit)
   return 1;
 }
 
-/// \brief Get the size limit to use for thread event files.
+/// \brief Get the number of bytes represented by a string.
 ///
-/// NOTE: This function uses std::getenv() and thus is not thread-safe.
-///
-static offset_uint getUserThreadEventLimit()
+template<typename T>
+T getByteSizeFromEnvVar(char const * const EnvVarName, T const Default)
 {
-  auto const EnvVarName = getThreadEventLimitEnvVar();
-  auto const UserLimit = std::getenv(EnvVarName);
-  if (!UserLimit)
-    return getDefaultThreadEventLimit();
+  auto const StringValue = std::getenv(EnvVarName);
+  if (!StringValue)
+    return Default;
   
   char *Remainder = nullptr;
-  auto const Value = std::strtoull(UserLimit, &Remainder, 10);
-  
-  if (Remainder == UserLimit) {
-    llvm::errs() << "SeeC: Error reading " << EnvVarName << ".\n";
+  auto const Value = std::strtoull(StringValue, &Remainder, 10);
+  if (Remainder == StringValue) {
+    fprintf(stderr, "\nSeeC: Error parsing '%s'.\n", EnvVarName);
     std::exit(EXIT_FAILURE);
   }
   
-  if (Value > std::numeric_limits<offset_uint>::max()) {
-    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
-    llvm::errs() << "\tMaximum = "
-                << std::numeric_limits<offset_uint>::max()
-                << " bytes.\n";
+  // Ensure that the value fits in the given type.
+  auto const MaxValue = std::numeric_limits<T>::max();
+  if (Value > MaxValue) {
+    fprintf(stderr, "\nSeeC: Value of '%s' is too large.\n", EnvVarName);
+    fprintf(stderr, "\tMaximum = %s bytes.\n",
+            std::to_string(MaxValue).c_str());
     std::exit(EXIT_FAILURE);
   }
   
-  // Consume whitespace.
+  // Consume whitespace to find the units.
   while (*Remainder && std::isblank(*Remainder))
     ++Remainder;
   
@@ -155,15 +169,58 @@ static offset_uint getUserThreadEventLimit()
   if (Multiplier <= 1)
     return Value;
   
-  if (std::numeric_limits<offset_uint>::max() / Multiplier < Value) {
-    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
-    llvm::errs() << "\tMaximum = "
-                << std::numeric_limits<offset_uint>::max()
-                << " bytes.\n";
+  // Ensure that the final value fits in the given type.
+  if (MaxValue / Multiplier < Value) {
+    fprintf(stderr, "\nSeeC: Value of '%s' is too large.\n", EnvVarName);
+    fprintf(stderr, "\tMaximum = %s bytes.\n",
+            std::to_string(MaxValue).c_str());
     std::exit(EXIT_FAILURE);
   }
   
   return Value * Multiplier;
+}
+
+/// \brief Get the size limit to use for thread event files.
+///
+/// NOTE: This function uses std::getenv() and thus is not thread-safe.
+///
+static offset_uint getUserThreadEventLimit()
+{
+  return getByteSizeFromEnvVar(getThreadEventLimitEnvVar(),
+                               getDefaultThreadEventLimit());
+}
+
+/// \brief Get the size limit for archiving traces.
+///
+/// NOTE: This function uses std::getenv() and thus is not thread-safe.
+///
+static uint64_t getUserArchiveSizeLimit()
+{
+  return getByteSizeFromEnvVar(getArchiveSizeLimitEnvVar(),
+                               getDefaultArchiveSizeLimit());
+}
+
+void ProcessEnvironment::archive()
+{
+  // Determine the size of the trace.
+  auto const MaybeSize = StreamAllocator->getTotalSize();
+  if (MaybeSize.assigned<seec::Error>()) {
+    fprintf(stderr, "\nSeeC: Couldn't read trace file size.\n");
+    return;
+  }
+  
+  if (MaybeSize.get<uint64_t>() > ArchiveSizeLimit) {
+    fprintf(stderr, "\nSeeC: Deciding to not archive the trace due to size.\n");
+    return;
+  }
+  
+  // Attempt to create the archive. If the ProgramName is empty, a name will
+  // be created based on the trace directory's name.
+  auto const MaybeError = StreamAllocator->archiveTo(ProgramName);
+  if (MaybeError.assigned<seec::Error>()) {
+    fprintf(stderr, "\nSeeC: Failed to archive the trace.\n");
+    return;
+  }
 }
 
 ProcessEnvironment::ProcessEnvironment()
@@ -174,7 +231,9 @@ ProcessEnvironment::ProcessEnvironment()
   SyncExit(),
   ProcessTracer(),
   InterceptorAddresses(),
-  ThreadEventLimit(getUserThreadEventLimit())
+  ThreadEventLimit(getUserThreadEventLimit()),
+  ArchiveSizeLimit(getUserArchiveSizeLimit()),
+  ProgramName()
 {
   // Setup multithreading support for LLVM.
   llvm::llvm_start_multithreaded();
@@ -190,23 +249,18 @@ ProcessEnvironment::ProcessEnvironment()
   Mod.reset(llvm::ParseBitcodeFile(BitcodeBuffer, Context));
   
   if (!Mod) {
-    llvm::errs() << "\nFailed to parse module bitcode.\n";
+    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n";
     exit(EXIT_FAILURE);
   }
   
   // Create the output stream allocator.
-  auto MaybeOutput = OutputStreamAllocator::
-                     createOutputStreamAllocator(Mod->getModuleIdentifier());
+  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
   
   if (MaybeOutput.assigned(0)) {
     StreamAllocator = std::move(MaybeOutput.get<0>());
   }
-  else if (MaybeOutput.assigned(1)) {
-    llvm::errs() << "\nError returned from createOutputStreamAllocator().\n";
-    exit(EXIT_FAILURE);
-  }
   else {
-    llvm::errs() << "\nNo return from createOutputStreamAllocator().\n";
+    llvm::errs() << "\nSeeC: Failed to create output stream allocator.\n";
     exit(EXIT_FAILURE);
   }
   
@@ -246,6 +300,7 @@ ProcessEnvironment::ProcessEnvironment()
   }
   
   // Find the location of all intercepted functions.
+#ifdef __unix__
 #define SEEC__STR2(NAME) #NAME
 #define SEEC__STR(NAME) SEEC__STR2(NAME)
 
@@ -256,11 +311,21 @@ ProcessEnvironment::ProcessEnvironment()
 
 #undef SEEC__STR2
 #undef SEEC__STR
+#else
+#error "Intercepted function locating not implemented for this platform."
+#endif
 }
 
 ProcessEnvironment::~ProcessEnvironment()
 {
+  // Finalize the trace.
   ProcessTracer.reset();
+  archive();
+}
+
+void ProcessEnvironment::setProgramName(llvm::StringRef Name)
+{
+  ProgramName = llvm::sys::path::filename(Name);
 }
 
 
@@ -344,6 +409,11 @@ void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyArgs(ArgC, ArgV);
+  
+  if (ArgC) {
+    auto &ProcessEnv = ThreadEnv.getProcessEnvironment();
+    ProcessEnv.setProgramName(ArgV[0]);
+  }
 }
 
 void SeeCRecordEnv(char **EnvP) {
