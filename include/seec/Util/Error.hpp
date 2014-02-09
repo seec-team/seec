@@ -54,6 +54,10 @@ public:
     
     return Msg;
   }
+  
+  UnicodeString describeMessage() const {
+    return Message->describe();
+  }
 };
 
 
