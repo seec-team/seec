@@ -64,8 +64,6 @@ IMPLEMENT_APP(TraceViewerApp)
 //------------------------------------------------------------------------------
 
 void TraceViewerApp::OpenFile(wxString const &FileName) {
-  wxLogDebug("Open file %s\n", FileName.c_str());
-
   // Attempt to read the trace, which should either return the newly read trace
   // (in Maybe slot 0), or an error message (in Maybe slot 1).
   auto NewTrace = OpenTrace::FromFilePath(FileName);
@@ -156,7 +154,6 @@ bool TraceViewerApp::OnInit() {
   wxInitAllImageHandlers();
   
   // Enable wxWidgets virtual file system access to the ICU bundles.
-  wxLogDebug("Adding the icurb vfs.");
   wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
   // Get the GUIText from the TraceViewer ICU resources.

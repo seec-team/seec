@@ -190,7 +190,6 @@ bool ActionRecord::finalize()
     if (ArchivePath.FileExists())
       continue;
     
-    wxLogDebug("Attempting archive %s", ArchivePath.GetFullPath());
     if (!ArchiveFile.Open(ArchivePath.GetFullPath(), "wb"))
       return false;
     
