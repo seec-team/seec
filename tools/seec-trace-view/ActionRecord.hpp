@@ -206,6 +206,10 @@ class ActionRecord
   /// The most recently inserted node in the record.
   wxXmlNode *LastNode;
   
+  /// \brief Write an archive of this recording (and trace) to the given stream.
+  ///
+  bool archiveTo(wxOutputStream &Stream);
+  
 public:
   /// \brief Create a new action record.
   ///

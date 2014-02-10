@@ -15,7 +15,9 @@
 #include "seec/Trace/TraceReader.hpp"
 
 #include <wx/wx.h>
+#include <wx/datetime.h>
 #include <wx/debug.h>
+#include <wx/stdpaths.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
@@ -74,6 +76,39 @@ IAttributeReadOnly::~IAttributeReadOnly()
 // ActionRecord
 //------------------------------------------------------------------------------
 
+bool ActionRecord::archiveTo(wxOutputStream &Stream)
+{
+  wxZipOutputStream Output{Stream};
+  if (!Output.IsOk())
+    return false;
+  
+  // Save the recording of this session to the archive.
+  Output.PutNextEntry("record.xml"); // CHECK ME
+  RecordDocument->Save(Output); // CHECK ME
+  
+  // Save the contents of the trace to the archive.
+  Output.PutNextDirEntry("trace");
+  
+  auto const &UnmappedTrace = *(Trace.getUnmappedTrace());
+  auto MaybeFiles = UnmappedTrace.getAllFileData();
+  if (MaybeFiles.assigned<seec::Error>())
+    return false;
+  
+  auto const &Files = MaybeFiles.get<std::vector<seec::trace::TraceFile>>();
+  
+  for (auto const &File : Files) {
+    Output.PutNextEntry(wxString{"trace/"} + File.getName());
+    
+    auto const &Buffer = *(File.getContents());
+    Output.Write(Buffer.getBufferStart(), Buffer.getBufferSize());
+  }
+  
+  if (!Output.Close())
+    return false;
+  
+  return true;
+}
+
 ActionRecord::ActionRecord(seec::cm::ProcessTrace const &ForTrace)
 : Trace(ForTrace),
   Enabled(false),
@@ -82,7 +117,8 @@ ActionRecord::ActionRecord(seec::cm::ProcessTrace const &ForTrace)
   LastNode(nullptr)
 {
   auto const Attrs = CreateAttributes({
-    std::make_pair("version", std::to_string(formatVersion()))
+    std::make_pair("version", std::to_string(formatVersion())),
+    std::make_pair("began", wxDateTime::Now().FormatISOCombined())
   });
   
   auto const Root = new wxXmlNode(nullptr,
@@ -141,41 +177,34 @@ bool ActionRecord::finalize()
   if (!Enabled)
     return true;
   
-  // Create an archive.
-  // TODO: Delete if any of the intermediate steps fail.
-  wxFileOutputStream RawOutput{"record.seecrecord"};
-  if (!RawOutput.IsOk())
-    return false;
+  auto const DateStr = wxDateTime::Now().Format("%F.%H-%M-%S");
   
-  wxZipOutputStream Output{RawOutput};
-  if (!Output.IsOk())
-    return false;
+  wxFileName ArchivePath;
+  ArchivePath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());
   
-  // Save the recording of this session to the archive.
-  Output.PutNextEntry("record.xml"); // CHECK ME
-  RecordDocument->Save(Output); // CHECK ME
+  wxFFile ArchiveFile;
   
-  // Save the contents of the trace to the archive.
-  Output.PutNextDirEntry("trace");
-  
-  auto const &UnmappedTrace = *(Trace.getUnmappedTrace());
-  auto MaybeFiles = UnmappedTrace.getAllFileData();
-  if (MaybeFiles.assigned<seec::Error>())
-    return false;
-  
-  auto const &Files = MaybeFiles.get<std::vector<seec::trace::TraceFile>>();
-  
-  for (auto const &File : Files) {
-    Output.PutNextEntry(wxString{"trace/"} + File.getName());
+  // Attempt to generate a unique filename for the archive and open it.
+  for (unsigned i = 0; ; ++i) {
+    ArchivePath.SetFullName(DateStr + "." + std::to_string(i) + ".seecrecord");
+    if (ArchivePath.FileExists())
+      continue;
     
-    auto const &Buffer = *(File.getContents());
-    Output.Write(Buffer.getBufferStart(), Buffer.getBufferSize());
+    wxLogDebug("Attempting archive %s", ArchivePath.GetFullPath());
+    if (!ArchiveFile.Open(ArchivePath.GetFullPath(), "wb"))
+      return false;
+    
+    break;
   }
   
-  if (!Output.Close())
+  wxFFileOutputStream ArchiveStream(ArchiveFile);
+  
+  if (archiveTo(ArchiveStream)) {
+    // TODO: Upload the archive to the server.
+    return true;
+  }
+  else {
+    wxRemoveFile(ArchivePath.GetFullPath());
     return false;
-  
-  // TODO: Upload the archive to the server.
-  
-  return true;
+  }
 }
