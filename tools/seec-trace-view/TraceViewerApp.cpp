@@ -315,8 +315,6 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
     Window->Close(true);
   }
   TopLevelWindows.clear();
-  
-  std::exit(EXIT_SUCCESS);
 }
 
 void TraceViewerApp::HandleFatalError(wxString Description) {
