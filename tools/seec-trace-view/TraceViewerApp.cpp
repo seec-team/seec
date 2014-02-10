@@ -24,6 +24,7 @@
 
 #include <wx/wx.h>
 #include <wx/cmdline.h>
+#include <wx/config.h>
 #include <wx/filesys.h>
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -124,6 +125,27 @@ bool TraceViewerApp::OnInit() {
   // Call default behaviour.
   if (!wxApp::OnInit())
     return false;
+  
+  // Setup the configuration to use a file in the user's data directory. If we
+  // don't do this ourselves then the default places the config file in the same
+  // path as the directory would take, causing an unfortunate collision.
+  wxFileName ConfigPath;
+  ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
+  
+  if (!wxDirExists(ConfigPath.GetFullPath())) {
+    if (!wxMkdir(ConfigPath.GetFullPath())) {
+      HandleFatalError("Couldn't create local data directory!");
+    }
+  }
+  
+  ConfigPath.SetFullName("config");
+  auto const Config =
+    new wxFileConfig(wxEmptyString, wxEmptyString, ConfigPath.GetFullPath());
+  
+  if (!Config)
+    HandleFatalError("Couldn't create config file!");
+  
+  wxConfigBase::Set(Config);
   
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.
