@@ -51,9 +51,11 @@ root:table {
     RecordingSettingsDialog:table {
       Title:string {"Recording settings"}
 
-      Token:string {"User token"}
+      Token:string {"Your unique token:"}
 
-      MaximumSize:string {"Maximum trace size"}
+      MaximumSize:string {"Maximum size of a single recording (in MiB):"}
+
+      MaximumStore:string {"Maximum size of recordings to store locally (in MiB):"}
     }
 
 

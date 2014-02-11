@@ -23,12 +23,18 @@
 
 
 // These constants control the size of submitted recordings, in MiB.
-constexpr std::size_t cRecordSizeMinimum = 1;    // 1 MiB.
-constexpr std::size_t cRecordSizeMaximum = 1024; // 1 GiB.
-constexpr std::size_t cRecordSizeDefault = 100;  // 100 MiB.
+constexpr std::size_t cRecordSizeMinimum = 1;
+constexpr std::size_t cRecordSizeMaximum = 1000;
+constexpr std::size_t cRecordSizeDefault = 100;
+
+// These constants control the size of locally stored recordings, in MiB.
+constexpr std::size_t cRecordStoreMinimum = 1;
+constexpr std::size_t cRecordStoreMaximum = 10000;
+constexpr std::size_t cRecordStoreDefault = 1000;
 
 char const * const cConfigKeyForToken = "/UserActionRecording/Token";
 char const * const cConfigKeyForSizeLimit = "/UserActionRecording/SizeLimit";
+char const * const cConfigKeyForStoreLimit = "/UserActionRecording/StoreLimit";
 
 
 #define	MODKEY		10430227
@@ -107,6 +113,9 @@ class ActionRecordSettingsDlg : public wxDialog
   /// Size limit of recordings to submit over the network.
   wxSlider *SizeSlider;
   
+  /// Size limit of recordings stored locally (awaiting submission).
+  wxSlider *StoreSlider;
+  
 public:
   /// \brief Constructor (without creation).
   ///
@@ -131,12 +140,12 @@ public:
 
 ActionRecordSettingsDlg::ActionRecordSettingsDlg()
 : TokenText(nullptr),
-  SizeSlider(nullptr)
+  SizeSlider(nullptr),
+  StoreSlider(nullptr)
 {}
 
 ActionRecordSettingsDlg::ActionRecordSettingsDlg(wxWindow *Parent)
-: TokenText(nullptr),
-  SizeSlider(nullptr)
+: ActionRecordSettingsDlg()
 {
   Create(Parent);
 }
@@ -150,10 +159,15 @@ ActionRecordSettingsDlg::~ActionRecordSettingsDlg()
 
 bool ActionRecordSettingsDlg::Create(wxWindow *Parent)
 {
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const TextTable =
+    seec::getResource("TraceViewer", Locale::getDefault(), Status,
+                      "GUIText", "RecordingSettingsDialog");
+  if (U_FAILURE(Status))
+    return false;
+  
   // Get the title.
-  auto const Title =
-    seec::getwxStringExOrEmpty("TraceViewer",
-      (char const * []){"GUIText", "RecordingSettingsDialog", "Title"});
+  auto const Title = seec::getwxStringExOrEmpty(TextTable, "Title");
   
   if (!wxDialog::Create(Parent,
                         wxID_ANY,
@@ -175,9 +189,8 @@ bool ActionRecordSettingsDlg::Create(wxWindow *Parent)
                              0 /* style */,
                              wxDefaultValidator);
   
-  auto const TokenLabel = new wxStaticText(this,
-                                           wxID_ANY,
-                                           "Your unique token:");
+  auto const TokenStr = seec::getwxStringExOrEmpty(TextTable, "Token");
+  auto const TokenLabel = new wxStaticText(this, wxID_ANY, TokenStr);
   
   // Create the size limit slider.
   SizeSlider = new wxSlider(this,
@@ -189,10 +202,21 @@ bool ActionRecordSettingsDlg::Create(wxWindow *Parent)
                             wxDefaultSize,
                             wxSL_HORIZONTAL | wxSL_LABELS);
   
-  auto const SizeLabel =
-    new wxStaticText(this,
-                     wxID_ANY,
-                     "Maximum size of recording (in MiB):");
+  auto const SizeStr = seec::getwxStringExOrEmpty(TextTable, "MaximumSize");
+  auto const SizeLabel = new wxStaticText(this, wxID_ANY, SizeStr);
+  
+  // Create the size limit slider.
+  StoreSlider = new wxSlider(this,
+                             wxID_ANY,
+                             getActionRecordStoreLimit(),
+                             cRecordStoreMinimum,
+                             cRecordStoreMaximum,
+                             wxDefaultPosition,
+                             wxDefaultSize,
+                             wxSL_HORIZONTAL | wxSL_LABELS);
+  
+  auto const StoreStr = seec::getwxStringExOrEmpty(TextTable, "MaximumStore");
+  auto const StoreLabel = new wxStaticText(this, wxID_ANY, StoreStr);
   
   // Create accept/cancel buttons.
   auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
@@ -200,13 +224,32 @@ bool ActionRecordSettingsDlg::Create(wxWindow *Parent)
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
   
-  ParentSizer->Add(TokenLabel, wxSizerFlags());
-  ParentSizer->Add(TokenText, wxSizerFlags().Expand());
-
-  ParentSizer->Add(SizeLabel, wxSizerFlags());
-  ParentSizer->Add(SizeSlider, wxSizerFlags().Expand());
+  int const BorderDir = wxLEFT | wxRIGHT;
+  int const BorderSize = 5;
+  int const InterSettingSpace = 10;
   
-  ParentSizer->Add(Buttons, wxSizerFlags().Expand());
+  ParentSizer->Add(TokenLabel, wxSizerFlags().Border(BorderDir | wxTOP,
+                                                     BorderSize));
+  ParentSizer->Add(TokenText, wxSizerFlags().Expand()
+                                            .Border(BorderDir, BorderSize));
+  
+  ParentSizer->AddSpacer(InterSettingSpace);
+
+  ParentSizer->Add(SizeLabel, wxSizerFlags().Border(BorderDir, BorderSize));
+  ParentSizer->Add(SizeSlider, wxSizerFlags().Expand()
+                                             .Border(BorderDir, BorderSize));
+  
+  ParentSizer->AddSpacer(InterSettingSpace);
+  
+  ParentSizer->Add(StoreLabel, wxSizerFlags().Border(BorderDir, BorderSize));
+  ParentSizer->Add(StoreSlider, wxSizerFlags().Expand()
+                                              .Border(BorderDir, BorderSize));
+  
+  ParentSizer->AddSpacer(InterSettingSpace);
+  
+  ParentSizer->Add(Buttons, wxSizerFlags().Expand()
+                                          .Border(BorderDir | wxBOTTOM,
+                                                  BorderSize));
   
   SetSizerAndFit(ParentSizer);
   
@@ -223,10 +266,12 @@ bool ActionRecordSettingsDlg::SaveValues()
   }
   
   long const SizeLimit = SizeSlider->GetValue();
+  long const StoreLimit = StoreSlider->GetValue();
   
   auto const Config = wxConfig::Get();
   Config->Write(cConfigKeyForToken, Token);
   Config->Write(cConfigKeyForSizeLimit, SizeLimit);
+  Config->Write(cConfigKeyForStoreLimit, StoreLimit);
   
   return true;
 }
@@ -264,4 +309,11 @@ long getActionRecordSizeLimit()
   auto const Config = wxConfig::Get();
   
   return Config->ReadLong(cConfigKeyForSizeLimit, cRecordSizeDefault);
+}
+
+long getActionRecordStoreLimit()
+{
+  auto const Config = wxConfig::Get();
+  
+  return Config->ReadLong(cConfigKeyForStoreLimit, cRecordStoreDefault);
 }

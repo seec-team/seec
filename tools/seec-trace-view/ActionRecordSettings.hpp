@@ -28,4 +28,8 @@ wxString getActionRecordToken();
 ///
 long getActionRecordSizeLimit();
 
+/// \brief Get the user-specified limit for locally stored recordings (in MiB).
+///
+long getActionRecordStoreLimit();
+
 #endif // SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
