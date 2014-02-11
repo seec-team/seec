@@ -30,6 +30,7 @@
 #include <type_traits>
 
 
+class ActionEventListCtrl;
 class wxGauge;
 
 
@@ -157,6 +158,9 @@ class ActionReplayFrame : public wxFrame
   
   /// Shows the progress through the recording.
   wxGauge *GaugeEventProgress;
+  
+  /// Shows a list of all events.
+  ActionEventListCtrl *EventList;
   
   /// Event handler lookup.
   std::map<std::string, std::unique_ptr<IEventHandler>> Handlers;

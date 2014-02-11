@@ -19,7 +19,9 @@
 #include "ActionReplay.hpp"
 
 #include <wx/gauge.h>
+#include <wx/listctrl.h>
 
+#include <iterator>
 #include <string>
 
 
@@ -38,6 +40,134 @@ seec::Error IEventHandler::error_attribute(std::string const &Name) const
                                    std::make_pair("name", Name.c_str()))
   };
 }
+
+
+//------------------------------------------------------------------------------
+// Make wxXmlNode work as an STL iterator.
+//------------------------------------------------------------------------------
+
+class wxXmlNodeIterator
+: public std::iterator<std::forward_iterator_tag, wxXmlNode>
+{
+  wxXmlNode *m_NodePtr;
+  
+public:
+  wxXmlNodeIterator()
+  : m_NodePtr(nullptr)
+  {}
+  
+  wxXmlNodeIterator(wxXmlNode *NodePtr)
+  : m_NodePtr(NodePtr)
+  {}
+  
+  bool operator==(wxXmlNodeIterator const &RHS) const {
+    return m_NodePtr == RHS.m_NodePtr;
+  }
+  
+  bool operator!=(wxXmlNodeIterator const &RHS) const {
+    return m_NodePtr != RHS.m_NodePtr;
+  }
+  
+  wxXmlNodeIterator &operator++() {
+    if (m_NodePtr)
+      m_NodePtr = m_NodePtr->GetNext();
+    return *this;
+  }
+  
+  wxXmlNode &operator*() const { return *m_NodePtr; }
+  
+  wxXmlNode *operator->() const { return m_NodePtr; }
+};
+
+wxXmlNodeIterator begin(wxXmlNode &Node)
+{
+  return wxXmlNodeIterator(Node.GetChildren());
+}
+
+wxXmlNodeIterator end(wxXmlNode &Node)
+{
+  return wxXmlNodeIterator();
+}
+
+
+//------------------------------------------------------------------------------
+// ActionEventListCtrl
+//------------------------------------------------------------------------------
+
+class ActionEventListCtrl : public wxListCtrl
+{
+  wxXmlNodeIterator m_FirstEvent;
+  
+  long m_CurrentEvent;
+
+public:
+  ActionEventListCtrl()
+  : m_FirstEvent(),
+    m_CurrentEvent(-1)
+  {}
+  
+  ActionEventListCtrl(wxWindow *Parent,
+                      wxWindowID ID = wxID_ANY,
+                      wxPoint const &Pos = wxDefaultPosition,
+                      wxSize const &Size = wxDefaultSize)
+  : ActionEventListCtrl()
+  {
+    Create(Parent, ID, Pos, Size);
+  }
+  
+  bool Create(wxWindow *Parent,
+              wxWindowID ID = wxID_ANY,
+              wxPoint const &Pos = wxDefaultPosition,
+              wxSize const &Size = wxDefaultSize)
+  {
+    if (!wxListCtrl::Create(Parent, ID, Pos, Size,
+                            wxLC_REPORT | wxLC_VIRTUAL | wxLC_SINGLE_SEL))
+      return false;
+    
+    AppendColumn("Time",    wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
+    AppendColumn("Handler", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
+    
+    return true;
+  }
+  
+  virtual wxString OnGetItemText(long Item, long Column) const override {
+    // Find the event.
+    auto EventIt = m_FirstEvent;
+    std::advance(EventIt, Item);
+    if (EventIt == wxXmlNodeIterator())
+      return wxEmptyString;
+    
+    switch (Column) {
+      case 0:  return EventIt->GetAttribute("time");
+      case 1:  return EventIt->GetAttribute("handler");
+      default: return wxEmptyString;
+    }
+  }
+  
+  void SetFirstEvent(wxXmlNode *FirstEvent)
+  {
+    m_FirstEvent = wxXmlNodeIterator(FirstEvent);
+    auto const EventCount = std::distance(m_FirstEvent, wxXmlNodeIterator());
+    
+    m_CurrentEvent = -1;
+    
+    SetItemCount(EventCount);
+    if (EventCount > 0)
+      RefreshItems(0, EventCount - 1);
+  }
+  
+  void MoveToNextEvent()
+  {
+    // Deselect current event.
+    if (m_CurrentEvent >= 0)
+      SetItemState(m_CurrentEvent, 0, wxLIST_STATE_SELECTED);
+    
+    // Move to next event and select it.
+    ++m_CurrentEvent;
+    SetItemState(m_CurrentEvent, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+    EnsureVisible(m_CurrentEvent);
+  }
+};
 
 
 //------------------------------------------------------------------------------
@@ -71,6 +201,7 @@ void ActionReplayFrame::MoveToNextEvent()
   NextEvent = NextEvent->GetNext();
   
   GaugeEventProgress->SetValue(GaugeEventProgress->GetValue() + 1);
+  EventList->MoveToNextEvent();
   
   if (!NextEvent) {
     ButtonPlay->Disable();
@@ -131,6 +262,7 @@ ActionReplayFrame::ActionReplayFrame()
   ButtonPause(nullptr),
   ButtonStep(nullptr),
   GaugeEventProgress(nullptr),
+  EventList(nullptr),
   Handlers(),
   RecordDocument(seec::makeUnique<wxXmlDocument>()),
   NextEvent(nullptr),
@@ -190,6 +322,10 @@ bool ActionReplayFrame::Create(wxWindow *Parent)
   GaugeEventProgress = new wxGauge(this, wxID_ANY, 1);
   SizerTopLevel->Add(GaugeEventProgress, wxSizerFlags().Expand());
   
+  // Add the event list.
+  EventList = new ActionEventListCtrl(this);
+  SizerTopLevel->Add(EventList, wxSizerFlags().Proportion(1).Expand());
+  
   SetSizerAndFit(SizerTopLevel);
   
   // Bind the close event to hide the frame (only destroy it if the parent is
@@ -216,11 +352,7 @@ std::size_t countChildren(wxXmlNode *Node)
   if (!Node)
     return 0;
   
-  std::size_t Count = 0;
-  for (auto Child = Node->GetChildren(); Child; Child = Child->GetNext())
-    ++Count;
-  
-  return Count;
+  return std::distance(begin(*Node), end(*Node));
 }
 
 bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
@@ -247,6 +379,8 @@ bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
   GaugeEventProgress->SetRange(countChildren(Root));
   GaugeEventProgress->SetValue(0);
   NextEvent = Root->GetChildren();
+  
+  EventList->SetFirstEvent(NextEvent);
   
   Show();
   
