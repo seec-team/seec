@@ -107,6 +107,7 @@ TraceViewerFrame::TraceViewerFrame()
   ExplanationCtrl(nullptr),
   GraphViewer(nullptr),
   EvaluationTree(nullptr),
+  RecordingControl(nullptr),
   Recording(nullptr),
   Replay(nullptr),
   ThreadTime(nullptr)
@@ -182,6 +183,16 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.
     
+
+    // Create the action recording control.
+    RecordingControl = new ActionRecordingControl(this, *Recording);
+    auto const RecordingControlTitle =
+      seec::getwxStringExOrEmpty("TraceViewer",
+                                 (char const *[]){"RecordingToolbar", "Title"});
+    Manager->AddPane(RecordingControl,
+                     wxAuiPaneInfo().Caption(RecordingControlTitle)
+                                    .Top()
+                                    .ToolbarPane());
 
     // Create the thread time movement control.
     ThreadTime = new ThreadTimeControl(this, *Recording, Replay);

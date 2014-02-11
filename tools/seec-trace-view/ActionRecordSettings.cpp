@@ -304,6 +304,11 @@ wxString getActionRecordToken()
   return CurrentToken;
 }
 
+bool hasValidActionRecordToken()
+{
+  return !getActionRecordToken().empty();
+}
+
 long getActionRecordSizeLimit()
 {
   auto const Config = wxConfig::Get();

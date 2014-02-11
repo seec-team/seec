@@ -16,6 +16,7 @@
 
 #include "seec/Util/Parsing.hpp"
 
+#include <wx/panel.h>
 #include <wx/xml/xml.h>
 
 #include <chrono>
@@ -215,9 +216,13 @@ public:
   ///
   ActionRecord(seec::cm::ProcessTrace const &ForTrace);
   
+  /// \brief Check if the recording is enabled.
+  ///
+  bool isEnabled() const { return Enabled; }
+  
   /// \brief Enable recording for this record.
   ///
-  void enable();
+  bool enable();
   
   /// \brief Disable recording for this record.
   ///
@@ -242,6 +247,41 @@ public:
   /// \brief Finish this action record and submit it to the server.
   ///
   bool finalize();
+};
+
+/// \brief A control that allows the user to enable/disable recording.
+///
+class ActionRecordingControl : public wxPanel
+{
+  ActionRecord *Recording;
+  
+  wxButton *ButtonEnable;
+  
+  wxImage ImgRecordingOn;
+  
+  wxImage ImgRecordingOff;
+  
+public:
+  /// \brief Constructor (without creation).
+  ///
+  ActionRecordingControl()
+  : Recording(nullptr),
+    ButtonEnable(nullptr),
+    ImgRecordingOn(),
+    ImgRecordingOff()
+  {}
+  
+  /// \brief Constructor (with creation).
+  ///
+  ActionRecordingControl(wxWindow *Parent, ActionRecord &WithRecord)
+  : ActionRecordingControl()
+  {
+    Create(Parent, WithRecord);
+  }
+  
+  /// \brief Create this object.
+  ///
+  bool Create(wxWindow *Parent, ActionRecord &WithRecord);
 };
 
 #endif // SEEC_TRACE_VIEW_ACTIONRECORD_HPP

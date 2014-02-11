@@ -178,6 +178,20 @@ root:table {
   }
 
 
+  // Recording toolbar.
+  RecordingToolbar:table {
+    Title:string {"Recording"}
+
+    ButtonOffText:string {"Recording Disabled"}
+
+    ButtonOffImg:import {"Images/recording-off.png"}
+
+    ButtonOnText:string {"Recording Enabled"}
+
+    ButtonOnImg:import {"Images/recording-on.png"}
+  }
+
+
   // Common contextual navigation resources.
   ContextualNavigation:table {
     StmtRewind:string {"Rewind to when this statement was last evaluated"}

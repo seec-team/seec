@@ -85,7 +85,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   Button##NAME =                                                               \
     makeInternationalizedButton(this, wxID_ANY,                                \
                                 TextTable, TEXT_KEY,                           \
-                                ImageTable, IMAGE_KEY, wxSize(50, 25));        \
+                                ImageTable, IMAGE_KEY, wxSize(100, 50));       \
   Button##NAME->Disable();                                                     \
   Button##NAME->Bind(wxEVT_BUTTON, std::function<void (wxCommandEvent &)>{     \
     [this] (wxCommandEvent &) -> void {                                        \

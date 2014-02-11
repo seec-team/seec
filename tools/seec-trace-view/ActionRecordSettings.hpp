@@ -24,6 +24,10 @@ void showActionRecordSettings();
 ///
 wxString getActionRecordToken();
 
+/// \brief Check if the user has a valid token for action recording.
+///
+bool hasValidActionRecordToken();
+
 /// \brief Get the user-specified limit for recordings (in MiB).
 ///
 long getActionRecordSizeLimit();

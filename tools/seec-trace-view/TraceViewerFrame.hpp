@@ -29,6 +29,7 @@ namespace seec {
 }
 
 class ActionRecord;
+class ActionRecordingControl;
 class ActionReplayFrame;
 class ContextNotifier;
 class ExplanationViewer;
@@ -62,7 +63,7 @@ class TraceViewerFrame : public wxFrame
 
   /// Manages the layout of the individual panels.
   wxAuiManager *Manager;
-
+  
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
   
@@ -74,6 +75,9 @@ class TraceViewerFrame : public wxFrame
   
   /// Shows an evaluation tree.
   StateEvaluationTreePanel *EvaluationTree;
+  
+  /// Allows the user to enable/disable action recording.
+  ActionRecordingControl *RecordingControl;
   
   /// Used to record user interactions.
   std::unique_ptr<ActionRecord> Recording;

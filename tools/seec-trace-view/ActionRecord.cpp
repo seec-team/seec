@@ -12,7 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/Trace/TraceReader.hpp"
+#include "seec/wxWidgets/ImageResources.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 
 #include <wx/wx.h>
 #include <wx/datetime.h>
@@ -22,6 +25,7 @@
 #include <wx/zipstrm.h>
 
 #include "ActionRecord.hpp"
+#include "ActionRecordSettings.hpp"
 
 #include <utility>
 #include <vector>
@@ -130,9 +134,14 @@ ActionRecord::ActionRecord(seec::cm::ProcessTrace const &ForTrace)
   RecordDocument->SetRoot(Root);
 }
 
-void ActionRecord::enable()
+bool ActionRecord::enable()
 {
+  if (!hasValidActionRecordToken())
+    return false;
+  
   Enabled = true;
+  
+  return true;
 }
 
 void ActionRecord::disable()
@@ -206,4 +215,70 @@ bool ActionRecord::finalize()
     wxRemoveFile(ArchivePath.GetFullPath());
     return false;
   }
+}
+
+
+//------------------------------------------------------------------------------
+// ActionRecordingControl
+//------------------------------------------------------------------------------
+
+bool ActionRecordingControl::Create(wxWindow *Parent, ActionRecord &WithRecord)
+{
+  if (!wxPanel::Create(Parent, wxID_ANY))
+    return false;
+  
+  Recording = &WithRecord;
+  
+  // Get the GUI elements from the TraceViewer ICU resources.
+  UErrorCode Status = U_ZERO_ERROR;
+  auto Resources = seec::getResource("TraceViewer",
+                                     Locale::getDefault(),
+                                     Status,
+                                     "RecordingToolbar");
+  
+  ImgRecordingOn  = seec::getwxImageEx(Resources, "ButtonOnImg",  Status);
+  ImgRecordingOff = seec::getwxImageEx(Resources, "ButtonOffImg", Status);
+  
+  if (U_FAILURE(Status))
+    return false;
+  
+  if (ImgRecordingOn.IsOk())
+    ImgRecordingOn.Rescale(50, 50, wxIMAGE_QUALITY_HIGH);
+  else
+    return false;
+  
+  if (ImgRecordingOff.IsOk())
+    ImgRecordingOff.Rescale(50, 50, wxIMAGE_QUALITY_HIGH);
+  else
+    return false;
+  
+  // Make the button.
+  if (Recording->isEnabled()) {
+    ButtonEnable = new wxBitmapButton(this, wxID_ANY, ImgRecordingOn);
+  }
+  else {
+    ButtonEnable = new wxBitmapButton(this, wxID_ANY, ImgRecordingOff);
+  }
+  
+  ButtonEnable->Bind(wxEVT_BUTTON, std::function<void (wxCommandEvent &)>{
+    [this] (wxCommandEvent &) -> void {
+      if (Recording->isEnabled()) {
+        Recording->disable();
+        ButtonEnable->SetBitmap(ImgRecordingOff);
+      }
+      else {
+        if (Recording->enable()) {
+          ButtonEnable->SetBitmap(ImgRecordingOn);
+        }
+        else {
+          // TODO: Complain that we couldn't enable the recording.
+        }
+      }
+    }});
+  
+  auto TopSizer = new wxBoxSizer(wxHORIZONTAL);
+  TopSizer->Add(ButtonEnable, wxSizerFlags());
+  SetSizerAndFit(TopSizer);
+  
+  return true;
 }
