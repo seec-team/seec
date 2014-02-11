@@ -855,9 +855,9 @@ root:table {
     //   member_decl
     //
     MemberExpr:string {
-      "{is_arrow, select"
-      " true {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that is pointed to by the pointer that precedes the arrow.}"
-      " false {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that precedes the dot.}"
+      "{is_arrow, select,"
+      " true {This expression returns the member object named “{member_decl_name}” in the object that is pointed to by the @[base]pointer that precedes the arrow@[].}"
+      " false {This expression returns the member object named “{member_decl_name}” in the @[base]object@[] that precedes the dot.}"
       " other {}}"
     }
 
