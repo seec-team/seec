@@ -134,6 +134,21 @@ inline int32_t getIntEx(ResourceBundle const &Bundle,
   return Resource.getInt(Status);
 }
 
+/// \brief Returns the binary data in a resource.
+///
+/// \param Bundle The resource bundle to extract from.
+/// \param Status Fills in the outgoing error code.
+inline llvm::ArrayRef<uint8_t> getBinary(ResourceBundle const &Resource,
+                                         UErrorCode  &Status)
+{
+  int32_t Length = -1;
+  auto Data = Resource.getBinary(Length, Status);
+  if (U_FAILURE(Status) || Length < 0)
+    return llvm::ArrayRef<uint8_t>();
+
+  return llvm::ArrayRef<uint8_t>(Data, static_cast<std::size_t>(Length));
+}
+
 /// \brief Returns the binary data in a resource that has a given key.
 ///
 /// \param Bundle The resource bundle to extract from.
@@ -141,15 +156,9 @@ inline int32_t getIntEx(ResourceBundle const &Bundle,
 /// \param Status Fills in the outgoing error code.
 inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
                                            char const *Key,
-                                           UErrorCode  &Status) {
-  auto Resource = Bundle.get(Key, Status);
-
-  int32_t Length = -1;
-  auto Data = Resource.getBinary(Length, Status);
-  if (U_FAILURE(Status) || Length < 0)
-    return llvm::ArrayRef<uint8_t>();
-
-  return llvm::ArrayRef<uint8_t>(Data, static_cast<std::size_t>(Length));
+                                           UErrorCode  &Status)
+{
+  return getBinary(Bundle.get(Key, Status), Status);
 }
 
 
