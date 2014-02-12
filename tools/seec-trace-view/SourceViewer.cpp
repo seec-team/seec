@@ -345,6 +345,12 @@ class SourceFilePanel : public wxPanel {
   /// Access to the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
+  /// The current process state.
+  seec::cm::ProcessState const *CurrentProcess;
+  
+  /// The current thread state.
+  seec::cm::ThreadState const *CurrentThread;
+  
   /// Regions that have indicators for the current state.
   std::vector<IndicatedRegion> StateIndications;
   
@@ -592,11 +598,15 @@ class SourceFilePanel : public wxPanel {
       return;
     
     if (HoverStmt) {
-      wxMenu ContextMenu{};
+      auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
+      if (!MaybeIndex.assigned<std::size_t>())
+        return;
       
-      addStmtNavigation(*this, CurrentAccess, ContextMenu, HoverStmt);
+      auto const ThreadIndex = MaybeIndex.get<std::size_t>();
       
-      PopupMenu(&ContextMenu);
+      wxMenu CM{};
+      addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, HoverStmt);
+      PopupMenu(&CM);
     }
   }
   
@@ -617,6 +627,8 @@ public:
     Text(nullptr),
     Breaker(nullptr),
     CurrentAccess(),
+    CurrentProcess(nullptr),
+    CurrentThread(nullptr),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators(),
@@ -742,6 +754,10 @@ public:
     
     // wxStyledTextCtrl doesn't automatically redraw after the above.
     Text->Refresh();
+    
+    CurrentAccess.reset();
+    CurrentProcess = nullptr;
+    CurrentThread = nullptr;
   }
   
   /// \brief Update this panel to reflect the given state.
@@ -751,6 +767,8 @@ public:
             seec::cm::ThreadState const &Thread)
   {
     CurrentAccess = std::move(Access);
+    CurrentProcess = &Process;
+    CurrentThread = &Thread;
   }
   
   /// \brief Set an indicator on a range of text for the current state.

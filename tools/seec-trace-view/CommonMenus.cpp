@@ -94,6 +94,7 @@ bool append(wxMenuBar *MenuBar,
 void addStmtNavigation(wxWindow &Control,
                        std::shared_ptr<StateAccessToken> &Access,
                        wxMenu &Menu,
+                       std::size_t const ThreadIndex,
                        clang::Stmt const *Statement)
 {
   UErrorCode Status = U_ZERO_ERROR;
@@ -107,34 +108,22 @@ void addStmtNavigation(wxWindow &Control,
   BindMenuItem(
     Menu.Append(wxID_ANY,
                 seec::getwxStringExOrEmpty(TextTable, "StmtRewind")),
-    [&, Statement] (wxEvent &Ev) -> void {
+    [&, ThreadIndex, Statement] (wxEvent &Ev) -> void {
       raiseMovementEvent(Control, Access,
         [=] (seec::cm::ProcessState &State) -> bool {
-          if (State.getThreadCount() == 1) {
-            auto &Thread = State.getThread(0);
-            return seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
-          }
-          else {
-            wxLogDebug("Multithread rewind not yet implemented.");
-            return false;
-          }
+          auto &Thread = State.getThread(ThreadIndex);
+          return seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
         });
     });
   
   BindMenuItem(
     Menu.Append(wxID_ANY,
                 seec::getwxStringExOrEmpty(TextTable, "StmtForward")),
-    [&, Statement] (wxEvent &Ev) -> void {
+    [&, ThreadIndex, Statement] (wxEvent &Ev) -> void {
       raiseMovementEvent(Control, Access,
         [=] (seec::cm::ProcessState &State) -> bool {
-          if (State.getThreadCount() == 1) {
-            auto &Thread = State.getThread(0);
-            return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
-          }
-          else {
-            wxLogDebug("Multithread rewind not yet implemented.");
-            return false;
-          }
+          auto &Thread = State.getThread(ThreadIndex);
+          return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
         });
     });
 }

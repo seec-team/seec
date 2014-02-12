@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
@@ -711,10 +712,15 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
                               make_attribute("node", NodeIndex));
     }
     
+    auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
+    if (!MaybeIndex.assigned<std::size_t>())
+      return;
+    
+    auto const ThreadIndex = MaybeIndex.get<std::size_t>();
+    auto const Statement = HoverNodeIt->Statement;
+    
     wxMenu CM{};
-    
-    addStmtNavigation(*this, CurrentAccess, CM, HoverNodeIt->Statement);
-    
+    addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, Statement);
     PopupMenu(&CM);
   }
 }

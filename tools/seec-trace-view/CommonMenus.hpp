@@ -52,9 +52,12 @@ bool append(wxMenuBar *MenuBar,
 
 /// \brief Add contextual navigation menu items for the given Stmt.
 ///
+/// Movement occurs in the given thread.
+///
 void addStmtNavigation(wxWindow &Control,
                        std::shared_ptr<StateAccessToken> &Access,
                        wxMenu &Menu,
+                       std::size_t const ThreadIndex,
                        clang::Stmt const *Statement);
 
 
