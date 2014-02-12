@@ -316,6 +316,10 @@ public:
   /// \name Queries.
   /// @{
   
+  /// \brief Get the ID of this thread.
+  ///
+  uint32_t getThreadID() const { return Trace.getThreadID(); }
+  
   /// \brief Get a pointer to the active function's state, if there is one.
   ///
   FunctionState const *getActiveFunction() const {

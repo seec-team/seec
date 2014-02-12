@@ -98,6 +98,10 @@ public:
   /// \name Access underlying information.
   /// @{
   
+  /// \brief Get the ID of this thread.
+  ///
+  uint32_t getThreadID() const;
+  
   /// \brief Get the underlying (unmapped) state.
   ///
   seec::trace::ThreadState &getUnmappedState() { return UnmappedState; }
