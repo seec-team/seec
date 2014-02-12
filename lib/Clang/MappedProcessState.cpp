@@ -188,6 +188,16 @@ std::size_t ProcessState::getThreadCount() const {
   return UnmappedState->getThreadStateCount();
 }
 
+seec::Maybe<std::size_t>
+ProcessState::getThreadIndex(seec::cm::ThreadState const &Thread) const
+{
+  for (std::size_t i = 0; i < ThreadStates.size(); ++i)
+    if (ThreadStates[i].get() == &Thread)
+      return i;
+  
+  return seec::Maybe<std::size_t>();
+}
+
 ThreadState &ProcessState::getThread(std::size_t Index) {
   assert(Index < ThreadStates.size());
   return *ThreadStates[Index];

@@ -164,6 +164,10 @@ public:
   /// \brief Get the number of threads.
   std::size_t getThreadCount() const;
   
+  /// \brief Get the index of a thread.
+  seec::Maybe<std::size_t>
+  getThreadIndex(seec::cm::ThreadState const &Thread) const;
+  
   /// \brief Get the state of a thread.
   seec::cm::ThreadState &getThread(std::size_t Index);
   
