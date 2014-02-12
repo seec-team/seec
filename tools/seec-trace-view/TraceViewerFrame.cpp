@@ -223,7 +223,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .MinimizeButton(true));
 
     // Create the evaluation tree.
-    EvaluationTree = new StateEvaluationTreePanel(this, *Notifier, *Recording);
+    EvaluationTree = new StateEvaluationTreePanel(this,
+                                                  *Notifier,
+                                                  *Recording,
+                                                  *Replay);
     auto const EvaluationTreeTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"EvaluationTree", "Title"});

@@ -40,6 +40,7 @@ namespace clang {
 }
 
 class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class StateAccessToken;
 
@@ -48,6 +49,14 @@ class StateAccessToken;
 ///
 class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
 {
+  /// \brief Types of decoration that may be applied to a node.
+  ///
+  enum class NodeDecoration {
+    None,
+    Active,
+    Highlighted
+  };
+  
   /// \brief Information for a single node in the tree.
   ///
   struct NodeInfo {
@@ -177,11 +186,41 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The node that the mouse is currently over.
   decltype(Nodes)::const_iterator HoverNodeIt;
   
+  /// Node that the user hovered over in the replay.
+  decltype(Nodes)::const_iterator ReplayHoverNodeIt;
+  
   /// Used to detect significant mouse hover over nodes.
   wxTimer HoverTimer;
   
   /// False if there was movement between mouse down and mouse up.
   bool ClickUnmoved;
+
+  /// \brief Draw a single node using the given \c wxDC.
+  ///
+  void drawNode(wxDC &DC,
+                NodeInfo const &Node,
+                NodeDecoration const Decoration);
+
+  /// \brief Render this panel using the given \c wxDC.
+  ///
+  void render(wxDC &dc);
+  
+  /// \brief Redraw this panel.
+  ///
+  void redraw();
+  
+  /// \brief Scroll the window to center on the given node.
+  ///
+  void centreOnNode(NodeInfo const &Node);
+  
+  /// \brief Set the node that the mouse is hovering over.
+  /// \return true iff the hover node changed.
+  ///
+  bool setHoverNode(decltype(Nodes)::iterator It);
+  
+  /// \brief Show the hover tooltip for a node.
+  ///
+  void showHoverTooltip(NodeInfo const &Node);
 
 public:
   /// \brief Construct.
@@ -193,6 +232,7 @@ public:
   StateEvaluationTreePanel(wxWindow *Parent,
                            ContextNotifier &WithNotifier,
                            ActionRecord &WithRecording,
+                           ActionReplayFrame &WithReplay,
                            wxWindowID ID = wxID_ANY,
                            wxPoint const &Position = wxDefaultPosition,
                            wxSize const &Size = wxDefaultSize);
@@ -206,6 +246,7 @@ public:
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
               ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
@@ -219,10 +260,6 @@ public:
   /// \brief Clear the display of this panel.
   ///
   void clear();
-
-  /// \brief Render this panel using the given \c wxDC.
-  ///
-  void render(wxDC &dc);
 
   /// \name Event Handling.
   /// @{

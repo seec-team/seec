@@ -33,14 +33,45 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
+#include "RuntimeValueLookup.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
 #include "ValueFormat.hpp"
 
 #include <string>
 
+
+void CentreOnPoint(wxScrollHelperBase &Scrolled,
+                   wxSize const &TargetSize,
+                   wxPoint const &Point)
+{
+  // Calculate the offset required to centre on Point.
+  auto const OffsetH = std::max(0, Point.x - (TargetSize.GetWidth()  / 2));
+  auto const OffsetV = std::max(0, Point.y - (TargetSize.GetHeight() / 2));
+  
+  // Calculate the offset in "scroll units".
+  int PixelsPerUnitH = 0, PixelsPerUnitV = 0;
+  Scrolled.GetScrollPixelsPerUnit(&PixelsPerUnitH, &PixelsPerUnitV);
+  
+  Scrolled.Scroll(OffsetH / PixelsPerUnitH, OffsetV / PixelsPerUnitV);
+}
+
+void CentreOnArea(wxScrollHelperBase &Scrolled,
+                  wxSize const &TargetSize,
+                  wxRect const &Area)
+{
+  CentreOnPoint(Scrolled,
+                TargetSize,
+                wxPoint(Area.GetX() + (Area.GetWidth()  / 2),
+                        Area.GetY() + (Area.GetHeight() / 2)));
+}
+
+//------------------------------------------------------------------------------
+// StateEvaluationTree
+//------------------------------------------------------------------------------
 
 BEGIN_EVENT_TABLE(StateEvaluationTreePanel, wxScrolled<wxPanel>)
   EVT_PAINT(StateEvaluationTreePanel::OnPaint)
@@ -64,6 +95,220 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   NodeHighlightedBorder(51, 102, 102)
 {}
 
+void StateEvaluationTreePanel::drawNode(wxDC &DC,
+                                        NodeInfo const &Node,
+                                        NodeDecoration const Decoration)
+{
+  auto const CharWidth  = DC.GetCharWidth();
+  auto const CharHeight = DC.GetCharHeight();
+  
+  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
+  
+  // Set the background colour.
+  switch (Decoration) {
+    case NodeDecoration::None:
+      DC.SetPen(wxPen{Settings.NodeBorder});
+      DC.SetBrush(wxBrush{Settings.NodeBackground});
+      break;
+    case NodeDecoration::Active:
+      DC.SetPen(wxPen{Settings.NodeActiveBorder});
+      DC.SetBrush(wxBrush{Settings.NodeActiveBackground});
+      break;
+    case NodeDecoration::Highlighted:
+      DC.SetPen(wxPen{Settings.NodeHighlightedBorder});
+      DC.SetBrush(wxBrush{Settings.NodeHighlightedBackground});
+      break;
+  }
+  
+  // Also highlight this node's area in the pretty-printed Stmt.
+  if (Decoration == NodeDecoration::Active
+      || Decoration == NodeDecoration::Highlighted)
+  {
+    DC.DrawRectangle(Node.XStart, PageBorderV,
+                     Node.XEnd - Node.XStart, CharHeight);
+  }
+  
+  // Draw the background.
+  DC.DrawRectangle(Node.XStart, Node.YStart,
+                   Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
+  
+  // Draw the line over the node.
+  DC.SetPen(wxPen{*wxBLACK});
+  DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
+  
+  // Draw the node's value string.
+  if (Node.Value) {
+    auto const ValText = Node.ValueStringShort;
+    auto const TextWidth = CharWidth * ValText.size();
+    auto const NodeWidth = CharWidth * Node.RangeLength;
+    auto const Offset = (NodeWidth - TextWidth) / 2;
+    DC.DrawText(ValText, Node.XStart + Offset, Node.YStart);
+  }
+}
+
+void StateEvaluationTreePanel::render(wxDC &dc)
+{
+  PrepareDC(dc);
+  
+  dc.Clear();
+  if (Statement.empty())
+    return;
+  
+  auto const ActiveStmt = ActiveFn->getActiveStmt();
+  if (!ActiveStmt)
+    return;
+  
+  dc.SetFont(CodeFont);
+  dc.SetTextForeground(*wxBLACK);
+  
+  // Draw the sub-Stmts' nodes.
+  for (auto const &Node : Nodes) {
+    if (Node.Statement == ActiveStmt)
+      drawNode(dc, Node, NodeDecoration::Active);
+    else
+      drawNode(dc, Node, NodeDecoration::None);
+  }
+  
+  // Redraw the hovered nodes, so that they outrank active node highlighting.
+  if (HoverNodeIt != Nodes.end())
+    drawNode(dc, *HoverNodeIt, NodeDecoration::Highlighted);
+  if (ReplayHoverNodeIt != Nodes.end())
+    drawNode(dc, *ReplayHoverNodeIt, NodeDecoration::Highlighted);
+  
+  // Draw the pretty-printed Stmt's string.
+  wxCoord const PageBorderH = dc.GetCharWidth() * Settings.PageBorderHorizontal;
+  wxCoord const PageBorderV = dc.GetCharHeight() * Settings.PageBorderVertical;
+  dc.DrawText(Statement, PageBorderH, PageBorderV);
+}
+
+void StateEvaluationTreePanel::redraw()
+{
+  wxClientDC dc(this);
+  render(dc);
+}
+
+void StateEvaluationTreePanel::centreOnNode(NodeInfo const &Node)
+{
+  CentreOnArea(*this,
+               GetClientSize(),
+               wxRect(Node.XStart,
+                      Node.YStart,
+                      Node.XEnd - Node.XStart,
+                      Node.YEnd - Node.YStart));
+}
+
+bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator It)
+{
+  if (It == HoverNodeIt)
+    return false;
+  
+  if (HoverTimer.IsRunning())
+    HoverTimer.Stop();
+  
+  HoverNodeIt = It;
+  
+  if (Recording) {
+    auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+    Recording->recordEventL("StateEvaluationTree.NodeMouseOver",
+                            make_attribute("node", NodeIndex));
+  }
+  
+  if (HoverNodeIt != Nodes.end())
+    HoverTimer.Start(1000, wxTIMER_ONE_SHOT);
+  
+  if (Notifier) {
+    auto const TheStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
+                                                    : nullptr;
+    Notifier->createNotify<ConEvHighlightStmt>(TheStmt);
+  }
+  
+  return true;
+}
+
+void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
+{
+  auto const Statement = Node.Statement;
+  wxString TipString;
+  
+  // Add the complete value string.
+  if (Node.ValueString.size()) {
+    TipString += Node.ValueString;
+    TipString += "\n";
+  }
+  
+  // Attempt to get a general explanation of the statement.
+  auto const MaybeExplanation =
+    seec::clang_epv::explain(Statement,
+                             RuntimeValueLookupForFunction{ActiveFn});
+  
+  if (MaybeExplanation.assigned(0)) {
+    auto const &Explanation = MaybeExplanation.get<0>();
+    if (TipString.size())
+      TipString += "\n";
+    TipString += seec::towxString(Explanation->getString());
+    TipString += "\n";
+  }
+  else if (MaybeExplanation.assigned<seec::Error>()) {
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const String = MaybeExplanation.get<seec::Error>()
+                                        .getMessage(Status, Locale());
+    
+    if (U_SUCCESS(Status)) {
+      wxLogDebug("Error getting explanation: %s", seec::towxString(String));
+    }
+    else {
+      wxLogDebug("Indescribable error getting explanation.");
+    }
+  }
+  
+  // Get any runtime errors related to the Stmt.
+  for (auto const &RuntimeError : ActiveFn->getRuntimeErrors()) {
+    if (RuntimeError.getStmt() != Statement)
+      continue;
+    
+    auto const MaybeDescription = RuntimeError.getDescription();
+    if (MaybeDescription.assigned(0)) {
+      auto const &Description = MaybeDescription.get<0>();
+      if (TipString.size())
+        TipString += "\n";
+      TipString += seec::towxString(Description->getString());
+    }
+    else if (MaybeDescription.assigned<seec::Error>()) {
+      UErrorCode Status = U_ZERO_ERROR;
+      auto const String = MaybeDescription.get<seec::Error>()
+                                          .getMessage(Status, Locale());
+      
+      if (U_SUCCESS(Status)) {
+        wxLogDebug("Error getting description: %s", seec::towxString(String));
+      }
+      else {
+        wxLogDebug("Indescribable error getting description.");
+      }
+    }
+  }
+  
+  // Display the generated tooltip (if any).
+  // TODO: This should appear on the node rather than the mouse.
+  if (TipString.size()) {
+    int const XStart = Node.XStart;
+    int const YStart = Node.YStart;
+    
+    int const Width  = Node.XEnd - XStart;
+    int const Height = Node.YEnd - YStart;
+    
+    auto const ClientStart = CalcScrolledPosition(wxPoint(XStart, YStart));
+    auto const ScreenStart = ClientToScreen(ClientStart);
+    
+    wxRect NodeBounds{ScreenStart, wxSize{Width, Height}};
+    
+    // Determine a good maximum width for the tip window.
+    auto const WindowSize = GetSize();
+    auto const TipWidth = WindowSize.GetWidth();
+    
+    new wxTipWindow(this, TipString, TipWidth, nullptr, &NodeBounds);
+  }
+}
+
 StateEvaluationTreePanel::StateEvaluationTreePanel()
 : Settings(),
   Notifier(nullptr),
@@ -76,6 +321,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
   Statement(),
   Nodes(),
   HoverNodeIt(Nodes.end()),
+  ReplayHoverNodeIt(Nodes.end()),
   HoverTimer(),
   ClickUnmoved(false)
 {}
@@ -83,12 +329,13 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
                                                    ContextNotifier &TheNotifier,
                                                    ActionRecord &TheRecording,
+                                                   ActionReplayFrame &TheReplay,
                                                    wxWindowID ID,
                                                    wxPoint const &Position,
                                                    wxSize const &Size)
 : StateEvaluationTreePanel()
 {
-  Create(Parent, TheNotifier, TheRecording, ID, Position, Size);
+  Create(Parent, TheNotifier, TheRecording, TheReplay, ID, Position, Size);
 }
 
 StateEvaluationTreePanel::~StateEvaluationTreePanel() = default;
@@ -96,6 +343,7 @@ StateEvaluationTreePanel::~StateEvaluationTreePanel() = default;
 bool StateEvaluationTreePanel::Create(wxWindow *Parent,
                                       ContextNotifier &WithNotifier,
                                       ActionRecord &WithRecording,
+                                      ActionReplayFrame &WithReplay,
                                       wxWindowID ID,
                                       wxPoint const &Position,
                                       wxSize const &Size)
@@ -113,6 +361,35 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   SetScrollRate(10, 10);
   
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
+  
+  WithReplay.RegisterHandler("StateEvaluationTree.NodeMouseOver",
+                             {"node"},
+    std::function<void (decltype(Nodes)::difference_type)>{
+      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
+        ReplayHoverNodeIt = std::next(Nodes.cbegin(), NodeIndex);
+        if (ReplayHoverNodeIt != Nodes.end())
+          centreOnNode(*ReplayHoverNodeIt);
+        redraw();
+      }});
+  
+  WithReplay.RegisterHandler("StateEvaluationTree.NodeRightClick",
+                             {"node"},
+    std::function<void (decltype(Nodes)::difference_type)>{
+      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
+        // TODO: Ensure that the node is visible in the window.
+        wxLogDebug("RIGHT CLICK NODE %d", (int)NodeIndex);
+      }});
+  
+  WithReplay.RegisterHandler("StateEvaluationTree.NodeHover",
+                             {"node"},
+    std::function<void (decltype(Nodes)::difference_type)>{
+      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
+        auto const NodeIt = std::next(Nodes.cbegin(), NodeIndex);
+        if (NodeIt != Nodes.end()) {
+          centreOnNode(*NodeIt);
+          showHoverTooltip(*NodeIt);
+        }
+      }});
   
   return true;
 }
@@ -252,6 +529,7 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   Statement.clear();
   Nodes.clear();
   HoverNodeIt = Nodes.end();
+  ReplayHoverNodeIt = Nodes.end();
   
   wxClientDC dc(this);
   
@@ -284,8 +562,8 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   std::string PrettyPrintedStmt;
   llvm::raw_string_ostream StmtOS(PrettyPrintedStmt);
   
-  // TODO: get these from the ASTContext.
-  clang::LangOptions LangOpts;
+  auto &ASTUnit = MappedAST->getASTUnit();
+  clang::LangOptions LangOpts = ASTUnit.getASTContext().getLangOpts();
   
   clang::PrintingPolicy Policy(LangOpts);
   Policy.Indentation = 0;
@@ -362,10 +640,10 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   }
   
   HoverNodeIt = Nodes.end();
+  ReplayHoverNodeIt = Nodes.end();
   
   // Create a new DC because we've changed the virtual size.
-  wxClientDC newdc(this);
-  render(newdc);
+  redraw();
 }
 
 void StateEvaluationTreePanel::clear()
@@ -376,90 +654,12 @@ void StateEvaluationTreePanel::clear()
   Statement.clear();
   Nodes.clear();
   HoverNodeIt = Nodes.end();
+  ReplayHoverNodeIt = Nodes.end();
   HoverTimer.Stop();
   
   SetVirtualSize(1, 1);
   
-  wxClientDC dc(this);
-  render(dc);
-}
-
-void StateEvaluationTreePanel::render(wxDC &dc)
-{
-  PrepareDC(dc);
-  
-  dc.Clear();
-  if (Statement.empty())
-    return;
-  
-  auto const ActiveStmt = ActiveFn->getActiveStmt();
-  if (!ActiveStmt)
-    return;
-  
-  auto const CharWidth = dc.GetCharWidth();
-  auto const CharHeight = dc.GetCharHeight();
-  
-  wxCoord const PageBorderH = CharWidth * Settings.PageBorderHorizontal;
-  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
-  
-  dc.SetFont(CodeFont);
-  dc.SetTextForeground(*wxBLACK);
-  
-  wxPen TreeLinePen{*wxBLACK};
-  
-  wxPen TreeBackPen{Settings.NodeBorder};
-  wxBrush TreeBackBrush{Settings.NodeBackground};
-  
-  wxPen ActiveBackPen{Settings.NodeActiveBorder};
-  wxBrush ActiveBackBrush{Settings.NodeActiveBackground};
-  
-  wxPen HighlightedBackPen{Settings.NodeHighlightedBorder};
-  wxBrush HighlightedBackBrush{Settings.NodeHighlightedBackground};
-  
-  // Draw the sub-Stmt's node's backgrounds.
-  for (auto const &Node : Nodes) {
-    if (Node.Statement == ActiveStmt) {
-      dc.SetPen(ActiveBackPen);
-      dc.SetBrush(ActiveBackBrush);
-    }
-    else {
-      dc.SetPen(TreeBackPen);
-      dc.SetBrush(TreeBackBrush);
-    }
-    
-    dc.DrawRectangle(Node.XStart, Node.YStart,
-                     Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
-  }
-  
-  // Draw the hovered node's background.
-  if (HoverNodeIt != Nodes.end()) {
-    auto const &Node = *HoverNodeIt;
-    dc.SetPen(HighlightedBackPen);
-    dc.SetBrush(HighlightedBackBrush);
-    dc.DrawRectangle(Node.XStart, Node.YStart,
-                     Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
-    
-    // Also highlight this node's area in the pretty-printed Stmt.
-    dc.DrawRectangle(Node.XStart, PageBorderV,
-                     Node.XEnd - Node.XStart, CharHeight);
-  }
-  
-  // Draw the pretty-printed Stmt's string.
-  dc.DrawText(Statement, PageBorderH, PageBorderV);
-  
-  // Draw the individual sub-Stmts' strings.
-  for (auto const &Node : Nodes) {
-    dc.SetPen(TreeLinePen);
-    dc.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
-    
-    if (Node.Value) {
-      auto const ValText = Node.ValueStringShort;
-      auto const TextWidth = CharWidth * ValText.size();
-      auto const NodeWidth = CharWidth * Node.RangeLength;
-      auto const Offset = (NodeWidth - TextWidth) / 2;
-      dc.DrawText(ValText, Node.XStart + Offset, Node.YStart);
-    }
-  }
+  redraw();
 }
 
 void StateEvaluationTreePanel::OnPaint(wxPaintEvent &Ev)
@@ -471,16 +671,7 @@ void StateEvaluationTreePanel::OnPaint(wxPaintEvent &Ev)
 void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
 {
   ClickUnmoved = false;
-  
-  bool DisplayChanged = false;
   auto const Pos = CalcUnscrolledPosition(Ev.GetPosition());
-  
-#if 0
-  if (Recording)
-    Recording->recordEventL("StateEvaluationTree.Move",
-                            make_attribute("x", Pos.x),
-                            make_attribute("y", Pos.y));
-#endif
   
   // TODO: Find if the Pos is over the pretty-printed Stmt.
   
@@ -491,44 +682,15 @@ void StateEvaluationTreePanel::OnMouseMoved(wxMouseEvent &Ev)
           && Node.YStart <= Pos.y && Pos.y <= Node.YEnd;
     });
   
-  if (NewHoverNodeIt != HoverNodeIt) {
-    HoverNodeIt = NewHoverNodeIt;
-    DisplayChanged = true;
-    
-    if (HoverNodeIt != Nodes.end())
-      HoverTimer.Start(500, wxTIMER_ONE_SHOT);
-    
-    if (Notifier) {
-      auto const TheStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
-                                                      : nullptr;
-      Notifier->createNotify<ConEvHighlightStmt>(TheStmt);
-    }
-  }
-  
-  // Redraw the display.
-  if (DisplayChanged) {
-    wxClientDC dc(this);
-    render(dc);
-  }
+  if (setHoverNode(NewHoverNodeIt))
+    redraw();
 }
 
 void StateEvaluationTreePanel::OnMouseLeftWindow(wxMouseEvent &Ev)
 {
   ClickUnmoved = false;
-  
-  bool DisplayChanged = false;
-  
-  if (HoverNodeIt != Nodes.end()) {
-    HoverNodeIt = Nodes.end();
-    HoverTimer.Stop();
-    DisplayChanged = true;
-  }
-  
-  // Redraw the display.
-  if (DisplayChanged) {
-    wxClientDC dc(this);
-    render(dc);
-  }
+  if (setHoverNode(Nodes.end()))
+    redraw();
 }
 
 void StateEvaluationTreePanel::OnMouseRightDown(wxMouseEvent &Ev)
@@ -542,6 +704,13 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     return;
   
   if (HoverNodeIt != Nodes.end()) {
+    if (Recording) {
+      auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+      
+      Recording->recordEventL("StateEvaluationTree.NodeRightClick",
+                              make_attribute("node", NodeIndex));
+    }
+    
     wxMenu CM{};
     
     addStmtNavigation(*this, CurrentAccess, CM, HoverNodeIt->Statement);
@@ -555,101 +724,12 @@ void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
   if (HoverNodeIt == Nodes.end())
     return;
   
-  auto const Statement = HoverNodeIt->Statement;
-  wxString TipString;
-  
-  // Add the complete value string.
-  if (HoverNodeIt->ValueString.size()) {
-    TipString += HoverNodeIt->ValueString;
-    TipString += "\n";
+  if (Recording) {
+    auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+    
+    Recording->recordEventL("StateEvaluationTree.NodeHover",
+                            make_attribute("node", NodeIndex));
   }
   
-  // Attempt to get a general explanation of the statement.
-  auto const MaybeExplanation =
-    seec::clang_epv::explain(
-      Statement,
-      seec::clang_epv::makeRuntimeValueLookupByLambda(
-        [&] (::clang::Stmt const *S) -> bool {
-          return ActiveFn->getStmtValue(S) ? true : false;
-        },
-        [&] (::clang::Stmt const *S) -> std::string {
-          auto const Value = ActiveFn->getStmtValue(S);
-          return Value ? Value->getValueAsStringFull() : std::string();
-        },
-        [&] (::clang::Stmt const *S) -> seec::Maybe<bool> {
-          auto const Value = ActiveFn->getStmtValue(S);
-          if (Value && Value->isCompletelyInitialized()
-              && llvm::isa<seec::cm::ValueOfScalar>(*Value))
-          {
-            auto &Scalar = llvm::cast<seec::cm::ValueOfScalar>(*Value);
-            return !Scalar.isZero();
-          }
-          return seec::Maybe<bool>();
-        }));
-  
-  if (MaybeExplanation.assigned(0)) {
-    auto const &Explanation = MaybeExplanation.get<0>();
-    if (TipString.size())
-      TipString += "\n";
-    TipString += seec::towxString(Explanation->getString());
-    TipString += "\n";
-  }
-  else if (MaybeExplanation.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto const String = MaybeExplanation.get<seec::Error>()
-                                        .getMessage(Status, Locale());
-    
-    if (U_SUCCESS(Status)) {
-      wxLogDebug("Error getting explanation: %s", seec::towxString(String));
-    }
-    else {
-      wxLogDebug("Indescribable error getting explanation.");
-    }
-  }
-  
-  // Get any runtime errors related to the Stmt.
-  for (auto const &RuntimeError : ActiveFn->getRuntimeErrors()) {
-    if (RuntimeError.getStmt() != Statement)
-      continue;
-    
-    auto const MaybeDescription = RuntimeError.getDescription();
-    if (MaybeDescription.assigned(0)) {
-      auto const &Description = MaybeDescription.get<0>();
-      if (TipString.size())
-        TipString += "\n";
-      TipString += seec::towxString(Description->getString());
-    }
-    else if (MaybeDescription.assigned<seec::Error>()) {
-      UErrorCode Status = U_ZERO_ERROR;
-      auto const String = MaybeDescription.get<seec::Error>()
-                                          .getMessage(Status, Locale());
-      
-      if (U_SUCCESS(Status)) {
-        wxLogDebug("Error getting description: %s", seec::towxString(String));
-      }
-      else {
-        wxLogDebug("Indescribable error getting description.");
-      }
-    }
-  }
-  
-  // Display the generated tooltip (if any).
-  if (TipString.size()) {
-    int const XStart = HoverNodeIt->XStart;
-    int const YStart = HoverNodeIt->YStart;
-    
-    int const Width  = HoverNodeIt->XEnd - XStart;
-    int const Height = HoverNodeIt->YEnd - YStart;
-    
-    auto const ClientStart = CalcScrolledPosition(wxPoint(XStart, YStart));
-    auto const ScreenStart = ClientToScreen(ClientStart);
-    
-    wxRect NodeBounds{ScreenStart, wxSize{Width, Height}};
-    
-    // Determine a good maximum width for the tip window.
-    auto const WindowSize = GetSize();
-    auto const TipWidth = WindowSize.GetWidth();
-    
-    new wxTipWindow(this, TipString, TipWidth, nullptr, &NodeBounds);
-  }
+  showHoverTooltip(*HoverNodeIt);
 }

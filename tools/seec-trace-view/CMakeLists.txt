@@ -29,6 +29,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   NotifyContext.hpp
   OpenTrace.hpp
   ProcessMoveEvent.hpp
+  RuntimeValueLookup.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
   SourceViewerSettingsTypes.def
@@ -56,6 +57,7 @@ set(SEEC_TRACE_VIEW_SRCS
   NotifyContext.cpp
   OpenTrace.cpp
   ProcessMoveEvent.cpp
+  RuntimeValueLookup.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
   StateEvaluationTree.cpp
