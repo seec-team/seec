@@ -251,8 +251,6 @@ void ActionReplayFrame::SetEventTimer()
     wxLogDebug("Couldn't get time for next event.");
   }
   
-  wxLogDebug("Event timer: %ldms", (long)(NextTime - LastEventTime));
-  
   EventTimer.Start(NextTime - LastEventTime, wxTIMER_ONE_SHOT);
 }
 
