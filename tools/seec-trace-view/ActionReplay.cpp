@@ -191,6 +191,12 @@ void ActionReplayFrame::ReplayEvent()
     wxLogDebug("Handler failed to replay event.");
     return;
   }
+  
+  // Remember the time at which this event occurred.
+  auto const TimeStr = NextEvent->GetAttribute("time").ToStdString();
+  if (!seec::parseTo(TimeStr, LastEventTime)) {
+    wxLogDebug("Couldn't get time for next event.");
+  }
 }
 
 void ActionReplayFrame::MoveToNextEvent()
@@ -244,6 +250,8 @@ void ActionReplayFrame::SetEventTimer()
   if (!seec::parseTo(NextTimeStr, NextTime)) {
     wxLogDebug("Couldn't get time for next event.");
   }
+  
+  wxLogDebug("Event timer: %ldms", (long)(NextTime - LastEventTime));
   
   EventTimer.Start(NextTime - LastEventTime, wxTIMER_ONE_SHOT);
 }
