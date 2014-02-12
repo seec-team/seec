@@ -26,6 +26,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -332,6 +333,9 @@ class MappedModule {
 
   /// Hold the MappedAST objects.
   std::vector<std::unique_ptr<MappedAST>> mutable ASTList;
+
+  /// Controls access to the ASTLookup and ASTList.
+  std::mutex mutable ASTMutex;
 
   /// Kind of clang::Stmt mapping metadata.
   unsigned MDStmtIdxKind;

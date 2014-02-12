@@ -359,6 +359,8 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   // TODO: We should return a seec::Error when this is unsuccessful, so that
   //       we can describe the problem to the user rather than asserting.
   
+  std::lock_guard<std::mutex> Lock{ASTMutex};
+  
   // Check lookup to see if we've already loaded the AST.
   auto It = ASTLookup.find(FileNode);
   if (It != ASTLookup.end())
@@ -503,17 +505,23 @@ MappedModule::getASTAndStmt(llvm::MDNode const *StmtIdentifier) const {
 
 MappedAST const *
 MappedModule::getASTForDecl(::clang::Decl const *Decl) const {
+  std::lock_guard<std::mutex> Lock{ASTMutex};
+  
   for (auto const &ASTPtr : ASTList)
     if (ASTPtr->contains(Decl))
       return ASTPtr.get();
+  
   return nullptr;
 }
 
 MappedAST const *
 MappedModule::getASTForStmt(::clang::Stmt const *Stmt) const {
+  std::lock_guard<std::mutex> Lock{ASTMutex};
+  
   for (auto const &ASTPtr : ASTList)
     if (ASTPtr->contains(Stmt))
       return ASTPtr.get();
+  
   return nullptr;
 }
 
