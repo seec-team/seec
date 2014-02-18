@@ -20,6 +20,7 @@ set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
 set(MULTIARCH "" CACHE STRING "Architecture to build for multiarch systems.")
+option(SEEC_USER_ACTION_RECORDING "Support user action recording." OFF)
 
 #--------------------------------------------------------------------------------
 # find LLVM
@@ -109,6 +110,11 @@ string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
 #--------------------------------------------------------------------------------
 # setup compiler options
 #--------------------------------------------------------------------------------
+
+if (SEEC_USER_ACTION_RECORDING)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSEEC_USER_ACTION_RECORDING")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEEC_USER_ACTION_RECORDING")
+endif (SEEC_USER_ACTION_RECORDING)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11")

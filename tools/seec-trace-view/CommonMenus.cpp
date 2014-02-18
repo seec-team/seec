@@ -58,6 +58,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
 std::pair<std::unique_ptr<wxMenu>, wxString>
 createRecordingMenu(wxEvtHandler &EvtHandler)
 {
+#ifdef SEEC_USER_ACTION_RECORDING
   auto const Title = seec::getwxStringExOrEmpty("TraceViewer",
                         (char const * []){"GUIText", "MenuRecord", "Title"});
   
@@ -73,6 +74,9 @@ createRecordingMenu(wxEvtHandler &EvtHandler)
     });
   
   return std::make_pair(std::move(Menu), Title);
+#else
+  return std::make_pair(std::unique_ptr<wxMenu>(), wxEmptyString);
+#endif
 }
 
 std::pair<std::unique_ptr<wxMenu>, wxString>
