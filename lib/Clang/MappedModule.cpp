@@ -75,6 +75,15 @@ MappedGlobalVariableDecl(MappedAST const &AST,
 // class MappedCompileInfo
 //===----------------------------------------------------------------------===//
 
+MappedCompileInfo::FileInfo const *MappedCompileInfo::getMainFileInfo() const
+{
+  for (auto const &FI : SourceFiles)
+    if (FI.getName() == MainFileName)
+      return &FI;
+
+  return nullptr;
+}
+
 std::unique_ptr<MappedCompileInfo>
 MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
   if (!CompileInfo || CompileInfo->getNumOperands() != 3)

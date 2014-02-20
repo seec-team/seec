@@ -242,7 +242,7 @@ public:
     /// Name of the source file.
     std::string Name;
     
-    // Contents of the source file.
+    /// Contents of the source file.
     std::unique_ptr<llvm::MemoryBuffer> Contents;
   
   public:
@@ -301,6 +301,10 @@ public:
   /// \brief Get the name of the main file for this compilation
   ///
   std::string const &getMainFileName() const { return MainFileName; }
+  
+  /// \brief Get information about the main file for this compilation.
+  ///
+  FileInfo const *getMainFileInfo() const;
   
   /// \brief Get information about all source files used in this compilation.
   ///
@@ -502,6 +506,10 @@ public:
   
   /// \name Mapped compilation info.
   /// @{
+  
+  /// \name Get all mapped compile info.
+  ///
+  decltype(CompileInfo) const &getCompileInfoMap() const { return CompileInfo; }
   
   /// \name Get mapped compile info for a main file, if it exists.
   ///
