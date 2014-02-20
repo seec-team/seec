@@ -436,24 +436,15 @@ public:
 
   /// \brief Get the current RuntimeValue associated with an Instruction.
   ///
-  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const {
-    // auto ActiveFunc = ActiveFunction.load();
-    auto ActiveFunc = ActiveFunction;
+  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
+  
+  /// \brief Get the area occupied by the given Argument in the active function.
+  ///
+  seec::Maybe<seec::MemoryArea>
+  getParamByValArea(llvm::Argument const *Arg) const;
 
-    if (!ActiveFunc)
-      return nullptr;
-
-    auto &FIndex = ActiveFunc->getFunctionIndex();
-
-    auto MaybeIndex = FIndex.getIndexOfInstruction(I);
-    if (!MaybeIndex.assigned())
-      return nullptr;
-
-    return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
-  }
-
-  /// \brief Find the allocated range that owns an address, if it belongs to this
-  ///        thread. This method is thread safe.
+  /// \brief Find the allocated range that owns an address, if it belongs to
+  ///        this thread. This method is thread safe.
   ///
   seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const {

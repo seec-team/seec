@@ -14,9 +14,11 @@
 #ifndef SEEC_TRACE_GETCURRENTRUNTIMEVALUE_HPP
 #define SEEC_TRACE_GETCURRENTRUNTIMEVALUE_HPP
 
+#include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
@@ -48,6 +50,15 @@ struct GetCurrentRuntimeValueAsImpl;
 ///
 /// Which return the run-time addresses of the objects passed to them, or 0 if
 /// the run-time addresses cannot be found.
+///
+/// To retrieve the value of byval Argument pointers, the following member
+/// function must also be present in the source type SrcTy:
+///
+///   seec::Maybe<seec::MemoryArea>
+///   getParamByValArea(llvm::Argument const *Arg) const;
+///
+/// This function returns the area occupied by the byval parameter. The start
+/// of this area will be used as the value of the Argument.
 ///
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
 template<>
@@ -101,6 +112,19 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
       }
       else if (llvm::isa<llvm::ConstantPointerNull>(StrippedValue)) {
         return seec::Maybe<uintptr_t>(static_cast<uintptr_t>(0));
+      }
+      
+      // Get byval argument values
+      if (auto const Arg = llvm::dyn_cast<llvm::Argument>(V)) {
+        if (Arg->hasByValAttr()) {
+          auto const MaybeArea = Source.getParamByValArea(Arg);
+          if (MaybeArea.template assigned<seec::MemoryArea>())
+            return MaybeArea.template get<seec::MemoryArea>().start();
+          return seec::Maybe<uintptr_t>();
+        }
+        
+        llvm::errs() << "Value = " << *V << "\n";
+        llvm_unreachable("Don't know how to get pointer from argument.");
       }
 
       llvm::errs() << "Value = " << *V << "\n";

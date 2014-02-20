@@ -47,9 +47,9 @@ TracedFunction::getContainingMemoryArea(uintptr_t Address) const
   
   if (Address < StackLow || Address > StackHigh) {
     // Not occupied by our stack, but may belong to a byval argument.
-    for (auto const &Area : ByValAreas) {
-      if (Area.contains(Address)) {
-        return Area;
+    for (auto const &Arg : ByValArgs) {
+      if (Arg.getArea().contains(Address)) {
+        return Arg.getArea();
       }
     }
   }
@@ -71,12 +71,28 @@ TracedFunction::getContainingMemoryArea(uintptr_t Address) const
 // byval argument memory area tracking.
 //===----------------------------------------------------------------------===//
 
-void TracedFunction::addByValArea(MemoryArea Area) {
+void TracedFunction::addByValArg(llvm::Argument const * const Arg,
+                                 MemoryArea const &Area)
+{
   assert(!EventOffsetEnd && "Function has finished recording!");
   
   std::lock_guard<std::mutex> Lock(StackMutex);
   
-  ByValAreas.push_back(std::move(Area));
+  ByValArgs.emplace_back(Arg, std::move(Area));
+}
+
+seec::Maybe<seec::MemoryArea>
+TracedFunction::getParamByValArea(llvm::Argument const *Arg) const
+{
+  assert(!EventOffsetEnd && "Function has finished recording!");
+
+  std::lock_guard<std::mutex> Lock(StackMutex);
+
+  for (auto const &PBV : ByValArgs)
+    if (PBV.getArgument() == Arg)
+      return PBV.getArea();
+
+  return seec::Maybe<seec::MemoryArea>();
 }
 
 

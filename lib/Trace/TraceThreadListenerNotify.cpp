@@ -143,7 +143,7 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   auto UnlockGlobalMemory = scopeExit([=](){ GlobalMemoryLock.unlock(); });
   
   // Add the memory area of the argument.
-  ActiveFunction->addByValArea(MemoryArea(AddressInt, PointeeSize));
+  ActiveFunction->addByValArg(Arg, MemoryArea(AddressInt, PointeeSize));
   
   // We need to query the parent's FunctionRecord.
   TracedFunction const *ParentFunction = nullptr;
@@ -288,7 +288,8 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
     auto StackArea = TF->getStackArea();
     recordStateClear(StackArea.address(), StackArea.length());
     
-    for (auto const &Area : TF->getByValAreas()) {
+    for (auto const &Arg : TF->getByValArgs()) {
+      auto const &Area = Arg.getArea();
       recordStateClear(Area.address(), Area.length());
     }
   }

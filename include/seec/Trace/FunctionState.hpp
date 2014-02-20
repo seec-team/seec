@@ -385,6 +385,11 @@ public:
     return ParamByVals;
   }
   
+  /// \brief Get the area occupied by the given byval Arg.
+  ///
+  seec::Maybe<seec::MemoryArea>
+  getParamByValArea(llvm::Argument const *Arg) const;
+  
   /// \brief Add an argument byval memory area.
   ///
   void addByValArea(unsigned ArgumentNumber,

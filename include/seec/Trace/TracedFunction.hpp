@@ -126,6 +126,34 @@ public:
 };
 
 
+/// \brief Stores information about a single recorded byval parameter.
+///
+class TracedParamByVal {
+  /// The parameter's llvm::Argument
+  llvm::Argument const *Arg;
+
+  /// The memory area occupied by the parameter.
+  MemoryArea Area;
+
+public:
+  /// \brief Constructor.
+  ///
+  TracedParamByVal(llvm::Argument const * const ForArg,
+                   MemoryArea const &WithArea)
+  : Arg(ForArg),
+    Area(WithArea)
+  {}
+
+  /// \brief Get the parameter's llvm::Argument.
+  ///
+  llvm::Argument const *getArgument() const { return Arg; }
+
+  /// \brief Get the memory area occupied by the parameter.
+  ///
+  MemoryArea const &getArea() const { return Area; }
+};
+
+
 /// \brief Stores information about a single recorded Function execution.
 ///
 ///
@@ -179,7 +207,7 @@ class TracedFunction {
   std::vector<TracedAlloca> Allocas;
   
   /// Areas occupied by byval arguments for this function.
-  std::vector<MemoryArea> ByValAreas;
+  std::vector<TracedParamByVal> ByValArgs;
   
   /// Stores stacksaved Allocas.
   llvm::DenseMap<uintptr_t, std::vector<TracedAlloca>> StackSaves;
@@ -219,7 +247,7 @@ public:
     Children(),
     ActiveInstruction(nullptr),
     Allocas(),
-    ByValAreas(),
+    ByValArgs(),
     StackSaves(),
     StackLow(0),
     StackHigh(0),
@@ -367,12 +395,18 @@ public:
   
   /// \brief Add a new area for a byval argument.
   ///
-  void addByValArea(MemoryArea Area);
+  void addByValArg(llvm::Argument const * const Arg, MemoryArea const &Area);
+  
+  /// \brief Get the area occupied by the given byval Arg.
+  /// For getCurrentRuntimeValueAs().
+  ///
+  seec::Maybe<seec::MemoryArea>
+  getParamByValArea(llvm::Argument const *Arg) const;
   
   /// \brief Get all byval memory areas.
   ///
-  seec::Range<decltype(ByValAreas)::const_iterator> getByValAreas() const {
-    return seec::range(ByValAreas.cbegin(), ByValAreas.cend());
+  seec::Range<decltype(ByValArgs)::const_iterator> getByValArgs() const {
+    return seec::range(ByValArgs.cbegin(), ByValArgs.cend());
   }
   
   /// @} (byval argument memory area tracking.)

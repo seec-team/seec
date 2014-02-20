@@ -589,6 +589,37 @@ void TraceThreadListener::traceOpen()
 
 
 //------------------------------------------------------------------------------
+// Accessors
+//------------------------------------------------------------------------------
+
+RuntimeValue const *
+TraceThreadListener::getCurrentRuntimeValue(llvm::Instruction const *I) const
+{
+  auto const ActiveFunc = ActiveFunction;
+  if (!ActiveFunc)
+    return nullptr;
+
+  auto &FIndex = ActiveFunc->getFunctionIndex();
+
+  auto MaybeIndex = FIndex.getIndexOfInstruction(I);
+  if (!MaybeIndex.assigned())
+    return nullptr;
+
+  return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
+}
+
+seec::Maybe<seec::MemoryArea>
+TraceThreadListener::getParamByValArea(llvm::Argument const *Arg) const
+{
+  auto const ActiveFunc = ActiveFunction;
+  if (!ActiveFunc)
+    return seec::Maybe<seec::MemoryArea>();
+
+  return ActiveFunc->getParamByValArea(Arg);
+}
+
+
+//------------------------------------------------------------------------------
 // Mutators
 //------------------------------------------------------------------------------
 

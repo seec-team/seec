@@ -196,6 +196,16 @@ void FunctionState::removeLastRuntimeError() {
   RuntimeErrors.pop_back();
 }
 
+seec::Maybe<seec::MemoryArea>
+FunctionState::getParamByValArea(llvm::Argument const *Arg) const
+{
+  for (auto const &PBV : ParamByVals)
+    if (PBV.getArgument() == Arg)
+      return PBV.getArea();
+  
+  return seec::Maybe<seec::MemoryArea>();
+}
+
 void FunctionState::addByValArea(unsigned ArgumentNumber,
                                  uintptr_t Address,
                                  std::size_t Size)
