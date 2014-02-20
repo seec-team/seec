@@ -14,6 +14,7 @@
 #ifndef SEEC_UTIL_PRINTING_HPP
 #define SEEC_UTIL_PRINTING_HPP
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
@@ -103,6 +104,16 @@ std::string to_hex_string(char Byte) {
 }
 
 /// @}
+
+
+/// \name Convert strings to JSON string literals.
+/// @{
+
+/// \brief Write the contents of S as a JSON string literal to Out.
+///
+void writeJSONStringLiteral(llvm::StringRef S, llvm::raw_ostream &Out);
+
+/// @} (Convert strings to JSON string literals.)
 
 
 /// \brief Track indentation, to assist printing structured information.
