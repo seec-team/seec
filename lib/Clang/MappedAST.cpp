@@ -56,12 +56,6 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   /// All Stmts in visitation order.
   std::vector<Stmt const *> Stmts;
   
-  /// Parents of Decls.
-  llvm::DenseMap<clang::Decl const *, ASTNodeTy> DeclParents;
-  
-  /// Parents of Stmts.
-  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
-  
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> DeclsReferenced;
 
@@ -74,8 +68,6 @@ public:
     VisitStack(),
     Decls(),
     Stmts(),
-    DeclParents(),
-    StmtParents(),
     DeclsReferenced()
   {}
   
@@ -87,12 +79,6 @@ public:
   
   /// Get all Stmts in visitation order.
   decltype(Stmts) &getStmts() { return Stmts; }
-  
-  /// Get all Decl parents.
-  decltype(DeclParents) &getDeclParents() { return DeclParents; }
-  
-  /// Get all Stmt parents.
-  decltype(StmtParents) &getStmtParents() { return StmtParents; }
   
   /// Get all Decls that are referenced by non-system code.
   decltype(DeclsReferenced) &getDeclsReferenced() { return DeclsReferenced; }
@@ -115,13 +101,6 @@ public:
   bool TraverseStmt(::clang::Stmt *S) {
     ::clang::Stmt const * const CS = S;
     
-    // Fill in the parent for this Stmt, if any.
-    if (!VisitStack.empty()) {
-      auto const &Parent = VisitStack.back();
-      if (Parent.assigned())
-        StmtParents.insert(std::make_pair(CS, Parent));
-    }
-    
     // Traverse this Stmt using the default implementation.
     VisitStack.emplace_back(CS);
     auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseStmt(S);
@@ -133,13 +112,6 @@ public:
   ///
   bool TraverseDecl(::clang::Decl *D) {
     ::clang::Decl const * const CD = D;
-    
-    // Fill in the parent for this Decl, if any.
-    if (!VisitStack.empty()) {
-      auto const &Parent = VisitStack.back();
-      if (Parent.assigned())
-        DeclParents.insert(std::make_pair(CD, Parent));
-    }
     
     // Traverse this Decl using the default implementation.
     VisitStack.push_back(CD);
@@ -187,8 +159,6 @@ MappedAST::MappedAST(clang::ASTUnit *ForAST,
 : AST(ForAST),
   Decls(std::move(WithMapping.getDecls())),
   Stmts(std::move(WithMapping.getStmts())),
-  DeclParents(std::move(WithMapping.getDeclParents())),
-  StmtParents(std::move(WithMapping.getStmtParents())),
   DeclsReferenced(std::move(WithMapping.getDeclsReferenced()))
 {}
 
@@ -200,9 +170,6 @@ std::unique_ptr<MappedAST>
 MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   if (!AST)
     return nullptr;
-
-  std::vector<Decl const *> Decls;
-  std::vector<Stmt const *> Stmts;
 
   MappingASTVisitor Mapper {*AST};
 
@@ -234,6 +201,31 @@ MappedAST::LoadFromCompilerInvocation(
 {
   return MappedAST::FromASTUnit(
           ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
+}
+
+static MappedAST::ASTNodeTy
+getFirstParent(clang::ASTContext::ParentVector const &Parents)
+{
+  if (!Parents.empty()) {
+    auto const &Parent = Parents[0];
+    
+    if (auto const ParentDecl = Parent.get<clang::Decl>())
+      return ParentDecl;
+    else if (auto const ParentStmt = Parent.get<clang::Stmt>())
+      return ParentStmt;
+  }
+  
+  return MappedAST::ASTNodeTy();
+}
+
+MappedAST::ASTNodeTy MappedAST::getParent(clang::Decl const *D) const
+{
+  return getFirstParent(AST->getASTContext().getParents(*D));
+}
+
+MappedAST::ASTNodeTy MappedAST::getParent(clang::Stmt const *S) const
+{
+  return getFirstParent(AST->getASTContext().getParents(*S));
 }
 
 bool MappedAST::isParent(::clang::Decl const *Parent,

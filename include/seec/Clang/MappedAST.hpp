@@ -61,12 +61,6 @@ private:
   /// All known Stmt pointers in visitation order.
   std::vector<clang::Stmt const *> const Stmts;
   
-  /// Parents of Decls.
-  llvm::DenseMap<clang::Decl const *, ASTNodeTy> const DeclParents;
-  
-  /// Parents of Stmts.
-  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> const StmtParents;
-  
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> const DeclsReferenced;
   
@@ -154,21 +148,11 @@ public:
   
   /// \brief Get the parent of a Decl, if it has one.
   ///
-  ASTNodeTy getParent(::clang::Decl const *Decl) const {
-    auto const It = DeclParents.find(Decl);
-    if (It == DeclParents.end())
-      return ASTNodeTy{};
-    return It->second;
-  }
+  ASTNodeTy getParent(::clang::Decl const *Decl) const;
   
   /// \brief Get the parent of a Stmt, if it has one.
   ///
-  ASTNodeTy getParent(::clang::Stmt const *Stmt) const {
-    auto const It = StmtParents.find(Stmt);
-    if (It == StmtParents.end())
-      return ASTNodeTy{};
-    return It->second;
-  }
+  ASTNodeTy getParent(::clang::Stmt const *Stmt) const;
   
   /// \brief Check if a Decl is a parent of a Decl.
   ///
