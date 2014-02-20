@@ -1808,8 +1808,7 @@ public:
     auto const &ProcessState = FunctionState.getParent().getParent();
     
     // Get the size of pointee type.
-    auto const Type = llvm::cast< ::clang::PointerType>
-                                (Expression->getType().getTypePtr());
+    auto const Type = Expression->getType()->getAs<clang::PointerType>();
     auto const PointeeQType = Type->getPointeeType().getCanonicalType();
     auto const PointeeSize = PointeeQType->isIncompleteType()
                            ? ::clang::CharUnits::fromQuantity(0)
