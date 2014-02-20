@@ -143,19 +143,19 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
 // class MappedModule
 //===----------------------------------------------------------------------===//
 
-llvm::sys::Path getPathFromFileNode(llvm::MDNode const *FileNode) {
+std::string getPathFromFileNode(llvm::MDNode const *FileNode) {
   auto FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
   if (!FilenameStr)
-    return llvm::sys::Path();
+    return std::string();
 
   auto PathStr = dyn_cast<MDString>(FileNode->getOperand(1u));
   if (!PathStr)
-    return llvm::sys::Path();
+    return std::string();
 
-  auto FilePath = llvm::sys::Path(PathStr->getString());
-  FilePath.appendComponent(FilenameStr->getString());
+  llvm::SmallString<256> FilePath {PathStr->getString()};
+  llvm::sys::path::append(FilePath, FilenameStr->getString());
 
-  return FilePath;
+  return FilePath.str().str();
 }
 
 MappedModule::MappedModule(
@@ -582,7 +582,7 @@ MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
   
   // Find the file path from either the Decl or the Stmt mapping. If there is
   // no mapping, return an empty path.
-  llvm::sys::Path FilePath;
+  std::string FilePath;
   
   if (DeclMap.first) {
     auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);

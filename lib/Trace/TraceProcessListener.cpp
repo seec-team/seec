@@ -131,8 +131,9 @@ void TraceProcessListener::traceClose() {
 void TraceProcessListener::traceOpen() {
   std::lock_guard<std::mutex> Lock(DataOutMutex);
   assert(!OutputEnabled && "traceOpen() with OutputEnabled.");
-  DataOut = StreamAllocator.getProcessStream(ProcessSegment::Data,
-                                             llvm::raw_fd_ostream::F_Append);
+  DataOut =
+    StreamAllocator.getProcessStream(ProcessSegment::Data,
+                                     llvm::sys::fs::OpenFlags::F_Append);
   OutputEnabled = true;
 }
 

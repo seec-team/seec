@@ -77,14 +77,14 @@ namespace {
 }
 
 // From clang's driver.cpp:
-llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
+std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
   if (!CanonicalPrefixes)
-    return llvm::sys::Path(ArgV0);
+    return Argv0;
 
   // This just needs to be some symbol in the binary; C++ doesn't
   // allow taking the address of ::main however.
-  void *P = (void *) (intptr_t) GetExecutablePath;
-  return llvm::sys::Path::GetMainExecutable(ArgV0, P);
+  void *P = (void*) (intptr_t) GetExecutablePath;
+  return llvm::sys::fs::getMainExecutable(Argv0, P);
 }
 
 void WriteDotGraph(seec::cm::ProcessState const &State,
@@ -104,7 +104,7 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
   Stream << Handler.doLayout(State).getDotString();
 }
 
-void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
+void PrintClangMapped(llvm::StringRef ExecutablePath)
 {
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
@@ -119,7 +119,7 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
                              (MaybeIBA.move<trace::InputBufferAllocator>());
 
   // Read the trace.
-  auto CMProcessTraceLoad = cm::ProcessTrace::load(ExecutablePath.str(),
+  auto CMProcessTraceLoad = cm::ProcessTrace::load(ExecutablePath,
                                                    std::move(IBA));
   
   if (CMProcessTraceLoad.assigned<seec::Error>()) {
@@ -192,7 +192,7 @@ void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
   }
 }
 
-void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
+void PrintUnmapped(llvm::StringRef ExecutablePath)
 {
   auto &Context = llvm::getGlobalContext();
 
@@ -298,7 +298,7 @@ void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
 
     // Setup the map to find Decls and Stmts from Instructions
     seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
-                                          ExecutablePath.str(),
+                                          ExecutablePath,
                                           Diagnostics);
     
     clang::LangOptions LangOpt;
@@ -409,7 +409,7 @@ int main(int argc, char **argv, char * const *envp) {
 
   cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
 
-  llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
+  auto const ExecutablePath = GetExecutablePath(argv[0], true);
 
   // Setup resource loading.
   ResourceLoader Resources(ExecutablePath);

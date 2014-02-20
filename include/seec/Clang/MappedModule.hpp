@@ -51,7 +51,7 @@ class MappedStmt;
 /// \brief Represents a mapping from an llvm::Function to a clang::Decl.
 ///
 class MappedFunctionDecl {
-  llvm::sys::Path FilePath;
+  std::string FilePath;
   
   MappedAST const &AST;
 
@@ -66,18 +66,18 @@ class MappedFunctionDecl {
 public:
   /// \brief Constructor.
   ///
-  MappedFunctionDecl(llvm::sys::Path WithFilePath,
+  MappedFunctionDecl(std::string WithFilePath,
                      MappedAST const &WithAST,
                      clang::Decl const *WithDecl,
                      llvm::Function const *WithFunction,
                      std::vector<seec::cm::MappedParam> WithMappedParameters,
                      std::vector<seec::cm::MappedLocal> WithMappedLocals)
-  : FilePath(WithFilePath),
+  : FilePath(std::move(WithFilePath)),
     AST(WithAST),
     Decl(WithDecl),
     Function(WithFunction),
-    MappedParameters(WithMappedParameters),
-    MappedLocals(WithMappedLocals)
+    MappedParameters(std::move(WithMappedParameters)),
+    MappedLocals(std::move(WithMappedLocals))
   {}
 
   /// \brief Copy constructor.
@@ -90,7 +90,7 @@ public:
 
   /// \brief Get the path to the source file that this mapping refers to.
   ///
-  llvm::sys::Path const &getFilePath() const { return FilePath; }
+  std::string const &getFilePath() const { return FilePath; }
 
   /// \brief Get the AST that this clang::Decl belongs to.
   ///
@@ -188,7 +188,7 @@ public:
 class MappedInstruction {
   llvm::Instruction const *Instruction;
   
-  llvm::sys::Path FilePath;
+  std::string FilePath;
   
   MappedAST const *AST;
   
@@ -199,12 +199,12 @@ class MappedInstruction {
 public:
   /// \brief Constructor.
   MappedInstruction(llvm::Instruction const *Instruction,
-                    llvm::sys::Path SourceFilePath,
+                    std::string SourceFilePath,
                     MappedAST const *AST,
                     clang::Decl const *Decl,
                     clang::Stmt const *Stmt)
   : Instruction(Instruction),
-    FilePath(SourceFilePath),
+    FilePath(std::move(SourceFilePath)),
     AST(AST),
     Decl(Decl),
     Stmt(Stmt)
@@ -220,7 +220,7 @@ public:
   llvm::Instruction const *getInstruction() const { return Instruction; }
   
   /// \brief Get the path to the source code file.
-  llvm::sys::Path getFilePath() const { return FilePath; }
+  std::string const &getFilePath() const { return FilePath; }
   
   /// \brief Get the AST for the mapping (if one exists).
   MappedAST const *getAST() const { return AST; }

@@ -65,9 +65,9 @@ static std::string FindDotExecutable()
 {
   auto const DotName = "dot";
 
-  auto const LLVMSearch = llvm::sys::Program::FindProgramByName(DotName);
-  if (LLVMSearch.isValid())
-    return LLVMSearch.str();
+  auto const LLVMSearch = llvm::sys::FindProgramByName(DotName);
+  if (!LLVMSearch.empty())
+    return LLVMSearch;
   
   char const *SearchPaths[] = {
     "/usr/bin",
@@ -87,15 +87,10 @@ static std::string FindDotExecutable()
     DotPath = SearchPath;
     llvm::sys::path::append(DotPath, DotName);
     
-    llvm::sys::fs::file_status Status;
-    auto const Err = llvm::sys::fs::status(DotPath.str(), Status);
-    if (Err != llvm::errc::success)
+    if (!llvm::sys::fs::exists(DotPath.str()))
       continue;
     
-    if (!llvm::sys::fs::exists(Status))
-      continue;
-    
-    if (!llvm::sys::Path(DotPath.str()).canExecute())
+    if (!llvm::sys::fs::can_execute(DotPath.str()))
       continue;
     
     return DotPath.str().str();
@@ -655,7 +650,9 @@ void StateGraphViewerPanel::renderGraph()
   {
     int GraphFD;
     auto const GraphErr =
-      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.dot", GraphFD, GraphPath);
+      llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.dot",
+                                      GraphFD,
+                                      GraphPath);
     
     if (GraphErr != llvm::errc::success) {
       wxLogDebug("Couldn't create temporary dot file.");
@@ -674,19 +671,12 @@ void StateGraphViewerPanel::renderGraph()
   
   // Create a temporary filename for the dot result.
   llvm::SmallString<256> SVGPath;
+  auto const SVGErr =
+    llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.svg", SVGPath);
   
-  {
-    int SVGFD;
-    auto const SVGErr =
-      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.svg", SVGFD, SVGPath);
-    
-    if (SVGErr != llvm::errc::success) {
-      wxLogDebug("Couldn't create temporary svg file.");
-      return;
-    }
-    
-    // We don't want to write to this file, we just want to reserve it for dot.
-    close(SVGFD);
+  if (SVGErr != llvm::errc::success) {
+    wxLogDebug("Couldn't create temporary svg file.");
+    return;
   }
   
   auto const RemoveSVG = seec::scopeExit([&] () {
@@ -714,15 +704,14 @@ void StateGraphViewerPanel::renderGraph()
   
   bool ExecFailed = false;
   
-  auto const Result =
-    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(PathToDot),
-                                       Args,
-                                       Environment,
-                                       /* redirects */ nullptr,
-                                       /* wait */ 0,
-                                       /* mem */ 0,
-                                       &ErrorMsg,
-                                       &ExecFailed);
+  auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
+                                                Args,
+                                                Environment,
+                                                /* redirects */ nullptr,
+                                                /* wait */ 0,
+                                                /* mem */ 0,
+                                                &ErrorMsg,
+                                                &ExecFailed);
   
   if (!ErrorMsg.empty()) {
     wxLogDebug("Dot failed: %s", ErrorMsg);
@@ -737,7 +726,7 @@ void StateGraphViewerPanel::renderGraph()
   // Read the dot-generated SVG from the temporary file.
   llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
   
-  auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath, SVGData);
+  auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath.str(), SVGData);
   if (ReadErr != llvm::errc::success) {
     wxLogDebug("Couldn't read temporary svg file.");
     return;

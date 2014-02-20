@@ -131,23 +131,14 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
   // TODO: If we ever support Win32 then extension should be ".obj".
   int FD;
   auto const Err =
-    llvm::sys::fs::unique_file("seec-instr-%%%%%%%%%%.o", FD, Path);
+    llvm::sys::fs::createUniqueFile("seec-instr-%%%%%%%%%%.o", FD, Path);
   
   if (Err != llvm::errc::success) {
     llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
     exit(EXIT_FAILURE);
   }
   
-  // TODO: When we update to a more recent LLVM, we should be able to use this
-  // file descript when creating the tool_output_file below.
-  close(FD);
-  
-  std::string ErrorMessage;
-  
-  auto Out = seec::makeUnique<llvm::tool_output_file>
-                             (Path.c_str(),
-                              ErrorMessage,
-                              llvm::raw_fd_ostream::F_Binary);
+  auto Out = seec::makeUnique<llvm::tool_output_file>(Path.c_str(), FD);
   if (!Out) {
     llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
     exit(EXIT_FAILURE);
@@ -329,9 +320,5 @@ int main(int argc, char **argv)
   // object file.
   ForwardArgs.push_back(nullptr);
   
-  auto const Result =
-    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(LDPath),
-                                       ForwardArgs.data());
-  
-  return Result;
+  return llvm::sys::ExecuteAndWait(LDPath, ForwardArgs.data());
 }

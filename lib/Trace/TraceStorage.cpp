@@ -277,14 +277,15 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
 }
 
 std::unique_ptr<llvm::raw_ostream>
-OutputStreamAllocator::getProcessStream(ProcessSegment Segment, unsigned Flags)
+OutputStreamAllocator::getProcessStream(ProcessSegment Segment,
+                                        llvm::sys::fs::OpenFlags Flags)
 {
   std::string File = std::string{"st."} + getProcessExtension(Segment);
   
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
   
-  Flags |= llvm::raw_fd_ostream::F_Binary;
+  Flags |= llvm::sys::fs::OpenFlags::F_Binary;
   
   std::string ErrorInfo;
   auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
@@ -302,7 +303,7 @@ OutputStreamAllocator::getProcessStream(ProcessSegment Segment, unsigned Flags)
 std::unique_ptr<llvm::raw_ostream>
 OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
                                        ThreadSegment Segment,
-                                       unsigned Flags)
+                                       llvm::sys::fs::OpenFlags Flags)
 {
   std::string File = std::string{"st.t"} + std::to_string(ThreadID)
                    + "." + getThreadExtension(Segment);
@@ -310,7 +311,7 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
   
-  Flags |= llvm::raw_fd_ostream::F_Binary;
+  Flags |= llvm::sys::fs::OpenFlags::F_Binary;
 
   std::string ErrorInfo;
   auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);

@@ -14,6 +14,7 @@
 #include "seec/ICU/Resources.hpp"
 
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace seec {
@@ -98,7 +99,7 @@ getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
 // ResourceLoader
 //------------------------------------------------------------------------------
 
-ResourceLoader::ResourceLoader(llvm::sys::Path const &ExecutablePath)
+ResourceLoader::ResourceLoader(llvm::StringRef ExecutablePath)
 : ResourcesDirectory(ExecutablePath)
 {
   // Find the location of the ICU resources, which should be fixed relative
@@ -106,17 +107,16 @@ ResourceLoader::ResourceLoader(llvm::sys::Path const &ExecutablePath)
   // For Bundles find: ../../Resources
   // Otherwise find:   ../lib/seec/resources
   
-  ResourcesDirectory.eraseComponent(); // remove executable name
-  ResourcesDirectory.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  // remove executable name, then remove "bin" or "MacOS" (for bundles)
+  llvm::sys::path::remove_filename(ResourcesDirectory);
+  llvm::sys::path::remove_filename(ResourcesDirectory);
   
-  if (llvm::StringRef(ResourcesDirectory.str()).endswith("Contents")) {
-    ResourcesDirectory.eraseComponent(); // remove "Contents" (bundle)
-    ResourcesDirectory.appendComponent("Resources");
+  if (ResourcesDirectory.str().endswith("Contents")) { // Bundle
+    llvm::sys::path::remove_filename(ResourcesDirectory); // remove "Contents"
+    llvm::sys::path::append(ResourcesDirectory, "Resources");
   }
   else {
-    ResourcesDirectory.appendComponent("lib");
-    ResourcesDirectory.appendComponent("seec");
-    ResourcesDirectory.appendComponent("resources");
+    llvm::sys::path::append(ResourcesDirectory, "lib", "seec", "resources");
   }
 }
 
@@ -129,9 +129,9 @@ bool ResourceLoader::loadResource(char const *Package)
     return true;
 
   // find and load the package
-  auto PackagePath = ResourcesDirectory;
-  PackagePath.appendComponent(Package);
-  PackagePath.appendSuffix("dat");
+  llvm::SmallString<256> PackagePath {ResourcesDirectory};
+  llvm::sys::path::append(PackagePath, Package);
+  PackagePath.append(".dat");
 
   llvm::OwningPtr<llvm::MemoryBuffer> Holder;
   llvm::MemoryBuffer::getFile(PackagePath.str(), Holder);

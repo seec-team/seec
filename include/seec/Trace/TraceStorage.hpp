@@ -18,6 +18,7 @@
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/system_error.h"
@@ -125,14 +126,16 @@ public:
   ///
   std::unique_ptr<llvm::raw_ostream>
   getProcessStream(ProcessSegment Segment,
-                   unsigned Flags = 0);
+                   llvm::sys::fs::OpenFlags Flags =
+                     llvm::sys::fs::OpenFlags::F_None);
 
   /// \brief Get an output for a thread-specific data segment.
   ///
   std::unique_ptr<llvm::raw_ostream>
   getThreadStream(uint32_t ThreadID,
                   ThreadSegment Segment,
-                  unsigned Flags = 0);
+                  llvm::sys::fs::OpenFlags Flags =
+                    llvm::sys::fs::OpenFlags::F_None);
   
   /// \brief Archive all existing trace files.
   ///

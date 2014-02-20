@@ -4,7 +4,7 @@ add_executable(seec-trace-print main.cpp)
 # Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader option
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)

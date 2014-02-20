@@ -23,6 +23,7 @@
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 
 #include "llvm/Support/raw_ostream.h"
 

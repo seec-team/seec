@@ -205,7 +205,6 @@ SEEC_DECL_LINK(VarDecl, // Inherits DeclaratorDecl, ValueDecl, NamedDecl
     ("is_local_var_decl",               Bool, isLocalVarDecl()),
     ("is_function_or_method_var_decl",  Bool, isFunctionOrMethodVarDecl()),
     ("is_static_data_member",           Bool, isStaticDataMember()),
-    ("is_tentative_definition_now",     Bool, isTentativeDefinitionNow()),
     ("is_out_of_line",                  Bool, isOutOfLine()),
     ("is_file_var_decl",                Bool, isFileVarDecl()),
     ("is_direct_init",                  Bool, isDirectInit())

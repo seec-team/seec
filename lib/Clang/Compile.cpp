@@ -27,6 +27,7 @@
 #include "clang/Serialization/ASTWriter.h"
 
 #include "llvm/PassManager.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -36,6 +37,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -183,25 +185,21 @@ std::string getResourcesDirectory(llvm::StringRef ExecutablePath)
   // For Bundles find: ../../Resources/clang/CLANG_VERSION_STRING
   // Otherwise find:   ../lib/seec/resources/clang/CLANG_VERSION_STRING
   
-  llvm::sys::Path ResourcePath (ExecutablePath);
-  ResourcePath.eraseComponent(); // remove executable name
-  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  llvm::SmallString<256> ResourcePath {ExecutablePath};
+  llvm::sys::path::remove_filename(ResourcePath); // remove executable name
+  llvm::sys::path::remove_filename(ResourcePath); // remove "bin" or "MacOS"
   
-  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
-    ResourcePath.eraseComponent(); // remove "Contents" (bundle)
-    ResourcePath.appendComponent("Resources");
-    ResourcePath.appendComponent("clang");
-    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+  if (ResourcePath.str().endswith("Contents")) { // Bundle
+    llvm::sys::path::remove_filename(ResourcePath); // remove "Contents"
+    llvm::sys::path::append(ResourcePath,
+                            "Resources", "clang", CLANG_VERSION_STRING);
   }
   else {
-    ResourcePath.appendComponent("lib");
-    ResourcePath.appendComponent("seec");
-    ResourcePath.appendComponent("resources");
-    ResourcePath.appendComponent("clang");
-    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+    llvm::sys::path::append(ResourcePath, "lib", "seec", "resources", "clang");
+    llvm::sys::path::append(ResourcePath, CLANG_VERSION_STRING);
   }
   
-  return ResourcePath.str();
+  return ResourcePath.str().str();
 }
 
 
@@ -217,18 +215,18 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
   // For Bundles find: ???
   // Otherwise find:   ../lib
   
-  llvm::sys::Path ResourcePath (ExecutablePath);
-  ResourcePath.eraseComponent(); // remove executable name
-  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  llvm::SmallString<256> ResourcePath {ExecutablePath};
+  llvm::sys::path::remove_filename(ResourcePath); // remove executable name
+  llvm::sys::path::remove_filename(ResourcePath); // remove "bin" or "MacOS"
   
-  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
+  if (ResourcePath.str().endswith("Contents")) { // Bundle
     llvm_unreachable("bundle support not implemented.");
   }
   else {
-    ResourcePath.appendComponent("lib");
+    llvm::sys::path::append(ResourcePath, "lib");
   }
   
-  return ResourcePath.str();
+  return ResourcePath.str().str();
 }
 
 
@@ -310,10 +308,14 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto &DeclMap = Action.getDeclMap();
   auto &StmtMap = Action.getStmtMap();
 
+  llvm::SmallString<256> CurrentDirectory;
+  auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
+  assert(Err == llvm::errc::success);
+
   // setup the file node for the main file and add it to the files node
   llvm::Value *MainFileNodeOps[] {
     MDString::get(ModContext, MainFilename),
-    MDString::get(ModContext, llvm::sys::Path::GetCurrentDirectory().str())
+    MDString::get(ModContext, CurrentDirectory.str())
   };
 
   auto MainFileNode = MDNode::get(ModContext, MainFileNodeOps);
@@ -580,7 +582,10 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   // Get information about the main file.
   auto MainFileID = SrcManager.getMainFileID();
   auto MainFileEntry = SrcManager.getFileEntryForID(MainFileID);
-  auto CurrentDirectory = llvm::sys::Path::GetCurrentDirectory();
+  
+  llvm::SmallString<256> CurrentDirectory;
+  auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
+  assert(Err == llvm::errc::success);
   
   llvm::Value *MainFileOperands[] = {
     llvm::MDString::get(LLVMContext, MainFileEntry->getName()),

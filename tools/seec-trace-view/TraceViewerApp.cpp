@@ -13,8 +13,6 @@
 
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
-#include "seec/wxWidgets/ICUBundleFSHandler.hpp"
-#include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
@@ -22,6 +20,8 @@
 
 #include <unicode/resbund.h>
 
+#include "seec/wxWidgets/ICUBundleFSHandler.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 #include <wx/wx.h>
 #include <wx/cmdline.h>
 #include <wx/config.h>
@@ -106,7 +106,7 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
   auto &StdPaths = wxStandardPaths::Get();
-  llvm::sys::Path ExecutablePath(StdPaths.GetExecutablePath().ToStdString());
+  auto const ExecutablePath = StdPaths.GetExecutablePath().ToStdString();
   
   // Load ICU resources for TraceViewer. Do this before calling wxApp's default
   // behaviour, so that OnInitCmdLine and OnCmdLineParsed have access to the

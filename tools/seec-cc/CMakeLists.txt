@@ -1,8 +1,11 @@
-add_executable(seec-cc main.cpp cc1_main.cpp)
+add_executable(seec-cc
+               main.cpp
+               cc1_main.cpp
+               SeeCExecuteCompilerInvocation.cpp)
 
 # Determine the LLVM libraries that we need
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles mcjit jit all-targets bitreader bitwriter asmparser codegen ipo irreader linker selectiondag instrumentation core target
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets asmparser bitreader bitwriter irreader codegen instrumentation ipo linker selectiondag core support option
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
@@ -24,18 +27,20 @@ target_link_libraries(seec-cc
  SeeCICU
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangCodeGen.a
  ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a
  ${LLVM_INSTALL}/lib/libclangDriver.a
  ${LLVM_INSTALL}/lib/libclangSerialization.a
+ ${LLVM_INSTALL}/lib/libclangCodeGen.a
  ${LLVM_INSTALL}/lib/libclangParse.a
  ${LLVM_INSTALL}/lib/libclangSema.a
- ${LLVM_INSTALL}/lib/libclangEdit.a
+ ${LLVM_INSTALL}/lib/libclangRewriteFrontend.a
+ ${LLVM_INSTALL}/lib/libclangRewriteCore.a
  ${LLVM_INSTALL}/lib/libclangAnalysis.a
- ${LLVM_INSTALL}/lib/libclangLex.a
+ ${LLVM_INSTALL}/lib/libclangEdit.a
  ${LLVM_INSTALL}/lib/libclangAST.a
  ${LLVM_INSTALL}/lib/libclangBasic.a
+ ${LLVM_INSTALL}/lib/libclangLex.a
 
  # LLVM libraries
  ${REQ_LLVM_LIBRARIES}

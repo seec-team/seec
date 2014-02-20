@@ -17,8 +17,8 @@
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/PathV1.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/system_error.h"
 
@@ -165,15 +165,15 @@ inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
 /// \brief Handle loading and registering resources for ICU.
 ///
 class ResourceLoader {
-  llvm::sys::Path ResourcesDirectory;
+  llvm::SmallString<256> ResourcesDirectory;
 
   std::map<std::string, std::unique_ptr<llvm::MemoryBuffer>> Resources;
 
 public:
-  ResourceLoader(llvm::sys::Path const &ExecutablePath);
+  ResourceLoader(llvm::StringRef ExecutablePath);
   
-  llvm::sys::Path const &getResourcesDirectory() const {
-    return ResourcesDirectory;
+  llvm::StringRef getResourcesDirectory() const {
+    return ResourcesDirectory.str();
   }
 
   bool loadResource(char const *Package);

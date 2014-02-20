@@ -582,7 +582,7 @@ void TraceThreadListener::traceOpen()
   EventsOut.open(
     StreamAllocator.getThreadStream(ThreadID,
                                     ThreadSegment::Events,
-                                    llvm::raw_fd_ostream::F_Append));
+                                    llvm::sys::fs::OpenFlags::F_Append));
   
   OutputEnabled = true;
 }
