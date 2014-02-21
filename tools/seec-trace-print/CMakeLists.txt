@@ -1,4 +1,4 @@
-add_executable(seec-trace-print main.cpp)
+add_executable(seec-trace-print main.cpp OnlinePythonTutor.cpp)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)

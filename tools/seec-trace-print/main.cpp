@@ -35,6 +35,7 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IRReader/IRReader.h"
@@ -49,6 +50,8 @@
 #include "llvm/Support/system_error.h"
 
 #include "unicode/unistr.h"
+
+#include "OnlinePythonTutor.hpp"
 
 #include <array>
 #include <memory>
@@ -74,6 +77,9 @@ namespace {
 
   static cl::opt<bool>
   ShowErrors("E", cl::desc("show run-time errors"));
+  
+  static cl::opt<bool>
+  OnlinePythonTutor("P", cl::desc("output suitable for Online Python Tutor"));
 }
 
 // From clang's driver.cpp:
@@ -104,6 +110,66 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
   Stream << Handler.doLayout(State).getDotString();
 }
 
+void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
+{
+  seec::cm::ProcessState State(Trace);
+  
+  // If we're going to output dot graph files for the states, then setup the
+  // output directory and layout handler now.
+  std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
+  llvm::SmallString<256> OutputForDot;
+  std::string FilenameString;
+  llvm::raw_string_ostream FilenameStream {FilenameString};
+  long StateNumber = 1;
+  
+  if (!OutputDirectoryForClangMappedDot.empty()) {
+    OutputForDot = OutputDirectoryForClangMappedDot;
+    
+    bool Existed;
+    auto const Err =
+      llvm::sys::fs::create_directories(llvm::StringRef(OutputForDot),
+                                        Existed);
+    
+    if (Err != llvm::errc::success) {
+      llvm::errs() << "Couldn't create output directory.\n";
+      return;
+    }
+    
+    LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
+    LayoutHandler->addBuiltinLayoutEngines();
+  }
+  
+  if (State.getThreadCount() == 1) {
+    llvm::outs() << "Using thread-level iterator.\n";
+    
+    do {
+      // Write textual description to stdout.
+      llvm::outs() << State;
+      llvm::outs() << "\n";
+      
+      // If enabled, write graphs in dot format.
+      if (!OutputForDot.empty()) {
+        // Add filename for this state.
+        FilenameString.clear();
+        FilenameStream << "state." << StateNumber++ << ".dot";
+        FilenameStream.flush();
+        
+        llvm::sys::path::append(OutputForDot, FilenameString);
+        
+        // Write the graph.
+        WriteDotGraph(State, OutputForDot.c_str(), *LayoutHandler);
+        
+        // Remove filename for this state.
+        llvm::sys::path::remove_filename(OutputForDot);
+      }
+    } while (seec::cm::moveForward(State.getThread(0)));
+  }
+  else {
+    llvm::outs() << "Using process-level iteration.\n";
+    llvm::outs() << State;
+  }
+}
+
 void PrintClangMapped(llvm::StringRef ExecutablePath)
 {
   // Attempt to setup the trace reader.
@@ -131,64 +197,11 @@ void PrintClangMapped(llvm::StringRef ExecutablePath)
   
   auto CMProcessTrace = CMProcessTraceLoad.move<0>();
   
-  // Print the states.
   if (ShowStates) {
-    seec::cm::ProcessState State(*CMProcessTrace);
-    
-    // If we're going to output dot graph files for the states, then setup the
-    // output directory and layout handler now.
-    std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
-    llvm::SmallString<256> OutputForDot;
-    std::string FilenameString;
-    llvm::raw_string_ostream FilenameStream {FilenameString};
-    long StateNumber = 1;
-    
-    if (!OutputDirectoryForClangMappedDot.empty()) {
-      OutputForDot = OutputDirectoryForClangMappedDot;
-      
-      bool Existed;
-      auto const Err =
-        llvm::sys::fs::create_directories(llvm::StringRef(OutputForDot),
-                                          Existed);
-      
-      if (Err != llvm::errc::success) {
-        llvm::errs() << "Couldn't create output directory.\n";
-        return;
-      }
-      
-      LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
-      LayoutHandler->addBuiltinLayoutEngines();
-    }
-    
-    if (State.getThreadCount() == 1) {
-      llvm::outs() << "Using thread-level iterator.\n";
-      
-      do {
-        // Write textual description to stdout.
-        llvm::outs() << State;
-        llvm::outs() << "\n";
-        
-        // If enabled, write graphs in dot format.
-        if (!OutputForDot.empty()) {
-          // Add filename for this state.
-          FilenameString.clear();
-          FilenameStream << "state." << StateNumber++ << ".dot";
-          FilenameStream.flush();
-          
-          llvm::sys::path::append(OutputForDot, FilenameString);
-          
-          // Write the graph.
-          WriteDotGraph(State, OutputForDot.c_str(), *LayoutHandler);
-          
-          // Remove filename for this state.
-          llvm::sys::path::remove_filename(OutputForDot);
-        }
-      } while (seec::cm::moveForward(State.getThread(0)));
-    }
-    else {
-      llvm::outs() << "Using process-level iteration.\n";
-      llvm::outs() << State;
-    }
+    PrintClangMappedStates(*CMProcessTrace);
+  }
+  else if (OnlinePythonTutor) {
+    PrintOnlinePythonTutor(*CMProcessTrace);
   }
 }
 
@@ -423,7 +436,7 @@ int main(int argc, char **argv, char * const *envp) {
     exit(EXIT_FAILURE);
   }
 
-  if (UseClangMapping) {
+  if (UseClangMapping || OnlinePythonTutor) {
     PrintClangMapped(ExecutablePath);
   }
   else {
