@@ -666,6 +666,8 @@ public:
   // fputc
   void preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
                  FILE *Stream);
+  void postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+                  FILE *Stream);
   
   // fputs
   void preCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
@@ -680,9 +682,11 @@ public:
   
   // putchar
   void preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
+  void postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
   
   // puts
   void preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  void postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   
   // ungetc
   void preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch,

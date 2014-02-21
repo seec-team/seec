@@ -369,6 +369,14 @@ preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
   Checker.checkStreamIsValid(1, Stream);
 }
 
+void
+TraceThreadListener::
+postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+{
+  char C = Ch;
+  recordStreamWrite(Stream, llvm::ArrayRef<char>(&C, 1));
+}
+
 
 //===------------------------------------------------------------------------===
 // fputs
@@ -442,6 +450,14 @@ preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
   Checker.checkStandardStreamIsValid(stdout);
 }
 
+void
+TraceThreadListener::
+postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
+{
+  char C = Ch;
+  recordStreamWrite(stdout, llvm::ArrayRef<char>(&C, 1));
+}
+
 
 //===------------------------------------------------------------------------===
 // puts
@@ -461,6 +477,14 @@ preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
   
   Checker.checkCStringRead(0, Str);
   Checker.checkStandardStreamIsValid(stdout);
+}
+
+void
+TraceThreadListener::
+postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
+{
+  auto const Length = std::strlen(Str);
+  recordStreamWriteFromMemory(stdout, MemoryArea(Str, Length));
 }
 
 
