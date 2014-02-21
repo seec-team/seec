@@ -135,6 +135,25 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
                                        ModeOffset);
 }
 
+void TraceThreadListener::recordStreamWrite(FILE *Stream,
+                                            llvm::ArrayRef<char> Data)
+{
+  auto const DataOffset = ProcessListener.recordData(Data.data(), Data.size());
+  
+  EventsOut.write<EventType::FileWrite>(reinterpret_cast<uintptr_t>(Stream),
+                                        DataOffset,
+                                        Data.size());
+}
+
+void TraceThreadListener::recordStreamWriteFromMemory(FILE *Stream,
+                                                      MemoryArea Area)
+{
+  EventsOut.write<EventType::FileWriteFromMemory>
+                 (reinterpret_cast<uintptr_t>(Stream),
+                  Area.start(),
+                  Area.length());
+}
+
 bool TraceThreadListener::recordStreamClose(FILE *Stream)
 {
   acquireStreamsLock();

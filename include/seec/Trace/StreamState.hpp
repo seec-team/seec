@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_STREAMSTATE_HPP
 #define SEEC_TRACE_STREAMSTATE_HPP
 
+#include "llvm/ADT/ArrayRef.h"
+
 #include <string>
 
 namespace llvm {
@@ -36,6 +38,9 @@ class StreamState {
   
   /// The mode used when opening the stream.
   std::string Mode;
+  
+  /// The data written to the stream.
+  std::string Written;
   
 public:
   /// \brief Constructor.
@@ -63,7 +68,24 @@ public:
   ///
   std::string const &getMode() const { return Mode; }
   
+  /// \brief Get the data written to the stream so far.
+  ///
+  std::string const &getWritten() const { return Written; }
+  
   /// @} (Accessors)
+  
+  /// \name Mutators
+  /// @{
+  
+  /// \brief Write the given bytes to the stream.
+  ///
+  void write(llvm::ArrayRef<char> Data);
+  
+  /// \brief Remove the given number of bytes from the end of the stream.
+  ///
+  void unwrite(uint64_t const Size);
+  
+  /// @} (Mutators)
 };
 
 /// Print a textual description of a StreamState.

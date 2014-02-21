@@ -597,6 +597,30 @@ void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
                                std::string{Mode}});
 }
 
+void ThreadState::addEvent(EventRecord<EventType::FileWrite> const &Ev)
+{
+  auto const Stream = Parent.getStream(Ev.getFileAddress());
+  assert(Stream && "FileWrite with unknown FILE!");
+  
+  Stream->write(Parent.getTrace().getData(Ev.getDataOffset(),
+                                          Ev.getDataSize()));
+}
+
+void
+ThreadState::addEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
+{
+  auto const Stream = Parent.getStream(Ev.getFileAddress());
+  assert(Stream && "FileWriteFromMemory with unknown FILE!");
+  
+  auto const Region = Parent.Memory.getRegion(MemoryArea(Ev.getDataAddress(),
+                                                         Ev.getDataSize()));
+  
+  assert(Region.isCompletelyInitialized() &&
+         "FileWriteFromMemory with invalid MemoryArea!");
+  
+  Stream->write(Region.getByteValues());
+}
+
 void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
 {
   Parent.removeStream(Ev.getFileAddress());
@@ -1155,6 +1179,23 @@ void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 void ThreadState::removeEvent(EventRecord<EventType::FileOpen> const &Ev)
 {
   Parent.removeStream(Ev.getFileAddress());
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::FileWrite> const &Ev)
+{
+  auto const Stream = Parent.getStream(Ev.getFileAddress());
+  assert(Stream && "FileWrite with unknown FILE!");
+  
+  Stream->unwrite(Ev.getDataSize());
+}
+
+void
+ThreadState::removeEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
+{
+  auto const Stream = Parent.getStream(Ev.getFileAddress());
+  assert(Stream && "FileWriteFromMemory with unknown FILE!");
+  
+  Stream->unwrite(Ev.getDataSize());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)

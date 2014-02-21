@@ -214,6 +214,21 @@ public:
                         char const *Filename,
                         char const *Mode);
   
+  /// \brief Record a write to a stream.
+  ///
+  /// pre: Own the StreamsLock.
+  ///
+  void recordStreamWrite(FILE *Stream, llvm::ArrayRef<char> Data);
+  
+  /// \brief Record a write to a stream from recorded memory.
+  ///
+  /// This save some space in the trace because we can use the data from the
+  /// recreated state rather than saving another copy into the trace data.
+  ///
+  /// pre: Own the StreamsLock.
+  ///
+  void recordStreamWriteFromMemory(FILE *Stream, MemoryArea Area);
+  
   /// \brief Record that a stream closed.
   ///
   /// This will acquire the StreamsLock if we don't have it already.
@@ -655,6 +670,8 @@ public:
   // fputs
   void preCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                  FILE *Stream);
+  void postCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  FILE *Stream);
   
   // getchar
   void preCgetchar(llvm::CallInst const *Call, uint32_t Index);

@@ -393,6 +393,17 @@ preCfputs(llvm::CallInst const *Call,
   Checker.checkStreamIsValid(1, Stream);
 }
 
+void
+TraceThreadListener::
+postCfputs(llvm::CallInst const *Call,
+           uint32_t Index,
+           char const *Str,
+           FILE *Stream)
+{
+  auto const Length = std::strlen(Str);
+  recordStreamWriteFromMemory(Stream, MemoryArea(Str, Length));
+}
+
 
 //===------------------------------------------------------------------------===
 // getchar

@@ -354,6 +354,26 @@ SEEC_TRACE_EVENT(FileOpen,
     (FileOpen, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(FileWrite,
+  SEEC_PP_QUOTE(
+    (uintptr_t,   FileAddress),
+    (offset_uint, DataOffset),
+    (uint64_t,    DataSize)
+  ),
+  SEEC_PP_QUOTE(
+    (FileWrite, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(FileWriteFromMemory,
+  SEEC_PP_QUOTE(
+    (uintptr_t, FileAddress),
+    (uintptr_t, DataAddress),
+    (uint64_t,  DataSize)
+  ),
+  SEEC_PP_QUOTE(
+    (FileWriteFromMemory, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(FileClose,
   SEEC_PP_QUOTE(
     (uintptr_t, FileAddress),

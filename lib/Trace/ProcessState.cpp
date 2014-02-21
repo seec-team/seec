@@ -153,6 +153,12 @@ bool ProcessState::removeStream(uintptr_t const Address)
   return Streams.erase(Address);
 }
 
+StreamState *ProcessState::getStream(uintptr_t const Address)
+{
+  auto const It = Streams.find(Address);
+  return It != Streams.end() ? &It->second : nullptr;
+}
+
 StreamState const *ProcessState::getStream(uintptr_t const Address) const
 {
   auto const It = Streams.find(Address);

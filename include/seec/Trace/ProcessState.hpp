@@ -339,6 +339,10 @@ public:
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
+  StreamState *getStream(uintptr_t Address);
+  
+  /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
+  ///
   StreamState const *getStream(uintptr_t Address) const;
   
   /// @} (Streams.)

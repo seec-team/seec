@@ -19,6 +19,18 @@ namespace seec {
 
 namespace trace {
 
+void StreamState::write(llvm::ArrayRef<char> Data)
+{
+  Written.append(Data.data(), Data.size());
+}
+
+void StreamState::unwrite(uint64_t const Size)
+{
+  assert(Written.size() >= Size);
+  
+  Written.resize(Written.size() - Size);
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               StreamState const &State)
 {

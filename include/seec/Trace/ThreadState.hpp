@@ -216,6 +216,8 @@ class ThreadState {
   void addEvent(EventRecord<EventType::KnownRegionRemove> const &);
   void addEvent(EventRecord<EventType::ByValRegionAdd> const &);
   void addEvent(EventRecord<EventType::FileOpen> const &);
+  void addEvent(EventRecord<EventType::FileWrite> const &);
+  void addEvent(EventRecord<EventType::FileWriteFromMemory> const &);
   void addEvent(EventRecord<EventType::FileClose> const &);
   void addEvent(EventRecord<EventType::DirOpen> const &);
   void addEvent(EventRecord<EventType::DirClose> const &);
@@ -269,6 +271,8 @@ private:
   void removeEvent(EventRecord<EventType::KnownRegionRemove> const &);
   void removeEvent(EventRecord<EventType::ByValRegionAdd> const &);
   void removeEvent(EventRecord<EventType::FileOpen> const &);
+  void removeEvent(EventRecord<EventType::FileWrite> const &);
+  void removeEvent(EventRecord<EventType::FileWriteFromMemory> const &);
   void removeEvent(EventRecord<EventType::FileClose> const &);
   void removeEvent(EventRecord<EventType::DirOpen> const &);
   void removeEvent(EventRecord<EventType::DirClose> const &);
