@@ -57,6 +57,10 @@ public:
   ///
   std::string const &getMode() const;
   
+  /// \brief Get the data written to the stream so far.
+  ///
+  std::string const &getWritten() const;
+  
   /// @} (Accessors.)
 };
 

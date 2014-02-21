@@ -279,7 +279,14 @@ void OPTPrinter::printState()
   printThread(Process.getThread(0));
 
   // stdout
-  Out << Indent.getString() << "\"stdout\": \"\",\n";
+  if (auto const Stream = Process.getStreamStdout()) {
+    Out << Indent.getString() << "\"stdout\": ";
+    writeJSONStringLiteral(Stream->getWritten(), Out);
+    Out << ",\n";
+  }
+  else {
+    Out << Indent.getString() << "\"stdout\": \"\",\n";
+  }
 
   // heap
   Out << Indent.getString() << "\"heap\": {}\n";

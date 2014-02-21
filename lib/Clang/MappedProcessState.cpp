@@ -235,6 +235,14 @@ StreamState const *ProcessState::getStream(uintptr_t const Address) const
   return It != Streams.end() ? &It->second : nullptr;
 }
 
+StreamState const *ProcessState::getStreamStdout() const
+{
+  auto const &StreamsInitial = UnmappedState->getTrace().getStreamsInitial();
+  if (StreamsInitial.size() >= 2)
+    return getStream(StreamsInitial[1]);
+  return nullptr;
+}
+
 
 //===----------------------------------------------------------------------===//
 // ProcessState: DIRs

@@ -37,6 +37,10 @@ std::string const &StreamState::getMode() const {
   return UnmappedState.getMode();
 }
 
+std::string const &StreamState::getWritten() const {
+  return UnmappedState.getWritten();
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, StreamState const &State)
 {
   Out << "@" << State.getAddress()

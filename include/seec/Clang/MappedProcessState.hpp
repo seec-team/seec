@@ -222,6 +222,10 @@ public:
   ///
   StreamState const *getStream(uintptr_t Address) const;
   
+  /// \brief Get a pointer to the stdout stream, if it is open.
+  ///
+  StreamState const *getStreamStdout() const;
+  
   /// @} (Streams.)
   
   
