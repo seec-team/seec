@@ -38,6 +38,19 @@ struct generate_sequence_int<StartEnd, StartEnd, Sequence...> {
   typedef sequence_int<Sequence...> type;
 };
 
+/// Check whether a compile-time sequence of bools are all true.
+/// From: http://stackoverflow.com/questions/13562823/parameter-pack-aware-stdis-base-of
+template<bool... B> struct static_all_of;
+
+template<bool... Tail>
+struct static_all_of<true, Tail...> : static_all_of<Tail...> {};
+
+template<bool... Tail>
+struct static_all_of<false, Tail...> : std::false_type {};
+
+template<>
+struct static_all_of<> : std::true_type {};
+
 } // namespace ct
 
 } // namespace seec

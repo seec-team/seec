@@ -51,19 +51,6 @@ public:
   }
 };
 
-/// Check whether a compile-time sequence of bools are all true.
-/// From: http://stackoverflow.com/questions/13562823/parameter-pack-aware-stdis-base-of
-template<bool... B> struct static_all_of;
-
-template<bool... Tail>
-struct static_all_of<true, Tail...> : static_all_of<Tail...> {};
-
-template<bool... Tail>
-struct static_all_of<false, Tail...> : std::false_type {};
-
-template<>
-struct static_all_of<> : std::true_type {};
-
 /// \brief Generic implementation of IEventHandler using std::function callback.
 ///
 template<typename... Ts>
@@ -75,7 +62,7 @@ class EventHandler : public IEventHandler
   
   // Check that all attributes would inherit from IAttributeReadWrite.
   static_assert(
-    static_all_of<
+    seec::ct::static_all_of<
       std::is_base_of<IAttributeReadWrite,
                       Attribute<typename std::add_lvalue_reference<Ts>::type>
                       >::value...>::value,
