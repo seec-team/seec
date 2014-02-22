@@ -1031,6 +1031,16 @@ struct ArgumentCheckerDispatch
 template<bool UseDIRChecker, typename...>
 struct ArgumentCheckerHandlerImpl;
 
+template<>
+struct ArgumentCheckerHandlerImpl<false, seec::ct::sequence_int<>>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn)
+  {}
+};
+
 template<int... ArgIs, typename... ArgTs>
 struct ArgumentCheckerHandlerImpl
   <true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
