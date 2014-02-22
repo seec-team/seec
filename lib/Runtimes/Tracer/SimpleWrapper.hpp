@@ -881,50 +881,6 @@ public:
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
 
-/// \brief Construct the correct primary checker.
-///
-template<bool UseCStdLibChecker, bool UseCIOChecker>
-struct ConstructPrimaryCheckerImpl;
-
-template<bool UseCSLC>
-struct ConstructPrimaryCheckerImpl<UseCSLC, true> {
-  static seec::trace::CIOChecker
-  impl(seec::trace::TraceThreadListener &Listener,
-       uint32_t const InstructionIndex,
-       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
-       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &SA)
-  {
-    return seec::trace::CIOChecker{Listener,
-                                   InstructionIndex,
-                                   FSFunction,
-                                   SA.getObject()};
-  }
-};
-
-template<>
-struct ConstructPrimaryCheckerImpl<true, false> {
-  static seec::trace::CStdLibChecker
-  impl(seec::trace::TraceThreadListener &Listener,
-       uint32_t const InstructionIndex,
-       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
-       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &)
-  {
-    return seec::trace::CStdLibChecker{Listener, InstructionIndex, FSFunction};
-  }
-};
-
-template<>
-struct ConstructPrimaryCheckerImpl<false, false> {
-  static seec::trace::CStdLibChecker
-  impl(seec::trace::TraceThreadListener &Listener,
-       uint32_t const InstructionIndex,
-       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
-       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &)
-  {
-    return seec::trace::CStdLibChecker{Listener, InstructionIndex, FSFunction};
-  }
-};
-
 /// \brief Check if ArgT's WrappedArgumentChecker is constructible using the
 ///        primary checker CheckerT.
 ///
@@ -948,29 +904,6 @@ public:
 template<typename CheckerT, typename... ArgTs>
 struct AnyRequireChecker
 : seec::ct::static_any_of<RequireChecker<CheckerT, ArgTs>::value...> {};
-
-/// \brief Construct the correct primary checker for the given argument types.
-///
-template<typename... ArgTs>
-class ConstructPrimaryChecker {
-  static bool const UseCStdLib =
-    AnyRequireChecker<seec::trace::CStdLibChecker, ArgTs...>::value;
-  static bool const UseCIO =
-    AnyRequireChecker<seec::trace::CIOChecker, ArgTs...>::value;
-
-  typedef ConstructPrimaryCheckerImpl<UseCStdLib, UseCIO> ConstructorImpl;
-
-public:
-  static auto
-  impl(seec::trace::TraceThreadListener &Listener,
-       uint32_t const InstructionIndex,
-       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
-       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &SA)
-  -> decltype(ConstructorImpl::impl(Listener, InstructionIndex, FSFunction, SA))
-  {
-    return ConstructorImpl::impl(Listener, InstructionIndex, FSFunction, SA);
-  }
-};
 
 /// \brief Check if the checker for ArgT requires a DIRChecker.
 ///
@@ -1028,11 +961,13 @@ struct ArgumentCheckerDispatch
 
 /// \brief Handles argument checking.
 ///
-template<bool UseDIRChecker, typename...>
+template<bool UseDIRChecker, bool UseCStdLib, bool UseCIO, typename...>
 struct ArgumentCheckerHandlerImpl;
 
+/// Specialization for no arguments.
+///
 template<>
-struct ArgumentCheckerHandlerImpl<false, seec::ct::sequence_int<>>
+struct ArgumentCheckerHandlerImpl<false, false, false, seec::ct::sequence_int<>>
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
@@ -1041,9 +976,11 @@ struct ArgumentCheckerHandlerImpl<false, seec::ct::sequence_int<>>
   {}
 };
 
-template<int... ArgIs, typename... ArgTs>
+/// Specialization for CIOChecker and DIRChecker.
+///
+template<bool UseCStdLib, int... ArgIs, typename... ArgTs>
 struct ArgumentCheckerHandlerImpl
-  <true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+  <true, UseCStdLib, true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
@@ -1051,14 +988,9 @@ struct ArgumentCheckerHandlerImpl
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
     auto StreamsAccessor = Process.getStreamsAccessor();
-    
-    // Create the memory checker.
-    auto Checker = ConstructPrimaryChecker<ArgTs...>
-                      ::impl(Thread, Instruction, Fn, StreamsAccessor);
-    
-    // This causes the ThreadListener to acquire the DirsLock.
+    seec::trace::CIOChecker Checker
+      {Thread, Instruction, Fn, StreamsAccessor.getObject()};
     seec::trace::DIRChecker DIRChecker
       {Thread, Instruction, Fn, Thread.getDirs()};
     
@@ -1077,9 +1009,11 @@ struct ArgumentCheckerHandlerImpl
   }
 };
 
+/// Specialization for CStdLibChecker and DIRChecker.
+///
 template<int... ArgIs, typename... ArgTs>
 struct ArgumentCheckerHandlerImpl
-  <false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+  <true, true, false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
@@ -1087,17 +1021,70 @@ struct ArgumentCheckerHandlerImpl
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = Process.getStreamsAccessor();
-    
-    // Create the memory checker.
-    auto Checker = ConstructPrimaryChecker<ArgTs...>
-                      ::impl(Thread, Instruction, Fn, StreamsAccessor);
+    seec::trace::CStdLibChecker Checker{Thread, Instruction, Fn};
+    seec::trace::DIRChecker DIRChecker
+      {Thread, Instruction, Fn, Thread.getDirs()};
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
-      ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, &DIRChecker, Args, ArgIs)...
     };
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+/// Specialization for CIOChecker.
+///
+template<bool UseCStdLib, int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <false, UseCStdLib, true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    auto StreamsAccessor = Process.getStreamsAccessor();
+    seec::trace::CIOChecker Checker
+      {Thread, Instruction, Fn, StreamsAccessor.getObject()};
+    
+    std::vector<bool> InputChecks
+      {ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...};
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+/// Specialization for CStdLibChecker.
+///
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <false, true, false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    seec::trace::CStdLibChecker Checker{Thread, Instruction, Fn};
+    
+    std::vector<bool> InputChecks
+      {ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...};
     
 #ifndef NDEBUG
     for (auto const InputCheck : InputChecks) {
@@ -1114,9 +1101,12 @@ struct ArgumentCheckerHandler;
 
 template<int... ArgIs, typename... ArgTs>
 struct ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
-: ArgumentCheckerHandlerImpl<AnyRequireDIRChecker<ArgTs...>::value,
-                             seec::ct::sequence_int<ArgIs...>,
-                             ArgTs...> {};
+: ArgumentCheckerHandlerImpl<
+    AnyRequireDIRChecker<ArgTs...>::value,
+    AnyRequireChecker<seec::trace::CStdLibChecker, ArgTs...>::value,
+    AnyRequireChecker<seec::trace::CIOChecker, ArgTs...>::value,
+    seec::ct::sequence_int<ArgIs...>,
+    ArgTs...> {};
 
 template<typename RetT,
          typename FnT,
