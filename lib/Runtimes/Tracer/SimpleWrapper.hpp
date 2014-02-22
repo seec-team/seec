@@ -981,6 +981,12 @@ struct RequireDIRChecker
     seec::trace::CIOChecker &,
     seec::trace::DIRChecker &> {};
 
+/// \brief Check if any of the checkers for ArgTs requires a DIRChecker.
+///
+template<typename... ArgTs>
+struct AnyRequireDIRChecker
+: seec::ct::static_any_of<RequireDIRChecker<ArgTs>::value...> {};
+
 /// \brief Dispatch to a single argument checker.
 ///
 template<typename ArgT, typename Enable = void>
@@ -990,13 +996,15 @@ template<typename ArgT>
 struct ArgumentCheckerDispatch
   <ArgT, typename std::enable_if<RequireDIRChecker<ArgT>::value>::type>
 {
-  template<typename CheckT, typename DIRCheckT>
-  static bool impl(CheckT &&Check, DIRCheckT &&DIRCheck, ArgT &Arg, int Index)
+  template<typename CheckT>
+  static bool impl(CheckT &&Check,
+                   seec::trace::DIRChecker *DIRCheck,
+                   ArgT &Arg,
+                   int Index)
   {
     return
       WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
-                            (std::forward<CheckT>(Check),
-                             std::forward<DIRCheckT>(DIRCheck))
+                            (std::forward<CheckT>(Check), *DIRCheck)
                             .check(Arg, Index);
   }
 };
@@ -1005,8 +1013,11 @@ template<typename ArgT>
 struct ArgumentCheckerDispatch
   <ArgT, typename std::enable_if<!RequireDIRChecker<ArgT>::value>::type>
 {
-  template<typename CheckT, typename DIRCheckT>
-  static bool impl(CheckT &&Check, DIRCheckT &&DIRCheck, ArgT &Arg, int Index)
+  template<typename CheckT>
+  static bool impl(CheckT &&Check,
+                   seec::trace::DIRChecker *DIRCheck,
+                   ArgT &Arg,
+                   int Index)
   {
     return
       WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
@@ -1017,19 +1028,18 @@ struct ArgumentCheckerDispatch
 
 /// \brief Handles argument checking.
 ///
-template<typename...>
-class ArgumentCheckerHandler;
+template<bool UseDIRChecker, typename...>
+struct ArgumentCheckerHandlerImpl;
 
 template<int... ArgIs, typename... ArgTs>
-class ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...> {
-  ArgumentCheckerHandler() {}
-
-public:
+struct ArgumentCheckerHandlerImpl
+  <true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
                    uint32_t const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
-                   ArgTs &&... Args)
+                   ArgTs &... Args)
   {
     // TODO: Don't acquire stream lock if we don't need a CIOChecker.
     auto StreamsAccessor = Process.getStreamsAccessor();
@@ -1038,16 +1048,13 @@ public:
     auto Checker = ConstructPrimaryChecker<ArgTs...>
                       ::impl(Thread, Instruction, Fn, StreamsAccessor);
     
-    // Create a DIR checker. TODO: Don't do this if we don't need it.
     // This causes the ThreadListener to acquire the DirsLock.
-    seec::trace::DIRChecker DIRChecker {Thread,
-                                        Instruction,
-                                        Fn,
-                                        Thread.getDirs()};
+    seec::trace::DIRChecker DIRChecker
+      {Thread, Instruction, Fn, Thread.getDirs()};
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
-      ArgumentCheckerDispatch<ArgTs>::impl(Checker, DIRChecker, Args, ArgIs)...
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, &DIRChecker, Args, ArgIs)...
     };
     
 #ifndef NDEBUG
@@ -1059,6 +1066,47 @@ public:
     InputChecks.clear();
   }
 };
+
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
+    auto StreamsAccessor = Process.getStreamsAccessor();
+    
+    // Create the memory checker.
+    auto Checker = ConstructPrimaryChecker<ArgTs...>
+                      ::impl(Thread, Instruction, Fn, StreamsAccessor);
+    
+    // Check each of the inputs.
+    std::vector<bool> InputChecks {
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...
+    };
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+template<typename...>
+struct ArgumentCheckerHandler;
+
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+: ArgumentCheckerHandlerImpl<AnyRequireDIRChecker<ArgTs...>::value,
+                             seec::ct::sequence_int<ArgIs...>,
+                             ArgTs...> {};
 
 template<typename RetT,
          typename FnT,
@@ -1116,11 +1164,7 @@ public:
     
     // Check each of the inputs.
     ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
-      ::impl(ProcessListener,
-             Listener,
-             InstructionIndex,
-             FSFunction,
-             std::forward<ArgTs>(Args)...);
+      ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
@@ -1230,11 +1274,7 @@ public:
     
     // Check each of the inputs.
     ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
-      ::impl(ProcessListener,
-             Listener,
-             InstructionIndex,
-             FSFunction,
-             std::forward<ArgTs>(Args)...);
+      ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
