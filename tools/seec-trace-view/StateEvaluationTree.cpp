@@ -237,6 +237,12 @@ void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
     TipString += "\n";
   }
   
+  // Add the type of the value.
+  if (auto const E = llvm::dyn_cast<clang::Expr>(Statement)) {
+    TipString += E->getType().getAsString();
+    TipString += "\n";
+  }
+  
   // Attempt to get a general explanation of the statement.
   auto const MaybeExplanation =
     seec::clang_epv::explain(Statement,
