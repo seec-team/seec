@@ -1028,7 +1028,17 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
     }
   });
 
-  // TODO: Load all source files.
+  // Load main source files.
+  auto &MappedModule = Trace->getTrace().getMapping();
+  
+  for (auto const MappedAST : MappedModule.getASTs()) {
+    if (MappedAST) {
+      auto const &Unit = MappedAST->getASTUnit();
+      auto const &SrcMgr = Unit.getSourceManager();
+      auto const FileEntry = SrcMgr.getFileEntryForID(SrcMgr.getMainFileID());
+      loadAndShowFile(FileEntry, *MappedAST);
+    }
+  }
   
   return true;
 }

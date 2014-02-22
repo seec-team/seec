@@ -472,6 +472,16 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   return ASTRaw;
 }
 
+std::vector<MappedAST const *> MappedModule::getASTs() const {
+  std::lock_guard<std::mutex> Lock{ASTMutex};
+  std::vector<MappedAST const *> ASTs;
+
+  for (auto const &AST : ASTList)
+    ASTs.emplace_back(AST.get());
+
+  return ASTs;
+}
+
 std::pair<MappedAST const *, clang::Decl const *>
 MappedModule::getASTAndDecl(llvm::MDNode const *DeclIdentifier) const {
   assert(DeclIdentifier && DeclIdentifier->getNumOperands() == 2);

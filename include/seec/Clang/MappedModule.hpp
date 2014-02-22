@@ -395,6 +395,10 @@ public:
   ///
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
   
+  /// \brief Get all loaded ASTs.
+  ///
+  std::vector<MappedAST const *> getASTs() const;
+  
   /// \brief Get the AST and clang::Decl for the given Declaration Identifier.
   ///
   std::pair<MappedAST const *, clang::Decl const *>
