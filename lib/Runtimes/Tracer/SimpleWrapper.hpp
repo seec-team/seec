@@ -983,6 +983,52 @@ public:
   }
 };
 
+/// \brief Handles argument checking.
+///
+template<typename...>
+class ArgumentCheckerHandler;
+
+template<int... ArgIs, typename... ArgTs>
+class ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...> {
+  ArgumentCheckerHandler() {}
+
+public:
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &&... Args)
+  {
+    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
+    auto StreamsAccessor = Process.getStreamsAccessor();
+    
+    // Create the memory checker.
+    auto Checker = ConstructPrimaryChecker<ArgTs...>
+                      ::impl(Thread, Instruction, Fn, StreamsAccessor);
+    
+    // Create a DIR checker. TODO: Don't do this if we don't need it.
+    // This causes the ThreadListener to acquire the DirsLock.
+    seec::trace::DIRChecker DIRChecker {Thread,
+                                        Instruction,
+                                        Fn,
+                                        Thread.getDirs()};
+    
+    // Check each of the inputs.
+    std::vector<bool> InputChecks {
+      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
+                             (Checker, DIRChecker).check(Args, ArgIs))...
+    };
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
 template<typename RetT,
          typename FnT,
          typename SuccessPredT,
@@ -1037,34 +1083,13 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    
-    // Create the memory checker.
-    auto Checker = ConstructPrimaryChecker<ArgTs...>::impl(Listener,
-                                                           InstructionIndex,
-                                                           FSFunction,
-                                                           StreamsAccessor);
-    
-    // Create a DIR checker. TODO: Don't do this if we don't need it.
-    // This causes the ThreadListener to acquire the DirsLock.
-    seec::trace::DIRChecker DIRChecker {Listener,
-                                        InstructionIndex,
-                                        FSFunction,
-                                        Listener.getDirs()};
-    
-    
     // Check each of the inputs.
-    std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker, DIRChecker).check(Args, ArgIs))...
-    };
-    
-#ifndef NDEBUG
-    for (auto const InputCheck : InputChecks) {
-      assert(InputCheck && "Input check failed.");
-    }
-#endif
+    ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+      ::impl(ProcessListener,
+             Listener,
+             InstructionIndex,
+             FSFunction,
+             std::forward<ArgTs>(Args)...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
@@ -1172,31 +1197,13 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    
-    // Create the memory checker.
-    auto Checker = ConstructPrimaryChecker<ArgTs...>::impl(Listener,
-                                                           InstructionIndex,
-                                                           FSFunction,
-                                                           StreamsAccessor);
-    
-    // Create a DIR checker. TODO: Don't do this if we don't need it.
-    // This causes the ThreadListener to acquire the DirsLock.
-    seec::trace::DIRChecker DIRChecker {Listener,
-                                        InstructionIndex,
-                                        FSFunction,
-                                        Listener.getDirs()};
-    
     // Check each of the inputs.
-    std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker, DIRChecker).check(Args, ArgIs))...
-    };
-    
-    for (auto const InputCheck : InputChecks) {
-      assert(InputCheck && "Input check failed.");
-    }
+    ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+      ::impl(ProcessListener,
+             Listener,
+             InstructionIndex,
+             FSFunction,
+             std::forward<ArgTs>(Args)...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
