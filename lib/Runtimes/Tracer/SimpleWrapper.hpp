@@ -892,6 +892,97 @@ public:
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
 
+/// \brief Construct the correct primary checker.
+///
+template<bool UseCStdLibChecker, bool UseCIOChecker>
+struct ConstructPrimaryCheckerImpl;
+
+template<bool UseCSLC>
+struct ConstructPrimaryCheckerImpl<UseCSLC, true> {
+  static seec::trace::CIOChecker
+  impl(seec::trace::TraceThreadListener &Listener,
+       uint32_t const InstructionIndex,
+       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
+       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &SA)
+  {
+    return seec::trace::CIOChecker{Listener,
+                                   InstructionIndex,
+                                   FSFunction,
+                                   SA.getObject()};
+  }
+};
+
+template<>
+struct ConstructPrimaryCheckerImpl<true, false> {
+  static seec::trace::CStdLibChecker
+  impl(seec::trace::TraceThreadListener &Listener,
+       uint32_t const InstructionIndex,
+       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
+       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &)
+  {
+    return seec::trace::CStdLibChecker{Listener, InstructionIndex, FSFunction};
+  }
+};
+
+template<>
+struct ConstructPrimaryCheckerImpl<false, false> {
+  static seec::trace::CStdLibChecker
+  impl(seec::trace::TraceThreadListener &Listener,
+       uint32_t const InstructionIndex,
+       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
+       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &)
+  {
+    return seec::trace::CStdLibChecker{Listener, InstructionIndex, FSFunction};
+  }
+};
+
+/// \brief Check if ArgT's WrappedArgumentChecker is constructible using the
+///        primary checker CheckerT.
+///
+template<typename CheckerT, typename ArgT>
+class RequireChecker
+{
+  typedef WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+          WACTy;
+
+  static bool const C1 = std::is_constructible<WACTy, CheckerT &>::value;
+  static bool const C2 =
+    std::is_constructible<WACTy, CheckerT &, seec::trace::DIRChecker &>::value;
+
+public:
+  static bool const value = C1 || C2;
+};
+
+/// \brief Check if any of ArgTs's WrappedArgumentChecker types are
+///        constructible using the primary checker CheckerT.
+///
+template<typename CheckerT, typename... ArgTs>
+struct AnyRequireChecker
+: seec::ct::static_any_of<RequireChecker<CheckerT, ArgTs>::value...> {};
+
+/// \brief Construct the correct primary checker for the given argument types.
+///
+template<typename... ArgTs>
+class ConstructPrimaryChecker {
+  static bool const UseCStdLib =
+    AnyRequireChecker<seec::trace::CStdLibChecker, ArgTs...>::value;
+  static bool const UseCIO =
+    AnyRequireChecker<seec::trace::CIOChecker, ArgTs...>::value;
+
+  typedef ConstructPrimaryCheckerImpl<UseCStdLib, UseCIO> ConstructorImpl;
+
+public:
+  static auto
+  impl(seec::trace::TraceThreadListener &Listener,
+       uint32_t const InstructionIndex,
+       seec::runtime_errors::format_selects::CStdFunction const FSFunction,
+       seec::LockedObjectAccessor<seec::trace::TraceStreams, std::mutex> &SA)
+  -> decltype(ConstructorImpl::impl(Listener, InstructionIndex, FSFunction, SA))
+  {
+    return ConstructorImpl::impl(Listener, InstructionIndex, FSFunction, SA);
+  }
+};
+
 template<typename RetT,
          typename FnT,
          typename SuccessPredT,
@@ -950,10 +1041,10 @@ public:
     auto StreamsAccessor = ProcessListener.getStreamsAccessor();
     
     // Create the memory checker.
-    seec::trace::CIOChecker Checker {Listener,
-                                     InstructionIndex,
-                                     FSFunction,
-                                     StreamsAccessor.getObject()};
+    auto Checker = ConstructPrimaryChecker<ArgTs...>::impl(Listener,
+                                                           InstructionIndex,
+                                                           FSFunction,
+                                                           StreamsAccessor);
     
     // Create a DIR checker. TODO: Don't do this if we don't need it.
     // This causes the ThreadListener to acquire the DirsLock.
@@ -1085,10 +1176,10 @@ public:
     auto StreamsAccessor = ProcessListener.getStreamsAccessor();
     
     // Create the memory checker.
-    seec::trace::CIOChecker Checker {Listener,
-                                     InstructionIndex,
-                                     FSFunction,
-                                     StreamsAccessor.getObject()};
+    auto Checker = ConstructPrimaryChecker<ArgTs...>::impl(Listener,
+                                                           InstructionIndex,
+                                                           FSFunction,
+                                                           StreamsAccessor);
     
     // Create a DIR checker. TODO: Don't do this if we don't need it.
     // This causes the ThreadListener to acquire the DirsLock.
