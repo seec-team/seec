@@ -464,7 +464,8 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
   virtual bool isValidOpaqueImpl() const override {
-    return ProcessState.getDir(RawValue) != nullptr;
+    return ProcessState.getDir(RawValue) != nullptr
+        || ProcessState.getStream(RawValue) != nullptr;
   }
   
   /// \brief Get the raw value of this pointer.
@@ -1768,7 +1769,8 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
   virtual bool isValidOpaqueImpl() const override {
-    return ProcessState.getDir(PtrValue) != nullptr;
+    return ProcessState.getDir(PtrValue) != nullptr
+        || ProcessState.getStream(PtrValue) != nullptr;
   }
   
   /// \brief Get the raw value of this pointer.

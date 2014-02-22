@@ -1901,6 +1901,59 @@ doLayout(LayoutHandler const &Handler,
 
 
 //===----------------------------------------------------------------------===//
+// Render Streams
+//===----------------------------------------------------------------------===//
+
+static
+std::pair<Maybe<LayoutOfArea>, MemoryArea>
+doLayout(StreamState const &State, Expansion const &Expansion)
+{
+  auto const Address = State.getAddress();
+  
+  // Don't render unreferenced streams.
+  if (!Expansion.isAreaReferenced(Address, Address + 1))
+    return std::make_pair(Maybe<LayoutOfArea>(), MemoryArea{Address, 1});
+  
+  // Generate the identifier for this node.
+  auto const IDString = std::string{"area_at_"} + std::to_string(Address);
+  
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  Stream << IDString
+         << " [ label = <"
+            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  // TODO: Make a href for unreferenced Streams?
+  Stream << "><TR><TD PORT=\"opaque\">";
+  
+  // Attempt to load text from the resource bundle.
+  auto const MaybeText =
+    seec::getString("SeeCClang",
+                    (char const *[]){"Graph", "Descriptions", "Stream"});
+  
+  if (MaybeText.assigned<UnicodeString>()) {
+    // Attempt to format and insert the text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(MaybeText.get<UnicodeString>(), Status,
+                                        State.getFilename().c_str());
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+  }
+  
+  Stream << "</TD></TR></TABLE>> ];\n";
+  Stream.flush();
+  
+  return std::make_pair(Maybe<LayoutOfArea>
+                             (LayoutOfArea{std::move(IDString),
+                              std::move(DotString),
+                              ValuePortMap{}}),
+                        MemoryArea{Address, 1});
+}
+
+
+//===----------------------------------------------------------------------===//
 // Render DIRs
 //===----------------------------------------------------------------------===//
 
@@ -2157,6 +2210,13 @@ doLayout(LayoutHandler const &Handler,
         return doLayout(Handler, Area, Expansion, AreaType::Static); } ));
   }
   
+  // Generate stream layouts.
+  for (auto const &Stream : State.getStreams()) {
+    AreaLayouts.emplace_back(
+      std::async([&, Stream] () {
+        return doLayout(Stream.second, Expansion); } ));
+  }
+  
   // Generate DIR layouts.
   for (auto const &Dir : State.getDIRs()) {
     AreaLayouts.emplace_back(
@@ -2205,6 +2265,10 @@ doLayout(LayoutHandler const &Handler,
                                                  Known.Value),
                                       Expansion,
                                       AreaType::Static));
+  
+  // Generate stream layouts.
+  for (auto const &Stream : State.getStreams())
+    AreaLayouts.emplace_back(doLayout(Stream.second, Expansion));
   
   // Generate DIR layouts.
   for (auto const &Dir : State.getDIRs())
