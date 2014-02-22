@@ -958,6 +958,35 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   return NumAssignments;
 }
 
+class ResultStateRecorderForFwrite {
+  void const * const Buffer;
+
+  std::size_t const ObjectSize;
+
+  FILE * const Stream;
+
+public:
+  ResultStateRecorderForFwrite(void const *WithBuffer,
+                               std::size_t WithObjectSize,
+                               FILE *WithStream)
+  : Buffer(WithBuffer),
+    ObjectSize(WithObjectSize),
+    Stream(WithStream)
+  {}
+
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              std::size_t const ObjectsWritten)
+  {
+    if (!ObjectsWritten)
+      return;
+
+    auto const Data = reinterpret_cast<char const *>(Buffer);
+    auto const Size = ObjectsWritten * ObjectSize;
+    ThreadListener.recordStreamWrite(Stream, llvm::ArrayRef<char>(Data, Size));
+  }
+};
+
 
 extern "C" {
 
@@ -1001,7 +1030,7 @@ SEEC_MANGLE_FUNCTION(fwrite)
       {seec::runtime_errors::format_selects::CStdFunction::fwrite}
       (fwrite,
        [](size_t Result){ return Result != 0; },
-       seec::ResultStateRecorderForNoOp(),
+       ResultStateRecorderForFwrite{buffer, size, stream},
        seec::wrapInputPointer(CharBuffer).setSize(size * count),
        size,
        count,
