@@ -1649,6 +1649,149 @@ SEEC_MANGLE_FUNCTION(sscanf)
   return NumConversions;
 }
 
+//===----------------------------------------------------------------------===//
+// printf
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(printf)
+(char const *Format, ...)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  Listener.acquireGlobalMemoryWriteLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::printf;
+
+  seec::trace::CIOChecker Checker
+    {Listener, InstructionIndex, FSFunction, StreamsAccessor.getObject()};
+
+  seec::trace::detect_calls::VarArgList<seec::trace::TraceThreadListener>
+    VarArgs{Listener, llvm::CallSite(Instruction), 1};
+
+  // Check that the stream, format, and arguments are valid.
+  if (!Checker.checkStandardStreamIsValid(stdout))
+    return -1;
+
+  if (!Checker.checkPrintFormat(0, Format, VarArgs))
+    return -1;
+
+  int Written = 0;
+
+  if (VarArgs.size() == 0) {
+    // Shortcut for fprintf() with no variadic arguments.
+    Written = std::strlen(Format);
+    fputs(Format, stdout);
+    Listener.recordStreamWriteFromMemory(stdout,
+                                         seec::MemoryArea(Format, Written));
+  }
+  else {
+    // Defer to vsnprintf to perform the formatting.
+    va_list Args;
+    va_start(Args, Format);
+
+    va_list Args2;
+    va_copy(Args2, Args);
+
+    auto const SizeRequired = vsnprintf(nullptr, 0, Format, Args);
+    va_end(Args);
+
+    std::unique_ptr<char []> Buffer {new char[SizeRequired + 1]};
+    Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
+    va_end(Args2);
+
+    // Write the formatted string to the stream.
+    fputs(Buffer.get(), stdout);
+    Listener.recordStreamWrite(stdout,
+                               llvm::ArrayRef<char>(Buffer.get(), Written));
+  }
+
+  // Record the produced value.
+  typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+  Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+  return Written;
+}
+
+//===----------------------------------------------------------------------===//
+// fprintf
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fprintf)
+(FILE *Stream, char const *Format, ...)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  Listener.acquireGlobalMemoryWriteLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::fprintf;
+
+  seec::trace::CIOChecker Checker
+    {Listener, InstructionIndex, FSFunction, StreamsAccessor.getObject()};
+
+  seec::trace::detect_calls::VarArgList<seec::trace::TraceThreadListener>
+    VarArgs{Listener, llvm::CallSite(Instruction), 2};
+
+  // Check that the stream, format, and arguments are valid.
+  if (!Checker.checkStreamIsValid(0, Stream))
+    return -1;
+
+  if (!Checker.checkPrintFormat(1, Format, VarArgs))
+    return -1;
+
+  int Written = 0;
+
+  if (VarArgs.size() == 0) {
+    // Shortcut for fprintf() with no variadic arguments.
+    Written = std::strlen(Format);
+    fputs(Format, Stream);
+    Listener.recordStreamWriteFromMemory(Stream,
+                                         seec::MemoryArea(Format, Written));
+  }
+  else {
+    // Defer to vsnprintf to perform the formatting.
+    va_list Args;
+    va_start(Args, Format);
+
+    va_list Args2;
+    va_copy(Args2, Args);
+
+    auto const SizeRequired = vsnprintf(nullptr, 0, Format, Args);
+    va_end(Args);
+
+    std::unique_ptr<char []> Buffer {new char[SizeRequired + 1]};
+    Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
+    va_end(Args2);
+
+    // Write the formatted string to the stream.
+    fputs(Buffer.get(), Stream);
+    Listener.recordStreamWrite(Stream,
+                               llvm::ArrayRef<char>(Buffer.get(), Written));
+  }
+
+  // Record the produced value.
+  typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+  Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+  return Written;
+}
 
 //===----------------------------------------------------------------------===//
 // sprintf

@@ -485,6 +485,9 @@ postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
 {
   auto const Length = std::strlen(Str);
   recordStreamWriteFromMemory(stdout, MemoryArea(Str, Length));
+
+  char NL[] = "\n";
+  recordStreamWrite(stdout, llvm::ArrayRef<char>(NL, std::strlen(NL)));
 }
 
 
@@ -504,55 +507,6 @@ preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkStreamIsValid(1, Stream);
-}
-
-
-//===------------------------------------------------------------------------===
-// printf
-//===------------------------------------------------------------------------===
-
-void
-TraceThreadListener::
-preCprintf(llvm::CallInst const *Call,
-           uint32_t Index,
-           char const *Str,
-           detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  using namespace seec::runtime_errors::format_selects;
-  
-  acquireGlobalMemoryWriteLock();
-  acquireStreamsLock();
-  
-  CIOChecker Checker(*this, Index, CStdFunction::printf,
-                     ProcessListener.getStreams(StreamsLock));
-  
-  Checker.checkStandardStreamIsValid(stdout);
-  Checker.checkPrintFormat(0, Str, Args);
-}
-
-
-//===------------------------------------------------------------------------===
-// fprintf
-//===------------------------------------------------------------------------===
-
-void
-TraceThreadListener::
-preCfprintf(llvm::CallInst const *Call,
-            uint32_t Index,
-            FILE *Out,
-            char const *Str,
-            detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  using namespace seec::runtime_errors::format_selects;
-  
-  acquireGlobalMemoryWriteLock();
-  acquireStreamsLock();
-  
-  CIOChecker Checker(*this, Index, CStdFunction::fprintf,
-                     ProcessListener.getStreams(StreamsLock));
-  
-  Checker.checkStreamIsValid(0, Out);
-  Checker.checkPrintFormat(1, Str, Args);
 }
 
 

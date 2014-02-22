@@ -698,15 +698,6 @@ public:
   /// \name Detect Calls - stdio.h formatted input/output.
   /// @{
   
-  // printf
-  void preCprintf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  detect_calls::VarArgList<TraceThreadListener> const &Args);
-  
-  // fprintf
-  void preCfprintf(llvm::CallInst const *Call, uint32_t Index, FILE *Out,
-                   char const *Str,
-                   detect_calls::VarArgList<TraceThreadListener> const &Args);
-  
   // snprintf
   void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
                     std::size_t BufSize, char const *Str,
