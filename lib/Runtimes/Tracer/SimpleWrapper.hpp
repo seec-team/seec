@@ -122,15 +122,10 @@ constexpr bool isSettingInList() {
 ///
 template<typename T>
 class WrappedArgumentChecker {
-  /// The underlying memory checker.
-  seec::trace::CStdLibChecker &Checker;
-
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
-  : Checker(WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &)
   {}
   
   /// \brief Check if the given value is OK.
@@ -264,8 +259,7 @@ class WrappedArgumentChecker<WrappedInputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -336,8 +330,7 @@ class WrappedArgumentChecker<WrappedInputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -404,8 +397,7 @@ class WrappedArgumentChecker<WrappedInputCStringArray>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -472,8 +464,7 @@ class WrappedArgumentChecker<WrappedInputFILE>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -600,8 +591,7 @@ class WrappedArgumentChecker<WrappedOutputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -711,8 +701,7 @@ class WrappedArgumentChecker<WrappedOutputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -983,6 +972,49 @@ public:
   }
 };
 
+/// \brief Check if the checker for ArgT requires a DIRChecker.
+///
+template<typename ArgT>
+struct RequireDIRChecker
+: std::is_constructible<
+    WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>,
+    seec::trace::CIOChecker &,
+    seec::trace::DIRChecker &> {};
+
+/// \brief Dispatch to a single argument checker.
+///
+template<typename ArgT, typename Enable = void>
+struct ArgumentCheckerDispatch;
+
+template<typename ArgT>
+struct ArgumentCheckerDispatch
+  <ArgT, typename std::enable_if<RequireDIRChecker<ArgT>::value>::type>
+{
+  template<typename CheckT, typename DIRCheckT>
+  static bool impl(CheckT &&Check, DIRCheckT &&DIRCheck, ArgT &Arg, int Index)
+  {
+    return
+      WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+                            (std::forward<CheckT>(Check),
+                             std::forward<DIRCheckT>(DIRCheck))
+                            .check(Arg, Index);
+  }
+};
+
+template<typename ArgT>
+struct ArgumentCheckerDispatch
+  <ArgT, typename std::enable_if<!RequireDIRChecker<ArgT>::value>::type>
+{
+  template<typename CheckT, typename DIRCheckT>
+  static bool impl(CheckT &&Check, DIRCheckT &&DIRCheck, ArgT &Arg, int Index)
+  {
+    return
+      WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+                            (std::forward<CheckT>(Check))
+                            .check(Arg, Index);
+  }
+};
+
 /// \brief Handles argument checking.
 ///
 template<typename...>
@@ -1015,8 +1047,7 @@ public:
     
     // Check each of the inputs.
     std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker, DIRChecker).check(Args, ArgIs))...
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, DIRChecker, Args, ArgIs)...
     };
     
 #ifndef NDEBUG
