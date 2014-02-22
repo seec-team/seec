@@ -1,4 +1,4 @@
-add_executable(seec-trace-print main.cpp OnlinePythonTutor.cpp)
+add_executable(seec-print main.cpp OnlinePythonTutor.cpp)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
@@ -30,7 +30,7 @@ execute_process(
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 
-target_link_libraries(seec-trace-print
+target_link_libraries(seec-print
  # SeeC libraries
  SeeCClang
  SeeCClangMappedTrace
@@ -65,7 +65,7 @@ target_link_libraries(seec-trace-print
  ${LLVM_LIB_DEPS}
 )
 
-INSTALL(TARGETS seec-trace-print
+INSTALL(TARGETS seec-print
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

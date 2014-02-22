@@ -75,9 +75,9 @@ set(SEEC_TRACE_VIEW_SRCS
 # Create the executable.
 #--------------------------------------------------------------------------------
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
+  add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
 else()
-  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_SRCS})
+  add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_SRCS})
 endif()
 
 #--------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 #--------------------------------------------------------------------------------
 # Link.
 #--------------------------------------------------------------------------------
-target_link_libraries(seec-trace-view
+target_link_libraries(seec-view
  # wxWidgets libraries
  ${REQ_WX_LIBRARIES}
  
@@ -156,27 +156,27 @@ target_link_libraries(seec-trace-view
 # Bundle options for Mac OS X
 #--------------------------------------------------------------------------------
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set_target_properties(seec-trace-view PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/Info.plist.in)
+  set_target_properties(seec-view PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/Info.plist.in)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 #--------------------------------------------------------------------------------
 # Installation settings.
 #--------------------------------------------------------------------------------
-INSTALL(TARGETS seec-trace-view
+INSTALL(TARGETS seec-view
   BUNDLE DESTINATION ${BUNDLE_PREFIX} COMPONENT Runtime
   RUNTIME DESTINATION bin COMPONENT Runtime
 )
 
 # Copy all of our resources into the bundle's Resources directory.
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+  INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Resources)
   
   get_property(RES_FILES GLOBAL PROPERTY SEEC_RESOURCE_FILES)
   foreach(RES_FILE ${RES_FILES})
-    INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+    INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Resources)
   endforeach(RES_FILE)
 
-  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Contents/Resources/)
+  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Contents/Resources/)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 # Linux-specific installation options.
