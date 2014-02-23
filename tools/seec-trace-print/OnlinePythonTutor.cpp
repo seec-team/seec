@@ -103,7 +103,35 @@ uint32_t OPTPrinter::getFrameID(FunctionState const &Function)
 
 void OPTPrinter::printValue(Value const &V)
 {
-  writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+  switch (V.getKind()) {
+    case Value::Kind::Basic:
+      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      break;
+
+    case Value::Kind::Scalar:
+      if (V.isCompletelyInitialized())
+        Out << V.getValueAsStringFull();
+      else
+        writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      break;
+
+    case Value::Kind::Array:
+      writeJSONStringLiteral("<cannot render correctly>", Out);
+      break;
+
+    case Value::Kind::Record:
+      writeJSONStringLiteral("<cannot render correctly>", Out);
+      break;
+
+    case Value::Kind::Pointer:
+      // TODO: Render as REF when heap rendering is working.
+      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      break;
+
+    case Value::Kind::PointerToFILE:
+      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      break;
+  }
 }
 
 void OPTPrinter::printGlobal(GlobalVariable const &GV, std::string &NameOut)
