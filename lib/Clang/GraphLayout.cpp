@@ -12,8 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "GraphExpansion.hpp"
-
+#include "seec/Clang/GraphExpansion.hpp"
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"

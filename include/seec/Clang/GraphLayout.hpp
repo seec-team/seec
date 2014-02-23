@@ -1,4 +1,4 @@
-//===- lib/Clang/GraphLayout.hpp ------------------------------------------===//
+//===- include/seec/Clang/GraphLayout.hpp ---------------------------------===//
 //
 //                                    SeeC
 //

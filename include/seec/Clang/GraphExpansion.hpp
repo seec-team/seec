@@ -1,4 +1,4 @@
-//===- lib/Clang/GraphExpansion.hpp ---------------------------------------===//
+//===- include/seec/Clang/GraphExpansion.hpp ------------------------------===//
 //
 //                                    SeeC
 //
