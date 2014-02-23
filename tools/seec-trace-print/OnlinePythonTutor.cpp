@@ -17,10 +17,13 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace seec;
@@ -49,12 +52,20 @@ class OPTPrinter {
 
   ProcessState Process;
 
+  llvm::DenseMap<seec::trace::offset_uint, uint32_t> FrameIDMap;
+
+  unsigned PreviousLine;
+
   OPTPrinter(llvm::raw_ostream &ToStream, ProcessTrace const &FromTrace)
   : Out(ToStream),
     Indent("  ", 1),
     Trace(FromTrace),
-    Process(FromTrace)
+    Process(FromTrace),
+    FrameIDMap(),
+    PreviousLine(1)
   {}
+
+  uint32_t getFrameID(FunctionState const &Function);
 
   void printValue(Value const &V);
 
@@ -66,11 +77,11 @@ class OPTPrinter {
 
   void printLocal(LocalState const &Local, std::string &NameOut);
 
-  void printFunction(FunctionState const &Function);
+  void printFunction(FunctionState const &Function, bool IsActive);
 
   void printThread(ThreadState const &Thread);
 
-  void printState();
+  bool printAndMoveState();
 
   bool printAllStates();
 
@@ -81,6 +92,14 @@ public:
     return Printer.printAllStates();
   }
 };
+
+uint32_t OPTPrinter::getFrameID(FunctionState const &Function)
+{
+  auto const &Trace = Function.getUnmappedState().getTrace();
+  auto const Result = FrameIDMap.insert(std::make_pair(Trace.getEventStart(),
+                                                       FrameIDMap.size() + 1));
+  return Result.first->second;
+}
 
 void OPTPrinter::printValue(Value const &V)
 {
@@ -165,18 +184,24 @@ void OPTPrinter::printLocal(LocalState const &Local, std::string &NameOut)
     Out << "\"<no value>\"";
 }
 
-void OPTPrinter::printFunction(FunctionState const &Function)
+void OPTPrinter::printFunction(FunctionState const &Function, bool IsActive)
 {
   Out << Indent.getString() << "{\n";
   Indent.indent();
 
   // func_name
+  auto const FnName = Function.getNameAsString();
   Out << Indent.getString() << "\"func_name\": ";
-  writeJSONStringLiteral(Function.getNameAsString(), Out);
+  writeJSONStringLiteral(FnName, Out);
   Out << ",\n";
 
-  // frame_id = ?
-  // unique_hash = ?
+  // frame_id = unique key for this function call
+  // unique_hash = func_name + frame_id
+  auto const FrameID = getFrameID(Function);
+  Out << Indent.getString() << "\"frame_id\": " << FrameID << ",\n";
+  Out << Indent.getString() << "\"unique_hash\": ";
+  writeJSONStringLiteral(FnName + std::to_string(FrameID), Out);
+  Out << ",\n";
 
   // encoded_locals = dict
   std::vector<std::string> OrderedVarnames;
@@ -221,11 +246,16 @@ void OPTPrinter::printFunction(FunctionState const &Function)
   Out << "],\n";
 
   // is_highlighted = ?
+  Out << Indent.getString();
+  if (IsActive)
+    Out << "\"is_highlighted\": true,\n";
+  else
+    Out << "\"is_highlighted\": false,\n";
 
   // These are for Closures and Zombie Frames, so we don't need them.
-  Out << Indent.getString() << "\"is_parent\" = false,\n";
-  Out << Indent.getString() << "\"is_zombie\" = false,\n";
-  Out << Indent.getString() << "\"parent_frame_id_list\": [],\n";
+  Out << Indent.getString() << "\"is_parent\": false,\n";
+  Out << Indent.getString() << "\"is_zombie\": false,\n";
+  Out << Indent.getString() << "\"parent_frame_id_list\": []\n";
 
   Indent.unindent();
   Out << Indent.getString() << "}";
@@ -255,22 +285,40 @@ void OPTPrinter::printThread(ThreadState const &Thread)
       else
         PreviousPrinted = true;
 
-      printFunction(Fn);
+      printFunction(Fn, &Fn.get() == &Active);
     }
 
     Indent.unindent();
-    Out << "\n" << Indent.getString() << "]\n";
+    Out << "\n" << Indent.getString() << "],\n";
   }
   else {
     Out << Indent.getString() << "\"func_name\": \"<none>\",\n";
     Out << Indent.getString() << "\"stack_to_render\": [],\n";
   }
 
-  // line: int
   // event: string
+  Out << Indent.getString() << "\"event\": ";
+  if (!Thread.isAtEnd())
+    Out << "\"step_line\"";
+  else
+    Out << "\"return\"";
+  Out << ",\n";
 }
 
-void OPTPrinter::printState()
+/// \brief Get the start line in the outermost file.
+///
+static unsigned getLineOutermost(clang::SourceLocation Start,
+                                 clang::ASTContext const &AST)
+{
+  auto const &SourceManager = AST.getSourceManager();
+
+  while (Start.isMacroID())
+    Start = SourceManager.getExpansionLoc(Start);
+
+  return SourceManager.getSpellingLineNumber(Start);
+}
+
+bool OPTPrinter::printAndMoveState()
 {
   Out << Indent.getString() << "{\n";
   Indent.indent();
@@ -288,11 +336,33 @@ void OPTPrinter::printState()
     Out << Indent.getString() << "\"stdout\": \"\",\n";
   }
 
-  // heap
-  Out << Indent.getString() << "\"heap\": {}\n";
+  // TODO: heap
+  Out << Indent.getString() << "\"heap\": {},\n";
+
+  // Move now so that we can get the "next" line number.
+  auto const Moved = moveForward(Process.getThread(0));
+
+  // line: int
+  auto const &Thread = Process.getThread(0);
+  auto const &Stack = Thread.getCallStack();
+
+  if (!Stack.empty()) {
+    auto const &ActiveFn = Stack.back().get();
+    auto const &AST = ActiveFn.getMappedAST()->getASTUnit().getASTContext();
+
+    if (auto const ActiveStmt = ActiveFn.getActiveStmt())
+      PreviousLine = getLineOutermost(ActiveStmt->getLocStart(), AST);
+    else
+      PreviousLine = getLineOutermost(ActiveFn.getFunctionDecl()->getLocStart(),
+                                      AST);
+  }
+
+  Out << Indent.getString() << "\"line\": " << PreviousLine << "\n";
 
   Indent.unindent();
   Out << Indent.getString() << "}";
+
+  return Moved;
 }
 
 bool OPTPrinter::printAllStates()
@@ -316,13 +386,9 @@ bool OPTPrinter::printAllStates()
   Out << Indent.getString() << "\"trace\": [\n";
   Indent.indent();
 
-  printState();
-
-  while (moveForward(Process.getThread(0))) {
+  while (printAndMoveState()) {
     Out << ",\n";
-    printState();
   }
-
   Out << "\n";
 
   Indent.unindent();
