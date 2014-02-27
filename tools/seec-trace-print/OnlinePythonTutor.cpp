@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/GraphExpansion.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
@@ -18,6 +19,7 @@
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Printing.hpp"
 
@@ -67,7 +69,11 @@ class OPTPrinter {
 
   uint32_t getFrameID(FunctionState const &Function);
 
+  void printPointer(ValueOfPointer const &PV);
+
   void printValue(Value const &V);
+
+  void printHeapValue(std::shared_ptr<Value const> const &V);
 
   void printGlobal(GlobalVariable const &GV, std::string &NameOut);
 
@@ -80,6 +86,14 @@ class OPTPrinter {
   void printFunction(FunctionState const &Function, bool IsActive);
 
   void printThread(ThreadState const &Thread);
+
+  void printAreaList(std::shared_ptr<ValueOfPointer const> const &Ref,
+                     unsigned const Limit);
+
+  bool printArea(MemoryArea const &Area,
+                 seec::cm::graph::Expansion const &Expansion);
+
+  void printHeap();
 
   bool printAndMoveState();
 
@@ -101,6 +115,37 @@ uint32_t OPTPrinter::getFrameID(FunctionState const &Function)
   return Result.first->second;
 }
 
+void OPTPrinter::printPointer(ValueOfPointer const &PV)
+{
+  if (!PV.isCompletelyInitialized()) {
+    Out << "\"<uninitialized pointer>\"";
+    return;
+  }
+
+  auto const RawValue = PV.getRawValue();
+
+  if (!RawValue) {
+    Out << "\"NULL\"";
+  }
+  else if (PV.isValidOpaque()) {
+    if (auto const File = Process.getStream(RawValue)) {
+      Out << "\"<FILE *>\"";
+    }
+    else if (auto const Dir = Process.getStream(RawValue)) {
+      Out << "\"<DIR *>\"";
+    }
+    else {
+      Out << "\"<opaque pointer>\"";
+    }
+  }
+  else if (PV.getDereferenceIndexLimit() != 0) {
+    Out << "[\"REF\", " << std::to_string(RawValue) << "]";
+  }
+  else {
+    Out << "\"<invalid pointer>\"";
+  }
+}
+
 void OPTPrinter::printValue(Value const &V)
 {
   switch (V.getKind()) {
@@ -109,10 +154,17 @@ void OPTPrinter::printValue(Value const &V)
       break;
 
     case Value::Kind::Scalar:
-      if (V.isCompletelyInitialized())
-        Out << V.getValueAsStringFull();
-      else
-        writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      {
+        auto const Str = V.getValueAsStringFull();
+
+        int (*IsDigitPtr)(int) = &std::isdigit;
+        auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+
+        if (IsNumeric)
+          Out << Str;
+        else
+          writeJSONStringLiteral(Str, Out);
+      }
       break;
 
     case Value::Kind::Array:
@@ -124,12 +176,59 @@ void OPTPrinter::printValue(Value const &V)
       break;
 
     case Value::Kind::Pointer:
-      // TODO: Render as REF when heap rendering is working.
-      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      printPointer(llvm::cast<ValueOfPointer>(V));
       break;
 
     case Value::Kind::PointerToFILE:
+      // TODO: Render as REF.
       writeJSONStringLiteral(V.getValueAsStringFull(), Out);
+      break;
+  }
+}
+
+void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V)
+{
+  if (!V) {
+    Out << "\"<no value>\"";
+    return;
+  }
+
+  switch (V->getKind()) {
+    case Value::Kind::Basic:
+      writeJSONStringLiteral(V->getValueAsStringFull(), Out);
+      break;
+
+    case Value::Kind::Scalar:
+      {
+        auto const Str = V->getValueAsStringFull();
+
+        int (*IsDigitPtr)(int) = &std::isdigit;
+        auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+
+        if (IsNumeric)
+          Out << Str;
+        else
+          writeJSONStringLiteral(Str, Out);
+      }
+      break;
+
+    case Value::Kind::Array:
+      // TODO: Render as LIST.
+      writeJSONStringLiteral("<cannot render correctly>", Out);
+      break;
+
+    case Value::Kind::Record:
+      // TODO: Render as DICT.
+      writeJSONStringLiteral("<cannot render correctly>", Out);
+      break;
+
+    case Value::Kind::Pointer:
+      printPointer(llvm::cast<ValueOfPointer>(*V));
+      break;
+
+    case Value::Kind::PointerToFILE:
+      // TODO: Render as REF.
+      writeJSONStringLiteral(V->getValueAsStringFull(), Out);
       break;
   }
 }
@@ -333,6 +432,112 @@ void OPTPrinter::printThread(ThreadState const &Thread)
   Out << ",\n";
 }
 
+void OPTPrinter::printAreaList(std::shared_ptr<ValueOfPointer const> const &Ref,
+                               unsigned const Limit)
+{
+  auto const Ty = llvm::cast<clang::PointerType>(Ref->getCanonicalType());
+  if (Ty->getPointeeType()->isCharType()) {
+    // Special case for strings.
+    Out << "[\"HEAP_PRIMITIVE\", \"string\", \"";
+
+    for (unsigned i = 0; i < Limit; ++i) {
+      auto const Child = Ref->getDereferenced(i);
+      if (!Child || !Child->isCompletelyInitialized())
+        Out << "\uFFFD";
+      else
+        Out << Child->getValueAsStringFull();
+    }
+
+    Out << "\"]";
+  }
+  else {
+    Out << "[\n";
+    Indent.indent();
+    Out << Indent.getString() << "\"LIST\",\n";
+
+    for (unsigned i = 0; i < Limit; ++i) {
+      if (i != 0)
+        Out << ",\n";
+      Out << Indent.getString();
+      printHeapValue(Ref->getDereferenced(i));
+    }
+    Out << "\n";
+
+    Indent.unindent();
+    Out << Indent.getString() << "]";
+  }
+}
+
+bool OPTPrinter::printArea(MemoryArea const &Area,
+                           seec::cm::graph::Expansion const &Expansion)
+{
+  auto Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  if (Refs.empty())
+    return false;
+
+  // Remove pointers to void, incomplete types, or to children of other
+  // pointees (e.g. pointers to struct members).
+  seec::cm::graph::reduceReferences(Refs);
+
+  Out << Indent.getString() << std::to_string(Area.start()) << ": ";
+
+  auto const &Ref = Refs.front();
+  auto const Limit = Ref->getDereferenceIndexLimit();
+
+  switch (Limit) {
+    case 0:
+      Out << "\"<not dereferencable>\"";
+      break;
+
+    case 1:
+      printHeapValue(Ref->getDereferenced(0));
+      break;
+
+    default:
+      printAreaList(Ref, Limit);
+      break;
+  }
+
+  return true;
+}
+
+void OPTPrinter::printHeap()
+{
+  Out << Indent.getString() << "\"heap\": {\n";
+  Indent.indent();
+
+  auto const &Expansion = seec::cm::graph::Expansion::from(Process);
+  bool Printed = false;
+
+  for (auto const &Area : Process.getUnmappedStaticAreas()) {
+    if (Printed)
+      Out << ",\n";
+    if (printArea(Area, Expansion))
+      Printed = true;
+  }
+
+  for (auto const &Malloc : Process.getDynamicMemoryAllocations()) {
+    if (Printed)
+      Out << ",\n";
+    if (printArea(MemoryArea(Malloc.getAddress(), Malloc.getSize()), Expansion))
+      Printed = true;
+  }
+
+  for (auto const &Known : Process.getUnmappedProcessState().getKnownMemory()) {
+    if (Printed)
+      Out << ",\n";
+
+    auto const Size = (Known.End - Known.Begin) + 1;
+
+    if (printArea(MemoryArea(Known.Begin, Size), Expansion))
+      Printed = true;
+  }
+
+  Out << "\n";
+  Indent.unindent();
+  Out << Indent.getString() << "},\n";
+}
+
 /// \brief Get the start line in the outermost file.
 ///
 static unsigned getLineOutermost(clang::SourceLocation Start,
@@ -364,8 +569,8 @@ bool OPTPrinter::printAndMoveState()
     Out << Indent.getString() << "\"stdout\": \"\",\n";
   }
 
-  // TODO: heap
-  Out << Indent.getString() << "\"heap\": {},\n";
+  // heap
+  printHeap();
 
   // Move now so that we can get the "next" line number.
   auto const Moved = moveForward(Process.getThread(0));
