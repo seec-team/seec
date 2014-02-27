@@ -52,7 +52,11 @@ enum class ValuePrintLocation {
 };
 
 class OPTPrinter {
-  llvm::raw_ostream &Out;
+  llvm::raw_ostream &Stream;
+
+  std::string StateString;
+
+  llvm::raw_string_ostream Out;
 
   IndentationGuide Indent;
 
@@ -65,7 +69,9 @@ class OPTPrinter {
   unsigned PreviousLine;
 
   OPTPrinter(llvm::raw_ostream &ToStream, ProcessTrace const &FromTrace)
-  : Out(ToStream),
+  : Stream(ToStream),
+    StateString(),
+    Out(StateString),
     Indent("  ", 1),
     Trace(FromTrace),
     Process(FromTrace),
@@ -668,6 +674,7 @@ bool OPTPrinter::printAndMoveState()
   // line: int
   auto const &Thread = Process.getThread(0);
   auto const &Stack = Thread.getCallStack();
+  auto const OldPreviousLine = PreviousLine;
 
   if (!Stack.empty()) {
     auto const &ActiveFn = Stack.back().get();
@@ -685,6 +692,21 @@ bool OPTPrinter::printAndMoveState()
   Indent.unindent();
   Out << Indent.getString() << "}";
 
+  if (Moved)
+    Out << ",\n";
+  else
+    Out << "\n";
+
+  Out.flush();
+
+  // If the line moves at the next state, then print this state. This models
+  // the behaviour expected by OnlinePythonTutor (each step represents the
+  // complete execution of one line).
+  if (OldPreviousLine != PreviousLine || Thread.isAtEnd())
+    Stream << StateString;
+
+  StateString.clear();
+
   return Moved;
 }
 
@@ -694,7 +716,7 @@ bool OPTPrinter::printAllStates()
   if (Process.getThreadCount() != 1)
     return false;
 
-  Out << Indent.getString() << "{\n";
+  Stream << Indent.getString() << "{\n";
   Indent.indent();
 
   // Write the source code.
@@ -702,23 +724,20 @@ bool OPTPrinter::printAllStates()
   if (SourceCode.empty())
     return false;
 
-  Out << Indent.getString() << "\"code\": ";
-  writeJSONStringLiteral(SourceCode, Out);
-  Out << ",\n";
+  Stream << Indent.getString() << "\"code\": ";
+  writeJSONStringLiteral(SourceCode, Stream);
+  Stream << ",\n";
 
-  Out << Indent.getString() << "\"trace\": [\n";
+  Stream << Indent.getString() << "\"trace\": [\n";
   Indent.indent();
 
-  while (printAndMoveState()) {
-    Out << ",\n";
-  }
-  Out << "\n";
+  while (printAndMoveState()) {}
 
   Indent.unindent();
-  Out << Indent.getString() << "]\n";
+  Stream << Indent.getString() << "]\n";
 
   Indent.unindent();
-  Out << Indent.getString() << "}\n";
+  Stream << Indent.getString() << "}\n";
 
   return true;
 }
