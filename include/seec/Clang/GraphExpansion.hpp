@@ -128,6 +128,11 @@ public:
 };
 
 
+/// \brief Reduce a set of references to the most informative types.
+///
+void reduceReferences(std::vector<std::shared_ptr<ValueOfPointer const>> &Refs);
+
+
 } // namespace graph (in cm in seec)
 
 } // namespace cm (in seec)

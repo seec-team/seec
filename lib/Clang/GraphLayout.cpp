@@ -1703,22 +1703,6 @@ doLayout(LayoutHandler const &Handler,
 // Layout Memory Area
 //===----------------------------------------------------------------------===//
 
-static
-bool
-isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
-                        std::shared_ptr<ValueOfPointer const> const &Ptr)
-{
-  auto const Limit = Ptr->getDereferenceIndexLimit();
-  
-  for (unsigned i = 0; i < Limit; ++i) {
-    auto const Pointee = Ptr->getDereferenced(i);
-    if (isContainedChild(*Child, *Pointee))
-      return true;
-  }
-  
-  return false;
-}
-
 /// \brief Generate a placeholder layout for an unreferenced memory area.
 ///
 static
@@ -1810,84 +1794,9 @@ doLayout(LayoutHandler const &Handler,
                             Area);
   }
   
-  // Move all the void pointers to the end of the list. If we have nothing but
-  // void pointers then layout using any one of them, otherwise remove all of
-  // them from consideration.
-  auto const VoidIt =
-    std::partition(Refs.begin(), Refs.end(),
-                  [] (ValOfPtr const &Ptr) -> bool {
-                    auto const CanTy = Ptr->getCanonicalType();
-                    auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
-                    return !PtrTy->getPointeeType()->isVoidType();
-                  });
-  
-  if (VoidIt == Refs.begin())
-    return std::make_pair(Handler.doLayout(Area, **VoidIt, Expansion), Area);
-  
-  Refs.erase(VoidIt, Refs.end());
-  
-  if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
-                          Area);
-  
-  // Remove all pointers to incomplete types to the end of the list. If we have
-  // nothing but pointers to incomplete types, then layout using any one of
-  // them (we can't do the child reference removal below).
-  auto const IncompleteIt =
-    std::partition(Refs.begin(), Refs.end(),
-                    [] (ValOfPtr const &Ptr) -> bool {
-                      auto const CanTy = Ptr->getCanonicalType();
-                      auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
-                      return !PtrTy->getPointeeType()->isIncompleteType();
-                    });
-  
-  if (IncompleteIt == Refs.begin())
-    return std::make_pair(Handler.doLayout(Area, **IncompleteIt, Expansion),
-                          Area);
-  
-  Refs.erase(IncompleteIt, Refs.end());
-  
-  if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
-                          Area);
-  
-  // Remove all references which refer to a child of another reference. E.g. if
-  // we have a pointer to a struct, and a pointer to a member of that struct,
-  // then we should remove the member pointer (if the struct is selected for
-  // layout then the pointer will be rendered correctly, otherwise it will be
-  // rendered as punned).
-  //
-  // Also remove references which refer either to the same value as another
-  // reference. If one of these references has a lower raw value then it should
-  // be kept, as it will have more dereferences (and thus a more complete
-  // layout will be produced using it).
-  {
-    auto const CurrentRefs = Refs;
-    
-    auto const RemovedIt =
-      std::remove_if(Refs.begin(), Refs.end(),
-        [&] (ValOfPtr const &Ptr) -> bool
-        {
-          auto const Pointee = Ptr->getDereferenced(0);
-          return std::any_of(CurrentRefs.begin(), CurrentRefs.end(),
-                    [&] (ValOfPtr const &Other) -> bool {
-                      if (Ptr == Other)
-                        return false;
-                      
-                      // Check if we directly reference another pointer's
-                      // dereference. If so, don't bother checking children, as
-                      // either us or the other pointer will be removed anyway.
-                      auto const Direct = doReferenceSameValue(*Ptr, *Other);
-                      if (Direct)
-                        return Ptr->getRawValue() >= Other->getRawValue();
-                      
-                      // Check if this pointer directly references a child.
-                      return isChildOfAnyDereference(Pointee, Other);
-                    });
-        });
-    
-    Refs.erase(RemovedIt, Refs.end());
-  }
+  // Remove pointers to void, incomplete types, or to children of other
+  // pointees (e.g. pointers to struct members).
+  seec::cm::graph::reduceReferences(Refs);
   
   if (Refs.size() == 1)
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
