@@ -17,7 +17,6 @@
 #include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
-#include "seec/Clang/MappedStreamState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/Trace/ProcessState.hpp"
@@ -47,15 +46,10 @@ class ExpansionImpl final {
   ///
   std::multimap<uintptr_t, std::shared_ptr<ValueOfPointer const>> Pointers;
   
-  /// Map from stream addresses to FILE pointers for those streams.
-  ///
-  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointer const>> Streams;
-  
 public:
   ExpansionImpl()
   : Edges(),
-    Pointers(),
-    Streams()
+    Pointers()
   {}
   
   void addReference(Value const &ToValue, Dereference FromPointer)
@@ -97,37 +91,6 @@ public:
     
     return Ret;
   }
-  
-  /// \name Stream information.
-  /// @{
-  
-  bool addStream(std::shared_ptr<ValueOfPointer const> const &Pointer) {
-    auto const Address = Pointer->getRawValue();
-    
-    for (auto const &Pair : range(Streams.equal_range(Address)))
-      if (Pair.second == Pointer)
-        return false;
-    
-    Streams.insert(std::make_pair(Address, Pointer));
-    
-    return true;
-  }
-  
-  bool isReferenced(StreamState const &State) const {
-    return Streams.count(State.getAddress());
-  }
-  
-  std::vector<std::shared_ptr<ValueOfPointer const>>
-  getReferencesOf(StreamState const &State) const {
-    std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
-    
-    for (auto const &Pair : range(Streams.equal_range(State.getAddress())))
-      Ret.emplace_back(Pair.second);
-    
-    return Ret;
-  }
-  
-  /// @} (Stream information.)
 };
 
 std::vector<Dereference>
@@ -346,17 +309,6 @@ std::vector<std::shared_ptr<ValueOfPointer const>>
 Expansion::getAllPointers() const
 {
   return Impl->getAllPointers();
-}
-
-bool Expansion::isReferenced(StreamState const &State) const
-{
-  return Impl->isReferenced(State);
-}
-
-std::vector<std::shared_ptr<ValueOfPointer const>>
-Expansion::getReferencesOf(StreamState const &State) const
-{
-  return Impl->getReferencesOf(State);
 }
 
 

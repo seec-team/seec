@@ -25,7 +25,6 @@ namespace seec {
 namespace cm {
 
 class ProcessState;
-class StreamState;
 
 namespace graph {
 
@@ -114,17 +113,6 @@ public:
   getAllPointers() const;
   
   /// @} (Pointers.)
-  
-  
-  /// \name Stream information.
-  /// @{
-  
-  bool isReferenced(StreamState const &State) const;
-  
-  std::vector<std::shared_ptr<ValueOfPointer const>>
-  getReferencesOf(StreamState const &State) const;
-  
-  /// @} (Stream information.)
 };
 
 
