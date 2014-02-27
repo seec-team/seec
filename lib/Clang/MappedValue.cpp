@@ -626,153 +626,6 @@ public:
 
 
 //===----------------------------------------------------------------------===//
-// ValueByMemoryForPointerToFILE
-//===----------------------------------------------------------------------===//
-
-class ValueByMemoryForPointerToFILE final : public ValueOfPointerToFILE {
-  /// The canonical type of this Value.
-  ::clang::PointerType const *CanonType;
-  
-  /// The address of this Value in memory.
-  uintptr_t Address;
-  
-  /// The raw value of this FILE pointer.
-  uintptr_t RawValue;
-  
-  /// The initialization state of this Value.
-  InitializationState Initialized;
-  
-  /// The (unmapped) StreamState for this FILE, or nullptr if it is invalid.
-  seec::trace::StreamState const *Stream;
-  
-  /// \brief Get the size of the value's type.
-  ///
-  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
-    return ::clang::CharUnits::fromQuantity(sizeof(void *));
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValueImpl() const override {
-    assert(Initialized == InitializationState::Complete);
-    return RawValue;
-  }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  bool isValidImpl() const override { return Stream != nullptr; }
-  
-  /// \brief Constructor.
-  ///
-  ValueByMemoryForPointerToFILE(::clang::PointerType const *WithCanonType,
-                                uintptr_t const WithAddress,
-                                uintptr_t const WithRawValue,
-                                InitializationState const WithInitialized,
-                                seec::trace::StreamState const *WithStream)
-  : CanonType(WithCanonType),
-    Address(WithAddress),
-    RawValue(WithRawValue),
-    Initialized(WithInitialized),
-    Stream(WithStream)
-  {}
-  
-public:
-  /// \brief Attempt to create a new ValueByMemoryForPointer.
-  ///
-  static std::shared_ptr<ValueByMemoryForPointerToFILE const>
-  create(::clang::Type const * const CanonicalType,
-         uintptr_t const Address,
-         seec::trace::ProcessState const &ProcessState)
-  {
-    // Get the size of pointer type.
-    auto const Type = CanonicalType->getAs< ::clang::PointerType >();
-    assert(Type && "Expected PointerType");
-    
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(uintptr_t)));
-    
-    // Determine the initialization state of the memory.
-    InitializationState const Initialized = Region.isCompletelyInitialized()
-                                          ? InitializationState::Complete
-                                          : (Region.isPartiallyInitialized()
-                                             ? InitializationState::Partial 
-                                             : InitializationState::None);
-    
-    // Calculate the raw pointer value (don't worry if the memory is
-    // uninitialized: getByteValues() will return zeros and we simply won't use
-    // the calculated value).
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
-    
-    // Check whether the stream is valid.
-    auto const Stream = ProcessState.getStream(PtrValue);
-    
-    // Create the object.
-    return std::shared_ptr<ValueByMemoryForPointerToFILE const>
-                          (new ValueByMemoryForPointerToFILE{
-                                Type,
-                                Address,
-                                PtrValue,
-                                Initialized,
-                                Stream
-                               });
-  }
-  
-  /// \brief Get the canonical type of this Value.
-  ///
-  ::clang::Type const *getCanonicalType() const override {
-    return CanonType;
-  }
-  
-  /// \brief Get the Expr that this Value is for (if any).
-  ///
-  ::clang::Expr const *getExpr() const override { return nullptr; }
-  
-  /// \brief Check if this represents a value stored in memory.
-  ///
-  bool isInMemory() const override { return true; }
-  
-  /// \brief Get the address in memory.
-  /// 
-  /// pre: isInMemory() == true
-  ///
-  uintptr_t getAddress() const override { return Address; }
-  
-  /// \brief Check if this value is completely initialized.
-  ///
-  bool isCompletelyInitialized() const override {
-    return Initialized == InitializationState::Complete;
-  }
-  
-  /// \brief Check if this value is partially initialized.
-  ///
-  bool isPartiallyInitialized() const override {
-    return Initialized == InitializationState::Partial;
-  }
-  
-  /// \brief Get a string describing the value (which may be elided).
-  ///
-  std::string getValueAsStringShort() const override {
-    return getValueAsStringFull();
-  }
-  
-  /// \brief Get a string describing the value.
-  ///
-  std::string getValueAsStringFull() const override {
-    if (Initialized != InitializationState::Complete)
-      return std::string("<uninitialized>");
-    
-    if (!Stream)
-      return std::string("<invalid FILE>");
-    
-    std::string Value = "FILE ";
-    Value += Stream->getFilename();
-    return Value;
-  }
-};
-
-
-//===----------------------------------------------------------------------===//
 // ValueByMemoryForRecord
 //===----------------------------------------------------------------------===//
 
@@ -1921,119 +1774,6 @@ public:
 
 
 //===----------------------------------------------------------------------===//
-// ValueByRuntimeValueForPointerToFILE
-//===----------------------------------------------------------------------===//
-
-class ValueByRuntimeValueForPointerToFILE final : public ValueOfPointerToFILE {
-  /// The Expr that this value is for.
-  ::clang::Expr const *Expression;
-  
-  /// The raw value of this FILE pointer.
-  uintptr_t RawValue;
-  
-  /// The (unmapped) StreamState for this FILE, or nullptr if it is invalid.
-  seec::trace::StreamState const *Stream;
-  
-  /// \brief Get the size of the value's type.
-  ///
-  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
-    return ::clang::CharUnits::fromQuantity(sizeof(void *));
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValueImpl() const override { return RawValue; }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  bool isValidImpl() const override { return Stream != nullptr; }
-  
-  /// \brief Constructor.
-  ///
-  ValueByRuntimeValueForPointerToFILE(::clang::Expr const *WithExpression,
-                                      uintptr_t const WithRawValue,
-                                      trace::StreamState const *WithStream)
-  : Expression(WithExpression),
-    RawValue(WithRawValue),
-    Stream(WithStream)
-  {}
-  
-public:
-  /// \brief Attempt to create a new \c ValueByRuntimeValueForPointerToFILE.
-  ///
-  static std::shared_ptr<ValueByRuntimeValueForPointerToFILE>
-  create(::clang::Expr const *Expression,
-         seec::trace::FunctionState const &FunctionState,
-         llvm::Value const *LLVMValue)
-  {
-    // Get the raw runtime value of the pointer.
-    auto const MaybeValue =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                           (FunctionState, LLVMValue);
-    if (!MaybeValue.assigned())
-      return std::shared_ptr<ValueByRuntimeValueForPointerToFILE>();
-    
-    auto const PtrValue = MaybeValue.get<uintptr_t>();
-    
-    // Check whether the stream is valid.
-    auto const &Process = FunctionState.getParent().getParent();
-    auto const Stream = Process.getStream(PtrValue);
-    
-    // Create the object.
-    return std::shared_ptr<ValueByRuntimeValueForPointerToFILE>
-                          (new ValueByRuntimeValueForPointerToFILE(Expression,
-                                                                   PtrValue,
-                                                                   Stream));
-  }
-  
-  /// \brief Get the canonical type of this Value.
-  ///
-  ::clang::Type const *getCanonicalType() const override {
-    return Expression->getType().getCanonicalType().getTypePtr();
-  }
-  
-  /// \brief Get the Expr that this Value is for (if any).
-  ///
-  ::clang::Expr const *getExpr() const override { return Expression; }
-  
-  /// \brief Check if this represents a value stored in memory.
-  ///
-  bool isInMemory() const override { return false; }
-  
-  /// \brief Get the address in memory.
-  /// 
-  /// pre: isInMemory() == true
-  ///
-  uintptr_t getAddress() const override { return 0; }
-  
-  /// \brief Check if this value is completely initialized.
-  ///
-  bool isCompletelyInitialized() const override { return true; }
-  
-  /// \brief Check if this value is partially initialized.
-  ///
-  bool isPartiallyInitialized() const override { return false; }
-  
-  /// \brief Get a string describing the value (which may be elided).
-  ///
-  std::string getValueAsStringShort() const override {
-    return getValueAsStringFull();
-  }
-  
-  /// \brief Get a string describing the value.
-  ///
-  std::string getValueAsStringFull() const override {
-    if (!Stream)
-      return std::string("<invalid FILE>");
-    
-    std::string Value = "FILE ";
-    Value += Stream->getFilename();
-    return Value;
-  }
-};
-
-
-//===----------------------------------------------------------------------===//
 // createValue() from a Type and address.
 //===----------------------------------------------------------------------===//
 
@@ -2074,24 +1814,11 @@ createValue(std::shared_ptr<ValueStore const> Store,
     
     case ::clang::Type::Pointer:
     {
-      auto const Desugared = QualType.getDesugaredType(ASTContext);
-      auto const DesugaredPointer = Desugared->getAs<clang::PointerType>();
-      auto const DesugaredPointee = DesugaredPointer->getPointeeType();
-      auto const FILEType = ASTContext.getFILEType();
-      
-      if (DesugaredPointee.getTypePtrOrNull() == FILEType.getTypePtrOrNull())
-      {
-        return ValueByMemoryForPointerToFILE::create(CanonicalType.getTypePtr(),
-                                                     Address,
-                                                     ProcessState);
-      }
-      else {
-        return ValueByMemoryForPointer::create(Store,
-                                               ASTContext,
-                                               CanonicalType.getTypePtr(),
-                                               Address,
-                                               ProcessState);
-      }
+      return ValueByMemoryForPointer::create(Store,
+                                             ASTContext,
+                                             CanonicalType.getTypePtr(),
+                                             Address,
+                                             ProcessState);
     }
     
     case ::clang::Type::Record:
@@ -2352,21 +2079,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
         
         if (auto const PtrType = ExprType->getAs<clang::PointerType>()) {
           // Pointer types use a special implementation.
-          auto const &ASTContext = SMap.getAST().getASTUnit().getASTContext();
-          auto const PointeeType = PtrType->getPointeeType();
-          auto const FILEType = ASTContext.getFILEType();
-          
-          if (PointeeType.getTypePtrOrNull() == FILEType.getTypePtrOrNull()) {
-            return ValueByRuntimeValueForPointerToFILE
-                    ::create(Expression, FunctionState, LLVMValues.first);
-          }
-          else {
-            return ValueByRuntimeValueForPointer::create(Store,
-                                                         SMap,
-                                                         Expression,
-                                                         FunctionState,
-                                                         LLVMValues.first);
-          }
+          return ValueByRuntimeValueForPointer::create(Store,
+                                                       SMap,
+                                                       Expression,
+                                                       FunctionState,
+                                                       LLVMValues.first);
         }
         else {
           if (ExprType->isIncompleteType())
@@ -2483,8 +2200,7 @@ bool isContainedChild(Value const &Child, Value const &Parent)
     
     case Value::Kind::Basic: SEEC_FALLTHROUGH;
     case Value::Kind::Scalar: SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer: SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE:
+    case Value::Kind::Pointer:
       return false;
   }
   

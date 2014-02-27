@@ -259,11 +259,6 @@ void OPTPrinter::printValue(Value const &V)
     case Value::Kind::Pointer:
       printPointer(llvm::cast<ValueOfPointer>(V), ValuePrintLocation::Local);
       break;
-
-    case Value::Kind::PointerToFILE:
-      // TODO: Render as REF.
-      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
-      break;
   }
 }
 
@@ -324,11 +319,6 @@ void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V,
 
     case Value::Kind::Pointer:
       printPointer(llvm::cast<ValueOfPointer>(*V), Location);
-      break;
-
-    case Value::Kind::PointerToFILE:
-      // TODO: Render as REF.
-      writeJSONStringLiteral(V->getValueAsStringFull(), Out);
       break;
   }
 }

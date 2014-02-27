@@ -121,7 +121,7 @@ public:
   
   bool isReferenced(StreamState const &State) const;
   
-  std::vector<std::shared_ptr<ValueOfPointerToFILE const>>
+  std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOf(StreamState const &State) const;
   
   /// @} (Stream information.)

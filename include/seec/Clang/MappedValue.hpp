@@ -59,8 +59,7 @@ public:
     Scalar,
     Array,
     Record,
-    Pointer,
-    PointerToFILE
+    Pointer
   };
 
 private:
@@ -278,41 +277,6 @@ public:
 };
 
 
-/// \brief Represents a FILE pointer's runtime value.
-///
-class ValueOfPointerToFILE : public Value {
-private:
-  /// \brief Get the raw value of this pointer.
-  ///
-  virtual uintptr_t getRawValueImpl() const =0;
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  virtual bool isValidImpl() const =0;
-  
-public:
-  /// \brief Constructor.
-  ///
-  ValueOfPointerToFILE()
-  : Value(Value::Kind::PointerToFILE)
-  {}
-  
-  /// \brief Implement LLVM-style RTTI.
-  ///
-  static bool classof(Value const *V) {
-    return V->getKind() == Value::Kind::PointerToFILE;
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValue() const { return getRawValueImpl(); }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  virtual bool isValid() const { return isValidImpl(); }
-};
-
-
 // Forward-declare for ValueStore.
 class ValueStoreImpl;
 
@@ -430,8 +394,7 @@ void visitChildren(Value const &V, FnT &&Callback) {
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer:       SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE: break;
+    case Value::Kind::Pointer:       break;
   }
 }
 
@@ -473,8 +436,7 @@ bool searchChildren(Value const &V, FnT &&Predicate) {
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer:       SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE: break;
+    case Value::Kind::Pointer:       break;
   }
   
   return false;

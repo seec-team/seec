@@ -49,7 +49,7 @@ class ExpansionImpl final {
   
   /// Map from stream addresses to FILE pointers for those streams.
   ///
-  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointerToFILE const>> Streams;
+  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointer const>> Streams;
   
 public:
   ExpansionImpl()
@@ -101,7 +101,7 @@ public:
   /// \name Stream information.
   /// @{
   
-  bool addStream(std::shared_ptr<ValueOfPointerToFILE const> const &Pointer) {
+  bool addStream(std::shared_ptr<ValueOfPointer const> const &Pointer) {
     auto const Address = Pointer->getRawValue();
     
     for (auto const &Pair : range(Streams.equal_range(Address)))
@@ -117,9 +117,9 @@ public:
     return Streams.count(State.getAddress());
   }
   
-  std::vector<std::shared_ptr<ValueOfPointerToFILE const>>
+  std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOf(StreamState const &State) const {
-    std::vector<std::shared_ptr<ValueOfPointerToFILE const>> Ret;
+    std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
     
     for (auto const &Pair : range(Streams.equal_range(State.getAddress())))
       Ret.emplace_back(Pair.second);
@@ -252,15 +252,6 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
         }
       }
       break;
-    
-    case seec::cm::Value::Kind::PointerToFILE:
-      {
-        auto const Ptr =
-          std::static_pointer_cast<seec::cm::ValueOfPointerToFILE const>(State);
-        
-        EI.addStream(Ptr);
-      }
-      break;
   }
 }
 
@@ -362,7 +353,7 @@ bool Expansion::isReferenced(StreamState const &State) const
   return Impl->isReferenced(State);
 }
 
-std::vector<std::shared_ptr<ValueOfPointerToFILE const>>
+std::vector<std::shared_ptr<ValueOfPointer const>>
 Expansion::getReferencesOf(StreamState const &State) const
 {
   return Impl->getReferencesOf(State);

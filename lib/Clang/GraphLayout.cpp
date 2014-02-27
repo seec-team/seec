@@ -485,32 +485,6 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       break;
     }
-    
-    case Value::Kind::PointerToFILE:
-    {
-      auto const &Ptr = llvm::cast<ValueOfPointerToFILE const>(V);
-      
-      if (!Ptr.isCompletelyInitialized()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">?</TD>";
-      }
-      else if (!Ptr.getRawValue()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">NULL</TD>";
-      }
-      else if (!Ptr.isValid()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">!</TD>";
-      }
-      else {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">" << Ptr.getValueAsStringFull() << "</TD>";
-      }
-    }
   }
   
   Ports.add(V, ValuePort{EdgeEndType::Standard});
@@ -2404,8 +2378,7 @@ void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
   switch (ForValue.getKind()) {
     case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
     case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::Pointer: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::PointerToFILE:
+    case seec::cm::Value::Kind::Pointer:
       if (!ForValue.isCompletelyInitialized())
         Out << " BGCOLOR=\"#AAAAAA\"";
       break;
