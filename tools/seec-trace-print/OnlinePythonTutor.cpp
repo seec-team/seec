@@ -45,6 +45,12 @@ llvm::StringRef GetSingularMainFileContents(ProcessTrace const &Trace)
   return FI->getContents().getBuffer();
 }
 
+enum class ValuePrintLocation {
+  Local,
+  Heap,
+  HeapNested
+};
+
 class OPTPrinter {
   llvm::raw_ostream &Out;
 
@@ -69,11 +75,17 @@ class OPTPrinter {
 
   uint32_t getFrameID(FunctionState const &Function);
 
-  void printPointer(ValueOfPointer const &PV);
+  void printArray(ValueOfArray const &V);
+
+  void printRecord(ValueOfRecord const &V);
+
+  void printPointer(ValueOfPointer const &PV,
+                    ValuePrintLocation Location);
 
   void printValue(Value const &V);
 
-  void printHeapValue(std::shared_ptr<Value const> const &V);
+  void printHeapValue(std::shared_ptr<Value const> const &V,
+                      ValuePrintLocation Location);
 
   void printGlobal(GlobalVariable const &GV, std::string &NameOut);
 
@@ -115,34 +127,103 @@ uint32_t OPTPrinter::getFrameID(FunctionState const &Function)
   return Result.first->second;
 }
 
-void OPTPrinter::printPointer(ValueOfPointer const &PV)
+void OPTPrinter::printArray(ValueOfArray const &V)
 {
+  auto const Limit = V.getChildCount();
+
+  Out << "[\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"LIST\",\n";
+
+  for (unsigned i = 0; i < Limit; ++i) {
+    if (i != 0)
+      Out << ",\n";
+    Out << Indent.getString();
+    printHeapValue(V.getChildAt(i), ValuePrintLocation::HeapNested);
+  }
+  Out << "\n";
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
+}
+
+void OPTPrinter::printRecord(ValueOfRecord const &V)
+{
+  auto const Limit = V.getChildCount();
+
+  Out << "[\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"DICT\",\n";
+
+  for (unsigned i = 0; i < Limit; ++i) {
+    if (i != 0)
+      Out << ",\n";
+
+    Out << Indent.getString() << "[\n";
+    Indent.indent();
+
+    // field name
+    Out << Indent.getString();
+    writeJSONStringLiteral(V.getChildField(i)->getNameAsString(), Out);
+    Out << ",\n";
+
+    // field value
+    Out << Indent.getString();
+    printHeapValue(V.getChildAt(i), ValuePrintLocation::HeapNested);
+    Out << "\n";
+
+    Indent.unindent();
+    Out << Indent.getString() << "]";
+  }
+  Out << "\n";
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
+}
+
+void OPTPrinter::printPointer(ValueOfPointer const &PV,
+                              ValuePrintLocation const Location)
+{
+  auto PrintPlaceholder =
+    [this, Location, &PV] (std::string const &Text) -> void {
+      if (Location == ValuePrintLocation::Heap) {
+        Out << "[\"HEAP_PRIMITIVE\", ";
+        writeJSONStringLiteral(PV.getTypeAsString(), Out);
+        Out << ", ";
+        writeJSONStringLiteral(Text, Out);
+        Out << "]";
+      }
+      else {
+        writeJSONStringLiteral(Text, Out);
+      }
+    };
+
   if (!PV.isCompletelyInitialized()) {
-    Out << "\"<uninitialized pointer>\"";
+    PrintPlaceholder("<uninitialized>");
     return;
   }
 
   auto const RawValue = PV.getRawValue();
 
   if (!RawValue) {
-    Out << "\"NULL\"";
+    PrintPlaceholder("NULL");
   }
   else if (PV.isValidOpaque()) {
     if (auto const File = Process.getStream(RawValue)) {
-      Out << "\"<FILE *>\"";
+      PrintPlaceholder("<FILE *>");
     }
     else if (auto const Dir = Process.getStream(RawValue)) {
-      Out << "\"<DIR *>\"";
+      PrintPlaceholder("<DIR *>");
     }
     else {
-      Out << "\"<opaque pointer>\"";
+      PrintPlaceholder("<opaque>");
     }
   }
   else if (PV.getDereferenceIndexLimit() != 0) {
     Out << "[\"REF\", " << std::to_string(RawValue) << "]";
   }
   else {
-    Out << "\"<invalid pointer>\"";
+    PrintPlaceholder("<invalid>");
   }
 }
 
@@ -176,7 +257,7 @@ void OPTPrinter::printValue(Value const &V)
       break;
 
     case Value::Kind::Pointer:
-      printPointer(llvm::cast<ValueOfPointer>(V));
+      printPointer(llvm::cast<ValueOfPointer>(V), ValuePrintLocation::Local);
       break;
 
     case Value::Kind::PointerToFILE:
@@ -186,44 +267,63 @@ void OPTPrinter::printValue(Value const &V)
   }
 }
 
-void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V)
+void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V,
+                                ValuePrintLocation const Location)
 {
   if (!V) {
-    Out << "\"<no value>\"";
+    if (Location == ValuePrintLocation::HeapNested)
+      Out << "\"<no value>\"";
+    else
+      Out << "[\"HEAP_PRIMITIVE\", \"invalid value\", \"\"]";
     return;
   }
 
   switch (V->getKind()) {
     case Value::Kind::Basic:
-      writeJSONStringLiteral(V->getValueAsStringFull(), Out);
+      if (Location == ValuePrintLocation::HeapNested)
+        writeJSONStringLiteral(V->getValueAsStringFull(), Out);
+      else {
+        Out << "[\"HEAP_PRIMITIVE\", ";
+        writeJSONStringLiteral(V->getTypeAsString(), Out);
+        Out << ", ";
+        writeJSONStringLiteral(V->getValueAsStringFull(), Out);
+        Out << "]";
+      }
       break;
 
     case Value::Kind::Scalar:
       {
         auto const Str = V->getValueAsStringFull();
 
-        int (*IsDigitPtr)(int) = &std::isdigit;
-        auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+        if (Location == ValuePrintLocation::HeapNested) {
+          int (*IsDigitPtr)(int) = &std::isdigit;
+          auto const Numeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
 
-        if (IsNumeric)
-          Out << Str;
-        else
+          if (Numeric)
+            Out << Str;
+          else
+            writeJSONStringLiteral(Str, Out);
+        }
+        else {
+          Out << "[\"HEAP_PRIMITIVE\", ";
+          writeJSONStringLiteral(V->getTypeAsString(), Out);
+          Out << ", ";
           writeJSONStringLiteral(Str, Out);
+          Out << "]";
+        }
       }
       break;
 
     case Value::Kind::Array:
-      // TODO: Render as LIST.
-      writeJSONStringLiteral("<cannot render correctly>", Out);
+      printArray(llvm::cast<ValueOfArray>(*V));
       break;
 
     case Value::Kind::Record:
-      // TODO: Render as DICT.
-      writeJSONStringLiteral("<cannot render correctly>", Out);
+      printRecord(llvm::cast<ValueOfRecord>(*V));
       break;
 
     case Value::Kind::Pointer:
-      printPointer(llvm::cast<ValueOfPointer>(*V));
+      printPointer(llvm::cast<ValueOfPointer>(*V), Location);
       break;
 
     case Value::Kind::PointerToFILE:
@@ -459,7 +559,7 @@ void OPTPrinter::printAreaList(std::shared_ptr<ValueOfPointer const> const &Ref,
       if (i != 0)
         Out << ",\n";
       Out << Indent.getString();
-      printHeapValue(Ref->getDereferenced(i));
+      printHeapValue(Ref->getDereferenced(i), ValuePrintLocation::HeapNested);
     }
     Out << "\n";
 
@@ -490,7 +590,7 @@ bool OPTPrinter::printArea(MemoryArea const &Area,
       break;
 
     case 1:
-      printHeapValue(Ref->getDereferenced(0));
+      printHeapValue(Ref->getDereferenced(0), ValuePrintLocation::Heap);
       break;
 
     default:
