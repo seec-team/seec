@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 
@@ -172,6 +173,12 @@ class ProcessEnvironment {
   /// Process listener.
   std::unique_ptr<TraceProcessListener> ProcessTracer;
   
+  /// Thread environments.
+  std::map<std::thread::id, std::unique_ptr<ThreadEnvironment>> ThreadLookup;
+  
+  /// Controls access to the thread environments.
+  std::mutex ThreadLookupMutex;
+  
   /// Interceptor function addresses.
   llvm::DenseSet<uintptr_t> InterceptorAddresses;
   
@@ -243,6 +250,10 @@ public:
   
   /// \name Mutators.
   /// @{
+  
+  /// \brief Get the current thread's environment.
+  ///
+  ThreadEnvironment *getOrCreateCurrentThreadEnvironment();
   
   /// \brief Set the program name as found in argv[0].
   ///

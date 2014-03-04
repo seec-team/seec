@@ -170,13 +170,13 @@ bool TraceViewerApp::OnInit() {
   wxApp::SetExitOnFrameDelete(false);
 
   // Setup common menus.
-  auto MenuFile = new wxMenu();
+  auto menuFile = new wxMenu();
   menuFile->Append(wxID_OPEN);
   menuFile->AppendSeparator();
   menuFile->Append(wxID_EXIT);
 
   auto menuBar = new wxMenuBar();
-  menuBar->Append(MenuFile,
+  menuBar->Append(menuFile,
                   seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
   append(menuBar, createRecordingMenu(*this));
 

@@ -40,7 +40,7 @@
 #include <cstdlib>
 #include <thread>
 
-#ifdef __unix__
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <dlfcn.h>
 #endif
 
@@ -230,6 +230,8 @@ ProcessEnvironment::ProcessEnvironment()
   StreamAllocator(),
   SyncExit(),
   ProcessTracer(),
+  ThreadLookup(),
+  ThreadLookupMutex(),
   InterceptorAddresses(),
   ThreadEventLimit(getUserThreadEventLimit()),
   ArchiveSizeLimit(getUserArchiveSizeLimit()),
@@ -300,7 +302,7 @@ ProcessEnvironment::ProcessEnvironment()
   }
   
   // Find the location of all intercepted functions.
-#ifdef __unix__
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #define SEEC__STR2(NAME) #NAME
 #define SEEC__STR(NAME) SEEC__STR2(NAME)
 
@@ -319,8 +321,21 @@ ProcessEnvironment::ProcessEnvironment()
 ProcessEnvironment::~ProcessEnvironment()
 {
   // Finalize the trace.
+  ThreadLookup.clear();
   ProcessTracer.reset();
   archive();
+}
+
+ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
+{
+  std::lock_guard<std::mutex> Lock{ThreadLookupMutex};
+
+  auto &ThreadEnvPtr = ThreadLookup[std::this_thread::get_id()];
+
+  if (!ThreadEnvPtr)
+    ThreadEnvPtr.reset(new ThreadEnvironment(getProcessEnvironment()));
+
+  return ThreadEnvPtr.get();
 }
 
 void ProcessEnvironment::setProgramName(llvm::StringRef Name)
@@ -357,8 +372,19 @@ ProcessEnvironment &getProcessEnvironment() {
 //------------------------------------------------------------------------------
 
 ThreadEnvironment &getThreadEnvironment() {
-  thread_local ThreadEnvironment TE{getProcessEnvironment()};
-  return TE;
+#if __has_feature(cxx_thread_local)
+  // Keep a thread-local pointer to this thread's environment.
+  thread_local ThreadEnvironment *TE =
+    getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
+#else
+  // Keep a thread-local pointer to this thread's environment.
+  static __thread ThreadEnvironment *TE =
+    getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
+#endif
+
+  assert(TE && "ThreadEnvironment not found!");
+
+  return *TE;
 }
 
 

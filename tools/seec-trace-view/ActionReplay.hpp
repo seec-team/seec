@@ -26,6 +26,7 @@
 
 #include "ActionRecord.hpp"
 
+#include <array>
 #include <memory>
 #include <type_traits>
 
@@ -93,10 +94,10 @@ private:
                std::function<void (Ts...)> WithCallback,
                seec::ct::sequence_int<Idxs...>)
   : Values(),
-    Attributes{
+    Attributes{{
       seec::makeUnique<Attribute<typename std::add_lvalue_reference<Ts>::type>>
                       (std::move(std::get<Idxs>(AttributeNames)),
-                       std::get<Idxs>(Values))...},
+                       std::get<Idxs>(Values))...}},
     Callback(std::move(WithCallback))
   {}
   

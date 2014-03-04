@@ -122,7 +122,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   
   // Setup the action replay.
   WithReplay->RegisterHandler("ThreadTimeControl.Click",
-                              {"thread", "button"},
+                              {{"thread", "button"}},
     std::function<void (std::size_t, std::string &)>{
       [this] (std::size_t Thread, std::string &Button) -> void {
         if (Button == "GoToStart")

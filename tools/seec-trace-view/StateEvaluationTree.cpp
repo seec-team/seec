@@ -17,6 +17,7 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Clang/SubRangeRecorder.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -370,7 +371,7 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeMouseOver",
-                             {"node"},
+                             {{"node"}},
     std::function<void (decltype(Nodes)::difference_type)>{
       [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
         ReplayHoverNodeIt = std::next(Nodes.cbegin(), NodeIndex);
@@ -380,7 +381,7 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
       }});
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeRightClick",
-                             {"node"},
+                             {{"node"}},
     std::function<void (decltype(Nodes)::difference_type)>{
       [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
         // TODO: Ensure that the node is visible in the window.
@@ -388,7 +389,7 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
       }});
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeHover",
-                             {"node"},
+                             {{"node"}},
     std::function<void (decltype(Nodes)::difference_type)>{
       [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
         auto const NodeIt = std::next(Nodes.cbegin(), NodeIndex);
@@ -431,47 +432,6 @@ clang::Stmt const *getEvaluationRoot(clang::Stmt const *S,
   
   return S;
 }
-
-/// \brief Records the range of each Stmt in a pretty-printed Stmt.
-///
-class SubRangeRecorder : public clang::PrinterHelper
-{
-  clang::PrintingPolicy &Policy;
-  
-  std::string Buffer;
-  
-  llvm::raw_string_ostream BufferOS;
-  
-  llvm::DenseMap<clang::Stmt *, std::pair<uint64_t, std::size_t>> Ranges;
-  
-public:
-  SubRangeRecorder(clang::PrintingPolicy &WithPolicy)
-  : Policy(WithPolicy),
-    Buffer(),
-    BufferOS(Buffer),
-    Ranges()
-  {}
-  
-  virtual bool handledStmt(clang::Stmt *E, llvm::raw_ostream &OS) {
-    // Print the Stmt to determine the length of its printed text.
-    Buffer.clear();
-    E->printPretty(BufferOS, nullptr, Policy);
-    BufferOS.flush();
-    
-    // Record the start and length of the Stmt's printed text.
-    Ranges.insert(std::make_pair(E, std::make_pair(OS.tell(), Buffer.size())));
-    
-    return false;
-  }
-  
-  decltype(Ranges) &getRanges() {
-    return Ranges;
-  }
-  
-  decltype(Ranges) const &getRanges() const {
-    return Ranges;
-  }
-};
 
 /// \brief Records the depth of each sub-node in a Stmt.
 ///
@@ -577,11 +537,7 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   Policy.Bool = true;
   Policy.ConstantArraySizeAsWritten = true;
   
-  SubRangeRecorder PrinterHelper(Policy);
-  
-  TopStmt->printPretty(StmtOS, &PrinterHelper, Policy);
-  
-  StmtOS.flush();
+  auto const &Ranges = seec::printStmtAndRecordRanges(StmtOS, TopStmt, Policy);
   
   // Determine the "depth" of each sub-Stmt.
   DepthRecorder DepthRecord;
@@ -591,7 +547,6 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   
   // Now save all of the calculated information for the render method.
   Statement = PrettyPrintedStmt;
-  auto const &Ranges = PrinterHelper.getRanges();
   
   // Calculate the new size of the display.
   dc.SetFont(CodeFont);
@@ -622,23 +577,23 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
     }
     
     auto const Depth = DepthIt->second;
-    auto const XStart = PageBorderH + (StmtRange.second.first * CharWidth);
-    auto const XEnd = XStart + (StmtRange.second.second * CharWidth);
+    auto const XStart = PageBorderH + (StmtRange.second.getStart() * CharWidth);
+    auto const XEnd = XStart + (StmtRange.second.getLength() * CharWidth);
     auto const YStart = TotalHeight - PageBorderV - CharHeight
                         - (Depth * (CharHeight + NodeBorderV));
     
     auto Value = ActiveFn->getStmtValue(StmtRange.first);
     auto const ValueString = Value ? getPrettyStringForInline(*Value, Process)
                                    : UnicodeString{};
-    auto const ValueStringShort = shortenValueString(ValueString,
-                                                     StmtRange.second.second);
+    auto const ValueStringShort =
+      shortenValueString(ValueString, StmtRange.second.getLength());
     
     Nodes.emplace_back(StmtRange.first,
                        std::move(Value),
                        seec::towxString(ValueString),
                        seec::towxString(ValueStringShort),
-                       StmtRange.second.first,
-                       StmtRange.second.second,
+                       StmtRange.second.getStart(),
+                       StmtRange.second.getLength(),
                        Depth,
                        XStart,
                        XEnd,

@@ -54,9 +54,9 @@
         <key>CFBundleIdentifier</key>
         <string>au.edu.uwa.csse.seec</string>
 	<key>CFBundleExecutable</key>
-	<string>seec-trace-view</string>
+	<string>seec-view</string>
 	<key>CFBundleName</key>
-	<string>seec-trace-view</string>
+	<string>seec-view</string>
 	<key>CFBundleDisplayName</key>
 	<string>SeeC Trace Viewer</string>
         <key>CFBundleIconFile</key>

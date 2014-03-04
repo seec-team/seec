@@ -300,7 +300,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   });
   
   Replay->RegisterHandler("TraceViewerFrame.Resize",
-                          {"width", "height"},
+                          {{"width", "height"}},
     std::function<void (int, int)>{
       [this] (int width, int height) -> void {
         wxLogDebug("TraceViewerFrame.Resize %d,%d", width, height);

@@ -8,6 +8,7 @@ set(SEEC_CLANG_HEADERS
   ../../include/seec/Clang/MappedStmt.hpp
   ../../include/seec/Clang/MDNames.hpp
   ../../include/seec/Clang/Search.hpp
+  ../../include/seec/Clang/SubRangeRecorder.hpp
   MappedLLVMValue.hpp
 )
 
@@ -21,6 +22,7 @@ set(SEEC_CLANG_SOURCES
   MappedParam.cpp
   MappedStmt.cpp
   Search.cpp
+  SubRangeRecorder.cpp
 )
 
 if (${CMAKE_GENERATOR} MATCHES "Xcode")
