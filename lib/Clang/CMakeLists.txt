@@ -37,6 +37,7 @@ INSTALL(TARGETS SeeCClang
 
 
 set(SEEC_CLANG_MAPPED_TRACE_HEADERS
+  ../../include/seec/Clang/GraphExpansion.hpp
   ../../include/seec/Clang/GraphLayout.hpp
   ../../include/seec/Clang/MappedAllocaState.hpp
   ../../include/seec/Clang/MappedFunctionState.hpp
@@ -50,7 +51,6 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/MappedThreadState.hpp
   ../../include/seec/Clang/MappedValue.hpp
   ../../include/seec/Clang/TypeMatch.hpp
-  GraphExpansion.hpp
 )
 
 set(SEEC_CLANG_MAPPED_TRACE_SOURCES
