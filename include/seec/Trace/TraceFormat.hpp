@@ -111,20 +111,31 @@ SEEC_PP_APPLY(SEEC_PP_TRAIT, TRAITS)
 // FunctionRecord
 //------------------------------------------------------------------------------
 
+/// \brief Record of a single Function execution.
 ///
 struct FunctionRecord {
+  /// Index of the \c llvm::Function in the \c llvm::Module.
   uint32_t Index;
 
+  /// Offset of the FunctionStart event in the thread's event trace.
   offset_uint EventOffsetStart;
 
+  /// Offset of the FunctionEnd event in the thread's event trace, or noOffset()
+  /// if the Function was never completed.
   offset_uint EventOffsetEnd;
 
+  /// Thread time at which the Function began.
   uint64_t ThreadTimeEntered;
 
+  /// Thread time at which the Function completed (if it completed).
   uint64_t ThreadTimeExited;
 
+  /// Offset of the list of FunctionRecords for Functions called during this
+  /// Function execution. This is unused and should be removed.
   offset_uint ChildListOffset;
 
+  /// Offset of the list of non-local memory changes performed during this
+  /// Function's execution. This is unused and should be removed.
   offset_uint NonLocalChangeListOffset;
 };
 
