@@ -144,9 +144,14 @@ struct FunctionRecord {
 // RuntimeValueRecord
 //------------------------------------------------------------------------------
 
+/// \brief Holds a single runtime value (the result of an \c llvm::Instruction).
+///
 union RuntimeValueRecord {
+  /// Used for any integers <=64 bits. We simply zero extend smaller values.
+  /// Larger width integers are not currently supported.
   uint64_t UInt64;
   
+  /// Used to hold pointer type values.
   uintptr_t UIntPtr;
   
   float Float;
