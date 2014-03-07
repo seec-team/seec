@@ -96,10 +96,6 @@ struct modifies_shared_state { static bool const value = false; };
 template<EventType ET>
 struct is_memory_state { static bool const value = false; };
 
-/// Dummy trait for events that define no other traits.
-template<EventType ET>
-struct no_traits { static bool const value = false; };
-
 #define SEEC_PP_TRAIT(EVENT_NAME, TRAIT_NAME)                                  \
 template<>                                                                     \
 struct TRAIT_NAME<EventType::EVENT_NAME> { static bool const value = true; };  \
