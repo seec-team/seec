@@ -99,17 +99,11 @@ deserializeRuntimeError(EventRange Records) {
 // FunctionTrace
 //------------------------------------------------------------------------------
 
-llvm::ArrayRef<offset_uint> FunctionTrace::getChildList() const {
-  auto List = *reinterpret_cast<offset_uint const *>(Data + ChildListOffset());
-  return Thread->getOffsetList(List);
-}
-
 llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
   Out << "[Function Idx=" << T.getIndex()
-      << ", [" << T.getThreadTimeEntered()
+      << ", (" << T.getThreadTimeEntered()
       << "," << T.getThreadTimeExited()
-      << "] Children=" << T.getChildList().size()
-      << "]";
+      << ")]";
   return Out;
 }
 
@@ -117,37 +111,6 @@ llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
 //------------------------------------------------------------------------------
 // ThreadTrace
 //------------------------------------------------------------------------------
-
-seec::Maybe<FunctionTrace>
-ThreadTrace::getFunctionContaining(EventReference EvRef) const {
-  auto Evs = rangeBefore(events(), EvRef);
-
-  // Search backwards until we find the FunctionStart for the function that
-  // contains EvRef.
-  for (EventReference It(--Evs.end()); ; --It) {
-    if (It->getType() == EventType::FunctionStart) {
-      // This function must be the containing function, because we have skipped
-      // all child functions.
-      auto const &StartEv = It.get<EventType::FunctionStart>();
-      return getFunctionTrace(StartEv.getRecord());
-    }
-    else if (It->getType() == EventType::FunctionEnd) {
-      // Skip events in child function invocations.
-
-      auto const &EndEv = It.get<EventType::FunctionEnd>();
-      auto const Info = getFunctionTrace(EndEv.getRecord());
-      It = Evs.referenceToOffset(Info.getEventStart());
-
-      // It will be decremented at the end of the loop, correctly skipping the
-      // FunctionStart event for this child function.
-    }
-
-    if (It == Evs.begin())
-      break;
-  }
-
-  return seec::Maybe<FunctionTrace>();
-}
 
 uint64_t ThreadTrace::getFinalThreadTime() const {
   auto MaybeTime = lastSuccessfulApply(events(),

@@ -349,9 +349,6 @@ public:
     auto ValuePtr = Data + ThreadTimeExitedOffset();
     return *reinterpret_cast<uint64_t const *>(ValuePtr);
   }
-
-  /// Get the list of child FunctionTraces.
-  llvm::ArrayRef<offset_uint> getChildList() const;
 };
 
 /// Write a description of a FunctionTrace to an llvm::raw_ostream.
@@ -441,16 +438,6 @@ public:
   
   uint64_t getFinalThreadTime() const;
   
-  /// @}
-  
-
-  /// Searching
-  /// @{
-
-  /// Find the FunctionTrace for the function call containing the given event.
-  seec::Maybe<FunctionTrace>
-  getFunctionContaining(EventReference EvRef) const;
-
   /// @}
 };
 
