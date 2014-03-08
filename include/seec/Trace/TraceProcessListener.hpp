@@ -263,21 +263,21 @@ public:
   /// @{
   
   /// \brief Get the shared SynchronizedExit object.
-  SynchronizedExit &syncExit() { return SyncExit; }
+  SynchronizedExit &syncExit() const { return SyncExit; }
 
   /// \brief Get the uninstrumented Module.
-  llvm::Module &module() { return Module; }
+  llvm::Module &module() const { return Module; }
 
   /// \brief Get the DataLayout for this Module.
-  llvm::DataLayout &dataLayout() { return DL; }
+  llvm::DataLayout const &dataLayout() const { return DL; }
 
   /// \brief Get the shared module index.
-  ModuleIndex &moduleIndex() { return MIndex; }
+  ModuleIndex const &moduleIndex() const { return MIndex; }
 
   /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) {
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
     auto MaybeIndex = MIndex.getIndexOfGlobal(GV);
     if (!MaybeIndex.assigned())
       return 0;
@@ -292,7 +292,7 @@ public:
   /// \brief Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
-  uintptr_t getRuntimeAddress(llvm::Function const *F) {
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const {
     auto MaybeIndex = MIndex.getIndexOfFunction(F);
     if (!MaybeIndex.assigned())
       return 0;
