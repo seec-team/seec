@@ -365,7 +365,9 @@ public:
   /// \brief Get a list of active TraceThreadListener objects.
   ///
   /// TODO: Deprecate this. Any of the listeners could become inactive as soon
-  /// as the list is retrieved and the Lock is released.
+  /// as the list is retrieved and the Lock is released. Note: this is only
+  /// used by the runtime library after stopping all threads using the
+  /// SynchronizedExit, so its current use is safe.
   ///
   std::vector<TraceThreadListener *> getThreadListeners() {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
