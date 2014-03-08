@@ -349,20 +349,13 @@ void ProcessEnvironment::setProgramName(llvm::StringRef Name)
 //------------------------------------------------------------------------------
 
 ProcessEnvironment &getProcessEnvironment() {
-  static bool Initialized = false;
-  static std::mutex InitializationMutex {};
-  static std::unique_ptr<ProcessEnvironment> ProcessEnv {};
-  
-  if (Initialized)
-    return *ProcessEnv;
-  
-  std::lock_guard<std::mutex> Lock(InitializationMutex);
-  if (Initialized)
-    return *ProcessEnv;
-  
-  ProcessEnv.reset(new ProcessEnvironment());
-  Initialized = true;
-  
+  static std::once_flag InitFlag;
+  static std::unique_ptr<ProcessEnvironment> ProcessEnv;
+
+  std::call_once(InitFlag, [&](){
+    ProcessEnv.reset(new ProcessEnvironment());
+  });
+
   return *ProcessEnv;
 }
 
