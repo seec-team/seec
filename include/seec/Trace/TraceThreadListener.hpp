@@ -286,14 +286,24 @@ public:
   }
 
   /// \brief Write a malloc record and update the process' dynamic memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   void recordMalloc(uintptr_t Address, std::size_t Size);
 
   /// \brief Write a free record and update the process' dynamic memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   /// \return the DynamicAllocation that was freed.
+  ///
   DynamicAllocation recordFree(uintptr_t Address);
 
   /// \brief Write a free record and update the process' dynamic memory. Clears
   ///        the freed area of memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   void recordFreeAndClear(uintptr_t Address);
 
   /// @} (Dynamic memory)
