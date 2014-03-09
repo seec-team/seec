@@ -332,32 +332,57 @@ public:
   }
 
   /// \brief Write a set of overwritten states.
+  ///
   void writeStateOverwritten(OverwrittenMemoryInfo const &Info);
 
   /// \brief Record an untyped update to memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordUntypedState(char const *Data, std::size_t Size);
 
   /// \brief Record a typed update to memory.
+  ///
+  /// At the moment this simply defers to recordUntypedState.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordTypedState(void const *Data, std::size_t Size, offset_uint Value);
 
   /// \brief Record a clear to a memory region.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordStateClear(uintptr_t Address, std::size_t Size);
 
   /// \brief Unimplemented.
+  ///
   void recordMemset();
 
   /// \brief Record a memmove (or memcpy) update to memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordMemmove(uintptr_t Source, uintptr_t Destination, std::size_t Size);
 
   /// \brief Add a region of known, but unowned, memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void addKnownMemoryRegion(uintptr_t Address,
                             std::size_t Length,
                             MemoryPermission Access);
   
   /// \brief Check if there is a region of known memory at Address.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   bool isKnownMemoryRegionAt(uintptr_t Address) const;
   
   /// \brief Remove the region of known memory starting at Address.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   bool removeKnownMemoryRegion(uintptr_t Address);
 
   /// @} (Memory states)
