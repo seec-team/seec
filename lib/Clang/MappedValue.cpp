@@ -2077,7 +2077,7 @@ getValue(std::shared_ptr<ValueStore const> Store,
       if (LLVMValues.second == nullptr) {
         auto const ExprType = Expression->getType();
         
-        if (auto const PtrType = ExprType->getAs<clang::PointerType>()) {
+        if (ExprType->getAs<clang::PointerType>()) {
           // Pointer types use a special implementation.
           return ValueByRuntimeValueForPointer::create(Store,
                                                        SMap,

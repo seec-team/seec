@@ -215,10 +215,10 @@ void OPTPrinter::printPointer(ValueOfPointer const &PV,
     PrintPlaceholder("NULL");
   }
   else if (PV.isValidOpaque()) {
-    if (auto const File = Process.getStream(RawValue)) {
+    if (Process.getStream(RawValue)) {
       PrintPlaceholder("<FILE *>");
     }
-    else if (auto const Dir = Process.getStream(RawValue)) {
+    else if (Process.getDIR(RawValue)) {
       PrintPlaceholder("<DIR *>");
     }
     else {

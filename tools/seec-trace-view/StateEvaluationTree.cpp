@@ -576,9 +576,17 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
       continue;
     }
     
-    auto const Depth = DepthIt->second;
-    auto const XStart = PageBorderH + (StmtRange.second.getStart() * CharWidth);
-    auto const XEnd = XStart + (StmtRange.second.getLength() * CharWidth);
+    auto const WidthPrior =
+      dc.GetTextExtent(Statement.substr(0, StmtRange.second.getStart()))
+        .GetWidth();
+    auto const Width =
+      dc.GetTextExtent(Statement.substr(StmtRange.second.getStart(),
+                                        StmtRange.second.getLength()))
+        .GetWidth();
+
+    auto const Depth  = DepthIt->second;
+    auto const XStart = PageBorderH + WidthPrior;
+    auto const XEnd   = XStart + Width;
     auto const YStart = TotalHeight - PageBorderV - CharHeight
                         - (Depth * (CharHeight + NodeBorderV));
     
