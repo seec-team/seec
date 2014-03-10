@@ -43,7 +43,7 @@ Formattable formatArg(ArgAddress const &A) {
   llvm::raw_string_ostream AddressStringStream(AddressString);
   
   if (auto const Address = A.address())
-    seec::util::write_hex_padded(AddressStringStream, A.address());
+    seec::util::write_hex_padded(AddressStringStream, Address);
   else
     AddressStringStream << "NULL";
   

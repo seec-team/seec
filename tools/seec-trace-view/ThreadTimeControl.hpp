@@ -49,7 +49,7 @@ class ThreadTimeControl : public wxPanel
   
   wxButton *ButtonStepForward;
   
-  wxButton *ButtonGoToNextError;
+  // wxButton *ButtonGoToNextError;
   
   wxButton *ButtonGoToEnd;
   
@@ -76,7 +76,7 @@ public:
     ButtonGoToStart(nullptr),
     ButtonStepBack(nullptr),
     ButtonStepForward(nullptr),
-    ButtonGoToNextError(nullptr),
+    // ButtonGoToNextError(nullptr),
     ButtonGoToEnd(nullptr),
     CurrentAccess(),
     CurrentThreadIndex()
