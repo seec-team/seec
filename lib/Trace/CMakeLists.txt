@@ -78,13 +78,8 @@ set(EXECUTION_TRACER_SOURCES
   TraceThreadMemCheck.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCTrace ${TRACE_HEADERS} ${TRACE_SOURCES})
-  add_library(SeeCExecutionTracer ${EXECUTION_TRACER_HEADERS} ${EXECUTION_TRACER_SOURCES})
-else()
-  add_library(SeeCTrace ${TRACE_SOURCES})
-  add_library(SeeCExecutionTracer ${EXECUTION_TRACER_SOURCES})
-endif()
+add_library(SeeCTrace ${TRACE_HEADERS} ${TRACE_SOURCES})
+add_library(SeeCExecutionTracer ${EXECUTION_TRACER_HEADERS} ${EXECUTION_TRACER_SOURCES})
 
 INSTALL(TARGETS SeeCTrace SeeCExecutionTracer
   RUNTIME DESTINATION bin

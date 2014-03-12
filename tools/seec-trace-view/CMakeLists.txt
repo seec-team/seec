@@ -74,11 +74,7 @@ set(SEEC_TRACE_VIEW_SRCS
 #--------------------------------------------------------------------------------
 # Create the executable.
 #--------------------------------------------------------------------------------
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
-else()
-  add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_SRCS})
-endif()
+add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)

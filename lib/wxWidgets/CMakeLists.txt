@@ -32,11 +32,7 @@ set(SOURCES
   StringConversion.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCwxWidgets ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCwxWidgets ${SOURCES})
-endif()
+add_library(SeeCwxWidgets ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCwxWidgets
   RUNTIME DESTINATION bin

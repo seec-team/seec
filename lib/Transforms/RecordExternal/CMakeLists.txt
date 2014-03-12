@@ -10,11 +10,7 @@ set(SOURCES
   RecordExternal.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCRecordExternal ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCRecordExternal ${SOURCES})
-endif()
+add_library(SeeCRecordExternal ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCRecordExternal
   RUNTIME DESTINATION bin

@@ -16,11 +16,7 @@ set(SOURCES
   Resources.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCICU ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCICU ${SOURCES})
-endif()
+add_library(SeeCICU ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCICU
   RUNTIME DESTINATION bin

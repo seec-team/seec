@@ -10,11 +10,7 @@ set(SOURCES
   MemoryBlock.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCDSA ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCDSA ${SOURCES})
-endif()
+add_library(SeeCDSA ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCDSA
   RUNTIME DESTINATION bin

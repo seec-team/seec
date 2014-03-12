@@ -28,11 +28,7 @@ set(SOURCES
   SynchronizedExit.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCUtil ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCUtil ${SOURCES})
-endif()
+add_library(SeeCUtil ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCUtil
   RUNTIME DESTINATION bin

@@ -29,11 +29,7 @@ set(SOURCES
   WrapPOSIXunistd_h.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
- add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
-else()
- add_library(seecRuntimeTracer SHARED ${SOURCES})
-endif()
+add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
