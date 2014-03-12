@@ -62,12 +62,6 @@ bool moveForward(ProcessState &State);
 /// \return true iff the State was moved.
 bool moveBackward(ProcessState &State);
 
-/// \brief Move State to the given process time.
-/// If State cannot assume the given process time, it will be moved as close as
-/// possible.
-/// \return true iff the State was moved.
-bool moveToTime(ProcessState &State, uint64_t ProcessTime);
-
 /// \brief Move State forward until the memory state in Area changes.
 /// \return true iff the State was moved.
 bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
@@ -100,12 +94,6 @@ bool moveForward(ThreadState &State);
 /// \brief Move State backward to the previous thread time.
 /// \return true iff the State was moved.
 bool moveBackward(ThreadState &State);
-
-/// \brief Move State to the given thread time.
-/// If State cannot assume the given thread time, it will be moved as close as
-/// possible.
-/// \return true iff the State was moved.
-bool moveToTime(ThreadState &State, uint64_t ThreadTime);
 
 /// @} (ThreadState movement)
 

@@ -431,14 +431,6 @@ public:
   }
 
   /// @}
-
-
-  /// Queries
-  /// @{
-  
-  uint64_t getFinalThreadTime() const;
-  
-  /// @}
 };
 
 

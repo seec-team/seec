@@ -334,23 +334,6 @@ bool moveBackward(ProcessState &State) {
                            });
 }
 
-bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
-  auto const PreviousTime = State.getProcessTime();
-  
-  if (PreviousTime < ProcessTime)
-    return moveForwardUntil(State,
-                            [=](ProcessState &NewState){
-                              return NewState.getProcessTime() >= ProcessTime;
-                            });
-  else if (PreviousTime > ProcessTime)
-    return moveBackwardUntil(State,
-                             [=](ProcessState &NewState){
-                               return NewState.getProcessTime() <= ProcessTime;
-                             });
-  
-  return false;
-}
-
 bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 {
   auto const Region = State.getMemory().getRegion(Area);
@@ -404,23 +387,6 @@ bool moveForward(ThreadState &State) {
 
 bool moveBackward(ThreadState &State) {
   return moveBackwardUntil(State, [](ThreadState &){return true;});
-}
-
-bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
-  auto const PreviousTime = State.getThreadTime();
-  
-  if (PreviousTime < ThreadTime)
-    return moveForwardUntil(State,
-                            [=](ThreadState &NewState){
-                              return NewState.getThreadTime() >= ThreadTime;
-                            });
-  else if (PreviousTime > ThreadTime)
-    return moveBackwardUntil(State,
-                             [=](ThreadState &NewState){
-                               return NewState.getThreadTime() <= ThreadTime;
-                             });
-  
-  return false;
 }
 
 

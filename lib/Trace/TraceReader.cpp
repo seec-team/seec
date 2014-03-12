@@ -109,43 +109,6 @@ llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
 
 
 //------------------------------------------------------------------------------
-// ThreadTrace
-//------------------------------------------------------------------------------
-
-uint64_t ThreadTrace::getFinalThreadTime() const {
-  auto MaybeTime = lastSuccessfulApply(events(),
-                    [this]
-                    (EventRecordBase const &Ev) -> seec::Maybe<uint64_t>
-                    {
-                      auto Ty = Ev.getType();
-
-                      if (Ty == EventType::FunctionEnd) {
-                        auto EndEv = Ev.as<EventType::FunctionEnd>();
-                        auto Record = EndEv.getRecord();
-                        auto FTrace = this->getFunctionTrace(Record);
-                        auto Exited = FTrace.getThreadTimeExited();
-                        // Function might never have been exited, in which case
-                        // it will have a zero exit time.
-                        return Exited ? Exited : seec::Maybe<uint64_t>();
-                      }
-                      else if (Ty == EventType::FunctionStart) {
-                        auto StartEv = Ev.as<EventType::FunctionStart>();
-                        auto Record = StartEv.getRecord();
-                        auto FTrace = this->getFunctionTrace(Record);
-                        return FTrace.getThreadTimeEntered();
-                      }
-
-                      return Ev.getThreadTime();
-                    });
-
-  if (MaybeTime.assigned())
-    return MaybeTime.get<0>();
-
-  return 0;
-}
-
-
-//------------------------------------------------------------------------------
 // ProcessTrace
 //------------------------------------------------------------------------------
 
