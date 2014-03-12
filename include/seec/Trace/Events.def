@@ -410,6 +410,7 @@ SEEC_TRACE_EVENT(RuntimeError,
     (uint8_t, IsTopLevel)
   ),
   SEEC_PP_QUOTE(
+    (RuntimeError, is_function_level)
   ))
 
 SEEC_TRACE_EVENT(RuntimeErrorArgument,
