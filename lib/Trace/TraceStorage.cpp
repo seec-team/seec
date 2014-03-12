@@ -271,7 +271,7 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
   Output->commit();
   
   // Save the relative path to the module.
-  TraceFiles.emplace_back(getModuleFilename());
+  TraceFiles.emplace(getModuleFilename());
   
   return seec::Maybe<seec::Error>();
 }
@@ -295,7 +295,7 @@ OutputStreamAllocator::getProcessStream(ProcessSegment Segment,
   }
 
   // Save the relative path to the process segment.
-  TraceFiles.emplace_back(File);
+  TraceFiles.emplace(File);
   
   return std::unique_ptr<llvm::raw_ostream>(Out);
 }
@@ -321,7 +321,7 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
   }
   
   // Save the relative path to the thread segment.
-  TraceFiles.emplace_back(File);
+  TraceFiles.emplace(File);
 
   return std::unique_ptr<llvm::raw_ostream>(Out);
 }

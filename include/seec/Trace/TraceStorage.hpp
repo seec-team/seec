@@ -25,7 +25,7 @@
 
 #include <memory>
 #include <string>
-#include <vector>
+#include <set>
 
 
 namespace llvm {
@@ -73,7 +73,7 @@ class OutputStreamAllocator {
   std::string TraceArchiveName;
   
   /// Paths for all created files.
-  std::vector<std::string> TraceFiles;
+  std::set<std::string> TraceFiles;
   
   /// \brief Create a new OutputStreamAllocator.
   ///
