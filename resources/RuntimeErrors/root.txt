@@ -306,6 +306,28 @@ root:table {
     }
 
     // function
+    VarArgsExpectedCharPointer:string {
+      "Argument is not a character pointer (but {function} requires it to be)."
+    }
+
+    // function
+    VarArgsExpectedCStringArray:string {
+      "{function, select, "
+        "execle {The {function} function expects the argument list's NULL terminator to be followed by a pointer to an array of pointers to NULL-terminated character strings, each of which specifies an environment variable for the new process. The array itself is also terminated by a NULL pointer. Consult documentation of {function} for more details.}"
+        "other {Argument is not a pointer to a NULL-terminated array of C strings, but {function} requires it to be.}}"
+    }
+
+    // function
+    VarArgsNonTerminated:string {
+      "The variadic argument list for {function} must be terminated by a NULL pointer."
+    }
+
+    // function
+    VarArgsPostTerminator:string {
+      "Argument follows terminating NULL pointer and thus will not be used by {function}."
+    }
+
+    // function
     UnsafeMultithreaded:string {
       "Calling function {function} in a multithreaded program is unsafe."
     }

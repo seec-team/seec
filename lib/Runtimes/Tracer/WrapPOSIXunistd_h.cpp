@@ -23,10 +23,48 @@
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <cerrno>
 #include <cinttypes>
 #include <type_traits>
 
 #include <unistd.h>
+
+
+/// \brief Close a single-threaded trace on construction, but allows for
+///        reopening.
+///
+class SpeculativeTraceClose {
+  seec::trace::TraceProcessListener &Process;
+
+  seec::trace::TraceThreadListener &Thread;
+
+  bool const WasEnabled;
+
+public:
+  SpeculativeTraceClose(seec::trace::TraceProcessListener &WithProcess,
+                        seec::trace::TraceThreadListener &WithThread)
+  : Process(WithProcess),
+    Thread(WithThread),
+    WasEnabled(Process.traceEnabled())
+  {
+    if (WasEnabled) {
+      Process.traceWrite();
+      Process.traceFlush();
+      Process.traceClose();
+      Thread.traceWrite();
+      Thread.traceFlush();
+      Thread.traceClose();
+    }
+  }
+
+  void reopen()
+  {
+    if (WasEnabled) {
+      Process.traceOpen();
+      Thread.traceOpen();
+    }
+  }
+};
 
 
 extern "C" {
@@ -60,11 +98,349 @@ int
 SEEC_MANGLE_FUNCTION(execl)
 (char const *filename, ...)
 {
-  // ... = argN..., 0
+  using namespace seec::trace;
+  using namespace seec::runtime_errors;
+
+  auto const FSFunction = format_selects::CStdFunction::execl;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Raise an error if there are multiple threads.
+  if (ProcessListener.countThreadListeners() > 1)
+    Listener.handleRunError(
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+
+  Listener.acquireGlobalMemoryReadLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+
+  // Ensure that each argument is accessible and correctly typed, and that the
+  // list is NULL terminated.
+  detect_calls::VarArgList<TraceThreadListener> const
+    VarArgs{Listener, llvm::CallSite(Instruction), 1};
+
+  std::vector<char *> ExtractedArgs;
+
+  for (unsigned i = 0; i < VarArgs.size(); ++i) {
+    auto const MaybePtr = VarArgs.getAs<char *>(i);
+    if (MaybePtr.assigned<char *>()) {
+      auto const Ptr = MaybePtr.get<char *>();
+      ExtractedArgs.push_back(Ptr);
+
+      if (Ptr != nullptr) {
+        if (i + 1 < VarArgs.size()) {
+          // Ensure that the pointer refers to a valid C string.
+          Checker.checkCStringRead(VarArgs.offset() + i, Ptr);
+        }
+        else {
+          // Raise an error because the list was not NULL terminated.
+          Listener.handleRunError(
+            createRunError<RunErrorType::VarArgsNonTerminated>(FSFunction)
+              ->addAdditional(
+                createRunError<RunErrorType::InfoCStdFunctionParameter>
+                              (FSFunction, VarArgs.offset() + i)),
+            RunErrorSeverity::Fatal,
+            InstructionIndex);
+        }
+      }
+      else {
+        // Raise a warning if there are superfluous arguments.
+        if (i + 1 < VarArgs.size()) {
+          Listener.handleRunError(
+            createRunError<RunErrorType::VarArgsPostTerminator>(FSFunction)
+              ->addAdditional(
+                createRunError<RunErrorType::InfoCStdFunctionParameter>
+                              (FSFunction, VarArgs.offset() + i + 1)),
+            RunErrorSeverity::Warning,
+            InstructionIndex);
+        }
+
+        break;
+      }
+    }
+    else {
+      // Raise an error because the argument has an incorrect type.
+      Listener.handleRunError(
+        createRunError<RunErrorType::VarArgsExpectedCharPointer>(FSFunction)
+          ->addAdditional(
+            createRunError<RunErrorType::InfoCStdFunctionParameter>
+                          (FSFunction, VarArgs.offset() + i)),
+        RunErrorSeverity::Fatal,
+        InstructionIndex);
+    }
+  }
+
+  // Closes trace and restores if destructed.
+  SpeculativeTraceClose STC(ProcessListener, Listener);
+  auto const Result = execv(filename, ExtractedArgs.data());
+  STC.reopen();
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
+
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execlp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execlp)
+(char const *filename, ...)
+{
+  using namespace seec::trace;
+  using namespace seec::runtime_errors;
+
+  auto const FSFunction = format_selects::CStdFunction::execlp;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Raise an error if there are multiple threads.
+  if (ProcessListener.countThreadListeners() > 1)
+    Listener.handleRunError(
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+
+  Listener.acquireGlobalMemoryReadLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+
+  // Ensure that each argument is accessible and correctly typed, and that the
+  // list is NULL terminated.
+  detect_calls::VarArgList<TraceThreadListener> const
+    VarArgs{Listener, llvm::CallSite(Instruction), 1};
+
+  std::vector<char *> ExtractedArgs;
+
+  for (unsigned i = 0; i < VarArgs.size(); ++i) {
+    auto const MaybePtr = VarArgs.getAs<char *>(i);
+    if (MaybePtr.assigned<char *>()) {
+      auto const Ptr = MaybePtr.get<char *>();
+      ExtractedArgs.push_back(Ptr);
+
+      if (Ptr != nullptr) {
+        if (i + 1 < VarArgs.size()) {
+          // Ensure that the pointer refers to a valid C string.
+          Checker.checkCStringRead(VarArgs.offset() + i, Ptr);
+        }
+        else {
+          // Raise an error because the list was not NULL terminated.
+          Listener.handleRunError(
+            createRunError<RunErrorType::VarArgsNonTerminated>(FSFunction)
+              ->addAdditional(
+                createRunError<RunErrorType::InfoCStdFunctionParameter>
+                              (FSFunction, VarArgs.offset() + i)),
+            RunErrorSeverity::Fatal,
+            InstructionIndex);
+        }
+      }
+      else {
+        // Raise a warning if there are superfluous arguments.
+        if (i + 1 < VarArgs.size()) {
+          Listener.handleRunError(
+            createRunError<RunErrorType::VarArgsPostTerminator>(FSFunction)
+              ->addAdditional(
+                createRunError<RunErrorType::InfoCStdFunctionParameter>
+                              (FSFunction, VarArgs.offset() + i + 1)),
+            RunErrorSeverity::Warning,
+            InstructionIndex);
+        }
+
+        break;
+      }
+    }
+    else {
+      // Raise an error because the argument has an incorrect type.
+      Listener.handleRunError(
+        createRunError<RunErrorType::VarArgsExpectedCharPointer>(FSFunction)
+          ->addAdditional(
+            createRunError<RunErrorType::InfoCStdFunctionParameter>
+                          (FSFunction, VarArgs.offset() + i)),
+        RunErrorSeverity::Fatal,
+        InstructionIndex);
+    }
+  }
+
+  // Closes trace and restores if destructed.
+  SpeculativeTraceClose STC(ProcessListener, Listener);
+  auto const Result = execvp(filename, ExtractedArgs.data());
+  STC.reopen();
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
+
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// execle
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(execle)
+(char const *filename, ...)
+{
+  using namespace seec::trace;
+  using namespace seec::runtime_errors;
+
+  auto const FSFunction = format_selects::CStdFunction::execle;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Raise an error if there are multiple threads.
+  if (ProcessListener.countThreadListeners() > 1)
+    Listener.handleRunError(
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+
+  Listener.acquireGlobalMemoryReadLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+
+  CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
+
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+
+  // Ensure that each argument is accessible and correctly typed, and that the
+  // list is NULL terminated.
+  detect_calls::VarArgList<TraceThreadListener> const
+    VarArgs{Listener, llvm::CallSite(Instruction), 1};
+
+  std::vector<char *> ExtractedArgs;
+  char * const *EnvP = nullptr;
+  unsigned i;
+
+  for (i = 0; i < VarArgs.size(); ++i) {
+    auto const MaybePtr = VarArgs.getAs<char *>(i);
+    if (MaybePtr.assigned<char *>()) {
+      auto const Ptr = MaybePtr.get<char *>();
+      ExtractedArgs.push_back(Ptr);
+
+      if (Ptr == nullptr)
+        break;
+      
+      if (i + 1 < VarArgs.size()) {
+        // Ensure that the pointer refers to a valid C string.
+        Checker.checkCStringRead(VarArgs.offset() + i, Ptr);
+      }
+      else {
+        // Raise an error because the list was not NULL terminated.
+        Listener.handleRunError(
+          createRunError<RunErrorType::VarArgsNonTerminated>(FSFunction)
+            ->addAdditional(
+              createRunError<RunErrorType::InfoCStdFunctionParameter>
+                            (FSFunction, VarArgs.offset() + i)),
+          RunErrorSeverity::Fatal,
+          InstructionIndex);
+      }
+    }
+    else {
+      // Raise an error because the argument has an incorrect type.
+      Listener.handleRunError(
+        createRunError<RunErrorType::VarArgsExpectedCharPointer>(FSFunction)
+          ->addAdditional(
+            createRunError<RunErrorType::InfoCStdFunctionParameter>
+                          (FSFunction, VarArgs.offset() + i)),
+        RunErrorSeverity::Fatal,
+        InstructionIndex);
+    }
+  }
   
-  llvm_unreachable("SeeC: execl not yet implemented.");
+  // Now get the envp pointer, which should be the last argument.
+  ++i;
   
-  return -1;
+  if (i >= VarArgs.size()) {
+    Listener.handleRunError(
+      *createRunError<RunErrorType::VarArgsInsufficient>
+                     (FSFunction, i + 1, VarArgs.size()),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+  }
+  
+  auto const MaybeEnvP = VarArgs.getAs<char * const *>(i);
+  if (MaybeEnvP.assigned<char * const *>()) {
+    EnvP = MaybeEnvP.get<char * const *>();
+    Checker.checkCStringArray(VarArgs.offset() + i, EnvP);
+  }
+  else {
+    // Raise an error because the argument has an incorrect type.
+    Listener.handleRunError(
+      createRunError<RunErrorType::VarArgsExpectedCStringArray>(FSFunction)
+        ->addAdditional(
+          createRunError<RunErrorType::InfoCStdFunctionParameter>
+                        (FSFunction, VarArgs.offset() + i)),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+  }
+  
+  if (i + 1 < VarArgs.size()) {
+    Listener.handleRunError(
+      *createRunError<RunErrorType::VarArgsSuperfluous>
+                     (FSFunction, i + 1, VarArgs.size()),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+  }
+
+  // Closes trace and restores if destructed.
+  SpeculativeTraceClose STC(ProcessListener, Listener);
+  auto const Result = execve(filename, ExtractedArgs.data(), EnvP);
+  STC.reopen();
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
+
+  return Result;
 }
 
 
@@ -79,22 +455,24 @@ SEEC_MANGLE_FUNCTION(execv)
   using namespace seec::trace;
   
   auto const FSFunction =
-    seec::runtime_errors::format_selects::CStdFunction::execve;
-  
-  auto &ProcessEnv = getProcessEnvironment();
-  auto &ProcessListener = ProcessEnv.getProcessListener();
+    seec::runtime_errors::format_selects::CStdFunction::execv;
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+  
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
   
   // Raise an error if there are multiple threads.
   if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      *createRunError<RunErrorType::UnsafeMultithreaded>
-                     (format_selects::CStdFunction::execve),
-      RunErrorSeverity::Fatal);
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
   }
   
   // Interact with the thread listener's notification system.
@@ -113,7 +491,7 @@ SEEC_MANGLE_FUNCTION(execv)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Write a complete trace before we call execve, because if it succeeds we
+  // Write a complete trace before we call execv, because if it succeeds we
   // will no longer control the process.
   auto const TraceEnabled = ProcessListener.traceEnabled();
   
@@ -126,32 +504,101 @@ SEEC_MANGLE_FUNCTION(execv)
     Listener.traceClose();
   }
   
-  // Forward to the default implementation of execve.
+  // Forward to the default implementation of execv.
   auto Result = execv(filename, argv);
   
-  // At this point the execve has failed, so restore tracing.
+  // At this point the execv has failed, so restore tracing.
   if (TraceEnabled) {
     ProcessListener.traceOpen();
     Listener.traceOpen();
   }
+  
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
   
   return Result;
 }
 
 
 //===----------------------------------------------------------------------===//
-// execle
+// execvp
 //===----------------------------------------------------------------------===//
 
 int
-SEEC_MANGLE_FUNCTION(execle)
-(char const *filename, ...)
+SEEC_MANGLE_FUNCTION(execvp)
+(char const *filename, char * const argv[])
 {
-  // ... = argN..., 0, char * const envp[]
+  using namespace seec::trace;
   
-  llvm_unreachable("SeeC: execle not yet implemented.");
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::execvp;
   
-  return -1;
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+  
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+  
+  // Raise an error if there are multiple threads.
+  if (ProcessListener.countThreadListeners() > 1) {
+    using namespace seec::runtime_errors;
+    
+    Listener.handleRunError(
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
+  }
+  
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+  
+  // Lock global memory.
+  Listener.acquireGlobalMemoryReadLock();
+  
+  // Use a CStdLibChecker to help check memory.
+  CStdLibChecker Checker{Listener, ThreadEnv.getInstructionIndex(), FSFunction};
+  
+  // Ensure that the filename string is accessible.
+  Checker.checkCStringRead(0, filename);
+  
+  // Ensure that argv is accessible.
+  Checker.checkCStringArray(1, argv);
+  
+  // Write a complete trace before we call execvp, because if it succeeds we
+  // will no longer control the process.
+  auto const TraceEnabled = ProcessListener.traceEnabled();
+  
+  if (TraceEnabled) {
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+    Listener.traceWrite();
+    Listener.traceFlush();
+    Listener.traceClose();
+  }
+  
+  // Forward to the default implementation of execvp.
+  auto Result = execvp(filename, argv);
+  
+  // At this point the execvp has failed, so restore tracing.
+  if (TraceEnabled) {
+    ProcessListener.traceOpen();
+    Listener.traceOpen();
+  }
+  
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
+  
+  return Result;
 }
 
 
@@ -168,11 +615,13 @@ SEEC_MANGLE_FUNCTION(execve)
   auto const FSFunction =
     seec::runtime_errors::format_selects::CStdFunction::execve;
   
-  auto &ProcessEnv = getProcessEnvironment();
-  auto &ProcessListener = ProcessEnv.getProcessListener();
-  
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+  
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
   
   // Raise an error if there are multiple threads.
   if (ProcessListener.countThreadListeners() > 1) {
@@ -181,7 +630,8 @@ SEEC_MANGLE_FUNCTION(execve)
     Listener.handleRunError(
       *createRunError<RunErrorType::UnsafeMultithreaded>
                      (format_selects::CStdFunction::execve),
-      RunErrorSeverity::Fatal);
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
   }
   
   // Interact with the thread listener's notification system.
@@ -225,53 +675,45 @@ SEEC_MANGLE_FUNCTION(execve)
     Listener.traceOpen();
   }
   
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
+  
   return Result;
 }
 
 
 //===----------------------------------------------------------------------===//
-// execlp
+// execvpe
 //===----------------------------------------------------------------------===//
 
 int
-SEEC_MANGLE_FUNCTION(execlp)
-(char const *filename, ...)
-{
-  // ... = argN..., 0
-  
-  llvm_unreachable("SeeC: execlp not yet implemented.");
-  
-  return -1;
-}
-
-
-//===----------------------------------------------------------------------===//
-// execvp
-//===----------------------------------------------------------------------===//
-
-int
-SEEC_MANGLE_FUNCTION(execvp)
-(char const *filename, char * const argv[])
+SEEC_MANGLE_FUNCTION(execvpe)
+(char const *filename, char * const argv[], char * const envp[])
 {
   using namespace seec::trace;
   
   auto const FSFunction =
-    seec::runtime_errors::format_selects::CStdFunction::execve;
-  
-  auto &ProcessEnv = getProcessEnvironment();
-  auto &ProcessListener = ProcessEnv.getProcessListener();
+    seec::runtime_errors::format_selects::CStdFunction::execvpe;
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
+  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
+                                   .getProcessListener();
+  
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
   
   // Raise an error if there are multiple threads.
   if (ProcessListener.countThreadListeners() > 1) {
     using namespace seec::runtime_errors;
     
     Listener.handleRunError(
-      *createRunError<RunErrorType::UnsafeMultithreaded>
-                     (format_selects::CStdFunction::execve),
-      RunErrorSeverity::Fatal);
+      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
+      RunErrorSeverity::Fatal,
+      InstructionIndex);
   }
   
   // Interact with the thread listener's notification system.
@@ -290,7 +732,10 @@ SEEC_MANGLE_FUNCTION(execvp)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Write a complete trace before we call execve, because if it succeeds we
+  // Ensure that envp is accessible.
+  Checker.checkCStringArray(2, envp);
+  
+  // Write a complete trace before we call execvpe, because if it succeeds we
   // will no longer control the process.
   auto const TraceEnabled = ProcessListener.traceEnabled();
   
@@ -303,14 +748,20 @@ SEEC_MANGLE_FUNCTION(execvp)
     Listener.traceClose();
   }
   
-  // Forward to the default implementation of execve.
-  auto Result = execvp(filename, argv);
+  // Forward to the default implementation of execvpe.
+  auto Result = execvpe(filename, argv, envp);
   
-  // At this point the execve has failed, so restore tracing.
+  // At this point the execvpe has failed, so restore tracing.
   if (TraceEnabled) {
     ProcessListener.traceOpen();
     Listener.traceOpen();
   }
+  
+  Listener.notifyValue(InstructionIndex,
+                       Instruction,
+                       std::make_unsigned<decltype(Result)>::type(Result));
+  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                              sizeof(errno));
   
   return Result;
 }
@@ -339,7 +790,8 @@ SEEC_MANGLE_FUNCTION(fork)
     Listener.handleRunError(
       *createRunError<RunErrorType::UnsafeMultithreaded>
                      (format_selects::CStdFunction::fork),
-      RunErrorSeverity::Fatal);
+      RunErrorSeverity::Fatal,
+      ThreadEnv.getInstructionIndex());
   }
   
   // Flush output streams prior to the fork, so that information isn't
@@ -363,6 +815,10 @@ SEEC_MANGLE_FUNCTION(fork)
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),
                        ThreadEnv.getInstruction(),
                        std::make_unsigned<pid_t>::type(Result));
+  
+  if (Result == -1)
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
   
   return Result;
 }

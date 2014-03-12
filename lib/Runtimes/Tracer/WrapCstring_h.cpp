@@ -103,7 +103,8 @@ SEEC_MANGLE_FUNCTION(strtok)
     
     Listener.handleRunError(*createRunError<RunErrorType::UnsafeMultithreaded>
                                            (FSFunction),
-                            seec::trace::RunErrorSeverity::Fatal);
+                            seec::trace::RunErrorSeverity::Fatal,
+                            ThreadEnv.getInstructionIndex());
     
     return nullptr;
   }

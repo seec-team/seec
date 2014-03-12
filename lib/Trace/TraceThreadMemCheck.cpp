@@ -409,7 +409,8 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
     Thread.handleRunError(
       *createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
                      (Function, Parameter),
-      RunErrorSeverity::Fatal);
+      RunErrorSeverity::Fatal,
+      Instruction);
     
     return 0;
   }
