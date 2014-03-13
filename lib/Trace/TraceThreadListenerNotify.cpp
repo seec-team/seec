@@ -58,6 +58,9 @@ void TraceThreadListener::exitPostNotification() {
   if (StreamsLock)
     StreamsLock.unlock();
   
+  if (DirsLock)
+    DirsLock.unlock();
+  
   clearCI();
   
   exitNotification();
