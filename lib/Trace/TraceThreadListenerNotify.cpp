@@ -15,6 +15,7 @@
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
+#include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
@@ -583,15 +584,15 @@ void TraceThreadListener::notifyPreDivide(
 
   // Check that the division is safe
   switch (Instruction->getOpcode()) {
-    case llvm::Instruction::BinaryOps::UDiv: // [[clang::fallthrough]];
+    case llvm::Instruction::BinaryOps::UDiv: SEEC_FALLTHROUGH;
     case llvm::Instruction::BinaryOps::URem:
       checkIntegerDivision<false>(*this, Instruction, Index);
       break;
-    case llvm::Instruction::BinaryOps::SDiv: // [[clang::fallthrough]];
+    case llvm::Instruction::BinaryOps::SDiv: SEEC_FALLTHROUGH;
     case llvm::Instruction::BinaryOps::SRem:
       checkIntegerDivision<true>(*this, Instruction, Index);
       break;
-    case llvm::Instruction::BinaryOps::FDiv: // [[clang::fallthrough]];
+    case llvm::Instruction::BinaryOps::FDiv: SEEC_FALLTHROUGH;
     case llvm::Instruction::BinaryOps::FRem:
       checkFloatDivision(*this, Instruction, Index);
       break;
