@@ -92,32 +92,6 @@ public:
 
   EventRecordBase const *operator->() const { return Record; }
 
-  /// Get the result of applying the appropriate predicate to the underlying
-  /// event record. An appropriate predicate from the supplied predicates will
-  /// be selected using the dispatch() function.
-  /// \tparam PredTs the types of the predicates.
-  /// \param Preds the predicates.
-  /// \return a seec::Maybe with element type based on the return types
-  ///         of the predicates. If no appropriate predicate was found for the
-  ///         event record, the Maybe will be unassigned.
-  template<typename... PredTs>
-  typename seec::dispatch_impl::ReturnType<getDefaultDispatchFlagSet(),
-                                           PredTs...>::type
-  dispatch(PredTs &&...Preds) const {
-    switch(Record->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        {                                                                      \
-          auto Ptr = static_cast<EventRecord<EventType::NAME> const *>(Record);\
-          return seec::dispatch(*Ptr, std::forward<PredTs>(Preds)...);         \
-        }
-#include "seec/Trace/Events.def"
-      default: llvm_unreachable("Reference to unknown event type!");
-    }
-  }
-
-  /// @} (Access)
-
 
   /// \name Comparison operators
   /// @{
