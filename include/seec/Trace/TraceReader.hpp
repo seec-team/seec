@@ -184,30 +184,52 @@ class EventRange {
   EventReference End;
 
 public:
+  /// \brief Create an empty \c EventRange.
+  ///
   EventRange()
   : Begin(nullptr),
     End(nullptr)
   {}
 
+  /// \brief Create a new \c EventRange from a pair of \c EventReference.
+  /// \param Begin the first event in the range.
+  /// \param End the first event following (not in) the range.
+  ///
   EventRange(EventReference Begin, EventReference End)
   : Begin(Begin),
     End(End)
   {}
 
+  /// \brief Copy constructor.
+  ///
   EventRange(EventRange const &) = default;
 
+  /// \brief Copy assignment.
+  ///
   EventRange &operator=(EventRange const &) = default;
 
+  /// \brief Get a reference to the first event in the range.
+  ///
   EventReference begin() const { return Begin; }
 
+  /// \brief Get a reference to the first event following (not in) the range.
+  ///
   EventReference end() const { return End; }
 
+  /// \brief Check if the range is empty (i.e. begin() == end()).
+  ///
   bool empty() const { return Begin == End; }
 
+  /// \brief Check if the given event is contained within this range.
+  ///
   bool contains(EventReference Ev) const {
     return Begin <= Ev && Ev < End;
   }
 
+  /// \brief Get the raw offset of an event from the start of this range.
+  /// \param Ev the event to find the offset of.
+  /// \return the number of bytes from \c begin() to \c Ev.
+  ///
   offset_uint offsetOf(EventReference Ev) const {
     assert(Begin <= Ev && Ev <= End && "Ev not in EventRange");
 
@@ -217,11 +239,26 @@ public:
     return static_cast<offset_uint>(EvPtr - BeginPtr);
   }
 
+  /// \brief Get a reference to the event at the given offset in this range.
+  /// \param Offset the number of bytes from \c begin() to the event.
+  /// \return a reference to the event that is \c Offset bytes after \c begin().
+  ///
   EventReference referenceToOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
     return EventReference(BeginPtr + Offset);
   }
 
+  /// \brief Get a typed reference to the event at the given offset in this
+  ///        range.
+  /// This differs from \c referenceToOffset in that it returns a reference
+  /// to an \c EventRecord<ET> rather than an \c EventReference.
+  /// \tparam ET the \c EventType of the \c EventRecord that will be
+  ///         retrieved. This *must* match the event that exists at the
+  ///         given \c Offset.
+  /// \param Offset the number of bytes from \c begin() to the event.
+  /// \return a reference to the \c EventRecord<ET> that is Offset bytes after
+  ///         \c begin().
+  ///
   template<EventType ET>
   EventRecord<ET> const &eventAtOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
@@ -230,11 +267,15 @@ public:
 };
 
 
-/// Attempt to recreate a RunError from a RuntimeError event record.
-/// \param Record the RuntimeErrorRecord to recreate the RunError from.
-/// \param End end of the Event array (e.g. end of thread containing Record).
-/// \return A unique_ptr holding the recreated RunError if deserialization was
-///         successful, otherwise an empty unique_ptr.
+/// \brief Deserialize a \c RunError from a \c RuntimeError event record.
+/// \param Records a range of events that starts with the
+///                \c EventRecord<EventType::RuntimeError> and should contain
+///                all subservient events.
+/// \return A \c std::unique_ptr holding the recreated \c RunError if
+///         deserialization was successful (otherwise holding nothing),
+///         and a reference to the first event that is not associated with
+///         this \c RunError.
+///
 std::pair<std::unique_ptr<seec::runtime_errors::RunError>, EventReference>
 deserializeRuntimeError(EventRange Records);
 
@@ -346,7 +387,17 @@ class ThreadTrace {
   /// A list of offsets of top-level FunctionTraces.
   llvm::ArrayRef<offset_uint> TopLevelFunctions;
 
-  /// Constructor
+  /// \brief Get a list of offsets from this thread's trace information.
+  ///
+  llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
+    auto List = Trace->getBufferStart() + AtOffset;
+    auto Length = *reinterpret_cast<uint64_t const *>(List);
+    auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
+    return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
+  }
+ 
+  /// \brief Constructor
+  ///
   ThreadTrace(InputBufferAllocator &Allocator, uint32_t ID)
   : ThreadID(ID),
     Trace(std::move(Allocator.getThreadData(ID,
@@ -361,10 +412,12 @@ public:
   /// \name Accessors
   /// @{
 
-  /// Get the ID of the thread that this trace represents.
+  /// \brief Get the ID of the thread that this trace represents.
+  ///
   uint32_t getThreadID() const { return ThreadID; }
 
-  /// Get a range containing all of the events in this thread.
+  /// \brief Get a range containing all of the events in this thread.
+  ///
   EventRange events() const {
     auto LastEvent = Events->getBufferEnd()
                      - sizeof(EventRecord<EventType::TraceEnd>);
@@ -373,35 +426,22 @@ public:
                       EventReference(LastEvent));
   }
 
-  /// Get a list of offsets from this thread's trace information.
-  llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
-    auto List = Trace->getBufferStart() + AtOffset;
-    auto Length = *reinterpret_cast<uint64_t const *>(List);
-    auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
-    return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
-  }
-
   /// @} (Accessors)
 
 
   /// \name Function traces
   /// @{
 
-  /// Get a list of offsets of top-level FunctionTraces.
+  /// \brief Get a list of offsets of top-level \c FunctionTrace records.
+  ///
   llvm::ArrayRef<offset_uint> topLevelFunctions() const {
     return TopLevelFunctions;
   }
 
-  /// Get a FunctionTrace from a given offset.
+  /// \brief Get a \c FunctionTrace from a given offset.
+  ///
   FunctionTrace getFunctionTrace(offset_uint const AtOffset) const {
     return FunctionTrace(*this, Trace->getBufferStart() + AtOffset);
-  }
-
-  /// Get a dynamically-allocated FunctionTrace from a given offset.
-  std::unique_ptr<FunctionTrace>
-  makeFunctionTrace(offset_uint const AtOffset) const {
-    return std::unique_ptr<FunctionTrace>(
-      new FunctionTrace(*this, Trace->getBufferStart() + AtOffset));
   }
 
   /// @}
