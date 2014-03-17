@@ -1263,16 +1263,6 @@ ThreadState::getContainingMemoryArea(uintptr_t Address) const {
 
 
 //------------------------------------------------------------------------------
-// Searching.
-//------------------------------------------------------------------------------
-
-seec::Maybe<EventReference> ThreadState::getLastProcessModifier() const {
-  return rfind(rangeBefore(Trace.events(), NextEvent),
-               [](EventRecordBase const &Ev){return Ev.modifiesSharedState();});
-}
-
-
-//------------------------------------------------------------------------------
 // Printing.
 //------------------------------------------------------------------------------
 

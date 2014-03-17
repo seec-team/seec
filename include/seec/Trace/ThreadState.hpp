@@ -355,16 +355,6 @@ public:
   getContainingMemoryArea(uintptr_t Address) const;
   
   /// @} (Memory.)
-
-
-  /// \name Searching
-  /// @{
-
-  /// \brief Get the last event that modified the shared process state from this
-  /// thread.
-  seec::Maybe<EventReference> getLastProcessModifier() const;
-
-  /// @}
 };
 
 /// Print a textual description of a ThreadState.
