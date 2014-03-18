@@ -1121,7 +1121,7 @@ class SimpleWrapperImpl
   /// \brief Check if the given setting is enabled for this wrapper.
   ///
   template<SimpleWrapperSetting Setting>
-  constexpr bool isEnabled() {
+  constexpr bool isEnabled() const {
     return isSettingInList<Setting, Settings...>();
   }
   
@@ -1232,7 +1232,7 @@ class SimpleWrapperImpl<void,
   /// \brief Check if the given setting is enabled for this wrapper.
   ///
   template<SimpleWrapperSetting Setting>
-  constexpr bool isEnabled() {
+  constexpr bool isEnabled() const {
     return isSettingInList<Setting, Settings...>();
   }
   
