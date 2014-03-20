@@ -113,7 +113,13 @@ getNextInstructionInActiveFunction(ThreadState const &State);
 llvm::Instruction const *
 getPreviousInstructionInActiveFunction(ThreadState const &State);
 
-/// \brief 
+/// \brief Check if any previously executed \c llvm::Instruction in the active
+///        \c FunctionState matches the given \c Predicate.
+/// \param State the \c ThreadState to search.
+/// \param Predicate the predicate to check each previously executed
+///        \c llvm::Instruction against.
+/// \return true iff \c Predicate(I) returns true for any \c llvm::Instruction
+///         I that was previously executed in the active \c FunctionState.
 ///
 bool
 findPreviousInstructionInActiveFunctionIf(ThreadState const &State,
