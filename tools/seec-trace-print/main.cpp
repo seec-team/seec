@@ -55,6 +55,7 @@
 
 #include <array>
 #include <memory>
+#include <type_traits>
 
 using namespace seec;
 using namespace llvm;
@@ -65,9 +66,12 @@ namespace {
 
   static cl::opt<bool>
   UseClangMapping("C", cl::desc("use SeeC-Clang mapped states"));
-  
+
   static cl::opt<std::string>
   OutputDirectoryForClangMappedDot("G", cl::desc("output dot graphs to this directory"));
+
+  static cl::opt<bool>
+  ShowCounts("counts", cl::desc("show event counts"));
 
   static cl::opt<bool>
   ShowRawEvents("R", cl::desc("show raw events"));
@@ -77,7 +81,7 @@ namespace {
 
   static cl::opt<bool>
   ShowErrors("E", cl::desc("show run-time errors"));
-  
+
   static cl::opt<bool>
   OnlinePythonTutor("P", cl::desc("output suitable for Online Python Tutor"));
 }
@@ -243,6 +247,38 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
   }
   
   std::shared_ptr<trace::ProcessTrace> Trace(MaybeProcTrace.get<0>().release());
+
+  if (ShowCounts) {
+    using namespace seec::trace;
+
+    auto const NumThreads = Trace->getNumThreads();
+
+    // Count each EventType.
+    typedef std::underlying_type<EventType>::type UnderlyingEventTypeTy;
+    auto const Highest = static_cast<UnderlyingEventTypeTy>(EventType::Highest);
+    uint64_t Counts[Highest];
+
+    std::memset(Counts, 0, sizeof(Counts));
+
+    for (uint32_t i = 1; i <= NumThreads; ++i) {
+      auto const &Thread = Trace->getThreadTrace(i);
+
+      for (auto const &Ev : Thread.events())
+        ++Counts[static_cast<UnderlyingEventTypeTy>(Ev.getType())];
+    }
+
+    // Print the counts for each EventType.
+    outs() << "EventType\tSize\tCount\tTotal\n";
+
+#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
+    {                                                                          \
+      auto const Index = static_cast<UnderlyingEventTypeTy>(EventType::NAME);  \
+      auto const Size = sizeof(EventRecord<EventType::NAME>);                  \
+      outs() << #NAME "\t" << Size << "\t" << Counts[Index] << "\t"            \
+             << (Counts[Index] * Size) << "\n";                                \
+    }
+#include "seec/Trace/Events.def"
+  }
 
   // Print the raw events from each thread trace.
   if (ShowRawEvents) {
