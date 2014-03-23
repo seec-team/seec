@@ -21,10 +21,13 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/system_error.h"
 
+#include <wx/file.h>
+#include <wx/filename.h>
 #include <wx/longlong.h>
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include <cstdlib>
 #include <string>
 
 #ifdef __unix__
@@ -437,12 +440,78 @@ InputBufferAllocator::getBuffer(llvm::StringRef Path) const
   return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
 }
 
+InputBufferAllocator::~InputBufferAllocator()
+{
+  // If this trace was expanded from an archive, delete the temporary files.
+  if (TempFiles.size()) {
+    for (auto const &File : TempFiles)
+      wxRemoveFile(File);
+    wxRmdir(TraceDirectory);
+  }
+}
+
 seec::Maybe<InputBufferAllocator, seec::Error>
-InputBufferAllocator::createFor(llvm::StringRef Directory)
+InputBufferAllocator::createForArchive(llvm::StringRef ArchivePath)
+{
+  // Attempt to open the file for reading.
+  wxFFileInputStream RawInput{wxString{ArchivePath.str()}};
+  if (!RawInput.IsOk())
+    return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                        {"errors", "ProcessTraceFailRead"})};
+
+  // Create a temporary directory to hold the extracted trace files.
+  // TODO: Delete this directory if the rest of the process fails.
+  auto const TempPath = wxFileName::CreateTempFileName("SeeC");
+  wxRemoveFile(TempPath);
+  if (!wxMkdir(TempPath))
+    return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                        {"errors", "ProcessTraceFailRead"})};
+
+  // Attempt to read from the file.
+  wxZipInputStream Input{RawInput};
+  std::unique_ptr<wxZipEntry> Entry;
+  std::vector<std::string> TempFiles;
+
+  while (Entry.reset(Input.GetNextEntry()), Entry) {
+    // Skip dir entries, because file entries have the complete path.
+    if (Entry->IsDir())
+      continue;
+
+    auto const &Name = Entry->GetName();
+
+    if (Name.StartsWith("trace/")) {
+      wxFileName Path{Name};
+      Path.RemoveDir(0);
+
+      auto const FullPath = TempPath
+                          + wxFileName::GetPathSeparator()
+                          + Path.GetFullPath();
+
+      wxFFileOutputStream Out{FullPath};
+      if (!Out.IsOk())
+        return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                            {"errors", "ProcessTraceFailRead"})};
+
+      Out.Write(Input);
+      TempFiles.emplace_back(FullPath.ToStdString());
+    }
+    else {
+      return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                            {"errors", "ProcessTraceFailRead"})};
+    }
+  }
+
+  return seec::Maybe<InputBufferAllocator, seec::Error>
+                    (InputBufferAllocator(TempPath.ToStdString(),
+                                          std::move(TempFiles)));
+}
+
+seec::Maybe<InputBufferAllocator, seec::Error>
+InputBufferAllocator::createForDirectory(llvm::StringRef Directory)
 {
   llvm::error_code ErrCode;
   llvm::SmallString<256> Path;
-  
+
   if (!Directory.empty()) {
     Path = Directory;
   }
@@ -453,7 +522,7 @@ InputBufferAllocator::createFor(llvm::StringRef Directory)
                                             {"errors", "CurrentPathFail"}));
     }
   }
-  
+
   bool IsDirectory;
   ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(Path), IsDirectory);
   if (ErrCode != llvm::errc::success) {
@@ -462,15 +531,29 @@ InputBufferAllocator::createFor(llvm::StringRef Directory)
                                           std::make_pair("path",
                                                          Path.c_str())));
   }
-  
+
   if (!IsDirectory) {
     return Error(LazyMessageByRef::create("Trace",
                                           {"errors", "PathIsNotDirectory"},
                                           std::make_pair("path",
                                                          Path.c_str())));
   }
-  
-  return InputBufferAllocator{llvm::StringRef(Path)};
+
+  return InputBufferAllocator{Path};
+}
+
+seec::Maybe<InputBufferAllocator, seec::Error>
+InputBufferAllocator::createFor(llvm::StringRef Path)
+{
+  // Check if the path is a SeeC archive type.
+  wxFileName FileName{wxString{Path.str()}};
+
+  if (FileName.FileExists() &&
+      (Path.endswith(".seecrecord") || Path.endswith(".seec")))
+    return createForArchive(Path);
+
+  // Otherwise attempt to open it as a trace folder.
+  return createForDirectory(Path);
 }
 
 seec::Maybe<llvm::Module *, seec::Error>
