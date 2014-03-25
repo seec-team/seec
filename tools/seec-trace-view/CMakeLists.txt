@@ -36,6 +36,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   StateAccessToken.hpp
   StateEvaluationTree.hpp
   StateGraphViewer.hpp
+  StreamStatePanel.hpp
   ThreadMoveEvent.hpp
   ThreadStateViewer.hpp
   ThreadTimeControl.hpp
@@ -62,6 +63,7 @@ set(SEEC_TRACE_VIEW_SRCS
   SourceViewerSettings.cpp
   StateEvaluationTree.cpp
   StateGraphViewer.cpp
+  StreamStatePanel.cpp
   ThreadMoveEvent.cpp
   ThreadStateViewer.cpp
   ThreadTimeControl.cpp

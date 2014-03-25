@@ -30,6 +30,7 @@ namespace seec {
   }
 }
 
+class wxButton;
 class wxPoint;
 class wxSize;
 class wxXmlDocument;

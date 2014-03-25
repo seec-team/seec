@@ -39,6 +39,7 @@ class SourceViewerPanel;
 class StateAccessToken;
 class StateEvaluationTreePanel;
 class StateGraphViewerPanel;
+class StreamStatePanel;
 class ThreadMoveEvent;
 class ThreadTimeControl;
 class wxAuiManager;
@@ -76,6 +77,9 @@ class TraceViewerFrame : public wxFrame
   /// Shows an evaluation tree.
   StateEvaluationTreePanel *EvaluationTree;
   
+  /// Shows data written to open FILE streams.
+  StreamStatePanel *StreamState;
+
   /// Allows the user to enable/disable action recording.
   ActionRecordingControl *RecordingControl;
   

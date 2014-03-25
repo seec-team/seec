@@ -41,6 +41,7 @@ root:table {
       Explanation:string {"&Explanation"}
       Graph:string {"&Graph"}
       EvaluationTree:string {"E&valuation Tree"}
+      StreamState:string {"&FILE Streams"}
     }
 
 
@@ -137,6 +138,14 @@ root:table {
     //
     EvaluationTree:table {
       Title:string {"Evaluation Tree"}
+    }
+
+
+    //
+    // Stream states
+    //
+    StreamState:table {
+      Title:string {"FILE Streams"}
     }
 
 

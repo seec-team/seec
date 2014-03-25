@@ -41,6 +41,7 @@
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
 #include "StateGraphViewer.hpp"
+#include "StreamStatePanel.hpp"
 #include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
 #include "TraceViewerApp.hpp"
@@ -93,6 +94,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
   createViewButton(*Menu, *Manager, ExplanationCtrl, Text, "Explanation");
   createViewButton(*Menu, *Manager, GraphViewer,     Text, "Graph");
   createViewButton(*Menu, *Manager, EvaluationTree,  Text, "EvaluationTree");
+  createViewButton(*Menu, *Manager, StreamState,     Text, "StreamState");
   
   return std::make_pair(std::move(Menu),
                         seec::getwxStringExOrKey(Text, "Title"));
@@ -107,6 +109,7 @@ TraceViewerFrame::TraceViewerFrame()
   ExplanationCtrl(nullptr),
   GraphViewer(nullptr),
   EvaluationTree(nullptr),
+  StreamState(nullptr),
   RecordingControl(nullptr),
   Recording(nullptr),
   Replay(nullptr),
@@ -238,7 +241,18 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Right()
                                     .MinimizeButton(true)
                                     .MaximizeButton(true));
-    
+
+    // Create the stream viewer.
+    StreamState = new StreamStatePanel(this, *Notifier, *Recording, *Replay);
+    auto const StreamStateTitle =
+      seec::getwxStringExOrEmpty(TextTable,
+                                 (char const *[]){"StreamState", "Title"});
+    Manager->AddPane(StreamState,
+                     wxAuiPaneInfo{}.Caption(StreamStateTitle)
+                                    .Right()
+                                    .MinimizeButton(true)
+                                    .MaximizeButton(true));
+
     // Create the graph viewer.
     GraphViewer = new StateGraphViewerPanel(this, *Notifier);
     auto const GraphViewerTitle =
@@ -258,6 +272,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     EvaluationTree->show(StateAccess, *State, ThreadState);
     // GraphViewer->show(StateAccess, *State, ThreadState);
     SourceViewer->show(StateAccess, *State, ThreadState);
+    StreamState->show(StateAccess, *State, ThreadState);
   }
   else {
     // TODO: Setup the view for a multi-threaded trace.
@@ -343,6 +358,7 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
     EvaluationTree->show(StateAccess, *State, ThreadState);
     GraphViewer->show(StateAccess, *State, ThreadState);
     SourceViewer->show(StateAccess, *State, ThreadState);
+    StreamState->show(StateAccess, *State, ThreadState);
   }
   else {
     // TODO: Show the state for a multi-threaded trace.
@@ -385,6 +401,7 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   EvaluationTree->show(StateAccess, *State, ThreadState);
   GraphViewer->show(StateAccess, *State, ThreadState);
   SourceViewer->show(StateAccess, *State, ThreadState);
+  StreamState->show(StateAccess, *State, ThreadState);
   
   auto const ShowEnd = std::chrono::steady_clock::now();
   auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>
