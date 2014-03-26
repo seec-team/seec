@@ -1,5 +1,10 @@
 a {
  pointer-events: visible;
+ cursor: default;
+}
+
+a:hover {
+ cursor: context-menu;
 }
 
 a:hover > polygon {

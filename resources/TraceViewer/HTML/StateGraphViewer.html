@@ -18,7 +18,7 @@
     //
     function Log(Message) {
       var Container = document.getElementById("Log");
-      
+
       Container.innerHTML = Container.innerHTML
 			    + "<span>" + Message
                             + "</span><br>";
@@ -99,10 +99,10 @@
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
-    
+
     function SetStateImpl(SVGString) {
       SetStateImplTimer = null;
-      
+
       var Container = document.getElementById("SVGContainer");
       Container.innerHTML = SVGString;
 
@@ -111,20 +111,21 @@
       var refs = $('a');
       refs.removeAttr("xlink:title");
       refs.hover(NodeMouseEnter, NodeMouseLeave);
+      refs.click(function(){return false;});
 
       StateExists = true;
 
       for (var i = 0; i < HighlightedValues.length; ++i)
         HighlightValueImpl(HighlightedValues[i]);
     }
-    
+
     function SetState(SVGString) {
       if (SetStateImplTimer != null)
         window.clearTimeout(SetStateImplTimer);
-      
+
       StateExists = false;
       LogClear();
-      
+
       SetStateImplTimer = setTimeout(function() { SetStateImpl(SVGString); },
                                      0);
     }
