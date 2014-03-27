@@ -1690,6 +1690,12 @@ SEEC_MANGLE_FUNCTION(printf)
     // Shortcut for fprintf() with no variadic arguments.
     Written = std::strlen(Format);
     fputs(Format, stdout);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+    // Record the stream write.
     Listener.recordStreamWriteFromMemory(stdout,
                                          seec::MemoryArea(Format, Written));
   }
@@ -1708,15 +1714,15 @@ SEEC_MANGLE_FUNCTION(printf)
     Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
     va_end(Args2);
 
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
     // Write the formatted string to the stream.
     fputs(Buffer.get(), stdout);
     Listener.recordStreamWrite(stdout,
                                llvm::ArrayRef<char>(Buffer.get(), Written));
   }
-
-  // Record the produced value.
-  typedef std::make_unsigned<decltype(Written)>::type ResultTy;
-  Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
 
   return Written;
 }
@@ -1762,6 +1768,11 @@ SEEC_MANGLE_FUNCTION(fprintf)
     // Shortcut for fprintf() with no variadic arguments.
     Written = std::strlen(Format);
     fputs(Format, Stream);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
     Listener.recordStreamWriteFromMemory(Stream,
                                          seec::MemoryArea(Format, Written));
   }
@@ -1780,15 +1791,15 @@ SEEC_MANGLE_FUNCTION(fprintf)
     Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
     va_end(Args2);
 
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
     // Write the formatted string to the stream.
     fputs(Buffer.get(), Stream);
     Listener.recordStreamWrite(Stream,
                                llvm::ArrayRef<char>(Buffer.get(), Written));
   }
-
-  // Record the produced value.
-  typedef std::make_unsigned<decltype(Written)>::type ResultTy;
-  Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
 
   return Written;
 }
