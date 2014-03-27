@@ -22,6 +22,7 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <wx/config.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/framemanager.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -48,6 +49,11 @@
 #include "TraceViewerFrame.hpp"
 
 
+char const * const cConfigKeyForPerspective = "/TraceViewerFrame/Perspective";
+char const * const cConfigKeyForWidth       = "/TraceViewerFrame/Width";
+char const * const cConfigKeyForHeight      = "/TraceViewerFrame/Height";
+
+
 static void createViewButton(wxMenu &Menu,
                              wxAuiManager &Manager,
                              wxWindow *Window,
@@ -57,15 +63,15 @@ static void createViewButton(wxMenu &Menu,
   // This particular panel was not created for this trace viewer.
   if (!Window)
     return;
-  
+
   auto &PaneInfo = Manager.GetPane(Window);
   if (!PaneInfo.IsOk())
     return;
-  
+
   auto const Item = Menu.Append(wxID_ANY, seec::getwxStringExOrKey(Table, Key));
   if (!Item)
     return;
-  
+
   Menu.Bind(
     wxEVT_MENU,
     std::function<void (wxEvent &)>{
@@ -130,10 +136,21 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 TraceViewerFrame::~TraceViewerFrame() {
   // Finalize the recording.
   Recording->finalize();
-  
+
+  auto const Config = wxConfig::Get();
+
+  // Save the size of the frame.
+  auto const WindowSize = GetSize();
+  Config->Write(cConfigKeyForWidth, WindowSize.GetWidth());
+  Config->Write(cConfigKeyForHeight, WindowSize.GetHeight());
+
+  // Save the user's perspective.
+  auto const Perspective = Manager->SavePerspective();
+  Config->Write(cConfigKeyForPerspective, Perspective);
+
   // Shutdown the AUI manager.
   Manager->UnInit();
-  
+
   // Notify the TraceViewerApp that we have been destroyed.
   auto &App = wxGetApp();
   App.removeTopLevelWindow(this);
@@ -144,8 +161,14 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                               wxWindowID ID,
                               wxString const &Title,
                               wxPoint const &Position,
-                              wxSize const &Size)
+                              wxSize const &GivenSize)
 {
+  // Use the size of the user's last TraceViewerFrame, if available.
+  auto const Config = wxConfig::Get();
+  auto const Size = wxSize(
+    Config->ReadLong(cConfigKeyForWidth,  GivenSize.GetWidth()),
+    Config->ReadLong(cConfigKeyForHeight, GivenSize.GetHeight()));
+
   if (!wxFrame::Create(Parent, ID, Title, Position, Size))
     return false;
   
@@ -187,7 +210,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.
-    
+
 #ifdef SEEC_USER_ACTION_RECORDING
     // Create the action recording control.
     RecordingControl = new ActionRecordingControl(this, *Recording);
@@ -195,7 +218,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty("TraceViewer",
                                  (char const *[]){"RecordingToolbar", "Title"});
     Manager->AddPane(RecordingControl,
-                     wxAuiPaneInfo().Caption(RecordingControlTitle)
+                     wxAuiPaneInfo().Name("RecordingControl")
+                                    .Caption(RecordingControlTitle)
                                     .Top()
                                     .ToolbarPane());
 #endif
@@ -206,7 +230,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"ScrollThreadTime", "Title"});
     Manager->AddPane(ThreadTime,
-                     wxAuiPaneInfo{}.Caption(ThreadTimeTitle)
+                     wxAuiPaneInfo{}.Name("ThreadTime")
+                                    .Caption(ThreadTimeTitle)
                                     .Top()
                                     .ToolbarPane());
 
@@ -215,7 +240,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     auto const SourceViewerTitle =
       seec::getwxStringExOrEmpty(TextTable, "SourceBook_Title");
     Manager->AddPane(SourceViewer,
-                     wxAuiPaneInfo{}.Caption(SourceViewerTitle)
+                     wxAuiPaneInfo{}.Name("SourceViewer")
+                                    .Caption(SourceViewerTitle)
                                     .CentrePane());
 
     // Setup the explanation viewer.
@@ -224,7 +250,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Explanation", "Title"});
     Manager->AddPane(ExplanationCtrl,
-                     wxAuiPaneInfo{}.Caption(ExplanationCtrlTitle)
+                     wxAuiPaneInfo{}.Name("ExplanationCtrl")
+                                    .Caption(ExplanationCtrlTitle)
                                     .Bottom()
                                     .MinimizeButton(true));
 
@@ -237,7 +264,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"EvaluationTree", "Title"});
     Manager->AddPane(EvaluationTree,
-                     wxAuiPaneInfo{}.Caption(EvaluationTreeTitle)
+                     wxAuiPaneInfo{}.Name("EvaluationTree")
+                                    .Caption(EvaluationTreeTitle)
                                     .Right()
                                     .MinimizeButton(true)
                                     .MaximizeButton(true));
@@ -248,7 +276,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"StreamState", "Title"});
     Manager->AddPane(StreamState,
-                     wxAuiPaneInfo{}.Caption(StreamStateTitle)
+                     wxAuiPaneInfo{}.Name("StreamState")
+                                    .Caption(StreamStateTitle)
                                     .Right()
                                     .MinimizeButton(true)
                                     .MaximizeButton(true));
@@ -259,7 +288,8 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Graph", "Title"});
     Manager->AddPane(GraphViewer,
-                     wxAuiPaneInfo{}.Caption(GraphViewerTitle)
+                     wxAuiPaneInfo{}.Name("GraphViewer")
+                                    .Caption(GraphViewerTitle)
                                     .Right()
                                     .MinimizeButton(true)
                                     .MaximizeButton(true));
@@ -277,9 +307,21 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   else {
     // TODO: Setup the view for a multi-threaded trace.
   }
-  
+
+  // Load the user's last-used perspective.
+  wxString Perspective;
+  if (Config->Read(cConfigKeyForPerspective, &Perspective))
+    Manager->LoadPerspective(Perspective, false);
+
+  // Ensure that the unclosable frames are shown.
+  if (RecordingControl)
+    Manager->GetPane(RecordingControl).Show();
+  if (ThreadTime)
+    Manager->GetPane(ThreadTime).Show();
+  Manager->GetPane(SourceViewer).Show();
+
   Manager->Update();
-  
+
   // Setup the menus.
   auto menuBar = new wxMenuBar();
   append(menuBar, createFileMenu());
