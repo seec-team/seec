@@ -148,6 +148,8 @@ TraceViewerFrame::~TraceViewerFrame() {
   auto const Perspective = Manager->SavePerspective();
   Config->Write(cConfigKeyForPerspective, Perspective);
 
+  Config->Flush();
+
   // Shutdown the AUI manager.
   Manager->UnInit();
 
