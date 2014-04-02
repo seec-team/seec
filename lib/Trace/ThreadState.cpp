@@ -595,6 +595,9 @@ void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
   Parent.addStream(StreamState{Ev.getFileAddress(),
                                std::string{Filename},
                                std::string{Mode}});
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::FileWrite> const &Ev)
@@ -604,6 +607,9 @@ void ThreadState::addEvent(EventRecord<EventType::FileWrite> const &Ev)
   
   Stream->write(Parent.getTrace().getData(Ev.getDataOffset(),
                                           Ev.getDataSize()));
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void
@@ -619,11 +625,17 @@ ThreadState::addEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
          "FileWriteFromMemory with invalid MemoryArea!");
   
   Stream->write(Region.getByteValues());
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
 {
   Parent.removeStream(Ev.getFileAddress());
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::DirOpen> const &Ev)
@@ -632,11 +644,17 @@ void ThreadState::addEvent(EventRecord<EventType::DirOpen> const &Ev)
   auto const Dirname = Trace.getDataRaw(Ev.getDirnameOffset());
   
   Parent.addDir(DIRState{Ev.getDirAddress(), std::string{Dirname}});
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::DirClose> const &Ev)
 {
   Parent.removeDir(Ev.getDirAddress());
+
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
@@ -1179,6 +1197,9 @@ void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 void ThreadState::removeEvent(EventRecord<EventType::FileOpen> const &Ev)
 {
   Parent.removeStream(Ev.getFileAddress());
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::FileWrite> const &Ev)
@@ -1187,6 +1208,9 @@ void ThreadState::removeEvent(EventRecord<EventType::FileWrite> const &Ev)
   assert(Stream && "FileWrite with unknown FILE!");
   
   Stream->unwrite(Ev.getDataSize());
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void
@@ -1196,6 +1220,9 @@ ThreadState::removeEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
   assert(Stream && "FileWriteFromMemory with unknown FILE!");
   
   Stream->unwrite(Ev.getDataSize());
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
@@ -1207,11 +1234,17 @@ void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
   Parent.addStream(StreamState{Ev.getFileAddress(),
                                std::string{Filename},
                                std::string{Mode}});
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::DirOpen> const &Ev)
 {
   Parent.removeDir(Ev.getDirAddress());
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::DirClose> const &Ev)
@@ -1220,6 +1253,9 @@ void ThreadState::removeEvent(EventRecord<EventType::DirClose> const &Ev)
   auto const Dirname = Trace.getDataRaw(Ev.getDirnameOffset());
   
   Parent.addDir(DIRState{Ev.getDirAddress(), std::string{Dirname}});
+
+  Parent.ProcessTime = Ev.getProcessTime() - 1;
+  setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::RuntimeError> const &Ev) {
