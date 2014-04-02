@@ -373,7 +373,8 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 }
 
 void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
-  // Deny access to the state.
+  // Deny future access to the state (this will wait for current readers to
+  // complete their work).
   if (StateAccess)
     StateAccess->invalidate();
   
@@ -414,7 +415,8 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
 }
 
 void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
-  // Deny access to the state.
+  // Deny future access to the state (this will wait for current readers to
+  // complete their work).
   if (StateAccess)
     StateAccess->invalidate();
   

@@ -33,8 +33,8 @@ raiseMovementEvent(wxWindow &Control,
     return;
   }
   
-  auto Lock = Access->getAccess();
-  if (!Lock) { // Token is out of date.
+  auto LockAccess = Access->getAccess();
+  if (!LockAccess) { // Token is out of date.
     wxLogDebug("raiseMovementEvent: access token is outdated.");
     return;
   }
@@ -47,7 +47,7 @@ raiseMovementEvent(wxWindow &Control,
   
   Ev.SetEventObject(&Control);
   
-  Lock.unlock();
+  LockAccess.release();
   
   Handler->AddPendingEvent(Ev);
 }
