@@ -13,6 +13,7 @@
 
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/Util/Error.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -106,6 +107,18 @@ wxString getwxStringExOrEmpty(char const *Package,
     return towxString(MaybeStr.get<UnicodeString>());
   
   return wxString{};
+}
+
+wxString getMessageOrDescribe(seec::Error const &Error,
+                              Locale const &ForLocale)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+
+  auto const Message = Error.getMessage(Status, ForLocale);
+  if (!U_FAILURE(Status))
+    return towxString(Message);
+
+  return towxString(Error.describeMessage());
 }
 
 } // namespace seec

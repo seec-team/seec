@@ -23,6 +23,8 @@
 
 namespace seec {
 
+class Error;
+
 /// \brief Convert a UnicodeString into a wxString.
 wxString towxString(UnicodeString const &icu);
 
@@ -82,6 +84,11 @@ wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
 ///
 wxString getwxStringExOrEmpty(char const *Package,
                               llvm::ArrayRef<char const *> const &Keys);
+
+/// \brief Get a \c seec::Error 's message or description as a \c wxString.
+///
+wxString getMessageOrDescribe(seec::Error const &Error,
+                              Locale const &ForLocale);
 
 } // namespace seec
 
