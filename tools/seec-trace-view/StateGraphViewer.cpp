@@ -48,6 +48,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -199,6 +200,178 @@ wxDEFINE_EVENT(SEEC_EV_MOUSE_OVER_DISPLAYABLE, MouseOverDisplayableEvent);
 // StateGraphViewerPanel
 //------------------------------------------------------------------------------
 
+std::string StateGraphViewerPanel::workerGenerateDot()
+{
+  // Lock the current state while we read from it.
+  auto Lock = TaskAccess->getAccess();
+  if (!Lock || !TaskProcess)
+    return std::string();
+
+  std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+  auto const Layout = LayoutHandler->doLayout(*TaskProcess);
+  auto const GraphString = Layout.getDotString();
+
+  auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
+                                                (Layout.getTimeTaken());
+
+  wxLogDebug("State graph generated in %" PRIu64 " ms.",
+            static_cast<uint64_t>(TimeMS.count()));
+
+  return GraphString;
+}
+
+void StateGraphViewerPanel::workerTaskLoop()
+{
+  while (true)
+  {
+    std::unique_lock<std::mutex> Lock{TaskMutex};
+
+    // Wait until the main thread gives us a task.
+    TaskCV.wait(Lock);
+
+    // This indicates that we should end the worker thread because the panel is
+    // being destroyed.
+    if (!TaskAccess && !TaskProcess)
+      return;
+
+    // Create a graph of the process state in dot format.
+    auto const GraphString = workerGenerateDot();
+    if (GraphString.empty())
+      continue;
+
+    // The remainder of the graph generation does not use the state, so we can
+    // release access to the task information.
+    Lock.unlock();
+
+    auto const GVStart = std::chrono::steady_clock::now();
+
+    // Write the graph to a temporary file.
+    llvm::SmallString<256> GraphPath;
+
+    {
+      int GraphFD;
+      auto const GraphErr =
+        llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.dot",
+                                        GraphFD,
+                                        GraphPath);
+
+      if (GraphErr != llvm::errc::success) {
+        wxLogDebug("Couldn't create temporary dot file.");
+        continue;
+      }
+
+      llvm::raw_fd_ostream GraphStream(GraphFD, true);
+      GraphStream << GraphString;
+    }
+
+    // Remove the temporary file when we exit this function.
+    auto const RemoveGraph = seec::scopeExit([&] () {
+                                bool Existed = false;
+                                llvm::sys::fs::remove(GraphPath.str(), Existed);
+                              });
+
+    // Create a temporary filename for the dot result.
+    llvm::SmallString<256> SVGPath;
+    auto const SVGErr =
+      llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.svg", SVGPath);
+
+    if (SVGErr != llvm::errc::success) {
+      wxLogDebug("Couldn't create temporary svg file.");
+      continue;
+    }
+
+    auto const RemoveSVG = seec::scopeExit([&] () {
+                              bool Existed = false;
+                              llvm::sys::fs::remove(SVGPath.str(), Existed);
+                            });
+
+    // Run dot using the temporary input/output files.
+    char const *Args[] = {
+      "dot",
+      "-o",
+      SVGPath.c_str(),
+      "-Tsvg",
+      GraphPath.c_str(),
+      nullptr
+    };
+
+    char const *Environment[] = {
+      PathToGraphvizLibraries.c_str(),
+      PathToGraphvizPlugins.c_str(),
+      nullptr
+    };
+
+    std::string ErrorMsg;
+
+    bool ExecFailed = false;
+
+    auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
+                                                  Args,
+                                                  Environment,
+                                                  /* redirects */ nullptr,
+                                                  /* wait */ 0,
+                                                  /* mem */ 0,
+                                                  &ErrorMsg,
+                                                  &ExecFailed);
+
+    if (!ErrorMsg.empty()) {
+      wxLogDebug("Dot failed: %s", ErrorMsg);
+      continue;
+    }
+
+    if (Result) {
+      wxLogDebug("Dot returned non-zero.");
+      continue;
+    }
+
+    // Read the dot-generated SVG from the temporary file.
+    llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
+
+    auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath.str(), SVGData);
+    if (ReadErr != llvm::errc::success) {
+      wxLogDebug("Couldn't read temporary svg file.");
+      continue;
+    }
+
+    auto const GVEnd = std::chrono::steady_clock::now();
+    auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
+                                                (GVEnd - GVStart);
+    wxLogDebug("Graphviz completed in %" PRIu64 " ms",
+              static_cast<uint64_t>(GVMS.count()));
+
+    // Remove all non-print characters from the SVG and prepare it to be sent to
+    // the WebView via javascript.
+    auto SharedScript = std::make_shared<wxString>();
+    auto &Script = *SharedScript;
+
+    Script.reserve(SVGData->getBufferSize() + 256);
+    Script << "SetState(\"";
+
+    for (auto It = SVGData->getBufferStart(), End = SVGData->getBufferEnd();
+        It != End;
+        ++It)
+    {
+      auto const Ch = *It;
+
+      if (std::isprint(Ch)) {
+        if (Ch == '\\' || Ch == '"')
+          Script << '\\';
+        Script << Ch;
+      }
+    }
+
+    Script << "\");";
+
+    auto EvPtr = seec::makeUnique<GraphRenderedEvent>(SEEC_EV_GRAPH_RENDERED,
+                                                      this->GetId(),
+                                                      std::move(SharedScript));
+
+    EvPtr->SetEventObject(this);
+
+    wxQueueEvent(this->GetEventHandler(), EvPtr.release());
+  }
+}
+
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
@@ -206,6 +379,12 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   PathToGraphvizLibraries(),
   PathToGraphvizPlugins(),
   CurrentAccess(),
+  CurrentProcess(nullptr),
+  WorkerThread(),
+  TaskMutex(),
+  TaskCV(),
+  TaskAccess(),
+  TaskProcess(nullptr),
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
@@ -225,6 +404,15 @@ StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
 
 StateGraphViewerPanel::~StateGraphViewerPanel()
 {
+  // Shutdown our worker thread (it will terminate when it receives the
+  // notification and there is no corresponding task).
+  std::unique_lock<std::mutex> Lock{TaskMutex};
+  TaskAccess.reset();
+  TaskProcess = nullptr;
+  Lock.unlock();
+  TaskCV.notify_one();
+  WorkerThread.join();
+
   wxFileSystem::RemoveHandler(CallbackFS);
 }
 
@@ -376,6 +564,10 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     WebView->LoadURL(WebViewURL);
   }
   
+  // Create the worker thread that will perform our graph generation.
+  WorkerThread = std::thread{
+    [this] () { this->workerTaskLoop(); }};
+
   return true;
 }
 
@@ -621,155 +813,16 @@ void StateGraphViewerPanel::renderGraph()
 {
   if (!WebView || PathToDot.empty())
     return;
-  
-  // Create a graph of the process state in dot format.
-  std::string GraphString;
-  
-  {
-    // Lock the current state while we read from it.
-    auto Lock = CurrentAccess->getAccess();
-    if (!Lock || !CurrentProcess)
-      return;
-      
-    std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-    auto const Layout = LayoutHandler->doLayout(*CurrentProcess);
-    GraphString = Layout.getDotString();
-    
-    auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                  (Layout.getTimeTaken());
-    
-    wxLogDebug("State graph generated in %" PRIu64 " ms.",
-               static_cast<uint64_t>(TimeMS.count()));
-  }
-  
-  auto const GVStart = std::chrono::steady_clock::now();
-  
-  // Write the graph to a temporary file.
-  llvm::SmallString<256> GraphPath;
-  
-  {
-    int GraphFD;
-    auto const GraphErr =
-      llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.dot",
-                                      GraphFD,
-                                      GraphPath);
-    
-    if (GraphErr != llvm::errc::success) {
-      wxLogDebug("Couldn't create temporary dot file.");
-      return;
-    }
-    
-    llvm::raw_fd_ostream GraphStream(GraphFD, true);
-    GraphStream << GraphString;
-  }
-  
-  // Remove the temporary file when we exit this function.
-  auto const RemoveGraph = seec::scopeExit([&] () {
-                              bool Existed = false;
-                              llvm::sys::fs::remove(GraphPath.str(), Existed);
-                            });
-  
-  // Create a temporary filename for the dot result.
-  llvm::SmallString<256> SVGPath;
-  auto const SVGErr =
-    llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.svg", SVGPath);
-  
-  if (SVGErr != llvm::errc::success) {
-    wxLogDebug("Couldn't create temporary svg file.");
-    return;
-  }
-  
-  auto const RemoveSVG = seec::scopeExit([&] () {
-                            bool Existed = false;
-                            llvm::sys::fs::remove(SVGPath.str(), Existed);
-                          });
-  
-  // Run dot using the temporary input/output files.
-  char const *Args[] = {
-    "dot",
-    "-o",
-    SVGPath.c_str(),
-    "-Tsvg",
-    GraphPath.c_str(),
-    nullptr
-  };
-  
-  char const *Environment[] = {
-    PathToGraphvizLibraries.c_str(),
-    PathToGraphvizPlugins.c_str(),
-    nullptr
-  };
-  
-  std::string ErrorMsg;
-  
-  bool ExecFailed = false;
-  
-  auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
-                                                Args,
-                                                Environment,
-                                                /* redirects */ nullptr,
-                                                /* wait */ 0,
-                                                /* mem */ 0,
-                                                &ErrorMsg,
-                                                &ExecFailed);
-  
-  if (!ErrorMsg.empty()) {
-    wxLogDebug("Dot failed: %s", ErrorMsg);
-    return;
-  }
-  
-  if (Result) {
-    wxLogDebug("Dot returned non-zero.");
-    return;
-  }
-  
-  // Read the dot-generated SVG from the temporary file.
-  llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
-  
-  auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath.str(), SVGData);
-  if (ReadErr != llvm::errc::success) {
-    wxLogDebug("Couldn't read temporary svg file.");
-    return;
-  }
-  
-  auto const GVEnd = std::chrono::steady_clock::now();
-  auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                              (GVEnd - GVStart);
-  wxLogDebug("Graphviz completed in %" PRIu64 " ms",
-             static_cast<uint64_t>(GVMS.count()));
-  
-  // Remove all non-print characters from the SVG and prepare it to be sent to
-  // the WebView via javascript.
-  auto SharedScript = std::make_shared<wxString>();
-  auto &Script = *SharedScript;
-  
-  Script.reserve(SVGData->getBufferSize() + 256);
-  Script << "SetState(\"";
-  
-  for (auto It = SVGData->getBufferStart(), End = SVGData->getBufferEnd();
-       It != End;
-       ++It)
-  {
-    auto const Ch = *It;
-    
-    if (std::isprint(Ch)) {
-      if (Ch == '\\' || Ch == '"')
-        Script << '\\';
-      Script << Ch;
-    }
-  }
-  
-  Script << "\");";
-  
-  GraphRenderedEvent Ev {
-    SEEC_EV_GRAPH_RENDERED,
-    this->GetId(),
-    std::move(SharedScript)
-  };
-  
-  Ev.SetEventObject(this);
-  
-  this->GetEventHandler()->AddPendingEvent(Ev);
+
+  if (WebView && !PathToDot.empty())
+    WebView->RunScript(wxString{"ClearState();"});
+
+  // Send the rendering task to the worker thread.
+  std::unique_lock<std::mutex> Lock{TaskMutex};
+  TaskAccess = CurrentAccess;
+  TaskProcess = CurrentProcess;
+  Lock.unlock();
+  TaskCV.notify_one();
 }
 
 void
