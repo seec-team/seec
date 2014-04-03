@@ -27,12 +27,20 @@
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
+class SingleInstanceServer;
 class WelcomeFrame;
+class wxSingleInstanceChecker;
 
 /// \brief The application class for the SeeC Trace Viewer.
 ///
 class TraceViewerApp : public wxApp
 {
+  /// Ensures that no user can simultaneously run multiple trace viewers.
+  std::unique_ptr<wxSingleInstanceChecker> SingleInstanceChecker;
+
+  /// Receive notifications from other instances of the trace viewer.
+  std::unique_ptr<SingleInstanceServer> Server;
+
   /// The welcome frame that is displayed when no files are open.
   WelcomeFrame *Welcome;
 
@@ -48,19 +56,18 @@ class TraceViewerApp : public wxApp
   /// Files that the user passed on the command line.
   std::vector<wxString> CLFiles;
 
+  /// \brief Send any "files to open" to the existing trace viewer instance.
+  ///
+  void deferToExistingInstance();
+
   /// \brief Open a new trace viewer for the given file.
+  ///
   void OpenFile(wxString const &FileName);
 
 public:
   /// \brief Constructor.
-  TraceViewerApp()
-  : wxApp(),
-    Welcome(nullptr),
-    TopLevelWindows(),
-    LogWindow(nullptr),
-    ICUResources(),
-    CLFiles()
-  {}
+  ///
+  TraceViewerApp();
 
   /// \name Interface to wxApp.
   /// @{
@@ -104,6 +111,12 @@ public:
 
   /// \name TraceViewer specific.
   /// @{
+
+  /// \brief Attempt to bring the viewer to the foreground.
+  /// If there are traces open, then we will call \c Raise() on each trace
+  /// window. Otherwise, we will attempt to show the \c WelcomeFrame.
+  ///
+  void Raise();
 
   void HandleFatalError(wxString Description);
   
