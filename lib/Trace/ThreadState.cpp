@@ -1227,13 +1227,8 @@ ThreadState::removeEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
 
 void ThreadState::removeEvent(EventRecord<EventType::FileClose> const &Ev)
 {
-  auto const &Trace = Parent.getTrace();
-  auto const Filename = Trace.getDataRaw(Ev.getFilenameOffset());
-  auto const Mode = Trace.getDataRaw(Ev.getModeOffset());
-  
-  Parent.addStream(StreamState{Ev.getFileAddress(),
-                               std::string{Filename},
-                               std::string{Mode}});
+  auto const Restored = Parent.restoreStream(Ev.getFileAddress());
+  assert(Restored && "Failed to restore FILE stream!");
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
