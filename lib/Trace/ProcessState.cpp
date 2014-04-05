@@ -147,17 +147,12 @@ bool ProcessState::addStream(StreamState Stream)
   return Result.second;
 }
 
-bool ProcessState::restoreStream(uintptr_t const Address)
+bool ProcessState::removeStream(uintptr_t const Address)
 {
-  if (StreamsClosed.empty() || StreamsClosed.back().getAddress() != Address)
-    return false;
-
-  Streams.insert(std::make_pair(Address, std::move(StreamsClosed.back())));
-  StreamsClosed.pop_back();
-  return true;
+  return Streams.erase(Address);
 }
 
-bool ProcessState::removeStream(uintptr_t const Address)
+bool ProcessState::closeStream(uintptr_t const Address)
 {
   auto const It = Streams.find(Address);
   if (It == Streams.end())
@@ -165,6 +160,16 @@ bool ProcessState::removeStream(uintptr_t const Address)
 
   StreamsClosed.emplace_back(std::move(It->second));
   Streams.erase(It);
+  return true;
+}
+
+bool ProcessState::restoreStream(uintptr_t const Address)
+{
+  if (StreamsClosed.empty() || StreamsClosed.back().getAddress() != Address)
+    return false;
+
+  Streams.insert(std::make_pair(Address, std::move(StreamsClosed.back())));
+  StreamsClosed.pop_back();
   return true;
 }
 

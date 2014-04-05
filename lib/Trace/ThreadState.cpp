@@ -632,7 +632,7 @@ ThreadState::addEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
 
 void ThreadState::addEvent(EventRecord<EventType::FileClose> const &Ev)
 {
-  Parent.removeStream(Ev.getFileAddress());
+  Parent.closeStream(Ev.getFileAddress());
 
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();

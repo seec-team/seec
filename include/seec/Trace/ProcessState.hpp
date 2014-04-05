@@ -256,16 +256,21 @@ public:
   ///
   bool addStream(StreamState Stream);
 
+  /// \brief Remove a stream from the currently open streams.
+  /// \return true iff the stream was removed (existed).
+  ///
+  bool removeStream(uintptr_t Address);
+
+  /// \brief Close a currently open stream.
+  /// \return true iff the stream was closed (existed).
+  ///
+  bool closeStream(uintptr_t const Address);
+
   /// \brief Restore the most recently closed stream.
   /// \param Address used to ensure that the correct stream is restored.
   /// \return true iff the stream was restored.
   ///
   bool restoreStream(uintptr_t const Address);
-  
-  /// \brief Remove a stream from the currently open streams.
-  /// \return true iff the stream was removed (existed).
-  ///
-  bool removeStream(uintptr_t Address);
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
