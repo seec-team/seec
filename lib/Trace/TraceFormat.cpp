@@ -59,6 +59,15 @@ public:
     Out << static_cast<int>(Value);
     return *this;
   }
+
+  /// \brief Check offsets against \c noOffset() when printing.
+  EventPrinterBase &operator<<(offset_uint const Value) {
+    if (Value == noOffset())
+      Out << "<none>";
+    else
+      Out << Value;
+    return *this;
+  }
   
   /// \brief Wrap llvm::raw_ostream::changeColor().
   EventPrinterBase &changeColor(llvm::raw_ostream::Colors Color,
