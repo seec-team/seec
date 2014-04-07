@@ -26,10 +26,13 @@
 #include <wx/cmdline.h>
 #include <wx/config.h>
 #include <wx/filesys.h>
+#include <wx/ipc.h>
+#include <wx/snglinst.h>
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <array>
+#include <cstdlib>
 #include <memory>
 #include <set>
 
@@ -38,6 +41,183 @@
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
 #include "WelcomeFrame.hpp"
+
+
+/// \brief Get the topic for raising the primary instance.
+static constexpr char const *getIPCTopicRaise() { return "RAISE"; }
+
+/// \brief Get the topic for opening files in the primary instance.
+static constexpr char const *getIPCTopicOpen()  { return "OPEN"; }
+
+/// \brief Get the service name to use for IPC.
+///
+static wxString getIPCService() {
+  auto &StdPaths = wxStandardPaths::Get();
+
+  wxFileName ServicePath;
+  ServicePath.AssignDir(StdPaths.GetUserLocalDataDir());
+
+  if (!wxDirExists(ServicePath.GetFullPath()))
+    if (!wxMkdir(ServicePath.GetFullPath()))
+      return wxEmptyString;
+
+  ServicePath.SetFullName("instanceipc");
+  return ServicePath.GetFullPath();
+}
+
+//------------------------------------------------------------------------------
+// ServerConnection
+//------------------------------------------------------------------------------
+
+/// \brief Connection from a non-primary instance.
+///
+class ServerConnection final : public wxConnection
+{
+public:
+  /// \brief Destructor. This will disconnect the connection.
+  ///
+  virtual ~ServerConnection()
+  {
+    Disconnect();
+  }
+
+  /// \brief Receive exec commands from the non-primary instance.
+  /// We simply forward the appropriate information to the \c TraceViewerApp.
+  ///
+  virtual bool OnExec(wxString const &Topic, wxString const &Data)
+  {
+    auto &App = wxGetApp();
+
+    if (Topic == getIPCTopicRaise()) {
+      App.Raise();
+    }
+    else if (Topic == getIPCTopicOpen()) {
+      App.MacOpenFile(Data);
+    }
+
+    return true;
+  }
+};
+
+//------------------------------------------------------------------------------
+// SingleInstanceServer
+//------------------------------------------------------------------------------
+
+/// \brief Receives connections from non-primary instances.
+///
+class SingleInstanceServer final : private wxServer
+{
+  /// \brief Constructor.
+  ///
+  SingleInstanceServer() = default;
+
+public:
+  /// \brief Create a new server, ready to receive connections.
+  ///
+  static std::unique_ptr<SingleInstanceServer> create()
+  {
+    auto const Service = getIPCService();
+    if (Service.empty())
+      return nullptr;
+
+    std::unique_ptr<SingleInstanceServer> Ptr (new SingleInstanceServer());
+    if (!Ptr->Create(Service))
+      return nullptr;
+
+    return Ptr;
+  }
+
+  /// \brief Create a \c ServerConnection for a new connection.
+  ///
+  virtual wxConnectionBase *OnAcceptConnection(wxString const &Topic) override
+  {
+    return new ServerConnection();
+  }
+};
+
+
+//------------------------------------------------------------------------------
+// ClientConnection
+//------------------------------------------------------------------------------
+
+/// \brief Connection for sending information to the primary/single instance.
+///
+class ClientConnection final : public wxConnection
+{
+public:
+  /// \brief Destructor. Will disconnect the connection.
+  ///
+  virtual ~ClientConnection() override
+  {
+    Disconnect();
+  }
+};
+
+
+//------------------------------------------------------------------------------
+// SingleInstanceClient
+//------------------------------------------------------------------------------
+
+/// \brief Client for sending information to the primary/single instance.
+///
+class SingleInstanceClient : private wxClient
+{
+  /// Current connection to the single instance.
+  std::unique_ptr<ClientConnection> Connection;
+
+  /// \brief Create a new connection object to use.
+  ///
+  wxConnectionBase *OnMakeConnection()
+  {
+    return new ClientConnection();
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  SingleInstanceClient() = default;
+
+  /// \brief Destructor.
+  ///
+  virtual ~SingleInstanceClient() final = default;
+
+  /// \brief Establish a connection to the single instance with the given topic.
+  ///
+  bool Connect(wxString const &Topic);
+
+  /// \brief Terminate the current connection.
+  ///
+  void Disconnect();
+
+  /// \brief Check if a connection exists.
+  ///
+  bool IsConnected() const { return Connection != nullptr; }
+
+  /// \brief Get the current connection.
+  /// pre: IsConnected() == true.
+  ///
+  ClientConnection &GetConnection() { return *Connection; }
+};
+
+bool SingleInstanceClient::Connect(wxString const &Topic)
+{
+  Disconnect();
+
+  auto const Host = "localhost";
+  auto const Service = getIPCService();
+  if (Service.empty())
+    return false;
+
+  Connection.reset(static_cast<ClientConnection *>
+                              (MakeConnection(Host, Service, Topic)));
+
+  return Connection != nullptr;
+}
+
+void SingleInstanceClient::Disconnect()
+{
+  Connection.reset();
+}
 
 
 //------------------------------------------------------------------------------
@@ -51,7 +231,6 @@ BEGIN_EVENT_TABLE(TraceViewerApp, wxApp)
 END_EVENT_TABLE()
 
 
-
 //------------------------------------------------------------------------------
 // main
 //------------------------------------------------------------------------------
@@ -62,6 +241,38 @@ IMPLEMENT_APP(TraceViewerApp)
 //------------------------------------------------------------------------------
 // TraceViewerApp
 //------------------------------------------------------------------------------
+
+void TraceViewerApp::deferToExistingInstance()
+{
+  SingleInstanceClient Client;
+
+  if (CLFiles.empty()) {
+    // If the user has simply tried to open the viewer, then tell the existing
+    // viewer to show itself.
+    if (!Client.Connect(getIPCTopicRaise())) {
+      wxLogDebug("Couldn't communicate with existing instance.");
+      return;
+    }
+
+    Client.GetConnection().Execute(wxEmptyString);
+  }
+  else {
+    // If the user is attempting to open trace files, then send the names to
+    // the existing viewer so that it can open each of them.
+    if (!Client.Connect(getIPCTopicOpen())) {
+      wxLogDebug("Couldn't communicate with existing instance.");
+      return;
+    }
+
+    auto &Conn = Client.GetConnection();
+
+    for (auto const &File : CLFiles) {
+      wxFileName Path(File);
+      Path.MakeAbsolute();
+      Conn.Execute(Path.GetFullPath());
+    }
+  }
+}
 
 void TraceViewerApp::OpenFile(wxString const &FileName) {
   // Attempt to read the trace, which should either return the newly read trace
@@ -103,6 +314,17 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
   }
 }
 
+TraceViewerApp::TraceViewerApp()
+: wxApp(),
+  SingleInstanceChecker(),
+  Server(),
+  Welcome(nullptr),
+  TopLevelWindows(),
+  LogWindow(nullptr),
+  ICUResources(),
+  CLFiles()
+{}
+
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
   auto &StdPaths = wxStandardPaths::Get();
@@ -123,7 +345,19 @@ bool TraceViewerApp::OnInit() {
   // Call default behaviour.
   if (!wxApp::OnInit())
     return false;
-  
+
+  // Ensure that no other trace viewers are open. If another trace viewer has
+  // been open, then send information over to it before we terminate (e.g. any
+  // files that the user has requested to open).
+  SingleInstanceChecker.reset(new wxSingleInstanceChecker());
+  if (SingleInstanceChecker->IsAnotherRunning()) {
+    deferToExistingInstance();
+    return false;
+  }
+
+  // Setup server to receive information from other instances (see above).
+  Server = SingleInstanceServer::create();
+
   // Setup the configuration to use a file in the user's data directory. If we
   // don't do this ourselves then the default places the config file in the same
   // path as the directory would take, causing an unfortunate collision.
@@ -314,6 +548,19 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
   TopLevelWindows.clear();
 }
 
+void TraceViewerApp::Raise()
+{
+  if (!TopLevelWindows.empty()) {
+    for (auto const Window : TopLevelWindows) {
+      Window->Raise();
+    }
+  }
+  else if(Welcome) {
+    Welcome->Show();
+    Welcome->Raise();
+  }
+}
+
 void TraceViewerApp::HandleFatalError(wxString Description) {
   // Show an error dialog for the user.
   auto ErrorDialog = new wxMessageDialog(NULL,
@@ -323,5 +570,5 @@ void TraceViewerApp::HandleFatalError(wxString Description) {
                                          wxDefaultPosition);
   ErrorDialog->ShowModal();
 
-  exit(EXIT_FAILURE);
+  std::exit(EXIT_FAILURE);
 }

@@ -346,6 +346,7 @@ SEEC_TRACE_EVENT(ByValRegionAdd,
 
 SEEC_TRACE_EVENT(FileOpen,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, FileAddress),
     (offset_uint, FilenameOffset),
     (offset_uint, ModeOffset)
@@ -356,6 +357,7 @@ SEEC_TRACE_EVENT(FileOpen,
 
 SEEC_TRACE_EVENT(FileWrite,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t,   FileAddress),
     (offset_uint, DataOffset),
     (uint64_t,    DataSize)
@@ -366,6 +368,7 @@ SEEC_TRACE_EVENT(FileWrite,
 
 SEEC_TRACE_EVENT(FileWriteFromMemory,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, FileAddress),
     (uintptr_t, DataAddress),
     (uint64_t,  DataSize)
@@ -376,6 +379,7 @@ SEEC_TRACE_EVENT(FileWriteFromMemory,
 
 SEEC_TRACE_EVENT(FileClose,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, FileAddress),
     (offset_uint, FilenameOffset),
     (offset_uint, ModeOffset)
@@ -386,6 +390,7 @@ SEEC_TRACE_EVENT(FileClose,
 
 SEEC_TRACE_EVENT(DirOpen,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, DirAddress),
     (offset_uint, DirnameOffset)
   ),
@@ -395,6 +400,7 @@ SEEC_TRACE_EVENT(DirOpen,
 
 SEEC_TRACE_EVENT(DirClose,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, DirAddress),
     (offset_uint, DirnameOffset)
   ),

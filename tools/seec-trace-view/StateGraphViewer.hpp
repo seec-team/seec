@@ -18,8 +18,10 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 
 namespace seec {
@@ -181,13 +183,28 @@ class StateGraphViewerPanel final : public wxPanel
   
   /// The location of the graphviz plugins.
   std::string PathToGraphvizPlugins;
-  
+
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
   /// The current process state.
   seec::cm::ProcessState const *CurrentProcess;
-  
+
+  /// A worker thread that generates the graphs.
+  std::thread WorkerThread;
+
+  /// Controls access to the worker's information.
+  std::mutex TaskMutex;
+
+  /// Used to notify the worker that a new task is available.
+  std::condition_variable TaskCV;
+
+  /// Access token for the worker's process state.
+  std::shared_ptr<StateAccessToken> TaskAccess;
+
+  /// Worker's process state.
+  seec::cm::ProcessState const *TaskProcess;
+
   /// The WebView used to display the rendered state graphs.
   wxWebView *WebView;
   
@@ -202,6 +219,14 @@ class StateGraphViewerPanel final : public wxPanel
   
   /// What the user's mouse is currently over.
   std::shared_ptr<Displayable const> MouseOver;
+
+  /// \brief Generate the dot graph for \c TaskProcess.
+  ///
+  std::string workerGenerateDot();
+
+  /// \brief Implements the worker thread's task loop.
+  ///
+  void workerTaskLoop();
 
 public:
   /// \brief Construct.

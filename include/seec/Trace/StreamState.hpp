@@ -52,6 +52,14 @@ public:
     Filename(std::move(WithFilename)),
     Mode(std::move(WithMode))
   {}
+
+  // Copying denied.
+  StreamState(StreamState const &) = delete;
+  StreamState &operator=(StreamState const &) = delete;
+
+  // Movement OK.
+  StreamState(StreamState &&) = default;
+  StreamState &operator=(StreamState &&) = default;
   
   /// \name Accessors
   /// @{

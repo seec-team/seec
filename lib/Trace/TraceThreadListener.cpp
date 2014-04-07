@@ -120,7 +120,9 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
                                            char const *Mode)
 {
   acquireStreamsLock();
-  
+
+  ProcessTime = getCIProcessTime();
+
   auto &Streams = ProcessListener.getStreams(StreamsLock);
   
   auto const FilenameOffset =
@@ -129,8 +131,9 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
     ProcessListener.recordData(Mode, std::strlen(Mode) + 1);
   
   Streams.streamOpened(Stream, FilenameOffset, ModeOffset);
-  
-  EventsOut.write<EventType::FileOpen>(reinterpret_cast<uintptr_t>(Stream),
+
+  EventsOut.write<EventType::FileOpen>(ProcessTime,
+                                       reinterpret_cast<uintptr_t>(Stream),
                                        FilenameOffset,
                                        ModeOffset);
 }
@@ -138,9 +141,12 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
 void TraceThreadListener::recordStreamWrite(FILE *Stream,
                                             llvm::ArrayRef<char> Data)
 {
+  ProcessTime = getCIProcessTime();
+
   auto const DataOffset = ProcessListener.recordData(Data.data(), Data.size());
-  
-  EventsOut.write<EventType::FileWrite>(reinterpret_cast<uintptr_t>(Stream),
+
+  EventsOut.write<EventType::FileWrite>(ProcessTime,
+                                        reinterpret_cast<uintptr_t>(Stream),
                                         DataOffset,
                                         Data.size());
 }
@@ -148,8 +154,11 @@ void TraceThreadListener::recordStreamWrite(FILE *Stream,
 void TraceThreadListener::recordStreamWriteFromMemory(FILE *Stream,
                                                       MemoryArea Area)
 {
+  ProcessTime = getCIProcessTime();
+
   EventsOut.write<EventType::FileWriteFromMemory>
-                 (reinterpret_cast<uintptr_t>(Stream),
+                 (ProcessTime,
+                  reinterpret_cast<uintptr_t>(Stream),
                   Area.start(),
                   Area.length());
 }
@@ -157,17 +166,20 @@ void TraceThreadListener::recordStreamWriteFromMemory(FILE *Stream,
 bool TraceThreadListener::recordStreamClose(FILE *Stream)
 {
   acquireStreamsLock();
-  
+
+  ProcessTime = getCIProcessTime();
+
   auto &Streams = ProcessListener.getStreams(StreamsLock);
   
   auto const Info = Streams.streamInfo(Stream);
   if (!Info)
     return false;
-  
-  EventsOut.write<EventType::FileClose>(reinterpret_cast<uintptr_t>(Stream),
+
+  EventsOut.write<EventType::FileClose>(ProcessTime,
+                                        reinterpret_cast<uintptr_t>(Stream),
                                         Info->getFilenameOffset(),
                                         Info->getModeOffset());
-  
+
   Streams.streamClosed(Stream);
   
   return true;
@@ -182,7 +194,9 @@ void TraceThreadListener::recordDirOpen(void const * const TheDIR,
                                         char const *Filename)
 {
   acquireDirsLock();
-  
+
+  ProcessTime = getCIProcessTime();
+
   auto &Dirs = ProcessListener.getDirs(DirsLock);
   
   auto const FilenameOffset =
@@ -190,21 +204,25 @@ void TraceThreadListener::recordDirOpen(void const * const TheDIR,
   
   Dirs.DIROpened(TheDIR, FilenameOffset);
   
-  EventsOut.write<EventType::DirOpen>(reinterpret_cast<uintptr_t>(TheDIR),
+  EventsOut.write<EventType::DirOpen>(ProcessTime,
+                                      reinterpret_cast<uintptr_t>(TheDIR),
                                       FilenameOffset);
 }
 
 bool TraceThreadListener::recordDirClose(void const * const TheDIR)
 {
   acquireDirsLock();
-  
+
+  ProcessTime = getCIProcessTime();
+
   auto &Dirs = ProcessListener.getDirs(DirsLock);
   
   auto const Info = Dirs.DIRInfo(TheDIR);
   if (!Info)
     return false;
   
-  EventsOut.write<EventType::DirClose>(reinterpret_cast<uintptr_t>(TheDIR),
+  EventsOut.write<EventType::DirClose>(ProcessTime,
+                                       reinterpret_cast<uintptr_t>(TheDIR),
                                        Info->getDirnameOffset());
   
   Dirs.DIRClosed(TheDIR);

@@ -123,6 +123,9 @@ private:
   
   /// Currently open streams.
   llvm::DenseMap<uintptr_t, StreamState> Streams;
+
+  /// Previously closed streams (in order of closing).
+  std::vector<StreamState> StreamsClosed;
   
   /// Currently open DIRs.
   llvm::DenseMap<uintptr_t, DIRState> Dirs;
@@ -252,11 +255,22 @@ public:
   /// \return true iff the stream was added (did not already exist).
   ///
   bool addStream(StreamState Stream);
-  
+
   /// \brief Remove a stream from the currently open streams.
   /// \return true iff the stream was removed (existed).
   ///
   bool removeStream(uintptr_t Address);
+
+  /// \brief Close a currently open stream.
+  /// \return true iff the stream was closed (existed).
+  ///
+  bool closeStream(uintptr_t const Address);
+
+  /// \brief Restore the most recently closed stream.
+  /// \param Address used to ensure that the correct stream is restored.
+  /// \return true iff the stream was restored.
+  ///
+  bool restoreStream(uintptr_t const Address);
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///

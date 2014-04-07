@@ -42,6 +42,7 @@
 
 #include <memory>
 
+#include <cstdlib>
 #include <unistd.h>
 
 
@@ -120,6 +121,16 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
                  << Fn->getName()
                  << "\" is not handled. If this function modifies memory state,"
                     " then SeeC will not be aware of it.\n";
+  }
+
+  if (auto const Path = std::getenv("SEEC_WRITE_INSTRUMENTED")) {
+    std::string ErrorInfo;
+    raw_fd_ostream Out(Path, ErrorInfo, llvm::sys::fs::OpenFlags::F_Excl);
+
+    if (ErrorInfo.empty())
+      Out << Module;
+    else
+      llvm::errs() << ProgramName << ": couldn't write to " << Path << ".\n";
   }
   
   return true;
