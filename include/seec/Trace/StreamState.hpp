@@ -17,6 +17,7 @@
 #include "llvm/ADT/ArrayRef.h"
 
 #include <string>
+#include <vector>
 
 namespace llvm {
   class raw_ostream;
@@ -30,6 +31,16 @@ namespace trace {
 /// \brief State of an open FILE stream.
 ///
 class StreamState {
+  /// \brief Describes an individual write to a stream.
+  ///
+  struct Write {
+    std::size_t const NewLength;
+
+    Write(std::size_t const WithNewLength)
+    : NewLength(WithNewLength)
+    {}
+  };
+  
   /// The runtime address of the stream (the raw value of the FILE *).
   uintptr_t Address;
   
@@ -42,6 +53,9 @@ class StreamState {
   /// The data written to the stream.
   std::string Written;
   
+  /// Track the end positions of individual writes.
+  std::vector<Write> Writes;
+  
 public:
   /// \brief Constructor.
   ///
@@ -50,7 +64,9 @@ public:
               std::string WithMode)
   : Address(WithAddress),
     Filename(std::move(WithFilename)),
-    Mode(std::move(WithMode))
+    Mode(std::move(WithMode)),
+    Written(),
+    Writes()
   {}
 
   // Copying denied.
@@ -60,6 +76,7 @@ public:
   // Movement OK.
   StreamState(StreamState &&) = default;
   StreamState &operator=(StreamState &&) = default;
+  
   
   /// \name Accessors
   /// @{
@@ -81,6 +98,24 @@ public:
   std::string const &getWritten() const { return Written; }
   
   /// @} (Accessors)
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Provides information about a single write to a stream.
+  ///
+  struct StreamWrite {
+    std::size_t Begin; ///< Length of stream before this write occurred.
+    std::size_t End;   ///< Length of stream after this write occurred.
+  };
+  
+  /// \brief Get information about the write covering the given position.
+  ///
+  StreamWrite getWriteAt(std::size_t const Position) const;
+  
+  /// @} (Queries)
+  
   
   /// \name Mutators
   /// @{

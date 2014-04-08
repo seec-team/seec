@@ -206,6 +206,8 @@ root:table {
     StmtRewind:string {"Rewind to when this statement was last evaluated"}
 
     StmtForward:string {"Move forward to when this statement is next evaluated"}
+
+    StreamRewindToWrite:string {"Rewind to when this was written"}
   }
 
 

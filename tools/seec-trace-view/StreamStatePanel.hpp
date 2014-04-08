@@ -54,9 +54,6 @@ class StreamStatePanel final : public wxPanel
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
 
-  /// The current process state.
-  seec::cm::ProcessState const *CurrentProcess;
-
 public:
   /// \brief Construct.
   ///

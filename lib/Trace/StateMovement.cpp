@@ -360,6 +360,32 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
                           });
 }
 
+bool moveBackwardToStreamWriteAt(ProcessState &State,
+                                 StreamState const &Stream,
+                                 std::size_t const Position)
+{
+  if (Position >= Stream.getWritten().size())
+    return false;
+
+  auto const Address = Stream.getAddress();
+  auto const Write = Stream.getWriteAt(Position);
+
+  auto const Moved = moveBackwardUntil(State,
+    [=] (ProcessState const &P) -> bool {
+      auto const StreamPtr = P.getStream(Address);
+      llvm::errs() << "written "
+                   << StreamPtr->getWritten().size()
+                   << ", begin "
+                   << Write.Begin << "\n";
+      return StreamPtr->getWritten().size() == Write.Begin;
+    });
+
+  if (Moved)
+    moveForward(State);
+
+  return Moved;
+}
+
 
 //===------------------------------------------------------------------------===
 // ThreadState movement
