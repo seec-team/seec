@@ -19,6 +19,8 @@
 #include "llvm/IR/Type.h"
 
 #include <cstdio>
+#include <utility>
+#include <vector>
 
 
 namespace seec {
@@ -53,6 +55,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   TraceMemoryMutex(),
   TraceMemory(),
   KnownMemory(),
+  InMemoryPointerObjects(),
   DynamicMemoryAllocations(),
   DynamicMemoryAllocationsMutex(),
   StreamsMutex(),
@@ -203,6 +206,79 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
   }
     
   return seec::Maybe<MemoryArea>();
+}
+
+
+//===----------------------------------------------------------------------===//
+// Pointer origin tracking.
+//===----------------------------------------------------------------------===//
+
+uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
+{
+  if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(V))
+    return getRuntimeAddress(GV);
+  // TODO?
+  return 0;
+}
+
+uintptr_t
+TraceProcessListener::getInMemoryPointerObject(uintptr_t const PtrLocation)
+const
+{
+  auto const It = InMemoryPointerObjects.find(PtrLocation);
+  if (It == InMemoryPointerObjects.end())
+    llvm_unreachable("couldn't get impo.");
+  return It != InMemoryPointerObjects.end() ? It->second : 0;
+}
+
+void TraceProcessListener::setInMemoryPointerObject(uintptr_t const PtrLocation,
+                                                    uintptr_t const Object)
+{
+  clearInMemoryPointerObjects(MemoryArea(PtrLocation, sizeof(void *)));
+  InMemoryPointerObjects[PtrLocation] = Object;
+}
+
+void TraceProcessListener::clearInMemoryPointerObjects(MemoryArea const Area)
+{
+  auto const It = InMemoryPointerObjects.lower_bound(Area.start());
+  if (It == InMemoryPointerObjects.end() || It->first >= Area.end())
+    return;
+
+  auto const End = InMemoryPointerObjects.lower_bound(Area.end());
+  InMemoryPointerObjects.erase(It, End);
+}
+
+void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
+                                                      uintptr_t const To,
+                                                      std::size_t const Length)
+{
+  auto const End = To + Length;
+
+  // If the memory areas don't intersect then we can copy directly from the
+  // source range to the destination range. Otherwise we have to copy into
+  // an intermediate container and then copy into the destination range.
+  if (!MemoryArea(From,Length).intersects(MemoryArea(To,Length))) {
+    clearInMemoryPointerObjects(MemoryArea(To, Length));
+    auto const InsertHintIt = InMemoryPointerObjects.lower_bound(To);
+
+    for (auto I = InMemoryPointerObjects.lower_bound(From); I->first < End; ++I)
+      InMemoryPointerObjects.insert(InsertHintIt,
+                                    std::make_pair(To + (I->first - From),
+                                                   I->second));
+  }
+  else {
+    std::vector<decltype(InMemoryPointerObjects)::value_type> Objects;
+    Objects.reserve(Length);
+
+    for (auto I = InMemoryPointerObjects.lower_bound(From); I->first < End; ++I)
+      Objects.emplace_back(To + (I->first - From), I->second);
+
+    clearInMemoryPointerObjects(MemoryArea(To, Length));
+    auto const InsertHintIt = InMemoryPointerObjects.lower_bound(To);
+
+    for (auto &&Object : Objects)
+      InMemoryPointerObjects.insert(InsertHintIt, Object);
+  }
 }
 
 

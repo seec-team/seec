@@ -194,6 +194,10 @@ class TraceProcessListener {
   IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
 
 
+  /// Pointer objects.
+  std::map<uintptr_t, uintptr_t> InMemoryPointerObjects;
+
+
   /// Dynamic memory mutex.
   std::mutex DynamicMemoryMutex;
 
@@ -388,6 +392,25 @@ public:
   }
   
   /// @}
+
+
+  /// \name Pointer object tracking
+  /// @{
+
+  uintptr_t getPointerObject(llvm::Value const *V) const;
+
+  uintptr_t getInMemoryPointerObject(uintptr_t const PtrLocation) const;
+
+  void setInMemoryPointerObject(uintptr_t const PtrLocation,
+                                uintptr_t const Object);
+
+  void clearInMemoryPointerObjects(MemoryArea const Area);
+
+  void copyInMemoryPointerObjects(uintptr_t const From,
+                                  uintptr_t const To,
+                                  std::size_t const Length);
+
+  /// @} (Pointer object tracking)
 
 
   /// \name Memory state tracking
