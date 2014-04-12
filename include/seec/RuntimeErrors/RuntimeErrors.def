@@ -137,6 +137,23 @@ SEEC_RUNERR(IntegerUnderflow,
   ))
 
 //
+// Dereference a pointer that does not reference an object!
+//
+SEEC_RUNERR(PointerObjectNULL,
+  SEEC_PP_QUOTE(
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Dereference a pointer that does not refer to its original object.
+//
+SEEC_RUNERR(PointerObjectMismatch,
+  SEEC_PP_QUOTE(
+    (object,  seec::runtime_errors::ArgAddress),
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
 // Passing a pointer to unowned memory to a function.
 //
 SEEC_RUNERR(PassPointerToUnowned,
