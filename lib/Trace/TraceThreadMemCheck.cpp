@@ -81,6 +81,7 @@ bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
                                        uintptr_t const Address,
                                        seec::Maybe<MemoryArea> const &Area)
 {
+#if 0
   auto const Obj = Thread.getActiveFunction()->getPointerObject(Ptr);
   if (!Obj) {
     Thread.handleRunError(
@@ -90,11 +91,13 @@ bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
 
     return false;
   }
+#endif
 
   if (!Area.assigned()) {
     return false;
   }
 
+#if 0
   if (Area.get<MemoryArea>().start() != Obj) {
     Thread.handleRunError(
       *createRunError<RunErrorType::PointerObjectMismatch>(Obj, Address),
@@ -103,6 +106,7 @@ bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
 
     return false;
   }
+#endif
 
   return true;
 }
