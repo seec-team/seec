@@ -133,8 +133,8 @@ class StreamPanel final : public wxPanel
     BindMenuItem(
       CM.Append(wxID_ANY,
                 seec::getwxStringExOrEmpty("TraceViewer",
-                                           {"ContextualNavigation",
-                                            "StreamRewindToWrite"})),
+                  (char const *[]){"ContextualNavigation",
+                                   "StreamRewindToWrite"})),
       [this] (wxEvent &) -> void {
         raiseMovementEvent(*this, ParentAccess,
           [=] (seec::cm::ProcessState &ProcessState) -> bool {
