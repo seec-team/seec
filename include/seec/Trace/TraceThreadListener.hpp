@@ -857,6 +857,9 @@ public:
   void preCmemchr(llvm::CallInst const *Call, uint32_t Index,
                   void const *Ptr, int Value, size_t Num);
 
+  void postCmemchr(llvm::CallInst const *Call, uint32_t Index,
+                   void const *Ptr, int Value, size_t Num);
+
   void preCmemcmp(llvm::CallInst const *Call, uint32_t Index,
                   void const *Address1, void const *Address2, size_t Size);
 
@@ -889,6 +892,9 @@ public:
 
   void preCstrchr(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str, int Character);
+
+  void postCstrchr(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Str, int Character);
 
   void preCstrcmp(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
@@ -930,14 +936,23 @@ public:
   void preCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
                    char const *Str1, char const *Str2);
 
+  void postCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
+                    char const *Str1, char const *Str2);
+
   void preCstrrchr(llvm::CallInst const *Call, uint32_t Index,
                    char const *Str, int Character);
+
+  void postCstrrchr(llvm::CallInst const *Call, uint32_t Index,
+                    char const *Str, int Character);
 
   void preCstrspn(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
 
   void preCstrstr(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
+
+  void postCstrstr(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Str1, char const *Str2);
 
   void preCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
                    char *Destination, char const *Source, size_t Num);
