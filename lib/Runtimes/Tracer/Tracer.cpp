@@ -321,9 +321,11 @@ ProcessEnvironment::ProcessEnvironment()
 ProcessEnvironment::~ProcessEnvironment()
 {
   // Finalize the trace.
+  auto const OutputEnabled = ProcessTracer->traceEnabled();
   ThreadLookup.clear();
   ProcessTracer.reset();
-  archive();
+  if (OutputEnabled)
+    archive();
 }
 
 ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
