@@ -14,6 +14,8 @@
 #include "seec/Trace/TracedFunction.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 
+#include "llvm/IR/Instruction.h"
+
 
 namespace seec {
 
@@ -97,6 +99,60 @@ TracedFunction::getParamByValArea(llvm::Argument const *Arg) const
 
 
 //===----------------------------------------------------------------------===//
+// Pointer origin tracking.
+//===----------------------------------------------------------------------===//
+
+uintptr_t TracedFunction::getPointerObject(llvm::Argument const *A) const
+{
+  auto const It = ArgPointerObjects.find(A);
+  return It != ArgPointerObjects.end() ? It->second : 0;
+}
+
+void TracedFunction::setPointerObject(llvm::Argument const *A,
+                                      uintptr_t const Object)
+{
+  ArgPointerObjects[A] = Object;
+}
+
+uintptr_t TracedFunction::getPointerObject(llvm::Instruction const *I) const
+{
+  auto const It = PointerObjects.find(I);
+  return It != PointerObjects.end() ? It->second : 0;
+}
+
+void TracedFunction::setPointerObject(llvm::Instruction const *I,
+                                      uintptr_t const Object)
+{
+  PointerObjects[I] = Object;
+}
+
+uintptr_t TracedFunction::getPointerObject(llvm::Value const *V) const
+{
+  if (auto const I = llvm::dyn_cast<llvm::Instruction>(V))
+    return getPointerObject(I);
+  else if (auto const A = llvm::dyn_cast<llvm::Argument>(V))
+    return getPointerObject(A);
+  return ThreadListener.getProcessListener().getPointerObject(V);
+}
+
+uintptr_t TracedFunction::transferPointerObject(llvm::Value const *From,
+                                                llvm::Instruction const *To)
+{
+  auto const Object = getPointerObject(From);
+  if (Object)
+    setPointerObject(To, Object);
+  return Object;
+}
+
+uintptr_t TracedFunction::transferArgPointerObjectToCall(unsigned const ArgNo)
+{
+  auto const Call = llvm::dyn_cast<llvm::CallInst>(ActiveInstruction);
+  assert(Call && "No CallInst active!");
+
+  return transferPointerObject(Call->getArgOperand(ArgNo), Call);
+}
+
+//===----------------------------------------------------------------------===//
 // Mutators.
 //===----------------------------------------------------------------------===//
 
@@ -110,10 +166,14 @@ void TracedFunction::finishRecording(offset_uint EventOffsetEnd,
   this->ThreadTimeExited = ThreadTimeExited;
   
   // clear active-only information
+  ActiveInstruction = nullptr;
   Allocas.clear();
+  ByValArgs.clear();
   StackLow = 0;
   StackHigh = 0;
   CurrentValues.clear();
+  ArgPointerObjects.clear();
+  PointerObjects.clear();
 }
 
 void TracedFunction::addAlloca(TracedAlloca Alloca) {

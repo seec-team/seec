@@ -16,9 +16,11 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
 #include "seec/Util/Fallthrough.hpp"
+#include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Type.h"
@@ -84,13 +86,31 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   // Get the shared, indexed view of the function.
   auto const &FIndex = ProcessListener.moduleIndex().getFunctionIndex(Index);
 
+  // Get object information for Arguments from the call site.
+  llvm::DenseMap<llvm::Argument const *, uintptr_t> PtrArgObjects;
+
+  if (ActiveFunction) {
+    auto const Inst = ActiveFunction->getActiveInstruction();
+    if (auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst)) {
+      // TODO: Ensure that the called Function is F.
+      for (auto const &Arg : F->getArgumentList()) {
+        if (Arg.getType()->isPointerTy()) {
+          auto const Operand = Call->getArgOperand(Arg.getArgNo());
+          auto const Object = ActiveFunction->getPointerObject(Operand);
+          PtrArgObjects[&Arg] = Object;
+        }
+      }
+    }
+  }
+
   // create function record
   auto TF = new (std::nothrow) TracedFunction(*this,
                                               *FIndex,
                                               RecordOffset,
                                               Index,
                                               StartOffset,
-                                              Entered);
+                                              Entered,
+                                              std::move(PtrArgObjects));
   seec::checkNew(TF);
 
   RecordedFunctions.emplace_back(TF);
@@ -165,6 +185,7 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
     auto const ParentInstruction = ParentFunction->getActiveInstruction();
     if (ParentInstruction) {
       auto const ParentCall = llvm::dyn_cast<llvm::CallInst>(ParentInstruction);
+      // TODO: handle indirect function calls.
       if (ParentCall->getCalledFunction() == Arg->getParent()) {
         auto const OrigOp = ParentCall->getOperand(Index);
         auto const OrigRTV
@@ -187,6 +208,10 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // it effectively ends the FunctionStart block for main().
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});
+
+  // Set the object of the argv Argument.
+  auto const ArgVArg = ActiveFunction->getFunctionIndex().getArgument(1);
+  ActiveFunction->setPointerObject(ArgVArg, reinterpret_cast<uintptr_t>(ArgV));
   
   GlobalMemoryLock = ProcessListener.lockMemory();
   
@@ -211,6 +236,10 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
     
     // Set the state of the string.
     recordUntypedState(ArgV[i], StringSize);
+
+    // Set the destination object of the pointer.
+    auto const PtrLocation = reinterpret_cast<uintptr_t>(ArgV + i);
+    ProcessListener.setInMemoryPointerObject(PtrLocation, StringAddress);
   }
 
   GlobalMemoryLock.unlock();
@@ -221,6 +250,10 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
   
+  // Set the object of the envp Argument.
+  auto const EnvPArg = ActiveFunction->getFunctionIndex().getArgument(2);
+  ActiveFunction->setPointerObject(EnvPArg, reinterpret_cast<uintptr_t>(EnvP));
+
   GlobalMemoryLock = ProcessListener.lockMemory();
   
   // Find the number of pointers in the array (including the NULL pointer that
@@ -434,7 +467,10 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
   auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Read;
   
   RuntimeErrorChecker Checker(*this, Index);
-  Checker.checkMemoryExistsAndAccessible(Address, Size, Access);
+  auto MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
+  if (Checker.checkPointer(Load->getPointerOperand(), Address, MaybeArea))
+    if (Checker.memoryExists(Address, Size, Access, MaybeArea))
+      Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
 void TraceThreadListener::notifyPostLoad(uint32_t Index,
@@ -445,7 +481,12 @@ void TraceThreadListener::notifyPostLoad(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});
 
-  // auto MemoryStateEvent = ProcessListener.getMemoryStateEvent();
+  if (Load->getType()->isPointerTy()) {
+    auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
+    auto const Origin = ProcessListener.getInMemoryPointerObject(AddressInt);
+    if (Origin)
+      ActiveFunction->setPointerObject(Load, Origin);
+  }
 }
 
 void TraceThreadListener::notifyPreStore(uint32_t Index,
@@ -461,9 +502,12 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
 
   auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
   auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Write;
-  
+
   RuntimeErrorChecker Checker(*this, Index);
-  Checker.checkMemoryExistsAndAccessible(AddressInt, Size, Access);
+  auto MaybeArea = seec::trace::getContainingMemoryArea(*this, AddressInt);
+  if (Checker.checkPointer(Store->getPointerOperand(), AddressInt, MaybeArea))
+    if (Checker.memoryExists(AddressInt, Size, Access, MaybeArea))
+      Checker.checkMemoryAccess(AddressInt, Size, Access, MaybeArea.get<0>());
 }
 
 void TraceThreadListener::notifyPostStore(uint32_t Index,
@@ -477,6 +521,14 @@ void TraceThreadListener::notifyPostStore(uint32_t Index,
   EventsOut.write<EventType::Instruction>(Index, ++Time);
 
   auto StoreValue = Store->getValueOperand();
+
+  // Set the in-memory pointer's origin information.
+  if (StoreValue->getType()->isPointerTy()) {
+    if (auto const Origin = ActiveFunction->getPointerObject(StoreValue)) {
+      auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
+      ProcessListener.setInMemoryPointerObject(AddressInt, Origin);
+    }
+  }
 
   if (auto StoreValueInst = llvm::dyn_cast<llvm::Instruction>(StoreValue)) {
     auto RTValue = getActiveFunction()->getCurrentRuntimeValue(StoreValueInst);
@@ -610,7 +662,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
   
-  auto IntVal = reinterpret_cast<uintptr_t>(Value);
+  auto const IntVal = reinterpret_cast<uintptr_t>(Value);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -636,11 +688,31 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     auto const Offset = EventsOut.write<EventType::Alloca>(ElementSize,
                                                            CountRTV.get<0>());
 
-    getActiveFunction()->addAlloca(TracedAlloca(Alloca,
-                                                IntVal,
-                                                ElementSize,
-                                                CountRTV.get<0>(),
-                                                Offset));
+    ActiveFunction->addAlloca(TracedAlloca(Alloca,
+                                           IntVal,
+                                           ElementSize,
+                                           CountRTV.get<0>(),
+                                           Offset));
+
+    // Origin of the pointer will be this alloca.
+    ActiveFunction->setPointerObject(Instruction, IntVal);
+  }
+  else if (llvm::isa<llvm::LoadInst>(Instruction)) {
+    // Handled in PostLoad.
+  }
+  else if (auto GEP = llvm::dyn_cast<llvm::GetElementPtrInst>(Instruction)) {
+    // Set the origin to the origin of the base pointer.
+    auto const Base = GEP->getPointerOperand();
+    auto const Origin = ActiveFunction->getPointerObject(Base);
+    if (Origin)
+      ActiveFunction->setPointerObject(GEP, Origin);
+  }
+  else if (llvm::isa<llvm::CallInst>(Instruction)) {
+    // Should be handled by interceptor / detect calls.
+  }
+  else if (Instruction->getType()->isPointerTy()) {
+    llvm::errs() << "don't know how to set origin for pointer Instruction:\n"
+                 << *Instruction << "\n";
   }
 }
 

@@ -61,7 +61,13 @@ public:
   /// \brief Find the number of writable owned/known bytes starting at Address.
   ///
   std::ptrdiff_t getSizeOfWritableAreaStartingAt(uintptr_t Address);
-  
+
+  /// \brief Check that a pointer is valid to dereference.
+  ///
+  bool checkPointer(llvm::Value const * const Ptr,
+                    uintptr_t const Address,
+                    seec::Maybe<MemoryArea> const &Area);
+
   /// \brief Create a MemoryUnowned runtime error if Area is unassigned.
   ///
   /// \return true if Area is assigned (no runtime error was created).
@@ -116,6 +122,9 @@ class CStdLibChecker : public RuntimeErrorChecker {
 protected:
   /// The function that we are checking.
   seec::runtime_errors::format_selects::CStdFunction const Function;
+
+  /// The call to this Function.
+  llvm::CallInst const *Call;
   
 public:
   /// \brief Constructor.
@@ -124,10 +133,7 @@ public:
   /// \param Function the function we are checking.
   CStdLibChecker(TraceThreadListener &InThread,
                  uint32_t InstructionIndex,
-                 seec::runtime_errors::format_selects::CStdFunction Function)
-  : RuntimeErrorChecker(InThread, InstructionIndex),
-    Function(Function)
-  {}
+                 seec::runtime_errors::format_selects::CStdFunction Function);
   
   /// \brief Create a PassPointerToUnowned runtime error if Area is unassigned.
   ///

@@ -13,8 +13,9 @@
 
 #include "seec/Trace/PrintFormatSpecifiers.hpp"
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
-
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+
+#include "llvm/IR/Instruction.h"
 
 
 namespace seec {
@@ -74,6 +75,36 @@ RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
     return 0;
   
   return Area.withStart(Address).length();
+}
+
+bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
+                                       uintptr_t const Address,
+                                       seec::Maybe<MemoryArea> const &Area)
+{
+  auto const Obj = Thread.getActiveFunction()->getPointerObject(Ptr);
+  if (!Obj) {
+    Thread.handleRunError(
+      *createRunError<RunErrorType::PointerObjectNULL>(Address),
+      RunErrorSeverity::Fatal,
+      Instruction);
+
+    return false;
+  }
+
+  if (!Area.assigned()) {
+    return false;
+  }
+
+  if (Area.get<MemoryArea>().start() != Obj) {
+    Thread.handleRunError(
+      *createRunError<RunErrorType::PointerObjectMismatch>(Obj, Address),
+      RunErrorSeverity::Fatal,
+      Instruction);
+
+    return false;
+  }
+
+  return true;
 }
 
 bool
@@ -183,6 +214,17 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
 // CStdLibChecker
 //===------------------------------------------------------------------------===
 
+CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
+                               uint32_t InstructionIndex,
+                               format_selects::CStdFunction Function)
+: RuntimeErrorChecker(InThread, InstructionIndex),
+  Function(Function),
+  Call(llvm::dyn_cast<llvm::CallInst>
+                     (InThread.getActiveFunction()
+                              ->getFunctionIndex()
+                              .getInstruction(InstructionIndex)))
+{}
+
 bool
 CStdLibChecker::memoryExistsForParameter(
                   unsigned Parameter,
@@ -191,16 +233,26 @@ CStdLibChecker::memoryExistsForParameter(
                   format_selects::MemoryAccess Access,
                   seec::Maybe<MemoryArea> const &Area)
 {
-  if (Area.assigned())
-    return true;
-  
-  Thread.handleRunError(
-    *createRunError<RunErrorType::PassPointerToUnowned>
-                   (Function, Address, Parameter),
-    RunErrorSeverity::Fatal,
-    Instruction);
-  
-  return false;
+  // Check that the pointer is valid to use. Do this before checking that the
+  // area exists, because we may be able to raise a more specific error if this
+  // pointer does not have an associated object.
+  //
+  if (Call)
+    if (checkPointer(Call->getArgOperand(Parameter), Address, Area))
+      return true;
+
+  // Check that the area exists.
+  if (!Area.assigned()) {
+    Thread.handleRunError(
+      *createRunError<RunErrorType::PassPointerToUnowned>
+                    (Function, Address, Parameter),
+      RunErrorSeverity::Fatal,
+      Instruction);
+
+    return false;
+  }
+
+  return true;
 }
 
 bool

@@ -407,6 +407,9 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   
   ProcessTime = getCIProcessTime();
   
+  // Copy in-memory pointer objects.
+  ProcessListener.copyInMemoryPointerObjects(Source, Destination, Size);
+  
   auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
   auto const MoveInfo = MemoryState->memmove(Source,
                                              Destination,
