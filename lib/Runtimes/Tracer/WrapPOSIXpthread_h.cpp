@@ -57,6 +57,7 @@ SEEC_MANGLE_FUNCTION(pthread_join)
  void **value_ptr)
 {
   // Use the SimpleWrapper mechanism.
+  // TODO: Check if *value_ptr has a determinable origin.
   return
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
@@ -65,7 +66,8 @@ SEEC_MANGLE_FUNCTION(pthread_join)
        [](int const Result){ return Result == 0; },
        seec::ResultStateRecorderForNoOp(),
        thread,
-       seec::wrapOutputPointer(value_ptr).setIgnoreNull(true));
+       seec::wrapOutputPointer(value_ptr).setIgnoreNull(true)
+                                         .setOriginNewValid());
 }
 
 

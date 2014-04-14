@@ -62,6 +62,7 @@ SEEC_MANGLE_FUNCTION(asctime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::asctime}
+      .returnPointerIsNewAndValid()
       (asctime,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -83,6 +84,7 @@ SEEC_MANGLE_FUNCTION(ctime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::ctime}
+      .returnPointerIsNewAndValid()
       (ctime,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -127,6 +129,7 @@ SEEC_MANGLE_FUNCTION(gmtime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::gmtime}
+      .returnPointerIsNewAndValid()
       (gmtime,
        [](std::tm *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalObject(
@@ -148,6 +151,7 @@ SEEC_MANGLE_FUNCTION(localtime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::localtime}
+      .returnPointerIsNewAndValid()
       (localtime,
        [](std::tm *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalObject(

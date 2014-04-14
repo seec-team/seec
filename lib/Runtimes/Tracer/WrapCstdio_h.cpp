@@ -1941,11 +1941,14 @@ SEEC_MANGLE_FUNCTION(tmpnam)
   if (Buffer) {
     // Record the write to Buffer.
     Listener.recordUntypedState(Buffer, Length);
+    Listener.getActiveFunction()->transferArgPointerObjectToCall(0);
   }
   else {
     // Record tmpnam's internal static array.
     auto Address = reinterpret_cast<uintptr_t>(Result);
-    
+
+    Listener.getActiveFunction()->setPointerObject(Instruction, Address);
+
     // Remove knowledge of the existing getenv string at this position (if any).
     Listener.removeKnownMemoryRegion(Address);
   
@@ -2000,7 +2003,10 @@ SEEC_MANGLE_FUNCTION(fdopen)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        Result);
-  
+
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
+  Listener.getActiveFunction()->setPointerObject(Instruction, ResultInt);
+
   if (Result) {
     std::string FakeFilename = "(file descriptor ";
     FakeFilename += std::to_string(FileDescriptor);

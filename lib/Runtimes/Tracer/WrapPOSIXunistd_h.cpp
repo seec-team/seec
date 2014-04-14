@@ -838,6 +838,7 @@ SEEC_MANGLE_FUNCTION(getcwd)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::getcwd}
+      .returnPointerIsNewAndValid()
       (getcwd,
        [](char const * const Result){ return Result != nullptr; },
        seec::ResultStateRecorderForNoOp(),

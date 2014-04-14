@@ -39,6 +39,7 @@ SEEC_MANGLE_FUNCTION(setlocale)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::setlocale}
+      .returnPointerIsNewAndValid()
       (setlocale,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -57,16 +58,19 @@ SEEC_MANGLE_FUNCTION(setlocale)
 class ResultStateRecorderForStaticInternalLConv {
   void recordCString(seec::trace::TraceProcessListener &ProcessListener,
                      seec::trace::TraceThreadListener &ThreadListener,
-                     char *String)
+                     char *&String)
   {
+    auto const AddrOfStringPtr = reinterpret_cast<uintptr_t>(&String);
+    auto const AddrOfString = reinterpret_cast<uintptr_t>(String);
+    ProcessListener.setInMemoryPointerObject(AddrOfStringPtr, AddrOfString);
+
     if (String == nullptr)
       return;
-    
-    auto const Address = reinterpret_cast<uintptr_t>(String);
+
     auto const Length = std::strlen(String) + 1;
-    
-    ThreadListener.removeKnownMemoryRegion(Address);
-    ThreadListener.addKnownMemoryRegion(Address, Length,
+
+    ThreadListener.removeKnownMemoryRegion(AddrOfString);
+    ThreadListener.addKnownMemoryRegion(AddrOfString, Length,
                                         seec::MemoryPermission::ReadOnly);
     ThreadListener.recordUntypedState(String, Length);
   }
@@ -115,6 +119,7 @@ SEEC_MANGLE_FUNCTION(localeconv)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::localeconv}
+      .returnPointerIsNewAndValid()
       (localeconv,
        [](std::lconv *Result){ return Result != nullptr; },
        ResultStateRecorderForStaticInternalLConv());

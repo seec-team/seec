@@ -63,7 +63,11 @@ SEEC_MANGLE_FUNCTION(strdup)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        Result);
-  
+
+  // Set the object for the returned pointer.
+  auto const ResultAddr = reinterpret_cast<uintptr_t>(Result);
+  Listener.getActiveFunction()->setPointerObject(Instruction, ResultAddr);
+
   if (Result) {
     auto Size = std::strlen(Result) + 1;
     Listener.recordMalloc(reinterpret_cast<uintptr_t>(Result), Size);
@@ -138,10 +142,16 @@ SEEC_MANGLE_FUNCTION(strtok)
   
   // Record the state changes (if any).
   if (Result) {
+    // Transfer the pointer object from the input pointer.
+    Listener.getActiveFunction()->transferArgPointerObjectToCall(0);
+
     // The NULL character that terminates this token was inserted by strtok, so
     // we must record it.
     auto const Terminator = Result + strlen(Result);
     Listener.recordUntypedState(Terminator, 1);
+  }
+  else {
+    Listener.getActiveFunction()->setPointerObject(Instruction, 0);
   }
   
   return Result;

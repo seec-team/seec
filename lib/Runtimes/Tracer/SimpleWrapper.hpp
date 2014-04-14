@@ -22,12 +22,14 @@
 #include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cerrno>
 #include <climits>
 #include <cstring>
+#include <type_traits>
 
 
 // Forward declarations.
@@ -115,6 +117,19 @@ constexpr bool isSettingInList() {
 
 
 //===----------------------------------------------------------------------===//
+// PointerOrigin
+//===----------------------------------------------------------------------===//
+
+/// \brief Possible sources of a returned or written pointer.
+///
+enum class PointerOrigin {
+  None,
+  FromArgument,
+  NewValid
+};
+
+
+//===----------------------------------------------------------------------===//
 // WrappedArgumentChecker
 //===----------------------------------------------------------------------===//
 
@@ -140,18 +155,15 @@ public:
 
 /// \brief Base case of WrappedArgumentRecorder records nothing.
 ///
-template<typename T>
+template<typename T, typename Enable = void>
 class WrappedArgumentRecorder {
-  /// The underlying TraceThreadListener.
-  seec::trace::TraceThreadListener &Listener;
-
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
-  : Listener(WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &)
   {}
-  
+
   /// \brief Record any state changes.
   ///
   bool record(T &Value, bool Success) { return true; }
@@ -490,12 +502,18 @@ class WrappedOutputPointer {
   std::size_t Size;
   
   bool IgnoreNull;
-  
+
+  PointerOrigin OutPtrOrigin;
+
+  unsigned OutPtrOriginArg;
+
 public:
   WrappedOutputPointer(T ForValue)
   : Value(ForValue),
     Size(sizeof(*ForValue)),
-    IgnoreNull(false)
+    IgnoreNull(false),
+    OutPtrOrigin(PointerOrigin::None),
+    OutPtrOriginArg(0)
   {}
   
   /// \name Flags
@@ -515,6 +533,20 @@ public:
   
   std::size_t getSize() const { return Size; }
   
+  WrappedOutputPointer &setOriginNewValid() {
+    OutPtrOrigin = PointerOrigin::NewValid;
+    return *this;
+  }
+
+  WrappedOutputPointer &setOriginFromArg(unsigned const ArgNo) {
+    OutPtrOrigin = PointerOrigin::FromArgument;
+    OutPtrOriginArg = ArgNo;
+  }
+
+  PointerOrigin getOrigin() const { return OutPtrOrigin; }
+
+  unsigned getOriginArg() const { return OutPtrOriginArg; }
+
   /// @} (Flags)
   
   /// \name Value information
@@ -560,7 +592,11 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
-  
+
+  PointerOrigin getOrigin() const { return PointerOrigin::None; }
+
+  unsigned getOriginArg() const { return 0; }
+
   /// @} (Flags)
   
   /// \name Value information
@@ -609,17 +645,91 @@ public:
   }
 };
 
-/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer.
+template<typename T>
+struct is_pointer_to_pointer
+: std::integral_constant
+<bool,
+ std::is_pointer<T>::value
+ && std::is_pointer<typename std::remove_pointer<T>::type>::value>
+{};
+
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer
+///        when the referenced object is also a pointer.
 ///
 template<typename T>
-class WrappedArgumentRecorder<WrappedOutputPointer<T>> {
+class WrappedArgumentRecorder<WrappedOutputPointer<T>,
+        typename std::enable_if<is_pointer_to_pointer<T>::value>::type>
+{
+  seec::trace::TraceProcessListener &Process;
+
   /// The underlying TraceThreadListener.
   seec::trace::TraceThreadListener &Listener;
 
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &WithProcess,
+                          seec::trace::TraceThreadListener &WithListener)
+  : Process(WithProcess),
+    Listener(WithListener)
+  {}
+
+  /// \brief Record any state changes.
+  ///
+  bool record(WrappedOutputPointer<T> &Value, bool Success) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+
+    if (Success) {
+      T const Ptr = Value;
+      Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                  Value.getSize());
+
+      switch (Value.getOrigin()) {
+        case PointerOrigin::None:
+          llvm_unreachable("output pointer with no origin.");
+          break;
+
+        case PointerOrigin::FromArgument:
+        {
+          auto const Fn = Listener.getActiveFunction();
+          auto const Inst = Fn->getActiveInstruction();
+          auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst);
+          assert(Call && "active instruction is not a CallInst");
+
+          auto const Arg = Call->getArgOperand(Value.getOriginArg());
+          auto const Obj = Fn->getPointerObject(Arg);
+
+          Process.setInMemoryPointerObject(reinterpret_cast<uintptr_t>(Ptr),
+                                           Obj);
+          break;
+        }
+
+        case PointerOrigin::NewValid:
+          Process.setInMemoryPointerObject(reinterpret_cast<uintptr_t>(Ptr),
+                                           reinterpret_cast<uintptr_t>(*Ptr));
+          break;
+      }
+    }
+
+    return true;
+  }
+};
+
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer.
+///
+template<typename T>
+class WrappedArgumentRecorder<WrappedOutputPointer<T>,
+        typename std::enable_if<!is_pointer_to_pointer<T>::value>::type>
+{
+  /// The underlying TraceThreadListener.
+  seec::trace::TraceThreadListener &Listener;
+
+public:
+  /// \brief Construct a new WrappedArgumentRecorder.
+  ///
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &WithListener)
   : Listener(WithListener)
   {}
   
@@ -729,7 +839,8 @@ class WrappedArgumentRecorder<WrappedOutputCString> {
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &WithListener)
   : Listener(WithListener)
   {}
   
@@ -1117,19 +1228,49 @@ class SimpleWrapperImpl
 {
   /// The function that is wrapped.
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
-  
+
+  /// Where did the returned pointer originate from?
+  PointerOrigin RetPtrOrigin;
+
+  /// Index of the argument that a returned pointer originated from.
+  unsigned RetPtrOriginArg;
+
   /// \brief Check if the given setting is enabled for this wrapper.
   ///
   template<SimpleWrapperSetting Setting>
   constexpr bool isEnabled() const {
     return isSettingInList<Setting, Settings...>();
   }
-  
+
+  /// \brief Record a new valid pointer.
+  ///
+  template<typename PtrT>
+  typename std::enable_if<std::is_pointer<PtrT>::value, void>::type
+  setPointerOriginNewValid(seec::trace::TraceThreadListener &Thread,
+                           llvm::Instruction const *Instruction,
+                           PtrT const Ptr) const
+  {
+    auto const PtrInt = reinterpret_cast<uintptr_t>(Ptr);
+    auto const MaybeArea = seec::trace::getContainingMemoryArea(Thread, PtrInt);
+    auto const Object = MaybeArea.get<0>().start();
+    Thread.getActiveFunction()->setPointerObject(Instruction, Object);
+  }
+
+  /// \brief Specialization of above to allow compiling with non-pointer return
+  ///        types.
+  ///
+  void setPointerOriginNewValid(seec::trace::TraceThreadListener &, ...) const
+  {}
+
 public:
   /// \brief Construct a new wrapper implementation for the given function.
   ///
-  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
-  : FSFunction(ForFn)
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn,
+                    PointerOrigin const WithRetPtrOrigin,
+                    unsigned const WithRetPtrOriginArg)
+  : FSFunction(ForFn),
+    RetPtrOrigin(WithRetPtrOrigin),
+    RetPtrOriginArg(WithRetPtrOriginArg)
   {}
   
   /// \brief Implementation of the wrapped function.
@@ -1184,6 +1325,22 @@ public:
     ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
     
+    // Update the pointer origin (if necessary).
+    if (std::is_pointer<RetT>::value) {
+      switch (RetPtrOrigin) {
+        case PointerOrigin::None:
+          // TODO: This is bad.
+          break;
+        case PointerOrigin::FromArgument:
+          Listener.getActiveFunction()
+                    ->transferArgPointerObjectToCall(RetPtrOriginArg);
+          break;
+        case PointerOrigin::NewValid:
+          setPointerOriginNewValid(Listener, Instruction, Result);
+          break;
+      }
+    }
+
     // Record any changes to errno.
     if (errno != PreCallErrno) {
       Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
@@ -1200,7 +1357,8 @@ public:
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
       (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
-                              (Listener).record(Args, Success))...
+                              (ProcessListener, Listener)
+                              .record(Args, Success))...
     };
     
 #ifndef NDEBUG
@@ -1239,7 +1397,9 @@ class SimpleWrapperImpl<void,
 public:
   /// \brief Construct a new wrapper implementation for the given function.
   ///
-  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn,
+                    PointerOrigin const WithRetPtrOrigin,
+                    unsigned const WithRetPtrOriginArg)
   : FSFunction(ForFn)
   {}
   
@@ -1303,7 +1463,8 @@ public:
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
       (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
-                              (Listener).record(Args, Success))...
+                              (ProcessListener, Listener)
+                              .record(Args, Success))...
     };
     
     for (auto const OutputRecord : OutputRecords) {
@@ -1325,7 +1486,13 @@ class SimpleWrapper {
   
   /// Global variable trackers.
   llvm::SmallVector<GlobalVariableTracker, 4> GVTrackers;
-  
+
+  /// Where did the returned pointer originate from?
+  PointerOrigin RetPtrOrigin;
+
+  /// Index of the argument that a returned pointer originated from.
+  unsigned RetPtrOriginArg;
+
   /// @}
   
 public:
@@ -1333,7 +1500,9 @@ public:
   ///
   SimpleWrapper(seec::runtime_errors::format_selects::CStdFunction ForFunction)
   : FSFunction(ForFunction),
-    GVTrackers()
+    GVTrackers(),
+    RetPtrOrigin(PointerOrigin::None),
+    RetPtrOriginArg(0)
   {}
   
   /// \brief Add a global variable tracker.
@@ -1344,7 +1513,24 @@ public:
     GVTrackers.push_back(GlobalVariableTracker{Global});
     return *this;
   }
-  
+
+  /// \brief Set the pointer to originate from an argument.
+  ///
+  SimpleWrapper &returnPointerFromArg(unsigned const ArgNo)
+  {
+    RetPtrOrigin = PointerOrigin::FromArgument;
+    RetPtrOriginArg = ArgNo;
+    return *this;
+  }
+
+  /// \brief Set the returned pointer to be newly created and valid.
+  ///
+  SimpleWrapper &returnPointerIsNewAndValid()
+  {
+    RetPtrOrigin = PointerOrigin::NewValid;
+    return *this;
+  }
+
   /// \brief Execute the wrapped function.
   ///
   template<typename FnT,
@@ -1373,7 +1559,9 @@ public:
                              SuccessPredT,
                              ResultStateRecorderT,
                              Settings...>
-                             { FSFunction }
+                             { FSFunction,
+                               RetPtrOrigin,
+                               RetPtrOriginArg }
             .impl(std::forward<FnT>(Function),
                   std::forward<SuccessPredT>(SuccessPred),
                   std::forward<ResultStateRecorderT>(ResultStateRecorder),

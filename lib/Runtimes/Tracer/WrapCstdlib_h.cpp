@@ -217,6 +217,9 @@ public:
 /// \brief Implement a recording quicksort.
 ///
 class QuickSortImpl {
+  /// The process.
+  seec::trace::TraceProcessListener &ProcessListener;
+
   /// The thread performing the sort.
   seec::trace::TraceThreadListener &ThreadListener;
   
@@ -281,7 +284,18 @@ class QuickSortImpl {
     memcpy(TempValue, ElemA,     ElementSize);
     memcpy(ElemA,     ElemB,     ElementSize);
     memcpy(ElemB,     TempValue, ElementSize);
-    
+
+    // Copy all in-memory pointer object tracking, in case the elements we are
+    // moving are pointers (or contain pointers).
+    auto const AddrOfA = reinterpret_cast<uintptr_t>(ElemA);
+    auto const AddrOfB = reinterpret_cast<uintptr_t>(ElemB);
+    auto const AddrOfT = reinterpret_cast<uintptr_t>(TempValue);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfA, AddrOfT, ElementSize);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfB, AddrOfA, ElementSize);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfT, AddrOfB, ElementSize);
+    ProcessListener.clearInMemoryPointerObjects(MemoryArea(AddrOfT,
+                                                           ElementSize));
+
     // Create a new thread time for this "step" of the sort, and record the
     // updated memory states.
     ThreadListener.incrementThreadTime();
@@ -361,7 +375,8 @@ public:
                 std::size_t const WithElementCount,
                 std::size_t const WithElementSize,
                 int (* const WithCompare)(char const *, char const *))
-  : ThreadListener(WithThread.getThreadListener()),
+  : ProcessListener(WithThread.getProcessEnvironment().getProcessListener()),
+    ThreadListener(WithThread.getThreadListener()),
     Checker(WithThread.getThreadListener(),
             WithThread.getInstructionIndex(),
             seec::runtime_errors::format_selects::CStdFunction::qsort),
