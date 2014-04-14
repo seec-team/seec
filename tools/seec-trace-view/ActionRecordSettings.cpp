@@ -272,6 +272,7 @@ bool ActionRecordSettingsDlg::SaveValues()
   Config->Write(cConfigKeyForToken, Token);
   Config->Write(cConfigKeyForSizeLimit, SizeLimit);
   Config->Write(cConfigKeyForStoreLimit, StoreLimit);
+  Config->Flush();
   
   return true;
 }

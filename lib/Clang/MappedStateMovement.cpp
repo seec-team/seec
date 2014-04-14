@@ -311,6 +311,29 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 
 
 //===----------------------------------------------------------------------===//
+// \name Contextual movement for FILE streams.
+
+bool
+moveBackwardToStreamWriteAt(ProcessState &MappedState,
+                            StreamState const &MappedStream,
+                            std::size_t const Position)
+{
+  auto &State = MappedState.getUnmappedProcessState();
+  auto &Stream = MappedStream.getUnmappedState();
+
+  auto const Moved =
+    seec::trace::moveBackwardToStreamWriteAt(State, Stream, Position);
+
+  MappedState.cacheClear();
+
+  return Moved;
+}
+
+// (Contextual movement for FILE streams.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
 // \name Contextual movement based on AST nodes.
 
 bool moveForwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)

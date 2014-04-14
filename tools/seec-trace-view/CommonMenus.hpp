@@ -31,6 +31,11 @@ class StateAccessToken;
 class TraceViewerFrame;
 
 
+/// \brief Bind a \c wxMenuItem to the given \c std::function.
+///
+void BindMenuItem(wxMenuItem *Item,
+                  std::function<void (wxEvent &)> Handler);
+
 /// \brief Create the standard file menu.
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu();

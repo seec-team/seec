@@ -27,6 +27,7 @@ namespace seec {
 namespace trace {
 
 class ProcessState;
+class StreamState;
 class ThreadState;
 
 
@@ -70,6 +71,14 @@ bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
 /// \return true iff the State was moved.
 bool
 moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+
+/// \brief Move \c State to the write to \c Stream that produced the character
+///        at \c Position.
+/// \return true iff the State was moved.
+bool
+moveBackwardToStreamWriteAt(ProcessState &State,
+                            StreamState const &Stream,
+                            std::size_t const Position);
 
 /// @} (ProcessState movement)
 

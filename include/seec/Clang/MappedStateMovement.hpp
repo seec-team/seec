@@ -28,6 +28,7 @@ namespace cm {
 
 class FunctionState;
 class ProcessState;
+class StreamState;
 class ThreadState;
 class Value;
 
@@ -112,6 +113,22 @@ bool
 moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
 
 /// @} (Contextual movement for memory.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement for FILE streams.
+/// @{
+
+/// \brief Move \c State to the write to \c Stream that produced the character
+///        at \c Position.
+/// \return true iff the State was moved.
+bool
+moveBackwardToStreamWriteAt(ProcessState &State,
+                            StreamState const &Stream,
+                            std::size_t const Position);
+
+/// @} (Contextual movement for FILE streams.)
 //===----------------------------------------------------------------------===//
 
 

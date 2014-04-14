@@ -42,9 +42,16 @@ public:
   ///
   StreamState(seec::trace::StreamState const &ForUnmappedState);
   
+  
   /// \name Accessors.
   /// @{
-  
+
+  /// \brief Get the base (unmapped) state.
+  ///
+  seec::trace::StreamState const &getUnmappedState() const {
+    return UnmappedState;
+  }
+
   /// \brief Get the runtime address of the stream.
   ///
   uintptr_t getAddress() const;
@@ -62,6 +69,23 @@ public:
   std::string const &getWritten() const;
   
   /// @} (Accessors.)
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Provides information about a single write to a stream.
+  ///
+  struct StreamWrite {
+    std::size_t Begin; ///< Length of stream before this write occurred.
+    std::size_t End;   ///< Length of stream after this write occurred.
+  };
+  
+  /// \brief Get information about the write covering a given position.
+  ///
+  StreamWrite getWriteAt(std::size_t const Position) const;
+  
+  /// @} (Queries)
 };
 
 

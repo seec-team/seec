@@ -27,8 +27,8 @@
 #include "ProcessMoveEvent.hpp"
 #include "TraceViewerFrame.hpp"
 
-static void BindMenuItem(wxMenuItem *Item,
-                         std::function<void (wxEvent &)> Handler)
+void BindMenuItem(wxMenuItem *Item,
+                  std::function<void (wxEvent &)> Handler)
 {
   if (!Item)
     return;
