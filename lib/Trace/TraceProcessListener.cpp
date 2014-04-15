@@ -227,7 +227,7 @@ const
 {
   auto const It = InMemoryPointerObjects.find(PtrLocation);
   if (It == InMemoryPointerObjects.end())
-    llvm_unreachable("couldn't get impo.");
+    llvm::errs() << "couldn't get impo.\n";
   return It != InMemoryPointerObjects.end() ? It->second : 0;
 }
 
