@@ -43,6 +43,10 @@ char const *describe(ArgType Type);
 class Arg {
   ArgType Type;
 
+  /// \brief Clone this Arg.
+  ///
+  virtual std::unique_ptr<Arg> cloneImpl() const =0;
+
 protected:
   Arg(ArgType Type)
   : Type(Type)
@@ -51,9 +55,6 @@ protected:
   // Arg objects should not be copied directly, only as part of copying a
   // subclass.
   Arg(Arg const &Other) = default;
-
-  // Arg objects should not be copied directly, only as part of copying a
-  // subclass.
   Arg &operator=(Arg const &RHS) = default;
 
 public:
@@ -70,12 +71,22 @@ public:
 
   /// Support LLVM's dynamic casting.
   static bool classof(Arg const *A) { return true; }
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> clone() const { return cloneImpl(); }
 };
 
 /// \brief An argument that holds a runtime address.
 ///
 class ArgAddress : public Arg {
   uintptr_t Address;
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgAddress(*this));
+  }
 
 public:
   ArgAddress(uintptr_t Address)
@@ -108,6 +119,12 @@ public:
 /// \brief An argument that represents a runtime object.
 ///
 class ArgObject : public Arg {
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgObject(*this));
+  }
 
 public:
   ArgObject()
@@ -178,6 +195,12 @@ template<typename SelectType>
 class ArgSelect : public ArgSelectBase {
   SelectType Item;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgSelect(*this));
+  }
+
 protected:
   static uintptr_t getCStringAddressImpl() {
     char const *(*func)(SelectType) = format_selects::getCString;
@@ -226,6 +249,12 @@ std::unique_ptr<Arg> createArgSelect(format_selects::SelectID Select,
 class ArgSize : public Arg {
   uint64_t Size;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgSize(*this));
+  }
+
 public:
   ArgSize(uint64_t Size)
   : Arg(ArgType::Size),
@@ -258,6 +287,12 @@ public:
 ///
 class ArgOperand : public Arg {
   uint64_t Index;
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgOperand(*this));
+  }
 
 public:
   ArgOperand(uint64_t Index)
@@ -292,6 +327,12 @@ public:
 class ArgParameter : public Arg {
   uint64_t Index;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgParameter(*this));
+  }
+
 public:
   ArgParameter(uint64_t Index)
   : Arg(ArgType::Parameter),
@@ -324,6 +365,12 @@ public:
 ///
 class ArgCharacter : public Arg {
   char Character;
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgCharacter(*this));
+  }
 
 public:
   ArgCharacter(char Character)
