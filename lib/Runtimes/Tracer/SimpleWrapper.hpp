@@ -1252,7 +1252,13 @@ class SimpleWrapperImpl
   {
     auto const PtrInt = reinterpret_cast<uintptr_t>(Ptr);
     auto const MaybeArea = seec::trace::getContainingMemoryArea(Thread, PtrInt);
-    auto const Object = MaybeArea.get<0>().start();
+
+    // If the referenced area is known then use the start of the area as the
+    // pointer's object. Otherwise use the raw pointer value (for opaque
+    // pointers, e.g. FILE *).
+    auto const Object = MaybeArea.assigned() ? MaybeArea.get<0>().start()
+                                             : PtrInt;
+
     Thread.getActiveFunction()->setPointerObject(Instruction, Object);
   }
 
