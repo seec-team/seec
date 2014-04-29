@@ -24,6 +24,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <cstdint>
+#include <memory>
 
 namespace seec {
 
@@ -43,17 +44,49 @@ protected:
   
   /// The index of the llvm::Instruction we are checking.
   uint32_t const Instruction;
-  
+
+  /// These will be attached to any produced RunError.
+  std::vector<std::unique_ptr<runtime_errors::RunError>> PermanentNotes;
+
+  /// These will be attached to any produced RunError.
+  std::vector<std::unique_ptr<runtime_errors::RunError>> TemporaryNotes;
+
+  /// \brief Raises the given \c RunError in our thread.
+  /// All \c PermanentNotes and \c TemporaryNotes will be cloned and attached
+  /// to \c Err as additional errors.
+  ///
+  void raiseError(runtime_errors::RunError &Err,
+                  RunErrorSeverity const Severity);
+
+  /// \brief Add a permanent note.
+  /// This will be attached as an additional error to all future \c RunError
+  /// errors raised by this checker.
+  ///
+  void addPermanentNote(std::unique_ptr<runtime_errors::RunError> Note);
+
+  /// \brief Add a temporary note.
+  /// This will be attached as an additional error to future \c RunError errors
+  /// raised by this checker, until the temporary notes are cleared.
+  ///
+  void addTemporaryNote(std::unique_ptr<runtime_errors::RunError> Note);
+
+  /// \brief Clear all temporary notes.
+  ///
+  void clearTemporaryNotes();
+
 public:
   /// \brief Constructor.
   /// \param ForThread The thread we are checking.
   /// \param ForInstruction Index of the llvm::Instruction we are checking.
+  ///
   RuntimeErrorChecker(TraceThreadListener &ForThread,
                       uint32_t ForInstruction)
   : Thread(ForThread),
-    Instruction(ForInstruction)
+    Instruction(ForInstruction),
+    PermanentNotes(),
+    TemporaryNotes()
   {}
-  
+
   /// \brief Find the number of owned/known bytes starting at Address.
   ///
   std::ptrdiff_t getSizeOfAreaStartingAt(uintptr_t Address);
