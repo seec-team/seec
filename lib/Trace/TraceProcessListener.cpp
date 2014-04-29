@@ -253,6 +253,8 @@ void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
                                                       std::size_t const Length)
 {
   auto const End = To + Length;
+  auto const BeginIt = InMemoryPointerObjects.lower_bound(From);
+  auto const EndIt   = InMemoryPointerObjects.lower_bound(End);
 
   // If the memory areas don't intersect then we can copy directly from the
   // source range to the destination range. Otherwise we have to copy into
@@ -261,7 +263,7 @@ void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
     clearInMemoryPointerObjects(MemoryArea(To, Length));
     auto const InsertHintIt = InMemoryPointerObjects.lower_bound(To);
 
-    for (auto I = InMemoryPointerObjects.lower_bound(From); I->first < End; ++I)
+    for (auto I = BeginIt; I != EndIt; ++I)
       InMemoryPointerObjects.insert(InsertHintIt,
                                     std::make_pair(To + (I->first - From),
                                                    I->second));
@@ -270,7 +272,7 @@ void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
     std::vector<decltype(InMemoryPointerObjects)::value_type> Objects;
     Objects.reserve(Length);
 
-    for (auto I = InMemoryPointerObjects.lower_bound(From); I->first < End; ++I)
+    for (auto I = BeginIt; I != EndIt; ++I)
       Objects.emplace_back(To + (I->first - From), I->second);
 
     clearInMemoryPointerObjects(MemoryArea(To, Length));
