@@ -1330,22 +1330,6 @@ public:
     // Notify the TraceThreadListener of the new value.
     ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
-    
-    // Update the pointer origin (if necessary).
-    if (std::is_pointer<RetT>::value) {
-      switch (RetPtrOrigin) {
-        case PointerOrigin::None:
-          // TODO: This is bad.
-          break;
-        case PointerOrigin::FromArgument:
-          Listener.getActiveFunction()
-                    ->transferArgPointerObjectToCall(RetPtrOriginArg);
-          break;
-        case PointerOrigin::NewValid:
-          setPointerOriginNewValid(Listener, Instruction, Result);
-          break;
-      }
-    }
 
     // Record any changes to errno.
     if (errno != PreCallErrno) {
@@ -1372,6 +1356,22 @@ public:
       assert(OutputRecord && "Output record failed.");
     }
 #endif
+
+    // Update the pointer origin (if necessary).
+    if (std::is_pointer<RetT>::value) {
+      switch (RetPtrOrigin) {
+        case PointerOrigin::None:
+          // TODO: This is bad.
+          break;
+        case PointerOrigin::FromArgument:
+          Listener.getActiveFunction()
+                    ->transferArgPointerObjectToCall(RetPtrOriginArg);
+          break;
+        case PointerOrigin::NewValid:
+          setPointerOriginNewValid(Listener, Instruction, Result);
+          break;
+      }
+    }
     
     // Do Listener's notification exit.
     Listener.exitPostNotification();
