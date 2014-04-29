@@ -64,7 +64,7 @@ public:
 
   /// \brief Check that a pointer is valid to dereference.
   ///
-  bool checkPointer(llvm::Value const * const Ptr,
+  bool checkPointer(uintptr_t const PtrObj,
                     uintptr_t const Address,
                     seec::Maybe<MemoryArea> const &Area);
 
@@ -138,12 +138,14 @@ public:
   /// \brief Create a PassPointerToUnowned runtime error if Area is unassigned.
   ///
   /// \return true if Area is assigned (no runtime error was created).
+  ///
   bool memoryExistsForParameter(
           unsigned Parameter,
           uintptr_t Address,
           std::size_t Size,
           seec::runtime_errors::format_selects::MemoryAccess Access,
-          seec::Maybe<MemoryArea> const &Area);
+          seec::Maybe<MemoryArea> const &Area,
+          uintptr_t const PtrObj);
   
   /// \brief Check whether or not a memory access is valid.
   ///
@@ -190,6 +192,17 @@ public:
   /// \return The number of characters in the string that can be read,
   ///         including the terminating nul byte. Zero indicates that nothing
   ///         can be read (in which case a runtime error has been raised).
+  ///
+  std::size_t checkCStringRead(unsigned Parameter,
+                               char const *String,
+                               uintptr_t const PtrObj);
+
+  /// \brief Check a read from a C String.
+  ///
+  /// \return The number of characters in the string that can be read,
+  ///         including the terminating nul byte. Zero indicates that nothing
+  ///         can be read (in which case a runtime error has been raised).
+  ///
   std::size_t checkCStringRead(unsigned Parameter,
                                char const *String);
   

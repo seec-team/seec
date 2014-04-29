@@ -77,13 +77,11 @@ RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
   return Area.withStart(Address).length();
 }
 
-bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
+bool RuntimeErrorChecker::checkPointer(uintptr_t const PtrObj,
                                        uintptr_t const Address,
                                        seec::Maybe<MemoryArea> const &Area)
 {
-#if 0
-  auto const Obj = Thread.getActiveFunction()->getPointerObject(Ptr);
-  if (!Obj) {
+  if (!PtrObj) {
     Thread.handleRunError(
       *createRunError<RunErrorType::PointerObjectNULL>(Address),
       RunErrorSeverity::Fatal,
@@ -91,22 +89,15 @@ bool RuntimeErrorChecker::checkPointer(llvm::Value const * const Ptr,
 
     return false;
   }
-#endif
 
-  if (!Area.assigned()) {
-    return false;
-  }
-
-#if 0
-  if (Area.get<MemoryArea>().start() != Obj) {
+  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj) {
     Thread.handleRunError(
-      *createRunError<RunErrorType::PointerObjectMismatch>(Obj, Address),
+      *createRunError<RunErrorType::PointerObjectMismatch>(PtrObj, Address),
       RunErrorSeverity::Fatal,
       Instruction);
 
     return false;
   }
-#endif
 
   return true;
 }
@@ -235,14 +226,15 @@ CStdLibChecker::memoryExistsForParameter(
                   uintptr_t Address,
                   std::size_t Size,
                   format_selects::MemoryAccess Access,
-                  seec::Maybe<MemoryArea> const &Area)
+                  seec::Maybe<MemoryArea> const &Area,
+                  uintptr_t const PtrObj)
 {
   // Check that the pointer is valid to use. Do this before checking that the
   // area exists, because we may be able to raise a more specific error if this
   // pointer does not have an associated object.
   //
   if (Call)
-    if (checkPointer(Call->getArgOperand(Parameter), Address, Area))
+    if (checkPointer(PtrObj, Address, Area))
       return true;
 
   // Check that the area exists.
@@ -316,10 +308,15 @@ bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
                         format_selects::MemoryAccess Access)
 {
   auto MaybeArea = getContainingMemoryArea(Thread, Address);
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
 
-  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea))
+  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea,
+                                PtrObj))
+  {
     return false;
-  
+  }
+
   return checkMemoryAccessForParameter(Parameter,
                                        Address,
                                        Size,
@@ -364,15 +361,19 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
 }
 
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
-                                             char const *String)
+                                             char const *String,
+                                             uintptr_t const PtrObj)
 {
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
 
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area,
+                                PtrObj))
+  {
     return 0;
+  }
 
   // Check if Str points to a valid C string.
   auto const StrArea = getCStringInArea(String, Area.get<0>());
@@ -393,18 +394,32 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
   return StrLength;
 }
 
+std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
+                                             char const *String)
+{
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+  return checkCStringRead(Parameter, String, PtrObj);
+}
+
 std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                                     char const *String,
                                                     std::size_t Limit)
 {
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
-  
+
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area,
+                                PtrObj))
+  {
     return 0;
-  
+  }
+
   // Find the C string that String refers to, within Limit.
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
 
@@ -422,17 +437,23 @@ std::size_t
 CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
 {
   auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
-  
+
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+
   // Check if Array points to owned memory.
   auto const MaybeArea = getContainingMemoryArea(Thread, ArrayAddress);
   if (!memoryExistsForParameter(Parameter,
                                 ArrayAddress,
                                 sizeof(char *),
                                 format_selects::MemoryAccess::Read,
-                                MaybeArea)) {
+                                MaybeArea,
+                                PtrObj))
+  {
     return 0;
   }
   
+  auto const &Process = Thread.getProcessListener();
   auto const &Area = MaybeArea.get<0>();
   auto const Size = Area.length();
   auto const MaxElements = Size / sizeof(char *);
@@ -457,7 +478,8 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
       break;
     }
     
-    if (checkCStringRead(Parameter, Array[Element]) == 0)
+    auto const PtrObj = Process.getInMemoryPointerObject(ElementAddress);
+    if (checkCStringRead(Parameter, Array[Element], PtrObj) == 0)
       return 0;
   }
   

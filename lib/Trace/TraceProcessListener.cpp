@@ -217,7 +217,13 @@ uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
 {
   if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(V))
     return getRuntimeAddress(GV);
+  if (auto const F = llvm::dyn_cast<llvm::Function>(V))
+    return getRuntimeAddress(F);
+  if (llvm::isa<llvm::ConstantPointerNull>(V))
+    return 0;
   // TODO?
+  llvm::errs() << "\nDon't know how to get pointer object for: "
+               << *V << "\n";
   return 0;
 }
 

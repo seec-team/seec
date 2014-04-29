@@ -467,10 +467,12 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
   auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Read;
   
   RuntimeErrorChecker Checker(*this, Index);
-  auto MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
-  if (Checker.checkPointer(Load->getPointerOperand(), Address, MaybeArea))
-    if (Checker.memoryExists(Address, Size, Access, MaybeArea))
-      Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
+  auto const MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
+  auto const Obj = ActiveFunction->getPointerObject(Load->getPointerOperand());
+
+  Checker.checkPointer(Obj, Address, MaybeArea);
+  Checker.memoryExists(Address, Size, Access, MaybeArea);
+  Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
 void TraceThreadListener::notifyPostLoad(uint32_t Index,
@@ -491,7 +493,7 @@ void TraceThreadListener::notifyPostLoad(uint32_t Index,
 
 void TraceThreadListener::notifyPreStore(uint32_t Index,
                                          llvm::StoreInst const *Store,
-                                         void const *Address,
+                                         void const *Data,
                                          std::size_t Size) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
@@ -500,14 +502,16 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
 
   GlobalMemoryLock = ProcessListener.lockMemory();
 
-  auto const AddressInt = reinterpret_cast<uintptr_t>(Address);
+  auto const Address = reinterpret_cast<uintptr_t>(Data);
   auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Write;
 
   RuntimeErrorChecker Checker(*this, Index);
-  auto MaybeArea = seec::trace::getContainingMemoryArea(*this, AddressInt);
-  if (Checker.checkPointer(Store->getPointerOperand(), AddressInt, MaybeArea))
-    if (Checker.memoryExists(AddressInt, Size, Access, MaybeArea))
-      Checker.checkMemoryAccess(AddressInt, Size, Access, MaybeArea.get<0>());
+  auto const MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
+  auto const Obj = ActiveFunction->getPointerObject(Store->getPointerOperand());
+
+  Checker.checkPointer(Obj, Address, MaybeArea);
+  Checker.memoryExists(Address, Size, Access, MaybeArea);
+  Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
 void TraceThreadListener::notifyPostStore(uint32_t Index,
