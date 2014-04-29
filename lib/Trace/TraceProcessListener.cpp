@@ -235,7 +235,7 @@ const
 {
   auto const It = InMemoryPointerObjects.find(PtrLocation);
 
-#if !defined(NDEBUG)
+#if 0
   if (It == InMemoryPointerObjects.end())
     llvm_unreachable("couldn't get in-memory pointer's object.");
 #endif
