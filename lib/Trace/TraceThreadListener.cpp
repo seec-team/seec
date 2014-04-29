@@ -615,6 +615,7 @@ void TraceThreadListener::traceFlush()
 void TraceThreadListener::traceClose()
 {
   EventsOut.close();
+  OutputEnabled = false;
 }
 
 void TraceThreadListener::traceOpen()
@@ -706,8 +707,15 @@ TraceThreadListener
     case RunErrorSeverity::Warning:
       break;
     case RunErrorSeverity::Fatal:
-      llvm::errs() << "\nSeeC: Fatal runtime error detected!"
-                      " Replay trace for more details.\n";
+      if (traceEnabled()) {
+        llvm::errs() << "\nSeeC: Fatal runtime error detected!"
+                        " Replay trace for more details.\n";
+      }
+      else {
+        llvm::errs() << "\nSeeC: Fatal runtime error detected!"
+                        " Tracing is disabled. This usually indicates that the"
+                        " error occurred in a child process.\n";
+      }
       
       // Shut down the tracing.
       SupportSyncExit.getSynchronizedExit().exit(EXIT_FAILURE);
