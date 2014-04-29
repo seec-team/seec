@@ -221,9 +221,11 @@ uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
     return getRuntimeAddress(F);
   if (llvm::isa<llvm::ConstantPointerNull>(V))
     return 0;
-  // TODO?
-  llvm::errs() << "\nDon't know how to get pointer object for: "
-               << *V << "\n";
+
+#if !defined(NDEBUG)
+  llvm_unreachable("don't know how to get pointer object.");
+#endif
+
   return 0;
 }
 
@@ -232,8 +234,12 @@ TraceProcessListener::getInMemoryPointerObject(uintptr_t const PtrLocation)
 const
 {
   auto const It = InMemoryPointerObjects.find(PtrLocation);
+
+#if !defined(NDEBUG)
   if (It == InMemoryPointerObjects.end())
-    llvm::errs() << "couldn't get impo.\n";
+    llvm_unreachable("couldn't get in-memory pointer's object.");
+#endif
+
   return It != InMemoryPointerObjects.end() ? It->second : 0;
 }
 
