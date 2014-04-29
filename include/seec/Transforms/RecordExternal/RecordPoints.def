@@ -16,7 +16,7 @@
 #endif
 
 HANDLE_RECORD_POINT(FunctionBegin, void (types::i<32>))
-HANDLE_RECORD_POINT(FunctionEnd, void (types::i<32>))
+HANDLE_RECORD_POINT(FunctionEnd, void (types::i<32>, types::i<32>))
 
 HANDLE_RECORD_POINT(ArgumentByVal, void (types::i<32>, types::i<8>*))
 

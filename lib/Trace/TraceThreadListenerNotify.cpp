@@ -290,8 +290,11 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   GlobalMemoryLock.unlock();
 }
 
-void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
-                                            llvm::Function const *F) {
+void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
+                                            llvm::Function const *F,
+                                            uint32_t const InstructionIndex,
+                                            llvm::Instruction const *Terminator)
+{
   // It's OK to check this without owning FunctionStackMutex, because the
   // FunctionStack can only be changed by a single thread.
   assert(!FunctionStack.empty() && "notifyFunctionEnd with empty stack.");
@@ -311,6 +314,17 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t Index,
     FunctionStack.pop_back();
 
     ActiveFunction = FunctionStack.empty() ? nullptr : FunctionStack.back();
+  }
+
+  // If the terminated Function returned a pointer, then transfer the correct
+  // pointer object information to the parent Function's CallInst.
+  if (ActiveFunction && F->getType()->isPointerTy()) {
+    if (auto const Ret = llvm::dyn_cast<llvm::ReturnInst>(Terminator)) {
+      if (auto const RetVal = Ret->getReturnValue()) {
+        ActiveFunction->setPointerObject(ActiveFunction->getActiveInstruction(),
+                                         TF->getPointerObject(RetVal));
+      }
+    }
   }
 
   // Create function end event.

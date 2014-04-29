@@ -535,7 +535,8 @@ void InsertExternalRecording::visitReturnInst(ReturnInst &I) {
   }
 
   Value *Args[] = {
-    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false)
+    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false),
+    ConstantInt::get(Int32Ty, InstructionIndex, false),
   };
 
   CallInst::Create(RecordFunctionEnd, Args, "", &I);

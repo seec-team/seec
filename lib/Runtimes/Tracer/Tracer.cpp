@@ -399,13 +399,16 @@ void SeeCRecordFunctionBegin(uint32_t Index) {
   ThreadEnv.pushFunction(F);
 }
 
-void SeeCRecordFunctionEnd(uint32_t Index) {
-  // auto &ModIndex = Environment::getModuleIndex();
+void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const InstructionIndex) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
+
+  auto const &FIndex = ThreadEnv.getFunctionIndex();
   auto F = ThreadEnv.popFunction();
+  auto I = FIndex.getInstruction(InstructionIndex);
+
   // Check F matches Index?
-  Listener.notifyFunctionEnd(Index, F);
+  Listener.notifyFunctionEnd(Index, F, InstructionIndex, I);
 }
 
 void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {

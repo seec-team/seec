@@ -559,7 +559,10 @@ public:
 
   void notifyFunctionBegin(uint32_t Index, llvm::Function const *F);
 
-  void notifyFunctionEnd(uint32_t Index, llvm::Function const *F);
+  void notifyFunctionEnd(uint32_t const Index,
+                         llvm::Function const *F,
+                         uint32_t const TerminatorIndex,
+                         llvm::Instruction const *Terminator);
   
   /// \brief Notify of a byval argument.
   void notifyArgumentByVal(uint32_t Index, llvm::Argument const *Arg,
