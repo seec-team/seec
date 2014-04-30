@@ -332,6 +332,9 @@ class SourceFilePanel : public wxPanel {
   };
   
 
+  /// The \c SourceViewerPanel that contains this \c SourceFilePanel.
+  SourceViewerPanel *Parent;
+
   /// The ASTUnit that the file belongs to.
   clang::ASTUnit *AST;
   
@@ -575,11 +578,18 @@ class SourceFilePanel : public wxPanel {
   ///
   void OnTextMotion(wxMouseEvent &Event);
   
+  /// \brief Called when the mouse enters the Text (Scintilla) window.
+  void OnTextEnterWindow(wxMouseEvent &Event) {
+    Parent->OnMouseEnter(*this);
+    Event.Skip();
+  }
+
   /// \brief Called when the mouse leaves the Text (Scintilla) window.
   ///
   void OnTextLeaveWindow(wxMouseEvent &Event) {
     CurrentMousePosition = -1;
     clearHoverNode();
+    Parent->OnMouseLeave(*this);
     Event.Skip();
   }
   
@@ -624,6 +634,7 @@ public:
   ///
   SourceFilePanel()
   : wxPanel(),
+    Parent(nullptr),
     AST(nullptr),
     File(nullptr),
     Text(nullptr),
@@ -643,7 +654,7 @@ public:
 
   /// \brief Construct and create.
   ///
-  SourceFilePanel(wxWindow *Parent,
+  SourceFilePanel(SourceViewerPanel *WithParent,
                   clang::ASTUnit &WithAST,
                   clang::FileEntry const *WithFile,
                   llvm::MemoryBuffer const &Buffer,
@@ -652,7 +663,7 @@ public:
                   wxSize const &Size = wxDefaultSize)
   : SourceFilePanel()
   {
-    Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
+    Create(WithParent, WithAST, WithFile, Buffer, ID, Position, Size);
   }
 
   /// \brief Destructor.
@@ -661,7 +672,7 @@ public:
 
   /// \brief Create the panel.
   ///
-  bool Create(wxWindow *Parent,
+  bool Create(SourceViewerPanel *WithParent,
               clang::ASTUnit &WithAST,
               clang::FileEntry const *WithFile,
               llvm::MemoryBuffer const &Buffer,
@@ -669,9 +680,10 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize)
   {
-    if (!wxPanel::Create(Parent, ID, Position, Size))
+    if (!wxPanel::Create(WithParent, ID, Position, Size))
       return false;
 
+    Parent = WithParent;
     AST = &WithAST;
     File = WithFile;
 
@@ -725,6 +737,7 @@ public:
     
     // Setup mouse handling.
     Text->Bind(wxEVT_MOTION,       &SourceFilePanel::OnTextMotion,      this);
+    Text->Bind(wxEVT_ENTER_WINDOW, &SourceFilePanel::OnTextEnterWindow, this);
     Text->Bind(wxEVT_LEAVE_WINDOW, &SourceFilePanel::OnTextLeaveWindow, this);
     Text->Bind(wxEVT_RIGHT_DOWN,   &SourceFilePanel::OnTextRightDown,   this);
     Text->Bind(wxEVT_RIGHT_UP,     &SourceFilePanel::OnTextRightUp,     this);
@@ -969,11 +982,8 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
 
 void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
 {
-  if (!Recording)
-    return;
-
   auto const Selection = Ev.GetSelection();
-  if (Selection == wxNOT_FOUND)
+  if (!Recording || Selection == wxNOT_FOUND)
     return;
 
   auto const Page = static_cast<SourceFilePanel const *>
@@ -984,6 +994,28 @@ void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
   Recording->recordEventL("SourceViewerPanel.PageChanged",
                           make_attribute("page", Selection),
                           make_attribute("file", Page->getFileName()));
+}
+
+void SourceViewerPanel::OnMouseEnter(SourceFilePanel &Page)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseEnter",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()));
+}
+
+void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseLeave",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()));
 }
 
 SourceViewerPanel::SourceViewerPanel()

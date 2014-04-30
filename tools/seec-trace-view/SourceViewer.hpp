@@ -84,6 +84,16 @@ class SourceViewerPanel : public wxPanel
   /// @} (Event handlers.)
 
 public:
+  /// \name Recording for SourceFilePanel events.
+  /// @{
+
+  void OnMouseEnter(SourceFilePanel &Page);
+
+  void OnMouseLeave(SourceFilePanel &Page);
+
+  /// @} (Recording for SourceFilePanel events.)
+
+
   /// \brief Construct without creating.
   ///
   SourceViewerPanel();
