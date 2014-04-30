@@ -40,6 +40,7 @@
 
 #include "unicode/brkiter.h"
 
+#include "ActionRecord.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
@@ -49,6 +50,7 @@
 #include "StateAccessToken.hpp"
 #include "ValueFormat.hpp"
 
+#include <functional>
 #include <list>
 #include <map>
 #include <memory>
@@ -731,6 +733,18 @@ public:
   }
   
   
+  /// \name Accessors.
+  /// @{
+
+  /// \brief Get the name of the source file displayed by this panel.
+  ///
+  char const *getFileName() const {
+    return File->getName();
+  }
+
+  /// @} (Accessors)
+
+
   /// \name State display.
   /// @{
   
@@ -953,11 +967,31 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
 // SourceViewerPanel
 //------------------------------------------------------------------------------
 
+void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
+{
+  if (!Recording)
+    return;
+
+  auto const Selection = Ev.GetSelection();
+  if (Selection == wxNOT_FOUND)
+    return;
+
+  auto const Page = static_cast<SourceFilePanel const *>
+                                (Notebook->GetPage(Selection));
+  if (!Page)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.PageChanged",
+                          make_attribute("page", Selection),
+                          make_attribute("file", Page->getFileName()));
+}
+
 SourceViewerPanel::SourceViewerPanel()
 : wxPanel(),
   Notebook(nullptr),
   Trace(nullptr),
   Notifier(nullptr),
+  Recording(nullptr),
   Pages(),
   CurrentAccess()
 {}
@@ -965,12 +999,21 @@ SourceViewerPanel::SourceViewerPanel()
 SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
                                      OpenTrace const &TheTrace,
                                      ContextNotifier &WithNotifier,
+                                     ActionRecord &WithRecording,
+                                     ActionReplayFrame &WithReplay,
                                      wxWindowID ID,
                                      wxPoint const &Position,
                                      wxSize const &Size)
 : SourceViewerPanel()
 {
-  Create(Parent, TheTrace, WithNotifier, ID, Position, Size);
+  Create(Parent,
+         TheTrace,
+         WithNotifier,
+         WithRecording,
+         WithReplay,
+         ID,
+         Position,
+         Size);
 }
 
 SourceViewerPanel::~SourceViewerPanel()
@@ -979,15 +1022,20 @@ SourceViewerPanel::~SourceViewerPanel()
 bool SourceViewerPanel::Create(wxWindow *Parent,
                                OpenTrace const &TheTrace,
                                ContextNotifier &WithNotifier,
+                               ActionRecord &WithRecording,
+                               ActionReplayFrame &WithReplay,
                                wxWindowID ID,
                                wxPoint const &Position,
-                               wxSize const &Size) {
+                               wxSize const &Size)
+{
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
 
   Trace = &TheTrace;
   
   Notifier = &WithNotifier;
+
+  Recording = &WithRecording;
 
   Notebook = new wxAuiNotebook(this,
                                wxID_ANY,
@@ -1002,6 +1050,10 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
   SetSizerAndFit(TopSizer);
   
+  // Setup notebook event recording.
+  Notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,
+                 &SourceViewerPanel::OnPageChanged, this);
+
   // Setup highlight event handling.
   Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
     switch (Ev.getKind()) {

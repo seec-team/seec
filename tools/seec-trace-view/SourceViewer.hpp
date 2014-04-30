@@ -28,6 +28,8 @@
 
 // Forward declarations.
 
+class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class OpenTrace;
 class SourceFilePanel;
@@ -64,6 +66,9 @@ class SourceViewerPanel : public wxPanel
   
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+
+  /// Used to record user interactions.
+  ActionRecord *Recording;
   
   /// Lookup from file path to source window.
   std::map<clang::FileEntry const *, SourceFilePanel *> Pages;
@@ -71,6 +76,13 @@ class SourceViewerPanel : public wxPanel
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
+  /// \name Event handlers.
+  /// @{
+
+  void OnPageChanged(wxAuiNotebookEvent &Ev);
+
+  /// @} (Event handlers.)
+
 public:
   /// \brief Construct without creating.
   ///
@@ -81,6 +93,8 @@ public:
   SourceViewerPanel(wxWindow *Parent,
                     OpenTrace const &TheTrace,
                     ContextNotifier &WithNotifier,
+                    ActionRecord &WithRecording,
+                    ActionReplayFrame &WithReplay,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize);
@@ -94,6 +108,8 @@ public:
   bool Create(wxWindow *Parent,
               OpenTrace const &TheTrace,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

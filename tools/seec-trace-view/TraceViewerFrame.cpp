@@ -238,7 +238,11 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .ToolbarPane());
 
     // Create the source code viewer.
-    SourceViewer = new SourceViewerPanel(this, *Trace, *Notifier);
+    SourceViewer = new SourceViewerPanel(this,
+                                         *Trace,
+                                         *Notifier,
+                                         *Recording,
+                                         *Replay);
     auto const SourceViewerTitle =
       seec::getwxStringExOrEmpty(TextTable, "SourceBook_Title");
     Manager->AddPane(SourceViewer,
