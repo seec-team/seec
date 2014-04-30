@@ -715,6 +715,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     // Origin of the pointer will be this alloca.
     ActiveFunction->setPointerObject(Instruction, IntVal);
   }
+  else if (auto Cast = llvm::dyn_cast<llvm::BitCastInst>(Instruction)) {
+    ActiveFunction->transferPointerObject(Cast->getOperand(0), Cast);
+  }
   else if (llvm::isa<llvm::LoadInst>(Instruction)) {
     // Handled in PostLoad.
   }
