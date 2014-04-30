@@ -203,6 +203,18 @@ MappedAST::LoadFromCompilerInvocation(
           ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
 }
 
+bool MappedAST::contains(::clang::Decl const *Decl) const
+{
+  return &(Decl->getASTContext()) == &(AST->getASTContext());
+}
+
+bool MappedAST::contains(::clang::Stmt const *Stmt) const {
+  for (auto const S : Stmts)
+    if (S == Stmt)
+      return true;
+  return false;
+}
+
 static MappedAST::ASTNodeTy
 getFirstParent(clang::ASTContext::ParentVector const &Parents)
 {

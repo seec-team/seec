@@ -130,21 +130,11 @@ public:
   
   /// \brief Check if this AST contains the given Decl.
   ///
-  bool contains(::clang::Decl const *Decl) const {
-    for (auto const D : Decls)
-      if (D == Decl)
-        return true;
-    return false;
-  }
+  bool contains(::clang::Decl const *Decl) const;
   
   /// \brief Check if this AST contains the given Stmt.
   ///
-  bool contains(::clang::Stmt const *Stmt) const {
-    for (auto const S : Stmts)
-      if (S == Stmt)
-        return true;
-    return false;
-  }
+  bool contains(::clang::Stmt const *Stmt) const;
   
   /// \brief Get the parent of a Decl, if it has one.
   ///
