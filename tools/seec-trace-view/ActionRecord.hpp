@@ -155,6 +155,28 @@ public:
   {}
 };
 
+/// \brief A single read-only attribute of a recorded event.
+///
+/// Implementation for const string values.
+///
+template<>
+class Attribute<char const *>
+: public IAttributeReadOnly
+{
+  std::string const Name;
+  char const * const Value;
+
+protected:
+  std::string const &get_name_impl() const { return Name; }
+  std::string to_string_impl() const { return Value; }
+
+public:
+  Attribute(std::string WithName, char const *WithValue)
+  : Name(std::move(WithName)),
+    Value(WithValue)
+  {}
+};
+
 /// \brief A single attribute of a recorded event.
 ///
 /// Implementation for std::string values.
