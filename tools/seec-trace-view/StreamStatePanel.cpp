@@ -95,7 +95,7 @@ class StreamPanel final : public wxPanel
 
     if (Test != wxTE_HT_ON_TEXT
         || Position < 0
-        || Position >= State->getWritten().size()
+        || static_cast<unsigned long>(Position) >= State->getWritten().size()
         || Position == MouseOverPosition)
       return;
 
