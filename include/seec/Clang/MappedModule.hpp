@@ -392,6 +392,18 @@ public:
   ///
   MappedAST const *getOrCreateASTForFile(llvm::MDNode const *FileNode);
   
+  /// \brief Get the FunctionLookup.
+  ///
+  decltype(FunctionLookup) const &getFunctionLookup() const {
+    return FunctionLookup;
+  }
+  
+  /// @}
+  
+  
+  /// \name Access ASTs.
+  /// @{
+  
   /// \brief Get the AST for the given file.
   ///
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
@@ -399,6 +411,15 @@ public:
   /// \brief Get all loaded ASTs.
   ///
   std::vector<MappedAST const *> getASTs() const;
+  
+  /// \brief Get the index of an AST.
+  ///
+  seec::Maybe<decltype(ASTList)::size_type>
+  getASTIndex(MappedAST const *) const;
+  
+  /// \brief Get the AST at the given index.
+  ///
+  MappedAST const *getASTAtIndex(decltype(ASTList)::size_type const) const;
   
   /// \brief Get the AST and clang::Decl for the given Declaration Identifier.
   ///
@@ -409,12 +430,6 @@ public:
   ///
   std::pair<MappedAST const *, clang::Stmt const *>
   getASTAndStmt(llvm::MDNode const *StmtIdentifier) const;
-  
-  /// \brief Get the FunctionLookup.
-  ///
-  decltype(FunctionLookup) const &getFunctionLookup() const {
-    return FunctionLookup;
-  }
   
   /// @}
   

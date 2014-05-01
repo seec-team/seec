@@ -485,6 +485,29 @@ std::vector<MappedAST const *> MappedModule::getASTs() const {
   return ASTs;
 }
 
+auto
+MappedModule::getASTIndex(MappedAST const *AST) const
+-> seec::Maybe<decltype(ASTList)::size_type>
+{
+  auto const It = std::find_if(ASTList.begin(), ASTList.end(),
+    [AST] (std::unique_ptr<MappedAST> const &Item) {
+      return Item.get() == AST;
+    });
+
+  if (It != ASTList.end())
+    return static_cast<decltype(ASTList)::size_type>
+                      (std::distance(ASTList.begin(), It));
+
+  return seec::Maybe<decltype(ASTList)::size_type>();
+}
+
+MappedAST const *
+MappedModule::getASTAtIndex(decltype(ASTList)::size_type const Index) const
+{
+  return Index < ASTList.size() ? ASTList[Index].get()
+                                : nullptr;
+}
+
 std::pair<MappedAST const *, clang::Decl const *>
 MappedModule::getASTAndDecl(llvm::MDNode const *DeclIdentifier) const {
   assert(DeclIdentifier && DeclIdentifier->getNumOperands() == 2);
