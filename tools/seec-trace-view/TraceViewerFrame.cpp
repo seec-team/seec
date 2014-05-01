@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -363,13 +364,12 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   });
   
   Replay->RegisterHandler("TraceViewerFrame.Resize",
-                          {{"width", "height"}},
-    std::function<void (int, int)>{
-      [this] (int width, int height) -> void {
-        wxLogDebug("TraceViewerFrame.Resize %d,%d", width, height);
-        this->SetSize(width, height);
-        this->Layout();
-      }});
+                          {{"width", "height"}}, seec::make_function(
+    [this] (int width, int height) -> void {
+      wxLogDebug("TraceViewerFrame.Resize %d,%d", width, height);
+      this->SetSize(width, height);
+      this->Layout();
+    }));
 
   return true;
 }

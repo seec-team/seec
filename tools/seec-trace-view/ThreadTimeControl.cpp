@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/wxWidgets/ImageResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -122,23 +123,22 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   
   // Setup the action replay.
   WithReplay->RegisterHandler("ThreadTimeControl.Click",
-                              {{"thread", "button"}},
-    std::function<void (std::size_t, std::string &)>{
-      [this] (std::size_t Thread, std::string &Button) -> void {
-        if (Button == "GoToStart")
-          GoToStart();
-        else if (Button == "StepBack")
-          StepBack();
-        else if (Button == "StepForward")
-          StepForward();
-        else if (Button == "GoToNextError")
-          GoToNextError();
-        else if (Button == "GoToEnd")
-          GoToEnd();
-        else {
-          wxLogDebug("ThreadTimeControl.Click: Unknown button \"%s\"", Button);
-        }
-      }});
+                              {{"thread", "button"}}, seec::make_function(
+    [this] (std::size_t Thread, std::string &Button) -> void {
+      if (Button == "GoToStart")
+        GoToStart();
+      else if (Button == "StepBack")
+        StepBack();
+      else if (Button == "StepForward")
+        StepForward();
+      else if (Button == "GoToNextError")
+        GoToNextError();
+      else if (Button == "GoToEnd")
+        GoToEnd();
+      else {
+        wxLogDebug("ThreadTimeControl.Click: Unknown button \"%s\"", Button);
+      }
+    }));
 
   return true;
 }
