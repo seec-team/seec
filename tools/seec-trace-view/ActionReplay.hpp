@@ -34,6 +34,12 @@
 class ActionEventListCtrl;
 class wxGauge;
 
+namespace seec {
+  namespace cm {
+    class ProcessTrace;
+  }
+}
+
 
 /// \brief Interface for handling recorded events.
 ///
@@ -69,6 +75,9 @@ class EventHandler : public IEventHandler
                       >::value...>::value,
     "At least one attribute is not writable.");
   
+  /// The \c ProcessTrace that is being viewed.
+  seec::cm::ProcessTrace const &Trace;
+  
   /// Value objects used when parsing information.
   std::tuple<typename std::remove_reference<Ts>::type...> Values;
   
@@ -78,7 +87,6 @@ class EventHandler : public IEventHandler
   /// The callback function that handles this event.
   std::function<void (Ts...)> Callback;
   
-private:
   /// \brief Call the Callback function using the values in Values.
   ///
   template<int... Idxs>
@@ -90,10 +98,12 @@ private:
   /// \brief Internal constructor implementation.
   ///
   template<int... Idxs>
-  EventHandler(std::array<std::string, sizeof...(Ts)> &AttributeNames,
+  EventHandler(seec::cm::ProcessTrace const &WithTrace,
+               std::array<std::string, sizeof...(Ts)> &AttributeNames,
                std::function<void (Ts...)> WithCallback,
                seec::ct::sequence_int<Idxs...>)
-  : Values(),
+  : Trace(WithTrace),
+    Values(),
     Attributes{{
       seec::makeUnique<Attribute<typename std::add_lvalue_reference<Ts>::type>>
                       (std::move(std::get<Idxs>(AttributeNames)),
@@ -113,7 +123,7 @@ protected:
       if (!Event.GetAttribute(Attr->get_name(), &ValueString))
         return error_attribute(Attr->get_name());
       
-      if (!Attr->from_string(ValueString.ToStdString()))
+      if (!Attr->from_string(Trace, ValueString.ToStdString()))
         return error_attribute(Attr->get_name());
     }
     
@@ -125,9 +135,13 @@ protected:
 public:
   /// \brief Constructor.
   ///
-  EventHandler(std::array<std::string, sizeof...(Ts)> AttributeNames,
+  EventHandler(seec::cm::ProcessTrace const &WithTrace,
+               std::array<std::string, sizeof...(Ts)> AttributeNames,
                std::function<void (Ts...)> WithCallback)
-  : EventHandler(AttributeNames, std::move(WithCallback), IndexSeqTy{})
+  : EventHandler(WithTrace,
+                 AttributeNames,
+                 std::move(WithCallback),
+                 IndexSeqTy{})
   {}
 };
 
@@ -135,6 +149,9 @@ public:
 ///
 class ActionReplayFrame : public wxFrame
 {
+  /// The \c ProcessTrace that is being viewed.
+  seec::cm::ProcessTrace const *Trace;
+
   /// Automatically play the recording.
   wxButton *ButtonPlay;
   
@@ -200,7 +217,8 @@ public:
   
   /// \brief Constructor (with creation).
   ///
-  ActionReplayFrame(wxWindow *Parent);
+  ActionReplayFrame(wxWindow *Parent,
+                    seec::cm::ProcessTrace const &Trace);
   
   /// \brief Destructor.
   ///
@@ -208,7 +226,8 @@ public:
   
   /// \brief Create the frame (if it was default-constructed).
   ///
-  bool Create(wxWindow *Parent);
+  bool Create(wxWindow *Parent,
+              seec::cm::ProcessTrace const &Trace);
   
   /// \brief Load the given XML recording.
   ///
@@ -236,7 +255,8 @@ public:
   {
     return RegisterHandler(std::move(Name),
                            seec::makeUnique<EventHandler<Ts...>>
-                                           (std::move(Attributes),
+                                           (*Trace,
+                                            std::move(Attributes),
                                             std::move(Callback)));
   }
 };

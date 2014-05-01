@@ -11,9 +11,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedAST.hpp"
+#include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/TraceReader.hpp"
+#include "seec/Util/Parsing.hpp"
 #include "seec/wxWidgets/ImageResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -74,6 +77,178 @@ GetElapsedTime(std::chrono::time_point<std::chrono::steady_clock> const Since)
 
 IAttributeReadOnly::~IAttributeReadOnly()
 {}
+
+
+//------------------------------------------------------------------------------
+// AttributeDeclReadWriteBase
+//------------------------------------------------------------------------------
+
+static std::string attributeDeclToString(clang::Decl const *Decl,
+                                         seec::cm::ProcessTrace const &Trace)
+{
+  if (Decl == nullptr)
+    return "nullptr";
+
+  auto &Mapping = Trace.getMapping();
+  auto const MappedAST = Mapping.getASTForDecl(Decl);
+  if (!MappedAST)
+    return "error: AST not found";
+
+  auto const ASTIdx = Mapping.getASTIndex(MappedAST).get<0>();
+
+  auto const MaybeDeclIdx = MappedAST->getIdxForDecl(Decl);
+  if (!MaybeDeclIdx.assigned())
+    return "error: Decl not found in AST";
+
+  std::string Result;
+  llvm::raw_string_ostream Stream(Result);
+
+  Stream << ASTIdx
+         << ' ' << MaybeDeclIdx.get<uint64_t>()
+         << ' ' << Decl->getDeclKindName();
+
+  auto const &SrcMgr = MappedAST->getASTUnit().getSourceManager();
+  auto const LocStart = SrcMgr.getPresumedLoc(Decl->getLocStart());
+
+  Stream << ' ' << LocStart.getFilename()
+         << ' ' << LocStart.getLine()
+         << ':' << LocStart.getColumn();
+
+  Stream.flush();
+  return Result;
+}
+
+std::string
+AttributeDeclReadOnlyBase::to_string_impl(seec::cm::ProcessTrace const &Trace)
+const
+{
+  return attributeDeclToString(Value, Trace);
+}
+
+std::string
+AttributeDeclReadWriteBase::to_string_impl(seec::cm::ProcessTrace const &Trace)
+const
+{
+  return attributeDeclToString(Value, Trace);
+}
+
+bool
+AttributeDeclReadWriteBase::from_string_impl(seec::cm::ProcessTrace const &Tr,
+                                             std::string const &String)
+{
+  if (String == "nullptr") {
+    Value = nullptr;
+    return true;
+  }
+
+  std::size_t CharsRead = 0;
+  std::size_t ASTIndex;
+  std::size_t DeclIndex;
+
+  if (!seec::parseTo(String, CharsRead, ASTIndex, CharsRead))
+    return false;
+
+  if (!seec::parseTo(String, CharsRead, DeclIndex, CharsRead))
+    return false;
+
+  auto &Mapping = Tr.getMapping();
+  auto const MappedAST = Mapping.getASTAtIndex(ASTIndex);
+  if (!MappedAST)
+    return false;
+
+  auto const Decl = MappedAST->getDeclFromIdx(DeclIndex);
+  if (!Decl)
+    return false;
+
+  Value = Decl;
+  return true;
+}
+
+
+//------------------------------------------------------------------------------
+// AttributeStmtReadOnlyBase, AttributeStmtReadWriteBase
+//------------------------------------------------------------------------------
+
+static std::string attributeStmtToString(clang::Stmt const *Stmt,
+                                         seec::cm::ProcessTrace const &Trace)
+{
+  if (Stmt == nullptr)
+    return "nullptr";
+
+  auto &Mapping = Trace.getMapping();
+  auto const MappedAST = Mapping.getASTForStmt(Stmt);
+  if (!MappedAST)
+    return "error: AST not found";
+
+  auto const ASTIdx = Mapping.getASTIndex(MappedAST).get<0>();
+
+  auto const MaybeStmtIdx = MappedAST->getIdxForStmt(Stmt);
+  if (!MaybeStmtIdx.assigned())
+    return "error: Stmt not found in AST";
+
+  std::string Result;
+  llvm::raw_string_ostream Stream(Result);
+
+  Stream << ASTIdx
+         << ' ' << MaybeStmtIdx.get<uint64_t>()
+         << ' ' << Stmt->getStmtClassName();
+
+  auto const &SrcMgr = MappedAST->getASTUnit().getSourceManager();
+  auto const LocStart = SrcMgr.getPresumedLoc(Stmt->getLocStart());
+
+  Stream << ' ' << LocStart.getFilename()
+         << ' ' << LocStart.getLine()
+         << ':' << LocStart.getColumn();
+
+  Stream.flush();
+  return Result;
+}
+
+std::string
+AttributeStmtReadOnlyBase::to_string_impl(seec::cm::ProcessTrace const &Trace)
+const
+{
+  return attributeStmtToString(Value, Trace);
+}
+
+std::string
+AttributeStmtReadWriteBase::to_string_impl(seec::cm::ProcessTrace const &Trace)
+const
+{
+  return attributeStmtToString(Value, Trace);
+}
+
+bool
+AttributeStmtReadWriteBase::from_string_impl(seec::cm::ProcessTrace const &Tr,
+                                             std::string const &String)
+{
+  if (String == "nullptr") {
+    Value = nullptr;
+    return true;
+  }
+
+  std::size_t CharsRead = 0;
+  std::size_t ASTIndex;
+  std::size_t StmtIndex;
+
+  if (!seec::parseTo(String, CharsRead, ASTIndex, CharsRead))
+    return false;
+
+  if (!seec::parseTo(String, CharsRead, StmtIndex, CharsRead))
+    return false;
+
+  auto &Mapping = Tr.getMapping();
+  auto const MappedAST = Mapping.getASTAtIndex(ASTIndex);
+  if (!MappedAST)
+    return false;
+
+  auto const Stmt = MappedAST->getStmtFromIdx(StmtIndex);
+  if (!Stmt)
+    return false;
+
+  Value = Stmt;
+  return true;
+}
 
 
 //------------------------------------------------------------------------------
@@ -169,7 +344,7 @@ ActionRecord::recordEventV(std::string const &Handler,
   // Add the user-provided attributes.
   AttrStrings.reserve(AttrStrings.size() + Attrs.size());
   for (auto const &Attr : Attrs)
-    AttrStrings.emplace_back(Attr->get_name(), Attr->to_string());
+    AttrStrings.emplace_back(Attr->get_name(), Attr->to_string(Trace));
   
   auto const Node = new wxXmlNode(nullptr,
                                   wxXML_ELEMENT_NODE,

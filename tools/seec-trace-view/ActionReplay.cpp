@@ -264,7 +264,8 @@ void ActionReplayFrame::OnEventTimer(wxTimerEvent &)
 }
 
 ActionReplayFrame::ActionReplayFrame()
-: ButtonPlay(nullptr),
+: Trace(nullptr),
+  ButtonPlay(nullptr),
   ButtonPause(nullptr),
   ButtonStep(nullptr),
   GaugeEventProgress(nullptr),
@@ -276,16 +277,18 @@ ActionReplayFrame::ActionReplayFrame()
   EventTimer()
 {}
 
-ActionReplayFrame::ActionReplayFrame(wxWindow *Parent)
+ActionReplayFrame::ActionReplayFrame(wxWindow *Parent,
+                                     seec::cm::ProcessTrace const &WithTrace)
 : ActionReplayFrame()
 {
-  Create(Parent);
+  Create(Parent, WithTrace);
 }
 
 ActionReplayFrame::~ActionReplayFrame()
 {}
 
-bool ActionReplayFrame::Create(wxWindow *Parent)
+bool ActionReplayFrame::Create(wxWindow *Parent,
+                               seec::cm::ProcessTrace const &WithTrace)
 {
   // Get the internationalized resources.
   UErrorCode Status = U_ZERO_ERROR;
@@ -301,6 +304,9 @@ bool ActionReplayFrame::Create(wxWindow *Parent)
   if (!wxFrame::Create(Parent, wxID_ANY, Title))
     return false;
   
+  Trace = &WithTrace;
+  
+  // Top level sizer for this frame.
   auto const SizerTopLevel = new wxBoxSizer(wxVERTICAL);
   
   // Add buttons for play, pause, step.

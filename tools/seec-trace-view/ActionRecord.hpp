@@ -24,6 +24,11 @@
 #include <vector>
 
 
+namespace clang {
+  class Decl;
+  class Stmt;
+}
+
 namespace seec {
   namespace cm {
     class ProcessTrace;
@@ -44,12 +49,14 @@ class IAttributeReadOnly
 {
 protected:
   virtual std::string const &get_name_impl() const = 0;
-  virtual std::string to_string_impl() const = 0;
+  virtual std::string to_string_impl(seec::cm::ProcessTrace const &) const = 0;
   
 public:
   virtual ~IAttributeReadOnly() =0;
   std::string const &get_name() const { return get_name_impl(); }
-  std::string to_string() const { return to_string_impl(); }
+  std::string to_string(seec::cm::ProcessTrace const &Trace) const {
+    return to_string_impl(Trace);
+  }
 };
 
 /// \brief Interface for a writable attribute.
@@ -57,10 +64,15 @@ public:
 class IAttributeReadWrite : public IAttributeReadOnly
 {
 protected:
-  virtual bool from_string_impl(std::string const &) = 0;
-  
+  virtual bool from_string_impl(seec::cm::ProcessTrace const &,
+                                std::string const &) = 0;
+
 public:
-  bool from_string(std::string const &S) { return from_string_impl(S); }
+  bool from_string(seec::cm::ProcessTrace const &Trace,
+                   std::string const &S)
+  {
+    return from_string_impl(Trace, S);
+  }
 };
 
 /// \brief A single attribute of a recorded event.
@@ -90,7 +102,10 @@ class Attribute<T, typename std::enable_if<is_ro_arithmetic<T>::value>::type>
 
 protected:
   std::string const &get_name_impl() const { return Name; }
-  std::string to_string_impl() const { return std::to_string(Value); }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
+    return std::to_string(Value);
+  }
   
 public:
   Attribute(std::string WithName, T const &WithValue)
@@ -121,8 +136,14 @@ class Attribute<T, typename std::enable_if<is_rw_arithmetic<T>::value>::type>
 
 protected:
   std::string const &get_name_impl() const { return Name; }
-  std::string to_string_impl() const { return std::to_string(Value); }
-  bool from_string_impl(std::string const &String) {
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
+    return std::to_string(Value);
+  }
+
+  bool from_string_impl(seec::cm::ProcessTrace const &,
+                        std::string const &String)
+  {
     return seec::parseTo(String, Value);
   }
   
@@ -146,7 +167,10 @@ class Attribute<char const (&)[N]>
 
 protected:
   std::string const &get_name_impl() const { return Name; }
-  std::string to_string_impl() const { return Value; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
+    return Value;
+  }
   
 public:
   Attribute(std::string WithName, char const (&WithValue)[N])
@@ -168,7 +192,10 @@ class Attribute<char const *>
 
 protected:
   std::string const &get_name_impl() const { return Name; }
-  std::string to_string_impl() const { return Value; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
+    return Value;
+  }
 
 public:
   Attribute(std::string WithName, char const *WithValue)
@@ -190,8 +217,14 @@ class Attribute<std::string &>
 
 protected:
   std::string const &get_name_impl() const { return Name; }
-  std::string to_string_impl() const { return Value; }
-  bool from_string_impl(std::string const &String) {
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
+    return Value;
+  }
+
+  bool from_string_impl(seec::cm::ProcessTrace const &,
+                        std::string const &String)
+  {
     Value = String;
     return true;
   }
@@ -200,6 +233,131 @@ public:
   Attribute(std::string WithName, std::string &WithValue)
   : Name(std::move(WithName)),
     Value(WithValue)
+  {}
+};
+
+/// \brief A single attribute of a recorded event.
+///
+/// Implementation for clang::Decl const * values.
+///
+class AttributeDeclReadOnlyBase : public IAttributeReadOnly
+{
+  std::string const Name;
+  clang::Decl const * const Value;
+
+protected:
+  std::string const &get_name_impl() const { return Name; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &Trace) const;
+
+public:
+  AttributeDeclReadOnlyBase(std::string WithName,
+                            clang::Decl const * const WithValue)
+  : Name(std::move(WithName)),
+    Value(WithValue)
+  {}
+};
+
+class AttributeDeclReadWriteBase : public IAttributeReadWrite
+{
+  std::string const Name;
+  clang::Decl const *&Value;
+
+protected:
+  std::string const &get_name_impl() const { return Name; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &Trace) const;
+
+  bool from_string_impl(seec::cm::ProcessTrace const &Trace,
+                        std::string const &String);
+
+public:
+  AttributeDeclReadWriteBase(std::string WithName,
+                             clang::Decl const *&WithValue)
+  : Name(std::move(WithName)),
+    Value(WithValue)
+  {}
+};
+
+template<>
+class Attribute<clang::Decl const *&>
+: public AttributeDeclReadWriteBase
+{
+public:
+  Attribute(std::string WithName, clang::Decl const *&WithValue)
+  : AttributeDeclReadWriteBase(std::move(WithName), WithValue)
+  {}
+};
+
+template<>
+class Attribute<clang::Decl const * const &>
+: public AttributeDeclReadOnlyBase
+{
+public:
+  Attribute(std::string WithName, clang::Decl const * const &WithValue)
+  : AttributeDeclReadOnlyBase(std::move(WithName), WithValue)
+  {}
+};
+
+/// \brief A single attribute of a recorded event.
+///
+/// Implementation for clang::Stmt const * values.
+///
+class AttributeStmtReadOnlyBase : public IAttributeReadOnly
+{
+  std::string const Name;
+  clang::Stmt const * const Value;
+
+protected:
+  std::string const &get_name_impl() const { return Name; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &Trace) const;
+
+public:
+  AttributeStmtReadOnlyBase(std::string WithName,
+                            clang::Stmt const * const WithValue)
+  : Name(std::move(WithName)),
+    Value(WithValue)
+  {}
+};
+
+class AttributeStmtReadWriteBase : public IAttributeReadWrite
+{
+  std::string const Name;
+  clang::Stmt const *&Value;
+
+protected:
+  std::string const &get_name_impl() const { return Name; }
+
+  std::string to_string_impl(seec::cm::ProcessTrace const &Trace) const;
+
+  bool from_string_impl(seec::cm::ProcessTrace const &Trace,
+                        std::string const &String);
+
+public:
+  AttributeStmtReadWriteBase(std::string WithName, clang::Stmt const *&WithValue)
+  : Name(std::move(WithName)),
+    Value(WithValue)
+  {}
+};
+
+template<>
+class Attribute<clang::Stmt const *&>
+: public AttributeStmtReadWriteBase
+{
+public:
+  Attribute(std::string WithName, clang::Stmt const *&WithValue)
+  : AttributeStmtReadWriteBase(std::move(WithName), WithValue)
+  {}
+};
+
+template<>
+class Attribute<clang::Stmt const * const &>
+: public AttributeStmtReadOnlyBase
+{
+public:
+  Attribute(std::string WithName, clang::Stmt const * const &WithValue)
+  : AttributeStmtReadOnlyBase(std::move(WithName), WithValue)
   {}
 };
 

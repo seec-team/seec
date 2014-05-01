@@ -190,7 +190,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 #endif
   
   // Setup the action replay frame.
-  Replay = new ActionReplayFrame(this);
+  Replay = new ActionReplayFrame(this, Trace->getTrace());
   if (Trace->getRecording()) {
     Replay->LoadRecording(*(Trace->getRecording()));
     Recording->disable();
