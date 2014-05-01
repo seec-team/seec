@@ -222,6 +222,18 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   ///
   void showHoverTooltip(NodeInfo const &Node);
 
+  /// \name Replay events
+  /// @{
+
+  void ReplayNodeMouseOver(decltype(Nodes)::difference_type const NodeIndex,
+                           clang::Stmt const *Stmt);
+  void ReplayNodeRightClick(decltype(Nodes)::difference_type const NodeIndex,
+                            clang::Stmt const *Stmt);
+  void ReplayNodeHover(decltype(Nodes)::difference_type const NodeIndex,
+                       clang::Stmt const *Stmt);
+
+  /// @} (Replay events)
+
 public:
   /// \brief Construct.
   ///

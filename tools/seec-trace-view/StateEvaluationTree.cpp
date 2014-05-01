@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/Clang/SubRangeRecorder.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
@@ -211,8 +212,11 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator It)
   
   if (Recording) {
     auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+    auto const NodeStmt = It != Nodes.end() ? It->Statement : nullptr;
+
     Recording->recordEventL("StateEvaluationTree.NodeMouseOver",
-                            make_attribute("node", NodeIndex));
+                            make_attribute("node", NodeIndex),
+                            make_attribute("stmt", NodeStmt));
   }
   
   if (HoverNodeIt != Nodes.end())
@@ -317,6 +321,38 @@ void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
   }
 }
 
+void
+StateEvaluationTreePanel::
+ReplayNodeMouseOver(decltype(Nodes)::difference_type const NodeIndex,
+                    clang::Stmt const *Stmt)
+{
+  ReplayHoverNodeIt = std::next(Nodes.cbegin(), NodeIndex);
+  if (ReplayHoverNodeIt != Nodes.end())
+    centreOnNode(*ReplayHoverNodeIt);
+  redraw();
+}
+
+void
+StateEvaluationTreePanel::
+ReplayNodeRightClick(decltype(Nodes)::difference_type const NodeIndex,
+                     clang::Stmt const *Stmt)
+{
+  // TODO: Ensure that the node is visible in the window.
+  wxLogDebug("RIGHT CLICK NODE %d", (int)NodeIndex);
+}
+
+void
+StateEvaluationTreePanel::
+ReplayNodeHover(decltype(Nodes)::difference_type const NodeIndex,
+                clang::Stmt const *Stmt)
+{
+  auto const NodeIt = std::next(Nodes.cbegin(), NodeIndex);
+  if (NodeIt != Nodes.end()) {
+    centreOnNode(*NodeIt);
+    showHoverTooltip(*NodeIt);
+  }
+}
+
 StateEvaluationTreePanel::StateEvaluationTreePanel()
 : Settings(),
   Notifier(nullptr),
@@ -371,33 +407,16 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeMouseOver",
-                             {{"node"}},
-    std::function<void (decltype(Nodes)::difference_type)>{
-      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
-        ReplayHoverNodeIt = std::next(Nodes.cbegin(), NodeIndex);
-        if (ReplayHoverNodeIt != Nodes.end())
-          centreOnNode(*ReplayHoverNodeIt);
-        redraw();
-      }});
+                             {{"node", "stmt"}},
+    seec::make_function(this, &StateEvaluationTreePanel::ReplayNodeMouseOver));
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeRightClick",
-                             {{"node"}},
-    std::function<void (decltype(Nodes)::difference_type)>{
-      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
-        // TODO: Ensure that the node is visible in the window.
-        wxLogDebug("RIGHT CLICK NODE %d", (int)NodeIndex);
-      }});
+                             {{"node", "stmt"}},
+    seec::make_function(this, &StateEvaluationTreePanel::ReplayNodeRightClick));
   
   WithReplay.RegisterHandler("StateEvaluationTree.NodeHover",
-                             {{"node"}},
-    std::function<void (decltype(Nodes)::difference_type)>{
-      [this] (decltype(Nodes)::difference_type const NodeIndex) -> void {
-        auto const NodeIt = std::next(Nodes.cbegin(), NodeIndex);
-        if (NodeIt != Nodes.end()) {
-          centreOnNode(*NodeIt);
-          showHoverTooltip(*NodeIt);
-        }
-      }});
+                             {{"node", "stmt"}},
+    seec::make_function(this, &StateEvaluationTreePanel::ReplayNodeHover));
   
   return true;
 }
@@ -676,9 +695,12 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
   if (HoverNodeIt != Nodes.end()) {
     if (Recording) {
       auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+      auto const NodeStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
+                                                       : nullptr;
       
       Recording->recordEventL("StateEvaluationTree.NodeRightClick",
-                              make_attribute("node", NodeIndex));
+                              make_attribute("node", NodeIndex),
+                              make_attribute("stmt", NodeStmt));
     }
     
     auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
@@ -701,9 +723,12 @@ void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
   
   if (Recording) {
     auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
+    auto const NodeStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
+                                                     : nullptr;
     
     Recording->recordEventL("StateEvaluationTree.NodeHover",
-                            make_attribute("node", NodeIndex));
+                            make_attribute("node", NodeIndex),
+                            make_attribute("stmt", NodeStmt));
   }
   
   showHoverTooltip(*HoverNodeIt);
