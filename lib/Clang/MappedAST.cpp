@@ -203,6 +203,20 @@ MappedAST::LoadFromCompilerInvocation(
           ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
 }
 
+seec::Maybe<uint64_t> MappedAST::getIdxForDecl(clang::Decl const *Decl) const
+{
+  auto const It = std::find(Decls.begin(), Decls.end(), Decl);
+  uint64_t const Idx = It != Decls.end() ? std::distance(Decls.begin(), It) : 0;
+  return Idx;
+}
+
+seec::Maybe<uint64_t> MappedAST::getIdxForStmt(clang::Stmt const *Stmt) const
+{
+  auto const It = std::find(Stmts.begin(), Stmts.end(), Stmt);
+  uint64_t const Idx = It != Stmts.end() ? std::distance(Stmts.begin(), It) : 0;
+  return Idx;
+}
+
 bool MappedAST::contains(::clang::Decl const *Decl) const
 {
   return &(Decl->getASTContext()) == &(AST->getASTContext());

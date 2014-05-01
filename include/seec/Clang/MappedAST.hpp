@@ -128,6 +128,14 @@ public:
     return nullptr;
   }
   
+  /// \brief Find the index for the given clang::Decl (if it exists).
+  ///
+  seec::Maybe<uint64_t> getIdxForDecl(clang::Decl const *Decl) const;
+  
+  /// \brief Find the index for the given clang::Stmt (if it exists).
+  ///
+  seec::Maybe<uint64_t> getIdxForStmt(clang::Stmt const *Stmt) const;
+  
   /// \brief Check if this AST contains the given Decl.
   ///
   bool contains(::clang::Decl const *Decl) const;
