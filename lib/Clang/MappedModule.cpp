@@ -246,7 +246,7 @@ MappedModule::MappedModule(
       auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
       assert(FileNode);
 
-      auto AST = getASTForFile(FileNode);
+      auto AST = getOrCreateASTForFile(FileNode);
       assert(AST);
 
       auto FilePath = getPathFromFileNode(FileNode);
@@ -364,11 +364,9 @@ MappedModule::~MappedModule() = default;
 //------------------------------------------------------------------------------
 
 MappedAST const *
-MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
+MappedModule::getOrCreateASTForFile(llvm::MDNode const *FileNode) {
   // TODO: We should return a seec::Error when this is unsuccessful, so that
   //       we can describe the problem to the user rather than asserting.
-  
-  std::lock_guard<std::mutex> Lock{ASTMutex};
   
   // Check lookup to see if we've already loaded the AST.
   auto It = ASTLookup.find(FileNode);
@@ -472,8 +470,13 @@ MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
   return ASTRaw;
 }
 
+MappedAST const *
+MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
+  auto const It = ASTLookup.find(FileNode);
+  return It != ASTLookup.end() ? It->second : nullptr;
+}
+
 std::vector<MappedAST const *> MappedModule::getASTs() const {
-  std::lock_guard<std::mutex> Lock{ASTMutex};
   std::vector<MappedAST const *> ASTs;
 
   for (auto const &AST : ASTList)
@@ -524,8 +527,6 @@ MappedModule::getASTAndStmt(llvm::MDNode const *StmtIdentifier) const {
 
 MappedAST const *
 MappedModule::getASTForDecl(::clang::Decl const *Decl) const {
-  std::lock_guard<std::mutex> Lock{ASTMutex};
-  
   for (auto const &ASTPtr : ASTList)
     if (ASTPtr->contains(Decl))
       return ASTPtr.get();
@@ -535,8 +536,6 @@ MappedModule::getASTForDecl(::clang::Decl const *Decl) const {
 
 MappedAST const *
 MappedModule::getASTForStmt(::clang::Stmt const *Stmt) const {
-  std::lock_guard<std::mutex> Lock{ASTMutex};
-  
   for (auto const &ASTPtr : ASTList)
     if (ASTPtr->contains(Stmt))
       return ASTPtr.get();

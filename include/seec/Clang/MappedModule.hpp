@@ -333,13 +333,10 @@ class MappedModule {
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
 
   /// Map file descriptor MDNode pointers to MappedAST objects.
-  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> mutable ASTLookup;
+  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> ASTLookup;
 
   /// Hold the MappedAST objects.
-  std::vector<std::unique_ptr<MappedAST>> mutable ASTList;
-
-  /// Controls access to the ASTLookup and ASTList.
-  std::mutex mutable ASTMutex;
+  std::vector<std::unique_ptr<MappedAST>> ASTList;
 
   /// Kind of clang::Stmt mapping metadata.
   unsigned MDStmtIdxKind;
@@ -390,6 +387,10 @@ public:
   /// \brief Get the indexed view of the llvm::Module.
   ///
   seec::ModuleIndex const &getModuleIndex() const { return ModIndex; }
+  
+  /// \brief Get or create the AST for the given file.
+  ///
+  MappedAST const *getOrCreateASTForFile(llvm::MDNode const *FileNode);
   
   /// \brief Get the AST for the given file.
   ///
