@@ -91,6 +91,10 @@ public:
 
   void OnMouseLeave(SourceFilePanel &Page);
 
+  void OnMouseOver(SourceFilePanel &Page, clang::Decl const *Decl);
+
+  void OnMouseOver(SourceFilePanel &Page, clang::Stmt const *Stmt);
+
   /// @} (Recording for SourceFilePanel events.)
 
 

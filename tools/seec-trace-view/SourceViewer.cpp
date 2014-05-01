@@ -923,6 +923,9 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
   if (Pos == CurrentMousePosition)
     return;
   
+  auto const PreviousHoverDecl = HoverDecl;
+  auto const PreviousHoverStmt = HoverStmt;
+
   CurrentMousePosition = Pos;
   clearHoverNode();
   
@@ -946,13 +949,15 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
     case seec::seec_clang::SearchResult::EFoundKind::Decl:
     {
       HoverDecl = Result.getFoundDecl();
-      
       auto const Range = getRangeInFile(HoverDecl, ASTContext, File);
       
       if (Range.File) {
         HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
                                                Range.Start,
                                                Range.End);
+
+        if (PreviousHoverDecl != HoverDecl)
+          Parent->OnMouseOver(*this, HoverDecl);
       }
       
       break;
@@ -961,13 +966,15 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
     case seec::seec_clang::SearchResult::EFoundKind::Stmt:
     {
       HoverStmt = Result.getFoundStmt();
-      
       auto const Range = getRangeInFile(HoverStmt, ASTContext, File);
       
       if (Range.File) {
         HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
                                                Range.Start,
                                                Range.End);
+
+        if (PreviousHoverStmt != HoverStmt)
+          Parent->OnMouseOver(*this, HoverStmt);
       }
       
       break;
@@ -1016,6 +1023,32 @@ void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
   Recording->recordEventL("SourceViewerPanel.MouseLeave",
                           make_attribute("page", PageIndex),
                           make_attribute("file", Page.getFileName()));
+}
+
+void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
+                                    clang::Decl const *Decl)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseOverDecl",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("decl", Decl));
+}
+
+void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
+                                    clang::Stmt const *Stmt)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseOverStmt",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("stmt", Stmt));
 }
 
 SourceViewerPanel::SourceViewerPanel()
