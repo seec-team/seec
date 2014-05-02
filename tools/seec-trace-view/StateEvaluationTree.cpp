@@ -708,10 +708,10 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
       return;
     
     auto const ThreadIndex = MaybeIndex.get<std::size_t>();
-    auto const Statement = HoverNodeIt->Statement;
+    auto const Stmt = HoverNodeIt->Statement;
     
     wxMenu CM{};
-    addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, Statement);
+    addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, Stmt, Recording);
     PopupMenu(&CM);
   }
 }

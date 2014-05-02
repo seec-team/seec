@@ -21,6 +21,7 @@
 #include <wx/event.h>
 #include <wx/menu.h>
 
+#include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
 #include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
@@ -99,7 +100,8 @@ void addStmtNavigation(wxWindow &Control,
                        std::shared_ptr<StateAccessToken> &Access,
                        wxMenu &Menu,
                        std::size_t const ThreadIndex,
-                       clang::Stmt const *Statement)
+                       clang::Stmt const *Statement,
+                       ActionRecord * const Recording)
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
@@ -112,7 +114,16 @@ void addStmtNavigation(wxWindow &Control,
   BindMenuItem(
     Menu.Append(wxID_ANY,
                 seec::getwxStringExOrEmpty(TextTable, "StmtRewind")),
-    [&, ThreadIndex, Statement] (wxEvent &Ev) -> void {
+    [&, ThreadIndex, Statement, Recording] (wxEvent &Ev) -> void {
+      if (Recording) {
+        Recording->recordEventL("ContextualNavigation.StmtRewind",
+                                make_attribute("thread", ThreadIndex),
+                                make_attribute("stmt", Statement));
+      }
+      else {
+        wxLogDebug("no recording.");
+      }
+
       raiseMovementEvent(Control, Access,
         [=] (seec::cm::ProcessState &State) -> bool {
           auto &Thread = State.getThread(ThreadIndex);
@@ -123,7 +134,16 @@ void addStmtNavigation(wxWindow &Control,
   BindMenuItem(
     Menu.Append(wxID_ANY,
                 seec::getwxStringExOrEmpty(TextTable, "StmtForward")),
-    [&, ThreadIndex, Statement] (wxEvent &Ev) -> void {
+    [&, ThreadIndex, Statement, Recording] (wxEvent &Ev) -> void {
+      if (Recording) {
+        Recording->recordEventL("ContextualNavigation.StmtForward",
+                                make_attribute("thread", ThreadIndex),
+                                make_attribute("stmt", Statement));
+      }
+      else {
+        wxLogDebug("no recording.");
+      }
+
       raiseMovementEvent(Control, Access,
         [=] (seec::cm::ProcessState &State) -> bool {
           auto &Thread = State.getThread(ThreadIndex);

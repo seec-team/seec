@@ -27,6 +27,7 @@ namespace clang {
 class wxEvtHandler;
 class wxWindow;
 
+class ActionRecord;
 class StateAccessToken;
 class TraceViewerFrame;
 
@@ -63,7 +64,8 @@ void addStmtNavigation(wxWindow &Control,
                        std::shared_ptr<StateAccessToken> &Access,
                        wxMenu &Menu,
                        std::size_t const ThreadIndex,
-                       clang::Stmt const *Statement);
+                       clang::Stmt const *Statement,
+                       ActionRecord * const Recording);
 
 
 #endif // SEEC_TRACE_VIEW_COMMONMENUS_HPP

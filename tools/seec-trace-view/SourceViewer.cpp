@@ -335,6 +335,9 @@ class SourceFilePanel : public wxPanel {
   /// The \c SourceViewerPanel that contains this \c SourceFilePanel.
   SourceViewerPanel *Parent;
 
+  /// The \c ActionRecord for the \c TraceViewerFrame that owns this panel.
+  ActionRecord *Recording;
+
   /// The ASTUnit that the file belongs to.
   clang::ASTUnit *AST;
   
@@ -621,7 +624,12 @@ class SourceFilePanel : public wxPanel {
       auto const ThreadIndex = MaybeIndex.get<std::size_t>();
       
       wxMenu CM{};
-      addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, HoverStmt);
+      addStmtNavigation(*this,
+                        CurrentAccess,
+                        CM,
+                        ThreadIndex,
+                        HoverStmt,
+                        Recording);
       PopupMenu(&CM);
     }
   }
@@ -639,6 +647,7 @@ public:
   SourceFilePanel()
   : wxPanel(),
     Parent(nullptr),
+    Recording(nullptr),
     AST(nullptr),
     File(nullptr),
     Text(nullptr),
@@ -659,6 +668,7 @@ public:
   /// \brief Construct and create.
   ///
   SourceFilePanel(SourceViewerPanel *WithParent,
+                  ActionRecord &WithRecording,
                   clang::ASTUnit &WithAST,
                   clang::FileEntry const *WithFile,
                   llvm::MemoryBuffer const &Buffer,
@@ -667,7 +677,14 @@ public:
                   wxSize const &Size = wxDefaultSize)
   : SourceFilePanel()
   {
-    Create(WithParent, WithAST, WithFile, Buffer, ID, Position, Size);
+    Create(WithParent,
+           WithRecording,
+           WithAST,
+           WithFile,
+           Buffer,
+           ID,
+           Position,
+           Size);
   }
 
   /// \brief Destructor.
@@ -677,6 +694,7 @@ public:
   /// \brief Create the panel.
   ///
   bool Create(SourceViewerPanel *WithParent,
+              ActionRecord &WithRecording,
               clang::ASTUnit &WithAST,
               clang::FileEntry const *WithFile,
               llvm::MemoryBuffer const &Buffer,
@@ -688,6 +706,7 @@ public:
       return false;
 
     Parent = WithParent;
+    Recording = &WithRecording;
     AST = &WithAST;
     File = WithFile;
 
@@ -1433,6 +1452,7 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
     return nullptr;
   
   auto const SourcePanel = new SourceFilePanel(this,
+                                               *Recording,
                                                ASTUnit,
                                                File,
                                                *Buffer);
