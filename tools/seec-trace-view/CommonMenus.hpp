@@ -28,6 +28,7 @@ class wxEvtHandler;
 class wxWindow;
 
 class ActionRecord;
+class ActionReplayFrame;
 class StateAccessToken;
 class TraceViewerFrame;
 
@@ -67,5 +68,10 @@ void addStmtNavigation(wxWindow &Control,
                        clang::Stmt const *Statement,
                        ActionRecord * const Recording);
 
+/// \brief Register handlers to replay contextual navigation menu events.
+///
+void registerStmtNavigationReplay(wxWindow &Control,
+                                  std::shared_ptr<StateAccessToken> &Access,
+                                  ActionReplayFrame &Replay);
 
 #endif // SEEC_TRACE_VIEW_COMMONMENUS_HPP

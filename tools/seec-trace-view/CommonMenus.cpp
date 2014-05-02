@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
@@ -150,4 +151,29 @@ void addStmtNavigation(wxWindow &Control,
           return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
         });
     });
+}
+
+void registerStmtNavigationReplay(wxWindow &Control,
+                                  std::shared_ptr<StateAccessToken> &Access,
+                                  ActionReplayFrame &Replay)
+{
+  Replay.RegisterHandler("ContextualNavigation.StmtRewind",
+                         {{"thread", "stmt"}}, seec::make_function(
+    [&] (std::size_t const ThreadIdx, clang::Stmt const * const Stmt) -> void {
+      raiseMovementEvent(Control, Access,
+        [ThreadIdx, Stmt] (seec::cm::ProcessState &State) -> bool {
+          auto &Thread = State.getThread(ThreadIdx);
+          return seec::cm::moveBackwardUntilEvaluated(Thread, Stmt);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.StmtForward",
+                         {{"thread", "stmt"}}, seec::make_function(
+    [&] (std::size_t const ThreadIdx, clang::Stmt const * const Stmt) -> void {
+      raiseMovementEvent(Control, Access,
+        [ThreadIdx, Stmt] (seec::cm::ProcessState &State) -> bool {
+          auto &Thread = State.getThread(ThreadIdx);
+          return seec::cm::moveForwardUntilEvaluated(Thread, Stmt);
+        });
+    }));
 }
