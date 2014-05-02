@@ -178,6 +178,12 @@ void ActionReplayFrame::ReplayEvent()
 {
   assert(NextEvent);
   
+  // Remember the time at which this event occurred.
+  auto const TimeStr = NextEvent->GetAttribute("time").ToStdString();
+  if (!seec::parseTo(TimeStr, LastEventTime)) {
+    wxLogDebug("Couldn't get time for next event.");
+  }
+  
   auto const Handler = NextEvent->GetAttribute("handler").ToStdString();
   auto const HandlerIt = Handlers.find(Handler);
   if (HandlerIt == Handlers.end()) {
@@ -190,12 +196,6 @@ void ActionReplayFrame::ReplayEvent()
   if (MaybeError.assigned<seec::Error>()) {
     wxLogDebug("Handler failed to replay event.");
     return;
-  }
-  
-  // Remember the time at which this event occurred.
-  auto const TimeStr = NextEvent->GetAttribute("time").ToStdString();
-  if (!seec::parseTo(TimeStr, LastEventTime)) {
-    wxLogDebug("Couldn't get time for next event.");
   }
 }
 
