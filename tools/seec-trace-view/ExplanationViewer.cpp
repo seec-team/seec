@@ -23,6 +23,8 @@
 #include <wx/cursor.h>
 #include <wx/utils.h>
 
+#include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "ExplanationViewer.hpp"
 #include "NotifyContext.hpp"
 #include "SourceViewerSettings.hpp"
@@ -64,6 +66,8 @@ ExplanationViewer::~ExplanationViewer() {}
 
 bool ExplanationViewer::Create(wxWindow *Parent,
                                ContextNotifier &WithNotifier,
+                               ActionRecord &WithRecording,
+                               ActionReplayFrame &WithReplay,
                                wxWindowID ID,
                                wxPoint const &Position,
                                wxSize const &Size)
@@ -75,6 +79,7 @@ bool ExplanationViewer::Create(wxWindow *Parent,
     return false;
   
   Notifier = &WithNotifier;
+  Recording = &WithRecording;
   
   Bind(wxEVT_MOTION, &ExplanationViewer::OnMotion, this);
   Bind(wxEVT_ENTER_WINDOW, &ExplanationViewer::OnEnterWindow, this);
@@ -149,6 +154,11 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
       HighlightedDecl = Decl;
       
       Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+
+      if (Recording) {
+        Recording->recordEventL("ExplanationViewer.MouseOverDeclLink",
+                                make_attribute("decl", Decl));
+      }
     }
   }
   
@@ -157,12 +167,25 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
       HighlightedStmt = Stmt;
       
       Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
+
+      if (Recording) {
+        Recording->recordEventL("ExplanationViewer.MouseOverStmtLink",
+                                make_attribute("stmt", Stmt));
+      }
     }
   }
   
   if (Links.getPrimaryIndex().indexOf("://") != -1) {
     SetCursor(wxCursor(wxCURSOR_HAND));
     URLHover = true;
+
+    if (Recording) {
+      std::string URL;
+      Links.getPrimaryIndex().toUTF8String(URL);
+
+      Recording->recordEventL("ExplanationViewer.MouseOverURL",
+                              make_attribute("url", URL));
+    }
   }
   else {
     URLClick = false;
@@ -171,11 +194,19 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
 
 void ExplanationViewer::OnEnterWindow(wxMouseEvent &Event)
 {
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseEnter");
+  }
+
   Event.Skip();
 }
 
 void ExplanationViewer::OnLeaveWindow(wxMouseEvent &Event)
 {
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseLeave");
+  }
+
   clearCurrent();
   URLClick = false;
   Event.Skip();
@@ -199,12 +230,25 @@ void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
     auto const Count = CountCharacters(0, CurrentMousePosition);
     
     auto const Links = Explanation->getCharacterLinksAt(Count);
-    if (Links.getPrimaryIndex().isEmpty())
+    if (Links.getPrimaryIndex().isEmpty()) {
       return;
+    }
     
-    ::wxLaunchDefaultBrowser(seec::towxString(Links.getPrimaryIndex()));
+    std::string URL;
+    Links.getPrimaryIndex().toUTF8String(URL);
+
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseLeftClickURL",
+                              make_attribute("url", URL));
+    }
+
+    ::wxLaunchDefaultBrowser(URL);
   }
   else {
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseLeftClick");
+    }
+
     Event.Skip();
   }
 }

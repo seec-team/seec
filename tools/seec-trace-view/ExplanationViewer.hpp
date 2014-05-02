@@ -41,6 +41,8 @@ namespace seec {
   }
 }
 
+class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class StateAccessToken;
 
@@ -52,6 +54,9 @@ class ExplanationViewer final : public wxStyledTextCtrl
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
+  /// Used to record user interactions.
+  ActionRecord *Recording;
+
   /// Hold current explanatory material.
   std::unique_ptr<seec::clang_epv::Explanation> Explanation;
   
@@ -84,6 +89,7 @@ public:
   ExplanationViewer()
   : wxStyledTextCtrl(),
     Notifier(nullptr),
+    Recording(nullptr),
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
@@ -96,12 +102,14 @@ public:
   ///
   ExplanationViewer(wxWindow *Parent,
                     ContextNotifier &WithNotifier,
+                    ActionRecord &WithRecording,
+                    ActionReplayFrame &WithReplay,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize)
   : ExplanationViewer()
   {
-    Create(Parent, WithNotifier, ID, Position, Size);
+    Create(Parent, WithNotifier, WithRecording, WithReplay, ID, Position, Size);
   }
 
   /// \brief Destructor.
@@ -112,6 +120,8 @@ public:
   ///
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

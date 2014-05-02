@@ -252,7 +252,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .CentrePane());
 
     // Setup the explanation viewer.
-    ExplanationCtrl = new ExplanationViewer(this, *Notifier);
+    ExplanationCtrl = new ExplanationViewer(this,
+                                            *Notifier,
+                                            *Recording,
+                                            *Replay);
     auto const ExplanationCtrlTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Explanation", "Title"});
