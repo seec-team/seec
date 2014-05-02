@@ -891,10 +891,29 @@ public:
   /// \name Display control
   /// @{
   
-  /// \brief Scroll enough to make the given line visible.
+  /// \brief Scroll enough to make the given range visible.
   ///
-  void scrollToLine(int const Line) {
-    Text->ScrollToLine(Line);
+  void scrollToRange(SourceFileRange const &Range) {
+    if (Range.File != File)
+      return;
+
+    // TODO: Newer versions of Scintilla (and thus wxStyledTextCtrl) support
+    // scrolling to ensure a range is visible (wxStyledTextCtrl::ScrollRange),
+    // so update this function when we upgrade wxWidgets.
+
+    auto const RangeStartSci = Range.StartLine - 1;
+    auto const RangeEndSci = Range.EndLine - 1;
+
+    auto const DisplayFirst = Text->GetFirstVisibleLine();
+    auto const LinesOnScreen = Text->LinesOnScreen();
+
+    auto const DocFirst = Text->DocLineFromVisible(DisplayFirst);
+    auto const DocLast = Text->DocLineFromVisible(DisplayFirst + LinesOnScreen);
+
+    if (DocLast < RangeStartSci)
+      Text->ScrollToLine(RangeStartSci);
+    else if (DocFirst > RangeStartSci)
+      Text->ScrollToLine(RangeStartSci);
   }
   
   /// @} (Display control)
@@ -1299,8 +1318,7 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                            Range.End);
   
   // Scroll to the active Stmt.
-  Panel->scrollToLine(Range.EndLine - 1);
-  Panel->scrollToLine(Range.StartLine - 1);
+  Panel->scrollToRange(Range);
   
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
@@ -1360,8 +1378,7 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
                            Range.End);
   
   // Scroll to the active Decl.
-  Panel->scrollToLine(Range.EndLine - 1);
-  Panel->scrollToLine(Range.StartLine - 1);
+  Panel->scrollToRange(Range);
 }
 
 SourceFilePanel *
