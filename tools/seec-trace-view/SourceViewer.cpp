@@ -924,8 +924,8 @@ public:
     // scrolling to ensure a range is visible (wxStyledTextCtrl::ScrollRange),
     // so update this function when we upgrade wxWidgets.
 
-    auto const RangeStartSci = Range.StartLine - 1;
-    auto const RangeEndSci = Range.EndLine - 1;
+    assert(Range.StartLine <= std::numeric_limits<int>::max());
+    int const RangeStartSci = Range.StartLine - 1;
 
     auto const DisplayFirst = Text->GetFirstVisibleLine();
     auto const LinesOnScreen = Text->LinesOnScreen();
