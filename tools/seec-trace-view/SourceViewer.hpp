@@ -95,6 +95,10 @@ public:
 
   void OnMouseOver(SourceFilePanel &Page, clang::Stmt const *Stmt);
 
+  void OnRightClick(SourceFilePanel &Page, clang::Decl const *Decl);
+
+  void OnRightClick(SourceFilePanel &Page, clang::Stmt const *Stmt);
+
   /// @} (Recording for SourceFilePanel events.)
 
 

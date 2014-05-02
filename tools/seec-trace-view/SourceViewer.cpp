@@ -606,10 +606,14 @@ class SourceFilePanel : public wxPanel {
     if (!ClickUnmoved)
       return;
     
-    if (HoverDecl)
+    if (HoverDecl) {
+      Parent->OnRightClick(*this, HoverDecl);
       return;
+    }
     
     if (HoverStmt) {
+      Parent->OnRightClick(*this, HoverStmt);
+
       auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
       if (!MaybeIndex.assigned<std::size_t>())
         return;
@@ -1065,6 +1069,32 @@ void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
     return;
 
   Recording->recordEventL("SourceViewerPanel.MouseOverStmt",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("stmt", Stmt));
+}
+
+void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
+                                     clang::Decl const *Decl)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseRightClickDecl",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("decl", Decl));
+}
+
+void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
+                                     clang::Stmt const *Stmt)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseRightClickStmt",
                           make_attribute("page", PageIndex),
                           make_attribute("file", Page.getFileName()),
                           make_attribute("stmt", Stmt));
