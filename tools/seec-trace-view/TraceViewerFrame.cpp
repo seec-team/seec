@@ -378,7 +378,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     }));
 
   // Setup replay of contextual navigation.
-  registerStmtNavigationReplay(*this, StateAccess, *Replay);
+  registerNavigationReplay(*this, StateAccess, *Replay);
 
   return true;
 }

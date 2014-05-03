@@ -84,8 +84,8 @@ void addValueNavigation(wxWindow &Control,
 
 /// \brief Register handlers to replay contextual navigation menu events.
 ///
-void registerStmtNavigationReplay(wxWindow &Control,
-                                  std::shared_ptr<StateAccessToken> &Access,
-                                  ActionReplayFrame &Replay);
+void registerNavigationReplay(wxWindow &Control,
+                              std::shared_ptr<StateAccessToken> &Access,
+                              ActionReplayFrame &Replay);
 
 #endif // SEEC_TRACE_VIEW_COMMONMENUS_HPP

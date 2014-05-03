@@ -274,9 +274,9 @@ void addValueNavigation(wxWindow &Control,
   }
 }
 
-void registerStmtNavigationReplay(wxWindow &Control,
-                                  std::shared_ptr<StateAccessToken> &Access,
-                                  ActionReplayFrame &Replay)
+void registerNavigationReplay(wxWindow &Control,
+                              std::shared_ptr<StateAccessToken> &Access,
+                              ActionReplayFrame &Replay)
 {
   Replay.RegisterHandler("ContextualNavigation.StmtRewind",
                          {{"thread", "stmt"}}, seec::make_function(
@@ -295,6 +295,44 @@ void registerStmtNavigationReplay(wxWindow &Control,
         [ThreadIdx, Stmt] (seec::cm::ProcessState &State) -> bool {
           auto &Thread = State.getThread(ThreadIdx);
           return seec::cm::moveForwardUntilEvaluated(Thread, Stmt);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.ValueRewindAllocation",
+                         {{"address"}}, seec::make_function(
+    [&] (std::uintptr_t const Address) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) -> bool {
+          return seec::cm::moveToAllocation(State, Address);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.ValueRewindModification",
+                         {{"address", "size"}}, seec::make_function(
+    [&] (std::uintptr_t const Address, std::size_t const Size) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) -> bool {
+          auto const Area = seec::MemoryArea(Address, Size);
+          return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.ValueForwardModification",
+                         {{"address", "size"}}, seec::make_function(
+    [&] (std::uintptr_t const Address, std::size_t const Size) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) -> bool {
+          auto const Area = seec::MemoryArea(Address, Size);
+          return seec::cm::moveForwardUntilMemoryChanges(State, Area);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.ValueForwardDeallocation",
+                         {{"address"}}, seec::make_function(
+    [&] (std::uintptr_t const Address) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) -> bool {
+          return seec::cm::moveToDeallocation(State, Address);
         });
     }));
 }
