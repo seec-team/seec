@@ -40,6 +40,9 @@ class StreamPanel final : public wxPanel
   /// Displays the data written to this FILE.
   wxStyledTextCtrl *Text;
 
+  /// Used to record user interactions.
+  ActionRecord *Recording;
+
   /// Parent's token for accessing the current state.
   std::shared_ptr<StateAccessToken> &ParentAccess;
 
@@ -128,6 +131,10 @@ class StreamPanel final : public wxPanel
       return;
     }
 
+    // Save the mouse over position into a temporary so that we can capture it
+    // by value (because it may change before the menu item is clicked).
+    auto const Position = MouseOverPosition;
+
     wxMenu CM{};
 
     BindMenuItem(
@@ -135,12 +142,19 @@ class StreamPanel final : public wxPanel
                 seec::getwxStringExOrEmpty("TraceViewer",
                   (char const *[]){"ContextualNavigation",
                                    "StreamRewindToWrite"})),
-      [this] (wxEvent &) -> void {
+      [this, Position] (wxEvent &) -> void {
+        if (Recording) {
+          Recording->recordEventL(
+            "ContextualNavigation.StreamRewindToWrite",
+            make_attribute("address", State->getAddress()),
+            make_attribute("position", Position));
+        }
+
         raiseMovementEvent(*this, ParentAccess,
           [=] (seec::cm::ProcessState &ProcessState) -> bool {
             return seec::cm::moveBackwardToStreamWriteAt(ProcessState,
                                                          *State,
-                                                         MouseOverPosition);
+                                                         Position);
           });
       });
 
@@ -150,11 +164,13 @@ class StreamPanel final : public wxPanel
 public:
   /// \brief Construct a new \c StreamPanel for a given \c StreamState.
   ///
-  StreamPanel(wxWindow *Parent,
+  StreamPanel(wxWindow * const Parent,
+              ActionRecord * const WithRecording,
               std::shared_ptr<StateAccessToken> &WithParentAccess,
               seec::cm::StreamState const &WithState)
   : wxPanel(Parent),
     Text(nullptr),
+    Recording(WithRecording),
     ParentAccess(WithParentAccess),
     State(&WithState),
     MouseOverPosition(wxSTC_INVALID_POSITION),
@@ -265,6 +281,7 @@ void StreamStatePanel::show(std::shared_ptr<StateAccessToken> Access,
     // If this FILE doesn't have a page then create one.
     if (It == Pages.end() || It->first != Address) {
       auto const StreamPage = new StreamPanel(this,
+                                              this->Recording,
                                               CurrentAccess,
                                               StreamEntry.second);
       Book->AddPage(StreamPage, wxString{StreamEntry.second.getFilename()});

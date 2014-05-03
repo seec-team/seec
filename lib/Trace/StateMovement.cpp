@@ -373,10 +373,6 @@ bool moveBackwardToStreamWriteAt(ProcessState &State,
   auto const Moved = moveBackwardUntil(State,
     [=] (ProcessState const &P) -> bool {
       auto const StreamPtr = P.getStream(Address);
-      llvm::errs() << "written "
-                   << StreamPtr->getWritten().size()
-                   << ", begin "
-                   << Write.Begin << "\n";
       return StreamPtr->getWritten().size() == Write.Begin;
     });
 
