@@ -600,7 +600,7 @@ root:table {
     //
     CodeActive:table {
       Name:string {"Active code"}
-      Style:string {"STRAIGHTBOX"}      
+      Style:string {"STRAIGHTBOX"}
       Foreground:string {"YELLOW"}
       Alpha:int {60}
       OutlineAlpha:int {80}
@@ -612,10 +612,22 @@ root:table {
     //
     CodeHighlight:table {
       Name:string {"Highlight code"}
-      Style:string {"STRAIGHTBOX"}      
+      Style:string {"STRAIGHTBOX"}
       Foreground:string {"BLUE"}
       Alpha:int {0}
       OutlineAlpha:int {80}
+      Under:string {"False"}
+    }
+
+    //
+    // Interactive text (e.g. node links in explanations).
+    //
+    TextInteractive:table {
+      Name:string {"Interactive text"}
+      Style:string {"PLAIN"}
+      Foreground:string {"BLUE"}
+      Alpha:int {100}
+      OutlineAlpha: int {0}
       Under:string {"False"}
     }
   } // End ScintillaIndicatorStyles

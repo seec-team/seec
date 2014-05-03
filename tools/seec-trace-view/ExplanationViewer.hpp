@@ -75,10 +75,19 @@ class ExplanationViewer final : public wxStyledTextCtrl
   /// Is the mouse on the same URL as when the left button was clicked?
   bool URLClick;
   
+  /// \brief Get byte offset range from "whole character" range.
+  ///
+  std::pair<int, int> getByteOffsetRange(int32_t Start, int32_t End);
+  
   /// \brief Set the contents of this viewer.
   ///
   void setText(wxString const &Value);
   
+  /// \brief Set indicators for the interactive text areas in the current
+  ///        \c Explanation.
+  ///
+  void setIndicators();
+
   /// \brief Clear the current information.
   ///
   void clearCurrent();

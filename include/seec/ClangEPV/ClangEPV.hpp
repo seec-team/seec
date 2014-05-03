@@ -337,6 +337,11 @@ public:
   
   /// \brief Get a textual description of the node.
   UnicodeString const &getString() const { return Description.getString(); }
+
+  /// \brief Get the underlying \c IndexedString.
+  seec::icu::IndexedString const &getIndexedString() const {
+    return Description;
+  }
   
   /// \brief Get linking information for a single character.
   CharacterLinks getCharacterLinksAt(int32_t Position) const {

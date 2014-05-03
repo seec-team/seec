@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/ICU/Indexing.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -30,6 +31,34 @@
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
 
+#include <cassert>
+
+
+std::pair<int, int> ExplanationViewer::getByteOffsetRange(int32_t const Start,
+                                                          int32_t const End)
+{
+  assert(Start <= End);
+
+  // Initially set the offset to the first valid offset preceding the
+  // "whole character" index. This will always be less than the required offset
+  // (because no encoding uses less than one byte per character).
+  int StartPos = PositionBefore(Start);
+
+  // Find the "whole character" index of the initial position, use that to
+  // determine how many characters away from the desired position we are, and
+  // then iterate to the desired position.
+  auto const StartGuessCount = CountCharacters(0, StartPos);
+  for (int i = 0; i < Start - StartGuessCount; ++i)
+    StartPos = PositionAfter(StartPos);
+
+  // Get the EndPos by iterating from the StartPos.
+  auto const Length = End - Start;
+  int EndPos = StartPos;
+  for (int i = 0; i < Length; ++i)
+    EndPos = PositionAfter(EndPos);
+
+  return std::make_pair(StartPos, EndPos);
+}
 
 void ExplanationViewer::setText(wxString const &Value)
 {
@@ -40,8 +69,25 @@ void ExplanationViewer::setText(wxString const &Value)
   this->ClearSelections();
 }
 
+void ExplanationViewer::setIndicators()
+{
+  if (!Explanation)
+    return;
+
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::TextInteractive));
+
+  auto const &Indexed = Explanation->getIndexedString();
+
+  for (auto const &NeedlePair : Indexed.getNeedleLookup()) {
+    auto const Range = getByteOffsetRange(NeedlePair.second.getStart(),
+                                          NeedlePair.second.getEnd());
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+  }
+}
+
 void ExplanationViewer::clearCurrent()
 {
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
   IndicatorClearRange(0, GetTextLength());
   
   CurrentMousePosition = wxSTC_INVALID_POSITION;
@@ -126,28 +172,10 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   
   SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
   
-  // Get the byte offset rather than the "whole character" index.
-  auto const StartIndex = Links.getPrimaryIndexStart();
-  
-  // Initially set the offset to the first valid offset preceding the
-  // "whole character" index. This will always be less than the required offset
-  // (because no encoding uses less than one byte per character).
-  int StartPos = PositionBefore(StartIndex);
-  
-  // Find the "whole character" index of the guessed position, use that to
-  // determine how many characters away from the desired position we are, and
-  // then iterate to the desired position.
-  auto const StartGuessCount = CountCharacters(0, StartPos);
-  for (int i = 0; i < StartIndex - StartGuessCount; ++i)
-    StartPos = PositionAfter(StartPos);
-  
-  // Get the EndPos by iterating from the StartPos.
-  auto const Length = Links.getPrimaryIndexEnd() - Links.getPrimaryIndexStart();
-  int EndPos = StartPos;
-  for (int i = 0; i < Length; ++i)
-    EndPos = PositionAfter(EndPos);
-  
-  IndicatorFillRange(StartPos, EndPos - StartPos);
+  auto const Range = getByteOffsetRange(Links.getPrimaryIndexStart(),
+                                        Links.getPrimaryIndexEnd());
+
+  IndicatorFillRange(Range.first, Range.second - Range.first);
   
   if (auto const Decl = Links.getPrimaryDecl()) {
     if (HighlightedDecl != Decl) {
@@ -294,6 +322,7 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
     setText(seec::towxString(Explanation->getString()));
+    setIndicators();
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -341,6 +370,7 @@ showExplanation(::clang::Stmt const *Statement,
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
     setText(seec::towxString(Explanation->getString()));
+    setIndicators();
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
