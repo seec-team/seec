@@ -52,6 +52,7 @@
 #include <memory>
 #include <string>
 
+#include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
@@ -583,19 +584,6 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
   MouseOver = Ev.getDisplayableShared();
 }
 
-static void BindMenuItem(wxMenuItem *Item,
-                         std::function<void (wxEvent &)> Handler)
-{
-  if (!Item)
-    return;
-  
-  auto const Menu = Item->GetMenu();
-  if (!Menu)
-    return;
-  
-  Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
-}
-
 void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
 {
   if (!MouseOver)
@@ -618,55 +606,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     
     wxMenu CM{};
     
-    // Contextual movement based on the Value's memory.
-    if (ValuePtr->isInMemory()) {
-      auto const Size = ValuePtr->getTypeSizeInChars().getQuantity();
-      auto const Area = seec::MemoryArea(ValuePtr->getAddress(), Size);
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueRewindAllocation")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveToAllocation(State, *ValuePtr);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueRewindModification")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueForwardModification")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveForwardUntilMemoryChanges(State, Area);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueForwardDeallocation")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveToDeallocation(State, *ValuePtr);
-            });
-        });
-    }
+    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr);
     
     // Allow the user to select the Value's layout engine.
     std::unique_lock<std::mutex> LockLayoutHandler(LayoutHandlerMutex);

@@ -20,6 +20,12 @@
 #include <utility>
 
 
+namespace seec {
+  namespace cm {
+    class Value;
+  } // namespace cm
+} // namespace seec
+
 namespace clang {
   class Stmt;
 } // namespace clang
@@ -67,6 +73,13 @@ void addStmtNavigation(wxWindow &Control,
                        std::size_t const ThreadIndex,
                        clang::Stmt const *Statement,
                        ActionRecord * const Recording);
+
+/// \brief Add contextual navigation items for the given \c Value.
+///
+void addValueNavigation(wxWindow &Control,
+                        std::shared_ptr<StateAccessToken> &Access,
+                        wxMenu &Menu,
+                        seec::cm::Value const &Value);
 
 /// \brief Register handlers to replay contextual navigation menu events.
 ///

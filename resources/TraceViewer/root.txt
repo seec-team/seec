@@ -208,7 +208,15 @@ root:table {
     StmtForward:string {"Move forward to when this statement is next evaluated"}
 
     StreamRewindToWrite:string {"Rewind to when this was written"}
-  }
+
+    ValueRewindAllocation:string {"Rewind to when this memory was allocated"}
+
+    ValueRewindModification:string {"Rewind to when this value was last changed"}
+
+    ValueForwardModification:string {"Forward to when this value is next changed"}
+
+    ValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
+}
 
 
   // StateGraphViewerPanel resources
@@ -220,14 +228,6 @@ root:table {
     "jquery-1.8.2.min.js":import {"HTML/jquery-1.8.2.min.js"}
 
     "Styles.css":import {"HTML/Styles.css"}
-
-    CMValueRewindAllocation:string {"Rewind to when this memory was allocated"}
-
-    CMValueRewindModification:string {"Rewind to when this value was last changed"}
-
-    CMValueForwardModification:string {"Forward to when this value is next changed"}
-
-    CMValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
 
     CMValueDisplayAs:string {"Display as"}
 

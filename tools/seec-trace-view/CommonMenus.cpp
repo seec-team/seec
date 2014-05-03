@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
@@ -151,6 +152,70 @@ void addStmtNavigation(wxWindow &Control,
           return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
         });
     });
+}
+
+void addValueNavigation(wxWindow &Control,
+                        std::shared_ptr<StateAccessToken> &Access,
+                        wxMenu &Menu,
+                        seec::cm::Value const &Value)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const TextTable = seec::getResource("TraceViewer",
+                                           Locale::getDefault(),
+                                           Status,
+                                           "ContextualNavigation");
+  if (U_FAILURE(Status))
+    return;
+
+  // Contextual movement based on the Value's memory.
+  if (Value.isInMemory()) {
+    auto const Size = Value.getTypeSizeInChars().getQuantity();
+    auto const Area = seec::MemoryArea(Value.getAddress(), Size);
+
+    BindMenuItem(
+      Menu.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "ValueRewindAllocation")),
+      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        raiseMovementEvent(Control, Access,
+          [=, &Value] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToAllocation(State, Value);
+          });
+      });
+
+    BindMenuItem(
+      Menu.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "ValueRewindModification")),
+      [=, &Control, &Access] (wxEvent &Ev) -> void {
+        raiseMovementEvent(Control, Access,
+          [=] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+          });
+      });
+
+    BindMenuItem(
+      Menu.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "ValueForwardModification")),
+      [=, &Control, &Access] (wxEvent &Ev) -> void {
+        raiseMovementEvent(Control, Access,
+          [=] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveForwardUntilMemoryChanges(State, Area);
+          });
+      });
+
+    BindMenuItem(
+      Menu.Append(wxID_ANY,
+                  seec::getwxStringExOrEmpty(TextTable,
+                                             "ValueForwardDeallocation")),
+      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        raiseMovementEvent(Control, Access,
+          [=, &Value] (seec::cm::ProcessState &State) -> bool {
+            return seec::cm::moveToDeallocation(State, Value);
+          });
+      });
+  }
 }
 
 void registerStmtNavigationReplay(wxWindow &Control,
