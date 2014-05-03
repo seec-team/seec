@@ -40,6 +40,8 @@ namespace seec {
   class CallbackFSHandler;
 }
 
+class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class GraphRenderedEvent;
 class MouseOverDisplayableEvent;
@@ -175,6 +177,9 @@ class StateGraphViewerPanel final : public wxPanel
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
+  /// Used to record user interactions.
+  ActionRecord *Recording;
+
   /// The location of the dot executable.
   std::string PathToDot;
   
@@ -237,6 +242,8 @@ public:
   ///
   StateGraphViewerPanel(wxWindow *Parent,
                         ContextNotifier &WithNotifier,
+                        ActionRecord &WithRecording,
+                        ActionReplayFrame &WithReplay,
                         wxWindowID ID = wxID_ANY,
                         wxPoint const &Position = wxDefaultPosition,
                         wxSize const &Size = wxDefaultSize);
@@ -249,6 +256,8 @@ public:
   ///
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);

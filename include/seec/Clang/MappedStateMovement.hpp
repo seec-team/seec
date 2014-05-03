@@ -80,26 +80,19 @@ bool moveToFunctionFinished(FunctionState &Function);
 
 
 //===----------------------------------------------------------------------===//
-/// \name Contextual movement for values.
-/// @{
-
-/// \brief Move backwards to the initial allocation of a Value.
-/// \return true iff the state was moved.
-///
-bool moveToAllocation(ProcessState &Process, Value const &OfValue);
-
-/// \brief Move forwards until a Value is deallocated.
-/// \return true iff the state was moved.
-///
-bool moveToDeallocation(ProcessState &Process, Value const &OfValue);
-
-/// @} (Contextual movement for values.)
-//===----------------------------------------------------------------------===//
-
-
-//===----------------------------------------------------------------------===//
 /// \name Contextual movement for memory.
 /// @{
+
+/// \brief Move backwards to the initial allocation of the memory that owns
+///        \c Address.
+/// \return true iff the state was moved.
+///
+bool moveToAllocation(ProcessState &Process, uintptr_t const Address);
+
+/// \brief Move forwards until the memory that owns \c Address is deallocated.
+/// \return true iff the state was moved.
+///
+bool moveToDeallocation(ProcessState &Process, uintptr_t const Address);
 
 /// \brief Move State forward until the memory state in Area changes.
 /// \return true iff the State was moved.

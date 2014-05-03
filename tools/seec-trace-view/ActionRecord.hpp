@@ -98,7 +98,7 @@ class Attribute<T, typename std::enable_if<is_ro_arithmetic<T>::value>::type>
 : public IAttributeReadOnly
 {
   std::string const Name;
-  T const &Value;
+  T const Value;
 
 protected:
   std::string const &get_name_impl() const { return Name; }
@@ -158,12 +158,12 @@ public:
 ///
 /// Implementation for const string values.
 ///
-template<unsigned N>
-class Attribute<char const (&)[N]>
+template<>
+class Attribute<std::string>
 : public IAttributeReadOnly
 {
   std::string const Name;
-  char const * const Value;
+  std::string const Value;
 
 protected:
   std::string const &get_name_impl() const { return Name; }
@@ -171,11 +171,25 @@ protected:
   std::string to_string_impl(seec::cm::ProcessTrace const &) const {
     return Value;
   }
-  
+
+public:
+  Attribute(std::string WithName, std::string WithValue)
+  : Name(std::move(WithName)),
+    Value(std::move(WithValue))
+  {}
+};
+
+/// \brief A single read-only attribute of a recorded event.
+///
+/// Implementation for const string values.
+///
+template<unsigned N>
+class Attribute<char const (&)[N]>
+: public Attribute<std::string>
+{
 public:
   Attribute(std::string WithName, char const (&WithValue)[N])
-  : Name(std::move(WithName)),
-    Value(WithValue)
+  : Attribute<std::string>(std::move(WithName), WithValue)
   {}
 };
 
@@ -185,22 +199,11 @@ public:
 ///
 template<>
 class Attribute<char const *>
-: public IAttributeReadOnly
+: public Attribute<std::string>
 {
-  std::string const Name;
-  char const * const Value;
-
-protected:
-  std::string const &get_name_impl() const { return Name; }
-
-  std::string to_string_impl(seec::cm::ProcessTrace const &) const {
-    return Value;
-  }
-
 public:
   Attribute(std::string WithName, char const *WithValue)
-  : Name(std::move(WithName)),
-    Value(WithValue)
+  : Attribute<std::string>(std::move(WithName), WithValue)
   {}
 };
 
@@ -367,6 +370,17 @@ template<typename T>
 Attribute<T> make_attribute(std::string Name, T &&Value)
 {
   return Attribute<T>(std::move(Name), std::forward<T>(Value));
+}
+
+/// \brief Create a dynamically allocated \c Attribute<T> with the given name
+///        and value.
+///
+template<typename T>
+std::unique_ptr<Attribute<T>> new_attribute(std::string Name, T &&Value)
+{
+  return std::unique_ptr<Attribute<T>>
+                        (new Attribute<T>(std::move(Name),
+                                          std::forward<T>(Value)));
 }
 
 /// \brief Records user interactions with the trace viewer.

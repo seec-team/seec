@@ -154,10 +154,54 @@ void addStmtNavigation(wxWindow &Control,
     });
 }
 
+static void recordValueNavigation(char const * const Navigation,
+                                  seec::cm::Value const &Value,
+                                  ActionRecord * const Recording)
+{
+  if (!Recording)
+    return;
+
+  std::vector<std::unique_ptr<IAttributeReadOnly>> Attributes;
+
+  Attributes.emplace_back(new_attribute("address", Value.getAddress()));
+  Attributes.emplace_back(new_attribute("size", Value.getTypeSizeInChars()
+                                                     .getQuantity()));
+  Attributes.emplace_back(new_attribute("type", Value.getTypeAsString()));
+
+  switch (Value.getKind()) {
+    case seec::cm::Value::Kind::Basic:
+      Attributes.emplace_back(new_attribute("kind", "Basic"));
+      break;
+
+    case seec::cm::Value::Kind::Scalar:
+      Attributes.emplace_back(new_attribute("kind", "Scalar"));
+      break;
+
+    case seec::cm::Value::Kind::Array:
+      Attributes.emplace_back(new_attribute("kind", "Array"));
+      break;
+
+    case seec::cm::Value::Kind::Record:
+      Attributes.emplace_back(new_attribute("kind", "Record"));
+      break;
+
+    case seec::cm::Value::Kind::Pointer:
+      Attributes.emplace_back(new_attribute("kind", "Pointer"));
+      break;
+  }
+
+  std::vector<IAttributeReadOnly const *> AttributePtrs;
+  for (auto const &Attr : Attributes)
+    AttributePtrs.emplace_back(Attr.get());
+
+  Recording->recordEventV(Navigation, AttributePtrs);
+}
+
 void addValueNavigation(wxWindow &Control,
                         std::shared_ptr<StateAccessToken> &Access,
                         wxMenu &Menu,
-                        seec::cm::Value const &Value)
+                        seec::cm::Value const &Value,
+                        ActionRecord * const Recording)
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
@@ -177,9 +221,12 @@ void addValueNavigation(wxWindow &Control,
                   seec::getwxStringExOrEmpty(TextTable,
                                              "ValueRewindAllocation")),
       [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        recordValueNavigation("ContextualNavigation.ValueRewindAllocation",
+                              Value, Recording);
+
         raiseMovementEvent(Control, Access,
           [=, &Value] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToAllocation(State, Value);
+            return seec::cm::moveToAllocation(State, Area.start());
           });
       });
 
@@ -187,7 +234,10 @@ void addValueNavigation(wxWindow &Control,
       Menu.Append(wxID_ANY,
                   seec::getwxStringExOrEmpty(TextTable,
                                              "ValueRewindModification")),
-      [=, &Control, &Access] (wxEvent &Ev) -> void {
+      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        recordValueNavigation("ContextualNavigation.ValueRewindModification",
+                              Value, Recording);
+
         raiseMovementEvent(Control, Access,
           [=] (seec::cm::ProcessState &State) -> bool {
             return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
@@ -198,7 +248,10 @@ void addValueNavigation(wxWindow &Control,
       Menu.Append(wxID_ANY,
                   seec::getwxStringExOrEmpty(TextTable,
                                              "ValueForwardModification")),
-      [=, &Control, &Access] (wxEvent &Ev) -> void {
+      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        recordValueNavigation("ContextualNavigation.ValueForwardModification",
+                              Value, Recording);
+
         raiseMovementEvent(Control, Access,
           [=] (seec::cm::ProcessState &State) -> bool {
             return seec::cm::moveForwardUntilMemoryChanges(State, Area);
@@ -210,9 +263,12 @@ void addValueNavigation(wxWindow &Control,
                   seec::getwxStringExOrEmpty(TextTable,
                                              "ValueForwardDeallocation")),
       [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+        recordValueNavigation("ContextualNavigation.ValueForwardDeallocation",
+                              Value, Recording);
+
         raiseMovementEvent(Control, Access,
           [=, &Value] (seec::cm::ProcessState &State) -> bool {
-            return seec::cm::moveToDeallocation(State, Value);
+            return seec::cm::moveToDeallocation(State, Area.start());
           });
       });
   }

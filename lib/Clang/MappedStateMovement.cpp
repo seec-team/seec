@@ -218,16 +218,11 @@ bool moveToFunctionFinished(FunctionState &Function) {
 
 
 //===----------------------------------------------------------------------===//
-// Contextual movement for values.
+// Contextual movement for memory.
 
-bool moveToAllocation(ProcessState &Process, Value const &OfValue)
+bool moveToAllocation(ProcessState &Process, uintptr_t const Address)
 {
-  // The allocation of virtual register values is meaningless for now.
-  if (!OfValue.isInMemory())
-    return false;
-  
   auto &Unmapped = Process.getUnmappedProcessState();
-  auto const Address = OfValue.getAddress();
   
   // Move backwards until the area is not allocated.
   auto const Moved =
@@ -249,14 +244,9 @@ bool moveToAllocation(ProcessState &Process, Value const &OfValue)
   return Moved;
 }
 
-bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
+bool moveToDeallocation(ProcessState &Process, uintptr_t const Address)
 {
-  // The allocation of virtual register values is meaningless for now.
-  if (!OfValue.isInMemory())
-    return false;
-  
   auto &Unmapped = Process.getUnmappedProcessState();
-  auto const Address = OfValue.getAddress();
   
   // Move forwards until the area is not allocated.
   auto const Moved =
@@ -277,13 +267,6 @@ bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
   
   return Moved;
 }
-
-// (Contextual movement for values.)
-//===----------------------------------------------------------------------===//
-
-
-//===----------------------------------------------------------------------===//
-// Contextual movement for memory.
 
 bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 {

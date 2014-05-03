@@ -293,7 +293,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .MaximizeButton(true));
 
     // Create the graph viewer.
-    GraphViewer = new StateGraphViewerPanel(this, *Notifier);
+    GraphViewer = new StateGraphViewerPanel(this,
+                                            *Notifier,
+                                            *Recording,
+                                            *Replay);
     auto const GraphViewerTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Graph", "Title"});

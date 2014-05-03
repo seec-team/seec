@@ -376,6 +376,7 @@ void StateGraphViewerPanel::workerTaskLoop()
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
+  Recording(nullptr),
   PathToDot(),
   PathToGraphvizLibraries(),
   PathToGraphvizPlugins(),
@@ -395,12 +396,14 @@ StateGraphViewerPanel::StateGraphViewerPanel()
 
 StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
                                              ContextNotifier &WithNotifier,
+                                             ActionRecord &WithRecording,
+                                             ActionReplayFrame &WithReplay,
                                              wxWindowID ID,
                                              wxPoint const &Position,
                                              wxSize const &Size)
 : StateGraphViewerPanel()
 {
-  Create(Parent, WithNotifier, ID, Position, Size);
+  Create(Parent, WithNotifier, WithRecording, WithReplay, ID, Position, Size);
 }
 
 StateGraphViewerPanel::~StateGraphViewerPanel()
@@ -419,6 +422,8 @@ StateGraphViewerPanel::~StateGraphViewerPanel()
 
 bool StateGraphViewerPanel::Create(wxWindow *Parent,
                                    ContextNotifier &WithNotifier,
+                                   ActionRecord &WithRecording,
+                                   ActionReplayFrame &WithReplay,
                                    wxWindowID ID,
                                    wxPoint const &Position,
                                    wxSize const &Size)
@@ -427,6 +432,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     return false;
   
   Notifier = &WithNotifier;
+  Recording = &WithRecording;
   
   // Enable vfs access to request information about the state.
   auto const ThisAddr = reinterpret_cast<uintptr_t>(this);
@@ -606,7 +612,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     
     wxMenu CM{};
     
-    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr);
+    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr, Recording);
     
     // Allow the user to select the Value's layout engine.
     std::unique_lock<std::mutex> LockLayoutHandler(LayoutHandlerMutex);

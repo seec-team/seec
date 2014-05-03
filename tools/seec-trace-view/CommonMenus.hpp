@@ -79,7 +79,8 @@ void addStmtNavigation(wxWindow &Control,
 void addValueNavigation(wxWindow &Control,
                         std::shared_ptr<StateAccessToken> &Access,
                         wxMenu &Menu,
-                        seec::cm::Value const &Value);
+                        seec::cm::Value const &Value,
+                        ActionRecord * const Recording);
 
 /// \brief Register handlers to replay contextual navigation menu events.
 ///
