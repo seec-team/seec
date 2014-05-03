@@ -245,12 +245,16 @@ void StreamStatePanel::show(std::shared_ptr<StateAccessToken> Access,
   CurrentAccess = std::move(Access);
 
   // Remove pages that no longer exist, update those that do.
-  for (auto It = Pages.begin(), End = Pages.end(); It != End; ++It) {
+  for (auto It = Pages.begin(), End = Pages.end(); It != End; ) {
     if (auto const StreamPtr = Process.getStream(It->first)) {
       It->second->update(*StreamPtr);
+      ++It;
     }
     else {
-      Pages.erase(It);
+      auto const Idx = Book->FindPage(It->second);
+      if (Idx != wxNOT_FOUND)
+        Book->DeletePage(static_cast<std::size_t>(Idx));
+      Pages.erase(It++);
     }
   }
 
