@@ -113,7 +113,21 @@ class StreamPanel final : public wxPanel
     Text->IndicatorFillRange(HighlightStart, HighlightLength);
   }
 
+  void OnTextEnter(wxMouseEvent &Ev) {
+    if (Recording) {
+      Recording->recordEventL("StreamPanel.MouseEnter",
+                              make_attribute("address", State->getAddress()),
+                              make_attribute("file", State->getFilename()));
+    }
+  }
+
   void OnTextLeave(wxMouseEvent &Ev) {
+    if (Recording) {
+      Recording->recordEventL("StreamPanel.MouseLeave",
+                              make_attribute("address", State->getAddress()),
+                              make_attribute("file", State->getFilename()));
+    }
+
     MouseOverPosition = wxSTC_INVALID_POSITION;
     clearHighlight();
   }
@@ -147,6 +161,7 @@ class StreamPanel final : public wxPanel
           Recording->recordEventL(
             "ContextualNavigation.StreamRewindToWrite",
             make_attribute("address", State->getAddress()),
+            make_attribute("file", State->getFilename()),
             make_attribute("position", Position));
         }
 
@@ -187,6 +202,7 @@ public:
     Text->SetIndicatorCurrent(Indicator);
 
     Text->Bind(wxEVT_MOTION,       &StreamPanel::OnTextMotion, this);
+    Text->Bind(wxEVT_ENTER_WINDOW, &StreamPanel::OnTextEnter, this);
     Text->Bind(wxEVT_LEAVE_WINDOW, &StreamPanel::OnTextLeave, this);
     Text->Bind(wxEVT_RIGHT_DOWN,   &StreamPanel::OnRightDown, this);
     Text->Bind(wxEVT_RIGHT_UP,     &StreamPanel::OnRightUp, this);

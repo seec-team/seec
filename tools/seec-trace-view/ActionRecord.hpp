@@ -183,6 +183,20 @@ public:
 ///
 /// Implementation for const string values.
 ///
+template<>
+class Attribute<std::string const &>
+: public Attribute<std::string>
+{
+public:
+  Attribute(std::string WithName, std::string const &WithValue)
+  : Attribute<std::string>(std::move(WithName), WithValue)
+  {}
+};
+
+/// \brief A single read-only attribute of a recorded event.
+///
+/// Implementation for const string values.
+///
 template<unsigned N>
 class Attribute<char const (&)[N]>
 : public Attribute<std::string>
