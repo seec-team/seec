@@ -335,4 +335,19 @@ void registerNavigationReplay(wxWindow &Control,
           return seec::cm::moveToDeallocation(State, Address);
         });
     }));
+
+  Replay.RegisterHandler("ContextualNavigation.StreamRewindToWrite",
+                         {{"address", "position"}}, seec::make_function(
+    [&] (std::uintptr_t const Address, std::size_t const Position) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) -> bool {
+          auto const Stream = State.getStream(Address);
+          if (!Stream)
+            return false;
+
+          return seec::cm::moveBackwardToStreamWriteAt(State,
+                                                       *Stream,
+                                                       Position);
+        });
+    }));
 }
