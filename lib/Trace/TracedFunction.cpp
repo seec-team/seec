@@ -16,6 +16,8 @@
 
 #include "llvm/IR/Instruction.h"
 
+#define SEEC_DEBUG_PTROBJ 0
+
 
 namespace seec {
 
@@ -112,6 +114,9 @@ void TracedFunction::setPointerObject(llvm::Argument const *A,
                                       uintptr_t const Object)
 {
   ArgPointerObjects[A] = Object;
+#if SEEC_DEBUG_PTROBJ
+  llvm::errs() << "set ptr " << Object << " for argument " << *A << "\n";
+#endif
 }
 
 uintptr_t TracedFunction::getPointerObject(llvm::Instruction const *I) const
@@ -124,6 +129,9 @@ void TracedFunction::setPointerObject(llvm::Instruction const *I,
                                       uintptr_t const Object)
 {
   PointerObjects[I] = Object;
+#if SEEC_DEBUG_PTROBJ
+  llvm::errs() << "set ptr " << Object << " for instruction " << *I << "\n";
+#endif
 }
 
 uintptr_t TracedFunction::getPointerObject(llvm::Value const *V) const
