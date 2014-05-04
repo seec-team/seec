@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedValue.hpp"
@@ -52,6 +53,7 @@
 #include <memory>
 #include <string>
 
+#include "ActionRecord.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -588,6 +590,38 @@ StateGraphViewerPanel::
 OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
 {
   MouseOver = Ev.getDisplayableShared();
+
+  if (!Recording)
+    return;
+
+  auto const Node = MouseOver.get();
+
+  if (!Node) {
+    Recording->recordEventL("StateGraphViewer.MouseOverNone");
+  }
+  else if (auto const DV = llvm::dyn_cast<DisplayableValue>(Node)) {
+    std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+    addAttributesForValue(Attrs, DV->getValue());
+    Recording->recordEventV("StateGraphViewer.MouseOverValue", Attrs);
+  }
+  else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(Node)) {
+    std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+    addAttributesForValue(Attrs, DD->getPointer());
+    Recording->recordEventV("StateGraphViewer.MouseOverDereference", Attrs);
+  }
+  else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(Node)) {
+    auto const &FS = DF->getFunctionState();
+    Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
+                            make_attribute("function", FS.getNameAsString()));
+  }
+  else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Node)) {
+    Recording->recordEventL("StateGraphViewer.MouseOverReferencedArea",
+                            make_attribute("start", DA->getAreaStart()),
+                            make_attribute("end", DA->getAreaEnd()));
+  }
+  else {
+    Recording->recordEventL("StateGraphViewer.MouseOverUnknown");
+  }
 }
 
 void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
