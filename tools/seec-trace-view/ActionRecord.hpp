@@ -370,6 +370,16 @@ public:
 };
 
 template<>
+class Attribute<clang::Stmt const *>
+: public AttributeStmtReadOnlyBase
+{
+public:
+  Attribute(std::string WithName, clang::Stmt const *WithValue)
+  : AttributeStmtReadOnlyBase(std::move(WithName), WithValue)
+  {}
+};
+
+template<>
 class Attribute<clang::Stmt const * const &>
 : public AttributeStmtReadOnlyBase
 {

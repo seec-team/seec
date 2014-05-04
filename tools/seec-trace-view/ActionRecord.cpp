@@ -21,6 +21,9 @@
 #include "seec/wxWidgets/ImageResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
+#include "clang/AST/Expr.h"
+#include "clang/AST/Stmt.h"
+
 #include <wx/wx.h>
 #include <wx/datetime.h>
 #include <wx/debug.h>
@@ -264,6 +267,10 @@ void addAttributesForValue(std::vector<std::unique_ptr<IAttributeReadOnly>> &As,
     As.emplace_back(new_attribute("address", V.getAddress()));
     As.emplace_back(new_attribute("size",
                                   V.getTypeSizeInChars().getQuantity()));
+  }
+
+  if (auto const Expr = V.getExpr()) {
+    As.emplace_back(new_attribute("expr", llvm::cast<clang::Stmt>(Expr)));
   }
 
   As.emplace_back(new_attribute("type", V.getTypeAsString()));
