@@ -162,39 +162,8 @@ static void recordValueNavigation(char const * const Navigation,
     return;
 
   std::vector<std::unique_ptr<IAttributeReadOnly>> Attributes;
-
-  Attributes.emplace_back(new_attribute("address", Value.getAddress()));
-  Attributes.emplace_back(new_attribute("size", Value.getTypeSizeInChars()
-                                                     .getQuantity()));
-  Attributes.emplace_back(new_attribute("type", Value.getTypeAsString()));
-
-  switch (Value.getKind()) {
-    case seec::cm::Value::Kind::Basic:
-      Attributes.emplace_back(new_attribute("kind", "Basic"));
-      break;
-
-    case seec::cm::Value::Kind::Scalar:
-      Attributes.emplace_back(new_attribute("kind", "Scalar"));
-      break;
-
-    case seec::cm::Value::Kind::Array:
-      Attributes.emplace_back(new_attribute("kind", "Array"));
-      break;
-
-    case seec::cm::Value::Kind::Record:
-      Attributes.emplace_back(new_attribute("kind", "Record"));
-      break;
-
-    case seec::cm::Value::Kind::Pointer:
-      Attributes.emplace_back(new_attribute("kind", "Pointer"));
-      break;
-  }
-
-  std::vector<IAttributeReadOnly const *> AttributePtrs;
-  for (auto const &Attr : Attributes)
-    AttributePtrs.emplace_back(Attr.get());
-
-  Recording->recordEventV(Navigation, AttributePtrs);
+  addAttributesForValue(Attributes, Value);
+  Recording->recordEventV(Navigation, Attributes);
 }
 
 void addValueNavigation(wxWindow &Control,

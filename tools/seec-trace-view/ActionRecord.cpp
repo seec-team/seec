@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Parsing.hpp"
@@ -30,6 +31,7 @@
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -252,6 +254,45 @@ AttributeStmtReadWriteBase::from_string_impl(seec::cm::ProcessTrace const &Tr,
 
 
 //------------------------------------------------------------------------------
+// addAttributesForValue()
+//------------------------------------------------------------------------------
+
+void addAttributesForValue(std::vector<std::unique_ptr<IAttributeReadOnly>> &As,
+                           seec::cm::Value const &V)
+{
+  if (V.isInMemory()) {
+    As.emplace_back(new_attribute("address", V.getAddress()));
+    As.emplace_back(new_attribute("size",
+                                  V.getTypeSizeInChars().getQuantity()));
+  }
+
+  As.emplace_back(new_attribute("type", V.getTypeAsString()));
+
+  switch (V.getKind()) {
+    case seec::cm::Value::Kind::Basic:
+      As.emplace_back(new_attribute("kind", "Basic"));
+      break;
+
+    case seec::cm::Value::Kind::Scalar:
+      As.emplace_back(new_attribute("kind", "Scalar"));
+      break;
+
+    case seec::cm::Value::Kind::Array:
+      As.emplace_back(new_attribute("kind", "Array"));
+      break;
+
+    case seec::cm::Value::Kind::Record:
+      As.emplace_back(new_attribute("kind", "Record"));
+      break;
+
+    case seec::cm::Value::Kind::Pointer:
+      As.emplace_back(new_attribute("kind", "Pointer"));
+      break;
+  }
+}
+
+
+//------------------------------------------------------------------------------
 // ActionRecord
 //------------------------------------------------------------------------------
 
@@ -354,6 +395,18 @@ ActionRecord::recordEventV(std::string const &Handler,
   
   if (Root->InsertChildAfter(Node, LastNode))
     LastNode = Node;
+}
+
+void
+ActionRecord::
+recordEventV(std::string const &Handler,
+             std::vector<std::unique_ptr<IAttributeReadOnly>> const &As)
+{
+  std::vector<IAttributeReadOnly const *> RawPtrs;
+  for (auto const &AttrPtr : As)
+    RawPtrs.emplace_back(AttrPtr.get());
+
+  return recordEventV(Handler, RawPtrs);
 }
 
 bool ActionRecord::finalize()

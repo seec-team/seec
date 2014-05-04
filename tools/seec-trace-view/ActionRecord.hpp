@@ -32,6 +32,7 @@ namespace clang {
 namespace seec {
   namespace cm {
     class ProcessTrace;
+    class Value;
   }
 }
 
@@ -397,6 +398,11 @@ std::unique_ptr<Attribute<T>> new_attribute(std::string Name, T &&Value)
                                           std::forward<T>(Value)));
 }
 
+/// \brief Add attributes to describe the given \c seec::cm::Value.
+///
+void addAttributesForValue(std::vector<std::unique_ptr<IAttributeReadOnly>> &As,
+                           seec::cm::Value const &V);
+
 /// \brief Records user interactions with the trace viewer.
 ///
 class ActionRecord
@@ -441,6 +447,11 @@ public:
   ///
   void recordEventV(std::string const &Handler,
                     std::vector<IAttributeReadOnly const *> const &Attributes);
+
+  /// \brief Record an event.
+  ///
+  void recordEventV(std::string const &Handler,
+                    std::vector<std::unique_ptr<IAttributeReadOnly>> const &As);
   
   /// \brief Record an event.
   ///
