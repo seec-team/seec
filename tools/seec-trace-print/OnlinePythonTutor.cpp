@@ -24,9 +24,12 @@
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
+#include "clang/Lex/Lexer.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "OnlinePythonTutor.hpp"
 
 using namespace seec;
 using namespace seec::cm;
@@ -52,6 +55,8 @@ enum class ValuePrintLocation {
 };
 
 class OPTPrinter {
+  OPTSettings const &Settings;
+
   llvm::raw_ostream &Stream;
 
   std::string StateString;
@@ -68,15 +73,24 @@ class OPTPrinter {
 
   unsigned PreviousLine;
 
-  OPTPrinter(llvm::raw_ostream &ToStream, ProcessTrace const &FromTrace)
-  : Stream(ToStream),
+  unsigned PreviousExprColumn;
+
+  unsigned PreviousExprWidth;
+
+  OPTPrinter(OPTSettings const &WithSettings,
+             llvm::raw_ostream &ToStream,
+             ProcessTrace const &FromTrace)
+  : Settings(WithSettings),
+    Stream(ToStream),
     StateString(),
     Out(StateString),
     Indent("  ", 1),
     Trace(FromTrace),
     Process(FromTrace),
     FrameIDMap(),
-    PreviousLine(1)
+    PreviousLine(1),
+    PreviousExprColumn(1),
+    PreviousExprWidth(0)
   {}
 
   uint32_t getFrameID(FunctionState const &Function);
@@ -113,14 +127,20 @@ class OPTPrinter {
 
   void printHeap();
 
+  void setPreviousPositions(clang::SourceLocation Start,
+                            clang::SourceLocation End,
+                            clang::ASTContext const &AST);
+
   bool printAndMoveState();
 
   bool printAllStates();
 
 public:
-  static bool print(llvm::raw_ostream &Out, ProcessTrace const &Trace)
+  static bool print(OPTSettings const &Settings,
+                    llvm::raw_ostream &Out,
+                    ProcessTrace const &Trace)
   {
-    OPTPrinter Printer(Out, Trace);
+    OPTPrinter Printer(Settings, Out, Trace);
     return Printer.printAllStates();
   }
 };
@@ -634,17 +654,37 @@ void OPTPrinter::printHeap()
   Out << Indent.getString() << "},\n";
 }
 
-/// \brief Get the start line in the outermost file.
-///
-static unsigned getLineOutermost(clang::SourceLocation Start,
-                                 clang::ASTContext const &AST)
+void OPTPrinter::setPreviousPositions(clang::SourceLocation Start,
+                                      clang::SourceLocation End,
+                                      clang::ASTContext const &AST)
 {
   auto const &SourceManager = AST.getSourceManager();
 
   while (Start.isMacroID())
     Start = SourceManager.getExpansionLoc(Start);
 
-  return SourceManager.getSpellingLineNumber(Start);
+  while (End.isMacroID())
+    End = SourceManager.getExpansionLoc(End);
+
+  PreviousLine = SourceManager.getSpellingLineNumber(Start);
+  PreviousExprColumn = SourceManager.getSpellingColumnNumber(Start);
+
+  // Find the first character following the last token.
+  auto const FollowingEnd =
+    clang::Lexer::getLocForEndOfToken(End,
+                                      0,
+                                      SourceManager,
+                                      AST.getLangOpts());
+
+  auto const BestEnd = FollowingEnd.isValid() ? FollowingEnd : End;
+
+  if (SourceManager.isWrittenInSameFile(Start, BestEnd)) {
+    PreviousExprWidth = SourceManager.getFileOffset(BestEnd)
+                      - SourceManager.getFileOffset(Start);
+  }
+  else {
+    PreviousExprWidth = 1;
+  }
 }
 
 bool OPTPrinter::printAndMoveState()
@@ -681,13 +721,25 @@ bool OPTPrinter::printAndMoveState()
     auto const &AST = ActiveFn.getMappedAST()->getASTUnit().getASTContext();
 
     if (auto const ActiveStmt = ActiveFn.getActiveStmt())
-      PreviousLine = getLineOutermost(ActiveStmt->getLocStart(), AST);
+      setPreviousPositions(ActiveStmt->getLocStart(),
+                           ActiveStmt->getLocEnd(),
+                           AST);
     else
-      PreviousLine = getLineOutermost(ActiveFn.getFunctionDecl()->getLocStart(),
-                                      AST);
+      setPreviousPositions(ActiveFn.getFunctionDecl()->getLocStart(),
+                           ActiveFn.getFunctionDecl()->getLocEnd(),
+                           AST);
   }
 
-  Out << Indent.getString() << "\"line\": " << PreviousLine << "\n";
+  if (Settings.getPyCrazyMode()) {
+    Out << Indent.getString() << "\"line\": " << PreviousLine << ",\n"
+        << Indent.getString() << "\"expr_start_col\": "
+                              << (PreviousExprColumn - 1) << ",\n"
+        << Indent.getString() << "\"expr_width\": "
+                              << PreviousExprWidth << "\n";
+  }
+  else {
+    Out << Indent.getString() << "\"line\": " << PreviousLine << "\n";
+  }
 
   Indent.unindent();
   Out << Indent.getString() << "}";
@@ -699,11 +751,17 @@ bool OPTPrinter::printAndMoveState()
 
   Out.flush();
 
-  // If the line moves at the next state, then print this state. This models
-  // the behaviour expected by OnlinePythonTutor (each step represents the
-  // complete execution of one line).
-  if (OldPreviousLine != PreviousLine || Thread.isAtEnd())
+  if (Settings.getPyCrazyMode()) {
+    // In pyCrazyMode our default movement is suitable.
     Stream << StateString;
+  }
+  else {
+    // If the line moves at the next state, then print this state. This models
+    // the behaviour expected by OnlinePythonTutor (each step represents the
+    // complete execution of one line).
+    if (OldPreviousLine != PreviousLine || Thread.isAtEnd())
+      Stream << StateString;
+  }
 
   StateString.clear();
 
@@ -742,7 +800,8 @@ bool OPTPrinter::printAllStates()
   return true;
 }
 
-void PrintOnlinePythonTutor(ProcessTrace const &Trace)
+void PrintOnlinePythonTutor(ProcessTrace const &Trace,
+                            OPTSettings const &Settings)
 {
-  OPTPrinter::print(llvm::outs(), Trace);
+  OPTPrinter::print(Settings, llvm::outs(), Trace);
 }

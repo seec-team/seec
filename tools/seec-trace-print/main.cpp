@@ -205,7 +205,8 @@ void PrintClangMapped(llvm::StringRef ExecutablePath)
     PrintClangMappedStates(*CMProcessTrace);
   }
   else if (OnlinePythonTutor) {
-    PrintOnlinePythonTutor(*CMProcessTrace);
+    PrintOnlinePythonTutor(*CMProcessTrace,
+                           OPTSettings{}.setPyCrazyMode(true));
   }
 }
 

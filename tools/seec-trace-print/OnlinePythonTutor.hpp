@@ -20,6 +20,23 @@ namespace seec {
   }
 }
 
-void PrintOnlinePythonTutor(seec::cm::ProcessTrace const &Trace);
+class OPTSettings {
+  bool PyCrazyMode;
+
+public:
+  OPTSettings()
+  : PyCrazyMode(false)
+  {}
+
+  bool getPyCrazyMode() const { return PyCrazyMode; }
+
+  OPTSettings &setPyCrazyMode(bool const Value) {
+    PyCrazyMode = Value;
+    return *this;
+  }
+};
+
+void PrintOnlinePythonTutor(seec::cm::ProcessTrace const &Trace,
+                            OPTSettings const &Settings);
 
 #endif // SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
