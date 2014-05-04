@@ -200,7 +200,7 @@ void StateEvaluationTreePanel::centreOnNode(NodeInfo const &Node)
                       Node.YEnd - Node.YStart));
 }
 
-bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator It)
+bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator const It)
 {
   if (It == HoverNodeIt)
     return false;
@@ -212,11 +212,17 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator It)
   
   if (Recording) {
     auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
-    auto const NodeStmt = It != Nodes.end() ? It->Statement : nullptr;
+    auto const NodeStmt = It != Nodes.end() ? It->Statement   : nullptr;
+    auto const Value    = It != Nodes.end() ? It->Value.get() : nullptr;
 
-    Recording->recordEventL("StateEvaluationTree.NodeMouseOver",
-                            make_attribute("node", NodeIndex),
-                            make_attribute("stmt", NodeStmt));
+    std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+    Attrs.emplace_back(new_attribute("node", NodeIndex));
+    Attrs.emplace_back(new_attribute("stmt", NodeStmt));
+
+    if (Value)
+      addAttributesForValue(Attrs, *Value);
+
+    Recording->recordEventV("StateEvaluationTree.NodeMouseOver", Attrs);
   }
   
   if (HoverNodeIt != Nodes.end())
