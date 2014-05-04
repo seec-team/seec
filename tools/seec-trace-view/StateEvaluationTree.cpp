@@ -699,14 +699,14 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     return;
   
   if (HoverNodeIt != Nodes.end()) {
+    auto const Stmt = HoverNodeIt->Statement;
+    auto const Value = HoverNodeIt->Value.get();
+
     if (Recording) {
       auto const NodeIndex = std::distance(Nodes.cbegin(), HoverNodeIt);
-      auto const NodeStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
-                                                       : nullptr;
-      
       Recording->recordEventL("StateEvaluationTree.NodeRightClick",
                               make_attribute("node", NodeIndex),
-                              make_attribute("stmt", NodeStmt));
+                              make_attribute("stmt", Stmt));
     }
     
     auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
@@ -714,10 +714,11 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
       return;
     
     auto const ThreadIndex = MaybeIndex.get<std::size_t>();
-    auto const Stmt = HoverNodeIt->Statement;
     
     wxMenu CM{};
     addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, Stmt, Recording);
+    if (Value)
+      addValueNavigation(*this, CurrentAccess, CM, *Value, Recording);
     PopupMenu(&CM);
   }
 }
