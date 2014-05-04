@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#define SEEC_DEBUG_IMPO 0
+
 
 namespace seec {
 
@@ -222,7 +224,7 @@ uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
   if (llvm::isa<llvm::ConstantPointerNull>(V))
     return 0;
 
-#if !defined(NDEBUG)
+#if SEEC_DEBUG_IMPO
   llvm_unreachable("don't know how to get pointer object.");
 #endif
 
@@ -235,9 +237,11 @@ const
 {
   auto const It = InMemoryPointerObjects.find(PtrLocation);
 
-#if 0
+#if SEEC_DEBUG_IMPO
   if (It == InMemoryPointerObjects.end())
-    llvm_unreachable("couldn't get in-memory pointer's object.");
+    llvm::errs() << "impo @" << PtrLocation << " not found.\n";
+  else
+    llvm::errs() << "impo @" << PtrLocation << " = " << It->second << "\n";
 #endif
 
   return It != InMemoryPointerObjects.end() ? It->second : 0;
@@ -248,6 +252,9 @@ void TraceProcessListener::setInMemoryPointerObject(uintptr_t const PtrLocation,
 {
   clearInMemoryPointerObjects(MemoryArea(PtrLocation, sizeof(void *)));
   InMemoryPointerObjects[PtrLocation] = Object;
+#if SEEC_DEBUG_IMPO
+  llvm::errs() << "set impo @" << PtrLocation << " to " << Object << "\n";
+#endif
 }
 
 void TraceProcessListener::clearInMemoryPointerObjects(MemoryArea const Area)
@@ -257,6 +264,10 @@ void TraceProcessListener::clearInMemoryPointerObjects(MemoryArea const Area)
     return;
 
   auto const End = InMemoryPointerObjects.lower_bound(Area.end());
+#if SEEC_DEBUG_IMPO
+  llvm::errs() << "clearing " << std::distance(It, End) << " impos in range ["
+               << Area.start() << ", " << Area.end() << ")\n";
+#endif
   InMemoryPointerObjects.erase(It, End);
 }
 
@@ -264,7 +275,7 @@ void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
                                                       uintptr_t const To,
                                                       std::size_t const Length)
 {
-  auto const End = To + Length;
+  auto const End = From + Length;
   auto const BeginIt = InMemoryPointerObjects.lower_bound(From);
   auto const EndIt   = InMemoryPointerObjects.lower_bound(End);
 
