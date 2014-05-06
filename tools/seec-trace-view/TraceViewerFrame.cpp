@@ -243,7 +243,10 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                          *Trace,
                                          *Notifier,
                                          *Recording,
-                                         *Replay);
+                                         *Replay,
+                                         wxID_ANY,
+                                         wxDefaultPosition,
+                                         wxSize(200, 200));
     auto const SourceViewerTitle =
       seec::getwxStringExOrEmpty(TextTable, "SourceBook_Title");
     Manager->AddPane(SourceViewer,
@@ -255,21 +258,26 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     ExplanationCtrl = new ExplanationViewer(this,
                                             *Notifier,
                                             *Recording,
-                                            *Replay);
+                                            *Replay,
+                                            wxID_ANY,
+                                            wxDefaultPosition,
+                                            wxSize(100, 100));
     auto const ExplanationCtrlTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Explanation", "Title"});
     Manager->AddPane(ExplanationCtrl,
                      wxAuiPaneInfo{}.Name("ExplanationCtrl")
                                     .Caption(ExplanationCtrlTitle)
-                                    .Bottom()
-                                    .MinimizeButton(true));
+                                    .Bottom());
 
     // Create the evaluation tree.
     EvaluationTree = new StateEvaluationTreePanel(this,
                                                   *Notifier,
                                                   *Recording,
-                                                  *Replay);
+                                                  *Replay,
+                                                  wxID_ANY,
+                                                  wxDefaultPosition,
+                                                  wxSize(100, 100));
     auto const EvaluationTreeTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"EvaluationTree", "Title"});
@@ -277,11 +285,16 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                      wxAuiPaneInfo{}.Name("EvaluationTree")
                                     .Caption(EvaluationTreeTitle)
                                     .Right()
-                                    .MinimizeButton(true)
                                     .MaximizeButton(true));
 
     // Create the stream viewer.
-    StreamState = new StreamStatePanel(this, *Notifier, *Recording, *Replay);
+    StreamState = new StreamStatePanel(this,
+                                       *Notifier,
+                                       *Recording,
+                                       *Replay,
+                                       wxID_ANY,
+                                       wxDefaultPosition,
+                                       wxSize(100, 100));
     auto const StreamStateTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"StreamState", "Title"});
@@ -289,14 +302,16 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                      wxAuiPaneInfo{}.Name("StreamState")
                                     .Caption(StreamStateTitle)
                                     .Right()
-                                    .MinimizeButton(true)
                                     .MaximizeButton(true));
 
     // Create the graph viewer.
     GraphViewer = new StateGraphViewerPanel(this,
                                             *Notifier,
                                             *Recording,
-                                            *Replay);
+                                            *Replay,
+                                            wxID_ANY,
+                                            wxDefaultPosition,
+                                            wxSize(200, 200));
     auto const GraphViewerTitle =
       seec::getwxStringExOrEmpty(TextTable,
                                  (char const *[]){"Graph", "Title"});
@@ -304,7 +319,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                      wxAuiPaneInfo{}.Name("GraphViewer")
                                     .Caption(GraphViewerTitle)
                                     .Right()
-                                    .MinimizeButton(true)
                                     .MaximizeButton(true));
 
     // Display the initial state. Call SourceViewer's show() last, as it may
