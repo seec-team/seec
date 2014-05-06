@@ -330,7 +330,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         RunErrorSeverity::Fatal,
         InstructionIndex);
       
-      CriticalError = true;
       break; // Leave the main processing loop.
     }
     
@@ -348,7 +347,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        CriticalError = true;
         break; // Leave the main processing loop.
       }
     }
@@ -369,7 +367,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        CriticalError = true;
         break; // Leave the main processing loop.
       }
 
@@ -391,7 +388,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
                   Size,
                   seec::runtime_errors::format_selects::MemoryAccess::Write))
             
-            CriticalError = true;
             break; // Leave the main processing loop.
         }
       }
