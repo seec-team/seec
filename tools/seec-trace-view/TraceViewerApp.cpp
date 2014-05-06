@@ -350,9 +350,15 @@ bool TraceViewerApp::OnInit() {
   // been open, then send information over to it before we terminate (e.g. any
   // files that the user has requested to open).
   SingleInstanceChecker.reset(new wxSingleInstanceChecker());
-  if (SingleInstanceChecker->IsAnotherRunning()) {
-    deferToExistingInstance();
-    return false;
+  if (SingleInstanceChecker->CreateDefault()) {
+    if (SingleInstanceChecker->IsAnotherRunning()) {
+      deferToExistingInstance();
+      return false;
+    }
+  }
+  else {
+    // TODO: Notify the user.
+    wxLogDebug("Couldn't check for existing instance.");
   }
 
   // Setup server to receive information from other instances (see above).
