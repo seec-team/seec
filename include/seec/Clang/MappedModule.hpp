@@ -366,6 +366,10 @@ class MappedModule {
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
+  /// \brief Get or create the AST for the given file.
+  ///
+  MappedAST const *createASTForFile(llvm::MDNode const *FileNode);
+
 public:
   /// \brief Constructor.
   /// \param ModIndex Indexed view of the llvm::Module to map.
@@ -387,10 +391,6 @@ public:
   /// \brief Get the indexed view of the llvm::Module.
   ///
   seec::ModuleIndex const &getModuleIndex() const { return ModIndex; }
-  
-  /// \brief Get or create the AST for the given file.
-  ///
-  MappedAST const *getOrCreateASTForFile(llvm::MDNode const *FileNode);
   
   /// \brief Get the FunctionLookup.
   ///

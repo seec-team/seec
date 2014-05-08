@@ -152,7 +152,7 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
 // class MappedModule
 //===----------------------------------------------------------------------===//
 
-std::string getPathFromFileNode(llvm::MDNode const *FileNode) {
+static std::string getPathFromFileNode(llvm::MDNode const *FileNode) {
   auto FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
   if (!FilenameStr)
     return std::string();
@@ -165,6 +165,113 @@ std::string getPathFromFileNode(llvm::MDNode const *FileNode) {
   llvm::sys::path::append(FilePath, FilenameStr->getString());
 
   return FilePath.str().str();
+}
+
+MappedAST const *
+MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
+  // TODO: We should return a seec::Error when this is unsuccessful, so that
+  //       we can describe the problem to the user rather than asserting.
+  
+  // Check lookup to see if we've already loaded the AST.
+  auto It = ASTLookup.find(FileNode);
+  if (It != ASTLookup.end())
+    return It->second;
+
+  // If not, we will try to load the AST from the source file.
+  auto const FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
+  auto const FileCompileInfo =
+    getCompileInfoForMainFile(FilenameStr->getString());
+  
+  if (!FileCompileInfo) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  auto FilePath = getPathFromFileNode(FileNode);
+  if (FilePath.empty()) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  // We have the original compile arguments, so we can build a compiler
+  // invocation from that.
+  auto const &StringArgs = FileCompileInfo->getInvocationArguments();
+  
+  std::vector<char const *> Args;
+  
+  for (auto &String : StringArgs)
+    Args.emplace_back(String.c_str());
+  
+  std::unique_ptr<CompilerInvocation> CI {new CompilerInvocation()};
+  
+  bool Created = CompilerInvocation::CreateFromArgs(*CI,
+                                                    Args.data(),
+                                                    Args.data() + Args.size(),
+                                                    *Diags);
+  if (!Created) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+    
+  auto const Invocation = CI.release();
+  
+  // Create a new ASTUnit.
+  std::unique_ptr< ::clang::ASTUnit > ASTUnit {
+    ::clang::ASTUnit::create(Invocation,
+                             Diags,
+                             false /* CaptureDiagnostics */,
+                             false /* UserFilesAreVolatile */)
+  };
+  
+  if (!ASTUnit) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  // Override files in ASTUnit using compile info.
+  auto &FileMgr = ASTUnit->getFileManager();
+  auto &SrcMgr = ASTUnit->getSourceManager();
+  
+  // SeeC-Clang specific: only allow the files and contents that we set below.
+  FileMgr.setDisableNonVirtualFiles(true);
+  
+  for (auto const &FileInfo : FileCompileInfo->getSourceFiles()) {
+    auto &Contents = FileInfo.getContents();
+    
+    auto const Entry = FileMgr.getVirtualFile(FileInfo.getName(),
+                                              Contents.getBufferSize(),
+                                              0 /* ModificationTime */);
+    
+    SrcMgr.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
+  }
+  
+  // Load the ASTUnit.
+  auto const LoadedASTUnit =
+    ::clang::ASTUnit::LoadFromCompilerInvocationAction(Invocation,
+                                                       Diags,
+                                                       nullptr /* Action */,
+                                                       ASTUnit.get(),
+                                                       true /* Persistent */);
+  
+  if (!LoadedASTUnit) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+  
+  // Create MappedAST from ASTUnit.
+  auto AST = MappedAST::FromASTUnit(ASTUnit.release());
+  if (!AST) {
+    ASTLookup[FileNode] = nullptr;
+    return nullptr;
+  }
+
+  // Get the raw pointer, because we have to push the unique_ptr onto the list.
+  auto const ASTRaw = AST.get();
+
+  ASTLookup[FileNode] = ASTRaw;
+  ASTList.emplace_back(std::move(AST));
+
+  return ASTRaw;
 }
 
 MappedModule::MappedModule(
@@ -197,6 +304,21 @@ MappedModule::MappedModule(
             
       CompileInfo.insert(std::make_pair(MappedInfo->getMainFileName(),
                                         std::move(MappedInfo)));
+    }
+  }
+  
+  // Create the ASTs for all files. These are required in the following steps.
+  auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
+  if (GlobalIdxMD) {
+    for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
+      auto Node = GlobalIdxMD->getOperand(i);
+      assert(Node && Node->getNumOperands() == 3);
+
+      auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
+      assert(FileNode);
+
+      auto AST = createASTForFile(FileNode);
+      assert(AST);
     }
   }
   
@@ -237,18 +359,14 @@ MappedModule::MappedModule(
   }
   
   // Create the FunctionLookup and GlobalVariableLookup.
-  auto GlobalIdxMD = Module.getNamedMetadata(MDGlobalDeclIdxsStr);
   if (GlobalIdxMD) {
     for (std::size_t i = 0u; i < GlobalIdxMD->getNumOperands(); ++i) {
+      // We know that the AST lookup will be successful, because all ASTs have
+      // been loaded (above).
       auto Node = GlobalIdxMD->getOperand(i);
-      assert(Node && Node->getNumOperands() == 3);
-
       auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
-      assert(FileNode);
-
-      auto AST = getOrCreateASTForFile(FileNode);
-      assert(AST);
-
+      auto AST = getASTForFile(FileNode);
+      
       auto FilePath = getPathFromFileNode(FileNode);
       assert(!FilePath.empty());
       
@@ -362,113 +480,6 @@ MappedModule::~MappedModule() = default;
 //------------------------------------------------------------------------------
 // MappedModule:: Accessors.
 //------------------------------------------------------------------------------
-
-MappedAST const *
-MappedModule::getOrCreateASTForFile(llvm::MDNode const *FileNode) {
-  // TODO: We should return a seec::Error when this is unsuccessful, so that
-  //       we can describe the problem to the user rather than asserting.
-  
-  // Check lookup to see if we've already loaded the AST.
-  auto It = ASTLookup.find(FileNode);
-  if (It != ASTLookup.end())
-    return It->second;
-
-  // If not, we will try to load the AST from the source file.
-  auto const FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
-  auto const FileCompileInfo =
-    getCompileInfoForMainFile(FilenameStr->getString());
-  
-  if (!FileCompileInfo) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-  
-  auto FilePath = getPathFromFileNode(FileNode);
-  if (FilePath.empty()) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-  
-  // We have the original compile arguments, so we can build a compiler
-  // invocation from that.
-  auto const &StringArgs = FileCompileInfo->getInvocationArguments();
-  
-  std::vector<char const *> Args;
-  
-  for (auto &String : StringArgs)
-    Args.emplace_back(String.c_str());
-  
-  std::unique_ptr<CompilerInvocation> CI {new CompilerInvocation()};
-  
-  bool Created = CompilerInvocation::CreateFromArgs(*CI,
-                                                    Args.data(),
-                                                    Args.data() + Args.size(),
-                                                    *Diags);
-  if (!Created) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-    
-  auto const Invocation = CI.release();
-  
-  // Create a new ASTUnit.
-  std::unique_ptr< ::clang::ASTUnit > ASTUnit {
-    ::clang::ASTUnit::create(Invocation,
-                             Diags,
-                             false /* CaptureDiagnostics */,
-                             false /* UserFilesAreVolatile */)
-  };
-  
-  if (!ASTUnit) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-  
-  // Override files in ASTUnit using compile info.
-  auto &FileMgr = ASTUnit->getFileManager();
-  auto &SrcMgr = ASTUnit->getSourceManager();
-  
-  // SeeC-Clang specific: only allow the files and contents that we set below.
-  FileMgr.setDisableNonVirtualFiles(true);
-  
-  for (auto const &FileInfo : FileCompileInfo->getSourceFiles()) {
-    auto &Contents = FileInfo.getContents();
-    
-    auto const Entry = FileMgr.getVirtualFile(FileInfo.getName(),
-                                              Contents.getBufferSize(),
-                                              0 /* ModificationTime */);
-    
-    SrcMgr.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
-  }
-  
-  // Load the ASTUnit.
-  auto const LoadedASTUnit =
-    ::clang::ASTUnit::LoadFromCompilerInvocationAction(Invocation,
-                                                       Diags,
-                                                       nullptr /* Action */,
-                                                       ASTUnit.get(),
-                                                       true /* Persistent */);
-  
-  if (!LoadedASTUnit) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-  
-  // Create MappedAST from ASTUnit.
-  auto AST = MappedAST::FromASTUnit(ASTUnit.release());
-  if (!AST) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-
-  // Get the raw pointer, because we have to push the unique_ptr onto the list.
-  auto const ASTRaw = AST.get();
-
-  ASTLookup[FileNode] = ASTRaw;
-  ASTList.emplace_back(std::move(AST));
-
-  return ASTRaw;
-}
 
 MappedAST const *
 MappedModule::getASTForFile(llvm::MDNode const *FileNode) const {
