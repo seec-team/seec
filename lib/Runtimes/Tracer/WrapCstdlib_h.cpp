@@ -55,12 +55,10 @@ void stopThreadsAndWriteTrace() {
   if (TraceEnabled) {
     ProcessListener.traceWrite();
     ProcessListener.traceFlush();
-    ProcessListener.traceClose();
     
     for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
       ThreadListenerPtr->traceWrite();
       ThreadListenerPtr->traceFlush();
-      ThreadListenerPtr->traceClose();
     }
   }
 }
