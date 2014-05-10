@@ -19,6 +19,7 @@ set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundl
 set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
+set(WX_TOOLCHAIN "" CACHE STRING "Build of wxWidgets to use.")
 set(MULTIARCH "" CACHE STRING "Architecture to build for multiarch systems.")
 option(SEEC_USER_ACTION_RECORDING "Support user action recording." OFF)
 
@@ -90,18 +91,26 @@ endif()
 #--------------------------------------------------------------------------------
 # find wxWidgets
 #--------------------------------------------------------------------------------
-if( NOT EXISTS ${WX_INSTALL}/bin/wx-config )
+if( EXISTS ${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN} )
+  set(WX_CONFIG_BIN "${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}")
+else()
+  if( EXISTS ${WX_INSTALL}/bin/wx-config )
+    set(WX_CONFIG_BIN "${WX_INSTALL}/bin/wx-config")
+  endif()
+endif()
+
+if( NOT EXISTS ${WX_CONFIG_BIN} )
   message(FATAL_ERROR "WX_INSTALL (${WX_INSTALL}) is not a valid wxWidgets installation.")
 endif()
 
 execute_process(
- COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --cflags
+ COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cflags
  OUTPUT_VARIABLE WX_C_FLAGS
 )
 string(STRIP ${WX_C_FLAGS} WX_C_FLAGS)
 
 execute_process(
- COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --cxxflags
+ COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cxxflags
  OUTPUT_VARIABLE WX_CXX_FLAGS
 )
 string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
