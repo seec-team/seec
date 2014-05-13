@@ -817,9 +817,16 @@ root:table {
     //   sub_expr_as_written
     //
     ImplicitCastExpr:string {
-      "This is an implicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it into an appropriate type, so that it can be stored in a variable, passed to a function, or used with an operator. In this case the new type is “{type}”."
-       "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
-       "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
+      "{cast_kind_name, select,"
+
+       "LValueToRValue {This represents loading the value referenced by the @[sub_expr_as_written]sub-expression@[] from memory.}"
+
+       "other {"
+        "This is an implicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it into an appropriate type, so that it can be stored in a variable, passed to a function, or used with an operator. In this case the new type is “{type}”."
+         // "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
+         // "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
+       "}"
+      "}"
     }
 
     // IntegerLiteral description.
