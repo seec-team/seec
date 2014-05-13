@@ -64,7 +64,7 @@
     // Highlight a Value.
     //
 
-    function HighlightValueImpl(ValueID) {
+    function ForeachValue(CallbackFn) {
       $('a').each(function() {
         var $this = $(this);
         var href = $this.attr('xlink:href');
@@ -79,8 +79,15 @@
           return false;
         }
 
-        if (splitref[0] == "value" && splitref[1] == ValueID) {
-          var Elem = $this[0];
+        if (splitref[0] == "value") {
+          CallbackFn($this[0], splitref[1]);
+        }
+      });
+    }
+
+    function HighlightValueImpl(ValueID) {
+      ForeachValue(function(Elem, ID){
+        if (ID == ValueID) {
           var Class = Elem.className.baseVal;
           Class += ' ' + "valuehighlight";
           Elem.setAttribute("class", Class);
@@ -90,6 +97,24 @@
             if (Child.nodeName == "polygon") {
               Child.setAttribute("fill", "rgb(220,255,220)");
               Child.setAttribute("fill-opacity", 0.5);
+            }
+          }
+        }
+      });
+    }
+
+    function RemoveHighlightValueImpl(ValueID) {
+      ForeachValue(function(Elem, ID){
+        if (ID == ValueID) {
+          var Class = Elem.className.baseVal;
+          Class += ' ' + "valuehighlight";
+          Elem.setAttribute("class", Class);
+
+          for (var i = 0; i < Elem.childNodes.length; ++i) {
+            var Child = Elem.childNodes[i];
+            if (Child.nodeName == "polygon") {
+              Child.setAttribute("fill", "rgb(255,255,255)");
+              Child.setAttribute("fill-opacity", 1);
             }
           }
         }
@@ -147,9 +172,19 @@
     // Called from seec-trace-viewer to highlight a value.
     //
     function HighlightValue(ValueID) {
-      HighlightedValues.push(ValueID);
-      if (StateExists)
-        HighlightValueImpl(ValueID);
+      if (ValueID == 0) {
+        if (HighlightedValues.length != 0) {
+          var ID = HighlightedValues.pop();
+          if (StateExists && HighlightedValues.indexOf(ID) == -1) {
+            RemoveHighlightValueImpl(ID);
+          }
+        }
+      }
+      else {
+        HighlightedValues.push(ValueID);
+        if (StateExists)
+          HighlightValueImpl(ValueID);
+      }
     }
 
     // Initial page setup.

@@ -214,6 +214,8 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator const It)
   if (HoverTimer.IsRunning())
     HoverTimer.Stop();
   
+  auto const PreviousHadValue = HoverNodeIt != Nodes.end()
+                                && HoverNodeIt->Value.get() != nullptr;
   HoverNodeIt = It;
   
   if (Recording) {
@@ -238,6 +240,16 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator const It)
     auto const TheStmt = HoverNodeIt != Nodes.end() ? HoverNodeIt->Statement
                                                     : nullptr;
     Notifier->createNotify<ConEvHighlightStmt>(TheStmt);
+
+    if (auto Access = CurrentAccess->getAccess()) {
+      if (HoverNodeIt == Nodes.end()) {
+        if (PreviousHadValue)
+          Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
+      }
+      else if (auto const TheValue = HoverNodeIt->Value.get()) {
+        Notifier->createNotify<ConEvHighlightValue>(TheValue, CurrentAccess);
+      }
+    }
   }
   
   return true;
