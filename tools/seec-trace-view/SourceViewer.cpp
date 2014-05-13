@@ -1070,6 +1070,8 @@ void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
 void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
                                     clang::Decl const *Decl)
 {
+  Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
   auto const PageIndex = Notebook->GetPageIndex(&Page);
   if (!Recording || PageIndex == wxNOT_FOUND)
     return;
@@ -1083,6 +1085,8 @@ void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
 void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
                                     clang::Stmt const *Stmt)
 {
+  Notifier->createNotify<ConEvHighlightStmt>(Stmt);
+
   auto const PageIndex = Notebook->GetPageIndex(&Page);
   if (!Recording || PageIndex == wxNOT_FOUND)
     return;
