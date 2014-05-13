@@ -41,6 +41,7 @@ namespace clang {
 
 class ActionRecord;
 class ActionReplayFrame;
+class ContextEvent;
 class ContextNotifier;
 class StateAccessToken;
 
@@ -195,6 +196,12 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// False if there was movement between mouse down and mouse up.
   bool ClickUnmoved;
 
+  /// Highlighted Stmt.
+  clang::Stmt const *HighlightedStmt;
+
+  /// Highlighted Value.
+  seec::cm::Value const *HighlightedValue;
+
   /// \brief Draw a single node using the given \c wxDC.
   ///
   void drawNode(wxDC &DC,
@@ -221,6 +228,13 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// \brief Show the hover tooltip for a node.
   ///
   void showHoverTooltip(NodeInfo const &Node);
+
+  /// \name Context events
+  /// @{
+
+  void notifyContextEvent(ContextEvent const &);
+
+  /// @} (Context events)
 
   /// \name Replay events
   /// @{

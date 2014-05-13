@@ -166,7 +166,13 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   
   // Draw the sub-Stmts' nodes.
   for (auto const &Node : Nodes) {
-    if (Node.Statement == ActiveStmt)
+    auto const DoHighlight =
+      (HighlightedStmt && Node.Statement == HighlightedStmt)
+      || (HighlightedValue && Node.Value.get() == HighlightedValue);
+
+    if (DoHighlight)
+      drawNode(dc, Node, NodeDecoration::Highlighted);
+    else if (Node.Statement == ActiveStmt)
       drawNode(dc, Node, NodeDecoration::Active);
     else
       drawNode(dc, Node, NodeDecoration::None);
@@ -327,6 +333,31 @@ void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
   }
 }
 
+void StateEvaluationTreePanel::notifyContextEvent(ContextEvent const &Ev)
+{
+  switch (Ev.getKind())
+  {
+    case ContextEventKind::HighlightDecl:
+      break;
+
+    case ContextEventKind::HighlightStmt:
+    {
+      auto const &Event = llvm::cast<ConEvHighlightStmt>(Ev);
+      HighlightedStmt = Event.getStmt();
+      redraw();
+      break;
+    }
+
+    case ContextEventKind::HighlightValue:
+    {
+      auto const &Event = llvm::cast<ConEvHighlightValue>(Ev);
+      HighlightedValue = Event.getValue();
+      redraw();
+      break;
+    }
+  }
+}
+
 void
 StateEvaluationTreePanel::
 ReplayNodeMouseOver(decltype(Nodes)::difference_type const NodeIndex,
@@ -373,7 +404,9 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
   HoverNodeIt(Nodes.end()),
   ReplayHoverNodeIt(Nodes.end()),
   HoverTimer(),
-  ClickUnmoved(false)
+  ClickUnmoved(false),
+  HighlightedStmt(nullptr),
+  HighlightedValue(nullptr)
 {}
 
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
@@ -412,6 +445,10 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   
+  // Receive notifications of context events.
+  Notifier->callbackAdd(seec::make_function([this] (ContextEvent const &Ev) {
+                                              this->notifyContextEvent(Ev); }));
+
   WithReplay.RegisterHandler("StateEvaluationTree.NodeMouseOver",
                              {{"node", "stmt"}},
     seec::make_function(this, &StateEvaluationTreePanel::ReplayNodeMouseOver));
