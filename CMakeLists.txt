@@ -91,7 +91,7 @@ endif()
 #--------------------------------------------------------------------------------
 # find wxWidgets
 #--------------------------------------------------------------------------------
-if( EXISTS ${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN} )
+if( (NOT "${WX_TOOLCHAIN}" STREQUAL "") AND (EXISTS ${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}) )
   set(WX_CONFIG_BIN "${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}")
 else()
   if( EXISTS ${WX_INSTALL}/bin/wx-config )
