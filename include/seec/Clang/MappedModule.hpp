@@ -31,9 +31,12 @@
 #include <vector>
 
 namespace clang {
+  class CompilerInvocation;
   class Decl;
   class DiagnosticsEngine;
+  class FileManager;
   class FileSystemOptions;
+  class SourceManager;
   class Stmt;
 }
 
@@ -317,6 +320,16 @@ public:
   decltype(InvocationArguments) const &getInvocationArguments() const {
     return InvocationArguments;
   }
+
+  /// \brief Create a \c CompilerInvocation for this compilation.
+  ///
+  std::unique_ptr<clang::CompilerInvocation>
+  createCompilerInvocation(clang::DiagnosticsEngine &Diags) const;
+
+  /// \brief Create virtual files for all source files in this compilation.
+  ///
+  void createVirtualFiles(clang::FileManager &FM,
+                          clang::SourceManager &SM) const;
 };
 
 

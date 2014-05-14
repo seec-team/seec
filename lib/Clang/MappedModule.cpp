@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedParam.hpp"
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MDNames.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -148,6 +149,48 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
                                   std::move(InvocationArguments)));
 }
 
+std::unique_ptr<CompilerInvocation>
+MappedCompileInfo::createCompilerInvocation(DiagnosticsEngine &Diags) const
+{
+  std::unique_ptr<CompilerInvocation> CI;
+  llvm::SmallString<256> FilePath {MainDirectory};
+  llvm::sys::path::append(FilePath, MainFileName);
+
+  if (!FilePath.empty()) {
+    // We have the original compile arguments, so we can build a compiler
+    // invocation from that.
+    std::vector<char const *> Args;
+    for (auto &Arg : InvocationArguments)
+      Args.emplace_back(Arg.c_str());
+
+    CI = seec::makeUnique<CompilerInvocation>();
+    bool Created = CompilerInvocation::CreateFromArgs(*CI,
+                                                      Args.data(),
+                                                      Args.data() + Args.size(),
+                                                      Diags);
+    if (!Created)
+      CI.reset();
+  }
+
+  return CI;
+}
+
+void MappedCompileInfo::createVirtualFiles(clang::FileManager &FM,
+                                           clang::SourceManager &SM) const
+{
+  // SeeC-Clang specific: only allow the files and contents that we set below.
+  FM.setDisableNonVirtualFiles(true);
+
+  for (auto const &FileInfo : SourceFiles) {
+    auto &Contents = FileInfo.getContents();
+    auto const Entry = FM.getVirtualFile(FileInfo.getName(),
+                                         Contents.getBufferSize(),
+                                         0 /* ModificationTime */);
+
+    SM.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // class MappedModule
 //===----------------------------------------------------------------------===//
@@ -187,41 +230,20 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
     return nullptr;
   }
   
-  auto FilePath = getPathFromFileNode(FileNode);
-  if (FilePath.empty()) {
+  auto CI = FileCompileInfo->createCompilerInvocation(*Diags);
+  if (!CI) {
     ASTLookup[FileNode] = nullptr;
     return nullptr;
   }
   
-  // We have the original compile arguments, so we can build a compiler
-  // invocation from that.
-  auto const &StringArgs = FileCompileInfo->getInvocationArguments();
-  
-  std::vector<char const *> Args;
-  
-  for (auto &String : StringArgs)
-    Args.emplace_back(String.c_str());
-  
-  std::unique_ptr<CompilerInvocation> CI {new CompilerInvocation()};
-  
-  bool Created = CompilerInvocation::CreateFromArgs(*CI,
-                                                    Args.data(),
-                                                    Args.data() + Args.size(),
-                                                    *Diags);
-  if (!Created) {
-    ASTLookup[FileNode] = nullptr;
-    return nullptr;
-  }
-    
   auto const Invocation = CI.release();
   
   // Create a new ASTUnit.
-  std::unique_ptr< ::clang::ASTUnit > ASTUnit {
-    ::clang::ASTUnit::create(Invocation,
-                             Diags,
-                             false /* CaptureDiagnostics */,
-                             false /* UserFilesAreVolatile */)
-  };
+  std::unique_ptr<ASTUnit> ASTUnit {
+    ASTUnit::create(Invocation,
+                    Diags,
+                    false /* CaptureDiagnostics */,
+                    false /* UserFilesAreVolatile */)};
   
   if (!ASTUnit) {
     ASTLookup[FileNode] = nullptr;
@@ -229,21 +251,8 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   }
   
   // Override files in ASTUnit using compile info.
-  auto &FileMgr = ASTUnit->getFileManager();
-  auto &SrcMgr = ASTUnit->getSourceManager();
-  
-  // SeeC-Clang specific: only allow the files and contents that we set below.
-  FileMgr.setDisableNonVirtualFiles(true);
-  
-  for (auto const &FileInfo : FileCompileInfo->getSourceFiles()) {
-    auto &Contents = FileInfo.getContents();
-    
-    auto const Entry = FileMgr.getVirtualFile(FileInfo.getName(),
-                                              Contents.getBufferSize(),
-                                              0 /* ModificationTime */);
-    
-    SrcMgr.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
-  }
+  FileCompileInfo->createVirtualFiles(ASTUnit->getFileManager(),
+                                      ASTUnit->getSourceManager());
   
   // Load the ASTUnit.
   auto const LoadedASTUnit =
