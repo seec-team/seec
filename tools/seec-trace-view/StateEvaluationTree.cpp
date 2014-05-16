@@ -44,6 +44,7 @@
 #include "StateEvaluationTree.hpp"
 #include "ValueFormat.hpp"
 
+#include <stack>
 #include <string>
 
 
@@ -507,53 +508,121 @@ clang::Stmt const *getEvaluationRoot(clang::Stmt const *S,
   return S;
 }
 
-/// \brief Records the depth of each sub-node in a Stmt.
+/// \brief Records the effective depth of each sub-node in a Stmt.
 ///
 class DepthRecorder : public clang::RecursiveASTVisitor<DepthRecorder>
 {
+  enum class StmtPresence {
+    Unknown,
+    Unexpanded,
+    Visible
+  };
+
+  seec::FormattedStmt const &Formatted;
+
   unsigned CurrentDepth;
-  
+
   unsigned MaxDepth;
-  
+
   llvm::DenseMap<clang::Stmt const *, unsigned> Depths;
-  
+
+  std::stack<StmtPresence> Visibilities;
+
+  std::stack<bool> Shown;
+
+  std::stack<clang::Stmt const *> Parents;
+
+  StmtPresence getPresence(clang::Stmt const * const S) const {
+    auto const Range = Formatted.getStmtRange(S);
+    if (!Range)
+      return StmtPresence::Unknown;
+
+    if (Range->isEndHidden() && Range->isStartHidden())
+      return StmtPresence::Unexpanded;
+
+    return StmtPresence::Visible;
+  }
+
+  /// \param Visibility the true visibility of this node.
+  ///
+  bool shouldShow(StmtPresence const Visibility) const {
+    if (Visibility == StmtPresence::Unknown)
+      return false;
+
+    if (Visibility == StmtPresence::Visible || Visibilities.empty())
+      return true;
+
+    // If the parent node was visible, but this node is not, then we should
+    // show this node anyway (it will represent the entirity of the macro).
+    if (Visibilities.top() == StmtPresence::Visible)
+      return true;
+
+    // If the parent was not shown, then certainly do not show this node.
+    if (!Shown.top())
+      return false;
+
+    // If the parent was invisible but shown, and was of a certain type, then
+    // show this expression as well:
+    if (llvm::isa<clang::ParenExpr>(Parents.top())
+        || llvm::isa<clang::ImplicitCastExpr>(Parents.top()))
+      return true;
+
+    return false;
+  }
+
 public:
-  DepthRecorder()
-  : CurrentDepth(0),
+  DepthRecorder(seec::FormattedStmt const &WithFormatted)
+  : Formatted(WithFormatted),
+    CurrentDepth(0),
     MaxDepth(0),
-    Depths()
+    Depths(),
+    Visibilities(),
+    Shown(),
+    Parents()
   {}
-  
+
   bool shouldUseDataRecursionFor(clang::Stmt *S) {
     return false;
   }
-  
+
   bool TraverseStmt(clang::Stmt *S) {
     if (!S)
       return true;
-    
-    if (CurrentDepth > MaxDepth)
-      MaxDepth = CurrentDepth;
-    
-    Depths[S] = CurrentDepth;
-    
-    ++CurrentDepth;
-    
+
+    auto const Visible = getPresence(S);
+    auto const Show = shouldShow(Visible);
+
+    Visibilities.push(Visible);
+    Shown.push(Show);
+    Parents.push(S);
+
+    if (Show) {
+      if (CurrentDepth > MaxDepth)
+        MaxDepth = CurrentDepth;
+      Depths[S] = CurrentDepth;
+      ++CurrentDepth;
+    }
+
     clang::RecursiveASTVisitor<DepthRecorder>::TraverseStmt(S);
-    
-    --CurrentDepth;
-    
+
+    if (Show)
+      --CurrentDepth;
+
+    Visibilities.pop();
+    Shown.pop();
+    Parents.pop();
+
     return true;
   }
-  
+
   unsigned getMaxDepth() const {
     return MaxDepth;
   }
-  
+
   decltype(Depths) &getDepths() {
     return Depths;
   }
-  
+
   decltype(Depths) const &getDepths() const {
     return Depths;
   }
@@ -606,21 +675,22 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   auto &ASTUnit = MappedAST->getASTUnit();
   clang::LangOptions LangOpts = ASTUnit.getASTContext().getLangOpts();
   
+  // Testing Stmt formatting:
+  auto const Formatted = seec::formatStmtSource(TopStmt, *MappedAST);
+
   clang::PrintingPolicy Policy(LangOpts);
   Policy.Indentation = 0;
   Policy.Bool = true;
   Policy.ConstantArraySizeAsWritten = true;
   
-  auto const &Ranges = seec::printStmtAndRecordRanges(StmtOS, TopStmt, Policy);
-  
   // Determine the "depth" of each sub-Stmt.
-  DepthRecorder DepthRecord;
+  DepthRecorder DepthRecord(Formatted);
   DepthRecord.TraverseStmt(const_cast<clang::Stmt *>(TopStmt));
   auto const &Depths = DepthRecord.getDepths();
   auto const MaxDepth = DepthRecord.getMaxDepth();
   
   // Now save all of the calculated information for the render method.
-  Statement = PrettyPrintedStmt;
+  Statement = Formatted.getCode();
   
   // Calculate the new size of the display.
   dc.SetFont(CodeFont);
@@ -643,12 +713,12 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   SetVirtualSize(TotalWidth, TotalHeight);
   
   // Calculate the position of each node in the display.
-  for (auto const &StmtRange : Ranges) {
+  for (auto const &StmtRange : Formatted.getStmtRanges()) {
+    // If the node has been hidden (because it is in an unexpanded macro) then
+    // it will have no depth entry - we should simply skip it.
     auto const DepthIt = Depths.find(StmtRange.first);
-    if (DepthIt == Depths.end()) {
-      wxLogDebug("Couldn't get depth for sub-Stmt.");
+    if (DepthIt == Depths.end())
       continue;
-    }
     
     auto const WidthPrior =
       dc.GetTextExtent(Statement.substr(0, StmtRange.second.getStart()))
