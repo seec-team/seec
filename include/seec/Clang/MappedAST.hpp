@@ -42,6 +42,7 @@ namespace seec {
 namespace seec_clang {
 
 
+class MappedCompileInfo;
 class MappingASTVisitor;
 
 
@@ -52,6 +53,9 @@ public:
   typedef seec::Maybe<clang::Decl const *, clang::Stmt const *> ASTNodeTy;
   
 private:
+  /// The compile information used to recreate this AST.
+  MappedCompileInfo const &CompileInfo;
+
   /// The ASTUnit that is mapped.
   clang::ASTUnit * const AST;
 
@@ -65,7 +69,8 @@ private:
   llvm::DenseSet<clang::Decl const *> const DeclsReferenced;
   
   /// \brief Constructor.
-  MappedAST(clang::ASTUnit *ForAST,
+  MappedAST(MappedCompileInfo const &FromCompileInfo,
+            clang::ASTUnit *ForAST,
             MappingASTVisitor WithMapping);
 
   // Don't allow copying.
@@ -80,26 +85,17 @@ public:
   /// \brief Factory.
   ///
   static std::unique_ptr<MappedAST>
-  FromASTUnit(clang::ASTUnit *AST);
-
-  /// \brief Factory.
-  ///
-  static std::unique_ptr<MappedAST>
-  LoadFromASTFile(llvm::StringRef Filename,
-                  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags,
-                  clang::FileSystemOptions const &FileSystemOpts);
-
-  /// \brief Factory.
-  ///
-  static std::unique_ptr<MappedAST>
-  LoadFromCompilerInvocation(
-    std::unique_ptr<clang::CompilerInvocation> Invocation,
-    llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
+  FromASTUnit(MappedCompileInfo const &FromCompileInfo,
+              clang::ASTUnit *AST);
   
   
   /// \name Accessors
   /// @{
 
+  /// \brief Get the compilation information used for this AST.
+  ///
+  MappedCompileInfo const &getCompileInfo() const { return CompileInfo; }
+  
   /// \brief Get the underlying ASTUnit.
   ///
   clang::ASTUnit &getASTUnit() const { return *AST; }

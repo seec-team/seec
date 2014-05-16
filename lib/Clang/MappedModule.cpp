@@ -268,7 +268,7 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   }
   
   // Create MappedAST from ASTUnit.
-  auto AST = MappedAST::FromASTUnit(ASTUnit.release());
+  auto AST = MappedAST::FromASTUnit(*FileCompileInfo, ASTUnit.release());
   if (!AST) {
     ASTLookup[FileNode] = nullptr;
     return nullptr;

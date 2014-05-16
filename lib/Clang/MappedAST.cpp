@@ -154,9 +154,11 @@ public:
 // class MappedAST
 //===----------------------------------------------------------------------===//
 
-MappedAST::MappedAST(clang::ASTUnit *ForAST,
+MappedAST::MappedAST(MappedCompileInfo const &FromCompileInfo,
+                     clang::ASTUnit *ForAST,
                      MappingASTVisitor WithMapping)
-: AST(ForAST),
+: CompileInfo(FromCompileInfo),
+  AST(ForAST),
   Decls(std::move(WithMapping.getDecls())),
   Stmts(std::move(WithMapping.getStmts())),
   DeclsReferenced(std::move(WithMapping.getDeclsReferenced()))
@@ -167,7 +169,9 @@ MappedAST::~MappedAST() {
 }
 
 std::unique_ptr<MappedAST>
-MappedAST::FromASTUnit(clang::ASTUnit *AST) {
+MappedAST::FromASTUnit(MappedCompileInfo const &FromCompileInfo,
+                       clang::ASTUnit *AST)
+{
   if (!AST)
     return nullptr;
 
@@ -178,29 +182,13 @@ MappedAST::FromASTUnit(clang::ASTUnit *AST) {
     Mapper.TraverseDecl(*It);
   }
 
-  auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(AST,
+  auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(FromCompileInfo,
+                                                         AST,
                                                          std::move(Mapper)));
   if (!Mapped)
     delete AST;
 
   return Mapped;
-}
-
-std::unique_ptr<MappedAST>
-MappedAST::LoadFromASTFile(llvm::StringRef Filename,
-                           IntrusiveRefCntPtr<DiagnosticsEngine> Diags,
-                           FileSystemOptions const &FileSystemOpts) {
-  return MappedAST::FromASTUnit(
-          ASTUnit::LoadFromASTFile(Filename.str(), Diags, FileSystemOpts));
-}
-
-std::unique_ptr<MappedAST>
-MappedAST::LoadFromCompilerInvocation(
-  std::unique_ptr<CompilerInvocation> Invocation,
-  IntrusiveRefCntPtr<DiagnosticsEngine> Diags)
-{
-  return MappedAST::FromASTUnit(
-          ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
 }
 
 seec::Maybe<uint64_t> MappedAST::getIdxForDecl(clang::Decl const *Decl) const
