@@ -97,73 +97,6 @@ FormattedStmt::getStmtRange(clang::Stmt const * const S) const
 // sub-expression ranges.
 //===----------------------------------------------------------------------===//
 
-/// Adapted from clang/lib/Rewrite/Frontend/RewriteMacros.cpp:
-/// isSameToken - Return true if the two specified tokens start have the same
-/// content.
-static bool isSameToken(clang::Token &RawTok, clang::Token &PPTok) {
-  // If two tokens have the same kind and the same identifier info, they are
-  // obviously the same.
-  if (PPTok.getKind() == RawTok.getKind() &&
-      PPTok.getIdentifierInfo() == RawTok.getIdentifierInfo())
-    return true;
-
-  // Otherwise, if they are different but have the same identifier info, they
-  // are also considered to be the same.  This allows keywords and raw lexed
-  // identifiers with the same name to be treated the same.
-  if (PPTok.getIdentifierInfo() &&
-      PPTok.getIdentifierInfo() == RawTok.getIdentifierInfo())
-    return true;
-
-  return false;
-}
-
-/// Adapted from clang/lib/Rewrite/Frontend/RewriteMacros.cpp:
-/// GetNextRawTok - Return the next raw token in the stream, skipping over
-/// comments if ReturnComment is false.
-static clang::Token const &
-GetNextRawTok(std::vector<clang::Token> const &RawTokens,
-              unsigned &CurTok,
-              bool ReturnComment)
-{
-  assert(CurTok < RawTokens.size() && "Overran eof!");
-
-  // If the client doesn't want comments and we have one, skip it.
-  if (!ReturnComment && RawTokens[CurTok].is(clang::tok::comment))
-    ++CurTok;
-
-  return RawTokens[CurTok++];
-}
-
-/// Adapted from clang/lib/Rewrite/Frontend/RewriteMacros.cpp:
-/// LexRawTokensFromMainFile - Lets all the raw tokens from the main file into
-/// the specified vector.
-static void LexRawTokensFromMainFile(clang::Preprocessor &PP,
-                                     std::vector<clang::Token> &RawTokens)
-{
-  clang::SourceManager &SM = PP.getSourceManager();
-
-  // Create a lexer to lex all the tokens of the main file in raw mode.  Even
-  // though it is in raw mode, it will not return comments.
-  const llvm::MemoryBuffer *FromFile = SM.getBuffer(SM.getMainFileID());
-  clang::Lexer RawLex(SM.getMainFileID(), FromFile, SM, PP.getLangOpts());
-
-  // Switch on comment lexing because we really do want them.
-  RawLex.SetCommentRetentionState(true);
-
-  clang::Token RawTok;
-  do {
-    RawLex.LexFromRawLexer(RawTok);
-
-    // If we have an identifier with no identifier info for our raw token, look
-    // up the indentifier info.  This is important for equality comparison of
-    // identifier tokens.
-    if (RawTok.is(clang::tok::raw_identifier))
-      PP.LookUpIdentifierInfo(RawTok);
-
-    RawTokens.push_back(RawTok);
-  } while (RawTok.isNot(clang::tok::eof));
-}
-
 /// \brief Helper class used to build a FormattedStmt.
 ///
 class FormattedStmtBuilder final
@@ -461,164 +394,184 @@ static FormattedStmt prettyPrintFallback(clang::Stmt const *S,
   return FormattedStmt{std::move(Print), std::move(FormattedRanges)};
 }
 
+class FormattedStmtCacheForAST
+{
+  seec::seec_clang::MappedAST const &MappedAST;
+
+  std::unique_ptr<clang::CompilerInstance> Clang;
+
+  std::vector<clang::Token> PreprocessedTokens;
+
+  std::map<clang::FileID, std::vector<clang::Token>> RawTokens;
+
+public:
+  FormattedStmtCacheForAST(seec::seec_clang::MappedAST const &ForMappedAST)
+  : MappedAST(ForMappedAST),
+    Clang(makeCompilerInstance(MappedAST)),
+    PreprocessedTokens(),
+    RawTokens()
+  {
+    // Generate all the preprocessed tokens. The raw tokens will be generated
+    // lazily.
+    auto &PP = Clang->getPreprocessor();
+
+    PP.EnterMainSourceFile();
+    clang::Token PPTok;
+
+    do {
+      PP.Lex(PPTok);
+      PreprocessedTokens.push_back(PPTok);
+    } while (PPTok.isNot(clang::tok::eof));
+  }
+
+  seec::seec_clang::MappedAST const &getMappedAST() const { return MappedAST; }
+
+  bool hasCompilerInstance() const { return Clang != nullptr; }
+
+  clang::Preprocessor const &getPreprocessor() const {
+    return Clang->getPreprocessor();
+  }
+
+  std::vector<clang::Token> const &getPreprocessedTokens() const {
+    return PreprocessedTokens;
+  }
+
+  std::vector<clang::Token> const *getRawTokens(clang::FileID const FID)
+  {
+    auto const It = RawTokens.lower_bound(FID);
+    if (It != RawTokens.end() && It->first == FID)
+      return &(It->second);
+
+    // Generate the raw tokens now.
+    auto &PP = Clang->getPreprocessor();
+    auto &SM = PP.getSourceManager();
+
+    bool BufferError = false;
+    auto const Buffer = SM.getBuffer(FID, &BufferError);
+    if (BufferError)
+      return nullptr;
+
+    std::vector<clang::Token> Tokens;
+    clang::Lexer RawLex(FID, Buffer, SM, PP.getLangOpts());
+
+    clang::Token RawTok;
+
+    do {
+      RawLex.LexFromRawLexer(RawTok);
+      if (RawTok.is(clang::tok::raw_identifier))
+        PP.LookUpIdentifierInfo(RawTok);
+      Tokens.push_back(RawTok);
+    } while (RawTok.isNot(clang::tok::eof));
+
+    auto const Inserted = RawTokens.emplace_hint(It, FID, std::move(Tokens));
+    return &(Inserted->second);
+  }
+};
+
+static clang::Token const *getNextToken(std::vector<clang::Token> const &Tokens,
+                                        std::size_t &TokenIndex)
+{
+  if (TokenIndex >= Tokens.size())
+    return nullptr;
+
+  return &(Tokens[TokenIndex++]);
+}
+
+bool formatMacro(FormattedStmtBuilder &Builder,
+                 FormattedStmtCacheForAST &CacheForAST,
+                 clang::Preprocessor const &PP,
+                 clang::SourceManager &SM,
+                 clang::SourceLocation PPLoc,
+                 std::vector<clang::Token> const &PPTokens,
+                 std::size_t &PPTokIdx,
+                 clang::Token const *&PPTok)
+{
+  auto const ExpRange = SM.getExpansionRange(PPLoc);
+  auto const OffStart = SM.getFileOffset(ExpRange.first);
+  auto const OffEnd   = SM.getFileOffset(ExpRange.second);
+  auto const FileID   = SM.getFileID(ExpRange.first);
+
+  // We should expand this macro, because it's user-defined.
+  if (!SM.isInSystemMacro(PPLoc)) {
+    do {
+      Builder.addExpandedToken(*PPTok, PP);
+      PPTok = getNextToken(PPTokens, PPTokIdx);
+      PPLoc = PPTok->getLocation();
+    } while (SM.getFileOffset(SM.getExpansionLoc(PPLoc)) <= OffEnd);
+
+    return true;
+  }
+
+  // Consume all the preprocessed tokens from this macro expansion.
+  // TODO: Ensure that we don't cross over multiple raw files. If we do,
+  // then fall back to the pretty-printing method (this shouldn't happen
+  // anyway, so don't go to the trouble of supporting it).
+  do {
+    PPTok = getNextToken(PPTokens, PPTokIdx);
+    PPLoc = PPTok->getLocation();
+  } while (SM.getFileOffset(SM.getExpansionLoc(PPLoc)) <= OffEnd);
+
+  // Add all the raw tokens for the code that this macro was expanded from.
+  auto const RawTokens = CacheForAST.getRawTokens(FileID);
+  if (!RawTokens)
+    return false;
+
+  std::size_t RawTokIdx = 0;
+  clang::Token const *RawTok = getNextToken(*RawTokens, RawTokIdx);
+
+  while (RawTok && RawTok->isNot(clang::tok::eof)) {
+    auto const RawOff = SM.getFileOffset(RawTok->getLocation());
+    if (RawOff > OffEnd)
+      break;
+    if (RawOff >= OffStart)
+      Builder.addUnexpandedToken(*RawTok, PP);
+    RawTok = getNextToken(*RawTokens, RawTokIdx);
+  }
+
+  return true;
+}
+
 FormattedStmt formatStmtSource(clang::Stmt const *S,
                                seec::seec_clang::MappedAST const &MappedAST)
 {
-  FormattedStmtBuilder Builder{S, MappedAST};
-
-  auto &ASTUnit = MappedAST.getASTUnit();
-  auto &AST     = ASTUnit.getASTContext();
-  auto &SrcMgr  = ASTUnit.getSourceManager();
-
   auto LocStart = S->getLocStart();
   auto LocEnd   = S->getLocEnd();
-  if (!LocStart.isValid() || !LocEnd.isValid()) {
-    llvm::errs() << "Falling back to pretty-printing due to invalid locs.\n";
-    return prettyPrintFallback(S, AST);
-  }
+  if (!LocStart.isValid() || !LocEnd.isValid())
+    return prettyPrintFallback(S, MappedAST.getASTUnit().getASTContext());
 
-  if (LocStart.isMacroID())
-    LocStart = SrcMgr.getExpansionLoc(LocStart);
+  FormattedStmtBuilder Builder{S, MappedAST};
+  FormattedStmtCacheForAST CacheForAST{MappedAST};
 
-  if (LocEnd.isMacroID())
-    LocEnd = SrcMgr.getExpansionLoc(LocEnd);
-
-  // For the cases that aren't handled by this formatting system, fall back to
-  // the old pretty-printing method. At the moment we don't handle source ranges
-  // that aren't part of the main file. This shouldn't be too troublesome for
-  // students, because they shouldn't be defining functions in headers anyway.
-  if (!SrcMgr.isWrittenInSameFile(LocStart, LocEnd)
-      || !SrcMgr.isInMainFile(LocStart))
-  {
-    llvm::errs() << "Falling back to pretty-printing.\n";
-    return prettyPrintFallback(S, AST);
-  }
-
-  // Determine the position that follows the end token (so that we can get the
-  // complete text of the token).
-  auto const LocPostEnd =
-    clang::Lexer::getLocForEndOfToken(LocEnd, 0, SrcMgr, AST.getLangOpts());
-
-  auto const StartOffset = SrcMgr.getFileOffset(LocStart);
-  auto const EndOffset = LocPostEnd.isValid() ? SrcMgr.getFileOffset(LocPostEnd)
-                                              : SrcMgr.getFileOffset(LocEnd);
-
-  auto Clang = makeCompilerInstance(MappedAST);
-  auto &PP = Clang->getPreprocessor();
+  auto &PP = CacheForAST.getPreprocessor();
   auto &SM = PP.getSourceManager();
 
-  std::vector<clang::Token> RawTokens;
-  LexRawTokensFromMainFile(PP, RawTokens);
-  unsigned CurRawTok = 0;
-  clang::Token RawTok = GetNextRawTok(RawTokens, CurRawTok, false);
+  auto const &PPTokens = CacheForAST.getPreprocessedTokens();
+  std::size_t PPTokIdx = 0;
+  clang::Token const *PPTok = getNextToken(PPTokens, PPTokIdx);
 
-  // Get the first preprocessing token.
-  PP.EnterMainSourceFile();
-  clang::Token PPTok;
-  PP.Lex(PPTok);
+  while (PPTok && PPTok->isNot(clang::tok::eof)) {
+    auto PPLoc = PPTok->getLocation();
 
-  while (RawTok.isNot(clang::tok::eof) || PPTok.isNot(clang::tok::eof)) {
-    auto PPLoc = SM.getExpansionLoc(PPTok.getLocation());
+    // Use SrcMgr because it has already parsed the entire TU, so this works.
+    if (!SM.isBeforeInTranslationUnit(PPLoc, LocStart)
+        && !SM.isBeforeInTranslationUnit(LocEnd, PPLoc))
+    {
+      if (PPLoc.isMacroID()) {
+        auto const Success = formatMacro(Builder, CacheForAST, PP, SM, PPLoc,
+                                         PPTokens, PPTokIdx, PPTok);
+        if (!Success)
+          return prettyPrintFallback(S, MappedAST.getASTUnit().getASTContext());
 
-    // If PPTok is from a different source file, ignore it.
-    if (!SM.isWrittenInMainFile(PPLoc)) {
-      PP.Lex(PPTok);
-      continue;
-    }
-
-    // Skip preprocessor directives.
-    if (RawTok.is(clang::tok::hash) && RawTok.isAtStartOfLine()) {
-      do {
-        RawTok = GetNextRawTok(RawTokens, CurRawTok, false);
-      } while (!RawTok.isAtStartOfLine() && RawTok.isNot(clang::tok::eof));
-      continue;
-    }
-
-    // Okay, both tokens are from the same file.  Get their offsets from the
-    // start of the file.
-    unsigned PPOffs = SM.getFileOffset(PPLoc);
-    unsigned RawOffs = SM.getFileOffset(RawTok.getLocation());
-
-    // If the offsets are the same and the token kind is the same, ignore them.
-    if (PPOffs == RawOffs && isSameToken(RawTok, PPTok)) {
-      if (PPOffs >= EndOffset)
-        break;
-
-      if (StartOffset <= PPOffs)
-        Builder.addRawToken(PPTok, PP);
-
-      RawTok = GetNextRawTok(RawTokens, CurRawTok, false);
-      PP.Lex(PPTok);
-      continue;
-    }
-
-    // The PP token is farther along than the raw token. This occurs when we
-    // expand a macro (because the PP token is the first expanded token, but
-    // the raw token is sitting at the macro identifier). If the macro was
-    // defined in a system header, or is a builtin, then we want to use the raw
-    // tokens (to hide the implementation from the students) - otherwise use
-    // the preprocessed tokens (to show the students their macro at work).
-    if (RawOffs <= PPOffs) {
-      bool ExpandMacro = true;
-
-      if (auto II = RawTok.getIdentifierInfo()) {
-        if (auto MI = PP.getMacroInfo(II)) {
-          auto DefLoc = MI->getDefinitionLoc();
-          if (MI->isBuiltinMacro() || SM.isInSystemHeader(DefLoc))
-            ExpandMacro = false;
-        }
-      }
-
-      if (ExpandMacro) {
-        // We just move past the raw tokens here. The actual expansion will be
-        // performed by the if branch farther down.
-        do {
-          RawTok = GetNextRawTok(RawTokens, CurRawTok, true);
-          RawOffs = SM.getFileOffset(RawTok.getLocation());
-
-          if (RawTok.is(clang::tok::comment)) {
-            // Skip past the comment.
-            RawTok = GetNextRawTok(RawTokens, CurRawTok, false);
-            break;
-          }
-        } while (RawOffs <= PPOffs && !RawTok.isAtStartOfLine() &&
-                 (PPOffs != RawOffs || !isSameToken(RawTok, PPTok)));
-
+        // formatMacro() will leave PPTok as the next token following the macro
+        // expansion, but this may be a new macro expansion, so check it above.
         continue;
       }
-      else {
-        // Skip preprocessed tokens from the macro's expansion.
-        auto Loc = PPTok.getLocation();
-        while (SM.isMacroArgExpansion(Loc) || SM.isMacroBodyExpansion(Loc)) {
-          PP.Lex(PPTok);
-          Loc = PPTok.getLocation();
-        }
 
-        PPLoc = SM.getExpansionLoc(PPTok.getLocation());
-        PPOffs = SM.getFileOffset(PPLoc);
-
-        // Now add the raw tokens that the macro was expanded from.
-        do {
-          if (StartOffset <= RawOffs)
-            Builder.addUnexpandedToken(RawTok, PP);
-          RawTok = GetNextRawTok(RawTokens, CurRawTok, true);
-          RawOffs = SM.getFileOffset(RawTok.getLocation());
-        } while (RawOffs < PPOffs);
-      }
+      // Use this token as-is.
+      Builder.addRawToken(*PPTok, PP);
     }
 
-    // Otherwise, there was a replacement an expansion.  Insert the new token
-    // in the output buffer.  Insert the whole run of new tokens at once to get
-    // them in the right order.
-    if (PPOffs < RawOffs) {
-      while (PPOffs < RawOffs) {
-        if (StartOffset <= PPOffs && PPOffs <= EndOffset)
-          Builder.addExpandedToken(PPTok, PP);
-        PP.Lex(PPTok);
-        PPLoc = SM.getExpansionLoc(PPTok.getLocation());
-        PPOffs = SM.getFileOffset(PPLoc);
-      }
-    }
+    PPTok = getNextToken(PPTokens, PPTokIdx);
   }
 
   return Builder.finish();
