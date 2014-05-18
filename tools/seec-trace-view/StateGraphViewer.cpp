@@ -291,6 +291,7 @@ void StateGraphViewerPanel::workerTaskLoop()
     // Run dot using the temporary input/output files.
     char const *Args[] = {
       "dot",
+      "-Gfontnames=svg",
       "-o",
       SVGPath.c_str(),
       "-Tsvg",

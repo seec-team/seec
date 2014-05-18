@@ -91,12 +91,17 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   PageBorderVertical(1.0),
   NodeBorderVertical(0.5),
   CodeFontSize(12),
-  NodeBackground(204, 204, 204),
-  NodeBorder(102, 102, 102),
-  NodeActiveBackground(200, 255, 200),
-  NodeActiveBorder(100, 127, 100),
-  NodeHighlightedBackground(102, 204, 204),
-  NodeHighlightedBorder(51, 102, 102)
+  Background(253, 246, 227), // base3
+  Text(101, 123, 131), // base00
+  NodeBackground(253, 246, 227), // base3
+  NodeBorder(147, 161, 161), // base1
+  NodeText(101, 123, 131), // base00
+  NodeActiveBackground(238, 232, 213), // base2
+  NodeActiveBorder(181, 137, 0), // yellow
+  NodeActiveText(88, 110, 117), // base01
+  NodeHighlightedBackground(238, 232, 213), // base2
+  NodeHighlightedBorder(108, 113, 196), // magenta
+  NodeHighlightedText(88, 110, 117) // base01
 {}
 
 void StateEvaluationTreePanel::drawNode(wxDC &DC,
@@ -113,14 +118,17 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
     case NodeDecoration::None:
       DC.SetPen(wxPen{Settings.NodeBorder});
       DC.SetBrush(wxBrush{Settings.NodeBackground});
+      DC.SetTextForeground(Settings.NodeText);
       break;
     case NodeDecoration::Active:
       DC.SetPen(wxPen{Settings.NodeActiveBorder});
       DC.SetBrush(wxBrush{Settings.NodeActiveBackground});
+      DC.SetTextForeground(Settings.NodeActiveText);
       break;
     case NodeDecoration::Highlighted:
       DC.SetPen(wxPen{Settings.NodeHighlightedBorder});
       DC.SetBrush(wxBrush{Settings.NodeHighlightedBackground});
+      DC.SetTextForeground(Settings.NodeHighlightedText);
       break;
   }
   
@@ -133,11 +141,14 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   }
   
   // Draw the background.
+  wxPen const PrevPen = DC.GetPen();
+  DC.SetPen(wxPen{DC.GetBrush().GetColour()});
   DC.DrawRectangle(Node.XStart, Node.YStart,
                    Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
-  
+  DC.SetPen(PrevPen);
+
   // Draw the line over the node.
-  DC.SetPen(wxPen{*wxBLACK});
+  // DC.SetPen(wxPen{*wxBLACK});
   DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
   
   // Draw the node's value string.
@@ -154,6 +165,7 @@ void StateEvaluationTreePanel::render(wxDC &dc)
 {
   PrepareDC(dc);
   
+  dc.SetBackground(wxBrush{Settings.Background});
   dc.Clear();
   if (Statement.empty())
     return;
@@ -163,7 +175,6 @@ void StateEvaluationTreePanel::render(wxDC &dc)
     return;
   
   dc.SetFont(CodeFont);
-  dc.SetTextForeground(*wxBLACK);
   
   // Draw the sub-Stmts' nodes.
   for (auto const &Node : Nodes) {
@@ -186,6 +197,7 @@ void StateEvaluationTreePanel::render(wxDC &dc)
     drawNode(dc, *ReplayHoverNodeIt, NodeDecoration::Highlighted);
   
   // Draw the pretty-printed Stmt's string.
+  dc.SetTextForeground(Settings.NodeText);
   wxCoord const PageBorderH = dc.GetCharWidth() * Settings.PageBorderHorizontal;
   wxCoord const PageBorderV = dc.GetCharHeight() * Settings.PageBorderVertical;
   dc.DrawText(Statement, PageBorderH, PageBorderV);

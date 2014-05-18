@@ -196,6 +196,9 @@ public:
     Text = new wxStyledTextCtrl(this, wxID_ANY);
     Text->SetReadOnly(true);
 
+    setupAllSciCommonTypes(*Text);
+    setupAllSciLexerTypes(*Text);
+
     // We only use one indicator (highlight), so set it here.
     setupAllSciIndicatorTypes(*Text);
     auto const Indicator = static_cast<int>(SciIndicatorType::CodeHighlight);

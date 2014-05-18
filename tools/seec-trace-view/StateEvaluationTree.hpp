@@ -121,6 +121,11 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     {}
   };
   
+  enum class IndicatorStyle {
+    Plain,
+    Box
+  };
+
   /// \brief Contains settings that control the display of the evaluation tree.
   ///
   struct DisplaySettings {
@@ -137,17 +142,27 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     unsigned CodeFontSize;
     
+    wxColour Background;
+
+    wxColour Text;
+    
     wxColour NodeBackground;
     
     wxColour NodeBorder;
+
+    wxColour NodeText;
     
     wxColour NodeActiveBackground;
     
     wxColour NodeActiveBorder;
+
+    wxColour NodeActiveText;
     
     wxColour NodeHighlightedBackground;
     
     wxColour NodeHighlightedBorder;
+
+    wxColour NodeHighlightedText;
     
     /// \brief Constructor.
     ///

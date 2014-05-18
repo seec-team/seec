@@ -544,7 +544,7 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   
   Handler.writeStandardProperties(Stream, V);
   
-  Stream << "><TABLE BORDER=\"0\" CELLPADDING=\"0\" COLOR=\"#BBBBBB\" "
+  Stream << "><TABLE BORDER=\"0\" CELLPADDING=\"0\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   bool Eliding = false;
@@ -1299,7 +1299,6 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
             "<TABLE"
             " BORDER=\"0\""
             " CELLSPACING=\"0\""
-            " COLOR=\"#BBBBBB\""
             " CELLBORDER=\"1\""
             " CELLPADDING=\"0\">"
             "<TR>";
@@ -1511,7 +1510,7 @@ doLayout(LayoutHandler const &Handler,
                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"function "
             << reinterpret_cast<uintptr_t>(&State)
             << "\">"
-               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"blue\">"
+               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"#268bd2\">"
             << State.getNameAsString()
             << "</TD></TR>";
   
@@ -1603,7 +1602,7 @@ doLayout(LayoutHandler const &Handler,
                 << ":fname -> "
                 << FunctionLayouts[i].getID()
                 << ":fname "
-                   "[constraint=false dir=back color=\"blue\""
+                   "[constraint=false dir=back color=\"#268bd2\""
                    " style=\"dashed\"];\n";
     }
   }
@@ -1706,7 +1705,7 @@ layoutUnreferencedArea(LayoutHandler const &Handler,
          << " [ label = <"
             "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
   // TODO: Make a href for unreferenced areas.
-  Stream << "><TR><TD COLOR=\"red\">";
+  Stream << "><TR><TD COLOR=\"#dc322f\">";
   
   // Attempt to load placeholder text from the resource bundle.
   auto const MaybeText =
@@ -2165,7 +2164,7 @@ doLayout(LayoutHandler const &Handler,
   std::vector<NodeInfo> AllNodeInfo;
   
   DotStream << "digraph Process {\n"
-            << "node [shape=plaintext];\n" //  fontsize=6
+            << "node [shape=plaintext fontname=\"Monospace\"];\n" //  fontsize=6
             // << "penwidth=0.5;\n"
             << "rankdir=LR;\n";
   

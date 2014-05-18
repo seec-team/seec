@@ -293,8 +293,8 @@ root:table {
     
     Default:table {
       Name:string {"Default"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -303,8 +303,8 @@ root:table {
     
     LineNumber:table {
       Name:string {"Line number"}
-      Foreground:string {"DARK GREY"}
-      Background:string {"LIGHT GREY"}
+      Foreground:string {"rgb(147,161,161)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -313,8 +313,8 @@ root:table {
     
     BraceLight:table {
       Name:string {"Brace light"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -323,8 +323,8 @@ root:table {
     
     BraceBad:table {
       Name:string {"Brace bad"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -333,8 +333,8 @@ root:table {
     
     ControlChar:table {
       Name:string {"Control character"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -343,8 +343,8 @@ root:table {
     
     IndentGuide:table {
       Name:string {"Indent guide"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -353,8 +353,8 @@ root:table {
     
     CallTip:table {
       Name:string {"Call tip"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -367,8 +367,8 @@ root:table {
 
     SeeCRuntimeError:table {
       Name:string {"Runtime error"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(255,200,200)"}
+      Foreground:string {"rgb(220, 50, 47)"} // red
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -377,8 +377,8 @@ root:table {
 
     SeeCRuntimeValue:table {
       Name:string {"Runtime value"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(200,255,200)"}
+      Foreground:string {"rgb(133,153,  0)"} // green
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -387,8 +387,8 @@ root:table {
 
     SeeCRuntimeInformation:table {
       Name:string {"Runtime information"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(200,200,255)"}
+      Foreground:string {"rgb(181,137,  0)"} // yellow
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -401,8 +401,8 @@ root:table {
     
     Comment:table {
       Name:string {"Comment"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -411,8 +411,8 @@ root:table {
 
     CommentLine:table {
       Name:string {"Comment line"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -421,8 +421,8 @@ root:table {
     
     CommentDoc:table {
       Name:string {"Comment (Doxygen)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -431,8 +431,8 @@ root:table {
 
     Number:table {
       Name:string {"Number"}
-      Foreground:string {"SIENNA"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(203, 75, 22)"} // orange
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -441,8 +441,8 @@ root:table {
     
     Keyword1:table {
       Name:string {"Keyword1"}
-      Foreground:string {"BLUE"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {"Bold"}
@@ -451,8 +451,8 @@ root:table {
     
     String:table {
       Name:string {"String"}
-      Foreground:string {"BROWN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -461,8 +461,8 @@ root:table {
     
     Character:table {
       Name:string {"Character"}
-      Foreground:string {"KHAKI"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 42,161,152)"} // cyan
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -471,8 +471,8 @@ root:table {
 
     UUID:table {
       Name:string {"UUID"}
-      Foreground:string {"ORCHID"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -481,8 +481,8 @@ root:table {
 
     Preprocessor:table {
       Name:string {"Preprocessor"}
-      Foreground:string {"GREY"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(211, 54,130)"} // magenta
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -491,8 +491,8 @@ root:table {
     
     Operator:table {
       Name:string {"Operator"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -501,8 +501,8 @@ root:table {
     
     Identifier:table {
       Name:string {"Identifier"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -511,8 +511,8 @@ root:table {
     
     StringEOL:table {
       Name:string {"String (EOL)"}
-      Foreground:string {"BROWN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -521,8 +521,8 @@ root:table {
 
     Verbatim:table {
       Name:string {"Verbatim"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -531,8 +531,8 @@ root:table {
     
     RegEx:table {
       Name:string {"Regular expression"}
-      Foreground:string {"ORCHID"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -541,8 +541,8 @@ root:table {
     
     CommentLineDoc:table {
       Name:string {"Comment line (Doxygen)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -551,8 +551,8 @@ root:table {
     
     Keyword2:table {
       Name:string {"Keyword2"}
-      Foreground:string {"MIDNIGHT BLUE"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -561,8 +561,8 @@ root:table {
     
     CommentDocKeyword:table {
       Name:string {"Comment (Doxygen keyword)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(211, 54,130)"} // magenta
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -571,8 +571,8 @@ root:table {
 
     CommentDocKeywordError:table {
       Name:string {"Comment (Doxygen keyword error)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(220, 50, 47)"} // red
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -581,8 +581,8 @@ root:table {
     
     GlobalClass:table {
       Name:string {"Global class"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -600,10 +600,10 @@ root:table {
     //
     CodeActive:table {
       Name:string {"Active code"}
-      Style:string {"STRAIGHTBOX"}
-      Foreground:string {"YELLOW"}
-      Alpha:int {60}
-      OutlineAlpha:int {80}
+      Style:string {"PLAIN"}
+      Foreground:string {"rgb(181,137,  0)"} // yellow
+      Alpha:int {100}
+      OutlineAlpha:int {0}
       Under:string {"False"}
     }
 
@@ -612,10 +612,10 @@ root:table {
     //
     CodeHighlight:table {
       Name:string {"Highlight code"}
-      Style:string {"STRAIGHTBOX"}
-      Foreground:string {"BLUE"}
-      Alpha:int {0}
-      OutlineAlpha:int {80}
+      Style:string {"BOX"}
+      Foreground:string {"rgb(108,113,196)"} // violet
+      Alpha:int {100}
+      OutlineAlpha:int {0}
       Under:string {"False"}
     }
 
@@ -625,7 +625,7 @@ root:table {
     TextInteractive:table {
       Name:string {"Interactive text"}
       Style:string {"PLAIN"}
-      Foreground:string {"BLUE"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
       Alpha:int {100}
       OutlineAlpha: int {0}
       Under:string {"False"}

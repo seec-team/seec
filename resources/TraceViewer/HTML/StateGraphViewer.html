@@ -89,16 +89,8 @@
       ForeachValue(function(Elem, ID){
         if (ID == ValueID) {
           var Class = Elem.className.baseVal;
-          Class += ' ' + "valuehighlight";
+          Class += ' valuehighlight';
           Elem.setAttribute("class", Class);
-
-          for (var i = 0; i < Elem.childNodes.length; ++i) {
-            var Child = Elem.childNodes[i];
-            if (Child.nodeName == "polygon") {
-              Child.setAttribute("fill", "rgb(220,255,220)");
-              Child.setAttribute("fill-opacity", 0.5);
-            }
-          }
         }
       });
     }
@@ -107,16 +99,8 @@
       ForeachValue(function(Elem, ID){
         if (ID == ValueID) {
           var Class = Elem.className.baseVal;
-          Class += ' ' + "valuehighlight";
+          Class = Class.replace(' valuehighlight', '');
           Elem.setAttribute("class", Class);
-
-          for (var i = 0; i < Elem.childNodes.length; ++i) {
-            var Child = Elem.childNodes[i];
-            if (Child.nodeName == "polygon") {
-              Child.setAttribute("fill", "rgb(255,255,255)");
-              Child.setAttribute("fill-opacity", 1);
-            }
-          }
         }
       });
     }
@@ -137,6 +121,27 @@
       refs.removeAttr("xlink:title");
       refs.hover(NodeMouseEnter, NodeMouseLeave);
       refs.click(function(){return false;});
+
+      $('polygon').each(function() {
+        var $this = $(this);
+
+        var fill = $this.attr('fill');
+        if (fill == 'white')
+          $this.attr('fill', '#fdf6e3');
+        else if (fill == 'black')
+          $this.removeAttr('fill');
+
+        var stroke = $this.attr('stroke');
+        if (stroke == 'black')
+          $this.attr('stroke', '#93a1a1');
+      });
+
+      $('path').each(function() {
+        var $this = $(this);
+        var stroke = $this.attr('stroke');
+        if (stroke == 'black')
+          $this.attr('stroke', '#586e75');
+      });
 
       StateExists = true;
 

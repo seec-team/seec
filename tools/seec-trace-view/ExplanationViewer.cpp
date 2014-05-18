@@ -133,8 +133,8 @@ bool ExplanationViewer::Create(wxWindow *Parent,
   Bind(wxEVT_LEFT_DOWN, &ExplanationViewer::OnLeftDown, this);
   Bind(wxEVT_LEFT_UP, &ExplanationViewer::OnLeftUp, this);
   
-  // setupAllSciCommonTypes(*this);
-  // setupAllSciLexerTypes(*this);
+  setupAllSciCommonTypes(*this);
+  setupAllSciLexerTypes(*this);
   setupAllSciIndicatorTypes(*this);
   
   SetEditable(false);
