@@ -234,14 +234,10 @@ bool parseInt(int &CharactersRead,
   
   // Push unused characters back into the stream.
   if (ParseEnd != BufferPtr) {
-    // Teach Clang's static analyzer that the value of ParseEnd following the
-    // call to strtoumax or strtoimax will always be within the buffer range.
-    assert(ParseEnd >= Buffer && ParseEnd < BufferPtr
-           && "ParseEnd is not in buffer!");
-    
-    for (--BufferPtr; BufferPtr > ParseEnd; --BufferPtr) {
-      std::ungetc(*BufferPtr, Stream);
-    }
+    auto const NumUnused = BufferPtr - ParseEnd;
+    for (ptrdiff_t i = NumUnused - 1; i >= 0; --i)
+      std::ungetc(ParseEnd[i], Stream);
+    CharactersRead -= NumUnused;
   }
   
   return (ParseEnd != Buffer);

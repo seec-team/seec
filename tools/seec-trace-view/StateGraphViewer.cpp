@@ -292,6 +292,9 @@ void StateGraphViewerPanel::workerTaskLoop()
     char const *Args[] = {
       "dot",
       "-Gfontnames=svg",
+#if defined(__APPLE__)
+      "-Nfontname=\"Times-Roman\"",
+#endif
       "-o",
       SVGPath.c_str(),
       "-Tsvg",
