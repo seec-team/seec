@@ -681,19 +681,8 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
     return;
   }
   
-  std::string PrettyPrintedStmt;
-  llvm::raw_string_ostream StmtOS(PrettyPrintedStmt);
-  
-  auto &ASTUnit = MappedAST->getASTUnit();
-  clang::LangOptions LangOpts = ASTUnit.getASTContext().getLangOpts();
-  
-  // Testing Stmt formatting:
+  // Format the Stmt and determine the ranges of sub-Stmts.
   auto const Formatted = seec::formatStmtSource(TopStmt, *MappedAST);
-
-  clang::PrintingPolicy Policy(LangOpts);
-  Policy.Indentation = 0;
-  Policy.Bool = true;
-  Policy.ConstantArraySizeAsWritten = true;
   
   // Determine the "depth" of each sub-Stmt.
   DepthRecorder DepthRecord(Formatted);
