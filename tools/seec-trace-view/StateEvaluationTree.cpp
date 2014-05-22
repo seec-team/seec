@@ -557,7 +557,17 @@ class DepthRecorder : public clang::RecursiveASTVisitor<DepthRecorder>
 
   /// \param Visibility the true visibility of this node.
   ///
-  bool shouldShow(StmtPresence const Visibility) const {
+  bool shouldShow(clang::Stmt const * const S,
+                  StmtPresence const Visibility) const
+  {
+    if (auto const Cast = llvm::dyn_cast<clang::ImplicitCastExpr>(S)) {
+      // Hide certain implicit casts from students.
+      switch (Cast->getCastKind()) {
+        case clang::CastKind::CK_FunctionToPointerDecay: return false;
+        default: break;
+      }
+    }
+
     if (Visibility == StmtPresence::Unknown)
       return false;
 
@@ -602,7 +612,7 @@ public:
       return true;
 
     auto const Visible = getPresence(S);
-    auto const Show = shouldShow(Visible);
+    auto const Show = shouldShow(S, Visible);
 
     Visibilities.push(Visible);
     Shown.push(Show);
