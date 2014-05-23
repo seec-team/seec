@@ -111,6 +111,10 @@ class TraceViewerFrame : public wxFrame
   ///
   std::pair<std::unique_ptr<wxMenu>, wxString> createViewMenu();
 
+  /// \brief Create the tools menu.
+  ///
+  std::pair<std::unique_ptr<wxMenu>, wxString> createToolsMenu();
+
 public:
   /// \brief Constructor (without creation).
   ///

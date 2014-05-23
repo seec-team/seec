@@ -27,6 +27,8 @@
 #ifndef WX_PRECOMP
   #include <wx/wx.h>
 #endif
+#include <wx/bitmap.h>
+#include <wx/dcmemory.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "clang/AST/Expr.h"
@@ -423,6 +425,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
   CurrentProcess(nullptr),
   CurrentThread(nullptr),
   ActiveFn(nullptr),
+  CurrentSize(1,1),
   CodeFont(),
   Statement(),
   Nodes(),
@@ -721,6 +724,7 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
                            + ((MaxDepth + 1) * NodeBorderV)
                            + (2 * PageBorderV);
   
+  CurrentSize.Set(TotalWidth, TotalHeight);
   SetVirtualSize(TotalWidth, TotalHeight);
   
   // Calculate the position of each node in the display.
@@ -869,4 +873,15 @@ void StateEvaluationTreePanel::OnHover(wxTimerEvent &Ev)
   }
   
   showHoverTooltip(*HoverNodeIt);
+}
+
+bool StateEvaluationTreePanel::renderToBMP(wxString const &Filename)
+{
+  wxBitmap Bitmap(CurrentSize.GetWidth(), CurrentSize.GetHeight());
+  wxMemoryDC DC(Bitmap);
+
+  render(DC);
+  DC.SelectObject(wxNullBitmap);
+
+  return Bitmap.SaveFile(Filename, wxBITMAP_TYPE_BMP);
 }

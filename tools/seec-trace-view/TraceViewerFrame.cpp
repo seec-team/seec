@@ -107,6 +107,34 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
                         seec::getwxStringExOrKey(Text, "Title"));
 }
 
+std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const Text =
+    seec::getResource("TraceViewer", Locale::getDefault(), Status,
+                      "GUIText", "MenuTools");
+  if (U_FAILURE(Status))
+    return std::make_pair(nullptr, wxEmptyString);
+
+  auto Menu = seec::makeUnique<wxMenu>();
+
+  BindMenuItem(
+    Menu->Append(wxID_ANY,
+                 seec::getwxStringExOrKey(Text, "SaveDETBMP")),
+    [this, Text] (wxEvent &) {
+      wxFileDialog Dlg(this,
+                       seec::getwxStringExOrKey(Text, "SaveBMP"), "", "",
+                       seec::getwxStringExOrKey(Text, "BMPFiles"),
+                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+      if (Dlg.ShowModal() == wxID_CANCEL)
+        return;
+      EvaluationTree->renderToBMP(Dlg.GetPath());
+    });
+
+  return std::make_pair(std::move(Menu),
+                        seec::getwxStringExOrKey(Text, "Title"));
+}
+
 TraceViewerFrame::TraceViewerFrame()
 : Trace(),
   State(),
@@ -353,6 +381,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   auto menuBar = new wxMenuBar();
   append(menuBar, createFileMenu());
   append(menuBar, createViewMenu());
+  append(menuBar, createToolsMenu());
   append(menuBar, createRecordingMenu(*this));
   
   // TODO: Setup menu to open/close individual panels.

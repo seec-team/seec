@@ -190,6 +190,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The current active function.
   seec::cm::FunctionState const *ActiveFn;
   
+  /// Size required to draw the evaluation tree.
+  wxSize CurrentSize;
+
   /// Font to use for drawing code and values.
   wxFont CodeFont;
   
@@ -313,6 +316,17 @@ public:
   void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)
+
+  /// \name Render to image.
+  /// @{
+
+  /// \brief Render the current dynamic evaluation tree to a bitmap.
+  /// This will overwrite any existing file at the given location.
+  /// \return true iff the bitmap was written successfully.
+  ///
+  bool renderToBMP(wxString const &Filename);
+
+  /// @}
 
 public:
   DECLARE_EVENT_TABLE()

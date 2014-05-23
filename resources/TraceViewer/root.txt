@@ -44,6 +44,14 @@ root:table {
       StreamState:string {"&FILE Streams"}
     }
 
+    MenuTools:table {
+      Title:string {"&Tools"}
+
+      SaveDETBMP:string {"&Export evaluation tree"}
+      SaveBMP:string {"Save evaluation tree as bitmap"}
+      BMPFiles:string {"Bitmap files (*.bmp)|*.bmp"}
+    }
+
 
     //
     // Recording settings dialog
