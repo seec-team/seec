@@ -17,6 +17,10 @@
 #include "unicode/unistr.h"
 
 
+namespace clang {
+  class Stmt;
+}
+
 namespace seec {
   namespace cm {
     class ProcessState;
@@ -26,7 +30,8 @@ namespace seec {
 
 
 UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
-                                       seec::cm::ProcessState const &State);
+                                       seec::cm::ProcessState const &State,
+                                       clang::Stmt const * const Stmt);
 
 UnicodeString shortenValueString(UnicodeString ValueString, int32_t Length);
 

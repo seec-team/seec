@@ -1376,7 +1376,7 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
     auto const &Process = InFunction.getParent().getParent();
-    auto const String = getPrettyStringForInline(*Value, Process);
+    auto const String = getPrettyStringForInline(*Value, Process, Statement);
     
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,

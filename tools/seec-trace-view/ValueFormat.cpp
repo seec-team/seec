@@ -17,6 +17,8 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 
+#include "clang/AST/Stmt.h"
+
 #include "ValueFormat.hpp"
 
 
@@ -45,7 +47,8 @@ static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
 }
 
 UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
-                                       seec::cm::ProcessState const &State)
+                                       seec::cm::ProcessState const &State,
+                                       clang::Stmt const * const Stmt)
 {
   auto const InMemory = Value.isInMemory();
   auto const Kind = Value.getKind();
@@ -67,7 +70,7 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
         }
       }
     }
-    
+
     UErrorCode Status = U_ZERO_ERROR;
     auto Resources = seec::getResource("SeeCClang",
                                        Locale::getDefault(),
@@ -88,7 +91,12 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
   }
   else {
     if (InMemory) {
-      return UnicodeString::fromUTF8(Value.getValueAsStringShort());
+      auto Result = seec::getString("SeeCClang",
+                                    (char const * []){
+                                      "Values", "Descriptive", "LValue"});
+      if (Result.assigned<UnicodeString>())
+        return Result.move<UnicodeString>();
+      return UnicodeString::fromUTF8("");
     }
     else {
       return UnicodeString::fromUTF8(Value.getValueAsStringFull());

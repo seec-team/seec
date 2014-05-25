@@ -57,6 +57,7 @@ root:table {
       PointerOpaque:string { "⇒ (opaque pointer)" }
       PointerInvalid:string { "↝ (invalid pointer)" }
       Pointer:string { "→ (pointer)" }
+      LValue:string { "(lvalue)" }
 
       // Number of character spaces used by the shortened representation (e.g. the ellipsis).
       ShortenedPadding:int { 1 }
@@ -78,6 +79,7 @@ root:table {
       PointerOpaque:string { "⇒" }
       PointerInvalid:string { "↝" }
       Pointer:string { "→" }
+      LValue:string { "l" }
     }
   }
 

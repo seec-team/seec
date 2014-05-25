@@ -750,7 +750,9 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
                         - (Depth * (CharHeight + NodeBorderV));
     
     auto Value = ActiveFn->getStmtValue(StmtRange.first);
-    auto const ValueString = Value ? getPrettyStringForInline(*Value, Process)
+    auto const ValueString = Value ? getPrettyStringForInline(*Value,
+                                                              Process,
+                                                              StmtRange.first)
                                    : UnicodeString{};
     auto const ValueStringShort =
       shortenValueString(ValueString, StmtRange.second.getLength());
