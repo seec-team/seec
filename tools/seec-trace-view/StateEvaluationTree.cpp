@@ -610,6 +610,23 @@ public:
     return false;
   }
 
+  bool DoTraverseStmt(clang::Stmt *S) {
+    if (auto const E = llvm::dyn_cast<clang::CallExpr>(S)) {
+      // If this is a direct function call, don't bother showing the nodes for
+      // the DeclRefExpr and function to pointer decay - just show arg nodes.
+      if (E->getDirectCallee()) {
+        for (auto const &Arg : seec::range(E->arg_begin(), E->arg_end())) {
+          if (!TraverseStmt(Arg))
+            return false;
+        }
+
+        return true;
+      }
+    }
+
+    return clang::RecursiveASTVisitor<DepthRecorder>::TraverseStmt(S);
+  }
+
   bool TraverseStmt(clang::Stmt *S) {
     if (!S)
       return true;
@@ -628,7 +645,7 @@ public:
       ++CurrentDepth;
     }
 
-    clang::RecursiveASTVisitor<DepthRecorder>::TraverseStmt(S);
+    auto const Result = DoTraverseStmt(S);
 
     if (Show)
       --CurrentDepth;
@@ -637,7 +654,7 @@ public:
     Shown.pop();
     Parents.pop();
 
-    return true;
+    return Result;
   }
 
   unsigned getMaxDepth() const {
