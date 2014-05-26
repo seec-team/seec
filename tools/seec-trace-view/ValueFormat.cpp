@@ -17,6 +17,7 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 
+#include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
 #include "ValueFormat.hpp"
@@ -50,7 +51,6 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
                                        seec::cm::ProcessState const &State,
                                        clang::Stmt const * const Stmt)
 {
-  auto const InMemory = Value.isInMemory();
   auto const Kind = Value.getKind();
   
   if (Kind == seec::cm::Value::Kind::Pointer) {
@@ -90,7 +90,9 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
     return String;
   }
   else {
-    if (InMemory) {
+    auto const Expr = llvm::dyn_cast<clang::Expr>(Stmt);
+
+    if (Expr && Expr->isLValue()) {
       auto Result = seec::getString("SeeCClang",
                                     (char const * []){
                                       "Values", "Descriptive", "LValue"});
