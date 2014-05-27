@@ -466,6 +466,20 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
   }
 }
 
+void TraceThreadListener::notifyPreAlloca(uint32_t const Index,
+                                          llvm::AllocaInst const &Alloca,
+                                          uint64_t const ElemSize,
+                                          uint64_t const ElemCount)
+{
+  auto const Remaining = getRemainingStack();
+  if (Remaining / ElemSize < ElemCount) {
+    handleRunError(
+      *runtime_errors::createRunError
+        <runtime_errors::RunErrorType::StackOverflowAlloca>(0),
+      RunErrorSeverity::Fatal);
+  }
+}
+
 void TraceThreadListener::notifyPreLoad(uint32_t Index,
                                         llvm::LoadInst const *Load,
                                         void const *Data,

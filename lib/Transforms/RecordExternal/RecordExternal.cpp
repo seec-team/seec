@@ -380,42 +380,22 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
   for (auto It = inst_begin(F), End = inst_end(F); It != End; ++It)
     FunctionInstructions.push_back(&*It);
 
-  auto InstrIt = FunctionInstructions.begin();
-  auto InstrEnd = FunctionInstructions.end();
-
-  // Visit each original instruction for instrumentation
-  for (InstructionIndex = 0; InstrIt != InstrEnd; ++InstrIt) {
-    visit(*InstrIt);
-    ++InstructionIndex;
-  }
-
-  // Insert function begin call, after any alloca's. We do this after
-  // instrumenting instructions, so that the function start notification can
-  // occur after alloca's but before the first alloca notification, without
-  // any special logic in the alloca instrumentation.
-
-  // Find the first non-alloca instruction
-  auto AllocaIt = inst_begin(F);
-  for (auto End = inst_end(F);
-       AllocaIt != End && isa<AllocaInst>(&*AllocaIt);
-       ++AllocaIt) {} // Intentionally empty
+  // Insert function entry notifications.
+  auto const FirstIn = FunctionInstructions.front();
 
   // Get a constant int for the index of this function
-  auto FunctionIndex (ModIndex->getIndexOfFunction(&F));
-  if (!FunctionIndex.assigned()) {
+  auto const FunctionIndex (ModIndex->getIndexOfFunction(&F));
+  if (!FunctionIndex.assigned())
     return false;
-  }
 
   Value *Args[] = {
     ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false)
   };
 
   // Pass the index to the function begin notification
-  CallInst *CI = CallInst::Create(RecordFunctionBegin, Args);
+  CallInst *CI = CallInst::Create(RecordFunctionBegin, Args, "", FirstIn);
   assert(CI && "Couldn't create call instruction.");
 
-  CI->insertBefore(&*AllocaIt);
-  
   if (!F.getName().equals("main")) {
     // F is not main(): insert notifications for all argument values.
     uint32_t ArgIndex = 0;
@@ -425,8 +405,7 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
         llvm::Value *ArgPtr = &Arg;
         
         if (ArgPtr->getType() != Int8PtrTy) {
-          auto Cast = new BitCastInst(ArgPtr, Int8PtrTy);
-          Cast->insertBefore(&*AllocaIt);
+          auto Cast = new BitCastInst(ArgPtr, Int8PtrTy, "", FirstIn);
           ArgPtr = Cast;
         }
         
@@ -435,10 +414,8 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
           ArgPtr
         };
         
-        auto Call = CallInst::Create(RecordArgumentByVal, CallArgs);
+        auto Call = CallInst::Create(RecordArgumentByVal, CallArgs, "",FirstIn);
         assert(Call && "Couldn't create call instruction.");
-        
-        Call->insertBefore(&*AllocaIt);
       }
       
       ++ArgIndex;
@@ -452,16 +429,13 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
       llvm::Value *ArgEnvPtr = &*++(++(F.arg_begin()));
       
       if (ArgEnvPtr->getType() != Int8PtrTy) {
-        auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy, "", FirstIn);
         ArgEnvPtr = Cast;
       }
       
       Value *CallArgs[] = { ArgEnvPtr };
-      CallInst *Call = CallInst::Create(RecordEnv, CallArgs);
+      CallInst *Call = CallInst::Create(RecordEnv, CallArgs, "", FirstIn);
       assert(Call && "Couldn't create call instruction.");
-      
-      Call->insertBefore(&*AllocaIt);
     }
     
     // Record argv, if it is used.
@@ -477,23 +451,26 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
       assert(IntTy && "First argument to main() is not an integer type.");
       
       if (IntTy->getBitWidth() < 64) {
-        auto Cast = new SExtInst(ArgArgCPtr, Int64Ty);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new SExtInst(ArgArgCPtr, Int64Ty, "", FirstIn);
         ArgArgCPtr = Cast;
       }
       
       if (ArgArgVPtr->getType() != Int8PtrTy) {
-        auto Cast = new BitCastInst(ArgArgVPtr, Int8PtrTy);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new BitCastInst(ArgArgVPtr, Int8PtrTy, "", FirstIn);
         ArgArgVPtr = Cast;
       }
       
       Value *CallArgs[] = {ArgArgCPtr, ArgArgVPtr};
-      CallInst *Call = CallInst::Create(RecordArgs, CallArgs);
+      CallInst *Call = CallInst::Create(RecordArgs, CallArgs, "", FirstIn);
       assert(Call && "Couldn't create call instruction.");
-      
-      Call->insertBefore(&*AllocaIt);
     }
+  }
+
+  // Visit each original instruction for instrumentation
+  InstructionIndex = 0;
+  for (auto const Instr : FunctionInstructions) {
+    visit(Instr);
+    ++InstructionIndex;
   }
 
   // Clear FunctionInstructions so that it's ready for the next Function
@@ -542,23 +519,31 @@ void InsertExternalRecording::visitReturnInst(ReturnInst &I) {
   CallInst::Create(RecordFunctionEnd, Args, "", &I);
 }
 
+static llvm::Value *getAsInt64Ty(llvm::Value * const V,
+                                 llvm::Type * const Int64Ty,
+                                 llvm::Instruction * const Before)
+{
+  if (V->getType()->isIntegerTy(64))
+    return V;
+
+  if (auto const CV = llvm::dyn_cast<llvm::ConstantInt>(V))
+    return ConstantInt::get(Int64Ty, CV->getZExtValue());
+  else
+    return new ZExtInst(V, Int64Ty, "", Before);
+}
+
 /// Insert a call to a tracing function after an alloca instruction.
 /// \param I a reference to the alloca instruction
 void InsertExternalRecording::visitAllocaInst(AllocaInst &I) {
-  // Find the first original instruction after I which isn't an AllocaInst
-  Instruction *FirstNonAlloca = nullptr;
+  Value *Args[] = {
+    ConstantInt::get(Int32Ty, InstructionIndex, false),
+    ConstantInt::get(Int64Ty, DL->getTypeAllocSize(I.getAllocatedType())),
+    getAsInt64Ty(I.getArraySize(), Int64Ty, &I)
+  };
 
-  auto InstructionCount = FunctionInstructions.size();
-  for (auto i = InstructionIndex + 1; i < InstructionCount; ++i) {
-    if (!isa<AllocaInst>(FunctionInstructions[i])) {
-      FirstNonAlloca = FunctionInstructions[i];
-      break;
-    }
-  }
+  CallInst::Create(RecordPreAlloca, Args, "", &I);
 
-  assert(FirstNonAlloca && "Couldn't find non-alloca Instruction");
-
-  insertRecordUpdateForValue(I, FirstNonAlloca);
+  insertRecordUpdateForValue(I);
 }
 
 /// Insert a call to a tracing function prior to a load instruction.

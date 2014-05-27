@@ -351,5 +351,10 @@ root:table {
     NonTerminatedArray:string {
       "Passing a non-terminated array to function {function} as parameter {parameter}, but a terminated array is expected."
     }
+
+    //
+    StackOverflowAlloca:string {
+      "Required memory allocation would exceed the limit of the stack. This may be caused by the program recursing infinitely, or by using excessively large variables."
+    }
   }
 }

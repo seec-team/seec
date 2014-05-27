@@ -27,6 +27,8 @@ HANDLE_RECORD_POINT(Env, void (types::i<8>*))
 
 HANDLE_RECORD_POINT(SetInstruction, void (types::i<32>))
 
+HANDLE_RECORD_POINT(PreAlloca, void (types::i<32>, types::i<64>, types::i<64>))
+
 HANDLE_RECORD_POINT(PreLoad, void (types::i<32>, types::i<8>*, types::i<64>))
 HANDLE_RECORD_POINT(PostLoad, void (types::i<32>, types::i<8>*, types::i<64>))
 HANDLE_RECORD_POINT(PreStore, void (types::i<32>, types::i<8>*, types::i<64>))

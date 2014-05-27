@@ -194,6 +194,10 @@ class TraceThreadListener
   ///
   void checkSignals();
 
+  /// \brief Get (an estimate of) the remaining stack available.
+  ///
+  std::uintptr_t getRemainingStack() const;
+
 public:  
   /// \brief Acquire the StreamsLock, if we don't have it already.
   ///
@@ -583,6 +587,11 @@ public:
   void notifyPreCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
 
   void notifyPostCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
+
+  void notifyPreAlloca(uint32_t const Index,
+                       llvm::AllocaInst const &Alloca,
+                       uint64_t const ElemSize,
+                       uint64_t const ElemCount);
 
   void notifyPreLoad(uint32_t Index,
                      llvm::LoadInst const *Load,

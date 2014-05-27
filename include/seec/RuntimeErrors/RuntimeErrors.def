@@ -511,4 +511,12 @@ SEEC_RUNERR(NonTerminatedArray,
     (parameter, seec::runtime_errors::ArgParameter)
   ))
 
+//
+// Stack limit will be exceeded by alloca.
+//
+SEEC_RUNERR(StackOverflowAlloca,
+  SEEC_PP_QUOTE(
+    (dummy, seec::runtime_errors::ArgAddress)
+  ))
+
 #undef SEEC_RUNERR

@@ -451,6 +451,17 @@ void SeeCRecordSetInstruction(uint32_t Index) {
   ThreadEnv.setInstructionIndex(Index);
 }
 
+void SeeCRecordPreAlloca(uint32_t const Index,
+                         uint64_t const ElemSize,
+                         uint64_t const ElemCount)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  ThreadEnv.setInstructionIndex(Index);
+  auto const Alloca = llvm::cast<llvm::AllocaInst>(ThreadEnv.getInstruction());
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyPreAlloca(Index, *Alloca, ElemSize, ElemCount);
+}
+
 void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);

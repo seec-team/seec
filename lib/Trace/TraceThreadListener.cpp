@@ -24,7 +24,10 @@
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <unistd.h>
 #include <signal.h>
+#include <sys/resource.h>
 #endif
+
+#include <type_traits>
 
 namespace seec {
 
@@ -113,6 +116,43 @@ void TraceThreadListener::checkSignals() {
   
   // Perform a coordinated exit (traces will be finalized during destruction).
   getSupportSynchronizedExit().getSynchronizedExit().exit(EXIT_FAILURE);
+}
+
+std::uintptr_t TraceThreadListener::getRemainingStack() const
+{
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+  struct rlimit lim;
+  if (getrlimit(RLIMIT_STACK, &lim) != 0)
+    return std::numeric_limits<std::uintptr_t>::max();
+
+  // Determine the size of the existing stack.
+  std::uintptr_t StackLow = 0;
+  std::uintptr_t StackHigh = 0;
+
+  {
+    std::lock_guard<std::mutex> Lock{FunctionStackMutex};
+    auto const FrontArea = FunctionStack.front()->getStackArea();
+    auto const BackArea = FunctionStack.back()->getStackArea();
+
+    // Pick the lowest non-zero value from the area starts.
+    if (FrontArea.start() != 0 && FrontArea.start() < BackArea.start())
+      StackLow = FrontArea.start();
+    else
+      StackLow = BackArea.start();
+
+    StackHigh = std::max(FrontArea.last(), BackArea.last());
+  }
+
+  auto const Used = StackHigh - StackLow;
+  auto const Remaining = lim.rlim_cur - Used;
+
+  // Reserve 10KiB for SeeC's stack (and general inaccuracy in the measurement).
+  constexpr std::uintptr_t SeeCReserved = 10 * 1024;
+
+  return (Remaining > SeeCReserved) ? (Remaining - SeeCReserved) : 0;
+#else
+  return std::numeric_limits<std::uintptr_t>::max();
+#endif
 }
 
 void TraceThreadListener::recordStreamOpen(FILE *Stream,
