@@ -1032,5 +1032,31 @@ root:table {
       "{has_rtv_of_cond, select, true { In this case it has evaluated to {rtv_of_cond}.} false {} other {}}"
       " If this value is considered to be true (i.e. it is not zero), then the loop's @[body]body@[] will be evaluated. If the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is complete. Evaluation will return to the beginning of the loop, starting with the @[cond]condition expression@[]. If the value produced by the @[cond]condition expression@[] is considered to be false, then the loop is complete and execution proceeds to the first point following the end of the @[body]body@[]."
     }
+
+    // CompoundLiteralExpr
+    // Inputs:
+    //   type
+    // Value inputs:
+    //   rtv_of_init
+    // Outputs:
+    //   init
+    //
+    CompoundLiteralExpr:string {
+      "This is a compound literal. It provides an unnamed object of type “{type}”, whose value is given by the @[init]initializer list@[]."
+    }
+
+    // InitListExpr
+    // Inputs:
+    //   type
+    //   is_explicit
+    //   is_string_literal_init
+    //   had_array_range_designator
+    // Value inputs:
+    // Outputs:
+    //   initialized_field_in_union
+    //
+    InitListExpr:string {
+      "This is an initializer list. It is used to initialize structs, unions, or arrays."
+    }
   }
 }

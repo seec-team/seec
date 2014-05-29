@@ -398,9 +398,13 @@ SEEC_STMT_LINK(CompoundLiteralExpr,
 
 // TODO: InitListExpr.
 SEEC_STMT_LINK(InitListExpr,
+  SEEC_PP_QUOTE(
+    ("type", String, getType().getTypePtr())
+  ),
   SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE())
+  SEEC_PP_QUOTE(
+    ("initialized_field_in_union", getInitializedFieldInUnion())
+  ))
 
 // TODO: DesignatedInitExpr.
 SEEC_STMT_LINK(DesignatedInitExpr,
