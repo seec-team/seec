@@ -16,6 +16,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Lex/Lexer.h"
 
 
 namespace seec {
@@ -26,6 +27,8 @@ namespace seec_clang {
 class SearchingASTVisitor
 : public clang::RecursiveASTVisitor<SearchingASTVisitor>
 {
+  clang::ASTContext const &AST;
+
   clang::SourceManager &SMgr;
   
   clang::SourceLocation SLoc;
@@ -37,9 +40,11 @@ class SearchingASTVisitor
   SearchResult::EFoundKind FoundLast;
   
 public:
-  SearchingASTVisitor(clang::SourceManager &SrcMgr,
+  SearchingASTVisitor(clang::ASTContext const &WithAST,
+                      clang::SourceManager &SrcMgr,
                       clang::SourceLocation SearchLocation)
-  : SMgr(SrcMgr),
+  : AST(WithAST),
+    SMgr(SrcMgr),
     SLoc(SearchLocation),
     FoundDecl(nullptr),
     FoundStmt(nullptr),
@@ -47,15 +52,20 @@ public:
   {}
   
   bool VisitStmt(clang::Stmt *S) {
-    auto Range = S->getSourceRange();
+    auto const Range = S->getSourceRange();
     if (Range.isInvalid())
       return true;
     
-    if (SMgr.isBeforeInTranslationUnit(SLoc, Range.getBegin())) {
+    auto const ExpBegin = SMgr.getExpansionLoc(Range.getBegin());
+    if (SMgr.isBeforeInTranslationUnit(SLoc, ExpBegin)) {
       return false;
     }
     
-    if (SMgr.isBeforeInTranslationUnit(Range.getEnd(), SLoc)) {
+    auto const ExpEnd = SMgr.getExpansionRange(Range.getEnd()).second;
+    auto const CharEnd =
+      clang::Lexer::getLocForEndOfToken(ExpEnd, 1, SMgr, AST.getLangOpts());
+
+    if (SMgr.isBeforeInTranslationUnit(CharEnd, SLoc)) {
       return true;
     }
     
@@ -111,7 +121,8 @@ searchImpl(clang::ASTUnit &AST,
     return SearchResult(nullptr, nullptr, SearchResult::EFoundKind::None);
   
   for (auto &Decl : FoundDecls) {
-    if (Decl->getSourceRange().isInvalid())
+    auto const SrcRange = Decl->getSourceRange();
+    if (SrcRange.isInvalid())
       continue;
     
     // isInLexicalContext?
@@ -120,17 +131,21 @@ searchImpl(clang::ASTUnit &AST,
       if (!TD->isFreeStanding())
         continue;
     
-    // If Decl is before SLoc, continue.
-    // If Decl is after SLoc, break.
+    // Skip this Decl and keep searching.
+    if (SourceMgr.isBeforeInTranslationUnit(SrcRange.getEnd(), SLoc))
+      continue;
+
+    // We've already passed the search location.
+    if (SourceMgr.isBeforeInTranslationUnit(SLoc, SrcRange.getBegin()))
+      break;
     
-    SearchingASTVisitor Visitor (SourceMgr, SLoc);
+    SearchingASTVisitor Visitor (AST.getASTContext(), SourceMgr, SLoc);
     Visitor.TraverseDecl(Decl);
     
     if (Visitor.getFoundLast() != SearchResult::EFoundKind::None)
       return SearchResult(Visitor.getFoundDecl(),
                           Visitor.getFoundStmt(),
                           Visitor.getFoundLast());
-                        
   }
   
   return SearchResult(nullptr, nullptr, SearchResult::EFoundKind::None);
