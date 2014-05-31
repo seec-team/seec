@@ -11,9 +11,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/GraphLayout.hpp"
+#include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
@@ -379,6 +380,34 @@ void StateGraphViewerPanel::workerTaskLoop()
   }
 }
 
+void StateGraphViewerPanel::handleContextEvent(ContextEvent const &Ev)
+{
+  if (auto const HighlightEv = llvm::dyn_cast<ConEvHighlightValue>(&Ev)) {
+    // We don't need to lock the highlight's access, as it must already
+    // be locked by whoever raised the highlight event.
+    if (CurrentAccess && CurrentAccess != HighlightEv->getAccess())
+      return;
+
+    auto const Value = HighlightEv->getValue();
+
+    wxString Script("HighlightValue(");
+    Script << reinterpret_cast<uintptr_t>(Value);
+
+    if (Value) {
+      if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>(Value)) {
+        if (Ptr->getDereferenceIndexLimit()) {
+          auto const Pointee = Ptr->getDereferenced(0);
+          Script << ", " << reinterpret_cast<uintptr_t>(Pointee.get());
+        }
+      }
+    }
+
+    Script << ");";
+
+    WebView->RunScript(Script);
+  }
+}
+
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
@@ -533,29 +562,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     
     // Register for context notifications.
     Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
-      switch (Ev.getKind()) {
-        case ContextEventKind::HighlightValue:
-        {
-          // Send this value to the webpage.
-          auto const &HighlightEv = llvm::cast<ConEvHighlightValue>(Ev);
-          
-          // We don't need to lock the highlight's access, as it must already
-          // be locked by whoever raised the highlight event.
-          if (CurrentAccess && CurrentAccess != HighlightEv.getAccess()) {
-            wxLogDebug("Highlight state does not match graph's state.");
-          }
-          
-          wxString Script("HighlightValue(");
-          Script << reinterpret_cast<uintptr_t>(HighlightEv.getValue())
-                 << ");";
-          WebView->RunScript(Script);
-          
-          break;
-        }
-        default:
-          break;
-      }
-    });
+      this->handleContextEvent(Ev); });
   }
   else {
     // If the user navigates to a link, open it in the default browser.
@@ -824,6 +831,31 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     return;
   
   renderGraph();
+
+  // Add special highlighting for values associated with the active Stmt.
+  //
+  if (!Thread.getCallStack().empty()) {
+    seec::cm::FunctionState const &Fn = Thread.getCallStack().back();
+    if (auto const Stmt = Fn.getActiveStmt()) {
+      if (auto const Value = Fn.getStmtValue(Stmt)) {
+        wxString Script("MarkActiveStmtValue(");
+        Script << reinterpret_cast<uintptr_t>(Value.get()) << ");";
+
+        if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>
+                                           (Value.get()))
+        {
+          if (Ptr->getDereferenceIndexLimit()) {
+            if (auto const Pointee = Ptr->getDereferenced(0)) {
+              Script << "MarkActiveStmtValue("
+                     << reinterpret_cast<uintptr_t>(Pointee.get()) << ");";
+            }
+          }
+        }
+
+        WebView->RunScript(Script);
+      }
+    }
+  }
 }
 
 void StateGraphViewerPanel::clear()

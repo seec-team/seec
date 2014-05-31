@@ -233,6 +233,10 @@ class StateGraphViewerPanel final : public wxPanel
   ///
   void workerTaskLoop();
 
+  /// \brief Handle contextual events.
+  ///
+  void handleContextEvent(ContextEvent const &Ev);
+
 public:
   /// \brief Construct.
   ///

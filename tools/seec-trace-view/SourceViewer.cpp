@@ -113,7 +113,7 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const &SourceManager = AST.getSourceManager();
   
   // Find the first character in the first token.
-  while (Start.isMacroID())
+  if (Start.isMacroID())
     Start = SourceManager.getExpansionLoc(Start);
   
   // Find the file that the first token belongs to.
@@ -121,8 +121,8 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const File = SourceManager.getFileEntryForID(FileID);
   
   // Find the first character in the last token.
-  while (End.isMacroID())
-    End = SourceManager.getExpansionLoc(End);
+  if (End.isMacroID())
+    End = SourceManager.getExpansionRange(End).second;
   
   if (SourceManager.getFileID(End) != FileID)
     return SourceFileRange{};
@@ -180,7 +180,7 @@ static SourceFileRange getRangeInFile(clang::SourceLocation Start,
     if (!Start.isMacroID())
       return SourceFileRange{};
     
-    Start = SrcMgr.getExpansionLoc(Start);
+    Start = SrcMgr.getImmediateExpansionRange(Start).first;
   }
   
   auto const FileID = SrcMgr.getFileID(Start);
@@ -190,7 +190,7 @@ static SourceFileRange getRangeInFile(clang::SourceLocation Start,
     if (!End.isMacroID())
       return SourceFileRange{};
     
-    End = SrcMgr.getExpansionLoc(End);
+    End = SrcMgr.getImmediateExpansionRange(End).second;
   }
   
   // Find the first character following the last token.
@@ -1383,21 +1383,6 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                         String,
                         SciLexerType::SeeCRuntimeValue,
                         WrapStyle::None);
-    
-    // Highlight this value.
-    Notifier->createNotify<ConEvHighlightValue>(Value.get(), CurrentAccess);
-    
-    // If this value is a pointer then also highlight the pointee.
-    if (Value->getKind() == seec::cm::Value::Kind::Pointer) {
-      auto const &Ptr = llvm::cast<seec::cm::ValueOfPointer>(*Value);
-      
-      if (Ptr.getDereferenceIndexLimit()) {
-        if (auto const Pointee = Ptr.getDereferenced(0)) {
-          Notifier->createNotify<ConEvHighlightValue>(Pointee.get(),
-                                                      CurrentAccess);
-        }
-      }
-    }
   }
 }
 

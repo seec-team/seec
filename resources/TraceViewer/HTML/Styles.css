@@ -33,7 +33,12 @@ tr:nth-child(odd) { fill:#eee8d5 }
 
 text { fill:#657b83; }
 
-.valuehighlight > polygon { stroke:#b58900; fill:#eee8d5; z-index:5; }
+.activestmtvalue > path { stroke:#b58900; z-index:8; }
+.activestmtvalue > polygon { stroke:#b58900; fill:#eee8d5; z-index:9; }
+.activestmtvalue > text { fill:#859900; z-index:10; }
+
+.valuehighlight > path { stroke:#6c71c4; z-index:9; }
+.valuehighlight > polygon { stroke:#6c71c4; fill:#eee8d5; z-index:8; }
 .valuehighlight > text { fill:#859900; z-index:10; }
 
 a { pointer-events: visible; cursor: default; }

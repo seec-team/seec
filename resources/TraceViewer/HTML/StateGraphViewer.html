@@ -7,6 +7,7 @@
     var SeeCProto = "";
     var StateExists = false;
     var HighlightedValues = [];
+    var ActiveStmtValues = [];
 
     // Clear the debug log.
     //
@@ -64,7 +65,7 @@
     // Highlight a Value.
     //
 
-    function ForeachValue(CallbackFn) {
+    function ForeachNode(InTypes, CallbackFn) {
       $('a').each(function() {
         var $this = $(this);
         var href = $this.attr('xlink:href');
@@ -79,15 +80,24 @@
           return false;
         }
 
-        if (splitref[0] == "value") {
-          CallbackFn($this[0], splitref[1]);
+        if (InTypes.indexOf(splitref[0]) != -1) {
+          CallbackFn($this[0], splitref);
         }
       });
     }
 
-    function HighlightValueImpl(ValueID) {
-      ForeachValue(function(Elem, ID){
-        if (ID == ValueID) {
+    function HighlightValueImpl(ID) {
+      var ValueID, PointerID;
+
+      if (typeof(ID) === 'object') {
+        ValueID = ID[0];
+        PointerID = ID[1];
+      }
+      else
+        ValueID = ID;
+
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID || Refs[1] == PointerID) {
           var Class = Elem.className.baseVal;
           Class += ' valuehighlight';
           Elem.setAttribute("class", Class);
@@ -95,11 +105,40 @@
       });
     }
 
-    function RemoveHighlightValueImpl(ValueID) {
-      ForeachValue(function(Elem, ID){
-        if (ID == ValueID) {
+    function RemoveHighlightValueImpl(ID) {
+      var ValueID, PointerID;
+
+      if (typeof(ID) === 'object') {
+        ValueID = ID[0];
+        PointerID = ID[1];
+      }
+      else
+        ValueID = ID;
+
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID || Refs[1] == PointerID) {
           var Class = Elem.className.baseVal;
           Class = Class.replace(' valuehighlight', '');
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function MarkActiveStmtValueImpl(ValueID) {
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID) {
+          var Class = Elem.className.baseVal;
+          Class += ' activestmtvalue';
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function UnmarkActiveStmtValueImpl(ValueID) {
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID) {
+          var Class = Elem.className.baseVal;
+          Class = Class.replace(' activestmtvalue', '');
           Elem.setAttribute("class", Class);
         }
       });
@@ -147,6 +186,9 @@
 
       for (var i = 0; i < HighlightedValues.length; ++i)
         HighlightValueImpl(HighlightedValues[i]);
+
+      for (var i = 0; i < ActiveStmtValues.length; ++i)
+        MarkActiveStmtValueImpl(ActiveStmtValues[i]);
     }
 
     function SetState(SVGString) {
@@ -164,6 +206,7 @@
     //
     function InvalidateState() {
       HighlightedValues = [];
+      ActiveStmtValues = [];
     }
 
     // Called from seec-trace-viewer to clear the state display.
@@ -171,12 +214,13 @@
     function ClearState() {
       StateExists = false;
       HighlightedValues = [];
+      ActiveStmtValues = [];
       document.getElementById("SVGContainer").innerHTML = "";
     }
 
-    // Called from seec-trace-viewer to highlight a value.
+    // Called from seec-view to highlight a value.
     //
-    function HighlightValue(ValueID) {
+    function HighlightValue(ValueID, PointeeID) {
       if (ValueID == 0) {
         if (HighlightedValues.length != 0) {
           var ID = HighlightedValues.pop();
@@ -186,9 +230,27 @@
         }
       }
       else {
-        HighlightedValues.push(ValueID);
+        var ID = PointeeID ? [ValueID, PointeeID] : ValueID;
+        HighlightedValues.push(ID);
         if (StateExists)
-          HighlightValueImpl(ValueID);
+          HighlightValueImpl(ID);
+      }
+    }
+
+    // Called from seec-view to mark a value associated with the active Stmt.
+    //
+    function MarkActiveStmtValue(ValueID) {
+      if (ValueID == 0) {
+        if (ActiveStmtValues.length != 0) {
+          var ID = ActiveStmtValues.pop();
+          if (StateExists && ActiveStmtValues.indexOf(ID) == -1)
+            UnmarkActiveStmtValueImpl(ID);
+        }
+      }
+      else {
+        ActiveStmtValues.push(ValueID);
+        if (StateExists)
+          MarkActiveStmtValueImpl(ValueID);
       }
     }
 
