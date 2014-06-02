@@ -113,7 +113,9 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const &SourceManager = AST.getSourceManager();
   
   // Find the first character in the first token.
-  if (Start.isMacroID())
+  if (SourceManager.isMacroArgExpansion(Start))
+    Start = SourceManager.getSpellingLoc(Start);
+  else if (Start.isMacroID())
     Start = SourceManager.getExpansionLoc(Start);
   
   // Find the file that the first token belongs to.
@@ -121,7 +123,9 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const File = SourceManager.getFileEntryForID(FileID);
   
   // Find the first character in the last token.
-  if (End.isMacroID())
+  if (SourceManager.isMacroArgExpansion(End))
+    End = SourceManager.getSpellingLoc(End);
+  else if (End.isMacroID())
     End = SourceManager.getExpansionRange(End).second;
   
   if (SourceManager.getFileID(End) != FileID)
@@ -175,6 +179,13 @@ static SourceFileRange getRangeInFile(clang::SourceLocation Start,
 {
   auto const &SrcMgr = AST.getSourceManager();
   
+  if (SrcMgr.isMacroArgExpansion(Start)) {
+    auto const SpellStart = SrcMgr.getSpellingLoc(Start);
+    if (SrcMgr.getFileEntryForID(SrcMgr.getFileID(SpellStart)) == FileEntry) {
+      Start = SpellStart;
+    }
+  }
+
   // Take the expansion location of the Start until it is in the requested file.
   while (SrcMgr.getFileEntryForID(SrcMgr.getFileID(Start)) != FileEntry) {
     if (!Start.isMacroID())
@@ -185,6 +196,13 @@ static SourceFileRange getRangeInFile(clang::SourceLocation Start,
   
   auto const FileID = SrcMgr.getFileID(Start);
   
+  if (SrcMgr.isMacroArgExpansion(End)) {
+    auto const SpellEnd = SrcMgr.getSpellingLoc(End);
+    if (SrcMgr.getFileID(SpellEnd) == FileID) {
+      End = SpellEnd;
+    }
+  }
+
   // Take the expansion location of the End until it is in the requested file.
   while (SrcMgr.getFileID(End) != FileID) {
     if (!End.isMacroID())
