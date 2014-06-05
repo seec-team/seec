@@ -550,6 +550,17 @@ seec::seec_clang::MappedAST const *FunctionState::getMappedAST() const {
 
 
 //===----------------------------------------------------------------------===//
+// Decl execution.
+//===----------------------------------------------------------------------===//
+
+::clang::Decl const *FunctionState::getActiveDecl() const {
+  if (auto const Instr = UnmappedState.getActiveInstruction())
+    return Parent.getParent().getProcessTrace().getMapping().getDecl(Instr);
+  return nullptr;
+}
+
+
+//===----------------------------------------------------------------------===//
 // Stmt evaluation.
 //===----------------------------------------------------------------------===//
 

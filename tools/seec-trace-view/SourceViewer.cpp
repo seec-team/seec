@@ -1287,9 +1287,11 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   auto const &Function = CallStack.back().get();
   
-  auto const ActiveStmt = Function.getActiveStmt();
-  if (ActiveStmt) {
+  if (auto const ActiveStmt = Function.getActiveStmt()) {
     showActiveStmt(ActiveStmt, Function);
+  }
+  else if (auto const ActiveDecl = Function.getActiveDecl()) {
+    showActiveDecl(ActiveDecl, Function);
   }
   else {
     auto const FunctionDecl = Function.getFunctionDecl();

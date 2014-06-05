@@ -21,6 +21,7 @@
 
 
 namespace clang {
+  class Decl;
   class FunctionDecl;
   class Stmt;
   class VarDecl;
@@ -250,6 +251,16 @@ public:
   seec::seec_clang::MappedAST const *getMappedAST() const;
   
   /// @} (Accessors.)
+
+
+  /// \name Decl execution.
+  /// @{
+
+  /// \brief Get the active Decl (if any).
+  ///
+  ::clang::Decl const *getActiveDecl() const;
+
+  /// @}
   
   
   /// \name Stmt evaluation.
