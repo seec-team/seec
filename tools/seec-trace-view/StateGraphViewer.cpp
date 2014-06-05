@@ -610,6 +610,9 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
       if (auto Access = CurrentAccess->getAccess())
         Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
     }
+    else if (llvm::isa<DisplayableFunctionState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
   }
 
   MouseOver = Ev.getDisplayableShared();
@@ -645,6 +648,9 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
     }
   }
   else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(Node)) {
+    auto const Decl = DF->getFunctionState().getFunctionDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
     if (Recording) {
       auto const &FS = DF->getFunctionState();
       Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
