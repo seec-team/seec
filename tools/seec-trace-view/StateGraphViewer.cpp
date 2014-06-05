@@ -600,38 +600,70 @@ void
 StateGraphViewerPanel::
 OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
 {
-  MouseOver = Ev.getDisplayableShared();
+  // Remove highlighting from the existing value (if any).
+  if (auto const Prev = MouseOver.get()) {
+    if (auto const DV = llvm::dyn_cast<DisplayableValue>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess())
+        Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
+    }
+    else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess())
+        Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
+    }
+  }
 
-  if (!Recording)
-    return;
+  MouseOver = Ev.getDisplayableShared();
 
   auto const Node = MouseOver.get();
 
   if (!Node) {
-    Recording->recordEventL("StateGraphViewer.MouseOverNone");
+    if (Recording)
+      Recording->recordEventL("StateGraphViewer.MouseOverNone");
   }
   else if (auto const DV = llvm::dyn_cast<DisplayableValue>(Node)) {
-    std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
-    addAttributesForValue(Attrs, DV->getValue());
-    Recording->recordEventV("StateGraphViewer.MouseOverValue", Attrs);
+    if (auto Access = CurrentAccess->getAccess()) {
+      Notifier->createNotify<ConEvHighlightValue>(&(DV->getValue()),
+                                                  CurrentAccess);
+    }
+
+    if (Recording) {
+      std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+      addAttributesForValue(Attrs, DV->getValue());
+      Recording->recordEventV("StateGraphViewer.MouseOverValue", Attrs);
+    }
   }
   else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(Node)) {
-    std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
-    addAttributesForValue(Attrs, DD->getPointer());
-    Recording->recordEventV("StateGraphViewer.MouseOverDereference", Attrs);
+    if (auto Access = CurrentAccess->getAccess()) {
+      Notifier->createNotify<ConEvHighlightValue>(&(DD->getPointer()),
+                                                  CurrentAccess);
+    }
+
+    if (Recording) {
+      std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+      addAttributesForValue(Attrs, DD->getPointer());
+      Recording->recordEventV("StateGraphViewer.MouseOverDereference", Attrs);
+    }
   }
   else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(Node)) {
-    auto const &FS = DF->getFunctionState();
-    Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
-                            make_attribute("function", FS.getNameAsString()));
+    if (Recording) {
+      auto const &FS = DF->getFunctionState();
+      Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
+                              make_attribute("function", FS.getNameAsString()));
+    }
   }
   else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Node)) {
-    Recording->recordEventL("StateGraphViewer.MouseOverReferencedArea",
-                            make_attribute("start", DA->getAreaStart()),
-                            make_attribute("end", DA->getAreaEnd()));
+    if (Recording) {
+      Recording->recordEventL("StateGraphViewer.MouseOverReferencedArea",
+                              make_attribute("start", DA->getAreaStart()),
+                              make_attribute("end", DA->getAreaEnd()));
+    }
   }
   else {
-    Recording->recordEventL("StateGraphViewer.MouseOverUnknown");
+    wxLogDebug("Mouse over unknown Displayable.");
+
+    if (Recording) {
+      Recording->recordEventL("StateGraphViewer.MouseOverUnknown");
+    }
   }
 }
 
