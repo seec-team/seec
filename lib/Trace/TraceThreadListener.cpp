@@ -146,8 +146,8 @@ std::uintptr_t TraceThreadListener::getRemainingStack() const
   auto const Used = StackHigh - StackLow;
   auto const Remaining = lim.rlim_cur - Used;
 
-  // Reserve 10KiB for SeeC's stack (and general inaccuracy in the measurement).
-  constexpr std::uintptr_t SeeCReserved = 10 * 1024;
+  // Reserve 100KiB for SeeC's stack (and general inaccuracy in the measurement).
+  constexpr std::uintptr_t SeeCReserved = 100 * 1024;
 
   return (Remaining > SeeCReserved) ? (Remaining - SeeCReserved) : 0;
 #else
