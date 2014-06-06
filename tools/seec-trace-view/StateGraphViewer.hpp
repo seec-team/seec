@@ -27,6 +27,8 @@
 namespace seec {
   namespace cm {
     class FunctionState;
+    class LocalState;
+    class ParamState;
     class ProcessState;
     class ThreadState;
     class Value;
@@ -59,6 +61,8 @@ public:
     Value,
     Dereference,
     FunctionState,
+    LocalState,
+    ParamState,
     ReferencedArea
   };
   
@@ -134,6 +138,50 @@ public:
   
   static bool classof(Displayable const *D) {
     return D && D->getKind() == Displayable::Kind::FunctionState;
+  }
+};
+
+
+/// \brief A displayed LocalState that the user may interact with.
+///
+class DisplayableLocalState final : public Displayable
+{
+  seec::cm::LocalState const &TheLocalState;
+
+public:
+  DisplayableLocalState(seec::cm::LocalState const &ForLocalState)
+  : Displayable(Displayable::Kind::LocalState),
+    TheLocalState(ForLocalState)
+  {}
+
+  seec::cm::LocalState const &getLocalState() const {
+    return TheLocalState;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::LocalState;
+  }
+};
+
+
+/// \brief A displayed ParamState that the user may interact with.
+///
+class DisplayableParamState final : public Displayable
+{
+  seec::cm::ParamState const &TheParamState;
+
+public:
+  DisplayableParamState(seec::cm::ParamState const &ForParamState)
+  : Displayable(Displayable::Kind::ParamState),
+    TheParamState(ForParamState)
+  {}
+
+  seec::cm::ParamState const &getParamState() const {
+    return TheParamState;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::ParamState;
   }
 };
 

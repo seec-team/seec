@@ -1401,7 +1401,8 @@ doLayout(LayoutHandler const &Handler,
   
   ValuePortMap Ports;
   
-  DotStream << "<TR><TD>"
+  DotStream << "<TR><TD HREF=\"local "
+            << reinterpret_cast<uintptr_t>(&State) << "\">"
             << State.getDecl()->getNameAsString()
             << "</TD>";
   
@@ -1451,7 +1452,8 @@ doLayout(LayoutHandler const &Handler,
   
   ValuePortMap Ports;
   
-  DotStream << "<TR><TD>"
+  DotStream << "<TR><TD HREF=\"param "
+            << reinterpret_cast<uintptr_t>(&State) << "\">"
             << State.getDecl()->getNameAsString()
             << "</TD>";
   

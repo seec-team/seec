@@ -613,6 +613,12 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
     else if (llvm::isa<DisplayableFunctionState>(Prev)) {
       Notifier->createNotify<ConEvHighlightDecl>(nullptr);
     }
+    else if (llvm::isa<DisplayableLocalState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
+    else if (llvm::isa<DisplayableParamState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
   }
 
   MouseOver = Ev.getDisplayableShared();
@@ -655,6 +661,22 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
       auto const &FS = DF->getFunctionState();
       Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
                               make_attribute("function", FS.getNameAsString()));
+    }
+  }
+  else if (auto const DL = llvm::dyn_cast<DisplayableLocalState>(Node)) {
+    auto const Decl = DL->getLocalState().getDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
+    }
+  }
+  else if (auto const DP = llvm::dyn_cast<DisplayableParamState>(Node)) {
+    auto const Decl = DP->getParamState().getDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
     }
   }
   else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Node)) {
@@ -928,6 +950,18 @@ void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
     auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
     auto &Fn = *reinterpret_cast<seec::cm::FunctionState *>(ID);
     NodeDisplayable = std::make_shared<DisplayableFunctionState>(Fn);
+  }
+  else if (NodeType == "local") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Local = *reinterpret_cast<seec::cm::LocalState const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableLocalState>(Local);
+  }
+  else if (NodeType == "param") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Param = *reinterpret_cast<seec::cm::ParamState const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableParamState>(Param);
   }
   else if (NodeType == "area") {
     auto const NodeData = Unescaped.substr(SpacePos + 1);
