@@ -44,6 +44,7 @@
 #include "RuntimeValueLookup.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
+#include "StmtTooltip.hpp"
 #include "ValueFormat.hpp"
 
 #include <stack>
@@ -272,92 +273,23 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator const It)
 
 void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
 {
-  auto const Statement = Node.Statement;
-  wxString TipString;
-  
-  // Add the complete value string.
-  if (Node.ValueString.size()) {
-    TipString += Node.ValueString;
-    TipString += "\n";
-  }
-  
-  // Add the type of the value.
-  if (auto const E = llvm::dyn_cast<clang::Expr>(Statement)) {
-    TipString += E->getType().getAsString();
-    TipString += "\n";
-  }
-  
-  // Attempt to get a general explanation of the statement.
-  auto const MaybeExplanation =
-    seec::clang_epv::explain(Statement,
-                             RuntimeValueLookupForFunction{ActiveFn});
-  
-  if (MaybeExplanation.assigned(0)) {
-    auto const &Explanation = MaybeExplanation.get<0>();
-    if (TipString.size())
-      TipString += "\n";
-    TipString += seec::towxString(Explanation->getString());
-    TipString += "\n";
-  }
-  else if (MaybeExplanation.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto const String = MaybeExplanation.get<seec::Error>()
-                                        .getMessage(Status, Locale());
-    
-    if (U_SUCCESS(Status)) {
-      wxLogDebug("Error getting explanation: %s", seec::towxString(String));
-    }
-    else {
-      wxLogDebug("Indescribable error getting explanation.");
-    }
-  }
-  
-  // Get any runtime errors related to the Stmt.
-  for (auto const &RuntimeError : ActiveFn->getRuntimeErrors()) {
-    if (RuntimeError.getStmt() != Statement)
-      continue;
-    
-    auto const MaybeDescription = RuntimeError.getDescription();
-    if (MaybeDescription.assigned(0)) {
-      auto const &Description = MaybeDescription.get<0>();
-      if (TipString.size())
-        TipString += "\n";
-      TipString += seec::towxString(Description->getString());
-    }
-    else if (MaybeDescription.assigned<seec::Error>()) {
-      UErrorCode Status = U_ZERO_ERROR;
-      auto const String = MaybeDescription.get<seec::Error>()
-                                          .getMessage(Status, Locale());
-      
-      if (U_SUCCESS(Status)) {
-        wxLogDebug("Error getting description: %s", seec::towxString(String));
-      }
-      else {
-        wxLogDebug("Indescribable error getting description.");
-      }
-    }
-  }
-  
-  // Display the generated tooltip (if any).
   // TODO: This should appear on the node rather than the mouse.
-  if (TipString.size()) {
-    int const XStart = Node.XStart;
-    int const YStart = Node.YStart;
-    
-    int const Width  = Node.XEnd - XStart;
-    int const Height = Node.YEnd - YStart;
-    
-    auto const ClientStart = CalcScrolledPosition(wxPoint(XStart, YStart));
-    auto const ScreenStart = ClientToScreen(ClientStart);
-    
-    wxRect NodeBounds{ScreenStart, wxSize{Width, Height}};
-    
-    // Determine a good maximum width for the tip window.
-    auto const WindowSize = GetSize();
-    auto const TipWidth = WindowSize.GetWidth();
-    
-    new wxTipWindow(this, TipString, TipWidth, nullptr, &NodeBounds);
-  }
+  int const XStart = Node.XStart;
+  int const YStart = Node.YStart;
+
+  int const Width  = Node.XEnd - XStart;
+  int const Height = Node.YEnd - YStart;
+
+  auto const ClientStart = CalcScrolledPosition(wxPoint(XStart, YStart));
+  auto const ScreenStart = ClientToScreen(ClientStart);
+
+  wxRect NodeBounds{ScreenStart, wxSize{Width, Height}};
+
+  // Determine a good maximum width for the tip window.
+  auto const WindowSize = GetSize();
+  auto const TipWidth = WindowSize.GetWidth();
+
+  makeStmtTooltip(this, Node.Statement, *ActiveFn, TipWidth, NodeBounds);
 }
 
 void StateEvaluationTreePanel::notifyContextEvent(ContextEvent const &Ev)
