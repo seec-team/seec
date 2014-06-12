@@ -476,7 +476,8 @@ void TraceThreadListener::notifyPreAlloca(uint32_t const Index,
     handleRunError(
       *runtime_errors::createRunError
         <runtime_errors::RunErrorType::StackOverflowAlloca>(0),
-      RunErrorSeverity::Fatal);
+      RunErrorSeverity::Fatal,
+      Index);
   }
 }
 
