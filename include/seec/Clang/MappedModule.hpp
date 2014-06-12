@@ -22,6 +22,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #include <map>
@@ -357,6 +358,12 @@ class MappedModule {
   /// Kind of clang::Decl mapping metadata.
   unsigned MDDeclIdxKind;
 
+  /// Kind of clang::Stmt completion mapping metadata.
+  unsigned MDStmtCompletionIdxsKind;
+
+  /// Kind of clang::Decl completion mapping metadata.
+  unsigned MDDeclCompletionIdxsKind;
+
   /// Map llvm::Function pointers to MappedFunctionDecl objects.
   llvm::DenseMap<llvm::Function const *, MappedFunctionDecl> FunctionLookup;
   
@@ -533,6 +540,24 @@ public:
   ///
   bool areMappedToSameStmt(llvm::Instruction const &A,
                            llvm::Instruction const &B) const;
+  
+  /// \brief Check if an Instruction completes a Stmt or Decl.
+  ///
+  bool hasCompletionMapping(llvm::Instruction const &I) const;
+  
+  /// \brief Get all Stmt completion mappings for an Instruction.
+  ///
+  bool getStmtCompletions(llvm::Instruction const &I,
+                          MappedAST const &MappedAST,
+                          llvm::SmallVectorImpl<clang::Stmt const *> &Out
+                          ) const;
+  
+  /// \brief Get all Decl completion mappings for an Instruction.
+  ///
+  bool getDeclCompletions(llvm::Instruction const &I,
+                          MappedAST const &MappedAST,
+                          llvm::SmallVectorImpl<clang::Decl const *> &Out
+                          ) const;
   
   /// @}
   

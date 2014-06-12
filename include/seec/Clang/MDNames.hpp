@@ -15,6 +15,11 @@ char const * const MDDeclPtrStrClang = "clang.decl.ptr";
 char const * const MDDeclPtrStr = "seec.clang.decl.ptr";
 char const * const MDDeclIdxStr = "seec.clang.decl.idx";
 
+char const * const MDStmtCompletionPtrsStr = "seec.clang.stmt.completion.ptrs";
+char const * const MDStmtCompletionIdxsStr = "seec.clang.stmt.completion.idxs";
+char const * const MDDeclCompletionPtrsStr = "seec.clang.decl.completion.ptrs";
+char const * const MDDeclCompletionIdxsStr = "seec.clang.decl.completion.idxs";
+
 char const * const MDGlobalDeclPtrsStr = "clang.global.decl.ptrs";
 char const * const MDGlobalDeclIdxsStr = "seec.clang.global.decl.idxs";
 

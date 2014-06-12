@@ -294,6 +294,150 @@ llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
   }
 }
 
+class InstructionMetadataSerializer
+{
+  llvm::LLVMContext &ModContext;
+  llvm::Type * const Int64Ty;
+  SeeCCodeGenAction &Action;
+  llvm::Value * const MainFileNode;
+  unsigned const MDStmtPtrID;
+  unsigned const MDStmtIdxID;
+  unsigned const MDDeclPtrIDClang;
+  unsigned const MDDeclPtrID;
+  unsigned const MDDeclIdxID;
+  unsigned const MDStmtCompletionPtrsID;
+  unsigned const MDStmtCompletionIdxsID;
+  unsigned const MDDeclCompletionPtrsID;
+  unsigned const MDDeclCompletionIdxsID;
+
+  void SerializeStmtMetadata(llvm::Instruction &Instruction) {
+    if (auto const S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID)) {
+      auto &StmtMap = Action.getStmtMap();
+      auto It = StmtMap.find(S);
+      if (It != StmtMap.end()) {
+        Value *Ops[] {
+          MainFileNode,
+          ConstantInt::get(Int64Ty, It->second) // StmtIdx
+        };
+
+        Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDStmtPtrID, nullptr);
+    }
+  }
+
+  void SerializeDeclMetadata(llvm::Instruction &Instruction) {
+    if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID)) {
+      auto &DeclMap = Action.getDeclMap();
+      auto It = DeclMap.find(D);
+      if (It != DeclMap.end()) {
+        Value *Ops[] {
+          MainFileNode,
+          ConstantInt::get(Int64Ty, It->second) // DeclIdx
+        };
+
+        Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDDeclPtrID, nullptr);
+    }
+  }
+
+  void SerializeClangDeclMetadata(llvm::Instruction &Instruction) {
+    if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrIDClang)) {
+      auto &DeclMap = Action.getDeclMap();
+      auto It = DeclMap.find(D);
+      if (It != DeclMap.end()) {
+        Value *Ops[] {
+          MainFileNode,
+          ConstantInt::get(Int64Ty, It->second) // DeclIdx
+        };
+
+        Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDDeclPtrIDClang, nullptr);
+    }
+  }
+
+  void SerializeStmtCompletionMetadata(llvm::Instruction &Instruction) {
+    if (auto const MD = Instruction.getMetadata(MDStmtCompletionPtrsID)) {
+      if (auto const NumOperands = MD->getNumOperands()) {
+        auto &StmtMap = Action.getStmtMap();
+
+        std::vector<Value *> Ops;
+        Ops.reserve(NumOperands);
+
+        for (unsigned i = 0; i < NumOperands; ++i) {
+          if (auto const S = GetPointerFromMetadata<Stmt>(MD->getOperand(i))) {
+            auto const It = StmtMap.find(S);
+            if (It != StmtMap.end())
+              Ops.emplace_back(ConstantInt::get(Int64Ty, It->second));
+          }
+        }
+
+        Instruction.setMetadata(MDStmtCompletionIdxsID,
+                                MDNode::get(ModContext, Ops));
+      }
+
+      Instruction.setMetadata(MDStmtCompletionPtrsID, nullptr);
+    }
+  }
+
+  void SerializeDeclCompletionMetadata(llvm::Instruction &Instruction) {
+    if (auto const MD = Instruction.getMetadata(MDDeclCompletionPtrsID)) {
+      if (auto const NumOperands = MD->getNumOperands()) {
+        auto &DeclMap = Action.getDeclMap();
+
+        std::vector<Value *> Ops;
+        Ops.reserve(NumOperands);
+
+        for (unsigned i = 0; i < NumOperands; ++i) {
+          if (auto const S = GetPointerFromMetadata<Decl>(MD->getOperand(i))) {
+            auto const It = DeclMap.find(S);
+            if (It != DeclMap.end())
+              Ops.emplace_back(ConstantInt::get(Int64Ty, It->second));
+          }
+        }
+
+        Instruction.setMetadata(MDDeclCompletionIdxsID,
+                                MDNode::get(ModContext, Ops));
+      }
+
+      Instruction.setMetadata(MDDeclCompletionPtrsID, nullptr);
+    }
+  }
+
+public:
+  InstructionMetadataSerializer(llvm::Module *Mod,
+                                SeeCCodeGenAction &WithAction,
+                                llvm::Value * const WithMainFileNode)
+  : ModContext(Mod->getContext()),
+    Int64Ty(llvm::Type::getInt64Ty(ModContext)),
+    Action(WithAction),
+    MainFileNode(WithMainFileNode),
+    MDStmtPtrID(Mod->getMDKindID(MDStmtPtrStr)),
+    MDStmtIdxID(Mod->getMDKindID(MDStmtIdxStr)),
+    MDDeclPtrIDClang(Mod->getMDKindID(MDDeclPtrStrClang)),
+    MDDeclPtrID(Mod->getMDKindID(MDDeclPtrStr)),
+    MDDeclIdxID(Mod->getMDKindID(MDDeclIdxStr)),
+    MDStmtCompletionPtrsID(Mod->getMDKindID(MDStmtCompletionPtrsStr)),
+    MDStmtCompletionIdxsID(Mod->getMDKindID(MDStmtCompletionIdxsStr)),
+    MDDeclCompletionPtrsID(Mod->getMDKindID(MDDeclCompletionPtrsStr)),
+    MDDeclCompletionIdxsID(Mod->getMDKindID(MDDeclCompletionIdxsStr))
+  {}
+
+  void SerializeInstructionMetadata(llvm::Instruction &Instruction)
+  {
+    SerializeStmtMetadata(Instruction);
+    SerializeDeclMetadata(Instruction);
+    SerializeClangDeclMetadata(Instruction);
+    SerializeStmtCompletionMetadata(Instruction);
+    SerializeDeclCompletionMetadata(Instruction);
+  }
+};
+
 /// Modify Mod's Metadata to use numbered mappings rather than pointers.
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
@@ -321,65 +465,14 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto MainFileNode = MDNode::get(ModContext, MainFileNodeOps);
 
   // Handle Instruction Metadata
-  unsigned MDStmtPtrID = Mod->getMDKindID(MDStmtPtrStr);
-  unsigned MDStmtIdxID = Mod->getMDKindID(MDStmtIdxStr);
-  unsigned MDDeclPtrIDClang = Mod->getMDKindID(MDDeclPtrStrClang);
-  unsigned MDDeclPtrID = Mod->getMDKindID(MDDeclPtrStr);
-  unsigned MDDeclIdxID = Mod->getMDKindID(MDDeclIdxStr);
+  InstructionMetadataSerializer ISerializer(Mod, Action, MainFileNode);
 
   for (auto &Function: *Mod) {
     for (auto &BasicBlock: Function) {
       for (auto &Instruction: BasicBlock) {
         if (!Instruction.hasMetadata())
           continue;
-
-        // Handle SeeC's Stmt metadata.
-        if (auto S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID))
-        {
-          auto It = StmtMap.find(S);
-          if (It != StmtMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // StmtIdx
-            };
-
-            Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDStmtPtrID, nullptr);
-        }
-
-        // Handle SeeC's Decl metadata.
-        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID))
-        {
-          auto It = DeclMap.find(D);
-          if (It != DeclMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // DeclIdx
-            };
-
-            Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDDeclPtrID, nullptr);
-        }
-        
-        // Handle Clang's Decl metadata.
-        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrIDClang))
-        {
-          auto It = DeclMap.find(D);
-          if (It != DeclMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // DeclIdx
-            };
-
-            Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDDeclPtrIDClang, nullptr);
-        }
+        ISerializer.SerializeInstructionMetadata(Instruction);
       }
     }
   }

@@ -294,6 +294,10 @@ MappedModule::MappedModule(
   ASTList(),
   MDStmtIdxKind(ModIndex.getModule().getMDKindID(MDStmtIdxStr)),
   MDDeclIdxKind(ModIndex.getModule().getMDKindID(MDDeclIdxStr)),
+  MDStmtCompletionIdxsKind(ModIndex.getModule()
+                                   .getMDKindID(MDStmtCompletionIdxsStr)),
+  MDDeclCompletionIdxsKind(ModIndex.getModule()
+                                   .getMDKindID(MDDeclCompletionIdxsStr)),
   FunctionLookup(),
   GlobalVariableLookup(),
   CompileInfo(),
@@ -756,6 +760,56 @@ bool MappedModule::areMappedToSameStmt(llvm::Instruction const &A,
                                        llvm::Instruction const &B) const
 {
   return A.getMetadata(MDStmtIdxKind) == B.getMetadata(MDStmtIdxKind);
+}
+
+bool MappedModule::hasCompletionMapping(llvm::Instruction const &I) const
+{
+  return I.getMetadata(MDStmtCompletionIdxsKind) != nullptr
+      || I.getMetadata(MDDeclCompletionIdxsKind) != nullptr;
+}
+
+bool
+MappedModule::getStmtCompletions(llvm::Instruction const &I,
+                                 MappedAST const &MappedAST,
+                                 llvm::SmallVectorImpl<clang::Stmt const *> &Out
+                                 ) const
+{
+  auto const MD = I.getMetadata(MDStmtCompletionIdxsKind);
+  if (!MD)
+    return false;
+
+  auto const NumOperands = MD->getNumOperands();
+  for (unsigned i = 0; i < NumOperands; ++i) {
+    if (auto const CI = llvm::dyn_cast<llvm::ConstantInt>(MD->getOperand(i))) {
+      if (auto const Stmt = MappedAST.getStmtFromIdx(CI->getZExtValue())) {
+        Out.push_back(Stmt);
+      }
+    }
+  }
+
+  return true;
+}
+
+bool
+MappedModule::getDeclCompletions(llvm::Instruction const &I,
+                                 MappedAST const &MappedAST,
+                                 llvm::SmallVectorImpl<clang::Decl const *> &Out
+                                 ) const
+{
+  auto const MD = I.getMetadata(MDDeclCompletionIdxsKind);
+  if (!MD)
+    return false;
+
+  auto const NumOperands = MD->getNumOperands();
+  for (unsigned i = 0; i < NumOperands; ++i) {
+    if (auto const CI = llvm::dyn_cast<llvm::ConstantInt>(MD->getOperand(i))) {
+      if (auto const Decl = MappedAST.getDeclFromIdx(CI->getZExtValue())) {
+        Out.push_back(Decl);
+      }
+    }
+  }
+
+  return true;
 }
 
 

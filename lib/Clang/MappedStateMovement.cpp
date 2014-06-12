@@ -39,8 +39,7 @@ static bool isLogicalPoint(seec::trace::ThreadState const &Thread,
   // Logical points:
   // 1) No active Function.
   // 2) End of a Function's prelude.
-  // 3) Instruction with mapping where the next active Instruction either does
-  //    not exist or has a different mapping.
+  // 3) Instruction that completes a Stmt or Decl's evaluation.
   // 4) Non-mapped Functions are not allowed.
   // 5) System header functions are not allowed.
   
@@ -82,8 +81,7 @@ static bool isLogicalPoint(seec::trace::ThreadState const &Thread,
   }
   
   // Handles 3).
-  auto const Next = trace::getNextInstructionInActiveFunction(Thread);
-  return (!Next || !Mapping.areMappedToSameStmt(*ActiveInst, *Next));
+  return Mapping.hasCompletionMapping(*ActiveInst);
 }
 
 bool moveForward(ThreadState &Thread) {
