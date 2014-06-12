@@ -86,6 +86,10 @@ public:
               seec::Error>
   getDescription() const;
   
+  /// \brief Get the Decl that owns the Instruction that caused this error.
+  ///
+  clang::Decl const *getDecl() const;
+
   /// \brief Get the Stmt that owns the Instruction that caused this error.
   ///
   clang::Stmt const *getStmt() const;

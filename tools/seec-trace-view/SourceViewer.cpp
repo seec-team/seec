@@ -1329,36 +1329,35 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                                                             "\n",
                                                             " " };
   
-  // Find the source location of the Stmt that caused the error.
-  auto const Statement = Error.getStmt();
-  if (!Statement)
-    return;
-  
   auto const MappedAST = InFunction.getMappedAST();
   if (!MappedAST)
     return;
   
   auto &ASTUnit = MappedAST->getASTUnit();
   
-  auto const Range = getRangeOutermost(Statement, ASTUnit.getASTContext());
-  
+  // Find the source location of the node that caused the error.
+  auto const Decl = Error.getDecl();
+  auto const Stmt = Error.getStmt();
+  if (!Decl && !Stmt) {
+    wxLogDebug("Runtime error with no Decl or Stmt!");
+    return;
+  }
+
+  auto const Range = Stmt ? getRangeOutermost(Stmt, ASTUnit.getASTContext())
+                          : getRangeOutermost(Decl, ASTUnit.getASTContext());
   if (!Range.File) {
-    wxLogDebug("Couldn't find file for Stmt.");
+    wxLogDebug("Couldn't find file for node.");
     return;
   }
-  
-  auto const Panel = loadAndShowFile(Range.File, *MappedAST);
-  if (!Panel) {
-    wxLogDebug("Couldn't show source panel for file %s.",
-               Range.File->getName());
-    return;
+
+  // Attempt to load the containing file and annotate the error message.
+  if (auto const Panel = loadAndShowFile(Range.File, *MappedAST)) {
+    Panel->annotateLine(Range.EndLine - 1,
+                        /* Column */ 0,
+                        Printer.getString(),
+                        SciLexerType::SeeCRuntimeError,
+                        WrapStyle::Wrapped);
   }
-  
-  Panel->annotateLine(Range.EndLine - 1,
-                      /* Column */ 0,
-                      Printer.getString(),
-                      SciLexerType::SeeCRuntimeError,
-                      WrapStyle::Wrapped);
 }
 
 void

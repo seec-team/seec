@@ -86,14 +86,14 @@ RuntimeErrorState::getDescription() const {
   return seec::runtime_errors::Description::create(getRunError());
 }
 
+clang::Decl const *RuntimeErrorState::getDecl() const {
+  return Parent.getParent().getParent().getProcessTrace()
+               .getMapping().getDecl(UnmappedState.getInstruction());
+}
+
 clang::Stmt const *RuntimeErrorState::getStmt() const {
-  auto const Instruction = UnmappedState.getInstruction();
-  
-  auto const &Trace = Parent.getParent().getParent().getProcessTrace();
-  auto const &MappedModule = Trace.getMapping();
-  auto const &MappedInst = MappedModule.getMapping(Instruction);
-  
-  return MappedInst.getStmt();
+  return Parent.getParent().getParent().getProcessTrace()
+               .getMapping().getStmt(UnmappedState.getInstruction());
 }
 
 clang::Expr const *
