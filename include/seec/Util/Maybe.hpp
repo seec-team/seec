@@ -407,14 +407,11 @@ public:
   /// \return true iff the first element matching type T is currently assigned.
   template<typename T>
   bool assigned() const {
-    // Remove reference from type T.
     typedef typename std::remove_reference<T>::type RawT;
 
-    // Ensure that this type exists in our element types.
     static_assert(seec::maybe_impl::typeInList<RawT, Elems...>(),
                   "Type was not found in element types.");
 
-    // Return true if this index is the currently active index.
     return Which != 0 && (Which - 1 == IndexOf<RawT>());
   }
 
@@ -433,7 +430,6 @@ public:
   void reset() {
     if (Which != 0)
       Store.destroy(Which - 1);
-
     Which = 0;
   }
 
@@ -442,7 +438,6 @@ public:
   template<typename T>
   void assign(T &&Value) {
     reset();
-
     Which = 1 + Store.assign(std::forward<T>(Value));
   }
 
@@ -450,93 +445,47 @@ public:
   /// I-th element.
   template<uint8_t I, typename... ArgTs>
   void assign(ArgTs&&... Args) {
-    // Ensure that I is allowable.
     static_assert(I < sizeof...(Elems), "Value of I is too large.");
-
-    // Clear any currently active element.
     reset();
-
-    // Set this element to be active.
     Which = I + 1;
-
-    // Construct this element using the supplied arguments.
     ValueAt<I>::construct(Store, std::forward<ArgTs>(Args)...);
   }
 
   /// \brief Copy the active element from another Maybe of the same type.
   Maybe<Elems...> & operator= (Maybe<Elems...> const &RHS) {
-    if (Which == RHS.Which) {
-      if (Which == 0) // Both Maybes are unassigned, so do nothing.
-        return *this;
-
-      // Directly copy element from RHS.
+    if (Which != RHS.Which) {
+      reset();
+      if ((Which = RHS.Which) != 0)
+        Store.construct(Which - 1, RHS.Store);
+    }
+    else if (Which != 0) // The same element is active in both Maybes.
       Store.copy(Which - 1, RHS.Store);
-
-      return *this;
-    }
-
-    // Clear any currently active element.
-    reset();
-
-    if (RHS.Which != 0) {
-      // Set the active element of RHS to be active.
-      Which = RHS.Which;
-
-      // Copy-construct the active element from RHS.
-      Store.construct(Which - 1, RHS.Store);
-    }
 
     return *this;
   }
 
   /// \brief Copy the active element from another Maybe of the same type.
   Maybe<Elems...> & operator= (Maybe<Elems...> &RHS) {
-    if (Which == RHS.Which) {
-      if (Which == 0) // Both Maybes are unassigned, so do nothing.
-        return *this;
-
-      // Directly copy element from RHS.
+    if (Which != RHS.Which) {
+      reset();
+      if ((Which = RHS.Which) != 0)
+        Store.construct(Which - 1, RHS.Store);
+    }
+    else if (Which != 0) // The same element is active in both Maybes.
       Store.copy(Which - 1, RHS.Store);
-
-      return *this;
-    }
-
-    // Clear any currently active element.
-    reset();
-
-    if (RHS.Which != 0) {
-      // Set the active element of RHS to be active.
-      Which = RHS.Which;
-
-      // Copy-construct the active element from RHS.
-      Store.construct(Which - 1, RHS.Store);
-    }
 
     return *this;
   }
 
   /// \brief Move from another Maybe of the same type.
   Maybe<Elems...> & operator= (Maybe<Elems...> &&RHS) {
-    if (Which == RHS.Which) {
-      if (Which == 0) // Both Maybes are unassigned, so do nothing.
-        return *this;
-
-      // Directly move element from RHS.
+    if (Which != RHS.Which) {
+      reset();
+      if ((Which = RHS.Which) != 0)
+        Store.construct(Which - 1, std::move(RHS.Store));
+    }
+    else if (Which != 0) // The same element is active in both Maybes.
       Store.copy(Which - 1, std::move(RHS.Store));
-
-      return *this;
-    }
-
-    // Clear any currently active element.
-    reset();
-
-    if (RHS.Which != 0) {
-      // Set the active element of RHS to be active.
-      Which = RHS.Which;
-
-      // Move-construct the active element from RHS.
-      Store.construct(Which - 1, std::move(RHS.Store));
-    }
 
     return *this;
   }
@@ -544,36 +493,17 @@ public:
   /// \brief Assign this Maybe's first element of type T to Value.
   template<typename T>
   Maybe<Elems...> & operator= (T &&Value) {
-    // Get the type of T with any reference removed.
     typedef typename std::remove_reference<T>::type RawT;
-
-    // Ensure that this type exists in our element types.
     static_assert(seec::maybe_impl::typeInList<RawT, Elems...>(),
                   "Type was not found in element types.");
 
-    // First, check if the currently active element is of type T, in which case
-    // we can directly use its assignment operator.
-    if (Which != 0) {
-      // Find the index of the first element matching type RawT.
-      typedef maybe_impl::MaybeIndexByType<RawT, StoreT> IndexT;
-      auto constexpr Index = IndexT::Index;
-
-      if (Which - 1 == Index) {
-        // Get the accessor for this element.
-        typedef maybe_impl::MaybeValue<Index, StoreT> ValueT;
-
-        // Assign to the element using its assignment operator.
-        ValueT::get(Store) = std::forward<T>(Value);
-
-        return *this;
-      }
+    // If T is already the active element then use its assignment operator.
+    if (Which != 0 && Which - 1 == IndexOf<RawT>())
+      get<RawT>() = std::forward<T>(Value);
+    else {
+      reset();
+      assign(std::forward<T>(Value));
     }
-
-    // Destroy any currently existing element.
-    reset();
-
-    // Construct a new element of type T from the given Value.
-    assign(std::forward<T>(Value));
 
     return *this;
   }
