@@ -224,6 +224,16 @@ std::vector<MallocState> ProcessState::getDynamicMemoryAllocations() const
   return States;
 }
 
+seec::Maybe<MallocState>
+ProcessState::getDynamicMemoryAllocation(uintptr_t const Address) const
+{
+  auto const It = UnmappedState->getMallocs().find(Address);
+  if (It == UnmappedState->getMallocs().end())
+    return seec::Maybe<MallocState>();
+
+  return MallocState{*this, It->second};
+}
+
 
 //===----------------------------------------------------------------------===//
 // ProcessState: Streams

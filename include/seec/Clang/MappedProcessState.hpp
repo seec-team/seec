@@ -201,6 +201,8 @@ public:
   /// \brief Get all mapped dynamic memory allocations.
   ///
   std::vector<MallocState> getDynamicMemoryAllocations() const;
+
+  seec::Maybe<MallocState> getDynamicMemoryAllocation(uintptr_t Address) const;
   
   /// @} (Dynamic memory allocations.)
   

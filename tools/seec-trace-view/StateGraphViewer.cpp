@@ -619,6 +619,17 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
     else if (llvm::isa<DisplayableParamState>(Prev)) {
       Notifier->createNotify<ConEvHighlightDecl>(nullptr);
     }
+    else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess()) {
+        auto const Start = DA->getAreaStart();
+        auto const MMalloc = CurrentProcess->getDynamicMemoryAllocation(Start);
+        if (MMalloc.assigned<seec::cm::MallocState>()) {
+          auto const &Malloc = MMalloc.get<seec::cm::MallocState>();
+          if (Malloc.getAllocatorStmt())
+            Notifier->createNotify<ConEvHighlightStmt>(nullptr);
+        }
+      }
+    }
   }
 
   MouseOver = Ev.getDisplayableShared();
@@ -680,6 +691,16 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
     }
   }
   else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Node)) {
+    if (auto Access = CurrentAccess->getAccess()) {
+      auto const Start = DA->getAreaStart();
+      auto const MayMalloc = CurrentProcess->getDynamicMemoryAllocation(Start);
+      if (MayMalloc.assigned<seec::cm::MallocState>()) {
+        auto const &Malloc = MayMalloc.get<seec::cm::MallocState>();
+        if (auto const S = Malloc.getAllocatorStmt())
+          Notifier->createNotify<ConEvHighlightStmt>(S);
+      }
+    }
+
     if (Recording) {
       Recording->recordEventL("StateGraphViewer.MouseOverReferencedArea",
                               make_attribute("start", DA->getAreaStart()),
