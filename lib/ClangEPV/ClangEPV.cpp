@@ -605,6 +605,22 @@ void addInfo(::clang::DeclStmt const *Statement,
   }
 }
 
+/// \brief Specialization for UnaryExprOrTypeTraitExpr.
+///
+void addInfo(::clang::UnaryExprOrTypeTraitExpr const *Statement,
+             RuntimeValueLookup const *ValueLookup,
+             seec::icu::FormatArgumentsWithNames &Arguments,
+             NodeLinks &Links)
+{
+  Arguments.add("kind", formatAsString(Statement->getKind()));
+  Arguments.add("is_argument_type", formatAsBool(Statement->isArgumentType()));
+  Arguments.add("argument_type",
+                formatAsString(Statement->getTypeOfArgument().getAsString()));
+
+  if (!Statement->isArgumentType())
+    Links.add("argument_expr", Statement->getArgumentExpr());
+}
+
 
 /// \brief Attempt to create an Explanation for a ::clang::Stmt.
 ///

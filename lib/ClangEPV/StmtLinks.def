@@ -281,16 +281,7 @@ SEEC_STMT_LINK(OffsetOfExpr,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_STMT_LINK(UnaryExprOrTypeTraitExpr,
-  SEEC_PP_QUOTE(
-    ("kind",             String, getKind()),
-    ("is_argument_type", Bool,   isArgumentType()),
-    ("argument_type",    String, getTypeOfArgument().getAsString())
-  ),
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE(
-    ("argument_expr", getArgumentExpr())
-  ))
+// UnaryExprOrTypeTraitExpr is handled manually.
 
 // ArraySubscriptExpr is handled manually.
 
