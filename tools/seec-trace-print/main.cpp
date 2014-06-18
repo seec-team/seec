@@ -290,7 +290,8 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
     for (uint32_t i = 1; i <= NumThreads; ++i) {
       auto &&Thread = Trace->getThreadTrace(i);
 
-      outs() << "Thread #" << i << ":\n";
+      if (NumThreads > 1)
+        outs() << "Thread #" << i << ":\n";
 
       outs() << "Functions:\n";
 
@@ -362,7 +363,8 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
       auto &&Thread = Trace->getThreadTrace(i);
       std::vector<uint32_t> FunctionStack;
 
-      outs() << "Thread #" << i << ":\n";
+      if (NumThreads > 1)
+        outs() << "Thread #" << i << ":\n";
 
       for (auto &&Ev: Thread.events()) {
         if (Ev.getType() == trace::EventType::FunctionStart) {
@@ -438,7 +440,7 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
 
           outs() << Filename
                  << ", Line " << Line
-                 << " Column " << Column << ":\n";
+                 << " Column " << Column << ": ";
 
           StmtAndAST.first->printPretty(outs(),
                                         nullptr,
