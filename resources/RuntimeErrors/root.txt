@@ -71,8 +71,8 @@ root:table {
     // address
     BadDynamicMemoryAddress:string {
       "{function, select, "
-        "free {Bad address {address} given to free.}"
-        "realloc {Bad address {address} given to realloc.}"
+        "free {Attempting to free memory that is not dynamically allocated.}"
+        "realloc {Attempting to realloc memory that is not dynamically allocated.}"
         "other {Bad address {address} given to function {function}.}"
       "}"
     }
