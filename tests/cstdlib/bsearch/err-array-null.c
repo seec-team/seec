@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
   int searchFor = atoi(argv[1]);
 
   struct foo *elem = bsearch(&(struct foo){ .a = searchFor, .b = 0 },
-                             array,
+                             NULL,
                              sizeof(array)/sizeof(array[0]),
                              sizeof(array[0]),
                              foo_less_a);

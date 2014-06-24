@@ -1,7 +1,15 @@
 set(SEEC_TEST_PREFIX "${SEEC_TEST_PREFIX}bsearch-")
 
-add_test(NAME ${SEEC_TEST_PREFIX}ok-simple-build
-         COMMAND ${SEEC_INSTALL}/bin/seec-cc -std=c99 -o ok-simple ${CMAKE_CURRENT_SOURCE_DIR}/ok-simple.c)
-add_test(NAME ${SEEC_TEST_PREFIX}ok-simple-run COMMAND ok-simple)
-set_tests_properties(${SEEC_TEST_PREFIX}ok-simple-run PROPERTIES DEPENDS ${SEEC_TEST_PREFIX}ok-simple-build)
+seec_test_build(ok-simple ok-simple.c)
+seec_test_run_pass(ok-simple ""              4)
+seec_test_run_fail(ok-simple not-found-low   1)
+seec_test_run_fail(ok-simple not-found-mid   5)
+seec_test_run_fail(ok-simple not-found-high 14)
+seec_test_run_fail(ok-simple err-arg-null   "")
+
+seec_test_build(err-array-null err-array-null.c)
+seec_test_run_fail(err-array-null "" "")
+
+seec_test_build(err-array-overflow err-array-overflow.c)
+seec_test_run_fail(err-array-overflow "" "")
 

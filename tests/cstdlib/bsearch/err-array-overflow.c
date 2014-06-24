@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 
   struct foo *elem = bsearch(&(struct foo){ .a = searchFor, .b = 0 },
                              array,
-                             sizeof(array)/sizeof(array[0]),
+                             sizeof(array)/sizeof(array[0]) - 1,
                              sizeof(array[0]),
                              foo_less_a);
 
