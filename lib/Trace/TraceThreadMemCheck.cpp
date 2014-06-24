@@ -234,6 +234,7 @@ CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
 : RuntimeErrorChecker(InThread,
                       InstructionIndex),
   Function(Function),
+  CallerIdx(InThread.FunctionStack.size() - 1),
   Call(llvm::dyn_cast<llvm::CallInst>
                      (InThread.getActiveFunction()
                               ->getFunctionIndex()
@@ -322,7 +323,7 @@ bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
 {
   auto MaybeArea = getContainingMemoryArea(Thread, Address);
   auto const PtrVal = Call->getArgOperand(Parameter);
-  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
 
   if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea,
                                 PtrObj))
@@ -403,7 +404,7 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                              char const *String)
 {
   auto const PtrVal = Call->getArgOperand(Parameter);
-  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
   return checkCStringRead(Parameter, String, PtrObj);
 }
 
@@ -415,7 +416,7 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
 
   auto const PtrVal = Call->getArgOperand(Parameter);
-  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
 
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
@@ -444,7 +445,7 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
 
   auto const PtrVal = Call->getArgOperand(Parameter);
-  auto const PtrObj = Thread.getActiveFunction()->getPointerObject(PtrVal);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
 
   // Check if Array points to owned memory.
   auto const MaybeArea = getContainingMemoryArea(Thread, ArrayAddress);

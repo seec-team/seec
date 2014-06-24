@@ -156,6 +156,9 @@ protected:
   /// The function that we are checking.
   seec::runtime_errors::format_selects::CStdFunction const Function;
 
+  /// Index of the calling function's \c TracedFunction in the shadow stack.
+  unsigned const CallerIdx;
+
   /// The call to this Function.
   llvm::CallInst const *Call;
   
