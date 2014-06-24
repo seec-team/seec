@@ -147,6 +147,13 @@ void TraceProcessListener::traceOpen() {
 // Accessors.
 //===----------------------------------------------------------------------===//
 
+llvm::Function const *
+TraceProcessListener::getFunctionAt(uintptr_t const Address) const
+{
+  auto const It = FunctionLookup.find(Address);
+  return It != FunctionLookup.end() ? It->second : nullptr;
+}
+
 seec::Maybe<MemoryArea>
 TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
                                               uint32_t RequestingThreadID

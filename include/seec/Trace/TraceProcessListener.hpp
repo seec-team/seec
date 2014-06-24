@@ -307,6 +307,12 @@ public:
 
     return FunctionAddresses[Index];
   }
+
+  /// \brief Find the \c llvm::Function at the given address.
+  /// \param Address the runtime address.
+  /// \return the \c llvm::Function at \c Address, or \c nullptr if none known.
+  ///
+  llvm::Function const *getFunctionAt(uintptr_t const Address) const;
   
   /// \brief Find the allocated range that owns an address.
   ///
