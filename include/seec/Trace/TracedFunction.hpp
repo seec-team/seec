@@ -246,11 +246,12 @@ class TracedFunction {
   TraceThreadListener const &ThreadListener;
 
   /// Indexed view of the Function.
-  FunctionIndex &FIndex;
+  FunctionIndex const *FIndex;
 
-  /// This Function execution's \c RecordedFunction.
+  /// This Function execution's \c RecordedFunction. If this \c TracedFunction
+  /// is a shim, then this is the parent's \c RecordedFunction.
   RecordedFunction &Record;
-  
+
   /// @}
   
   
@@ -293,12 +294,13 @@ class TracedFunction {
 
 public:
   /// \brief Constructor.
-  TracedFunction(TraceThreadListener const &ThreadListener,
-                 FunctionIndex &FIndex,
+  ///
+  TracedFunction(TraceThreadListener const &WithThreadListener,
+                 FunctionIndex &WithFIndex,
                  RecordedFunction &WithRecord,
                  llvm::DenseMap<llvm::Argument const *, uintptr_t> ArgPtrObjs)
-  : ThreadListener(ThreadListener),
-    FIndex(FIndex),
+  : ThreadListener(WithThreadListener),
+    FIndex(&WithFIndex),
     Record(WithRecord),
     ActiveInstruction(nullptr),
     Allocas(),
@@ -306,12 +308,31 @@ public:
     StackSaves(),
     StackLow(0),
     StackHigh(0),
-    CurrentValues(FIndex.getInstructionCount()),
+    CurrentValues(FIndex->getInstructionCount()),
     ArgPointerObjects(std::move(ArgPtrObjs)),
     PointerObjects()
   {}
 
+  /// \brief Constructor for shims.
+  ///
+  TracedFunction(TraceThreadListener const &WithThreadListener,
+                 RecordedFunction &WithParentRecord)
+  : ThreadListener(WithThreadListener),
+    FIndex(nullptr),
+    Record(WithParentRecord),
+    ActiveInstruction(nullptr),
+    Allocas(),
+    ByValArgs(),
+    StackSaves(),
+    StackLow(),
+    StackHigh(),
+    CurrentValues(),
+    ArgPointerObjects(),
+    PointerObjects()
+  {}
+
   /// \brief Move constructor.
+  ///
   TracedFunction(TracedFunction &&Other)
   : ThreadListener(Other.ThreadListener),
     FIndex(Other.FIndex),
@@ -331,8 +352,25 @@ public:
   /// \name Accessors for permanent information.
   /// @{
 
+  /// \brief Check if this is a shim.
+  ///
+  /// A shim has no \c FunctionIndex, and should only interact with child
+  /// function's \c notifyFunctionBegin() and \c notifyFunctionEnd() calls.
+  ///
+  /// A shim holds the pointer objects for arguments passed to the child
+  /// function, but because there is no \c FunctionIndex they are mapped to
+  /// the \c llvm::Argument pointers for the child, rather than needing to
+  /// extract them from the appropriate argument's \c llvm::Value. This means
+  /// that a shim's \c getPointerObject(llvm::Argument) retrieves the object
+  /// for a child call's argument, rather than one of the shim's arguments.
+  ///
+  bool isShim() const { return FIndex == nullptr; }
+
   /// Get FunctionIndex for the recorded Function.
-  FunctionIndex const &getFunctionIndex() const { return FIndex; }
+  FunctionIndex const &getFunctionIndex() const {
+    assert(FIndex && "Incorrect usage of TracedFunction shim!");
+    return *FIndex;
+  }
 
   /// Get the \c RecordedFunction for this Function's execution.
   RecordedFunction &getRecordedFunction() { return Record; }
@@ -420,7 +458,8 @@ public:
   /// \param Instr the Instruction.
   /// \return a reference to the RuntimeValue for Instr.
   RuntimeValue *getCurrentRuntimeValue(llvm::Instruction const *Instr) {
-    auto const Idx = FIndex.getIndexOfInstruction(Instr).get<uint32_t>();
+    assert(FIndex && "Incorrect usage of TracedFunction shim!");
+    auto const Idx = FIndex->getIndexOfInstruction(Instr).get<uint32_t>();
     return &CurrentValues[Idx];
   }
   
@@ -429,7 +468,8 @@ public:
   /// \return a const reference to the RuntimeValue for Instr.
   RuntimeValue const *
   getCurrentRuntimeValue(llvm::Instruction const *Instr) const {
-    auto const Idx = FIndex.getIndexOfInstruction(Instr).get<uint32_t>();
+    assert(FIndex && "Incorrect usage of TracedFunction shim!");
+    auto const Idx = FIndex->getIndexOfInstruction(Instr).get<uint32_t>();
     return &CurrentValues[Idx];
   }
   

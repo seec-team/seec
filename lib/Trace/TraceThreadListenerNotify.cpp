@@ -91,16 +91,25 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   llvm::DenseMap<llvm::Argument const *, uintptr_t> PtrArgObjects;
 
   if (ActiveFunction) {
-    auto const Inst = ActiveFunction->getActiveInstruction();
-    if (auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst)) {
-      // TODO: Ensure that the called Function is F.
-      for (auto const &Arg : F->getArgumentList()) {
-        if (Arg.getType()->isPointerTy()) {
-          auto const Operand = Call->getArgOperand(Arg.getArgNo());
-          auto const Object = ActiveFunction->getPointerObject(Operand);
-          PtrArgObjects[&Arg] = Object;
+    if (!ActiveFunction->isShim()) {
+      auto const Inst = ActiveFunction->getActiveInstruction();
+      if (auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst)) {
+        // TODO: Ensure that the called Function is F.
+        for (auto const &Arg : F->getArgumentList()) {
+          if (Arg.getType()->isPointerTy()) {
+            auto const Operand = Call->getArgOperand(Arg.getArgNo());
+            auto const Object = ActiveFunction->getPointerObject(Operand);
+            PtrArgObjects[&Arg] = Object;
+          }
         }
       }
+    }
+    else {
+      // A shim's Argument lookup finds the called Function's argument pointer
+      // objects, rather than the shim's argument pointer objects.
+      for (auto const &Arg : F->getArgumentList())
+        if (Arg.getType()->isPointerTy())
+          PtrArgObjects[&Arg] = ActiveFunction->getPointerObject(&Arg);
     }
   }
 
@@ -310,7 +319,10 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
 
   // If the terminated Function returned a pointer, then transfer the correct
   // pointer object information to the parent Function's CallInst.
-  if (ParentFunction && F->getType()->isPointerTy()) {
+  if (ParentFunction
+      && F->getType()->isPointerTy()
+      && !ParentFunction->isShim())
+  {
     if (auto const Ret = llvm::dyn_cast<llvm::ReturnInst>(Terminator)) {
       if (auto const RetVal = Ret->getReturnValue()) {
         auto const RetPtrObj = ActiveFunction->getPointerObject(RetVal);

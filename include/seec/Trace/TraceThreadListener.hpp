@@ -549,6 +549,20 @@ public:
   /// @} (Mutators)
 
 
+  /// \name Shadow stack.
+  /// @{
+
+  /// \brief Push a shim function onto the shadow stack.
+  ///
+  void pushShimFunction();
+
+  /// \brief Pop a shim function from the shadow stack.
+  ///
+  void popShimFunction();
+
+  /// @} (Shadow stack.)
+
+
   /// \name Thread Listener Notifications
   /// @{
 

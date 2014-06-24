@@ -21,6 +21,7 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
+#include "llvm/IR/Function.h"
 #include "llvm/Support/CallSite.h"
 
 #include <cstdlib>
@@ -101,6 +102,9 @@ class BinarySearchImpl {
   
   /// Comparison function.
   int (* const Compare)(char const *, char const *);
+
+  /// LLVM representation of comparison function.
+  llvm::Function const * const CompareFn;
   
   /// \brief Acquire memory lock and ensure that memory is accessible.
   ///
@@ -157,6 +161,9 @@ class BinarySearchImpl {
       // Compare the midpoint with the key.
       releaseMemory();
       
+      // Array element is always the left side of comparison, key object is
+      // always the right side of comparison. Our pointer object information
+      // in the shim is set according to this, so do not change.
       auto const Comparison = Compare(getElement(Mid), Key);
       
       if (!acquireMemory())
@@ -194,7 +201,10 @@ public:
     Array(ForArray),
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
-    Compare(WithCompare)
+    Compare(WithCompare),
+    CompareFn(ThreadListener.getProcessListener()
+                            .getFunctionAt(reinterpret_cast<uintptr_t>
+                                                           (Compare)))
   {
     if (auto const ActiveFn = ThreadListener.getActiveFunction())
       ActiveFn->setActiveInstruction(WithThread.getInstruction());
@@ -204,14 +214,49 @@ public:
   ///
   void *operator()()
   {
+    // TODO: This should be raised as a run-time error.
+    assert(CompareFn && "Comparison function is unknown!");
+
+    auto const Caller = ThreadListener.getActiveFunction();
+    assert(Caller && !Caller->isShim());
+
+    auto const Call = llvm::ImmutableCallSite(Caller->getActiveInstruction());
+    auto const KeyPtrObj   = Caller->getPointerObject(Call.getArgument(0));
+    auto const ArrayPtrObj = Caller->getPointerObject(Call.getArgument(1));
+
+    ThreadListener.pushShimFunction();
+    auto const Shim = ThreadListener.getActiveFunction();
+
+    // Array element is always the left side of comparison, key object is
+    // always the right side of comparison.
+    auto CompareFnArg = CompareFn->arg_begin();
+    Shim->setPointerObject(  &*CompareFnArg, ArrayPtrObj);
+    Shim->setPointerObject(&*++CompareFnArg, KeyPtrObj  );
+
     acquireMemory();
-    
     auto const Result = bsearch();
-    
     releaseMemory();
-    
+
+    ThreadListener.popShimFunction();
+
+    // The C standard specifies the result is not const.
+    auto const Unqualified = const_cast<char *>(Result);
+
+    // Notify of the returned pointer (and its pointer object).
+    auto const CallInst = Call.getInstruction();
+    auto const Idx = seec::trace::getThreadEnvironment().getInstructionIndex();
+
+    ThreadListener.notifyValue(Idx, CallInst,
+                               reinterpret_cast<void *>(Unqualified));
+
+    // Note that Caller is invalidated when the shim function is pushed, so we
+    // need to retrieve a new pointer to the active function.
+    ThreadListener.getActiveFunction()
+                  ->setPointerObject(CallInst, Result ? ArrayPtrObj : 0);
+
+
     // const_cast due to the C standard.
-    return const_cast<char *>(Result);
+    return Unqualified;
   }
 };
 
@@ -239,6 +284,9 @@ class QuickSortImpl {
   
   /// Comparison function.
   int (* const Compare)(char const *, char const *);
+
+  /// LLVM representation of comparison function.
+  llvm::Function const * const CompareFn;
   
   /// \brief Acquire memory lock and ensure that memory is accessible.
   ///
@@ -385,7 +433,9 @@ public:
     Array(ForArray),
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
-    Compare(WithCompare)
+    Compare(WithCompare),
+    CompareFn(ProcessListener.getFunctionAt(reinterpret_cast<uintptr_t>
+                                                            (Compare)))
   {
     if (auto const ActiveFn = ThreadListener.getActiveFunction())
       ActiveFn->setActiveInstruction(WithThread.getInstruction());
@@ -395,15 +445,27 @@ public:
   ///
   void operator()()
   {
-    auto const Fn = ProcessListener.module().getFunction("qsort");
-    auto const FnIndex = ProcessListener.moduleIndex().getIndexOfFunction(Fn)
-                                                      .get<uint32_t>();
+    // TODO: This should be raised as a run-time error.
+    assert(CompareFn && "Comparison function is unknown!");
+
+    auto const Caller = ThreadListener.getActiveFunction();
+    assert(Caller && !Caller->isShim());
+
+    auto const Call = llvm::ImmutableCallSite(Caller->getActiveInstruction());
+    auto const ArrayPtrObj = Caller->getPointerObject(Call.getArgument(0));
+
+    ThreadListener.pushShimFunction();
+    auto const Shim = ThreadListener.getActiveFunction();
+
+    auto CompareFnArg = CompareFn->arg_begin();
+    Shim->setPointerObject(  &*CompareFnArg, ArrayPtrObj);
+    Shim->setPointerObject(&*++CompareFnArg, ArrayPtrObj);
 
     acquireMemory();
-    ThreadListener.notifyFunctionBegin(FnIndex, Fn);
     quicksort(0, ElementCount - 1);
-    ThreadListener.notifyFunctionEnd(FnIndex, Fn, 0, nullptr);
     releaseMemory();
+
+    ThreadListener.popShimFunction();
   }
 };
 
@@ -541,7 +603,7 @@ SEEC_MANGLE_FUNCTION(qsort)
 // bsearch
 //===----------------------------------------------------------------------===//
 
-void
+void *
 SEEC_MANGLE_FUNCTION(bsearch)
 (char const *Key,
  char const *Array,
@@ -550,8 +612,9 @@ SEEC_MANGLE_FUNCTION(bsearch)
  int (*Compare)(char const *, char const *)
  )
 {
-  seec::BinarySearchImpl(seec::trace::getThreadEnvironment(),
-                         Key, Array, ElementCount, ElementSize, Compare)();
+  return seec::BinarySearchImpl(seec::trace::getThreadEnvironment(),
+                                Key, Array, ElementCount, ElementSize, Compare)
+                               ();
 }
 
 
