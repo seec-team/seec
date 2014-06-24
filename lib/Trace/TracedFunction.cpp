@@ -81,6 +81,8 @@ void TracedFunction::addByValArg(llvm::Argument const * const Arg,
 {
   assert(!EventOffsetEnd && "Function has finished recording!");
   
+  ArgPointerObjects[Arg] = Area.start();
+
   std::lock_guard<std::mutex> Lock(StackMutex);
   
   ByValArgs.emplace_back(Arg, std::move(Area));
