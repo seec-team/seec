@@ -7,7 +7,7 @@ struct foo {
 
 int foo_less_a(void const *left, void const *right) {
   return ((struct foo const *)left)->a -
-         ((struct foo const *)right)->b;
+         ((struct foo const *)right)->a;
 }
 
 int main(int argc, char *argv[]) {
