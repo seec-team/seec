@@ -552,10 +552,12 @@ public:
   template<typename T> T  const &get()  const & { return get<IndexOf<T>()>(); }
 
   /// \brief Get an rvalue reference to the first element with type \c T.
-  template<typename T> T       &&get()       && { return get<IndexOf<T>()>(); }
+  template<typename T> T &&
+  get() && { return static_cast<T &&>(get<IndexOf<T>()>()); }
 
   /// \brief Get a const rvalue reference to the first element with type \c T.
-  template<typename T> T const &&get() const && { return get<IndexOf<T>()>(); }
+  template<typename T> T const &&
+  get() const && { return static_cast<T const &&>(get<IndexOf<T>()>()); }
 
   /// \brief Get an rvalue reference to the first element with type T.
   ///
