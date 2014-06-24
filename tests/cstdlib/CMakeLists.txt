@@ -1,0 +1,4 @@
+set(SEEC_TEST_PREFIX "${SEEC_TEST_PREFIX}cstdlib-")
+add_subdirectory(islower)
+add_subdirectory(qsort)
+
