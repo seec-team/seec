@@ -156,24 +156,10 @@ public:
 };
 
 
-/// \brief Stores information about a single recorded Function execution.
+/// \brief Stores the record information for an executed Function.
 ///
 ///
-class TracedFunction {
-  // Don't allow copying.
-  TracedFunction(TracedFunction const &) = delete;
-  TracedFunction &operator=(TracedFunction const &) = delete;
-  
-  
-  /// \name Permanent information.
-  /// @{
-  
-  /// The thread that this function belongs to.
-  TraceThreadListener const &ThreadListener;
-
-  /// Indexed view of the Function.
-  FunctionIndex &FIndex;
-
+class RecordedFunction {
   /// Offset of the FunctionRecord for this function trace.
   offset_uint RecordOffset;
 
@@ -195,6 +181,75 @@ class TracedFunction {
   /// List of offsets of FunctionRecords for the direct children of this
   /// function trace.
   std::vector<offset_uint> Children;
+
+public:
+  /// \brief Constructor.
+  ///
+  RecordedFunction(offset_uint const WithRecordOffset,
+                   uint32_t const WithIndex,
+                   offset_uint const WithEventOffsetStart,
+                   uint64_t const WithThreadTimeEntered)
+  : RecordOffset(WithRecordOffset),
+    Index(WithIndex),
+    EventOffsetStart(WithEventOffsetStart),
+    EventOffsetEnd(0),
+    ThreadTimeEntered(WithThreadTimeEntered),
+    ThreadTimeExited(0),
+    Children()
+  {}
+
+  /// Get the offset of this FunctionRecord in the thread trace.
+  offset_uint getRecordOffset() const { return RecordOffset; }
+
+  /// Get the index of the Function in the Module.
+  uint32_t getIndex() const { return Index; }
+
+  /// Get the offset of the FunctionStart record in the thread's event trace.
+  offset_uint getEventOffsetStart() const { return EventOffsetStart; }
+
+  /// Get the offset of the FunctionEnd record in the thread's event trace.
+  offset_uint getEventOffsetEnd() const { return EventOffsetEnd; }
+
+  /// Get the thread time at which this Function started recording.
+  uint64_t getThreadTimeEntered() const { return ThreadTimeEntered; }
+
+  /// Get the thread time at which this Function finished recording.
+  uint64_t getThreadTimeExited() const { return ThreadTimeExited; }
+
+  /// Get the offsets of the child FunctionRecords.
+  std::vector<offset_uint> const &getChildren() const { return Children; }
+
+  void addChild(RecordedFunction const &Child)
+  {
+    assert(EventOffsetEnd == 0 && ThreadTimeExited == 0);
+    Children.push_back(Child.RecordOffset);
+  }
+
+  void setCompletion(offset_uint const WithEventOffsetEnd,
+                     uint64_t const WithThreadTimeExited);
+};
+
+
+/// \brief Stores information about a single recorded Function execution.
+///
+///
+class TracedFunction {
+  // Don't allow copying.
+  TracedFunction(TracedFunction const &) = delete;
+  TracedFunction &operator=(TracedFunction const &) = delete;
+  
+  
+  /// \name Permanent information.
+  /// @{
+  
+  /// The thread that this function belongs to.
+  TraceThreadListener const &ThreadListener;
+
+  /// Indexed view of the Function.
+  FunctionIndex &FIndex;
+
+  /// This Function execution's \c RecordedFunction.
+  RecordedFunction &Record;
   
   /// @}
   
@@ -237,23 +292,14 @@ class TracedFunction {
   
 
 public:
-  /// Constructor.
+  /// \brief Constructor.
   TracedFunction(TraceThreadListener const &ThreadListener,
                  FunctionIndex &FIndex,
-                 offset_uint RecordOffset,
-                 uint32_t Index,
-                 offset_uint EventOffsetStart,
-                 uint64_t ThreadTimeEntered,
+                 RecordedFunction &WithRecord,
                  llvm::DenseMap<llvm::Argument const *, uintptr_t> ArgPtrObjs)
   : ThreadListener(ThreadListener),
     FIndex(FIndex),
-    RecordOffset(RecordOffset),
-    Index(Index),
-    EventOffsetStart(EventOffsetStart),
-    EventOffsetEnd(0),
-    ThreadTimeEntered(ThreadTimeEntered),
-    ThreadTimeExited(0),
-    Children(),
+    Record(WithRecord),
     ActiveInstruction(nullptr),
     Allocas(),
     ByValArgs(),
@@ -265,6 +311,22 @@ public:
     PointerObjects()
   {}
 
+  /// \brief Move constructor.
+  TracedFunction(TracedFunction &&Other)
+  : ThreadListener(Other.ThreadListener),
+    FIndex(Other.FIndex),
+    Record(Other.Record),
+    ActiveInstruction(Other.ActiveInstruction),
+    Allocas(std::move(Other.Allocas)),
+    ByValArgs(std::move(Other.ByValArgs)),
+    StackSaves(std::move(Other.StackSaves)),
+    StackLow(Other.StackLow),
+    StackHigh(Other.StackHigh),
+    CurrentValues(std::move(Other.CurrentValues)),
+    ArgPointerObjects(std::move(Other.ArgPointerObjects)),
+    PointerObjects(std::move(Other.PointerObjects))
+  {}
+
 
   /// \name Accessors for permanent information.
   /// @{
@@ -272,26 +334,8 @@ public:
   /// Get FunctionIndex for the recorded Function.
   FunctionIndex const &getFunctionIndex() const { return FIndex; }
 
-  /// Get the offset of this FunctionRecord in the thread trace.
-  offset_uint getRecordOffset() const { return RecordOffset; }
-
-  /// Get the index of the Function in the Module.
-  uint32_t getIndex() const { return Index; }
-
-  /// Get the offset of the FunctionStart record in the thread's event trace.
-  offset_uint getEventOffsetStart() const { return EventOffsetStart; }
-
-  /// Get the offset of the FunctionEnd record in the thread's event trace.
-  offset_uint getEventOffsetEnd() const { return EventOffsetEnd; }
-
-  /// Get the thread time at which this Function started recording.
-  uint64_t getThreadTimeEntered() const { return ThreadTimeEntered; }
-
-  /// Get the thread time at which this Function finished recording.
-  uint64_t getThreadTimeExited() const { return ThreadTimeExited; }
-
-  /// Get the offsets of the child FunctionRecords.
-  std::vector<offset_uint> const &getChildren() const { return Children; }
+  /// Get the \c RecordedFunction for this Function's execution.
+  RecordedFunction &getRecordedFunction() { return Record; }
 
   /// @} (Accessors for permanent information.)
   
@@ -348,9 +392,6 @@ public:
   /// This method is thread safe.
   MemoryArea getStackArea() const {
     std::lock_guard<std::mutex> Lock(StackMutex);
-    
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    
     return MemoryArea(StackLow, (StackHigh - StackLow) + 1);
   }
   
@@ -363,7 +404,6 @@ public:
   /// \param Idx the index of the Instruction in the Function.
   /// \return a reference to the RuntimeValue for the Instruction at Idx.
   RuntimeValue *getCurrentRuntimeValue(uint32_t Idx) {
-    assert(!EventOffsetEnd && "Function has finished recording!");
     assert(Idx < CurrentValues.size() && "Bad Idx!");
     return &CurrentValues[Idx];
   }
@@ -372,7 +412,6 @@ public:
   /// \param Idx the index of the Instruction in the Function.
   /// \return a const reference to the RuntimeValue for the Instruction at Idx.
   RuntimeValue const *getCurrentRuntimeValue(uint32_t Idx) const {
-    assert(!EventOffsetEnd && "Function has finished recording!");
     assert(Idx < CurrentValues.size() && "Bad Idx!");
     return &CurrentValues[Idx];
   }
@@ -381,10 +420,8 @@ public:
   /// \param Instr the Instruction.
   /// \return a reference to the RuntimeValue for Instr.
   RuntimeValue *getCurrentRuntimeValue(llvm::Instruction const *Instr) {
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    auto Idx = FIndex.getIndexOfInstruction(Instr);
-    assert(Idx.assigned() && "Bad Instr!");
-    return &CurrentValues[Idx.get<0>()];
+    auto const Idx = FIndex.getIndexOfInstruction(Instr).get<uint32_t>();
+    return &CurrentValues[Idx];
   }
   
   /// Get a const reference to the current RuntimeValue for an Instruction.
@@ -392,10 +429,8 @@ public:
   /// \return a const reference to the RuntimeValue for Instr.
   RuntimeValue const *
   getCurrentRuntimeValue(llvm::Instruction const *Instr) const {
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    auto Idx = FIndex.getIndexOfInstruction(Instr);
-    assert(Idx.assigned() && "Bad Instr!");
-    return &CurrentValues[Idx.get<0>()];
+    auto const Idx = FIndex.getIndexOfInstruction(Instr).get<uint32_t>();
+    return &CurrentValues[Idx];
   }
   
   /// @} (Accessors for active-only information.)
@@ -463,19 +498,10 @@ public:
 
   /// \name Mutators
   /// @{
-  
-  /// \brief 
-  ///
-  void finishRecording(offset_uint EventOffsetEnd,
-                       uint64_t ThreadTimeExited);
 
   /// \brief Add a new child TracedFunction.
   /// \param Child the child function call.
-  void addChild(TracedFunction &Child) {
-    assert(!EventOffsetEnd && "Function has finished recording!");
-    
-    Children.push_back(Child.RecordOffset);
-  }
+  void addChild(TracedFunction &Child) { Record.addChild(Child.Record); }
   
   /// \brief Add a new TracedAlloca.
   /// \param Alloca the new TracedAlloca.

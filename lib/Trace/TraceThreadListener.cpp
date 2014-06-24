@@ -131,8 +131,8 @@ std::uintptr_t TraceThreadListener::getRemainingStack() const
 
   {
     std::lock_guard<std::mutex> Lock{FunctionStackMutex};
-    auto const FrontArea = FunctionStack.front()->getStackArea();
-    auto const BackArea = FunctionStack.back()->getStackArea();
+    auto const FrontArea = FunctionStack.front().getStackArea();
+    auto const BackArea = FunctionStack.back().getStackArea();
 
     // Pick the lowest non-zero value from the area starts.
     if (FrontArea.start() != 0 && FrontArea.start() < BackArea.start())

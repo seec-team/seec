@@ -15,6 +15,7 @@
 #include "Tracer.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"
+#include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -194,7 +195,10 @@ public:
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
     Compare(WithCompare)
-  {}
+  {
+    if (auto const ActiveFn = ThreadListener.getActiveFunction())
+      ActiveFn->setActiveInstruction(WithThread.getInstruction());
+  }
   
   /// \brief Perform the quicksort.
   ///
@@ -382,14 +386,23 @@ public:
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
     Compare(WithCompare)
-  {}
+  {
+    if (auto const ActiveFn = ThreadListener.getActiveFunction())
+      ActiveFn->setActiveInstruction(WithThread.getInstruction());
+  }
   
   /// \brief Perform the quicksort.
   ///
   void operator()()
   {
+    auto const Fn = ProcessListener.module().getFunction("qsort");
+    auto const FnIndex = ProcessListener.moduleIndex().getIndexOfFunction(Fn)
+                                                      .get<uint32_t>();
+
     acquireMemory();
+    ThreadListener.notifyFunctionBegin(FnIndex, Fn);
     quicksort(0, ElementCount - 1);
+    ThreadListener.notifyFunctionEnd(FnIndex, Fn, 0, nullptr);
     releaseMemory();
   }
 };

@@ -26,6 +26,19 @@ namespace trace {
 
 
 //===----------------------------------------------------------------------===//
+// RecordedFunction
+//===----------------------------------------------------------------------===//
+
+void RecordedFunction::setCompletion(offset_uint const WithEventOffsetEnd,
+                                     uint64_t const WithThreadTimeExited)
+{
+  assert(EventOffsetEnd == 0 && ThreadTimeExited == 0);
+  EventOffsetEnd = WithEventOffsetEnd;
+  ThreadTimeExited = WithThreadTimeExited;
+}
+
+
+//===----------------------------------------------------------------------===//
 // Support getCurrentRuntimeValue.
 //===----------------------------------------------------------------------===//
 
@@ -79,8 +92,6 @@ TracedFunction::getContainingMemoryArea(uintptr_t Address) const
 void TracedFunction::addByValArg(llvm::Argument const * const Arg,
                                  MemoryArea const &Area)
 {
-  assert(!EventOffsetEnd && "Function has finished recording!");
-  
   ArgPointerObjects[Arg] = Area.start();
 
   std::lock_guard<std::mutex> Lock(StackMutex);
@@ -91,8 +102,6 @@ void TracedFunction::addByValArg(llvm::Argument const * const Arg,
 seec::Maybe<seec::MemoryArea>
 TracedFunction::getParamByValArea(llvm::Argument const *Arg) const
 {
-  assert(!EventOffsetEnd && "Function has finished recording!");
-
   std::lock_guard<std::mutex> Lock(StackMutex);
 
   for (auto const &PBV : ByValArgs)
@@ -174,29 +183,7 @@ uintptr_t TracedFunction::transferArgPointerObjectToCall(unsigned const ArgNo)
 // Mutators.
 //===----------------------------------------------------------------------===//
 
-void TracedFunction::finishRecording(offset_uint EventOffsetEnd,
-                                     uint64_t ThreadTimeExited) {
-  assert(!this->EventOffsetEnd && "Function has finished recording!");
-  
-  std::lock_guard<std::mutex> Lock(StackMutex);
-  
-  this->EventOffsetEnd = EventOffsetEnd;
-  this->ThreadTimeExited = ThreadTimeExited;
-  
-  // clear active-only information
-  ActiveInstruction = nullptr;
-  Allocas.clear();
-  ByValArgs.clear();
-  StackLow = 0;
-  StackHigh = 0;
-  CurrentValues.clear();
-  ArgPointerObjects.clear();
-  PointerObjects.clear();
-}
-
 void TracedFunction::addAlloca(TracedAlloca Alloca) {
-  assert(!EventOffsetEnd && "Function has finished recording!");
-  
   std::lock_guard<std::mutex> Lock(StackMutex);
   
   auto const &Area = Alloca.area();
@@ -211,16 +198,12 @@ void TracedFunction::addAlloca(TracedAlloca Alloca) {
 }
 
 void TracedFunction::stackSave(uintptr_t Key) {
-  assert(!EventOffsetEnd && "Function has finished recording!");
-  
   std::lock_guard<std::mutex> Lock(StackMutex);
     
   StackSaves[Key] = Allocas;
 }
 
 MemoryArea TracedFunction::stackRestore(uintptr_t Key) {
-  assert(!EventOffsetEnd && "Function has finished recording!");
-  
   std::lock_guard<std::mutex> Lock(StackMutex);
   
   auto const &RestoreAllocas = StackSaves[Key];

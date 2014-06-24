@@ -16,6 +16,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
 #include "seec/Util/Fallthrough.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
@@ -103,34 +104,30 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
     }
   }
 
-  // create function record
-  auto TF = new (std::nothrow) TracedFunction(*this,
-                                              *FIndex,
-                                              RecordOffset,
-                                              Index,
-                                              StartOffset,
-                                              Entered,
-                                              std::move(PtrArgObjects));
-  seec::checkNew(TF);
+  RecordedFunctions.emplace_back(
+    seec::makeUnique<RecordedFunction>(RecordOffset,
+                                       Index,
+                                       StartOffset,
+                                       Entered));
 
-  RecordedFunctions.emplace_back(TF);
-
-  // Add the FunctionRecord to the stack and make it the ActiveFunction.
+  // Add a TracedFunction to the stack and make it the ActiveFunction.
   {
     std::lock_guard<std::mutex> Lock(FunctionStackMutex);
+    auto const Parent = ActiveFunction;
+
+    FunctionStack.emplace_back(*this,
+                               *FIndex,
+                               *RecordedFunctions.back(),
+                               std::move(PtrArgObjects));
+
+    ActiveFunction = &(FunctionStack.back());
 
     // If there was already an active function, add the new function as a child,
     // otherwise record it as a new top-level function.
-    if (!FunctionStack.empty()) {
-      FunctionStack.back()->addChild(*TF);
-    }
-    else {
+    if (Parent)
+      Parent->addChild(*ActiveFunction);
+    else
       RecordedTopLevelFunctions.emplace_back(RecordOffset);
-    }
-
-    FunctionStack.push_back(TF);
-
-    ActiveFunction = TF;
   }
 }
 
@@ -176,7 +173,7 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
     std::lock_guard<std::mutex> Lock(FunctionStackMutex);
     if (FunctionStack.size() >= 2) {
       auto ParentIdx = FunctionStack.size() - 2;
-      ParentFunction = FunctionStack[ParentIdx];
+      ParentFunction = &(FunctionStack[ParentIdx]);
     }
   }
   
@@ -304,49 +301,50 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   auto OnExit = scopeExit([=](){exitNotification();});
 
   uint64_t Exited = ++Time;
-  TracedFunction *TF;
 
-  // Get the FunctionRecord from the stack and update ActiveFunction.
-  {
-    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
+  auto &Record = FunctionStack.back().getRecordedFunction();
+  TracedFunction *ParentFunction = nullptr;
 
-    TF = FunctionStack.back();
-    FunctionStack.pop_back();
-
-    ActiveFunction = FunctionStack.empty() ? nullptr : FunctionStack.back();
-  }
+  if (FunctionStack.size() >= 2)
+    ParentFunction = &FunctionStack[FunctionStack.size() - 2];
 
   // If the terminated Function returned a pointer, then transfer the correct
   // pointer object information to the parent Function's CallInst.
-  if (ActiveFunction && F->getType()->isPointerTy()) {
+  if (ParentFunction && F->getType()->isPointerTy()) {
     if (auto const Ret = llvm::dyn_cast<llvm::ReturnInst>(Terminator)) {
       if (auto const RetVal = Ret->getReturnValue()) {
-        ActiveFunction->setPointerObject(ActiveFunction->getActiveInstruction(),
-                                         TF->getPointerObject(RetVal));
+        auto const RetPtrObj = ActiveFunction->getPointerObject(RetVal);
+        ParentFunction->setPointerObject(ParentFunction->getActiveInstruction(),
+                                         RetPtrObj);
       }
     }
   }
 
   // Create function end event.
   auto EndOffset =
-    EventsOut.write<EventType::FunctionEnd>(TF->getRecordOffset());
+    EventsOut.write<EventType::FunctionEnd>(Record.getRecordOffset());
 
-  // Clear function's stack range and byval argument memory.
+  // Clear stack allocations and pop the Function from the stack.
   {
+    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
+
     acquireGlobalMemoryWriteLock();
     auto UnlockGlobalMemory = scopeExit([=](){GlobalMemoryLock.unlock();});
 
-    auto StackArea = TF->getStackArea();
+    auto StackArea = ActiveFunction->getStackArea();
     recordStateClear(StackArea.address(), StackArea.length());
-    
-    for (auto const &Arg : TF->getByValArgs()) {
+
+    for (auto const &Arg : ActiveFunction->getByValArgs()) {
       auto const &Area = Arg.getArea();
       recordStateClear(Area.address(), Area.length());
     }
+
+    FunctionStack.pop_back();
+    ActiveFunction = FunctionStack.empty() ? nullptr : &FunctionStack.back();
   }
 
   // Update the function record with the end details.
-  TF->finishRecording(EndOffset, Exited);
+  Record.setCompletion(EndOffset, Exited);
 }
 
 void TraceThreadListener::notifyPreCall(uint32_t Index,

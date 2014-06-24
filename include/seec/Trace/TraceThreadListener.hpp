@@ -115,21 +115,20 @@ class TraceThreadListener
   uint64_t ProcessTime;
 
   /// List of all traced Functions, in order.
-  std::vector<std::unique_ptr<TracedFunction>> RecordedFunctions;
+  std::vector<std::unique_ptr<RecordedFunction>> RecordedFunctions;
 
   /// Offset of all top-level traced Functions.
   std::vector<offset_uint> RecordedTopLevelFunctions;
 
   /// Stack of trace information for still-executing Functions.
   /// The back of the vector is the currently active Function.
-  std::vector<TracedFunction *> FunctionStack;
+  std::vector<TracedFunction> FunctionStack;
 
   /// Controls access to FunctionStack.
   mutable std::mutex FunctionStackMutex;
 
   /// Pointer to the trace information for the currently active Function, or
   /// nullptr if no Function is currently active.
-  // std::atomic<TracedFunction *> ActiveFunction;
   TracedFunction *ActiveFunction;
 
   /// Global memory lock owned by this thread.
@@ -506,8 +505,8 @@ public:
 
     seec::Maybe<MemoryArea> Area;
 
-    for (auto TracedFunc : FunctionStack) {
-      Area = TracedFunc->getContainingMemoryArea(Address);
+    for (auto const &TracedFunc : FunctionStack) {
+      Area = TracedFunc.getContainingMemoryArea(Address);
       if (Area.assigned()) {
         return Area;
       }
