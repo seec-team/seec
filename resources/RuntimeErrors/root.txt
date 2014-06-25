@@ -41,13 +41,13 @@ root:table {
       "{access_type, select, "
         "read {{address, select, "
           "NULL {Attempt to dereference NULL pointer for memory read.}"
-          "other {Attempt to read unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to read unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "write {{address, select, "
           "NULL {Attempt to dereference NULL pointer for memory write.}"
-          "other {Attempt to write unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to write unallocated memory {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "other {{address, select, "
           "NULL {Attempt to dereference NULL pointer.}"
-          "other {Attempt to {access_type} unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to {access_type} unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
       "}"
     }
 
@@ -57,14 +57,18 @@ root:table {
       "Read uninitialized memory from address {address} ({size} bytes)."
     }
 
-    // select MemoryAccess {read, write}
-    // access address
-    // access size
+    // access_type {read, write}
+    // access_address
+    // access_size
     // object
-    // object address
-    // object size
+    // object_address
+    // object_size
     MemoryOverflow:string {
-      "Attempt to {access_type} memory at address {access_address} ({access_size} bytes) overflows object at address {object_address} ({object_size} bytes).}"
+      "{access_type, select, "
+       "read  {Attempting to read memory overflows object.}"
+       "write {Attempting to write memory overflows object.}"
+       "other {Accessing memory overflows object.}"
+      "}"
     }
 
     // dynamic memory function
@@ -91,18 +95,19 @@ root:table {
       "{function, select, "
         "other {"
           "{parameter, plural, "
-            "=1    {The pointer passed as the @[arg:parameter]first parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=2    {The pointer passed as the @[arg:parameter]second parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=3    {The pointer passed as the @[arg:parameter]third parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=4    {The pointer passed as the @[arg:parameter]fourth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=5    {The pointer passed as the @[arg:parameter]fifth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=6    {The pointer passed as the @[arg:parameter]sixth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=7    {The pointer passed as the @[arg:parameter]seventh parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=8    {The pointer passed as the @[arg:parameter]eighth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=9    {The pointer passed as the @[arg:parameter]ninth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=10   {The pointer passed as the @[arg:parameter]tenth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "other {The pointer passed as @[arg:parameter]parameter {parameter}@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
+            "=1    {The pointer passed as the @[arg:parameter]first parameter@[] to function {function} does not refer to a C string.}"
+            "=2    {The pointer passed as the @[arg:parameter]second parameter@[] to function {function} does not refer to a C string.}"
+            "=3    {The pointer passed as the @[arg:parameter]third parameter@[] to function {function} does not refer to a C string.}"
+            "=4    {The pointer passed as the @[arg:parameter]fourth parameter@[] to function {function} does not refer to a C string.}"
+            "=5    {The pointer passed as the @[arg:parameter]fifth parameter@[] to function {function} does not refer to a C string.}"
+            "=6    {The pointer passed as the @[arg:parameter]sixth parameter@[] to function {function} does not refer to a C string.}"
+            "=7    {The pointer passed as the @[arg:parameter]seventh parameter@[] to function {function} does not refer to a C string.}"
+            "=8    {The pointer passed as the @[arg:parameter]eighth parameter@[] to function {function} does not refer to a C string.}"
+            "=9    {The pointer passed as the @[arg:parameter]ninth parameter@[] to function {function} does not refer to a C string.}"
+            "=10   {The pointer passed as the @[arg:parameter]tenth parameter@[] to function {function} does not refer to a C string.}"
+            "other {The pointer passed as @[arg:parameter]parameter {parameter}@[] to function {function} does not refer to a C string.}"
           "}"
+          " A C string must be terminated by a null character."
         "}"
       "}"
     }
@@ -140,14 +145,18 @@ root:table {
     // address
     // parameter
     PassPointerToUnowned:string {
-      "Parameter {parameter} passed to function {function} points to unowned memory at address {address}."
+      "Passing a pointer that points to unallocated memory."
+      " The called function would access this memory,"
+      " resulting in undefined behaviour."
     }
 
     // function
     // address
     // parameter
     PassPointerToUninitialized:string {
-      "Parameter {parameter} passed to function {function} points to uninitialized memory at address {address}."
+      "Passing a pointer to uninitialized memory."
+      " The called function would read this memory,"
+      " resulting in undefined behaviour."
     }
 
     // function
@@ -174,8 +183,8 @@ root:table {
       "}"
 
       "{access_size, plural, "
-        "=1    { In this case the function required one byte,}"
-        "other { In this case the function required {access_size} bytes,}"
+        "=1    { The function required one byte,}"
+        "other { The function required {access_size} bytes,}"
       "}"
 
       "{accessible_size, plural, "

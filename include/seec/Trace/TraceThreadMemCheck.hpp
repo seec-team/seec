@@ -161,16 +161,7 @@ protected:
 
   /// The call to this Function.
   llvm::CallInst const *Call;
-  
-public:
-  /// \brief Constructor.
-  /// \param InThread The listener for the thread we are checking.
-  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
-  /// \param Function the function we are checking.
-  CStdLibChecker(TraceThreadListener &InThread,
-                 uint32_t InstructionIndex,
-                 seec::runtime_errors::format_selects::CStdFunction Function);
-  
+
   /// \brief Create a PassPointerToUnowned runtime error if Area is unassigned.
   ///
   /// \return true if Area is assigned (no runtime error was created).
@@ -182,7 +173,7 @@ public:
           seec::runtime_errors::format_selects::MemoryAccess Access,
           seec::Maybe<MemoryArea> const &Area,
           uintptr_t const PtrObj);
-  
+
   /// \brief Check whether or not a memory access is valid.
   ///
   /// Checks whether the size of the ContainingArea is sufficient for the
@@ -201,28 +192,14 @@ public:
           std::size_t Size,
           seec::runtime_errors::format_selects::MemoryAccess Access,
           MemoryArea ContainingArea);
-  
-  /// \brief Check if memory is known and accessible.
-  ///
-  /// \return true iff there were no errors.
-  bool checkMemoryExistsAndAccessibleForParameter(
-          unsigned Parameter,
-          uintptr_t Address,
-          std::size_t Size,
-          seec::runtime_errors::format_selects::MemoryAccess Access);
-  
-  /// \brief Create a runtime error if two memory areas overlap.
-  ///
-  /// \return true iff the memory areas do not overlap.
-  bool checkMemoryDoesNotOverlap(MemoryArea Area1, MemoryArea Area2);
-  
+
   /// \brief Create an InvalidCString error if Area is unassigned.
   ///
   /// \return true iff there were no errors.
   bool checkCStringIsValid(uintptr_t Address,
                            unsigned Parameter,
                            seec::Maybe<MemoryArea> Area);
-  
+
   /// \brief Check a read from a C String.
   ///
   /// \return The number of characters in the string that can be read,
@@ -233,6 +210,29 @@ public:
                                char const *String,
                                uintptr_t const PtrObj);
 
+public:
+  /// \brief Constructor.
+  /// \param InThread The listener for the thread we are checking.
+  /// \param InstructionIndex Index of the llvm::Instruction we are checking.
+  /// \param Function the function we are checking.
+  CStdLibChecker(TraceThreadListener &InThread,
+                 uint32_t InstructionIndex,
+                 seec::runtime_errors::format_selects::CStdFunction Function);
+
+  /// \brief Check if memory is known and accessible.
+  ///
+  /// \return true iff there were no errors.
+  bool checkMemoryExistsAndAccessibleForParameter(
+          unsigned Parameter,
+          uintptr_t Address,
+          std::size_t Size,
+          seec::runtime_errors::format_selects::MemoryAccess Access);
+
+  /// \brief Create a runtime error if two memory areas overlap.
+  ///
+  /// \return true iff the memory areas do not overlap.
+  bool checkMemoryDoesNotOverlap(MemoryArea Area1, MemoryArea Area2);
+
   /// \brief Check a read from a C String.
   ///
   /// \return The number of characters in the string that can be read,
@@ -241,7 +241,7 @@ public:
   ///
   std::size_t checkCStringRead(unsigned Parameter,
                                char const *String);
-  
+
   /// \brief Check a size-limited read from a C String.
   ///
   /// \return The number of characters in the string that can be read,
@@ -250,14 +250,14 @@ public:
   std::size_t checkLimitedCStringRead(unsigned Parameter,
                                       char const *String,
                                       std::size_t Limit);
-  
+
   /// \brief Check that an array of C Strings is valid and NULL-terminated.
   ///
   /// \return The number of elements in the array, including the terminating
   ///         NULL pointer. Zero indicates that no elements are accessible (in
   ///         which case a runtime error has been raised).
   std::size_t checkCStringArray(unsigned Parameter, char const * const *Array);
-  
+
   /// \brief Check the validity of a print format string.
   ///
   /// \return true iff there were no errors.

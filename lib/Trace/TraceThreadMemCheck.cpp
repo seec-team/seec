@@ -14,6 +14,7 @@
 #include "seec/Trace/PrintFormatSpecifiers.hpp"
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/IR/Instruction.h"
 #include <signal.h>
@@ -228,29 +229,13 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
 // CStdLibChecker
 //===------------------------------------------------------------------------===
 
-CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
-                               uint32_t InstructionIndex,
-                               format_selects::CStdFunction Function)
-: RuntimeErrorChecker(InThread,
-                      InstructionIndex),
-  Function(Function),
-  CallerIdx(InThread.FunctionStack.size() - 1),
-  Call(llvm::dyn_cast<llvm::CallInst>
-                     (InThread.getActiveFunction()
-                              ->getFunctionIndex()
-                              .getInstruction(InstructionIndex)))
-{
-  addPermanentNote(createRunError<RunErrorType::InfoCStdFunction>(Function));
-}
-
 bool
-CStdLibChecker::memoryExistsForParameter(
-                  unsigned Parameter,
-                  uintptr_t Address,
-                  std::size_t Size,
-                  format_selects::MemoryAccess Access,
-                  seec::Maybe<MemoryArea> const &Area,
-                  uintptr_t const PtrObj)
+CStdLibChecker::memoryExistsForParameter(unsigned Parameter,
+                                         uintptr_t Address,
+                                         std::size_t Size,
+                                         format_selects::MemoryAccess Access,
+                                         seec::Maybe<MemoryArea> const &Area,
+                                         uintptr_t const PtrObj)
 {
   // Check that the pointer is valid to use. Do this before checking that the
   // area exists, because we may be able to raise a more specific error if this
@@ -302,7 +287,7 @@ CStdLibChecker::checkMemoryAccessForParameter(
   if (Access == format_selects::MemoryAccess::Read) {
     auto const &ProcListener = Thread.getProcessListener();
     auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
-    
+
     if (!MemoryState->hasKnownState(Address, Size)) {
       raiseError(*createRunError<RunErrorType::PassPointerToUninitialized>
                                 (Function, Address, Parameter),
@@ -311,45 +296,8 @@ CStdLibChecker::checkMemoryAccessForParameter(
       return false;
     }
   }
-  
+
   return true;
-}
-
-bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
-                        unsigned Parameter,
-                        uintptr_t Address,
-                        std::size_t Size,
-                        format_selects::MemoryAccess Access)
-{
-  auto MaybeArea = getContainingMemoryArea(Thread, Address);
-  auto const PtrVal = Call->getArgOperand(Parameter);
-  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
-
-  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea,
-                                PtrObj))
-  {
-    return false;
-  }
-
-  return checkMemoryAccessForParameter(Parameter,
-                                       Address,
-                                       Size,
-                                       Access,
-                                       MaybeArea.get<0>());
-}
-
-bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
-                                               MemoryArea Area2)
-{
-  auto const Overlap = Area1.intersection(Area2);
-  if (!Overlap.length())
-    return true;
-
-  raiseError(*createRunError<RunErrorType::OverlappingSourceDest>
-                            (Function, Overlap.start(), Overlap.length()),
-             RunErrorSeverity::Warning);
-
-  return false;
 }
 
 bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
@@ -358,7 +306,7 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
 {
   if (Area.assigned())
     return true;
-  
+
   raiseError(*createRunError<RunErrorType::InvalidCString>
                             (Function, Address, Parameter),
              RunErrorSeverity::Fatal);
@@ -396,13 +344,72 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                 StrLength,
                                 ReadAccess,
                                 StrArea.get<0>());
-  
+
   return StrLength;
+}
+
+CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
+                               uint32_t const InstructionIndex,
+                               format_selects::CStdFunction const WithFunction)
+: RuntimeErrorChecker(InThread, InstructionIndex),
+  Function(WithFunction),
+  CallerIdx(InThread.FunctionStack.size() - 1),
+  Call(llvm::dyn_cast<llvm::CallInst>
+                     (InThread.getActiveFunction()
+                              ->getFunctionIndex()
+                              .getInstruction(InstructionIndex)))
+{
+  addPermanentNote(createRunError<RunErrorType::InfoCStdFunction>(Function));
+}
+
+bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
+                        unsigned Parameter,
+                        uintptr_t Address,
+                        std::size_t Size,
+                        format_selects::MemoryAccess Access)
+{
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
+  auto MaybeArea = getContainingMemoryArea(Thread, Address);
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+
+  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea,
+                                PtrObj))
+  {
+    return false;
+  }
+
+  return checkMemoryAccessForParameter(Parameter,
+                                       Address,
+                                       Size,
+                                       Access,
+                                       MaybeArea.get<0>());
+}
+
+bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
+                                               MemoryArea Area2)
+{
+  auto const Overlap = Area1.intersection(Area2);
+  if (!Overlap.length())
+    return true;
+
+  raiseError(*createRunError<RunErrorType::OverlappingSourceDest>
+                            (Function, Overlap.start(), Overlap.length()),
+             RunErrorSeverity::Warning);
+
+  return false;
 }
 
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                              char const *String)
 {
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
   auto const PtrVal = Call->getArgOperand(Parameter);
   auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
   return checkCStringRead(Parameter, String, PtrObj);
@@ -412,6 +419,10 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                                     char const *String,
                                                     std::size_t Limit)
 {
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
 
@@ -442,6 +453,10 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
 std::size_t
 CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
 {
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
   auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
 
   auto const PtrVal = Call->getArgOperand(Parameter);
@@ -470,6 +485,7 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   assert(MaxElements > 0);
   
   for (Element = 0; Element < MaxElements; ++Element) {
+    // TODO: Add temporary note for InfoElementOfArray!
     auto const ElementAddress = ArrayAddress + (Element * sizeof(char *));
     if (!checkMemoryAccessForParameter(Parameter,
                                        ElementAddress,
