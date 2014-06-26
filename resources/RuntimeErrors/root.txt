@@ -288,6 +288,17 @@ root:table {
     }
 
     // function
+    // parameter
+    // start
+    // end
+    // length
+    // argument
+    FormatSpecifierArgType:string {
+      "The type of the format specifier beginning at character {start} does not"
+      " match the type of the corresponding argument (argument {argument})."
+    }
+
+    // function
     // format_index
     // specifier_start
     // specifier_end
