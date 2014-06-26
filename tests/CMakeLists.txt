@@ -5,9 +5,9 @@ set(SEEC_INSTALL "/usr/local" CACHE PATH "Path to SeeC installation.")
 
 enable_testing()
 
-macro(seec_test_build BINARY SOURCE)
+macro(seec_test_build BINARY SOURCE ARGS)
  add_test(NAME ${SEEC_TEST_PREFIX}build-${BINARY}
-          COMMAND ${SEEC_INSTALL}/bin/seec-cc -std=c99 -o ${BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE})
+          COMMAND ${SEEC_INSTALL}/bin/seec-cc -std=c99 ${ARGS} -o ${BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE})
 endmacro(seec_test_build)
 
 macro(seec_test_run_pass BINARY TEST ARG)
