@@ -17,6 +17,7 @@ set(SOURCES
   Tracer.cpp
   WrapCfenv_h.cpp
   WrapClocale_h.cpp
+  WrapCmath_h.cpp
   WrapCstdio_h.cpp
   WrapCstdlib_h.cpp
   WrapCstring_h.cpp

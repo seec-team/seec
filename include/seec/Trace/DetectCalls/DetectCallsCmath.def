@@ -12,36 +12,3 @@
 /// directly!
 ///
 //===----------------------------------------------------------------------===//
-
-// trigonometric functions
-
-DETECT_CALL(C, acos, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, asin, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, atan, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, atan2, SEEC_PP_QUOTE(double, double))
-DETECT_CALL(C, cos, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, cosh, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, sin, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, sinh, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, tan, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, tanh, SEEC_PP_QUOTE(double))
-
-
-// exponential, logarithmic, and power functions
-
-DETECT_CALL(C, exp, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, frexp, SEEC_PP_QUOTE(double, int *))
-DETECT_CALL(C, ldexp, SEEC_PP_QUOTE(double, int))
-DETECT_CALL(C, log, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, log10, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, modf, SEEC_PP_QUOTE(double, double *))
-DETECT_CALL(C, pow, SEEC_PP_QUOTE(double, double))
-DETECT_CALL(C, sqrt, SEEC_PP_QUOTE(double))
-
-
-// other
-
-DETECT_CALL(C, ceil, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, fabs, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, floor, SEEC_PP_QUOTE(double))
-DETECT_CALL(C, fmod, SEEC_PP_QUOTE(double, double))

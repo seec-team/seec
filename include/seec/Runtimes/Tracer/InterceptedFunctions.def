@@ -44,6 +44,27 @@ SEEC_INTERCEPTED_FUNCTION(localeconv)
 
 
 //===----------------------------------------------------------------------===//
+// C <math.h>
+//===----------------------------------------------------------------------===//
+
+SEEC_INTERCEPTED_FUNCTION(remquof)
+SEEC_INTERCEPTED_FUNCTION(remquo)
+SEEC_INTERCEPTED_FUNCTION(remquol)
+
+SEEC_INTERCEPTED_FUNCTION(nanf)
+SEEC_INTERCEPTED_FUNCTION(nan)
+SEEC_INTERCEPTED_FUNCTION(nanl)
+
+SEEC_INTERCEPTED_FUNCTION(frexpf)
+SEEC_INTERCEPTED_FUNCTION(frexp)
+SEEC_INTERCEPTED_FUNCTION(frexpl)
+
+SEEC_INTERCEPTED_FUNCTION(modff)
+SEEC_INTERCEPTED_FUNCTION(modf)
+SEEC_INTERCEPTED_FUNCTION(modfl)
+
+
+//===----------------------------------------------------------------------===//
 // C <stdio.h>
 //===----------------------------------------------------------------------===//
 
