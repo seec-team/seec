@@ -750,8 +750,36 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     // Set the origin to the origin of the base pointer.
     auto const Base = GEP->getPointerOperand();
     auto const Origin = ActiveFunction->getPointerObject(Base);
-    if (Origin)
+    if (Origin) {
       ActiveFunction->setPointerObject(GEP, Origin);
+
+      // Check that the new pointer points to the same object or to the one past
+      // the end of the same object.
+      auto const MaybeArea = trace::getContainingMemoryArea(*this, Origin);
+      if (MaybeArea.assigned<seec::MemoryArea>()) {
+        auto const &Area = MaybeArea.get<seec::MemoryArea>();
+        if (!Area.contains(IntVal) && Area.end() != IntVal) {
+          handleRunError(*runtime_errors::createRunError
+            <runtime_errors::RunErrorType::PointerArithmeticResultInvalid>
+            (Origin, IntVal),
+            RunErrorSeverity::Fatal);
+        }
+      }
+      else {
+        // Raise an error for manipulating a pointer that does not point to a
+        // valid object.
+        handleRunError(*runtime_errors::createRunError
+          <runtime_errors::RunErrorType::PointerArithmeticOperandInvalid>
+          (Origin),
+          RunErrorSeverity::Fatal);
+      }
+    }
+    else {
+      // Raise an error for manipulating a NULL pointer.
+      handleRunError(*runtime_errors::createRunError
+        <runtime_errors::RunErrorType::PointerArithmeticOperandInvalid>(Origin),
+        RunErrorSeverity::Fatal);
+    }
   }
   else if (llvm::isa<llvm::CallInst>(Instruction)) {
     // Should be handled by interceptor / detect calls.

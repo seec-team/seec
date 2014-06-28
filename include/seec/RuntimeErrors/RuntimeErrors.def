@@ -154,6 +154,23 @@ SEEC_RUNERR(PointerObjectMismatch,
   ))
 
 //
+// Undefined pointer arithmetic (no longer refers to original object).
+//
+SEEC_RUNERR(PointerArithmeticResultInvalid,
+  SEEC_PP_QUOTE(
+    (object,  seec::runtime_errors::ArgAddress),
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Pointer arithmetic on pointer that does not point to a valid object.
+//
+SEEC_RUNERR(PointerArithmeticOperandInvalid,
+  SEEC_PP_QUOTE(
+    (object, seec::runtime_errors::ArgAddress)
+  ))
+
+//
 // Passing a pointer to unowned memory to a function.
 //
 SEEC_RUNERR(PassPointerToUnowned,

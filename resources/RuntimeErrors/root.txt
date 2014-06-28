@@ -141,6 +141,22 @@ root:table {
       " or by incorrect use of pointer arithmetic."
     }
 
+    // object
+    // address
+    PointerArithmeticResultInvalid:string {
+      "Result of pointer arithmetic is invalid because it does not point to the"
+      " same object as the base pointer."
+      " This might be caused by accessing an array using an invalid index."
+    }
+
+    // object
+    PointerArithmeticOperandInvalid:string {
+      "{object, select, "
+       "NULL {Attempting pointer arithmetic on NULL pointer.}"
+       "other {Attempting pointer arithmetic on a pointer that does not point"
+              " to a valid object.}}"
+    }
+
     // function
     // address
     // parameter
