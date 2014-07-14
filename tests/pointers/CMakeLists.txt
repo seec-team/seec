@@ -18,3 +18,9 @@ seec_test_run_fail(indexing "fail-one-past" "3")
 seec_test_run_fail(indexing "fail-low"     "-1")
 seec_test_run_fail(indexing "fail-high"     "4")
 
+seec_test_build(ptr_to_static ptr_to_static.c "")
+seec_test_run_pass(ptr_to_static "ok-zero"       "0" )
+seec_test_run_fail(ptr_to_static "fail-one-past" "10")
+seec_test_run_fail(ptr_to_static "fail-low"     "-1" )
+seec_test_run_fail(ptr_to_static "fail-high"     "11")
+
