@@ -1309,6 +1309,8 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
+    Listener.getActiveFunction()->setActiveInstruction(Instruction);
+
     // Check each of the inputs.
     ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
       ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);
@@ -1438,6 +1440,9 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
+    auto const CallInstruction = ThreadEnv.getInstruction();
+    Listener.getActiveFunction()->setActiveInstruction(CallInstruction);
+
     // Check each of the inputs.
     ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
       ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);

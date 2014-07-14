@@ -50,6 +50,8 @@ SEEC_MANGLE_FUNCTION(strdup)
   Listener.acquireGlobalMemoryWriteLock();
   Listener.acquireDynamicMemoryLock();
   
+  Listener.getActiveFunction()->setActiveInstruction(Instruction);
+  
   // Use a CIOChecker to help check memory.
   auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::strdup;
   CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
@@ -124,6 +126,8 @@ SEEC_MANGLE_FUNCTION(strtok)
   auto Instruction = ThreadEnv.getInstruction();
   auto InstructionIndex = ThreadEnv.getInstructionIndex();
   
+  Listener.getActiveFunction()->setActiveInstruction(Instruction);
+
   // Use a CIOChecker to help check memory.
   seec::trace::CStdLibChecker Checker {Listener, InstructionIndex, FSFunction};
   
