@@ -29,6 +29,8 @@
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
+#include "clang/AST/Decl.h"
+
 #include "llvm/Support/raw_ostream.h"
 
 #include "unicode/locid.h"
@@ -1634,19 +1636,30 @@ doLayout(LayoutHandler const &Handler,
     IDStream << "global_at_" << reinterpret_cast<uintptr_t>(&State);
   }
   
+  auto const TheDecl = State.getClangValueDecl();
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
-  
-  ValuePortMap Ports;
   
   DotStream << IDString
             << " [ label = <"
             << "<TABLE BORDER=\"0\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\">"
-            << "<TR><TD>"
-            << State.getClangValueDecl()->getName()
-            << "</TD>";
+                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"global "
+            << reinterpret_cast<uintptr_t>(&State) << "\"><TR><TD>";
+
+  if (auto const TheVarDecl = llvm::dyn_cast<clang::VarDecl>(TheDecl)) {
+    if (TheVarDecl->isStaticLocal()) {
+      // Attempt to find the FunctionDecl that owns this VarDecl.
+      auto Context = TheVarDecl->getDeclContext();
+      while (!llvm::isa<clang::FunctionDecl>(Context))
+        Context = Context->getLexicalParent();
+      auto const OwningFn = llvm::cast<clang::FunctionDecl>(Context);
+      DotStream << OwningFn->getName() << " :: ";
+    }
+  }
+
+  DotStream << TheDecl->getName() << "</TD>";
   
+  ValuePortMap Ports;
   MemoryArea Area;
   
   auto const Value = State.getValue();

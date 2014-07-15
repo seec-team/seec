@@ -27,6 +27,7 @@
 namespace seec {
   namespace cm {
     class FunctionState;
+    class GlobalVariable;
     class LocalState;
     class ParamState;
     class ProcessState;
@@ -63,6 +64,7 @@ public:
     FunctionState,
     LocalState,
     ParamState,
+    GlobalVariable,
     ReferencedArea
   };
   
@@ -182,6 +184,28 @@ public:
 
   static bool classof(Displayable const *D) {
     return D && D->getKind() == Displayable::Kind::ParamState;
+  }
+};
+
+
+/// \brief A displayed GlobalVariable that the user may interact with.
+///
+class DisplayableGlobalVariable final : public Displayable
+{
+  seec::cm::GlobalVariable const &TheGlobalVariable;
+
+public:
+  DisplayableGlobalVariable(seec::cm::GlobalVariable const &ForGlobalVariable)
+  : Displayable(Displayable::Kind::GlobalVariable),
+    TheGlobalVariable(ForGlobalVariable)
+  {}
+
+  seec::cm::GlobalVariable const &getGlobalVariable() const {
+    return TheGlobalVariable;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::GlobalVariable;
   }
 };
 

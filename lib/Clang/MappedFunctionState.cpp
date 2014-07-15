@@ -425,11 +425,12 @@ FunctionState::FunctionState(ThreadState &WithParent,
   
   // Add locals.
   for (auto const &ML : Mapping->getMappedLocals()) {
-    auto const Value = ML.getValue();
-    
-    if (!VisibleDecls.count(ML.getDecl()))
+    auto const Decl = ML.getDecl();
+    if (Decl->isStaticLocal() || !VisibleDecls.count(ML.getDecl()))
       continue;
     
+    auto const Value = ML.getValue();
+
     if (llvm::isa<llvm::AllocaInst>(Value)) {
       auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
         [=] (seec::trace::AllocaState const &Alloca) {

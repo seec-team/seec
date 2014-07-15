@@ -13,6 +13,7 @@
 
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
@@ -619,6 +620,9 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
     else if (llvm::isa<DisplayableParamState>(Prev)) {
       Notifier->createNotify<ConEvHighlightDecl>(nullptr);
     }
+    else if (llvm::isa<DisplayableGlobalVariable>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
     else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Prev)) {
       if (auto Access = CurrentAccess->getAccess()) {
         auto const Start = DA->getAreaStart();
@@ -684,6 +688,14 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
   }
   else if (auto const DP = llvm::dyn_cast<DisplayableParamState>(Node)) {
     auto const Decl = DP->getParamState().getDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
+    }
+  }
+  else if (auto const DG = llvm::dyn_cast<DisplayableGlobalVariable>(Node)) {
+    auto const Decl = DG->getGlobalVariable().getClangValueDecl();
     Notifier->createNotify<ConEvHighlightDecl>(Decl);
 
     if (Recording) {
@@ -983,6 +995,12 @@ void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
     auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
     auto const &Param = *reinterpret_cast<seec::cm::ParamState const *>(ID);
     NodeDisplayable = std::make_shared<DisplayableParamState>(Param);
+  }
+  else if (NodeType == "global") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &GV = *reinterpret_cast<seec::cm::GlobalVariable const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableGlobalVariable>(GV);
   }
   else if (NodeType == "area") {
     auto const NodeData = Unescaped.substr(SpacePos + 1);

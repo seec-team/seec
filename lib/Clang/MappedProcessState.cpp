@@ -60,9 +60,6 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
       if (!TheDecl)
         continue;
       
-      if (TheDecl->isStaticLocal())
-        continue;
-      
       GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
                                                   (*this,
                                                    *Mapped,
