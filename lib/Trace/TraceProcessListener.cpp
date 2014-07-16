@@ -224,16 +224,20 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
 
 uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
 {
-  if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(V))
-    return getRuntimeAddress(GV);
-  if (auto const F = llvm::dyn_cast<llvm::Function>(V))
+  if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(V)) {
+    auto const Address = getRuntimeAddress(GV);
+    auto const GlobIt  = GlobalVariableLookup.find(Address);
+    assert(GlobIt != GlobalVariableLookup.end());
+    return GlobIt->Begin;
+  }
+  if (auto const F = llvm::dyn_cast<llvm::Function>(V)) {
     return getRuntimeAddress(F);
+  }
   if (llvm::isa<llvm::ConstantPointerNull>(V))
     return 0;
 
-#if SEEC_DEBUG_IMPO
+  llvm::errs() << *V << "\n";
   llvm_unreachable("don't know how to get pointer object.");
-#endif
 
   return 0;
 }
@@ -354,8 +358,17 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   auto Length = DL.getTypeStoreSize(ElemTy);
   uintptr_t End = Start + (Length - 1);
 
-  GlobalVariableLookup.insert(Start, End, GV);
-  
+  auto const Inserted = GlobalVariableLookup.insert(Start, End, GV);
+  if (!Inserted.second) {
+    if (Inserted.first->Begin > Start && Inserted.first->End < End) {
+      GlobalVariableLookup.erase(Inserted.first);
+      GlobalVariableLookup.insert(Start, End, GV);
+    }
+    else if (Inserted.first->Begin > Start || Inserted.first->End < End) {
+      llvm_unreachable("overlapping global variables!");
+    }
+  }
+
   // Set the initial memory state appropriately.
   TraceMemory.add(Start,
                   Length,

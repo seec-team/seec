@@ -320,7 +320,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   // If the terminated Function returned a pointer, then transfer the correct
   // pointer object information to the parent Function's CallInst.
   if (ParentFunction
-      && F->getType()->isPointerTy()
+      && F->getReturnType()->isPointerTy()
       && !ParentFunction->isShim())
   {
     if (auto const Ret = llvm::dyn_cast<llvm::ReturnInst>(Terminator)) {
