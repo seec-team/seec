@@ -412,18 +412,20 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
           }
 
           // Find the Instruction responsible for this error.
-          auto const Prev = trace::rfind<trace::EventType::PreInstruction>
-                                 (rangeBefore(Thread.events(), Ev));
-          assert(Prev.assigned());
+          auto const MaybeInstrIndex = trace::lastSuccessfulApply(
+            rangeBefore(Thread.events(), Ev),
+            [] (trace::EventRecordBase const &Event) -> seec::Maybe<uint32_t> {
+              if (Event.isInstruction())
+                return Event.getIndex();
+              return seec::Maybe<uint32_t>();
+            });
 
-          auto const InstrIndex = Prev.get<0>()->getIndex();
-          assert(InstrIndex.assigned());
-
+          auto const InstrIndex = MaybeInstrIndex.get<uint32_t>();
           auto const FunIndex =
             ModIndexPtr->getFunctionIndex(FunctionStack.back());
           assert(FunIndex);
 
-          auto const Instr = FunIndex->getInstruction(InstrIndex.get<0>());
+          auto const Instr = FunIndex->getInstruction(InstrIndex);
           assert(Instr);
 
           // Show the Clang Stmt that caused the error.
