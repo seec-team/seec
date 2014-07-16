@@ -59,6 +59,4 @@ DETECT_CALL(C, strspn, SEEC_PP_QUOTE(char const *, char const *))
 
 DETECT_CALL(C, strstr, SEEC_PP_QUOTE(char const *, char const *))
 
-DETECT_CALL(C, strtok, SEEC_PP_QUOTE(char *, char const *))
-
 DETECT_CALL(C, strxfrm, SEEC_PP_QUOTE(char *, char const *, size_t))
