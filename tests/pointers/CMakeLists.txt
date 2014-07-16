@@ -24,3 +24,9 @@ seec_test_run_fail(ptr_to_static "fail-one-past" "10")
 seec_test_run_fail(ptr_to_static "fail-low"     "-1" )
 seec_test_run_fail(ptr_to_static "fail-high"     "11")
 
+seec_test_build(ptr_to_literal ptr_to_literal.c "")
+seec_test_run_pass(ptr_to_literal "ok-zero"       "0" )
+seec_test_run_fail(ptr_to_literal "fail-one-past" "10")
+seec_test_run_fail(ptr_to_literal "fail-low"     "-1" )
+seec_test_run_fail(ptr_to_literal "fail-high"     "11")
+
