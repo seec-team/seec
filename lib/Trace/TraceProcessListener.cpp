@@ -381,6 +381,81 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   GlobalVariableInitialData[Index] = Offset;
 }
 
+/// \brief Determine if an \c llvm::Type is a pointer type or contains a pointer
+///        type (e.g. is a struct containing a pointer).
+///
+static bool TypeIsOrContainsPointer(llvm::Type const *Ty)
+{
+  if (Ty->isPointerTy())
+    return true;
+
+  if (auto const STy = llvm::dyn_cast<llvm::StructType>(Ty)) {
+    for (auto const &Elem : seec::range(STy->element_begin(),
+                                        STy->element_end()))
+    {
+      if (TypeIsOrContainsPointer(Elem))
+        return true;
+    }
+  }
+  else if (auto const STy = llvm::dyn_cast<llvm::SequentialType>(Ty)) {
+    return TypeIsOrContainsPointer(STy->getElementType());
+  }
+
+  return false;
+}
+
+void TraceProcessListener::setGVInitialIMPO(llvm::Type *ElemTy,
+                                            uintptr_t Address)
+{
+  if (auto const PTy = llvm::dyn_cast<llvm::PointerType>(ElemTy)) {
+    // Get the value of the pointer from memory.
+    auto const Value = *reinterpret_cast<uintptr_t const *>(Address);
+    if (Value) {
+      // Find the GlobalVariable that the pointer points to.
+      auto const AreaIt = GlobalVariableLookup.find(Value);
+      if (AreaIt != GlobalVariableLookup.end())
+        setInMemoryPointerObject(Address, AreaIt->Begin);
+    }
+  }
+  else if (auto const STy = llvm::dyn_cast<llvm::StructType>(ElemTy)) {
+    auto const NumElems = STy->getNumElements();
+    auto const Layout   = DL.getStructLayout(STy);
+
+    for (unsigned i = 0; i < NumElems; ++i)
+      setGVInitialIMPO(STy->getElementType(i),
+                       Address + Layout->getElementOffset(i));
+  }
+  else if (auto const ATy = llvm::dyn_cast<llvm::ArrayType>(ElemTy)) {
+    auto const SubElemTy = ATy->getElementType();
+    auto const NumElems  = ATy->getNumElements();
+    auto const AllocSize = DL.getTypeAllocSize(SubElemTy);
+
+    for (unsigned i = 0; i < NumElems; ++i)
+      setGVInitialIMPO(SubElemTy, Address + (i * AllocSize));
+  }
+  else if (auto const VTy = llvm::dyn_cast<llvm::VectorType>(ElemTy)) {
+    auto const SubElemTy = VTy->getElementType();
+    auto const NumElems  = VTy->getNumElements();
+    auto const AllocSize = DL.getTypeAllocSize(SubElemTy);
+
+    for (unsigned i = 0; i < NumElems; ++i)
+      setGVInitialIMPO(SubElemTy, Address + (i * AllocSize));
+  }
+}
+
+void TraceProcessListener::notifyGlobalVariablesComplete()
+{
+  // Now we have to iterate over all pointers that are in the memory of global
+  // variables and set the relevant in-memory pointer object information.
+  for (auto const &GVEntry : GlobalVariableLookup) {
+    auto const ElemTy = GVEntry.Value->getType()->getElementType();
+    if (!TypeIsOrContainsPointer(ElemTy))
+      continue;
+
+    setGVInitialIMPO(ElemTy, GVEntry.Begin);
+  }
+}
+
 void TraceProcessListener::notifyFunction(uint32_t Index,
                                           llvm::Function const *F,
                                           void const *Addr) {

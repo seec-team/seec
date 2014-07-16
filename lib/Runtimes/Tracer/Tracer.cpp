@@ -300,6 +300,8 @@ ProcessEnvironment::ProcessEnvironment()
                                         SeeCInfoGlobals[GlobalIndex]);
     ++GlobalIndex;
   }
+
+  ProcessTracer->notifyGlobalVariablesComplete();
   
   // Find the location of all intercepted functions.
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))

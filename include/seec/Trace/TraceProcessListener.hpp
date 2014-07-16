@@ -605,6 +605,14 @@ public:
                             llvm::GlobalVariable const *GV,
                             void const *Addr);
 
+private:
+  ///
+  void setGVInitialIMPO(llvm::Type *ElemTy, uintptr_t Address);
+
+public:
+  /// \brief Called when all GlobalVariable run-time addresses received.
+  void notifyGlobalVariablesComplete();
+
   /// \brief Receive the run-time address of a Function.
   void notifyFunction(uint32_t Index,
                       llvm::Function const *F,
