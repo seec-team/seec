@@ -123,7 +123,6 @@ SEEC_MANGLE_FUNCTION(execl)
       InstructionIndex);
 
   Listener.acquireGlobalMemoryReadLock();
-  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
 
   CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
 
@@ -233,7 +232,6 @@ SEEC_MANGLE_FUNCTION(execlp)
       InstructionIndex);
 
   Listener.acquireGlobalMemoryReadLock();
-  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
 
   CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
 
@@ -343,7 +341,6 @@ SEEC_MANGLE_FUNCTION(execle)
       InstructionIndex);
 
   Listener.acquireGlobalMemoryReadLock();
-  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
 
   CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
 
