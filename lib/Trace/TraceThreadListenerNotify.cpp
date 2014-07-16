@@ -713,6 +713,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                   RTValue.getRecordOffset(),
                                   RuntimeValueRecord{Value});
 
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, IntVal);
 
   if (auto Alloca = llvm::dyn_cast<llvm::AllocaInst>(Instruction)) {
@@ -805,6 +809,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 RTValue.getRecordOffset(),
                                 RuntimeValueRecord{Value});
 
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, Value);
 }
 
@@ -822,6 +830,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
                                 RuntimeValueRecord{Value});
+
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
 
   RTValue.set(Offset, Value);
 }
@@ -841,6 +853,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 ++Time,
                                 RTValue.getRecordOffset());
 
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, Value);
 }
 
@@ -858,6 +874,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 Index,
                                 ++Time,
                                 RTValue.getRecordOffset());
+
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
 
   RTValue.set(Offset, Value);
 }
@@ -877,6 +897,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 RTValue.getRecordOffset(),
                                 RuntimeValueRecord{Value});
 
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, Value);
 }
 
@@ -895,6 +919,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 RTValue.getRecordOffset(),
                                 RuntimeValueRecord{Value});
 
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, Value);
 }
 
@@ -912,7 +940,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                 ++Time,
                                 RTValue.getRecordOffset(),
                                 RuntimeValueRecord{Value});
-  
+
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (!OutputEnabled)
+    Offset = 0;
+
   RTValue.set(Offset, Value);
 }
 
