@@ -1970,7 +1970,6 @@ SEEC_MANGLE_FUNCTION(fdopen)
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
-  auto &ProcessListener = getProcessEnvironment().getProcessListener();
   auto Instruction = ThreadEnv.getInstruction();
   auto InstructionIndex = ThreadEnv.getInstructionIndex();
   
@@ -1980,7 +1979,7 @@ SEEC_MANGLE_FUNCTION(fdopen)
   
   // Lock global memory.
   Listener.acquireGlobalMemoryWriteLock();
-  auto Streams = ProcessListener.getStreamsAccessor();
+  Listener.acquireStreamsLock();
   
   // Use a CIOChecker to help check memory.
   auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
