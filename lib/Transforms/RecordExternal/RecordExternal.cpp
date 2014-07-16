@@ -264,6 +264,32 @@ static void AddModuleInfo(Module &M,
                      StringRef("SeeCInfoModuleIdentifier"));
 }
 
+///
+///
+static void ReplaceUsesWithInterceptor(Function *Original,
+                                       Function *Interceptor)
+{
+  auto       It  = Original->use_begin();
+  auto const End = Original->use_end();
+
+  while (It != End) {
+    auto Current = It++;
+    auto TheUser = *Current;
+
+    if (auto C = dyn_cast<Constant>(TheUser)) {
+      if (!isa<GlobalValue>(C)) {
+        C->replaceUsesOfWithOnConstant(Original, Interceptor,
+                                       &Current.getUse());
+      }
+    }
+    else if (auto I = dyn_cast<Instruction>(TheUser)) {
+      if (I->getParent()->getParent() != Interceptor) {
+        Current.getUse().set(Interceptor);
+      }
+    }
+  }
+}
+
 /// Perform module-level initialization before the pass is run.  For this
 /// pass, we need to create function prototypes for the execution tracing
 /// functions that will be called.
@@ -359,8 +385,10 @@ bool InsertExternalRecording::doInitialization(Module &M) {
     if (!Intercept)
       Intercept = GetInterceptorFor(F, M);
 
-    if (Intercept)
+    if (Intercept) {
+      ReplaceUsesWithInterceptor(&F, Intercept);
       Interceptors.insert(std::make_pair(&F, Intercept));
+    }
   }
   
   return true;
@@ -611,9 +639,19 @@ void InsertExternalRecording::visitCallInst(CallInst &CI) {
   // a user-defined one, or one provided by SeeC). If it is redirected then we
   // only need to notify the instruction index before the call - checking,
   // recording and value updating must be performed by the interceptor.
-  auto const InterceptorIt = Interceptors.find(CalledFunction);
-  if (InterceptorIt != Interceptors.end()) {
-    CI.setCalledFunction(InterceptorIt->second);
+  bool IsIntercepted = false;
+
+  if (CalledFunction && IsMangledInterceptor(*CalledFunction))
+    IsIntercepted = true;
+  else {
+    auto const InterceptorIt = Interceptors.find(CalledFunction);
+    if (InterceptorIt != Interceptors.end()) {
+      CI.setCalledFunction(InterceptorIt->second);
+      IsIntercepted = true;
+    }
+  }
+
+  if (IsIntercepted) {
     Value *Args[] = {ConstantInt::get(Int32Ty, InstructionIndex)};
     CallInst::Create(RecordSetInstruction, Args, "", &CI);
     return;
