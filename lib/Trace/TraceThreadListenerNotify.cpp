@@ -160,7 +160,7 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   auto const PointeeType = ArgPtrType->getPointerElementType();
   assert(PointeeType);
   
-  auto const &DataLayout = ProcessListener.dataLayout();
+  auto const &DataLayout = ProcessListener.getDataLayout();
   auto const PointeeSize = DataLayout.getTypeStoreSize(PointeeType);
   
   // Record this memory area in the trace.
@@ -723,7 +723,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     // Add a record to this function's stack.
     auto AllocaType = Alloca->getAllocatedType();
 
-    auto &DataLayout = ProcessListener.dataLayout();
+    auto &DataLayout = ProcessListener.getDataLayout();
 
     auto const ElementSize = DataLayout.getTypeAllocSize(AllocaType);
 

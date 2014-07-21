@@ -273,7 +273,7 @@ public:
   llvm::Module &module() const { return Module; }
 
   /// \brief Get the DataLayout for this Module.
-  llvm::DataLayout const &dataLayout() const { return DL; }
+  llvm::DataLayout const &getDataLayout() const { return DL; }
 
   /// \brief Get the shared module index.
   ModuleIndex const &moduleIndex() const { return MIndex; }
