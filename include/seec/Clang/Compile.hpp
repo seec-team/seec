@@ -164,14 +164,17 @@ class SeeCASTConsumer
 
   std::unique_ptr<clang::ASTConsumer> Child;
 
+  std::vector<clang::VariableArrayType *> VATypes;
+
 public:
   SeeCASTConsumer(SeeCCodeGenAction &Action,
                   clang::ASTConsumer *Child)
   : Action(Action),
-    Child(Child)
+    Child(Child),
+    VATypes()
   {}
 
-  virtual ~SeeCASTConsumer() {}
+  virtual ~SeeCASTConsumer();
 
   /// \name ASTConsumer Methods
   /// \{
@@ -227,6 +230,8 @@ public:
   bool VisitStmt(clang::Stmt *S);
 
   bool VisitDecl(clang::Decl *D);
+
+  bool VisitVariableArrayType(::clang::VariableArrayType *T);
 
   /// \}
 };

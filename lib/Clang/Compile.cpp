@@ -16,7 +16,9 @@
 #include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 #include "seec/Util/ModuleIndex.hpp"
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Version.h"
 #include "clang/CodeGen/SeeCMapping.h"
@@ -145,21 +147,18 @@ SeeCEmitObjAction::SeeCEmitObjAction(const char **ArgBegin,
 // class SeeCASTConsumer
 //===----------------------------------------------------------------------===//
 
-bool SeeCASTConsumer::HandleTopLevelDecl(DeclGroupRef D) {
-  if (D.isSingleDecl()) {
-    TraverseDecl(D.getSingleDecl());
-  }
-  else {
-    DeclGroup &Group = D.getDeclGroup();
-    for (unsigned i = 0; i < Group.size(); ++i) {
-      TraverseDecl(Group[i]);
-    }
-  }
+SeeCASTConsumer::~SeeCASTConsumer() {}
 
+bool SeeCASTConsumer::HandleTopLevelDecl(DeclGroupRef D) {
   return Child->HandleTopLevelDecl(D);
 }
 
 void SeeCASTConsumer::HandleTranslationUnit(ASTContext &Ctx) {
+  TraverseDecl(Ctx.getTranslationUnitDecl());
+
+  for (auto const VAType : VATypes)
+    TraverseStmt(VAType->getSizeExpr());
+
   Child->HandleTranslationUnit(Ctx);
 }
 
@@ -170,6 +169,12 @@ bool SeeCASTConsumer::VisitStmt(Stmt *S) {
 
 bool SeeCASTConsumer::VisitDecl(Decl *D) {
   Action.addDeclMap(D);
+  return true;
+}
+
+bool SeeCASTConsumer::VisitVariableArrayType(::clang::VariableArrayType *T)
+{
+  VATypes.push_back(T);
   return true;
 }
 
@@ -529,8 +534,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       assert(Stmt && "Couldn't get clang::Stmt pointer.");
       
       auto It = StmtMap.find(Stmt);
-      if (It == StmtMap.end())
+      if (It == StmtMap.end()) {
+        llvm::errs() << "Stmt mapping dropped because Stmt is unknown:\n";
+        Stmt->dump();
         continue;
+      }
       
       llvm::Value *StmtIdentifierOps[] = {
         MainFileNode,
@@ -547,8 +555,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       
       // It's possible that an Instruction is deleted after the mapping has
       // been created for it. In this case, discard the entire mapping.
-      if (Val1 == nullptr)
+      if (Val1 == nullptr) {
+        llvm::errs() << "Stmt mapping has unknown Val1:\n";
+        Stmt->dump();
         continue;
+      }
       
       llvm::Value *MappingOps[] = {
         MappingNode->getOperand(0),

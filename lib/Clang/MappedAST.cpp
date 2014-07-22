@@ -47,9 +47,6 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   /// The SourceManager for this AST.
   clang::SourceManager &SourceManager;
   
-  /// Current stack of visitation.
-  std::vector<ASTNodeTy> VisitStack;
-  
   /// All Decls in visitation order.
   std::vector<Decl const *> Decls;
   
@@ -59,16 +56,19 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> DeclsReferenced;
 
+  /// All VariableArrayType types in visitation order.
+  std::vector<::clang::VariableArrayType *> VATypes;
+
 public:
   /// \brief Constructor.
   ///
   MappingASTVisitor(clang::ASTUnit &ForAST)
   : AST(ForAST),
     SourceManager(ForAST.getSourceManager()),
-    VisitStack(),
     Decls(),
     Stmts(),
-    DeclsReferenced()
+    DeclsReferenced(),
+    VATypes()
   {}
   
   /// \name Accessors.
@@ -86,6 +86,19 @@ public:
   /// @}
 
 
+  /// \name Mutators.
+  /// @{
+
+  /// \brief Revisits VariableArrayType's size expressions.
+  ///
+  void revisitVariableArrayTypeSizeExprs() {
+    for (auto const VAType : VATypes)
+      TraverseStmt(VAType->getSizeExpr());
+  }
+
+  /// @}
+
+
   /// \name RecursiveASTVisitor Methods
   /// @{
   
@@ -94,30 +107,6 @@ public:
   ///
   bool shouldUseDataRecursionFor(Stmt *S) const {
     return false;
-  }
-  
-  /// \brief Traverse a Stmt.
-  ///
-  bool TraverseStmt(::clang::Stmt *S) {
-    ::clang::Stmt const * const CS = S;
-    
-    // Traverse this Stmt using the default implementation.
-    VisitStack.emplace_back(CS);
-    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseStmt(S);
-    VisitStack.pop_back();
-    return Ret;
-  }
-  
-  /// \brief Traverse a Decl.
-  ///
-  bool TraverseDecl(::clang::Decl *D) {
-    ::clang::Decl const * const CD = D;
-    
-    // Traverse this Decl using the default implementation.
-    VisitStack.push_back(CD);
-    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseDecl(D);
-    VisitStack.pop_back();
-    return Ret;
   }
   
   /// \brief Visit a Decl.
@@ -144,6 +133,13 @@ public:
       }
     }
     
+    return true;
+  }
+
+  /// \brief Visit a VariableArrayType.
+  ///
+  bool VisitVariableArrayType(::clang::VariableArrayType *T) {
+    VATypes.push_back(T);
     return true;
   }
   
@@ -177,10 +173,8 @@ MappedAST::FromASTUnit(MappedCompileInfo const &FromCompileInfo,
 
   MappingASTVisitor Mapper {*AST};
 
-  for (auto It = AST->top_level_begin(), End = AST->top_level_end();
-       It != End; ++It) {
-    Mapper.TraverseDecl(*It);
-  }
+  Mapper.TraverseDecl(AST->getASTContext().getTranslationUnitDecl());
+  Mapper.revisitVariableArrayTypeSizeExprs();
 
   auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(FromCompileInfo,
                                                          AST,
