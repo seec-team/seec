@@ -93,6 +93,7 @@ SEEC_MANGLE_FUNCTION(strtok)
 (char *String, char const *Delimiters)
 {
   static std::atomic<unsigned> CallingThreadCount {0};
+  static uintptr_t CurrentStringPointerObject = 0;
   
   auto const NewThreadCount = ++CallingThreadCount;
   auto const OnExit = seec::scopeExit([&](){ --CallingThreadCount; });
@@ -123,20 +124,24 @@ SEEC_MANGLE_FUNCTION(strtok)
   Listener.acquireGlobalMemoryWriteLock();
   
   // Get information about the call Instruction.
-  auto Instruction = ThreadEnv.getInstruction();
-  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+  auto const Instruction      = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+  auto const ActiveFn         = Listener.getActiveFunction();
   
-  Listener.getActiveFunction()->setActiveInstruction(Instruction);
+  ActiveFn->setActiveInstruction(Instruction);
+
+  if (String) {
+    llvm::CallSite Call(Instruction);
+    CurrentStringPointerObject =
+      ActiveFn->getPointerObject(Call.getArgument(0));
+  }
 
   // Use a CIOChecker to help check memory.
   seec::trace::CStdLibChecker Checker {Listener, InstructionIndex, FSFunction};
   
-  // Check the String parameter.
-  if (String) {
+  if (String)
     Checker.checkCStringRead(0, String);
-  }
   
-  // Check the Delimiters parameter.
   Checker.checkCStringRead(1, Delimiters);
   
   auto const Result = strtok(String, Delimiters);
@@ -147,7 +152,7 @@ SEEC_MANGLE_FUNCTION(strtok)
   // Record the state changes (if any).
   if (Result) {
     // Transfer the pointer object from the input pointer.
-    Listener.getActiveFunction()->transferArgPointerObjectToCall(0);
+    ActiveFn->setPointerObject(Instruction, CurrentStringPointerObject);
 
     // The NULL character that terminates this token was inserted by strtok, so
     // we must record it.
@@ -155,7 +160,7 @@ SEEC_MANGLE_FUNCTION(strtok)
     Listener.recordUntypedState(Terminator, 1);
   }
   else {
-    Listener.getActiveFunction()->setPointerObject(Instruction, 0);
+    ActiveFn->setPointerObject(Instruction, 0);
   }
   
   return Result;
