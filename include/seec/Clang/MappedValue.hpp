@@ -289,7 +289,7 @@ class ValueStore final {
   
   /// \brief Constructor.
   ///
-  ValueStore();
+  ValueStore(seec::seec_clang::MappedModule const &WithMapping);
   
   // Don't allow copying or moving.
   ValueStore(ValueStore const &) = delete;
@@ -300,8 +300,9 @@ class ValueStore final {
 public:
   /// \brief Create a new ValueStore.
   ///
-  static std::shared_ptr<ValueStore const> create() {
-    return std::shared_ptr<ValueStore const>(new ValueStore());
+  static std::shared_ptr<ValueStore const>
+  create(seec::seec_clang::MappedModule const &WithMapping) {
+    return std::shared_ptr<ValueStore const>(new ValueStore(WithMapping));
   }
   
   /// \brief Destructor.
@@ -324,7 +325,8 @@ getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
          uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState);
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction);
 
 
 /// \brief Get a Value for a MappedStmt.

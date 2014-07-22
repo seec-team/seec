@@ -307,7 +307,8 @@ std::shared_ptr<Value const> ParamState::getValue() const
                             Decl->getType(),
                             ASTContext,
                             Address,
-                            ProcessState.getUnmappedProcessState());
+                            ProcessState.getUnmappedProcessState(),
+                            &(Parent.getUnmappedState()));
 }
 
 
@@ -343,7 +344,8 @@ std::shared_ptr<Value const> LocalState::getValue() const
                             Decl->getType(),
                             ASTContext,
                             Address,
-                            ProcessState.getUnmappedProcessState());
+                            ProcessState.getUnmappedProcessState(),
+                            &(Parent.getUnmappedState()));
 }
 
 

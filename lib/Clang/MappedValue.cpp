@@ -29,6 +29,7 @@
 #include "seec/Util/Range.hpp"
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Type.h"
 #include "clang/Frontend/ASTUnit.h"
@@ -59,6 +60,81 @@ enum class InitializationState {
 //===----------------------------------------------------------------------===//
 
 Value::~Value() = default;
+
+
+//===----------------------------------------------------------------------===//
+// ValueStoreImpl
+//===----------------------------------------------------------------------===//
+
+class TypedValueSet {
+  std::vector<std::pair<MatchType, std::shared_ptr<Value const>>> Items;
+
+public:
+  TypedValueSet()
+  : Items()
+  {}
+
+  std::shared_ptr<Value const> getShared(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second;
+
+    return std::shared_ptr<Value const>{};
+  }
+
+  Value const *get(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second.get();
+
+    return nullptr;
+  }
+
+  void add(MatchType const &ForType, std::shared_ptr<Value const> Val) {
+    Items.emplace_back(ForType, std::move(Val));
+  }
+};
+
+class ValueStoreImpl final {
+  /// Control access to the Store variable.
+  mutable std::mutex StoreAccess;
+
+  // Two-stage lookup to find previously created Value objects.
+  // The first stage is the in-memory address of the object.
+  // The second stage is the canonical type of the object.
+  mutable llvm::DenseMap<uintptr_t, TypedValueSet> Store;
+
+  /// SeeC-Clang mapping information.
+  seec::seec_clang::MappedModule const &Mapping;
+
+  // Disable copying and moving.
+  ValueStoreImpl(ValueStoreImpl const &) = delete;
+  ValueStoreImpl(ValueStoreImpl &&) = delete;
+  ValueStoreImpl &operator=(ValueStoreImpl const &) = delete;
+  ValueStoreImpl &operator=(ValueStore &&) = delete;
+
+public:
+  /// \brief Constructor.
+  ValueStoreImpl(seec::seec_clang::MappedModule const &WithMapping)
+  : StoreAccess(),
+    Store(),
+    Mapping(WithMapping)
+  {}
+
+  /// \brief Find or construct a Value for the given type.
+  ///
+  std::shared_ptr<Value const>
+  getValue(std::shared_ptr<ValueStore const> StorePtr,
+           ::clang::QualType QualType,
+           ::clang::ASTContext const &ASTContext,
+           uintptr_t Address,
+           seec::trace::ProcessState const &ProcessState,
+           seec::trace::FunctionState const *OwningFunction) const;
+
+  /// \brief Get SeeC-Clang mapping information.
+  ///
+  seec::seec_clang::MappedModule const &getMapping() const { return Mapping; }
+};
 
 
 //===----------------------------------------------------------------------===//
@@ -620,7 +696,8 @@ public:
                     CanonicalType->getPointeeType(),
                     ASTContext,
                     Address,
-                    ProcessState);
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -851,7 +928,8 @@ public:
                     FieldIt->getType(),
                     ASTContext,
                     Address + (BitOffset / CHAR_BIT),
-                    ProcessState);
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -884,6 +962,9 @@ class ValueByMemoryForArray final : public ValueOfArray {
   /// The process state that this Value is in.
   seec::trace::ProcessState const &ProcessState;
 
+  /// The function state that this Value is in.
+  seec::trace::FunctionState const *OwningFunction;
+
   /// \brief Constructor.
   ///
   ValueByMemoryForArray(std::weak_ptr<ValueStore const> InStore,
@@ -892,14 +973,16 @@ class ValueByMemoryForArray final : public ValueOfArray {
                         uintptr_t WithAddress,
                         unsigned WithElementSize,
                         unsigned WithElementCount,
-                        seec::trace::ProcessState const &ForProcessState)
+                        seec::trace::ProcessState const &ForProcessState,
+                        seec::trace::FunctionState const *WithOwningFunction)
   : Store(InStore),
     ASTContext(WithASTContext),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     ElementSize(WithElementSize),
     ElementCount(WithElementCount),
-    ProcessState(ForProcessState)
+    ProcessState(ForProcessState),
+    OwningFunction(WithOwningFunction)
   {}
   
   /// \brief Get the size of the value's type.
@@ -908,6 +991,47 @@ class ValueByMemoryForArray final : public ValueOfArray {
     return ASTContext.getTypeSizeInChars(CanonicalType);
   }
   
+  static Maybe<uint64_t>
+  calculateElementTypeSize(clang::ASTContext const &ASTContext,
+                           clang::Type const *Type,
+                           trace::FunctionState const &OwningFunction,
+                           seec_clang::MappedModule const &Mapping)
+  {
+    auto const Size = ASTContext.getTypeSizeInChars(Type);
+    if (!Size.isZero())
+      return uint64_t(Size.getQuantity());
+
+    if (auto const VAType = llvm::dyn_cast<clang::VariableArrayType>(Type)) {
+      auto const ElemSize = calculateElementTypeSize(ASTContext,
+                                                     VAType->getElementType().getTypePtr(),
+                                                     OwningFunction,
+                                                     Mapping);
+      if (!ElemSize.assigned<uint64_t>())
+        return ElemSize;
+
+      auto const MappedStmt = Mapping.getMappedStmtForStmt(VAType->getSizeExpr());
+      if (!MappedStmt ||
+          MappedStmt->getMapType() != seec_clang::MappedStmt::Type::RValScalar)
+      {
+        llvm::errs() << "VariableArrayType size expr unmapped.\n";
+        return Maybe<uint64_t>();
+      }
+
+      auto const MaybeSize = trace::getCurrentRuntimeValueAs<uint64_t>
+                              (OwningFunction, MappedStmt->getValue());
+
+      if (!MaybeSize.assigned<uint64_t>()) {
+        llvm::errs() << "VariableArrayType size expr unresolvable.\n";
+        llvm::errs() << *(MappedStmt->getValue()) << "\n";
+        return Maybe<uint64_t>();
+      }
+
+      return ElemSize.get<uint64_t>() * MaybeSize.get<uint64_t>();
+    }
+
+    return uint64_t(Size.getQuantity());
+  }
+
 public:
   /// \brief Attempt to create a new instance of this class.
   ///
@@ -916,14 +1040,30 @@ public:
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
          uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState)
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction)
   {
     auto const ArrayTy = llvm::cast< ::clang::ArrayType>(CanonicalType);
     auto const ElementTy = ArrayTy->getElementType();
-    auto const ElementSize = ASTContext.getTypeSizeInChars(ElementTy);
+
+    unsigned ElementSize = ASTContext.getTypeSizeInChars(ElementTy)
+                                     .getQuantity();
     
-    if (ElementSize.isZero()) {
-      return std::shared_ptr<ValueByMemoryForArray const>();
+    if (!ElementSize) {
+      if (OwningFunction) {
+        if (auto StorePtr = Store.lock()) {
+          auto const &Mapping = StorePtr->getImpl().getMapping();
+          auto const MaybeSize = calculateElementTypeSize(ASTContext,
+                                                          ElementTy.getTypePtr(),
+                                                          *OwningFunction,
+                                                          Mapping);
+          if (MaybeSize.assigned<uint64_t>())
+            ElementSize = MaybeSize.get<uint64_t>();
+        }
+      }
+
+      if (!ElementSize)
+        return std::shared_ptr<ValueByMemoryForArray const>();
     }
     
     unsigned ElementCount = 0;
@@ -947,7 +1087,7 @@ public:
         auto const MaybeArea = ProcessState.getContainingMemoryArea(Address);
         if (MaybeArea.assigned<MemoryArea>()) {
           auto const Area = MaybeArea.get<MemoryArea>().withStart(Address);
-          ElementCount = Area.length() / ElementSize.getQuantity();
+          ElementCount = Area.length() / ElementSize;
         }
         
         break;
@@ -965,9 +1105,10 @@ public:
                                                      ASTContext,
                                                      ArrayTy,
                                                      Address,
-                                                     ElementSize.getQuantity(),
+                                                     ElementSize,
                                                      ElementCount,
-                                                     ProcessState));
+                                                     ProcessState,
+                                                     OwningFunction));
   }
   
   /// \brief Get the canonical type of this Value.
@@ -1075,7 +1216,8 @@ public:
                     CanonicalType->getElementType(),
                     ASTContext,
                     ChildAddress,
-                    ProcessState);
+                    ProcessState,
+                    OwningFunction);
   }
 };
 
@@ -1768,7 +1910,8 @@ public:
                     Expression->getType()->getPointeeType(),
                     MappedAST.getASTUnit().getASTContext(),
                     Address,
-                    ProcessState);
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -1784,7 +1927,8 @@ createValue(std::shared_ptr<ValueStore const> Store,
             ::clang::QualType QualType,
             ::clang::ASTContext const &ASTContext,
             uintptr_t Address,
-            seec::trace::ProcessState const &ProcessState)
+            seec::trace::ProcessState const &ProcessState,
+            seec::trace::FunctionState const *OwningFunction)
 {
   if (!QualType.getTypePtr()) {
     llvm_unreachable("null type");
@@ -1793,7 +1937,8 @@ createValue(std::shared_ptr<ValueStore const> Store,
   
   auto const CanonicalType = QualType.getCanonicalType();
   if (CanonicalType->isIncompleteType()) {
-    DEBUG(llvm::dbgs() << "Can't create Value for incomplete type.\n");
+    llvm::errs() << "can't create value for incomplete type: "
+                 << CanonicalType.getAsString() << "\n";
     return std::shared_ptr<Value const>(); // No values for incomplete types.
   }
   
@@ -1838,7 +1983,8 @@ createValue(std::shared_ptr<ValueStore const> Store,
                                            ASTContext,
                                            CanonicalType.getTypePtr(),
                                            Address,
-                                           ProcessState);
+                                           ProcessState,
+                                           OwningFunction);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -1889,108 +2035,58 @@ createValue(std::shared_ptr<ValueStore const> Store,
 
 
 //===----------------------------------------------------------------------===//
-// ValueStoreImpl
+// ValueStoreImpl method definitions
 //===----------------------------------------------------------------------===//
 
-class TypedValueSet {
-  std::vector<std::pair<MatchType, std::shared_ptr<Value const>>> Items;
+std::shared_ptr<Value const>
+ValueStoreImpl::getValue(std::shared_ptr<ValueStore const> StorePtr,
+                         ::clang::QualType QualType,
+                         ::clang::ASTContext const &ASTContext,
+                         uintptr_t Address,
+                         seec::trace::ProcessState const &ProcessState,
+                         seec::trace::FunctionState const *OwningFunction) const
+{
+  auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
+  if (!CanonicalType) {
+    llvm::errs() << "can't get value: QualType has no CanonicalType.\n"
+                  << "QualType: " << QualType.getAsString() << "\n";
+    return std::shared_ptr<Value const>();
+  }
 
-public:
-  TypedValueSet()
-  : Items()
-  {}
-  
-  std::shared_ptr<Value const> getShared(MatchType const &ForType) const {
-    for (auto const &Pair : Items)
-      if (Pair.first == ForType)
-        return Pair.second;
-    
-    return std::shared_ptr<Value const>{};
-  }
-  
-  Value const *get(MatchType const &ForType) const {
-    for (auto const &Pair : Items)
-      if (Pair.first == ForType)
-        return Pair.second.get();
-    
-    return nullptr;
-  }
-  
-  void add(MatchType const &ForType, std::shared_ptr<Value const> Val) {
-    Items.emplace_back(ForType, std::move(Val));
-  }
-};
+  // Lock the Store.
+  std::lock_guard<std::mutex> LockStore(StoreAccess);
 
-class ValueStoreImpl final {
-  /// Control access to the Store variable.
-  mutable std::mutex StoreAccess;
-  
-  // Two-stage lookup to find previously created Value objects.
-  // The first stage is the in-memory address of the object.
-  // The second stage is the canonical type of the object.
-  mutable llvm::DenseMap<uintptr_t, TypedValueSet> Store;
-  
-  // Disable copying and moving.
-  ValueStoreImpl(ValueStoreImpl const &) = delete;
-  ValueStoreImpl(ValueStoreImpl &&) = delete;
-  ValueStoreImpl &operator=(ValueStoreImpl const &) = delete;
-  ValueStoreImpl &operator=(ValueStore &&) = delete;
-  
-public:
-  /// \brief Constructor.
-  ValueStoreImpl()
-  : Store()
-  {}
-  
-  /// \brief Find or construct a Value for the given type.
-  ///
-  std::shared_ptr<Value const>
-  getValue(std::shared_ptr<ValueStore const> StorePtr,
-           ::clang::QualType QualType,
-           ::clang::ASTContext const &ASTContext,
-           uintptr_t Address,
-           seec::trace::ProcessState const &ProcessState) const
-  {
-    auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
-    if (!CanonicalType) {
-      DEBUG(llvm::dbgs() << "QualType has no CanonicalType.\n");
-      return std::shared_ptr<Value const>();
-    }
-    
-    // Lock the Store.
-    std::lock_guard<std::mutex> LockStore(StoreAccess);
-    
-    // Get (or create) the lookup table for this memory address.
-    auto &TypeMap = Store[Address];
-    
-    auto const Matcher = MatchType(ASTContext, *CanonicalType);
-    auto const Existing = TypeMap.getShared(Matcher);
-    if (Existing)
-      return Existing;
-    
-    // We must create a new Value.
-    auto SharedPtr = createValue(StorePtr,
-                                 QualType,
-                                 ASTContext,
-                                 Address,
-                                 ProcessState);
-    if (!SharedPtr)
-      return SharedPtr;
-    
-    // Store a shared_ptr for this Value in the lookup table.
-    TypeMap.add(Matcher, SharedPtr);
-    
+  // Get (or create) the lookup table for this memory address.
+  auto &TypeMap = Store[Address];
+
+  auto const Matcher = MatchType(ASTContext, *CanonicalType);
+  auto const Existing = TypeMap.getShared(Matcher);
+  if (Existing)
+    return Existing;
+
+  // We must create a new Value.
+  auto SharedPtr = createValue(StorePtr,
+                                QualType,
+                                ASTContext,
+                                Address,
+                                ProcessState,
+                                OwningFunction);
+  if (!SharedPtr)
     return SharedPtr;
-  }
-};
+
+  // Store a shared_ptr for this Value in the lookup table.
+  TypeMap.add(Matcher, SharedPtr);
+
+  return SharedPtr;
+}
 
 
 //===----------------------------------------------------------------------===//
 // ValueStore
 //===----------------------------------------------------------------------===//
 
-ValueStore::ValueStore()
-: Impl(new ValueStoreImpl())
+ValueStore::ValueStore(seec::seec_clang::MappedModule const &WithMapping)
+: Impl(new ValueStoreImpl(WithMapping))
 {}
 
 ValueStore::~ValueStore() = default;
@@ -2011,13 +2107,15 @@ getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
          uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState)
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction)
 {
   return Store->getImpl().getValue(Store,
                                    QualType,
                                    ASTContext,
                                    Address,
-                                   ProcessState);
+                                   ProcessState,
+                                   OwningFunction);
 }
 
 
@@ -2054,7 +2152,8 @@ getValue(std::shared_ptr<ValueStore const> Store,
                       Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent());
+                      FunctionState.getParent().getParent(),
+                      &FunctionState);
     }
     
     case seec::seec_clang::MappedStmt::Type::RValScalar:
@@ -2136,7 +2235,8 @@ getValue(std::shared_ptr<ValueStore const> Store,
                       Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent());
+                      FunctionState.getParent().getParent(),
+                      &FunctionState);
     }
   }
   

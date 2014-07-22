@@ -82,7 +82,7 @@ ProcessState::~ProcessState() = default;
 
 void ProcessState::cacheClear() {
   // Clear process-level cached information.
-  CurrentValueStore = seec::cm::ValueStore::create();
+  CurrentValueStore = seec::cm::ValueStore::create(Trace.getMapping());
   Streams.clear();
   Dirs.clear();
   
