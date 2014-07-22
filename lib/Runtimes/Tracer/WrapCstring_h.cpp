@@ -120,7 +120,7 @@ SEEC_MANGLE_FUNCTION(strtok)
   Listener.enterNotification();
   auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
   
-  // Lock global memory.
+  // Lock global memory because strtok may write a terminating nul character.
   Listener.acquireGlobalMemoryWriteLock();
   
   // Get information about the call Instruction.
@@ -136,7 +136,9 @@ SEEC_MANGLE_FUNCTION(strtok)
       ActiveFn->getPointerObject(Call.getArgument(0));
   }
 
-  // Use a CIOChecker to help check memory.
+  // Check that the arguments are valid C strings. The first argument is
+  // allowed to be NULL, in which case we are continuing to tokenize a
+  // previously passed string (TODO: ensure that there is a previous string).
   seec::trace::CStdLibChecker Checker {Listener, InstructionIndex, FSFunction};
   
   if (String)
@@ -149,9 +151,8 @@ SEEC_MANGLE_FUNCTION(strtok)
   // Record the result.
   Listener.notifyValue(InstructionIndex, Instruction, Result);
   
-  // Record the state changes (if any).
+  // Record state changes (if any) and set the returned pointer's object.
   if (Result) {
-    // Transfer the pointer object from the input pointer.
     ActiveFn->setPointerObject(Instruction, CurrentStringPointerObject);
 
     // The NULL character that terminates this token was inserted by strtok, so
