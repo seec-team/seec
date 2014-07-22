@@ -703,9 +703,8 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
-  
-  auto const IntVal = reinterpret_cast<uintptr_t>(Value);
+  auto &RTValue = *(ActiveFunction->getCurrentRuntimeValue(Index));
+  ActiveFunction->setActiveInstruction(Instruction);
 
   auto Offset = EventsOut.write<EventType::InstructionWithValue>(
                                   Index,
@@ -717,6 +716,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   if (!OutputEnabled)
     Offset = 0;
 
+  auto const IntVal = reinterpret_cast<uintptr_t>(Value);
   RTValue.set(Offset, IntVal);
 
   if (auto Alloca = llvm::dyn_cast<llvm::AllocaInst>(Instruction)) {
@@ -787,6 +787,19 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   }
   else if (llvm::isa<llvm::CallInst>(Instruction)) {
     // Should be handled by interceptor / detect calls.
+  }
+  else if (auto const Phi = llvm::dyn_cast<llvm::PHINode>(Instruction)) {
+    auto const PreviousBB = ActiveFunction->getPreviousBasicBlock();
+    auto const Incoming = Phi->getIncomingValueForBlock(PreviousBB);
+
+    if (Incoming) {
+      auto const PtrObject = ActiveFunction->getPointerObject(Incoming);
+      ActiveFunction->setPointerObject(Instruction, PtrObject);
+    }
+    else {
+      llvm::errs() << "no incoming value for phi node:\n"
+                   << *Instruction << "\n";
+    }
   }
   else if (Instruction->getType()->isPointerTy()) {
     llvm::errs() << "don't know how to set origin for pointer Instruction:\n"

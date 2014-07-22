@@ -262,6 +262,12 @@ class TracedFunction {
   /// Currently-active Instruction.
   llvm::Instruction const *ActiveInstruction;
   
+  /// Previously active \c BasicBlock.
+  llvm::BasicBlock const *PreviousBasicBlock;
+
+  /// Currently active \c BasicBlock.
+  llvm::BasicBlock const *ActiveBasicBlock;
+
   /// List of Allocas for this function.
   std::vector<TracedAlloca> Allocas;
   
@@ -304,6 +310,8 @@ public:
     FIndex(&WithFIndex),
     Record(WithRecord),
     ActiveInstruction(nullptr),
+    PreviousBasicBlock(nullptr),
+    ActiveBasicBlock(nullptr),
     Allocas(),
     ByValArgs(),
     StackSaves(),
@@ -322,6 +330,8 @@ public:
     FIndex(nullptr),
     Record(WithParentRecord),
     ActiveInstruction(nullptr),
+    PreviousBasicBlock(nullptr),
+    ActiveBasicBlock(nullptr),
     Allocas(),
     ByValArgs(),
     StackSaves(),
@@ -339,6 +349,8 @@ public:
     FIndex(Other.FIndex),
     Record(Other.Record),
     ActiveInstruction(Other.ActiveInstruction),
+    PreviousBasicBlock(Other.PreviousBasicBlock),
+    ActiveBasicBlock(Other.ActiveBasicBlock),
     Allocas(std::move(Other.Allocas)),
     ByValArgs(std::move(Other.ByValArgs)),
     StackSaves(std::move(Other.StackSaves)),
@@ -414,12 +426,30 @@ public:
   void
   setActiveInstruction(llvm::Instruction const * const NewActiveInstruction) {
     ActiveInstruction = NewActiveInstruction;
+
+    auto const BB = ActiveInstruction->getParent();
+    if (BB != ActiveBasicBlock) {
+      PreviousBasicBlock = ActiveBasicBlock;
+      ActiveBasicBlock   = BB;
+    }
   }
   
   /// \brief Clear the currently active llvm::Instruction.
   ///
   void clearActiveInstruction() {
     ActiveInstruction = nullptr;
+  }
+
+  /// \brief Get the previously active \c llvm::BasicBlock.
+  ///
+  llvm::BasicBlock const *getPreviousBasicBlock() const {
+    return PreviousBasicBlock;
+  }
+
+  /// \brief Get the currently active \c llvm::BasicBlock.
+  ///
+  llvm::BasicBlock const *getActiveBasicBlock() const {
+    return ActiveBasicBlock;
   }
   
   /// @} (Active llvm::Instruction tracking.)
