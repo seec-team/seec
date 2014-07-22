@@ -220,12 +220,16 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
 
 void expand(ExpansionImpl &EI, seec::cm::LocalState const &State)
 {
-  expand(EI, State.getValue());
+  auto const Value = State.getValue();
+  if (Value)
+    expand(EI, Value);
 }
 
 void expand(ExpansionImpl &EI, seec::cm::ParamState const &State)
 {
-  expand(EI, State.getValue());
+  auto const Value = State.getValue();
+  if (Value)
+    expand(EI, Value);
 }
 
 void expand(ExpansionImpl &EI, seec::cm::FunctionState const &State)
