@@ -20,6 +20,8 @@
 
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -47,6 +49,7 @@ struct GetCurrentRuntimeValueAsImpl;
 ///
 ///   uintptr_t getRuntimeAddress(Function const *);
 ///   uintptr_t getRuntimeAddress(GlobalVariable const *);
+///   llvm::DataLayout const &getDataLayout();
 ///
 /// Which return the run-time addresses of the objects passed to them, or 0 if
 /// the run-time addresses cannot be found.
@@ -127,11 +130,56 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
         llvm_unreachable("Don't know how to get pointer from argument.");
       }
 
-      llvm::errs() << "Value = " << *V << "\n";
-      llvm_unreachable("Don't know how to get runtime value of pointer.");
+      // Handle some ConstantExpr operations. A better way to do this, if we
+      // can, would be to replace the used values that are runtime constants
+      // (e.g. global variable addresses) with simple constants and get LLVM
+      // to deduce the value.
+      if (auto const CE = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+        switch (CE->getOpcode()) {
+          case llvm::Instruction::MemoryOps::GetElementPtr:
+          {
+            llvm::DataLayout const &DL = Source.getDataLayout();
+            auto const Base = CE->getOperand(0);
+
+            auto ElemAddress = getCurrentRuntimeValueAs(Source, Base)
+                               .template get<uintptr_t>();
+            llvm::Type *ElemType = llvm::dyn_cast<llvm::SequentialType>
+                                                 (Base->getType());
+
+            auto const NumOperands = CE->getNumOperands();
+
+            for (unsigned i = 1; i < NumOperands; ++i) {
+              ElemType = llvm::dyn_cast<llvm::SequentialType>(ElemType)
+                         ->getElementType();
+
+              auto const MaybeValue =
+                getCurrentRuntimeValueAs(Source, CE->getOperand(i));
+
+              if (!MaybeValue.template assigned<uintptr_t>()) {
+                llvm::errs() << "GetElementPtr const expr couldn't value of: "
+                             << *(CE->getOperand(i)) << "\n";
+                return Maybe<uintptr_t>();
+              }
+
+              ElemAddress += (MaybeValue.template get<uintptr_t>()
+                              * DL.getTypeAllocSize(ElemType));
+            }
+
+            return ElemAddress;
+          }
+
+          default:
+            llvm::errs() << "can't get runtime value of const expr pointer: "
+                         << *CE << "\n";
+            return Maybe<uintptr_t>();
+        }
+      }
+
+      llvm::errs() << "don't know how to get runtime value of pointer: "
+                   << *V << "\n";
     }
-    
-    return seec::Maybe<uintptr_t>();
+
+    return Maybe<uintptr_t>();
   }
 };
 

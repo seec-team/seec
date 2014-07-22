@@ -110,6 +110,10 @@ FunctionState::getContainingMemoryArea(uintptr_t Address) const {
   return seec::Maybe<MemoryArea>();
 }
 
+llvm::DataLayout const &FunctionState::getDataLayout() const {
+  return Parent->getParent().getDataLayout();
+}
+
 uintptr_t FunctionState::getRuntimeAddress(llvm::Function const *F) const {
   return Parent->getParent().getRuntimeAddress(F);
 }

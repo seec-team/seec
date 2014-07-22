@@ -453,6 +453,12 @@ public:
   ///
   EventWriter &getEventsOut() { return EventsOut; }
 
+  /// \brief Get the \c llvm::DataLayout for the \c llvm::Module.
+  ///
+  llvm::DataLayout const &getDataLayout() const {
+    return ProcessListener.getDataLayout();
+  }
+
   /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.

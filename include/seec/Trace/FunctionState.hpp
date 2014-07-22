@@ -32,6 +32,7 @@
 namespace llvm {
   class raw_ostream;
   class AllocaInst;
+  class DataLayout;
   class Instruction;
   class Function;
 }
@@ -312,6 +313,10 @@ public:
   /// \name Support getCurrentRuntimeValueAs().
   /// @{
   
+  /// \brief Get the \c llvm::DataLayout for the \c Module.
+  ///
+  llvm::DataLayout const &getDataLayout() const;
+
   /// \brief Get the run-time address of a Function.
   ///
   uintptr_t getRuntimeAddress(llvm::Function const *F) const;

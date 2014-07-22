@@ -33,6 +33,7 @@ namespace llvm {
 
 class AllocaInst;
 class CallInst;
+class DataLayout;
 class Instruction;
 
 } // namespace llvm
@@ -381,6 +382,10 @@ public:
   /// \name Support getCurrentRuntimeValue.
   /// @{
   
+  /// \brief Get the \c llvm::DataLayout for the \c llvm::Module.
+  ///
+  llvm::DataLayout const &getDataLayout() const;
+
   /// Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.

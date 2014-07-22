@@ -42,6 +42,11 @@ void RecordedFunction::setCompletion(offset_uint const WithEventOffsetEnd,
 // Support getCurrentRuntimeValue.
 //===----------------------------------------------------------------------===//
 
+llvm::DataLayout const &TracedFunction::getDataLayout() const
+{
+  return ThreadListener.getDataLayout();
+}
+
 uintptr_t
 TracedFunction::getRuntimeAddress(llvm::GlobalVariable const *GV) const
 {
