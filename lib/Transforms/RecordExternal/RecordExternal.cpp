@@ -354,6 +354,9 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
   // Perform SeeC's function interception.
   for (auto &F : M) {
+    if (!F.empty())
+      continue;
+    
     auto Name = F.getName();
     
     // Don't consider the "\01_" prefix when matching names.
