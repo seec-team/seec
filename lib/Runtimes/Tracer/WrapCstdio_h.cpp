@@ -1848,10 +1848,11 @@ SEEC_MANGLE_FUNCTION(sprintf)
   // Defer to vsnprintf.
   va_list Args;
   va_start(Args, Format);
-  auto const NumWritten = vsnprintf(Buffer, Size, Format, Args);
+  auto const NumWritten = std::vsnprintf(Buffer, Size, Format, Args);
   va_end(Args);
   
-  // Check if sprintf would have overflowed the buffer.
+  // Check if sprintf would have overflowed the buffer. The number of characters
+  // returned by vsnprintf does not include the terminating null-byte.
   if (NumWritten >= Size) {
     auto const MaybeArea =
       seec::trace::getContainingMemoryArea(Listener, BufferAddr);
@@ -1864,7 +1865,7 @@ SEEC_MANGLE_FUNCTION(sprintf)
         (FSFunction,
          0,
          BufferAddr,
-         NumWritten,
+         NumWritten + 1,
          Size,
          seec::runtime_errors::ArgObject{},
          MaybeArea.get<0>().address(),
