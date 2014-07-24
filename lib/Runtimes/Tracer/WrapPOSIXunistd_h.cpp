@@ -795,8 +795,11 @@ SEEC_MANGLE_FUNCTION(fork)
   
   // Flush output streams prior to the fork, so that information isn't
   // flushed from both processes following the fork.
-  ProcessListener.traceFlush();
-  Listener.traceFlush();
+  auto const TraceEnabled = ProcessListener.traceEnabled();
+  if (TraceEnabled) {
+    ProcessListener.traceFlush();
+    Listener.traceFlush();
+  }
   
   // Do the fork.
   auto Result = fork();
@@ -807,8 +810,10 @@ SEEC_MANGLE_FUNCTION(fork)
     // are waiting for us will need to update any environment references that
     // they are currently using (alternatively, no other threads should be
     // allowed to have an environment reference at the synchronization point).
-    ProcessListener.traceClose();
-    Listener.traceClose();
+    if (TraceEnabled) {
+      ProcessListener.traceClose();
+      Listener.traceClose();
+    }
   }
   
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),
