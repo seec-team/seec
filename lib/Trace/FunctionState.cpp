@@ -71,6 +71,7 @@ FunctionState::FunctionState(ThreadState &Parent,
   Index(Index),
   Trace(Trace),
   ActiveInstruction(),
+  ActiveInstructionComplete(false),
   InstructionValues(Function.getInstructionCount()),
   Allocas(),
   ParamByVals(),
@@ -129,8 +130,11 @@ FunctionState::getCurrentRuntimeValue(uint32_t Index) const {
   
   // If we have jumped to a prior Instruction, we consider the latter
   // Instruction values to no longer exist.
-  if (ActiveInstruction.assigned(0) && ActiveInstruction.get<0>() < Index)
-    return nullptr;
+  if (ActiveInstruction.assigned<uint32_t>()) {
+    auto const Active = ActiveInstruction.get<uint32_t>();
+    if (Active < Index || (!ActiveInstructionComplete && Active == Index))
+      return nullptr;
+  }
   
   return &InstructionValues[Index];
 }

@@ -379,7 +379,7 @@ void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
   auto const Index = Ev.getIndex();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setActiveInstruction(Index);
+  FuncState.setActiveInstructionIncomplete(Index);
   
   ThreadTime = Ev.getThreadTime();
 }
@@ -388,7 +388,7 @@ void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
   auto const Index = Ev.getIndex();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setActiveInstruction(Index);
+  FuncState.setActiveInstructionComplete(Index);
   
   ThreadTime = Ev.getThreadTime();
 }
@@ -401,7 +401,7 @@ void ThreadState::addEvent(
 
   auto &FuncState = *(CallStack.back());
   FuncState.getRuntimeValue(Index).set(Offset, Value);
-  FuncState.setActiveInstruction(Index);
+  FuncState.setActiveInstructionComplete(Index);
   
   ThreadTime = Ev.getThreadTime();
 }
@@ -414,7 +414,7 @@ void ThreadState::addEvent(
 
   auto &FuncState = *(CallStack.back());
   FuncState.getRuntimeValue(Index).set(Offset, Value);
-  FuncState.setActiveInstruction(Index);
+  FuncState.setActiveInstructionComplete(Index);
 
   ThreadTime = Ev.getThreadTime();
 }
@@ -708,7 +708,11 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   // Set the previous instruction as active.
   auto MaybeIndex = MaybeRef.get<0>()->getIndex();
   assert(MaybeIndex.assigned());
-  FuncState.setActiveInstruction(MaybeIndex.get<0>());
+
+  if (MaybeRef.get<0>()->getType() != EventType::PreInstruction)
+    FuncState.setActiveInstructionComplete(MaybeIndex.get<0>());
+  else
+    FuncState.setActiveInstructionIncomplete(MaybeIndex.get<0>());
   
   // Find all runtime errors attached to the previous instruction, and make
   // them active.

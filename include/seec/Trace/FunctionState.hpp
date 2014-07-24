@@ -224,6 +224,9 @@ class FunctionState {
   /// Index of the currently active llvm::Instruction.
   seec::Maybe<uint32_t> ActiveInstruction;
 
+  /// true iff the active \llvm::Instruction has completed execution.
+  bool ActiveInstructionComplete;
+
   /// Runtime values indexed by Instruction index.
   std::vector<RuntimeValue> InstructionValues;
 
@@ -296,13 +299,26 @@ public:
   /// \name Mutators.
   /// @{
 
-  /// \brief Set the index of the active llvm::Instruction.
-  /// \param Index the index for the new active llvm::Instruction.
-  void setActiveInstruction(uint32_t Index) {
+  /// \brief Set the index of the active \c llvm::Instruction and mark it as
+  ///        having completed execution.
+  /// \param Index the index for the new active \c llvm::Instruction.
+  ///
+  void setActiveInstructionComplete(uint32_t Index) {
     ActiveInstruction = Index;
+    ActiveInstructionComplete = true;
   }
 
-  /// \brief Clear the currently active llvm::Instruction.
+  /// \brief Set the index of the active \c llvm::Instruction and mark it as
+  ///        having not yet completed execution.
+  /// \param Index the index for the new active \c llvm::Instruction.
+  ///
+  void setActiveInstructionIncomplete(uint32_t Index) {
+    ActiveInstruction = Index;
+    ActiveInstructionComplete = false;
+  }
+
+  /// \brief Clear the currently active \c llvm::Instruction.
+  ///
   void clearActiveInstruction() {
     ActiveInstruction.reset();
   }
