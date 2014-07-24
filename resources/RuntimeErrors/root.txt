@@ -141,6 +141,12 @@ root:table {
       " or by incorrect use of pointer arithmetic."
     }
 
+    // ptr_time
+    // obj_time
+    PointerObjectOutdated:string {
+      "Attempting to dereference a pointer whose target object has been deallocated."
+    }
+
     // object
     // address
     PointerArithmeticResultInvalid:string {
@@ -155,6 +161,12 @@ root:table {
        "NULL {Attempting pointer arithmetic on NULL pointer.}"
        "other {Attempting pointer arithmetic on a pointer that does not point"
               " to a valid object.}}"
+    }
+
+    // ptr_time
+    // current_time
+    PointerArithmeticOperandOutdated:string {
+      "Attempting pointer arithmetic on a pointer whose target object has been deallocated."
     }
 
     // function

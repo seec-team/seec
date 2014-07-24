@@ -17,6 +17,7 @@
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TracePointer.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
@@ -291,10 +292,10 @@ class TracedFunction {
   std::vector<RuntimeValue> CurrentValues;
   
   /// Pointer objects of Arguments.
-  llvm::DenseMap<llvm::Argument const *, uintptr_t> ArgPointerObjects;
+  llvm::DenseMap<llvm::Argument const *, PointerTarget> ArgPointerObjects;
 
   /// Pointer objects (original pointee of the pointer).
-  llvm::DenseMap<llvm::Instruction const *, uintptr_t> PointerObjects;
+  llvm::DenseMap<llvm::Instruction const *, PointerTarget> PointerObjects;
 
   /// @}
   
@@ -305,7 +306,7 @@ public:
   TracedFunction(TraceThreadListener const &WithThreadListener,
                  FunctionIndex &WithFIndex,
                  RecordedFunction &WithRecord,
-                 llvm::DenseMap<llvm::Argument const *, uintptr_t> ArgPtrObjs)
+                 llvm::DenseMap<llvm::Argument const *, PointerTarget> ArgPtrs)
   : ThreadListener(WithThreadListener),
     FIndex(&WithFIndex),
     Record(WithRecord),
@@ -318,13 +319,13 @@ public:
     StackLow(0),
     StackHigh(0),
     CurrentValues(FIndex->getInstructionCount()),
-    ArgPointerObjects(std::move(ArgPtrObjs)),
+    ArgPointerObjects(std::move(ArgPtrs)),
     PointerObjects()
   {}
 
   /// \brief Constructor for shims.
   ///
-  TracedFunction(TraceThreadListener const &WithThreadListener,
+  TracedFunction(TraceThreadListener &WithThreadListener,
                  RecordedFunction &WithParentRecord)
   : ThreadListener(WithThreadListener),
     FIndex(nullptr),
@@ -538,35 +539,36 @@ public:
 
   /// \brief Get the object of the pointer held by an \c Argument.
   ///
-  uintptr_t getPointerObject(llvm::Argument const *A) const;
+  PointerTarget getPointerObject(llvm::Argument const *A) const;
 
   /// \brief Set the object of a pointer held by an \c Argument.
   ///
-  void setPointerObject(llvm::Argument const *A, uintptr_t const Object);
+  void setPointerObject(llvm::Argument const *A, PointerTarget const &Object);
 
   /// \brief Get the object of the pointer produced by an \c Instruction.
   ///
-  uintptr_t getPointerObject(llvm::Instruction const *I) const;
+  PointerTarget getPointerObject(llvm::Instruction const *I) const;
 
   /// \brief Set the object of a pointer produced by an \c Instruction.
   ///
-  void setPointerObject(llvm::Instruction const *I, uintptr_t const Object);
+  void setPointerObject(llvm::Instruction const *I,
+                        PointerTarget const &Object);
 
   /// \brief Get the object of a general pointer.
   /// If the given value is an \c Instruction, then we will search for the
   /// object of that \c Instruction as recorded in this \c Function execution.
   ///
-  uintptr_t getPointerObject(llvm::Value const *V) const;
+  PointerTarget getPointerObject(llvm::Value const *V) const;
 
   /// \brief Transfer a pointer object from a \c Value to an \c Instruction.
   ///
-  uintptr_t transferPointerObject(llvm::Value const *From,
-                                  llvm::Instruction const *To);
+  PointerTarget transferPointerObject(llvm::Value const *From,
+                                      llvm::Instruction const *To);
 
   /// \brief Transfer a pointer object from one of the active \c Call's
   ///        \c Argument's to the \c Call itself.
   ///
-  uintptr_t transferArgPointerObjectToCall(unsigned const ArgNo);
+  PointerTarget transferArgPointerObjectToCall(unsigned const ArgNo);
 
   /// @} (Pointer object tracking.)
 

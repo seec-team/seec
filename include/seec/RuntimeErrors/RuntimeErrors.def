@@ -154,6 +154,15 @@ SEEC_RUNERR(PointerObjectMismatch,
   ))
 
 //
+// Dereference a pointer to an outdated allocation.
+//
+SEEC_RUNERR(PointerObjectOutdated,
+  SEEC_PP_QUOTE(
+    (ptr_time, seec::runtime_errors::ArgSize),
+    (obj_time, seec::runtime_errors::ArgSize)
+  ))
+
+//
 // Undefined pointer arithmetic (no longer refers to original object).
 //
 SEEC_RUNERR(PointerArithmeticResultInvalid,
@@ -168,6 +177,15 @@ SEEC_RUNERR(PointerArithmeticResultInvalid,
 SEEC_RUNERR(PointerArithmeticOperandInvalid,
   SEEC_PP_QUOTE(
     (object, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Pointer arithmetic on pointer to an outdated allocation.
+//
+SEEC_RUNERR(PointerArithmeticOperandOutdated,
+  SEEC_PP_QUOTE(
+    (ptr_time,     seec::runtime_errors::ArgSize),
+    (current_time, seec::runtime_errors::ArgSize)
   ))
 
 //

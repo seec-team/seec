@@ -70,6 +70,7 @@ class TraceThreadListener
 : public seec::trace::CallDetector<TraceThreadListener>
 {
   friend class CStdLibChecker;
+  friend class CIOChecker;
   
   // Don't allow copying.
   TraceThreadListener(TraceThreadListener const &) = delete;
@@ -432,8 +433,11 @@ public:
   /// \name Accessors
   /// @{
 
-  /// \brief Get the TraceProcessListener for the process that this thread
-  ///        belongs to.
+  /// \brief Get the \c TraceProcessListener that this thread belongs to.
+  ///
+  TraceProcessListener &getProcessListener() { return ProcessListener; }
+
+  /// \brief Get the \c TraceProcessListener that this thread belongs to.
   ///
   TraceProcessListener const &getProcessListener() const {
     return ProcessListener;

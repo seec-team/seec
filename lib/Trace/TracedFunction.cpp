@@ -97,7 +97,8 @@ TracedFunction::getContainingMemoryArea(uintptr_t Address) const
 void TracedFunction::addByValArg(llvm::Argument const * const Arg,
                                  MemoryArea const &Area)
 {
-  ArgPointerObjects[Arg] = Area.start();
+  auto const &Process = ThreadListener.getProcessListener();
+  ArgPointerObjects[Arg] = Process.makePointerObject(Area.address());
 
   std::lock_guard<std::mutex> Lock(StackMutex);
   
@@ -121,14 +122,14 @@ TracedFunction::getParamByValArea(llvm::Argument const *Arg) const
 // Pointer origin tracking.
 //===----------------------------------------------------------------------===//
 
-uintptr_t TracedFunction::getPointerObject(llvm::Argument const *A) const
+PointerTarget TracedFunction::getPointerObject(llvm::Argument const *A) const
 {
   auto const It = ArgPointerObjects.find(A);
-  return It != ArgPointerObjects.end() ? It->second : 0;
+  return It != ArgPointerObjects.end() ? It->second : PointerTarget(0, 0);
 }
 
 void TracedFunction::setPointerObject(llvm::Argument const *A,
-                                      uintptr_t const Object)
+                                      PointerTarget const &Object)
 {
   ArgPointerObjects[A] = Object;
 #if SEEC_DEBUG_PTROBJ
@@ -136,14 +137,19 @@ void TracedFunction::setPointerObject(llvm::Argument const *A,
 #endif
 }
 
-uintptr_t TracedFunction::getPointerObject(llvm::Instruction const *I) const
+PointerTarget TracedFunction::getPointerObject(llvm::Instruction const *I) const
 {
   auto const It = PointerObjects.find(I);
-  return It != PointerObjects.end() ? It->second : 0;
+  auto const Obj = It != PointerObjects.end() ? It->second
+                                              : PointerTarget(0, 0);
+#if SEEC_DEBUG_PTROBJ
+  llvm::errs() << "get ptr " << Obj << " for instruction " << *I << "\n";
+#endif
+  return Obj;
 }
 
 void TracedFunction::setPointerObject(llvm::Instruction const *I,
-                                      uintptr_t const Object)
+                                      PointerTarget const &Object)
 {
   PointerObjects[I] = Object;
 #if SEEC_DEBUG_PTROBJ
@@ -151,7 +157,7 @@ void TracedFunction::setPointerObject(llvm::Instruction const *I,
 #endif
 }
 
-uintptr_t TracedFunction::getPointerObject(llvm::Value const *V) const
+PointerTarget TracedFunction::getPointerObject(llvm::Value const *V) const
 {
   if (auto const I = llvm::dyn_cast<llvm::Instruction>(V))
     return getPointerObject(I);
@@ -167,8 +173,8 @@ uintptr_t TracedFunction::getPointerObject(llvm::Value const *V) const
   return ThreadListener.getProcessListener().getPointerObject(V);
 }
 
-uintptr_t TracedFunction::transferPointerObject(llvm::Value const *From,
-                                                llvm::Instruction const *To)
+PointerTarget TracedFunction::transferPointerObject(llvm::Value const *From,
+                                                    llvm::Instruction const *To)
 {
   auto const Object = getPointerObject(From);
   if (Object)
@@ -176,7 +182,8 @@ uintptr_t TracedFunction::transferPointerObject(llvm::Value const *From,
   return Object;
 }
 
-uintptr_t TracedFunction::transferArgPointerObjectToCall(unsigned const ArgNo)
+PointerTarget
+TracedFunction::transferArgPointerObjectToCall(unsigned const ArgNo)
 {
   auto const Call = llvm::dyn_cast<llvm::CallInst>(ActiveInstruction);
   assert(Call && "No CallInst active!");

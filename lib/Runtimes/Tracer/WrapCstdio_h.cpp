@@ -1940,8 +1940,6 @@ SEEC_MANGLE_FUNCTION(tmpnam)
     // Record tmpnam's internal static array.
     auto Address = reinterpret_cast<uintptr_t>(Result);
 
-    Listener.getActiveFunction()->setPointerObject(Instruction, Address);
-
     // Remove knowledge of the existing getenv string at this position (if any).
     Listener.removeKnownMemoryRegion(Address);
   
@@ -1954,6 +1952,10 @@ SEEC_MANGLE_FUNCTION(tmpnam)
     
     // Record the write to the new string area.
     Listener.recordUntypedState(Result, Length);
+
+    Listener.getActiveFunction()->setPointerObject(
+      Instruction,
+      Listener.getProcessListener().makePointerObject(Address));
   }
   
   return Result;
@@ -1990,14 +1992,12 @@ SEEC_MANGLE_FUNCTION(fdopen)
   Checker.checkCStringRead(1, Mode);
   
   auto Result = fdopen(FileDescriptor, Mode);
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
   
   // Record the result.
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        Result);
-
-  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
-  Listener.getActiveFunction()->setPointerObject(Instruction, ResultInt);
 
   if (Result) {
     std::string FakeFilename = "(file descriptor ";
@@ -2005,12 +2005,17 @@ SEEC_MANGLE_FUNCTION(fdopen)
     FakeFilename += ")";
     
     Listener.recordStreamOpen(Result, FakeFilename.c_str(), Mode);
+    Listener.getProcessListener().incrementRegionTemporalID(ResultInt);
   }
   else{
     Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
                                 sizeof(errno));
   }
-  
+
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultInt));
+
   return Result;
 }
 

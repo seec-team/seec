@@ -30,3 +30,6 @@ seec_test_run_fail(ptr_to_literal "fail-one-past" "10")
 seec_test_run_fail(ptr_to_literal "fail-low"     "-1" )
 seec_test_run_fail(ptr_to_literal "fail-high"     "11")
 
+seec_test_build(temporal_local temporal_local.c "")
+seec_test_run_fail(temporal_local "fail" "")
+

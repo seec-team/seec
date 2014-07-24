@@ -252,8 +252,9 @@ public:
     // Note that Caller is invalidated when the shim function is pushed, so we
     // need to retrieve a new pointer to the active function.
     ThreadListener.getActiveFunction()
-                  ->setPointerObject(CallInst, Result ? ArrayPtrObj : 0);
-
+                  ->setPointerObject(CallInst,
+                                     Result ? ArrayPtrObj
+                                            : seec::trace::PointerTarget{});
 
     // const_cast due to the C standard.
     return Unqualified;

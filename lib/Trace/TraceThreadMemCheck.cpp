@@ -105,7 +105,7 @@ RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
   return Area.withStart(Address).length();
 }
 
-bool RuntimeErrorChecker::checkPointer(uintptr_t const PtrObj,
+bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
                                        uintptr_t const Address,
                                        seec::Maybe<MemoryArea> const &Area)
 {
@@ -116,9 +116,19 @@ bool RuntimeErrorChecker::checkPointer(uintptr_t const PtrObj,
     return false;
   }
 
-  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj) {
+  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj.getBase()) {
     raiseError(*createRunError<RunErrorType::PointerObjectMismatch>
-                              (PtrObj, Address),
+                              (PtrObj.getBase(), Address),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  auto const &Process = Thread.getProcessListener();
+  auto const Time = Process.getRegionTemporalID(PtrObj.getBase());
+  if (Time != PtrObj.getTemporalID()) {
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), Time),
                RunErrorSeverity::Fatal);
 
     return false;
@@ -235,7 +245,7 @@ CStdLibChecker::memoryExistsForParameter(unsigned Parameter,
                                          std::size_t Size,
                                          format_selects::MemoryAccess Access,
                                          seec::Maybe<MemoryArea> const &Area,
-                                         uintptr_t const PtrObj)
+                                         PointerTarget const &PtrObj)
 {
   // Check that the pointer is valid to use. Do this before checking that the
   // area exists, because we may be able to raise a more specific error if this
@@ -316,7 +326,7 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
 
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                              char const *String,
-                                             uintptr_t const PtrObj)
+                                             PointerTarget const &PtrObj)
 {
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
@@ -769,6 +779,19 @@ bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
                               (Function, Parameter),
                seec::trace::RunErrorSeverity::Fatal);
     
+    return false;
+  }
+
+  auto const FILEAddr = reinterpret_cast<uintptr_t>(Stream);
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+  auto const Time = Thread.getProcessListener().getRegionTemporalID(FILEAddr);
+
+  if (PtrObj.getTemporalID() != Time) {
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), Time),
+               RunErrorSeverity::Fatal);
+
     return false;
   }
 

@@ -19,6 +19,7 @@
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceMemory.hpp"
+#include "seec/Trace/TracePointer.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Trace/TraceStreams.hpp"
 #include "seec/Util/LockedObjectAccessor.hpp"
@@ -194,8 +195,14 @@ class TraceProcessListener {
   IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
 
 
+  /// Temporal identifiers for pointer regions.
+  llvm::DenseMap<uintptr_t, uint64_t> RegionTemporalIDs;
+
+  /// Control access to \c RegionTemporalIDs.
+  mutable std::mutex RegionTemporalIDsMutex;
+
   /// Pointer objects.
-  std::map<uintptr_t, uintptr_t> InMemoryPointerObjects;
+  std::map<uintptr_t, PointerTarget> InMemoryPointerObjects;
 
 
   /// Dynamic memory mutex.
@@ -403,12 +410,30 @@ public:
   /// \name Pointer object tracking
   /// @{
 
-  uintptr_t getPointerObject(llvm::Value const *V) const;
+  /// \brief Increment the temporal ID for the region starting at \c Address.
+  ///
+  uint64_t incrementRegionTemporalID(uintptr_t const Address);
 
-  uintptr_t getInMemoryPointerObject(uintptr_t const PtrLocation) const;
+  /// \brief Get the temporal ID for the region starting at \c Address.
+  ///
+  uint64_t getRegionTemporalID(uintptr_t const Address) const;
+
+  /// \brief Get a current \c PointerTarget for the region starting at
+  ///        \c Address.
+  ///
+  PointerTarget makePointerObject(uintptr_t const ForAddress) const;
+
+  /// \brief Get the \c PointerTarget for the given \c llvm::Value.
+  ///
+  PointerTarget getPointerObject(llvm::Value const *V) const;
+
+  /// \brief Get the \c PointerTarget for the pointer that is in-memory
+  ///        starting at address \c PtrLocation.
+  ///
+  PointerTarget getInMemoryPointerObject(uintptr_t const PtrLocation) const;
 
   void setInMemoryPointerObject(uintptr_t const PtrLocation,
-                                uintptr_t const Object);
+                                PointerTarget const &Object);
 
   void clearInMemoryPointerObjects(MemoryArea const Area);
 
@@ -445,14 +470,10 @@ public:
   /// \brief Add a region of known, but unowned, memory.
   void addKnownMemoryRegion(uintptr_t Address,
                             std::size_t Length,
-                            MemoryPermission Access) {
-    KnownMemory.insert(Address, Address + (Length - 1), Access);
-  }
+                            MemoryPermission Access);
   
   /// \brief Remove the region of known memory starting at Address.
-  bool removeKnownMemoryRegion(uintptr_t Address) {
-    return KnownMemory.erase(Address) != 0;
-  }
+  bool removeKnownMemoryRegion(uintptr_t Address);
   
   /// \brief Get const access to the known memory regions.
   ///
@@ -498,20 +519,7 @@ public:
   void setCurrentDynamicMemoryAllocation(uintptr_t Address,
                                          uint32_t Thread,
                                          offset_uint Offset,
-                                         std::size_t Size) {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
-
-    // if the address is already allocated, update its details (realloc)
-    auto It = DynamicMemoryAllocations.find(Address);
-    if (It != DynamicMemoryAllocations.end()) {
-      It->second.update(Thread, Offset, Size);
-    }
-    else {
-      DynamicMemoryAllocations.insert(
-        std::make_pair(Address,
-                       DynamicAllocation(Thread, Offset, Address, Size)));
-    }
-  }
+                                         std::size_t Size);
 
   /// Remove the dynamic memory allocation for an address.
   bool removeCurrentDynamicMemoryAllocation(uintptr_t Address) {

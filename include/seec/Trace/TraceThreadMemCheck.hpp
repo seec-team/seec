@@ -18,6 +18,7 @@
 #include "seec/RuntimeErrors/FormatSelects.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Trace/TracePointer.hpp"
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Util/Maybe.hpp"
 
@@ -97,7 +98,7 @@ public:
 
   /// \brief Check that a pointer is valid to dereference.
   ///
-  bool checkPointer(uintptr_t const PtrObj,
+  bool checkPointer(PointerTarget const &PtrObj,
                     uintptr_t const Address,
                     seec::Maybe<MemoryArea> const &Area);
 
@@ -172,7 +173,7 @@ protected:
           std::size_t Size,
           seec::runtime_errors::format_selects::MemoryAccess Access,
           seec::Maybe<MemoryArea> const &Area,
-          uintptr_t const PtrObj);
+          PointerTarget const &PtrObj);
 
   /// \brief Check whether or not a memory access is valid.
   ///
@@ -208,7 +209,7 @@ protected:
   ///
   std::size_t checkCStringRead(unsigned Parameter,
                                char const *String,
-                               uintptr_t const PtrObj);
+                               PointerTarget const &PtrObj);
 
 public:
   /// \brief Constructor.

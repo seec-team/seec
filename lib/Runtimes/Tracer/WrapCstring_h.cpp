@@ -66,10 +66,6 @@ SEEC_MANGLE_FUNCTION(strdup)
                        Instruction,
                        Result);
 
-  // Set the object for the returned pointer.
-  auto const ResultAddr = reinterpret_cast<uintptr_t>(Result);
-  Listener.getActiveFunction()->setPointerObject(Instruction, ResultAddr);
-
   if (Result) {
     auto Size = std::strlen(Result) + 1;
     Listener.recordMalloc(reinterpret_cast<uintptr_t>(Result), Size);
@@ -79,7 +75,13 @@ SEEC_MANGLE_FUNCTION(strdup)
     Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
                                 sizeof(errno));
   }
-  
+
+  // Set the object for the returned pointer.
+  auto const ResultAddr = reinterpret_cast<uintptr_t>(Result);
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultAddr));
+
   return Result;
 }
 
@@ -93,7 +95,7 @@ SEEC_MANGLE_FUNCTION(strtok)
 (char *String, char const *Delimiters)
 {
   static std::atomic<unsigned> CallingThreadCount {0};
-  static uintptr_t CurrentStringPointerObject = 0;
+  static seec::trace::PointerTarget CurrentStringPointerObject{};
   
   auto const NewThreadCount = ++CallingThreadCount;
   auto const OnExit = seec::scopeExit([&](){ --CallingThreadCount; });
@@ -161,7 +163,7 @@ SEEC_MANGLE_FUNCTION(strtok)
     Listener.recordUntypedState(Terminator, 1);
   }
   else {
-    ActiveFn->setPointerObject(Instruction, 0);
+    ActiveFn->setPointerObject(Instruction, seec::trace::PointerTarget{});
   }
   
   return Result;

@@ -706,8 +706,9 @@ public:
         }
 
         case PointerOrigin::NewValid:
-          Process.setInMemoryPointerObject(reinterpret_cast<uintptr_t>(Ptr),
-                                           reinterpret_cast<uintptr_t>(*Ptr));
+          Process.setInMemoryPointerObject(
+            reinterpret_cast<uintptr_t>(Ptr),
+            Process.makePointerObject(reinterpret_cast<uintptr_t>(*Ptr)));
           break;
       }
     }
@@ -1259,7 +1260,9 @@ class SimpleWrapperImpl
     auto const Object = MaybeArea.assigned() ? MaybeArea.get<0>().start()
                                              : PtrInt;
 
-    Thread.getActiveFunction()->setPointerObject(Instruction, Object);
+    Thread.getActiveFunction()->setPointerObject(
+      Instruction,
+      Thread.getProcessListener().makePointerObject(Object));
   }
 
   /// \brief Specialization of above to allow compiling with non-pointer return

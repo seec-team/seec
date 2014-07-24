@@ -88,7 +88,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   auto const &FIndex = ProcessListener.moduleIndex().getFunctionIndex(Index);
 
   // Get object information for Arguments from the call site.
-  llvm::DenseMap<llvm::Argument const *, uintptr_t> PtrArgObjects;
+  llvm::DenseMap<llvm::Argument const *, PointerTarget> PtrArgObjects;
 
   if (ActiveFunction) {
     if (!ActiveFunction->isShim()) {
@@ -172,7 +172,9 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   acquireGlobalMemoryWriteLock();
   auto UnlockGlobalMemory = scopeExit([=](){ GlobalMemoryLock.unlock(); });
   
-  // Add the memory area of the argument.
+  // Add the memory area of the argument. We must increment the region's ID
+  // first, because addByValArg will associate it with the llvm::Argument *.
+  ProcessListener.incrementRegionTemporalID(AddressInt);
   ActiveFunction->addByValArg(Arg, MemoryArea(AddressInt, PointeeSize));
   
   // We need to query the parent's FunctionRecord.
@@ -214,10 +216,6 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // it effectively ends the FunctionStart block for main().
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});
-
-  // Set the object of the argv Argument.
-  auto const ArgVArg = ActiveFunction->getFunctionIndex().getArgument(1);
-  ActiveFunction->setPointerObject(ArgVArg, reinterpret_cast<uintptr_t>(ArgV));
   
   GlobalMemoryLock = ProcessListener.lockMemory();
   
@@ -230,6 +228,13 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // Set the state of the pointer array.
   recordUntypedState(reinterpret_cast<char const *>(ArgV), TableSize);
   
+  // Set the object of the argv Argument. This must happen after the target
+  // region is set as known, so that the temporal ID is correct.
+  auto const ArgVArg = ActiveFunction->getFunctionIndex().getArgument(1);
+  auto const ArgVAddr = reinterpret_cast<uintptr_t>(ArgV);
+  ActiveFunction->setPointerObject(ArgVArg,
+                                   ProcessListener.makePointerObject(ArgVAddr));
+
   // Now each of the individual strings.
   for (uint64_t i = 0; i < ArgC; ++i) {
     // Make the string read/write.
@@ -245,7 +250,9 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
 
     // Set the destination object of the pointer.
     auto const PtrLocation = reinterpret_cast<uintptr_t>(ArgV + i);
-    ProcessListener.setInMemoryPointerObject(PtrLocation, StringAddress);
+    ProcessListener.setInMemoryPointerObject(
+      PtrLocation,
+      ProcessListener.makePointerObject(StringAddress));
   }
 
   GlobalMemoryLock.unlock();
@@ -256,10 +263,6 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
   
-  // Set the object of the envp Argument.
-  auto const EnvPArg = ActiveFunction->getFunctionIndex().getArgument(2);
-  ActiveFunction->setPointerObject(EnvPArg, reinterpret_cast<uintptr_t>(EnvP));
-
   GlobalMemoryLock = ProcessListener.lockMemory();
   
   // Find the number of pointers in the array (including the NULL pointer that
@@ -278,6 +281,13 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   // Set the state of the pointer array.
   recordUntypedState(reinterpret_cast<char const *>(EnvP), TableSize);
   
+  // Set the object of the envp Argument. This must happen after the target
+  // region is set to known, so that the temporal ID is correct.
+  auto const EnvPArg = ActiveFunction->getFunctionIndex().getArgument(2);
+  auto const EnvPAddr = reinterpret_cast<uintptr_t>(EnvP);
+  ActiveFunction->setPointerObject(EnvPArg,
+                                   ProcessListener.makePointerObject(EnvPAddr));
+
   // Now each of the individual strings. The limit is Count-1 because the final
   // entry in EnvP is a NULL pointer.
   for (std::size_t i = 0; i < Count - 1; ++i) {
@@ -291,6 +301,12 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
     
     // Set the state of the string.
     recordUntypedState(EnvP[i], StringSize);
+
+    // Set the target of the pointer.
+    auto const PtrLocation = reinterpret_cast<uintptr_t>(EnvP + i);
+    ProcessListener.setInMemoryPointerObject(
+      PtrLocation,
+      ProcessListener.makePointerObject(StringAddress));
   }
   
   GlobalMemoryLock.unlock();
@@ -741,8 +757,11 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                            CountRTV.get<0>(),
                                            Offset));
 
+    ProcessListener.incrementRegionTemporalID(IntVal);
+
     // Origin of the pointer will be this alloca.
-    ActiveFunction->setPointerObject(Instruction, IntVal);
+    ActiveFunction->setPointerObject(Instruction,
+                                     ProcessListener.makePointerObject(IntVal));
   }
   else if (auto Cast = llvm::dyn_cast<llvm::BitCastInst>(Instruction)) {
     ActiveFunction->transferPointerObject(Cast->getOperand(0), Cast);
@@ -757,15 +776,26 @@ void TraceThreadListener::notifyValue(uint32_t Index,
     if (Origin) {
       ActiveFunction->setPointerObject(GEP, Origin);
 
+      // Check that this region has not been deallocated and reallocated since
+      // the pointer was created.
+      auto const PtrBase = Origin.getBase();
+      auto const CurrentTime = ProcessListener.getRegionTemporalID(PtrBase);
+      if (CurrentTime != Origin.getTemporalID()) {
+        handleRunError(*runtime_errors::createRunError
+          <runtime_errors::RunErrorType::PointerArithmeticOperandOutdated>
+          (Origin.getTemporalID(), CurrentTime),
+          RunErrorSeverity::Fatal);
+      }
+
       // Check that the new pointer points to the same object or to the one past
       // the end of the same object.
-      auto const MaybeArea = trace::getContainingMemoryArea(*this, Origin);
+      auto const MaybeArea = trace::getContainingMemoryArea(*this, PtrBase);
       if (MaybeArea.assigned<seec::MemoryArea>()) {
         auto const &Area = MaybeArea.get<seec::MemoryArea>();
         if (!Area.contains(IntVal) && Area.end() != IntVal) {
           handleRunError(*runtime_errors::createRunError
             <runtime_errors::RunErrorType::PointerArithmeticResultInvalid>
-            (Origin, IntVal),
+            (Origin.getBase(), IntVal),
             RunErrorSeverity::Fatal);
         }
       }
@@ -774,14 +804,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
         // valid object.
         handleRunError(*runtime_errors::createRunError
           <runtime_errors::RunErrorType::PointerArithmeticOperandInvalid>
-          (Origin),
+          (Origin.getBase()),
           RunErrorSeverity::Fatal);
       }
     }
     else {
       // Raise an error for manipulating a NULL pointer.
       handleRunError(*runtime_errors::createRunError
-        <runtime_errors::RunErrorType::PointerArithmeticOperandInvalid>(Origin),
+        <runtime_errors::RunErrorType::PointerArithmeticOperandInvalid>
+        (Origin.getBase()),
         RunErrorSeverity::Fatal);
     }
   }

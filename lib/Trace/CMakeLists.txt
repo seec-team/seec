@@ -21,6 +21,7 @@ set(TRACE_HEADERS
   ../../include/seec/Trace/RuntimeValue.hpp
   ../../include/seec/Trace/ThreadState.hpp
   ../../include/seec/Trace/TraceFormat.hpp
+  ../../include/seec/Trace/TracePointer.hpp
   ../../include/seec/Trace/TraceReader.hpp
   ../../include/seec/Trace/TraceSearch.hpp
   ../../include/seec/Trace/TraceStorage.hpp
@@ -34,6 +35,7 @@ set(TRACE_SOURCES
   StreamState.cpp
   ThreadState.cpp
   TraceFormat.cpp
+  TracePointer.cpp
   TraceReader.cpp
   TraceStorage.cpp
 )

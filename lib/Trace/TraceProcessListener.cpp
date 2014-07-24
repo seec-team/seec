@@ -57,6 +57,8 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   TraceMemoryMutex(),
   TraceMemory(),
   KnownMemory(),
+  RegionTemporalIDs(),
+  RegionTemporalIDsMutex(),
   InMemoryPointerObjects(),
   DynamicMemoryAllocations(),
   DynamicMemoryAllocationsMutex(),
@@ -222,27 +224,51 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
 // Pointer origin tracking.
 //===----------------------------------------------------------------------===//
 
-uintptr_t TraceProcessListener::getPointerObject(llvm::Value const *V) const
+uint64_t
+TraceProcessListener::incrementRegionTemporalID(uintptr_t const Address)
 {
+  std::lock_guard<std::mutex> Lock(RegionTemporalIDsMutex);
+  return ++RegionTemporalIDs[Address];
+}
+
+uint64_t
+TraceProcessListener::getRegionTemporalID(uintptr_t const Address) const
+{
+  std::lock_guard<std::mutex> Lock(RegionTemporalIDsMutex);
+  auto const It = RegionTemporalIDs.find(Address);
+  return It != RegionTemporalIDs.end() ? It->second : 0;
+}
+
+PointerTarget
+TraceProcessListener::makePointerObject(uintptr_t const ForAddress) const
+{
+  return PointerTarget(ForAddress, getRegionTemporalID(ForAddress));
+}
+
+PointerTarget TraceProcessListener::getPointerObject(llvm::Value const *V) const
+{
+  // These Values all exist for the lifetime of the program, so we use zero as
+  // the temporal identifier.
+
   if (auto const GV = llvm::dyn_cast<llvm::GlobalVariable>(V)) {
     auto const Address = getRuntimeAddress(GV);
     auto const GlobIt  = GlobalVariableLookup.find(Address);
     assert(GlobIt != GlobalVariableLookup.end());
-    return GlobIt->Begin;
+    return PointerTarget(GlobIt->Begin, 0);
   }
   if (auto const F = llvm::dyn_cast<llvm::Function>(V)) {
-    return getRuntimeAddress(F);
+    return PointerTarget(getRuntimeAddress(F), 0);
   }
   if (llvm::isa<llvm::ConstantPointerNull>(V))
-    return 0;
+    return PointerTarget(0, 0);
 
   llvm::errs() << *V << "\n";
   llvm_unreachable("don't know how to get pointer object.");
 
-  return 0;
+  return PointerTarget(0, 0);
 }
 
-uintptr_t
+PointerTarget
 TraceProcessListener::getInMemoryPointerObject(uintptr_t const PtrLocation)
 const
 {
@@ -255,11 +281,12 @@ const
     llvm::errs() << "impo @" << PtrLocation << " = " << It->second << "\n";
 #endif
 
-  return It != InMemoryPointerObjects.end() ? It->second : 0;
+  return It != InMemoryPointerObjects.end() ? It->second
+                                            : PointerTarget(0, 0);
 }
 
 void TraceProcessListener::setInMemoryPointerObject(uintptr_t const PtrLocation,
-                                                    uintptr_t const Object)
+                                                    PointerTarget const &Object)
 {
   clearInMemoryPointerObjects(MemoryArea(PtrLocation, sizeof(void *)));
   InMemoryPointerObjects[PtrLocation] = Object;
@@ -339,6 +366,44 @@ offset_uint TraceProcessListener::recordData(char const *Data, size_t Size) {
   return WrittenOffset;
 }
 
+void TraceProcessListener::addKnownMemoryRegion(uintptr_t Address,
+                                                std::size_t Length,
+                                                MemoryPermission Access)
+{
+  KnownMemory.insert(Address, Address + (Length - 1), Access);
+  incrementRegionTemporalID(Address);
+}
+
+bool TraceProcessListener::removeKnownMemoryRegion(uintptr_t Address)
+{
+  return KnownMemory.erase(Address) != 0;
+}
+
+
+//===----------------------------------------------------------------------===//
+// Dynamic memory allocation tracking
+//===----------------------------------------------------------------------===//
+
+void TraceProcessListener::setCurrentDynamicMemoryAllocation(uintptr_t Address,
+                                                             uint32_t Thread,
+                                                             offset_uint Offset,
+                                                             std::size_t Size)
+{
+  std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+
+  // if the address is already allocated, update its details (realloc)
+  auto It = DynamicMemoryAllocations.find(Address);
+  if (It != DynamicMemoryAllocations.end()) {
+    It->second.update(Thread, Offset, Size);
+  }
+  else {
+    DynamicMemoryAllocations.insert(
+      std::make_pair(Address,
+                      DynamicAllocation(Thread, Offset, Address, Size)));
+    incrementRegionTemporalID(Address);
+  }
+}
+
 
 //===----------------------------------------------------------------------===//
 // Notifications.
@@ -414,7 +479,7 @@ void TraceProcessListener::setGVInitialIMPO(llvm::Type *ElemTy,
       // Find the GlobalVariable that the pointer points to.
       auto const AreaIt = GlobalVariableLookup.find(Value);
       if (AreaIt != GlobalVariableLookup.end())
-        setInMemoryPointerObject(Address, AreaIt->Begin);
+        setInMemoryPointerObject(Address, PointerTarget(AreaIt->Begin, 0));
     }
   }
   else if (auto const STy = llvm::dyn_cast<llvm::StructType>(ElemTy)) {

@@ -62,17 +62,19 @@ class ResultStateRecorderForStaticInternalLConv {
   {
     auto const AddrOfStringPtr = reinterpret_cast<uintptr_t>(&String);
     auto const AddrOfString = reinterpret_cast<uintptr_t>(String);
-    ProcessListener.setInMemoryPointerObject(AddrOfStringPtr, AddrOfString);
 
-    if (String == nullptr)
-      return;
+    if (String != nullptr) {
+      auto const Length = std::strlen(String) + 1;
 
-    auto const Length = std::strlen(String) + 1;
+      ThreadListener.removeKnownMemoryRegion(AddrOfString);
+      ThreadListener.addKnownMemoryRegion(AddrOfString, Length,
+                                          seec::MemoryPermission::ReadOnly);
+      ThreadListener.recordUntypedState(String, Length);
+    }
 
-    ThreadListener.removeKnownMemoryRegion(AddrOfString);
-    ThreadListener.addKnownMemoryRegion(AddrOfString, Length,
-                                        seec::MemoryPermission::ReadOnly);
-    ThreadListener.recordUntypedState(String, Length);
+    ProcessListener.setInMemoryPointerObject(
+      AddrOfStringPtr,
+      ProcessListener.makePointerObject(AddrOfString));
   }
   
 public:
