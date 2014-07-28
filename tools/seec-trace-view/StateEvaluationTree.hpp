@@ -247,6 +247,14 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   ///
   void showHoverTooltip(NodeInfo const &Node);
 
+  /// \brief Check if the tree contains a \c clang::Stmt.
+  ///
+  bool treeContainsStmt(clang::Stmt const *S) const;
+
+  /// \brief Check if the tree contains a \c seec::cm::Value.
+  ///
+  bool treeContainsValue(seec::cm::Value const &V) const;
+
   /// \name Context events
   /// @{
 

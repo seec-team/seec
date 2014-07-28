@@ -292,6 +292,21 @@ void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
   makeStmtTooltip(this, Node.Statement, *ActiveFn, TipWidth, NodeBounds);
 }
 
+bool StateEvaluationTreePanel::treeContainsStmt(clang::Stmt const *S) const
+{
+  if (!S)
+    return false;
+
+  return std::any_of(Nodes.begin(), Nodes.end(),
+          [S] (NodeInfo const &Node) { return Node.Statement == S; });
+}
+
+bool StateEvaluationTreePanel::treeContainsValue(seec::cm::Value const &V) const
+{
+  return std::any_of(Nodes.begin(), Nodes.end(),
+          [&V] (NodeInfo const &Node) { return Node.Value.get() == &V; });
+}
+
 void StateEvaluationTreePanel::notifyContextEvent(ContextEvent const &Ev)
 {
   switch (Ev.getKind())
@@ -301,17 +316,29 @@ void StateEvaluationTreePanel::notifyContextEvent(ContextEvent const &Ev)
 
     case ContextEventKind::HighlightStmt:
     {
+      auto const ContainedPrev = treeContainsStmt(HighlightedStmt);
       auto const &Event = llvm::cast<ConEvHighlightStmt>(Ev);
       HighlightedStmt = Event.getStmt();
-      redraw();
+
+      if (ContainedPrev || treeContainsStmt(HighlightedStmt))
+        redraw();
+
       break;
     }
 
     case ContextEventKind::HighlightValue:
     {
+      auto const ContainedPrev = HighlightedValue
+                                 && treeContainsValue(*HighlightedValue);
       auto const &Event = llvm::cast<ConEvHighlightValue>(Ev);
       HighlightedValue = Event.getValue();
-      redraw();
+
+      if (ContainedPrev
+          || (HighlightedValue && treeContainsValue(*HighlightedValue)))
+      {
+        redraw();
+      }
+
       break;
     }
   }
