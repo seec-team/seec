@@ -194,6 +194,7 @@ SEEC_INTERCEPTED_FUNCTION(waitpid)
 // POSIX <unistd.h>
 //===----------------------------------------------------------------------===//
 
+SEEC_INTERCEPTED_FUNCTION(access)
 SEEC_INTERCEPTED_FUNCTION(dup)
 SEEC_INTERCEPTED_FUNCTION(dup2)
 SEEC_INTERCEPTED_FUNCTION(dup3)

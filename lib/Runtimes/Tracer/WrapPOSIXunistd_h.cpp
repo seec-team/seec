@@ -71,6 +71,25 @@ extern "C" {
 
 
 //===----------------------------------------------------------------------===//
+// access
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(access)
+(char const * const pathname, int const mode)
+{
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::access}
+          (access,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(pathname),
+           mode);
+}
+
+
+//===----------------------------------------------------------------------===//
 // close
 //===----------------------------------------------------------------------===//
 
