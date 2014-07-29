@@ -187,6 +187,7 @@ SEEC_INTERCEPTED_FUNCTION(settimeofday)
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(wait)
+SEEC_INTERCEPTED_FUNCTION(waitpid)
 
 
 //===----------------------------------------------------------------------===//

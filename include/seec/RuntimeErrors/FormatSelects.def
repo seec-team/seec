@@ -277,6 +277,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, gettimeofday, "gettimeofday")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, settimeofday, "settimeofday")
+
+  //----------------------------------------------------------------------------
+  // sys/wait.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, wait,    "wait")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, waitpid, "waitpid")
   
   //----------------------------------------------------------------------------
   // unistd.h
@@ -383,7 +389,6 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strtok, "strtok")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, Strxfrm, "strxfrm")
   
-  SEEC_FORMAT_SELECT_ITEM(CStdFunction, wait,    "wait")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, strdup,  "strdup")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, pipe,    "pipe")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fork,    "fork")
