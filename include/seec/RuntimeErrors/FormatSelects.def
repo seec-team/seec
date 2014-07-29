@@ -281,6 +281,9 @@ SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
   // unistd.h
   //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, dup,    "dup")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, dup2,   "dup2")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, dup3,   "dup3")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, close,  "close")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, getcwd, "getcwd")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, getopt, "getopt")

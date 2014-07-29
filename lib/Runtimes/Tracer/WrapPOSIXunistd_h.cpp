@@ -91,6 +91,57 @@ SEEC_MANGLE_FUNCTION(close)
 
 
 //===----------------------------------------------------------------------===//
+// dup
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(dup)
+(int const oldfd)
+{
+  return seec::SimpleWrapper<>
+         {seec::runtime_errors::format_selects::CStdFunction::dup}
+         (dup,
+          [](int const Result){ return Result != -1; },
+          seec::ResultStateRecorderForNoOp(),
+          oldfd);
+}
+
+
+//===----------------------------------------------------------------------===//
+// dup2
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(dup2)
+(int const oldfd, int const newfd)
+{
+  return seec::SimpleWrapper<>
+         {seec::runtime_errors::format_selects::CStdFunction::dup2}
+         (dup2,
+          [](int const Result){ return Result != -1; },
+          seec::ResultStateRecorderForNoOp(),
+          oldfd, newfd);
+}
+
+
+//===----------------------------------------------------------------------===//
+// dup3
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(dup3)
+(int const oldfd, int const newfd, int const flags)
+{
+  return seec::SimpleWrapper<>
+         {seec::runtime_errors::format_selects::CStdFunction::dup3}
+         (dup3,
+          [](int const Result){ return Result != -1; },
+          seec::ResultStateRecorderForNoOp(),
+          oldfd, newfd, flags);
+}
+
+
+//===----------------------------------------------------------------------===//
 // execl
 //===----------------------------------------------------------------------===//
 
