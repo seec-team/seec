@@ -47,6 +47,21 @@ SEEC_FUNCTION_HANDLED(ALIAS)
 //===----------------------------------------------------------------------===//
 // C functions that don't need recording.
 //
+// ctype.h
+SEEC_FUNCTION_HANDLED(isalnum)
+SEEC_FUNCTION_HANDLED(isalpha)
+SEEC_FUNCTION_HANDLED(isascii)
+SEEC_FUNCTION_HANDLED(isblank)
+SEEC_FUNCTION_HANDLED(iscntrl)
+SEEC_FUNCTION_HANDLED(isdigit)
+SEEC_FUNCTION_HANDLED(isgraph)
+SEEC_FUNCTION_HANDLED(islower)
+SEEC_FUNCTION_HANDLED(isprint)
+SEEC_FUNCTION_HANDLED(ispunct)
+SEEC_FUNCTION_HANDLED(isspace)
+SEEC_FUNCTION_HANDLED(isupper)
+SEEC_FUNCTION_HANDLED(isxdigit)
+
 // math.h
 #define SEEC_FUNCTION_HANDLED_FL(NAME) \
   SEEC_FUNCTION_HANDLED(NAME ## f)     \
@@ -120,8 +135,19 @@ SEEC_FUNCTION_HANDLED_FL(copysign)
 //
 // fcntl.h
 SEEC_FUNCTION_HANDLED(open)
+// unistd.h
+SEEC_FUNCTION_HANDLED(getpid)
+SEEC_FUNCTION_HANDLED(getppid)
+SEEC_FUNCTION_HANDLED(sleep)
 // sys/stat.h
 SEEC_FUNCTION_HANDLED(umask)
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// glibc functions that don't need recording.
+//
+SEEC_FUNCTION_HANDLED(_exit)
+SEEC_FUNCTION_HANDLED(__assert_fail)
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
