@@ -233,6 +233,12 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, bsearch, "bsearch")
   
   //----------------------------------------------------------------------------
+  // string.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strcasecmp,  "strcasecmp")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strncasecmp, "strncasecmp")
+  
+  //----------------------------------------------------------------------------
   // time.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, time, "time")

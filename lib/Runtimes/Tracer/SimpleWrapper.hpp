@@ -298,11 +298,17 @@ class WrappedInputCString {
   char const *Value;
   
   bool IgnoreNull;
+
+  bool IsLimited;
+
+  std::size_t Limit;
   
 public:
   WrappedInputCString(char const *ForValue)
   : Value(ForValue),
-    IgnoreNull(false)
+    IgnoreNull(false),
+    IsLimited(false),
+    Limit(0)
   {}
   
   /// \name Flags
@@ -314,6 +320,16 @@ public:
   }
   
   bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputCString &setLimited(std::size_t const Value) {
+    IsLimited = true;
+    Limit = Value;
+    return *this;
+  }
+
+  bool isLimited() const { return IsLimited; }
+
+  std::size_t getLimit() const { return Limit; }
   
   /// @} (Flags)
   
@@ -352,7 +368,13 @@ public:
     if (Value == nullptr && Value.getIgnoreNull())
       return true;
     
-    return Checker.checkCStringRead(Parameter, Value);
+    if (Value.isLimited()) {
+      return Checker.checkLimitedCStringRead(Parameter, Value,
+                                             Value.getLimit());
+    }
+    else {
+      return Checker.checkCStringRead(Parameter, Value);
+    }
   }
 };
 

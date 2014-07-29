@@ -121,6 +121,8 @@ SEEC_INTERCEPTED_FUNCTION(bsearch)
 // C <string.h>
 //===----------------------------------------------------------------------===//
 
+SEEC_INTERCEPTED_FUNCTION(strcasecmp)
+SEEC_INTERCEPTED_FUNCTION(strncasecmp)
 SEEC_INTERCEPTED_FUNCTION(strdup)
 SEEC_INTERCEPTED_FUNCTION(strtok)
 

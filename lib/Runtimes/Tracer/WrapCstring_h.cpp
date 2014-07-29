@@ -11,8 +11,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SimpleWrapper.hpp"
 #include "Tracer.hpp"
 
+#include "seec/RuntimeErrors/FormatSelects.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
@@ -25,6 +27,45 @@
 
 
 extern "C" {
+
+
+//===----------------------------------------------------------------------===//
+// strcasecmp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(strcasecmp)
+(char const * const s1, char const * const s2)
+{
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::strcasecmp}
+          (strcasecmp,
+           [](int const){ return true; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(s1),
+           seec::wrapInputCString(s2));
+}
+
+
+//===----------------------------------------------------------------------===//
+// strncasecmp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(strncasecmp)
+(char const * const s1, char const * const s2, size_t const n)
+{
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::strncasecmp}
+          (strncasecmp,
+           [](int const){ return true; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(s1).setLimited(n),
+           seec::wrapInputCString(s2).setLimited(n),
+           n);
+}
 
 
 //===----------------------------------------------------------------------===//
