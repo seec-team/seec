@@ -36,8 +36,8 @@ target_link_libraries(seec-print
  SeeCClangMappedTrace
  SeeCTrace
  SeeCRuntimeErrors
- SeeCUtil
  SeeCICU
+ SeeCUtil
 
  # wxWidgets libraries
  ${REQ_WX_LIBRARIES}

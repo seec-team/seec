@@ -13,6 +13,7 @@
 
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/MakeUnique.hpp"
+#include "seec/Util/Resources.hpp"
 
 #include "llvm/Linker.h"
 #include "llvm/ADT/Triple.h"
@@ -30,6 +31,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
@@ -105,8 +107,16 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
   if (!ModuleDataLayout.empty())
     Passes.add(new llvm::DataLayout(ModuleDataLayout));
 
+  // Determine the path to SeeC's resource directory:
+
+  // This just needs to be some symbol in the binary; C++ doesn't
+  // allow taking the address of ::main however.
+  void *P = (void*) (intptr_t) Instrument;
+  auto const Path = llvm::sys::fs::getMainExecutable(ProgramName, P);
+  auto const ResourcePath = seec::getResourceDirectory(Path);
+
   // Add SeeC's recording instrumentation pass
-  auto const Pass = new llvm::InsertExternalRecording();
+  auto const Pass = new llvm::InsertExternalRecording(ResourcePath);
   Passes.add(Pass);
 
   // Verify the final module

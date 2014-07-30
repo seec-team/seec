@@ -27,6 +27,8 @@ extern uint64_t SeeCInfoFunctionsLength;
 extern void    *SeeCInfoGlobals[];
 extern uint64_t SeeCInfoGlobalsLength;
 
+extern char const __SeeC_ResourcePath__[];
+
 }
 
 #endif // SEEC_TRANSFORMS_RECORDEXTERNAL_RECORDINFO_H

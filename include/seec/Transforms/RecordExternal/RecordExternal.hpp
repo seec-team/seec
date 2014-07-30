@@ -24,6 +24,7 @@
 #include "llvm/Support/DataTypes.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 
@@ -46,6 +47,9 @@ private:
 #define HANDLE_RECORD_POINT(POINT, LLVM_FUNCTION_TYPE) \
   Function *Record##POINT;
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
+
+  /// Path to SeeC resources.
+  std::string const ResourcePath;
 
   /// Set of all SeeC interceptor functions used by this Module.
   llvm::DenseMap<llvm::Function *, llvm::Function *> Interceptors;
@@ -91,9 +95,11 @@ public:
   static char ID; ///< For LLVM's RTTI
 
   /// \brief Constructor.
+  /// \param PathToSeeCResources path to SeeC resources.
   ///
-  InsertExternalRecording()
+  InsertExternalRecording(llvm::StringRef PathToSeeCResources)
   : FunctionPass(ID),
+    ResourcePath(PathToSeeCResources),
     Interceptors(),
     FunctionInstructions(),
     InstructionIndex(),

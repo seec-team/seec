@@ -125,8 +125,8 @@ target_link_libraries(seec-view
  SeeCClang
  SeeCTrace
  SeeCRuntimeErrors
- SeeCUtil
  SeeCICU
+ SeeCUtil
  SeeCwxWidgets
 
  # Clang libraries

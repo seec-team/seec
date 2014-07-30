@@ -9,6 +9,7 @@ string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
 target_link_libraries(seec-ld
  SeeCRecordExternal
+ SeeCUtil
  ${REQ_LLVM_LIBRARIES}
  ${LLVM_LIB_DEPS}
 )

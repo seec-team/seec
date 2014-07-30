@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/Resources.hpp"
 
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/Path.h"
@@ -100,25 +101,8 @@ getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
 //------------------------------------------------------------------------------
 
 ResourceLoader::ResourceLoader(llvm::StringRef ExecutablePath)
-: ResourcesDirectory(ExecutablePath)
-{
-  // Find the location of the ICU resources, which should be fixed relative
-  // to our executable path.
-  // For Bundles find: ../../Resources
-  // Otherwise find:   ../lib/seec/resources
-  
-  // remove executable name, then remove "bin" or "MacOS" (for bundles)
-  llvm::sys::path::remove_filename(ResourcesDirectory);
-  llvm::sys::path::remove_filename(ResourcesDirectory);
-  
-  if (ResourcesDirectory.str().endswith("Contents")) { // Bundle
-    llvm::sys::path::remove_filename(ResourcesDirectory); // remove "Contents"
-    llvm::sys::path::append(ResourcesDirectory, "Resources");
-  }
-  else {
-    llvm::sys::path::append(ResourcesDirectory, "lib", "seec", "resources");
-  }
-}
+: ResourcesDirectory(getResourceDirectory(ExecutablePath))
+{}
 
 bool ResourceLoader::loadResource(char const *Package)
 {

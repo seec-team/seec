@@ -320,6 +320,16 @@ bool InsertExternalRecording::doInitialization(Module &M) {
                  "SeeCInfoFunctions", "SeeCInfoFunctionsLength");
   AddModuleInfo(M, ModuleBitcode);
 
+  // Add the path to the SeeC installation.
+  if (auto Existing = M.getNamedGlobal("__SeeC_ResourcePath__"))
+    Existing->eraseFromParent();
+
+  auto const PathConst = llvm::ConstantDataArray::getString(Context,
+                                                            ResourcePath);
+  new llvm::GlobalVariable(M, PathConst->getType(), true,
+                           llvm::GlobalValue::ExternalLinkage, PathConst,
+                           llvm::StringRef("__SeeC_ResourcePath__"));
+
   // Check for unhandled external functions.
   for (auto &F : M) {
     if (F.empty() && !F.isIntrinsic()) {

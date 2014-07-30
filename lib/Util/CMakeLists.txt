@@ -16,6 +16,7 @@ set(HEADERS
   ../../include/seec/Util/ModuleIndex.hpp
   ../../include/seec/Util/Printing.hpp
   ../../include/seec/Util/Range.hpp
+  ../../include/seec/Util/Resources.hpp
   ../../include/seec/Util/Reverse.hpp
   ../../include/seec/Util/ScopeExit.hpp
   ../../include/seec/Util/Serialization.hpp
@@ -26,6 +27,7 @@ set(HEADERS
 
 set(SOURCES
   Printing.cpp
+  Resources.cpp
   SynchronizedExit.cpp
   )
 
