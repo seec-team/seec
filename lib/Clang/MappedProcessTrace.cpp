@@ -28,8 +28,7 @@ namespace cm {
 //===----------------------------------------------------------------------===//
 
 Maybe<std::unique_ptr<ProcessTrace>, Error>
-ProcessTrace::load(llvm::StringRef ExecutablePath,
-                   std::unique_ptr<trace::InputBufferAllocator> Allocator)
+ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
 {
   // Load the bitcode.
   auto &Context = llvm::getGlobalContext();
@@ -50,8 +49,7 @@ ProcessTrace::load(llvm::StringRef ExecutablePath,
   assert(ProcTrace);
   
   return std::unique_ptr<ProcessTrace>
-                        (new ProcessTrace(ExecutablePath,
-                                          std::move(ProcTrace),
+                        (new ProcessTrace(std::move(ProcTrace),
                                           std::make_shared<seec::ModuleIndex>
                                                           (*Mod, true)));
 }

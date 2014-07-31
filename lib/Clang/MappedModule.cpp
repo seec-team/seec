@@ -285,10 +285,8 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
 
 MappedModule::MappedModule(
                 ModuleIndex const &ModIndex,
-                llvm::StringRef ExecutablePath,
                 llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
 : ModIndex(ModIndex),
-  ExecutablePath(ExecutablePath),
   Diags(Diags),
   ASTLookup(),
   ASTList(),

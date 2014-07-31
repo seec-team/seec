@@ -61,8 +61,7 @@ class ProcessTrace {
   
   /// \brief Constructor.
   ///
-  ProcessTrace(llvm::StringRef ExecutablePath,
-               std::shared_ptr<seec::trace::ProcessTrace> Trace,
+  ProcessTrace(std::shared_ptr<seec::trace::ProcessTrace> Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
   : UnmappedTrace(std::move(Trace)),
     ModuleIndex(std::move(Index)),
@@ -74,7 +73,7 @@ class ProcessTrace {
                                              &*DiagOpts,
                                              &DiagConsumer,
                                              false)),
-    Mapping(*ModuleIndex, ExecutablePath, Diagnostics)
+    Mapping(*ModuleIndex, Diagnostics)
   {}
   
 public:
@@ -82,8 +81,7 @@ public:
   ///
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
-  load(llvm::StringRef ExecutablePath,
-       std::unique_ptr<seec::trace::InputBufferAllocator> Allocator);
+  load(std::unique_ptr<seec::trace::InputBufferAllocator> Allocator);
   
   
   /// \name Access underlying information.

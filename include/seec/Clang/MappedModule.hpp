@@ -339,9 +339,6 @@ public:
 class MappedModule {
   /// Indexed view of the llvm::Module.
   seec::ModuleIndex const &ModIndex;
-  
-  /// Path of the currently-running executable.
-  llvm::StringRef ExecutablePath;
 
   /// DiagnosticsEngine used during parsing.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
@@ -393,11 +390,9 @@ class MappedModule {
 public:
   /// \brief Constructor.
   /// \param ModIndex Indexed view of the llvm::Module to map.
-  /// \param ExecutablePath Used by the Clang driver to find resources.
   /// \param Diags The diagnostics engine to use during compilation.
   ///
   MappedModule(seec::ModuleIndex const &ModIndex,
-               llvm::StringRef ExecutablePath,
                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
 
   /// \brief Destructor.

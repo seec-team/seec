@@ -54,9 +54,6 @@ seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>
 OpenTrace::ReadTraceFromFilePath(wxString const &FilePath)
 {
   // Create an InputBufferAllocator for the folder containing the trace file.
-  auto &StdPaths = wxStandardPaths::Get();
-  auto const &ExecutablePath = StdPaths.GetExecutablePath().ToStdString();
-
   llvm::error_code ErrCode;
   llvm::SmallString<256> DirPath {FilePath.ToStdString()};
   
@@ -83,7 +80,7 @@ OpenTrace::ReadTraceFromFilePath(wxString const &FilePath)
     seec::makeUnique<seec::trace::InputBufferAllocator>
                     (MaybeIBA.move<seec::trace::InputBufferAllocator>());
   
-  return seec::cm::ProcessTrace::load(ExecutablePath, std::move(IBAPtrTemp));
+  return seec::cm::ProcessTrace::load(std::move(IBAPtrTemp));
 }
 
 seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>

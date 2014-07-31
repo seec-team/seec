@@ -175,7 +175,7 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
   }
 }
 
-void PrintClangMapped(llvm::StringRef ExecutablePath)
+void PrintClangMapped()
 {
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
@@ -190,8 +190,7 @@ void PrintClangMapped(llvm::StringRef ExecutablePath)
                              (MaybeIBA.move<trace::InputBufferAllocator>());
 
   // Read the trace.
-  auto CMProcessTraceLoad = cm::ProcessTrace::load(ExecutablePath,
-                                                   std::move(IBA));
+  auto CMProcessTraceLoad = cm::ProcessTrace::load(std::move(IBA));
   
   if (CMProcessTraceLoad.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -211,7 +210,7 @@ void PrintClangMapped(llvm::StringRef ExecutablePath)
   }
 }
 
-void PrintUnmapped(llvm::StringRef ExecutablePath)
+void PrintUnmapped()
 {
   auto &Context = llvm::getGlobalContext();
 
@@ -349,9 +348,7 @@ void PrintUnmapped(llvm::StringRef ExecutablePath)
     Diagnostics->setIgnoreAllWarnings(true);
 
     // Setup the map to find Decls and Stmts from Instructions
-    seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
-                                          ExecutablePath,
-                                          Diagnostics);
+    seec::seec_clang::MappedModule MapMod(*ModIndexPtr, Diagnostics);
     
     clang::LangOptions LangOpt;
 
@@ -480,10 +477,10 @@ int main(int argc, char **argv, char * const *envp) {
   }
 
   if (UseClangMapping || OnlinePythonTutor) {
-    PrintClangMapped(ExecutablePath);
+    PrintClangMapped();
   }
   else {
-    PrintUnmapped(ExecutablePath);
+    PrintUnmapped();
   }
   
   return EXIT_SUCCESS;
