@@ -75,8 +75,6 @@ target_link_libraries(seecRuntimeTracer
  ${REQ_WX_LIBRARIES}
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangCodeGen.a
- ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a
  ${LLVM_INSTALL}/lib/libclangDriver.a
  ${LLVM_INSTALL}/lib/libclangSerialization.a
