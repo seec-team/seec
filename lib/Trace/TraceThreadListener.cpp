@@ -13,6 +13,8 @@
 
 #define _POSIX_C_SOURCE 199506L
 
+#include "seec/ICU/Output.hpp"
+#include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Util/Fallthrough.hpp"
@@ -742,6 +744,18 @@ TraceThreadListener
   }
   
   writeError(EventsOut, Error, true);
+
+  // Call the runtime error callback, if there is one.
+  auto const &Callback = ProcessListener.getRunErrorCallback();
+  if (Callback) {
+    llvm::Instruction const *I = ActiveFunction->getActiveInstruction();
+    if (PreInstructionIndex.assigned<uint32_t>()) {
+      auto const Index = PreInstructionIndex.get<uint32_t>();
+      I = ActiveFunction->getFunctionIndex().getInstruction(Index);
+    }
+
+    Callback(Error, I);
+  }
   
   switch (Severity) {
     case RunErrorSeverity::Warning:

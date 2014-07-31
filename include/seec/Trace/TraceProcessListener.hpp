@@ -46,6 +46,10 @@ namespace llvm {
 
 namespace seec {
 
+namespace runtime_errors {
+  class RunError;
+}
+
 class SynchronizedExit;
 
 namespace trace {
@@ -138,6 +142,12 @@ class TraceProcessListener {
 
   /// Lookup for detecting calls to C standard library functions.
   seec::trace::detect_calls::Lookup DetectCallsLookup;
+
+  typedef void RunErrorCallbackTy(seec::runtime_errors::RunError const &,
+                                  llvm::Instruction const *);
+
+  /// Callback when runtime errors are detected.
+  std::function<RunErrorCallbackTy> RunErrorCallback;
 
 
   /// Lookup GlobalVariable's run-time addresses by index.
@@ -339,6 +349,16 @@ public:
   }
 
   /// @} (Accessors)
+
+
+  /// \name Callback when runtime errors are detected.
+  /// @{
+
+  void setRunErrorCallback(std::function<RunErrorCallbackTy> Callback);
+
+  decltype(RunErrorCallback) const &getRunErrorCallback() const;
+
+  /// @}
   
   
   /// \name Synthetic process time

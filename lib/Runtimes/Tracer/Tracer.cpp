@@ -11,8 +11,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "PrintRunError.hpp"
 #include "Tracer.hpp"
 
+#include "seec/ICU/Resources.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceStorage.hpp"
@@ -229,6 +231,7 @@ ProcessEnvironment::ProcessEnvironment()
   ModIndex(),
   StreamAllocator(),
   SyncExit(),
+  ICUResourceLoader(new ResourceLoader(__SeeC_ResourcePath__)),
   ProcessTracer(),
   ThreadLookup(),
   ThreadLookupMutex(),
@@ -266,6 +269,10 @@ ProcessEnvironment::ProcessEnvironment()
     exit(EXIT_FAILURE);
   }
   
+  // Attempt to load ICU resources.
+  ICUResourceLoader->loadResource("Trace");
+  ICUResourceLoader->loadResource("RuntimeErrors");
+
   // Write a copy of the Module's bitcode into the trace directory.
   StreamAllocator->writeModule(BitcodeRef);
   
@@ -277,6 +284,14 @@ ProcessEnvironment::ProcessEnvironment()
                                                *ModIndex, 
                                                *StreamAllocator,
                                                SyncExit));
+
+  // Setup runtime error printing.
+  ProcessTracer->setRunErrorCallback(
+    [this] (seec::runtime_errors::RunError const &Error,
+            llvm::Instruction const *Instruction)
+    {
+      return PrintRunError(Error, Instruction, *ModIndex);
+    });
 
   // Give the listener the run-time locations of functions.
   uint32_t FunIndex = 0;

@@ -29,6 +29,8 @@
 
 namespace seec {
 
+class ResourceLoader;
+
 namespace trace {
 
 // Forward-declaration.
@@ -170,6 +172,9 @@ class ProcessEnvironment {
   /// Support synchronized exit of all threads.
   seec::SynchronizedExit SyncExit;
   
+  /// Loads ICU resources.
+  std::unique_ptr<ResourceLoader> ICUResourceLoader;
+
   /// Process listener.
   std::unique_ptr<TraceProcessListener> ProcessTracer;
   

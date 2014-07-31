@@ -41,6 +41,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   DL(&Module),
   MIndex(MIndex),
   DetectCallsLookup(),
+  RunErrorCallback(),
   GlobalVariableAddresses(MIndex.getGlobalCount()),
   GlobalVariableLookup(),
   GlobalVariableInitialData(MIndex.getGlobalCount()),
@@ -217,6 +218,23 @@ TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
   }
     
   return seec::Maybe<MemoryArea>();
+}
+
+
+//===----------------------------------------------------------------------===//
+// Callback when runtime errors are detected.
+//===----------------------------------------------------------------------===//
+
+void
+TraceProcessListener::setRunErrorCallback(std::function<RunErrorCallbackTy> C)
+{
+  RunErrorCallback = C;
+}
+
+auto TraceProcessListener::getRunErrorCallback() const
+-> decltype(RunErrorCallback) const &
+{
+  return RunErrorCallback;
 }
 
 

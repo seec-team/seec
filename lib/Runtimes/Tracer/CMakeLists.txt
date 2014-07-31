@@ -9,11 +9,13 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(HEADERS
   ../../../include/seec/Runtimes/MangleFunction.h
   ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
+  PrintRunError.hpp
   SimpleWrapper.hpp
   Tracer.hpp
   )
 
 set(SOURCES
+  PrintRunError.cpp
   Tracer.cpp
   WrapCfenv_h.cpp
   WrapClocale_h.cpp
@@ -36,7 +38,7 @@ add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
 # Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles bitreader asmparser target jit support core
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles bitreader asmparser target jit mcparser support core option
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
@@ -63,14 +65,33 @@ execute_process(
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 
 target_link_libraries(seecRuntimeTracer
+ SeeCClang
  SeeCExecutionTracer
  SeeCTrace
  SeeCUtil
  SeeCRuntimeErrors
  SeeCICU
+
  ${REQ_WX_LIBRARIES}
+
+ # Clang libraries
+ ${LLVM_INSTALL}/lib/libclangCodeGen.a
+ ${LLVM_INSTALL}/lib/libclangFrontendTool.a
+ ${LLVM_INSTALL}/lib/libclangFrontend.a
+ ${LLVM_INSTALL}/lib/libclangDriver.a
+ ${LLVM_INSTALL}/lib/libclangSerialization.a
+ ${LLVM_INSTALL}/lib/libclangParse.a
+ ${LLVM_INSTALL}/lib/libclangSema.a
+ ${LLVM_INSTALL}/lib/libclangEdit.a
+ ${LLVM_INSTALL}/lib/libclangAnalysis.a
+ ${LLVM_INSTALL}/lib/libclangLex.a
+ ${LLVM_INSTALL}/lib/libclangAST.a
+ ${LLVM_INSTALL}/lib/libclangBasic.a
+
  ${REQ_LLVM_LIBRARIES}
+
  ${REQ_ICU_LIBRARIES}
+
  ${LLVM_LIB_DEPS}
 )
 
