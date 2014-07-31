@@ -170,7 +170,7 @@ class ResourceLoader {
   std::map<std::string, std::unique_ptr<llvm::MemoryBuffer>> Resources;
 
 public:
-  ResourceLoader(llvm::StringRef ExecutablePath);
+  ResourceLoader(llvm::StringRef ResourceDirectory);
   
   llvm::StringRef getResourcesDirectory() const {
     return ResourcesDirectory.str();

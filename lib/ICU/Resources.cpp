@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
-#include "seec/Util/Resources.hpp"
 
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/Path.h"
@@ -101,7 +100,7 @@ getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
 //------------------------------------------------------------------------------
 
 ResourceLoader::ResourceLoader(llvm::StringRef ExecutablePath)
-: ResourcesDirectory(getResourceDirectory(ExecutablePath))
+: ResourcesDirectory(ExecutablePath)
 {}
 
 bool ResourceLoader::loadResource(char const *Package)

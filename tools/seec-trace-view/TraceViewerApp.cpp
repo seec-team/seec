@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/Support/raw_os_ostream.h"
@@ -333,7 +334,8 @@ bool TraceViewerApp::OnInit() {
   // Load ICU resources for TraceViewer. Do this before calling wxApp's default
   // behaviour, so that OnInitCmdLine and OnCmdLineParsed have access to the
   // localized resources.
-  ICUResources.reset(new seec::ResourceLoader(ExecutablePath));
+  auto const ResourcePath = seec::getResourceDirectory(ExecutablePath);
+  ICUResources.reset(new seec::ResourceLoader(ResourcePath));
   
   std::array<char const *, 5> ResourceList {
     {"SeeCClang", "ClangEPV", "Trace", "TraceViewer", "RuntimeErrors"}

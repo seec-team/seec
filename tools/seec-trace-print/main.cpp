@@ -28,6 +28,7 @@
 #include "seec/Util/Error.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
+#include "seec/Util/Resources.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -466,7 +467,8 @@ int main(int argc, char **argv, char * const *envp) {
   auto const ExecutablePath = GetExecutablePath(argv[0], true);
 
   // Setup resource loading.
-  ResourceLoader Resources(ExecutablePath);
+  auto const ResourcePath = seec::getResourceDirectory(ExecutablePath);
+  ResourceLoader Resources(ResourcePath);
   
   std::array<char const *, 3> ResourceList {
     {"RuntimeErrors", "SeeCClang", "Trace"}
