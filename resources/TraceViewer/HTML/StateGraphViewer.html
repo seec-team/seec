@@ -8,6 +8,7 @@
     var StateExists = false;
     var HighlightedValues = [];
     var ActiveStmtValues = [];
+    var HoverNodeID = "null";
 
     // Clear the debug log.
     //
@@ -43,6 +44,7 @@
     }
 
     function NotifyHover(nodeid) {
+      HoverNodeID = nodeid;
       $.getJSON(SeeCURL("notify_hover", [nodeid]),
         function(data) { /* The result is not important. */ });
     }
@@ -144,6 +146,28 @@
       });
     }
 
+    function GetValueElement(ValueID) {
+      var Node;
+      ForeachNode(["value"], function(Elem, Refs){
+        if (!Node && Refs[1] == ValueID)
+          Node = Elem;
+        });
+      return Node;
+    }
+
+    function ScrollToValue(ValueID, PointeeID) {
+      var Node = GetValueElement(ValueID)
+                  || GetValueElement(PointeeID);
+      if (!Node)
+        return;
+
+      var Rect = Node.getBoundingClientRect();
+      var Top  = Rect.top  + document.body.scrollTop;
+      var Left = Rect.left + document.body.scrollLeft;
+
+      $('html, body').animate({ scrollTop: Top, scrollLeft: Left}, 500);
+    }
+
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
@@ -234,6 +258,8 @@
         HighlightedValues.push(ID);
         if (StateExists)
           HighlightValueImpl(ID);
+        if (HoverNodeID == "null")
+          ScrollToValue(ValueID, PointeeID);
       }
     }
 
