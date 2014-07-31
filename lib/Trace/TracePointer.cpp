@@ -23,6 +23,7 @@ namespace trace {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, PointerTarget const &Obj)
 {
   Out << "[" << Obj.getBase() << ", " << Obj.getTemporalID() << "]";
+  return Out;
 }
 
 } // namespace trace (in seec)
