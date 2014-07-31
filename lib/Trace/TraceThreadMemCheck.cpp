@@ -116,19 +116,19 @@ bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
     return false;
   }
 
-  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj.getBase()) {
-    raiseError(*createRunError<RunErrorType::PointerObjectMismatch>
-                              (PtrObj.getBase(), Address),
-               RunErrorSeverity::Fatal);
-
-    return false;
-  }
-
   auto const &Process = Thread.getProcessListener();
   auto const Time = Process.getRegionTemporalID(PtrObj.getBase());
   if (Time != PtrObj.getTemporalID()) {
     raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
                               (PtrObj.getTemporalID(), Time),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj.getBase()) {
+    raiseError(*createRunError<RunErrorType::PointerObjectMismatch>
+                              (PtrObj.getBase(), Address),
                RunErrorSeverity::Fatal);
 
     return false;
@@ -773,14 +773,6 @@ checkPrintFormat(unsigned Parameter,
 bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
                                     FILE *Stream) {
   using namespace seec::runtime_errors;
-  
-  if (!Streams.streamWillClose(Stream)) {
-    raiseError(*createRunError<RunErrorType::PassInvalidStream>
-                              (Function, Parameter),
-               seec::trace::RunErrorSeverity::Fatal);
-    
-    return false;
-  }
 
   auto const FILEAddr = reinterpret_cast<uintptr_t>(Stream);
   auto const PtrVal = Call->getArgOperand(Parameter);
@@ -792,6 +784,14 @@ bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
                               (PtrObj.getTemporalID(), Time),
                RunErrorSeverity::Fatal);
 
+    return false;
+  }
+
+  if (!Streams.streamWillClose(Stream)) {
+    raiseError(*createRunError<RunErrorType::PassInvalidStream>
+                              (Function, Parameter),
+               seec::trace::RunErrorSeverity::Fatal);
+    
     return false;
   }
 

@@ -136,8 +136,7 @@ root:table {
     // address
     PointerObjectMismatch:string {
       "Attempting to dereference a pointer that no longer refers to its target object."
-      " This might be caused by accessing an array using an invalid index,"
-      " by dereferencing a pointer that refers to memory which has been deallocated,"
+      " This might be caused by accessing an array using an invalid index"
       " or by incorrect use of pointer arithmetic."
     }
 
