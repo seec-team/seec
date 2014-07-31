@@ -17,6 +17,7 @@ set(HEADERS
 set(SOURCES
   PrintRunError.cpp
   Tracer.cpp
+  WrapCerrno_h.cpp
   WrapCfenv_h.cpp
   WrapClocale_h.cpp
   WrapCmath_h.cpp

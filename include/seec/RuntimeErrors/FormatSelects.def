@@ -38,6 +38,11 @@ SEEC_FORMAT_SELECT(CStdFunction,
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, userdefined, "<user defined function>")
   
   //----------------------------------------------------------------------------
+  // errno.h
+  //----------------------------------------------------------------------------
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, __errno_location, "__errno_location")
+
+  //----------------------------------------------------------------------------
   // fenv.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, fegetexceptflag, "fegetexceptflag")
