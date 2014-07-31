@@ -953,11 +953,10 @@ public:
     auto const Ptr = reinterpret_cast<char const *>(Value);
     auto const Length = sizeof(*Value);
     
-    // Remove existing knowledge of the area.
-    ThreadListener.removeKnownMemoryRegion(Address);
-    
-    // Set knowledge of the new string area.
-    ThreadListener.addKnownMemoryRegion(Address, Length, Access);
+    if (!ThreadListener.isKnownMemoryRegionAt(Address)) {
+      // Set knowledge of the area.
+      ThreadListener.addKnownMemoryRegion(Address, Length, Access);
+    }
     
     // Update memory state.
     ThreadListener.recordUntypedState(Ptr, Length);
