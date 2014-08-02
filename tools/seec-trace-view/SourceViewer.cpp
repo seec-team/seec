@@ -736,7 +736,7 @@ public:
     setSTCPreferences();
     
     // Load the source code into the Scintilla control.
-    Text->SetText(wxString(Buffer.getBufferStart(), Buffer.getBufferSize()));
+    Text->SetText(wxString::FromUTF8(Buffer.getBufferStart()));
     
     setFileSpecificOptions();
 
@@ -1456,9 +1456,12 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
   bool Invalid = false;
   auto const Buffer = SrcMgr.getMemoryBufferForFile(File, &Invalid);
   
-  if (Invalid)
+  if (Invalid) {
+    wxLogDebug("loadAndShowFile %s: MemoryBuffer is invalid!",
+               wxString{File->getName()});
     return nullptr;
-  
+  }
+
   auto const SourcePanel = new SourceFilePanel(this,
                                                *Recording,
                                                ASTUnit,
