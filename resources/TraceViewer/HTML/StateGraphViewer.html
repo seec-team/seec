@@ -9,22 +9,7 @@
     var HighlightedValues = [];
     var ActiveStmtValues = [];
     var HoverNodeID = "null";
-
-    // Clear the debug log.
-    //
-    function LogClear() {
-      document.getElementById("Log").innerHTML = "";
-    }
-
-    // Add a debug message to the log.
-    //
-    function Log(Message) {
-      var Container = document.getElementById("Log");
-
-      Container.innerHTML = Container.innerHTML
-			    + "<span>" + Message
-                            + "</span><br>";
-    }
+    var HoverTimeoutID = undefined;
 
     // Build the URL for a SeeC function request.
     //
@@ -32,10 +17,17 @@
       var str = SeeCProto + "://" + fn;
 
       for (var i = 0; i < args.length; ++i)
-        str += "/" + args[i];
+        str += "/" + encodeURIComponent(args[i]);
 
       str += "?callback=?";
       return str;
+    }
+
+    // Add a debug message to the log.
+    //
+    function Log(Message) {
+      $.getJSON(SeeCURL("log_debug", ["StateGraphViewer.html: " + Message]),
+        function(data) { /* The result is not important. */ });
     }
 
     function NotifyContextMenu() {
@@ -44,9 +36,18 @@
     }
 
     function NotifyHover(nodeid) {
+      if (HoverTimeoutID != undefined)
+        clearTimeout(HoverTimeoutID);
+
       HoverNodeID = nodeid;
-      $.getJSON(SeeCURL("notify_hover", [nodeid]),
-        function(data) { /* The result is not important. */ });
+
+      HoverTimeoutID = window.setTimeout(
+        function(){
+          $.getJSON(SeeCURL("notify_hover", [nodeid]),
+            function(data) { /* The result is not important. */ })
+          HoverTimeoutID = undefined;
+        },
+        50);
     }
 
     function NodeMouseEnter(e) {
@@ -220,7 +221,6 @@
         window.clearTimeout(SetStateImplTimer);
 
       StateExists = false;
-      LogClear();
 
       SetStateImplTimer = setTimeout(function() { SetStateImpl(SVGString); },
                                      0);
@@ -306,7 +306,6 @@
  </head>
  <body>
   <div id="SVGContainer"></div>
-  <div id="Log"></div>
  </body>
 </html>
 

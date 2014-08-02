@@ -490,6 +490,13 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
+  CallbackFS->addCallback("log_debug",
+    std::function<void (std::string const &)>{
+      [] (std::string const &Message) -> void {
+        wxLogDebug("%s", wxString{Message});
+      }
+    });
+
   Bind(wxEVT_CONTEXT_MENU,
        &StateGraphViewerPanel::OnContextMenu, this);
   Bind(SEEC_EV_MOUSE_OVER_DISPLAYABLE,
