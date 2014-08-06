@@ -518,19 +518,15 @@ public:
     return DynamicMemoryAllocations.count(Address);
   }
 
-  /// Get information about the Malloc event that allocated an address.
-  seec::Maybe<DynamicAllocation>
-  getCurrentDynamicMemoryAllocation(uintptr_t Address) const {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+  /// \brief Get the \c DynamicAllocation at the given address.
+  ///
+  DynamicAllocation *
+  getCurrentDynamicMemoryAllocation(uintptr_t const Address);
 
-    auto It = DynamicMemoryAllocations.find(Address);
-    if (It != DynamicMemoryAllocations.end()) {
-      // give the client a copy of the DynamicAllocation
-      return It->second;
-    }
-
-    return seec::Maybe<DynamicAllocation>();
-  }
+  /// \brief Get the \c DynamicAllocation at the given address.
+  ///
+  DynamicAllocation const *
+  getCurrentDynamicMemoryAllocation(uintptr_t const Address) const;
 
   /// Set the offset of the Malloc event that allocated an address.
   /// \param Address

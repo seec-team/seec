@@ -16,10 +16,7 @@ done
 program=$1
 shift
 
-if [ -z "$SEEC_TEST_SILENCE_STDOUT" ]
-then
-  $program $* 1>/dev/null
-else
-  $program $*
-fi
+$program -R    $* 1>/dev/null
+$program -S    $* 1>/dev/null
+$program -C -S $* 1>/dev/null
 

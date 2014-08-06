@@ -21,6 +21,7 @@
 #include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -50,35 +51,52 @@ class MallocState {
   /// Size of the allocated memory.
   std::size_t Size;
 
-  /// Location of the Malloc event.
-  EventLocation Malloc;
-  
-  /// Instruction that caused this allocation.
-  llvm::Instruction const *Allocator;
+  /// Allocator \c llvm::Instruction pointers. The most recent is the "current"
+  /// allocator (responsible for the most recent allocation).
+  llvm::SmallVector<llvm::Instruction const *, 1> Allocators;
 
 public:
-  /// Construct a new MallocState with the given values.
+  /// \brief Construct a new \c MallocState with the given values.
+  ///
   MallocState(uintptr_t Address,
               std::size_t Size,
-              EventLocation MallocLocation,
               llvm::Instruction const *WithAllocator)
   : Address(Address),
     Size(Size),
-    Malloc(MallocLocation),
-    Allocator(WithAllocator)
+    Allocators(1, WithAllocator)
   {}
 
-  /// Get the address of the allocated memory.
+  /// \brief Get the address of the allocated memory.
+  ///
   uintptr_t getAddress() const { return Address; }
 
-  /// Get the size of the allocated memory.
+  /// \brief Get the size of the allocated memory.
+  ///
   std::size_t getSize() const { return Size; }
 
-  /// Get the location of the Malloc event.
-  EventLocation getMallocLocation() const { return Malloc; }
-  
-  /// Get the Instruction that caused this allocation.
-  llvm::Instruction const *getAllocator() const { return Allocator; }
+  /// \brief Get the \c llvm::Instruction that caused this allocation.
+  ///
+  llvm::Instruction const *getAllocator() const {
+    return Allocators.back();
+  }
+
+  /// \brief Add a new allocator \c llvm::Instruction (for realloc).
+  ///
+  void pushAllocator(llvm::Instruction const *I) {
+    Allocators.push_back(I);
+  }
+
+  /// \brief Rewind to the previous allocator \c llvm::Instruction
+  ///        (for realloc).
+  ///
+  void popAllocator() {
+    Allocators.pop_back();
+    assert(!Allocators.empty());
+  }
+
+  /// \brief Set the size of the allocated memory (for realloc).
+  ///
+  void setSize(std::size_t const Value) { Size = Value; }
 };
 
 
@@ -114,6 +132,9 @@ private:
 
   /// All current dynamic memory allocations, indexed by address.
   std::map<uintptr_t, MallocState> Mallocs;
+
+  /// Previous dynamic memory allocations, from oldest to youngest.
+  std::vector<MallocState> PreviousMallocs;
 
   /// Current state of memory.
   MemoryState Memory;
@@ -194,11 +215,25 @@ public:
   
   /// \name Memory.
   /// @{
-  
-  /// \brief Get the map of dynamic memory allocations.
+
+  /// \brief Add a dynamic memory allocation (moving forwards).
   ///
-  decltype(Mallocs) &getMallocs() { return Mallocs; }
-  
+  void addMalloc(uintptr_t const Address,
+                 std::size_t const Size,
+                 llvm::Instruction const *Allocator);
+
+  /// \brief Unadd a dynamic memory allocation (moving backwards).
+  ///
+  void unaddMalloc(uintptr_t const Address);
+
+  /// \brief Remove a dynamic memory allocation (moving forwards).
+  ///
+  void removeMalloc(uintptr_t const Address);
+
+  /// \brief Unremove a dynamic memory allocation (moving backwards).
+  ///
+  void unremoveMalloc(uintptr_t const Address);
+
   /// \brief Get the map of dynamic memory allocations.
   ///
   decltype(Mallocs) const &getMallocs() const { return Mallocs; }

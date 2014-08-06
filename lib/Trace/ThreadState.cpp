@@ -18,6 +18,7 @@
 #include "seec/Trace/TraceSearch.hpp"
 #include "seec/Util/Dispatch.hpp"
 #include "seec/Util/ModuleIndex.hpp"
+#include "seec/Util/Reverse.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -39,287 +40,6 @@ ThreadState::ThreadState(ProcessState &Parent,
   CallStack()
 {}
 
-
-//------------------------------------------------------------------------------
-// Memory state event movement.
-//------------------------------------------------------------------------------
-
-void
-ThreadState::addMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateTyped> const &State,
-  seec::trace::MemoryState &Memory
-  )
-{
-  llvm_unreachable("Not implemented.");
-}
-
-void
-ThreadState::restoreMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateTyped> const &State,
-  MemoryArea const &InArea,
-  seec::trace::MemoryState &Memory
-  )
-{
-  llvm_unreachable("Not implemented.");
-}
-
-void
-ThreadState::addMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateUntypedSmall> const &Ev,
-  seec::trace::MemoryState &Memory
-  )
-{
-  EventReference EvRef(Ev);
-
-  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-
-  Memory.add(MappedMemoryBlock(Ev.getAddress(), Ev.getSize(), DataPtr),
-             EvLoc);
-}
-
-void
-ThreadState::restoreMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateUntypedSmall> const &Ev,
-  MemoryArea const &InArea,
-  seec::trace::MemoryState &Memory
-  )
-{
-  EventReference EvRef(Ev);
-  
-  auto FragmentStartOffset = InArea.start() - Ev.getAddress();
-  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
-  DataPtr += FragmentStartOffset;
-
-  Memory.add(MappedMemoryBlock(InArea.start(),
-                               InArea.length(),
-                               DataPtr),
-             EvLoc);
-}
-
-void
-ThreadState::addMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateUntyped> const &Ev,
-  seec::trace::MemoryState &Memory
-  )
-{
-  EventReference EvRef(Ev);
-  
-  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
-
-  Memory.add(MappedMemoryBlock(Ev.getAddress(),
-                               Ev.getDataSize(),
-                               Data.data()),
-             EvLoc);
-}
-
-void
-ThreadState::restoreMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateUntyped> const &Ev,
-  MemoryArea const &InArea,
-  seec::trace::MemoryState &Memory
-  )
-{
-  EventReference EvRef(Ev);
-  
-  auto FragmentStartOffset = InArea.start() - Ev.getAddress();
-  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
-  auto DataPtr = Data.data() + FragmentStartOffset;
-
-  Memory.add(MappedMemoryBlock(InArea.start(),
-                               InArea.length(),
-                               DataPtr),
-             EvLoc);
-}
-
-void
-ThreadState::addMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateMemmove> const &Ev,
-  seec::trace::MemoryState &Memory
-  )
-{
-  EventReference EvRef(Ev);
-  
-  Parent.Memory.memcpy(Ev.getSourceAddress(),
-                       Ev.getDestinationAddress(),
-                       Ev.getSize(),
-                       EvLoc);
-}
-
-void
-ThreadState::restoreMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateMemmove> const &Ev,
-  seec::trace::MemoryState &Memory
-  )
-{
-  auto const Destination = Ev.getDestinationAddress();
-  
-  // 1. Create a new, empty MemoryState.
-  seec::trace::MemoryState StageMemory;
-  
-  // 2. Restore the copied events into the new MemoryState.
-  EventReference EvRef(Ev);
-  while ((++EvRef)->isSubservient()) {
-    if (EvRef->getType() == EventType::StateCopied) {
-      auto const &CopyEv = EvRef.get<EventType::StateCopied>();
-      restoreMemoryState(EventLocation(CopyEv.getStateThreadID(),
-                                       CopyEv.getStateOffset()),
-                         StageMemory,
-                         MemoryArea(CopyEv.getAddress(),
-                                    CopyEv.getSize()));
-    }
-  }
-  
-  // 3. Move the events in the new MemoryState into the new position.
-  StageMemory.memcpy(Ev.getSourceAddress(),
-                     Destination,
-                     Ev.getSize(),
-                     EvLoc);
-  
-  // 4. Copy the new fragments into Memory.
-  auto const &Fragments = StageMemory.getFragmentMap();
-  
-  auto const End = Fragments.lower_bound(Destination + Ev.getSize());
-  
-  for (auto It = Fragments.lower_bound(Destination); It != End; ++It) {
-    Memory.add(std::move(It->second.getBlock()), EvLoc);
-  }
-}
-
-void
-ThreadState::restoreMemoryState(
-  EventLocation const &EvLoc,
-  EventRecord<EventType::StateMemmove> const &Ev,
-  MemoryArea const &InArea,
-  seec::trace::MemoryState &Memory
-  )
-{
-  // 1. Create a new, empty MemoryState.
-  seec::trace::MemoryState StageMemory;
-  
-  // 2. Restore the copied events into the new MemoryState.
-  EventReference EvRef(Ev);
-  while ((++EvRef)->isSubservient()) {
-    if (EvRef->getType() == EventType::StateCopied) {
-      auto const &CopyEv = EvRef.get<EventType::StateCopied>();
-      
-      restoreMemoryState(EventLocation(CopyEv.getStateThreadID(),
-                                       CopyEv.getStateOffset()),
-                         StageMemory,
-                         MemoryArea(CopyEv.getAddress(),
-                                    CopyEv.getSize()));
-    }
-  }
-  
-  // 3. Move the events in the new MemoryState into the new position.
-  auto const Offset = InArea.start() - Ev.getDestinationAddress();
-  StageMemory.memcpy(Ev.getSourceAddress() + Offset,
-                     InArea.start(),
-                     InArea.length(),
-                     EvLoc);
-  
-  // 4. Copy the new fragments into Memory.
-  auto const &Fragments = StageMemory.getFragmentMap();
-  
-  auto const End = Fragments.lower_bound(InArea.end());
-  
-  for (auto It = Fragments.lower_bound(InArea.address()); It != End; ++It) {
-    Memory.add(std::move(It->second.getBlock()), EvLoc);
-  }
-}
-
-void ThreadState::restoreMemoryState(EventLocation const &Ev,
-                                     MemoryState &Memory) {
-  if (Ev.getThreadID() != initialDataThreadID()) {
-    // Restore the state from the state event.
-    auto const StateRef = Parent.getTrace().getEventReference(Ev);
-    
-    switch (StateRef->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        if (is_memory_state<EventType::NAME>::value)                           \
-          restoreMemoryState(Ev, StateRef.get<EventType::NAME>(), Memory);     \
-        else                                                                   \
-          llvm_unreachable("Referenced event is not a state event.");          \
-        break;
-#include "seec/Trace/Events.def"
-      default:
-        llvm_unreachable("Reference to unknown event type!");
-        break;
-    }
-  }
-  else {
-    // Restore the state from a global variable's initial data.
-    auto const GVIndex = static_cast<uint32_t>(Ev.getOffset());
-    auto const Global = Parent.getModule().getGlobal(GVIndex);
-    assert(Global);
-    
-    auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
-    
-    auto const &ProcTrace = Parent.getTrace();
-    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
-    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
-    
-    Memory.add(MappedMemoryBlock(Address, Size, Data.data()),
-               EventLocation());
-  }
-}
-
-void ThreadState::restoreMemoryState(EventLocation const &Ev,
-                                     MemoryState &Memory,
-                                     MemoryArea const &InArea) {
-  if (Ev.getThreadID() != initialDataThreadID()) {
-    // Restore the state from the state event.
-    auto const StateRef = Parent.getTrace().getEventReference(Ev);
-    
-    switch (StateRef->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        if (is_memory_state<EventType::NAME>::value)                           \
-          restoreMemoryState(Ev,                                               \
-                             StateRef.get<EventType::NAME>(),                  \
-                             InArea,                                           \
-                             Memory);                                          \
-        else                                                                   \
-          llvm_unreachable("Referenced event is not a state event.");          \
-        break;
-#include "seec/Trace/Events.def"
-      default:
-        llvm_unreachable("Reference to unknown event type!");
-        break;
-    }
-  }
-  else {
-    // Restore state from a global variable's initial data.
-    auto const GVIndex = static_cast<uint32_t>(Ev.getOffset());
-    auto const Global = Parent.getModule().getGlobal(GVIndex);
-    assert(Global);
-    
-    auto const ElemTy = Global->getType()->getElementType();
-    auto const Size = Parent.getDataLayout().getTypeStoreSize(ElemTy);
-    
-    auto const &ProcTrace = Parent.getTrace();
-    auto const Address = ProcTrace.getGlobalVariableAddress(GVIndex);
-    auto const Data = ProcTrace.getGlobalVariableInitialData(GVIndex, Size);
-    
-    auto const FragmentAddress = InArea.start();
-    auto const FragmentSize = InArea.length();
-    
-    Memory.add(MappedMemoryBlock(FragmentAddress,
-                                 FragmentSize,
-                                 Data.slice(FragmentAddress - Address,
-                                            FragmentSize).data()),
-               EventLocation());
-  }
-}
 
 //------------------------------------------------------------------------------
 // Adding events
@@ -355,6 +75,16 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   assert(CallStack.size() && "FunctionEnd with empty CallStack");
   assert(CallStack.back()->getIndex() == Index
          && "FunctionEnd does not match currently active function");
+
+  // Remove stack allocations from the memory state.
+  auto const &ByVals = CallStack.back()->getParamByValStates();
+  for (auto const &ByVal : ByVals)
+    Parent.Memory.allocationRemove(ByVal.getArea().address(),
+                                   ByVal.getArea().length());
+
+  auto const &Allocas = CallStack.back()->getAllocas();
+  for (auto const &Alloca : Allocas)
+    Parent.Memory.allocationRemove(Alloca.getAddress(), Alloca.getTotalSize());
 
   CallStack.pop_back();
   ThreadTime = Info.getThreadTimeExited();
@@ -426,45 +156,28 @@ void ThreadState::addEvent(
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
-  EventReference EvRef(Ev);
-
-  // Clear the current allocas.
+  // Save the pre-allocas (it's OK to move, because they will be cleared).
   auto &FuncState = *(CallStack.back());
-  FuncState.getAllocas().clear();
+  auto const PreAllocas = std::move(FuncState.getAllocas());
 
-  // Get all of the StackRestoreAlloca records.
-  auto const Allocas = getLeadingBlock<EventType::StackRestoreAlloca>
-                                      (rangeAfter(Trace.events(), EvRef));
+  // This clears the allocas and sets them to the post-stackrestore state.
+  readdEvent(Ev);
 
-  // Add the restored allocas.
-  for (auto const &RestoreAlloca : Allocas) {
-    auto const Offset = RestoreAlloca.getAlloca();
-    auto &Alloca = Trace.events().eventAtOffset<EventType::Alloca>(Offset);
-    addEvent(Alloca);
-  }
+  // Find the first alloca that was not restored.
+  auto const &PostAllocas = FuncState.getAllocas();
+  auto const Diff = std::mismatch(PostAllocas.begin(), PostAllocas.end(),
+                                  PreAllocas.begin());
+
+  // Remove all allocas that were not restored.
+  for (auto const &Alloca : seec::range(Diff.second, PreAllocas.end()))
+    Parent.Memory.allocationRemove(Alloca.getAddress(), Alloca.getTotalSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
-  EventReference EvRef(Ev);
+  readdEvent(Ev);
 
-  assert(EvRef != Trace.events().begin() && "Malformed event trace");
-
-  // Find the preceding InstructionWithValue event.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>(
-                                rangeBeforeIncluding(Trace.events(), EvRef));
-
-  assert(MaybeInstrRef.assigned() && "Malformed event trace");
-
-  auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-
-  // Add Alloca information.
-  auto &FuncState = *(CallStack.back());
-  FuncState.getAllocas().emplace_back(FuncState,
-                                      Instr.getIndex(),
-                                      Instr.getValue().UInt64,
-                                      Ev.getElementSize(),
-                                      Ev.getElementCount());
+  auto &Alloca = CallStack.back()->getAllocas().back();
+  Parent.Memory.allocationAdd(Alloca.getAddress(), Alloca.getTotalSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
@@ -482,20 +195,15 @@ void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
   auto const &InstrEv = InstrRef.get<EventType::InstructionWithValue>();
 
   auto const Address = InstrEv.getValue().UInt64;
-  auto const MallocLocation = EventLocation(Trace.getThreadID(),
-                                            Trace.events().offsetOf(EvRef));
   
   llvm::Instruction const *Allocator = nullptr;
   if (!CallStack.empty())
     Allocator = CallStack.back()->getInstruction(InstrEv.getIndex());
   
   // Update the shared ProcessState.
-  Parent.Mallocs.insert(std::make_pair(Address,
-                                       MallocState(Address,
-                                                   Ev.getSize(),
-                                                   MallocLocation,
-                                                   Allocator)));
-  
+  Parent.addMalloc(Address, Ev.getSize(), Allocator);
+  Parent.Memory.allocationAdd(Address, Ev.getSize());
+
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
@@ -523,44 +231,63 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
 
   auto const Address = Instr.getValue().UInt64;
+  auto const Size = Parent.Mallocs.find(Address)->second.getSize();
 
   // Update the shared ProcessState.
-  Parent.Mallocs.erase(Address);
+  Parent.removeMalloc(Address);
+  Parent.Memory.allocationRemove(Address, Size);
+  Parent.ProcessTime = Ev.getProcessTime();
+  ProcessTime = Ev.getProcessTime();
+}
+
+void ThreadState::addEvent(EventRecord<EventType::Realloc> const &Ev) {
+  auto const It = Parent.Mallocs.find(Ev.getAddress());
+  assert(It != Parent.Mallocs.end());
+
+  It->second.pushAllocator(CallStack.back()->getActiveInstruction());
+  It->second.setSize(Ev.getNewSize());
+  Parent.Memory.allocationResize(Ev.getAddress(),
+                                 Ev.getOldSize(),
+                                 Ev.getNewSize());
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateTyped> const &Ev) {
-  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
-  addMemoryState(EvLoc, Ev, Parent.Memory);
+  llvm_unreachable("not yet implemented.");
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void
 ThreadState::addEvent(EventRecord<EventType::StateUntypedSmall> const &Ev) {
-  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
-  addMemoryState(EvLoc, Ev, Parent.Memory);
+  auto DataPtr = reinterpret_cast<char const *>(&(Ev.getData()));
+  Parent.Memory.addBlock(MappedMemoryBlock(Ev.getAddress(),
+                                           Ev.getSize(),
+                                           DataPtr));
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateUntyped> const &Ev) {
-  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
-  addMemoryState(EvLoc, Ev, Parent.Memory);
+  auto Data = Parent.getTrace().getData(Ev.getDataOffset(), Ev.getDataSize());
+  Parent.Memory.addBlock(MappedMemoryBlock(Ev.getAddress(),
+                                           Ev.getDataSize(),
+                                           Data.data()));
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateMemmove> const &Ev) {
-  EventLocation EvLoc(Trace.getThreadID(), Trace.events().offsetOf(Ev));
-  addMemoryState(EvLoc, Ev, Parent.Memory);
+  Parent.Memory.addCopy(Ev.getSourceAddress(),
+                        Ev.getDestinationAddress(),
+                        Ev.getSize());
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StateClear> const &Ev) {
-  Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getClearSize()));
+  Parent.Memory.addClear(MemoryArea(Ev.getAddress(), Ev.getClearSize()));
   Parent.ProcessTime = Ev.getProcessTime();
   ProcessTime = Ev.getProcessTime();
 }
@@ -573,17 +300,19 @@ void ThreadState::addEvent(EventRecord<EventType::KnownRegionAdd> const &Ev) {
                                          : MemoryPermission::None);
   
   Parent.addKnownMemory(Ev.getAddress(), Ev.getSize(), Access);
+  Parent.Memory.allocationAdd(Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
 {
   Parent.removeKnownMemory(Ev.getAddress());
+  Parent.Memory.allocationRemove(Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 {
-  auto &FuncState = *(CallStack.back());
-  FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
+  readdEvent(Ev);
+  Parent.Memory.allocationAdd(Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
@@ -668,6 +397,54 @@ void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   CallStack.back()->addRuntimeError(std::move(ReadError.first));
 }
 
+void ThreadState::readdEvent(EventRecord<EventType::StackRestore> const &Ev) {
+  // Clear the current allocas.
+  auto &FuncState = *(CallStack.back());
+  FuncState.getAllocas().clear();
+
+  // Get all of the StackRestoreAlloca records.
+  EventReference EvRef(Ev);
+  auto const Allocas = getLeadingBlock<EventType::StackRestoreAlloca>
+                                      (rangeAfter(Trace.events(), EvRef));
+
+  // Add the restored allocas.
+  for (auto const &RestoreAlloca : Allocas) {
+    auto const Offset = RestoreAlloca.getAlloca();
+    auto &Alloca = Trace.events().eventAtOffset<EventType::Alloca>(Offset);
+    readdEvent(Alloca);
+  }
+}
+
+void ThreadState::readdEvent(EventRecord<EventType::Alloca> const &Ev) {
+  EventReference EvRef(Ev);
+
+  assert(EvRef != Trace.events().begin() && "Malformed event trace");
+
+  // Find the preceding InstructionWithValue event.
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>(
+                                rangeBeforeIncluding(Trace.events(), EvRef));
+
+  assert(MaybeInstrRef.assigned() && "Malformed event trace");
+
+  auto const &InstrRef = MaybeInstrRef.get<0>();
+  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
+
+  // Add Alloca information.
+  FunctionState &FuncState = *(CallStack.back());
+  auto &Allocas = FuncState.getAllocas();
+
+  Allocas.emplace_back(FuncState,
+                       Instr.getIndex(),
+                       Instr.getValue().UInt64,
+                       Ev.getElementSize(),
+                       Ev.getElementCount());
+}
+
+void ThreadState::readdEvent(EventRecord<EventType::ByValRegionAdd> const &Ev) {
+  auto &FuncState = *(CallStack.back());
+  FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
+}
+
 void ThreadState::addNextEvent() {
   switch (NextEvent->getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
@@ -722,7 +499,7 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
     if (Ev.getType() != EventType::RuntimeError)
       continue;
     
-    addEvent(Ev.as<EventType::RuntimeError>());
+    readdEvent(Ev.as<EventType::RuntimeError>());
   }
 }
 
@@ -801,13 +578,23 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
       case EventType::NAME:                                                    \
         if (!is_subservient<EventType::NAME>::value                            \
             && is_function_level<EventType::NAME>::value) {                    \
-          addEvent(RestoreRef.get<EventType::NAME>());                         \
+          readdEvent(RestoreRef.get<EventType::NAME>());                       \
         }                                                                      \
         break;
 #include "seec/Trace/Events.def"
       default: llvm_unreachable("Reference to unknown event type!");
     }
   }
+
+  // Restore alloca allocations (reverse order):
+  for (auto const &Alloca : seec::reverse(State->getAllocas()))
+    Parent.Memory.allocationUnremove(Alloca.getAddress(),
+                                     Alloca.getTotalSize());
+
+  // Restore byval areas (reverse order):
+  for (auto const &ByVal : seec::reverse(State->getParamByValStates()))
+    Parent.Memory.allocationUnremove(ByVal.getArea().address(),
+                                     ByVal.getArea().length());
 }
 
 void ThreadState::removeEvent(
@@ -847,7 +634,7 @@ void ThreadState::removeEvent(
     auto &Prev
       = Trace.events().eventAtOffset<EventType::InstructionWithSmallValue>
                                     (PreviousOffset);
-    addEvent(Prev);
+    readdEvent(Prev);
   }
   else {
     auto const Index = Ev.getIndex();
@@ -868,7 +655,7 @@ void ThreadState::removeEvent(
   if (PreviousOffset != noOffset()) {
     auto &Prev = Trace.events().eventAtOffset<EventType::InstructionWithValue>
                                              (PreviousOffset);
-    addEvent(Prev);
+    readdEvent(Prev);
   }
   else {
     auto const Index = Ev.getIndex();
@@ -888,8 +675,10 @@ void ThreadState::removeEvent(
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
-  // Clear the current allocas.
   auto &FuncState = *(CallStack.back());
+  auto const PostAllocas = std::move(FuncState.getAllocas());
+
+  // Clear the current allocas.
   FuncState.getAllocas().clear();
 
   auto const PreviousOffset = Ev.getPrevious();
@@ -900,7 +689,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
     // Add the Allocas that were valid after the previous StackRestore.
     auto &RestoreEv
       = Events.eventAtOffset<EventType::StackRestore>(PreviousOffset);
-    addEvent(RestoreEv);
+    readdEvent(RestoreEv);
 
     // Now add all Allocas that occured between the previous StackRestore and
     // the current StackRestore.
@@ -917,7 +706,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
         // FunctionEnd for this child will (correctly) not be seen.
       }
       else if (It->getType() == EventType::Alloca) {
-        addEvent(It.get<EventType::Alloca>());
+        readdEvent(It.get<EventType::Alloca>());
       }
     }
   }
@@ -942,17 +731,38 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
         break;
       }
       else if (ItEventRef->getType() == EventType::Alloca) {
-        addEvent(ItEventRef.get<EventType::Alloca>());
+        readdEvent(ItEventRef.get<EventType::Alloca>());
       }
     }
+  }
+
+  // Find the first alloca that was removed by this StackRestore (but has now
+  // been unremoved).
+  auto const &PreAllocas = FuncState.getAllocas();
+  auto const Diff = std::mismatch(PostAllocas.begin(), PostAllocas.end(),
+                                  PreAllocas.begin());
+
+  // Restore allocations that have been unremoved. We have to do this in
+  // reverse order so that MemoryState retrieves the correct data.
+  typedef decltype(PreAllocas.rbegin()) CRIterTy;
+
+  for (auto const &Alloca : range(CRIterTy(PreAllocas.end()),
+                                  CRIterTy(Diff.second)))
+  {
+    Parent.Memory.allocationUnremove(Alloca.getAddress(),
+                                     Alloca.getTotalSize());
   }
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Alloca> const &Ev) {
   // Remove Alloca information.
-  auto &FuncState = *(CallStack.back());
-  assert(!FuncState.getAllocas().empty());
-  FuncState.getAllocas().pop_back();
+  auto &Allocas = CallStack.back()->getAllocas();
+  assert(!Allocas.empty());
+
+  auto const &Alloca = Allocas.back();
+  Parent.Memory.allocationUnadd(Alloca.getAddress(), Alloca.getTotalSize());
+
+  Allocas.pop_back();
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
@@ -966,7 +776,8 @@ void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
   auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
   auto const Address = Instr.getValue().UInt64;
 
-  Parent.Mallocs.erase(Address);
+  Parent.unaddMalloc(Address);
+  Parent.Memory.allocationUnadd(Address, Ev.getSize());
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
@@ -982,9 +793,7 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
          "Invalid MallocThread in Free record.");
 
   auto const &MallocThread = ProcTrace.getThreadTrace(MallocThreadID);
-
   auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
-  auto const &MallocEv = MallocRef.get<EventType::Malloc>();
 
   // Find the Instruction that the Malloc was attached to.
   auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
@@ -998,186 +807,69 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
   // Information required to recreate the dynamic memory allocation.
   auto const Address = InstrEv.getValue().UInt64;
 
-  EventLocation MallocLocation(MallocThreadID, MallocOffset);
-  
-  // Attempt to find the llvm::Instruction that allocated this memory.
-  llvm::Instruction const *Allocator = nullptr;
-  
-  auto const MaybeFuncStartRef = rfind<EventType::FunctionStart>
-                                      (rangeBefore(MallocThread.events(),
-                                                   InstrRef));
-  if (MaybeFuncStartRef.assigned(0)) {
-    auto const &FuncStartRef = MaybeFuncStartRef.get<0>();
-    auto const &FuncStartEv = FuncStartRef.get<EventType::FunctionStart>();
-    
-    auto const FnInfo = Trace.getFunctionTrace(FuncStartEv.getRecord());
-    auto const FnIndex = FnInfo.getIndex();
-    
-    auto const MappedFunction = Parent.getModule().getFunctionIndex(FnIndex);
-    if (MappedFunction)
-      Allocator = MappedFunction->getInstruction(InstrEv.getIndex());
-  }
+  // Restore the dynamic memory allocation.
+  Parent.unremoveMalloc(Address);
 
-  // Update the shared ProcessState.
-  Parent.Mallocs.insert(std::make_pair(Address,
-                                       MallocState(Address,
-                                                   MallocEv.getSize(),
-                                                   MallocLocation,
-                                                   Allocator)));
+  // Restore the allocation in the memory state.
+  auto const Size = Parent.Mallocs.find(Address)->second.getSize();
+  Parent.Memory.allocationUnremove(Address, Size);
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
-bool ThreadState::removeEventIfOverwrite(EventReference EvRef) {
-  switch (EvRef->getType()) {
-    case EventType::StateOverwrite:
-      removeEvent(EvRef.get<EventType::StateOverwrite>());
-      return true;
-    case EventType::StateOverwriteFragment:
-      removeEvent(EvRef.get<EventType::StateOverwriteFragment>());
-      return true;
-    case EventType::StateOverwriteFragmentTrimmedRight:
-      removeEvent(EvRef.get<EventType::StateOverwriteFragmentTrimmedRight>());
-      return true;
-    case EventType::StateOverwriteFragmentTrimmedLeft:
-      removeEvent(EvRef.get<EventType::StateOverwriteFragmentTrimmedLeft>());
-      return true;
-    case EventType::StateOverwriteFragmentSplit:
-      removeEvent(EvRef.get<EventType::StateOverwriteFragmentSplit>());
-      return true;
-    default:
-      return false;
-  }
-}
+void ThreadState::removeEvent(EventRecord<EventType::Realloc> const &Ev) {
+  auto const It = Parent.Mallocs.find(Ev.getAddress());
+  assert(It != Parent.Mallocs.end());
 
-void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev) {
-  // Clear this state.
-  // TODO.
-
-  // Restore any overwritten states.
-  auto const Overwritten = Ev.getOverwritten();
-
-  EventReference EvRef(Ev);
-  for (auto i = Overwritten; i != 0; --i) {
-    ++EvRef;
-    assert(Trace.events().contains(EvRef) && "Malformed trace!");
-    auto Removed = removeEventIfOverwrite(EvRef);
-    assert(Removed && "Malformed trace!");
-  }
+  It->second.setSize(Ev.getOldSize());
+  Parent.Memory.allocationUnresize(Ev.getAddress(),
+                                   Ev.getNewSize(),
+                                   Ev.getOldSize());
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
+}
+
+void ThreadState::removeEvent(EventRecord<EventType::StateTyped> const &Ev)
+{
+  llvm_unreachable("not yet implemented!");
 }
 
 void ThreadState::removeEvent(
-        EventRecord<EventType::StateUntypedSmall> const &Ev) {
-  // Clear this state.
-  Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getSize()));
-
-  // Restore any overwritten states.
-  auto const Overwritten = Ev.getOverwritten();
-
-  EventReference EvRef(Ev);
-  for (auto i = Overwritten; i != 0; --i) {
-    ++EvRef;
-    assert(Trace.events().contains(EvRef) && "Malformed trace!");
-    auto Removed = removeEventIfOverwrite(EvRef);
-    assert(Removed && "Malformed trace!");
-  }
-
+        EventRecord<EventType::StateUntypedSmall> const &Ev)
+{
+  Parent.Memory.removeBlock(MemoryArea(Ev.getAddress(), Ev.getSize()));
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
-void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev) {
-  // Clear this state.
-  Parent.Memory.clear(MemoryArea(Ev.getAddress(), Ev.getDataSize()));
-
-  // Restore any overwritten states.
-  auto const Overwritten = Ev.getOverwritten();
-
-  EventReference EvRef(Ev);
-  for (auto i = Overwritten; i != 0; --i) {
-    ++EvRef;
-    assert(Trace.events().contains(EvRef) && "Malformed trace!");
-    auto Removed = removeEventIfOverwrite(EvRef);
-    assert(Removed && "Malformed trace!");
-  }
-
+void ThreadState::removeEvent(EventRecord<EventType::StateUntyped> const &Ev)
+{
+  Parent.Memory.removeBlock(MemoryArea(Ev.getAddress(), Ev.getDataSize()));
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
-void ThreadState::removeEvent(EventRecord<EventType::StateMemmove> const &Ev) {
-  // Clear this state.
-  Parent.Memory.clear(MemoryArea(Ev.getDestinationAddress(), Ev.getSize()));
-
-  // Restore any overwritten states.
-  auto const Overwritten = Ev.getOverwritten();
-
-  EventReference EvRef(Ev);
-  for (auto i = Overwritten; i != 0; --i) {
-    ++EvRef;
-    assert(Trace.events().contains(EvRef) && "Malformed trace!");
-    auto Removed = removeEventIfOverwrite(EvRef);
-    assert(Removed && "Malformed trace!");
-  }
-
+void ThreadState::removeEvent(EventRecord<EventType::StateMemmove> const &Ev)
+{
+  Parent.Memory.removeCopy(Ev.getSourceAddress(),
+                           Ev.getDestinationAddress(),
+                           Ev.getSize());
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::StateClear> const &Ev) {
-  auto const Overwritten = Ev.getOverwritten();
-
-  EventReference EvRef(Ev);
-  for (auto i = Overwritten; i != 0; --i) {
-    ++EvRef;
-    assert(Trace.events().contains(EvRef) && "Malformed trace!");
-    auto Removed = removeEventIfOverwrite(EvRef);
-    assert(Removed && "Malformed trace!");
-  }
-
+  Parent.Memory.removeClear(MemoryArea(Ev.getAddress(), Ev.getClearSize()));
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(EventReference(Ev));
-}
-
-void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwrite> const &Ev)
-{
-  restoreMemoryState(EventLocation(Ev.getStateThreadID(), Ev.getStateOffset()),
-                     Parent.Memory);
-}
-
-void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwriteFragment> const &Ev)
-{
-  restoreMemoryState(EventLocation(Ev.getStateThreadID(), Ev.getStateOffset()),
-                     Parent.Memory,
-                     MemoryArea(Ev.getFragmentAddress(), Ev.getFragmentSize()));
-}
-
-void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwriteFragmentTrimmedRight> const &Ev) {
-  Parent.Memory.untrimRightSide(Ev.getAddressOfBlock(), Ev.getAmountTrimmed());
-}
-
-void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwriteFragmentTrimmedLeft> const &Ev) {
-  Parent.Memory.untrimLeftSide(Ev.getTrimmedAddressOfBlock(),
-                               Ev.getPreviousAddressOfBlock());
-}
-
-void ThreadState::removeEvent(
-  EventRecord<EventType::StateOverwriteFragmentSplit> const &Ev) {
-  Parent.Memory.unsplit(Ev.getAddressOfLeftBlock(),
-                        Ev.getAddressOfRightBlock());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::KnownRegionAdd> const &Ev)
 {
   Parent.removeKnownMemory(Ev.getAddress());
+  Parent.Memory.allocationUnadd(Ev.getAddress(), Ev.getSize());
 }
 
 void
@@ -1190,12 +882,14 @@ ThreadState::removeEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
                                          : MemoryPermission::None);
   
   Parent.addKnownMemory(Ev.getAddress(), Ev.getSize(), Access);
+  Parent.Memory.allocationUnremove(Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 {
   auto &FuncState = *(CallStack.back());
   FuncState.removeByValArea(Ev.getAddress());
+  Parent.Memory.allocationUnadd(Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::FileOpen> const &Ev)

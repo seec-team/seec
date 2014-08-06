@@ -17,6 +17,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include <cstdlib>
 #include <thread>
 #include <functional>
 
@@ -36,6 +37,7 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
   ProcessTime(0),
   ThreadStates(Trace->getNumThreads()),
   Mallocs(),
+  PreviousMallocs(),
   Memory(),
   KnownMemory(),
   Streams(),
@@ -52,7 +54,23 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
     auto const Data = Trace->getGlobalVariableInitialData(i, Size);
     auto const Start = Trace->getGlobalVariableAddress(i);
     
-    Memory.add(MappedMemoryBlock(Start, Size, Data.data()), EventLocation());
+    auto const PriorAlloc = Memory.findAllocation(Start);
+    if (PriorAlloc) {
+      auto const PriorArea = MemoryArea(PriorAlloc->getAddress(),
+                                        PriorAlloc->getSize());
+
+      if (PriorArea.contains(MemoryArea(Start, Size)))
+        continue;
+      else if (MemoryArea(Start, Size).contains(PriorArea))
+        Memory.allocationRemove(PriorArea.address(), PriorArea.length());
+      else {
+        llvm::errs() << "\nSeeC: can't handle overlapping globals.\n";
+        std::exit(EXIT_FAILURE);
+      }
+    }
+
+    Memory.allocationAdd(Start, Size);
+    Memory.addBlock(MappedMemoryBlock(Start, Size, Data.data()));
   }
   
   // Setup initial open streams.
@@ -81,6 +99,41 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
 }
 
 ProcessState::~ProcessState() = default;
+
+void ProcessState::addMalloc(uintptr_t const Address,
+                             std::size_t const Size,
+                             llvm::Instruction const *Allocator)
+{
+  Mallocs.emplace(std::piecewise_construct,
+                  std::forward_as_tuple(Address),
+                  std::forward_as_tuple(Address, Size, Allocator));
+}
+
+void ProcessState::unaddMalloc(uintptr_t const Address)
+{
+  auto const It = Mallocs.find(Address);
+  assert(It != Mallocs.end());
+  Mallocs.erase(It);
+}
+
+void ProcessState::removeMalloc(uintptr_t const Address)
+{
+  auto const It = Mallocs.find(Address);
+  assert(It != Mallocs.end());
+  PreviousMallocs.emplace_back(std::move(It->second));
+  Mallocs.erase(It);
+}
+
+void ProcessState::unremoveMalloc(uintptr_t const Address)
+{
+  assert(!PreviousMallocs.empty());
+  assert(PreviousMallocs.back().getAddress() == Address);
+
+  Mallocs.emplace(Address,
+                  std::move(PreviousMallocs.back()));
+
+  PreviousMallocs.pop_back();
+}
 
 seec::Maybe<MemoryArea>
 ProcessState::getContainingMemoryArea(uintptr_t Address) const {
@@ -232,9 +285,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   
   Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
   
-  Out << " Memory State Fragments: "
-      << State.getMemory().getNumberOfFragments() << "\n";
-  Out << State.getMemory();
+  Out << " Memory State:\n" << State.getMemory();
   
   Out << " Open Streams: " << State.getStreams().size() << "\n";
   for (auto const &Stream : State.getStreams()) {

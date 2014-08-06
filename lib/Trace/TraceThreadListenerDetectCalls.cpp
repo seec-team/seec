@@ -1143,26 +1143,18 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
     if (Size) {
       if (NewAddress) {
         if (NewAddress == OldAddress) {
-          // Record free first, so that when we reverse over the events, the
-          // freed malloc will be recreated after the new malloc is removed.
-          auto FreedMalloc = recordFree(OldAddress);
-
-          // If this realloc shrank the allocation, then clear the memory that
-          // is no longer allocated.
-          if (Size < FreedMalloc.size()) {
-            recordStateClear(NewAddress + Size, FreedMalloc.size() - Size);
-          }
-
-          // Record malloc for the new size.
-          recordMalloc(NewAddress, Size);
+          recordRealloc(NewAddress, Size);
         }
         else {
+          auto const Alloc =
+            ProcessListener.getCurrentDynamicMemoryAllocation(OldAddress);
+
           // Malloc new address.
           recordMalloc(NewAddress, Size);
 
           // Record the state that was copied to the new address.
-          recordMemmove(OldAddress, NewAddress, Size);
-          
+          recordMemmove(OldAddress, NewAddress, Alloc->size());
+
           // Free previous address and clear the memory.
           recordFreeAndClear(OldAddress);
         }

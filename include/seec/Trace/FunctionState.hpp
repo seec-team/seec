@@ -115,6 +115,18 @@ public:
   MemoryState::Region getMemoryRegion() const;
 
   /// @} (Queries)
+
+
+  /// \name Operators
+  /// @{
+
+  bool operator==(AllocaState const &RHS) const {
+    return this->Parent == RHS.Parent
+        && this->InstructionIndex == RHS.InstructionIndex
+        && this->Address == RHS.Address
+        && this->ElementSize == RHS.ElementSize
+        && this->ElementCount == RHS.ElementCount;
+  }
 };
 
 

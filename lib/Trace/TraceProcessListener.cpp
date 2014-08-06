@@ -402,6 +402,33 @@ bool TraceProcessListener::removeKnownMemoryRegion(uintptr_t Address)
 // Dynamic memory allocation tracking
 //===----------------------------------------------------------------------===//
 
+DynamicAllocation *
+TraceProcessListener::getCurrentDynamicMemoryAllocation(uintptr_t const Address)
+{
+  std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+
+  auto const It = DynamicMemoryAllocations.find(Address);
+  if (It != DynamicMemoryAllocations.end())
+    return &(It->second);
+
+  return nullptr;
+}
+
+/// \brief Get the \c DynamicAllocation at the given address.
+///
+DynamicAllocation const *
+TraceProcessListener::getCurrentDynamicMemoryAllocation(uintptr_t const Address)
+const
+{
+  std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+
+  auto const It = DynamicMemoryAllocations.find(Address);
+  if (It != DynamicMemoryAllocations.end())
+    return &(It->second);
+
+  return nullptr;
+}
+
 void TraceProcessListener::setCurrentDynamicMemoryAllocation(uintptr_t Address,
                                                              uint32_t Thread,
                                                              offset_uint Offset,

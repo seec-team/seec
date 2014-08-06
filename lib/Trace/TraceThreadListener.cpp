@@ -289,14 +289,36 @@ void TraceThreadListener::recordMalloc(uintptr_t Address, std::size_t Size) {
                                                     Size);
 }
 
+void TraceThreadListener::recordRealloc(uintptr_t const Address,
+                                        std::size_t const NewSize)
+{
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+
+  auto const Alloc = ProcessListener.getCurrentDynamicMemoryAllocation(Address);
+  assert(Alloc && "recordRealloc with unallocated address.");
+
+  auto const OldSize = Alloc->size();
+
+  ProcessTime = getCIProcessTime();
+  EventsOut.write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
+
+  Alloc->update(Alloc->thread(), Alloc->offset(), NewSize);
+
+  if (NewSize < OldSize) {
+    auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
+    MemoryState->clear(Address + NewSize,  // Start of cleared memory.
+                       OldSize - NewSize); // Length of cleared memory.
+  }
+}
+
 DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
-  auto MaybeMalloc = ProcessListener.getCurrentDynamicMemoryAllocation(Address);
+  auto const Alloc = ProcessListener.getCurrentDynamicMemoryAllocation(Address);
 
   // If the allocation didn't exist it should have been caught in preCfree.
-  assert(MaybeMalloc.assigned() && "recordFree with unassigned address.");
-  
-  auto Malloc = MaybeMalloc.get<0>();
-  
+  assert(Alloc && "recordFree with unassigned address.");
+
+  auto const Malloc = *Alloc; // Copy the DynamicAllocation.
+
   // Get new process time and update this thread's view of process time.
   ProcessTime = getCIProcessTime();
 
@@ -323,50 +345,6 @@ void TraceThreadListener::recordFreeAndClear(uintptr_t Address) {
 // Memory states
 //------------------------------------------------------------------------------
 
-void
-TraceThreadListener::writeStateOverwritten(OverwrittenMemoryInfo const &Info)
-{
-  for (auto const &Overwrite : Info.overwrites()) {
-    auto &Event = Overwrite.getStateEvent();
-    auto &OldArea = Overwrite.getOldArea();
-    auto &NewArea = Overwrite.getNewArea();
-    
-    switch (Overwrite.getType()) {
-      case StateOverwrite::OverwriteType::ReplaceState:
-        EventsOut.write<EventType::StateOverwrite>
-                       (Event.getThreadID(),
-                        Event.getOffset());
-        break;
-      
-      case StateOverwrite::OverwriteType::ReplaceFragment:
-        EventsOut.write<EventType::StateOverwriteFragment>
-                       (Event.getThreadID(),
-                        Event.getOffset(),
-                        NewArea.address(),
-                        NewArea.length());
-        break;
-      
-      case StateOverwrite::OverwriteType::TrimFragmentRight:
-        EventsOut.write<EventType::StateOverwriteFragmentTrimmedRight>
-                       (OldArea.address(),
-                        OldArea.end() - NewArea.start());
-        break;
-      
-      case StateOverwrite::OverwriteType::TrimFragmentLeft:
-        EventsOut.write<EventType::StateOverwriteFragmentTrimmedLeft>
-                       (NewArea.end(),
-                        OldArea.start());
-        break;
-      
-      case StateOverwrite::OverwriteType::SplitFragment:
-        EventsOut.write<EventType::StateOverwriteFragmentSplit>
-                       (OldArea.address(),
-                        NewArea.end());
-        break;
-    }
-  }
-}
-
 void TraceThreadListener::recordUntypedState(char const *Data,
                                              std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
@@ -375,14 +353,13 @@ void TraceThreadListener::recordUntypedState(char const *Data,
 
   ProcessTime = getCIProcessTime();
   
-  // Update the process' memory trace with the new state, and find the states
-  // that were overwritten.
+  // Update the process' memory trace with the new state.
   auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  auto OverwrittenInfo = MemoryState->add(Address,
-                                          Size,
-                                          ThreadID,
-                                          EventsOut.offset(),
-                                          ProcessTime);
+  MemoryState->add(Address,
+                   Size,
+                   ThreadID,
+                   EventsOut.offset(),
+                   ProcessTime);
   
   if (Size <= EventRecord<EventType::StateUntypedSmall>::sizeofData()) {
     EventRecord<EventType::StateUntypedSmall>::typeofData DataStore;
@@ -390,26 +367,20 @@ void TraceThreadListener::recordUntypedState(char const *Data,
     memcpy(DataStorePtr, Data, Size);
     
     // Write the state information to the trace.
-    EventsOut.write<EventType::StateUntypedSmall>(
-      static_cast<uint8_t>(Size),
-      static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
-      Address,
-      ProcessTime,
-      DataStore);
+    EventsOut.write<EventType::StateUntypedSmall>(static_cast<uint8_t>(Size),
+                                                  Address,
+                                                  ProcessTime,
+                                                  DataStore);
   }
   else {
     auto DataOffset = ProcessListener.recordData(Data, Size);
 
     // Write the state information to the trace.
-    EventsOut.write<EventType::StateUntyped>(
-      static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
-      Address,
-      ProcessTime,
-      DataOffset,
-      Size);
+    EventsOut.write<EventType::StateUntyped>(Address,
+                                             ProcessTime,
+                                             DataOffset,
+                                             Size);
   }
-  
-  writeStateOverwritten(OverwrittenInfo);
   
   // TODO: add non-local change records for all appropriate functions
 }
@@ -427,15 +398,11 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
   ProcessTime = getCIProcessTime();
   
   auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  auto OverwrittenInfo = MemoryState->clear(Address, Size);
+  MemoryState->clear(Address, Size);
   
-  EventsOut.write<EventType::StateClear>(
-    static_cast<uint32_t>(OverwrittenInfo.overwrites().size()),
-    Address,
-    ProcessTime,
-    Size);
-  
-  writeStateOverwritten(OverwrittenInfo);
+  EventsOut.write<EventType::StateClear>(Address,
+                                         ProcessTime,
+                                         Size);
 }
 
 void TraceThreadListener::recordMemset() {
@@ -453,34 +420,16 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   ProcessListener.copyInMemoryPointerObjects(Source, Destination, Size);
   
   auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  auto const MoveInfo = MemoryState->memmove(Source,
-                                             Destination,
-                                             Size,
-                                             EventLocation(ThreadID,
-                                                           EventsOut.offset()),
-                                             ProcessTime);
+  MemoryState->memmove(Source,
+                       Destination,
+                       Size,
+                       EventLocation(ThreadID, EventsOut.offset()),
+                       ProcessTime);
   
-  auto const &OverwrittenInfo = MoveInfo.first;
-  
-  auto const OverwrittenCount =
-                    static_cast<uint32_t>(OverwrittenInfo.overwrites().size());
-  
-  EventsOut.write<EventType::StateMemmove>(OverwrittenCount,
-                                           ProcessTime,
+  EventsOut.write<EventType::StateMemmove>(ProcessTime,
                                            Source,
                                            Destination,
                                            Size);
-  
-  // Write events describing the overwritten states.
-  writeStateOverwritten(OverwrittenInfo);
-  
-  // Write events describing the copied states.
-  for (auto const &Copy : MoveInfo.second) {
-    EventsOut.write<EventType::StateCopied>(Copy.getEvent().getThreadID(),
-                                            Copy.getEvent().getOffset(),
-                                            Copy.getArea().start(),
-                                            Copy.getArea().length());
-  }
 }
 
 void TraceThreadListener::addKnownMemoryRegion(uintptr_t Address,

@@ -191,9 +191,19 @@ SEEC_TRACE_EVENT(Free,
     (Free, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(Realloc,
+  SEEC_PP_QUOTE(
+    (uintptr_t,   Address),
+    (std::size_t, OldSize),
+    (std::size_t, NewSize),
+    (uint64_t,    ProcessTime)
+  ),
+  SEEC_PP_QUOTE(
+    (Realloc, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(StateTyped,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, ValueOffset)
@@ -206,7 +216,6 @@ SEEC_TRACE_EVENT(StateTyped,
 SEEC_TRACE_EVENT(StateUntypedSmall,
   SEEC_PP_QUOTE(
     (uint8_t, Size),
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (uint64_t, Data)
@@ -218,7 +227,6 @@ SEEC_TRACE_EVENT(StateUntypedSmall,
 
 SEEC_TRACE_EVENT(StateUntyped,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, DataOffset),
@@ -231,7 +239,6 @@ SEEC_TRACE_EVENT(StateUntyped,
 
 SEEC_TRACE_EVENT(StateMemmove,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uint64_t, ProcessTime),
     (uintptr_t, SourceAddress),
     (uintptr_t, DestinationAddress),
@@ -242,74 +249,14 @@ SEEC_TRACE_EVENT(StateMemmove,
     (StateMemmove, is_memory_state)
   ))
 
-SEEC_TRACE_EVENT(StateCopied,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset),
-    (uintptr_t, Address),
-    (std::size_t, Size)
-  ),
-  SEEC_PP_QUOTE(
-    (StateCopied, modifies_shared_state),
-    (StateCopied, is_subservient)
-  ))
-
 SEEC_TRACE_EVENT(StateClear,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (std::size_t, ClearSize)
   ),
   SEEC_PP_QUOTE(
     (StateClear, modifies_shared_state)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwrite,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwrite, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragment,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset),
-    (uintptr_t, FragmentAddress),
-    (std::size_t, FragmentSize)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragment, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedRight,
-  SEEC_PP_QUOTE(
-    (uintptr_t, AddressOfBlock),
-    (std::size_t, AmountTrimmed)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentTrimmedRight, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedLeft,
-  SEEC_PP_QUOTE(
-    (uintptr_t, TrimmedAddressOfBlock),
-    (uintptr_t, PreviousAddressOfBlock)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentTrimmedLeft, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentSplit,
-  SEEC_PP_QUOTE(
-    (uintptr_t, AddressOfLeftBlock),
-    (uintptr_t, AddressOfRightBlock)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentSplit, is_subservient)
   ))
 
 SEEC_TRACE_EVENT(KnownRegionAdd,

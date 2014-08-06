@@ -5,6 +5,7 @@ set(SEEC_INSTALL "/usr/local" CACHE PATH "Path to SeeC installation.")
 
 set(TEST_ROOT   ${CMAKE_CURRENT_SOURCE_DIR})
 set(TEST_SCRIPT ${TEST_ROOT}/run_instrumented.sh)
+set(TEST_PRINT  ${TEST_ROOT}/print_trace.sh)
 
 enable_testing()
 
@@ -13,11 +14,19 @@ macro(seec_test_build BINARY SOURCE ARGS)
           COMMAND ${TEST_SCRIPT} SEEC_WRITE_INSTRUMENTED=${BINARY}.instrumented.ll ${SEEC_INSTALL}/bin/seec-cc -std=c99 -fvisibility=hidden ${ARGS} -o ${BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE})
 endmacro(seec_test_build)
 
+macro(seec_test_print_trace BINARY TEST)
+  add_test(NAME ${SEEC_TEST_PREFIX}run-${BINARY}-${TEST}-print-trace
+           COMMAND ${TEST_PRINT} ${SEEC_INSTALL}/bin/seec-print ${BINARY}-${TEST}.seec)
+  set_tests_properties(${SEEC_TEST_PREFIX}run-${BINARY}-${TEST}-print-trace PROPERTIES
+    DEPENDS ${SEEC_TEST_PREFIX}run-${BINARY}-${TEST})
+endmacro(seec_test_print_trace)
+
 macro(seec_test_run_pass BINARY TEST ARG)
   add_test(NAME ${SEEC_TEST_PREFIX}run-${BINARY}-${TEST}
            COMMAND ${TEST_SCRIPT} SEEC_TRACE_NAME=${BINARY}-${TEST} ${CMAKE_CURRENT_BINARY_DIR}/${BINARY} ${ARG})
   set_tests_properties(${SEEC_TEST_PREFIX}run-${BINARY}-${TEST} PROPERTIES
     DEPENDS ${SEEC_TEST_PREFIX}build-${BINARY})
+  seec_test_print_trace(${BINARY} "${TEST}")
 endmacro(seec_test_run_pass)
 
 macro(seec_test_run_fail BINARY TEST ARG)
@@ -26,6 +35,7 @@ macro(seec_test_run_fail BINARY TEST ARG)
   set_tests_properties(${SEEC_TEST_PREFIX}run-${BINARY}-${TEST} PROPERTIES
     DEPENDS ${SEEC_TEST_PREFIX}build-${BINARY}
     WILL_FAIL TRUE)
+  seec_test_print_trace(${BINARY} "${TEST}")
 endmacro(seec_test_run_fail)
 
 add_subdirectory(byval)

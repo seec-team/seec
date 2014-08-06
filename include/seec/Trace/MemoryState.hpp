@@ -18,6 +18,9 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/ADT/ArrayRef.h"
+
+#include <stack>
 #include <thread>
 #include <map>
 #include <vector>
@@ -27,98 +30,126 @@ namespace seec {
 namespace trace {
 
 
-/// \brief A fragment of a reconstructed memory state.
+/// \brief A single recreated memory allocation.
 ///
-class MemoryStateFragment {
-  /// The block of memory for this fragment.
-  MappedMemoryBlock Block;
+class MemoryAllocation {
+  /// The address that this allocation starts at.
+  uintptr_t Address;
 
-  /// The event that created this block of memory.
-  EventLocation StateRecord;
+  /// The size of this allocation (in \c char units).
+  std::size_t Size;
+
+  /// The value of each \c char in this allocation.
+  std::vector<char> Data;
+
+  /// The initialization of each \c char in this allocation (truth indicates
+  /// initialization, i.e. a 1 bit is initialized and a 0 is uninitialized).
+  std::vector<unsigned char> Init;
+
+  /// Determines the initialization of a "saved" area (overwritten or cleared).
+  enum class EPreviousAreaType : uint8_t {
+    Uninitialized,
+    Partial,
+    Complete
+  };
+
+  /// Determines the initialization of all "saved" areas, in order from oldest
+  /// to most recent (i.e. the most recent is at the end of the vector).
+  std::vector<EPreviousAreaType> PreviousType;
+
+  /// Holds the value of "saved" areas, in order from oldest to most recent.
+  /// For example, if the most recently saved area was 4 chars, then the final
+  /// 4 chars of this vector will hold the saved chars (if the type is either
+  /// \c EPreviousAreaType::Partial or \c EPreviousAreaType::Complete.
+  std::vector<char> PreviousData;
+
+  /// Holds the initialization of "saved" areas, in order from oldest to most
+  /// recent. For example, if the most recently saved area was 4 chars, then
+  /// the final 4 chars of this vector will hold its initialization (if the
+  /// type is \c EPreviousAreaType::Partial.
+  std::vector<unsigned char> PreviousInit;
+
+  MemoryAllocation(MemoryAllocation const &) = delete;
+  MemoryAllocation &operator=(MemoryAllocation const &) = delete;
 
 public:
-  /// \name Constructors
-  /// @{
-
-  /// \brief Constructor.
-  MemoryStateFragment(MappedMemoryBlock TheBlock, EventLocation TheEvent)
-  : Block(std::move(TheBlock)),
-    StateRecord(std::move(TheEvent))
+  /// \brief Construct a new \c MemoryAllocation.
+  ///
+  explicit MemoryAllocation(uintptr_t const WithAddress,
+                            std::size_t const WithSize)
+  : Address(WithAddress),
+    Size(WithSize),
+    Data(Size),
+    Init(Size),
+    PreviousType(),
+    PreviousData(),
+    PreviousInit()
   {}
 
-  /// \brief Copy constructor.
-  MemoryStateFragment(MemoryStateFragment const &Other) = default;
+  MemoryAllocation(MemoryAllocation &&Other) = default;
+  MemoryAllocation &operator=(MemoryAllocation &&RHS) = default;
 
-  /// \brief Move constructor.
-  MemoryStateFragment(MemoryStateFragment &&Other)
-  : Block(std::move(Other.Block)),
-    StateRecord(std::move(Other.StateRecord))
-  {}
+  /// \brief Get this allocation's start address.
+  ///
+  uintptr_t const getAddress() const { return Address; }
 
-  /// @} (Constructors)
+  /// \brief Get the size of this allocation, in \c char units.
+  ///
+  std::size_t const getSize() const { return Size; }
 
+  /// \brief Get the raw values of the allocated \c chars.
+  ///
+  llvm::ArrayRef<char>
+  getAreaData(MemoryArea const &Area) const;
 
-  /// \name Assignment
-  /// @{
+  /// \brief Get the initialization of the allocated \c chars.
+  ///
+  llvm::ArrayRef<unsigned char>
+  getAreaInitialization(MemoryArea const &Area) const;
 
-  /// \brief Copy assignment.
-  MemoryStateFragment &operator=(MemoryStateFragment const &RHS) = default;
+  /// \brief Add a new \c MappedMemoryBlock, updating the value and
+  ///        initialization of the contained memory.
+  ///
+  void addBlock(MappedMemoryBlock const &Block);
 
-  /// \brief Move assignment.
-  MemoryStateFragment &operator=(MemoryStateFragment &&RHS) {
-    Block = std::move(RHS.Block);
-    StateRecord = std::move(RHS.StateRecord);
-    return *this;
-  }
+  /// \brief Set the raw values and initialization of the memory starting at
+  ///        a the given address (contained within this allocation). The
+  ///        current value and initialization of the area will be saved.
+  ///
+  void addArea(uintptr_t const AtAddress,
+               llvm::ArrayRef<char> WithData,
+               llvm::ArrayRef<unsigned char> WithInitialization);
 
-  /// @} (Assignment)
+  /// \brief Clear the given memory area (set it to be uninitialized). The
+  ///        current value and initialization of the area will be saved.
+  ///
+  void clearArea(MemoryArea const &Area);
 
+  /// \brief Rewind the given memory area, restoring its value and
+  ///        initialization from the most recently saved state.
+  ///
+  void rewindArea(MemoryArea const &Area);
 
-  /// \name Accessors
-  /// @{
-
-  /// \brief Get a reference to the block of memory for this fragment.
-  MappedMemoryBlock &getBlock() { return Block; }
-
-  /// \brief Get a const reference to the block of memory for this fragment.
-  MappedMemoryBlock const &getBlock() const { return Block; }
-
-  /// \brief Get the EventLocation for the event that caused this state.
-  EventLocation const &getStateRecordLocation() const { return StateRecord; }
-
-  /// @} (Accessors)
-  
-  
-  /// \name Comparison
-  /// @{
-  
-  /// \brief Check if this fragment is equivalent to another fragment.
-  bool operator==(MemoryStateFragment const &RHS) const {
-    // The contents of a fragment should never change (only the area of the
-    // contents that is currently valid), so we only need to check that the
-    // events are the same, and the areas are the same.
-    return StateRecord == RHS.StateRecord && Block.area() == RHS.Block.area();
-  }
-  
-  /// \brief Check if this fragment differs from another fragment.
-  bool operator!=(MemoryStateFragment const &RHS) const {
-    return !operator==(RHS);
-  }
-  
-  /// @} (Comparison)
+  /// \brief Change the size of this allocation.
+  ///        If the \c NewSize is larger than the current size, the added chars
+  ///        will be uninitialized.
+  ///
+  void resize(std::size_t const NewSize);
 };
 
 
 /// \brief The complete reconstructed state of memory.
 ///
-/// The memory state is stored as a collection of fragments. Each fragment
-/// represents the state caused by a single event, such as a store or memcpy().
-/// The fragments are kept in an ordered map, that maps the start address of
-/// the fragment to a MemoryStateFragment object.
+/// The memory state is stored as a collection of \c MemoryAllocation objects.
+/// Each \c MemoryAllocation holds the state and initialization of a single
+/// memory allocation (e.g. an alloca or a dynamically allocated area).
 ///
 class MemoryState {
-  /// Map fragments' start addresses to the fragments themselves.
-  std::map<uintptr_t, MemoryStateFragment> FragmentMap;
+  /// Map allocation start addresses to the allocations themselves.
+  std::map<uintptr_t, MemoryAllocation> Allocations;
+
+  /// Historical allocations (that were deallocated).
+  std::stack<MemoryAllocation> PreviousAllocations;
 
   // Don't allow copying
   MemoryState(MemoryState const &) = delete;
@@ -126,21 +157,34 @@ class MemoryState {
 
 public:
   /// \brief Construct an empty MemoryState.
+  ///
   MemoryState()
-  : FragmentMap()
+  : Allocations(),
+    PreviousAllocations()
   {}
 
 
   /// \name Accessors
   /// @{
 
-  /// \brief Get the map from start addresses to fragments.
+  /// \brief Get the map of current allocations.
   ///
-  decltype(FragmentMap) const &getFragmentMap() const { return FragmentMap; }
+  decltype(Allocations) const &getAllocations() const { return Allocations; }
 
-  /// \brief Get the total number of fragments.
+  /// \brief Get the \c MemoryAllocation that contains the given \c MemoryArea.
+  ///        This method will assert if no such allocation exists.
   ///
-  std::size_t getNumberOfFragments() const { return FragmentMap.size(); }
+  MemoryAllocation &getAllocation(MemoryArea const &ForArea);
+
+  /// \brief Get the \c MemoryAllocation that contains the given \c MemoryArea.
+  ///        This method will assert if no such allocation exists.
+  ///
+  MemoryAllocation const &getAllocation(MemoryArea const &ForArea) const;
+
+  /// \brief Find the \c MemoryAllocation that contains the given \c MemoryArea.
+  ///        This method will return \c nullptr if no such allocation exists.
+  ///
+  MemoryAllocation const *findAllocation(uintptr_t const ForAddress) const;
 
   /// @} (Accessors)
 
@@ -148,36 +192,69 @@ public:
   /// \name Mutators
   /// @{
 
-  /// \brief Add a memory block caused by an event.
+  /// \brief Add a new allocation (moving forward).
   ///
-  void add(MappedMemoryBlock const &Block, EventLocation Event);
-  
-  /// \brief Add a memory block caused by an event.
-  ///
-  void add(MappedMemoryBlock &&Block, EventLocation Event);
-  
-  /// \brief Copy a region of memory to a new region.
-  ///
-  void memcpy(uintptr_t Source,
-              uintptr_t Destination,
-              std::size_t Size,
-              EventLocation Event);
+  void allocationAdd(uintptr_t const Address, std::size_t const Size);
 
-  /// \brief Clear a region of memory.
+  /// \brief Remove an allocation (moving forward).
   ///
-  void clear(MemoryArea Area);
-  
-  /// \brief Merge two (previously split) fragments.
+  void allocationRemove(uintptr_t const Address, std::size_t const Size);
+
+  /// \brief Resize an allocation (moving forward).
   ///
-  void unsplit(uintptr_t LeftAddress, uintptr_t RightAddress);
-  
-  /// \brief Extend the block at the given Address by TrimSize.
+  void allocationResize(uintptr_t const Address,
+                        std::size_t const CurrentSize,
+                        std::size_t const NewSize);
+
+  /// \brief Unremove an allocation (moving backward).
   ///
-  void untrimRightSide(uintptr_t Address, std::size_t TrimSize);
-  
-  /// \brief Move the block at Address to its PriorAddress.
+  void allocationUnremove(uintptr_t const Address, std::size_t const Size);
+
+  /// \brief Unadd an allocation (moving backward).
   ///
-  void untrimLeftSide(uintptr_t Address, uintptr_t PriorAddress);
+  void allocationUnadd(uintptr_t const Address, std::size_t const Size);
+
+  /// \brief Resize an allocation (moving backward).
+  ///
+  void allocationUnresize(uintptr_t const Address,
+                          std::size_t const CurrentSize,
+                          std::size_t const NewSize);
+
+  /// \brief Add the given \c MappedMemoryBlock to the memory state, setting
+  ///        the raw values of the area to the values contained in the block,
+  ///        and setting the area to be completely initialized.
+  ///
+  void addBlock(MappedMemoryBlock const &Block);
+
+  /// \brief Remove the current state from the given \c MemoryArea, rewinding
+  ///        its values and initialization to the previous state.
+  ///
+  void removeBlock(MemoryArea Area);
+
+  /// \brief Copy the value and initialization of memory beginning at \c Source
+  ///        to the memory beginning at \c Destination. \c Size \c char units
+  ///        of state and initialization will be copied.
+  ///
+  void addCopy(uintptr_t const Source,
+               uintptr_t const Destination,
+               std::size_t const Size);
+
+  /// \brief Rewind a previous copy from \c Source to \c Destination. The value
+  ///        and initialization of memory at \c Destination will be rewound to
+  ///        its state prior to the copy.
+  ///
+  void removeCopy(uintptr_t const Source,
+                  uintptr_t const Destination,
+                  std::size_t const Size);
+
+  /// \brief Clear the given \c MemoryArea, setting it to be uninitialized.
+  ///
+  void addClear(MemoryArea Area);
+
+  /// \brief Rewind a clear to the given \c MemoryArea, restoring its
+  ///        initialization to its state prior to the clear.
+  ///
+  void removeClear(MemoryArea Area);
 
   /// @} (Mutators)
 
@@ -203,21 +280,17 @@ public:
       Area(RegionArea)
     {}
 
-    /// \brief Copy constructor.
-    Region(Region const &) = default;
-
-    /// \brief Move constructor.
-    Region(Region &&) = default;
-
     /// @} (Constructors)
 
     /// \name Accessors
     /// @{
 
     /// \brief Get the state that this region belongs to.
+    ///
     MemoryState const &getState() const { return State; }
 
     /// \brief Get the area that this region covers.
+    ///
     MemoryArea const &getArea() const { return Area; }
 
     /// @}
@@ -226,24 +299,24 @@ public:
     /// @{
 
     /// \brief Find out if the contained bytes are initialized.
+    ///
     bool isCompletelyInitialized() const;
     
     /// \brief Find out if any contained byte is initialized.
     /// If the region is completely initialized, this method will also return
     /// true.
+    ///
     bool isPartiallyInitialized() const;
 
     /// \brief Find out whether each contained byte is initialized.
-    std::vector<char> getByteInitialization() const;
+    ///
+    llvm::ArrayRef<unsigned char> getByteInitialization() const;
     
     /// \brief Find out the value of each contained byte.
     ///
     /// Uninitialized bytes will have a value of zero.
     ///
-    std::vector<char> getByteValues() const;
-    
-    /// \brief Get iterators for all fragments that contribute to this region.
-    std::vector<MemoryStateFragment> getContributingFragments() const;
+    llvm::ArrayRef<char> getByteValues() const;
 
     /// @}
   };
@@ -257,7 +330,8 @@ public:
   /// @} (Regions)
 };
 
-/// Print a textual description of a MemoryState.
+/// \brief Print a textual description of a MemoryState.
+///
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               MemoryState const &State);
 

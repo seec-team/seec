@@ -337,27 +337,43 @@ bool moveBackward(ProcessState &State) {
 bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 {
   auto const Region = State.getMemory().getRegion(Area);
-  auto const Frags = Region.getContributingFragments();
-  
+  auto const CurrentInit = Region.getByteInitialization();
+  auto const CurrentData = Region.getByteValues();
+
+  std::vector<unsigned char> Init(CurrentInit.begin(), CurrentInit.end());
+  std::vector<unsigned char> Data(CurrentData.begin(), CurrentData.end());
+
   // This takes advantage of the fact that movement modifies the ProcessState
-  // in-place.
+  // in-place (hence the Region is still valid).
   return moveForwardUntil(State,
-                          [&] (ProcessState &) {
-                            return Frags != Region.getContributingFragments();
-                          });
+          [&] (ProcessState &) -> bool {
+            auto const NewInit = Region.getByteInitialization();
+            auto const NewData = Region.getByteValues();
+
+            return !std::equal(Init.begin(), Init.end(), NewInit.begin())
+                || !std::equal(Data.begin(), Data.end(), NewData.begin());
+          });
 }
 
 bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 {
   auto const Region = State.getMemory().getRegion(Area);
-  auto const Frags = Region.getContributingFragments();
-  
+  auto const CurrentInit = Region.getByteInitialization();
+  auto const CurrentData = Region.getByteValues();
+
+  std::vector<unsigned char> Init(CurrentInit.begin(), CurrentInit.end());
+  std::vector<unsigned char> Data(CurrentData.begin(), CurrentData.end());
+
   // This takes advantage of the fact that movement modifies the ProcessState
-  // in-place.
+  // in-place (hence the Region is still valid).
   return moveBackwardUntil(State,
-                          [&] (ProcessState &) {
-                            return Frags != Region.getContributingFragments();
-                          });
+          [&] (ProcessState &) -> bool {
+            auto const NewInit = Region.getByteInitialization();
+            auto const NewData = Region.getByteValues();
+
+            return !std::equal(Init.begin(), Init.end(), NewInit.begin())
+                || !std::equal(Data.begin(), Data.end(), NewData.begin());
+          });
 }
 
 bool moveBackwardToStreamWriteAt(ProcessState &State,

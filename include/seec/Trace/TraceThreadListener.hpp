@@ -295,6 +295,10 @@ public:
   ///
   void recordMalloc(uintptr_t Address, std::size_t Size);
 
+  /// \brief Write a Realloc event and update the process' dynamic memory.
+  ///
+  void recordRealloc(uintptr_t const Address, std::size_t const NewSize);
+
   /// \brief Write a free record and update the process' dynamic memory.
   ///
   /// pre: DynamicMemoryLock acquired by this object.
@@ -334,10 +338,6 @@ public:
       GlobalMemoryLock = ProcessListener.lockMemory();
     }
   }
-
-  /// \brief Write a set of overwritten states.
-  ///
-  void writeStateOverwritten(OverwrittenMemoryInfo const &Info);
 
   /// \brief Record an untyped update to memory.
   ///

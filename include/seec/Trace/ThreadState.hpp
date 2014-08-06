@@ -78,116 +78,6 @@ class ThreadState {
   ThreadState &operator=(ThreadState const &RHS) = delete;
 
 
-  /// \name Memory state event movement.
-  /// @{
-  
-  void addMemoryState(EventLocation const &EvLoc,
-                      EventRecord<EventType::StateTyped> const &Ev,
-                      MemoryState &Memory);
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateTyped> const &Ev,
-                          MemoryState &Memory) {
-    addMemoryState(EvLoc, Ev, Memory);
-  }
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateTyped> const &Ev,
-                          MemoryArea const &InArea,
-                          MemoryState &Memory);
-
-  void addMemoryState(EventLocation const &EvLoc,
-                      EventRecord<EventType::StateUntypedSmall> const &Ev,
-                      MemoryState &Memory);
-  
-  void
-  restoreMemoryState(EventLocation const &EvLoc,
-                     EventRecord<EventType::StateUntypedSmall> const &Ev,
-                     MemoryState &Memory) {
-    addMemoryState(EvLoc, Ev, Memory);
-  }
-  
-  void
-  restoreMemoryState(EventLocation const &EvLoc,
-                     EventRecord<EventType::StateUntypedSmall> const &Ev,
-                     MemoryArea const &InArea,
-                     MemoryState &Memory);
-
-  void addMemoryState(EventLocation const &EvLoc,
-                      EventRecord<EventType::StateUntyped> const &Ev,
-                      MemoryState &Memory);
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateUntyped> const &Ev,
-                          MemoryState &Memory) {
-    addMemoryState(EvLoc, Ev, Memory);
-  }
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateUntyped> const &Ev,
-                          MemoryArea const &InArea,
-                          MemoryState &Memory);
-  
-  void addMemoryState(EventLocation const &EvLoc,
-                      EventRecord<EventType::StateMemmove> const &Ev,
-                      MemoryState &Memory);
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateMemmove> const &Ev,
-                          MemoryState &Memory);
-  
-  void restoreMemoryState(EventLocation const &EvLoc,
-                          EventRecord<EventType::StateMemmove> const &Ev,
-                          MemoryArea const &InArea,
-                          MemoryState &Memory);
-  
-  template<EventType ET>
-  void addMemoryState(
-          EventLocation const &EvLoc,
-          EventRecord<ET> const &Ev,
-          MemoryState &Memory,
-          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
-  {
-    llvm::errs() << "\ncalled addMemoryState/3 for EventType "
-                 << describe(ET) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  template<EventType ET>
-  void restoreMemoryState(
-          EventLocation const &EvLoc,
-          EventRecord<ET> const &Ev,
-          MemoryState &Memory,
-          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
-  {
-    llvm::errs() << "\ncalled restoreMemoryState/3 for EventType "
-                 << describe(ET) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  template<EventType ET>
-  void restoreMemoryState(
-          EventLocation const &EvLoc,
-          EventRecord<ET> const &Ev,
-          MemoryArea const &InArea,
-          MemoryState &Memory,
-          typename std::enable_if<!is_memory_state<ET>::value>::type* = nullptr)
-  {
-    llvm::errs() << "\ncalled restoreMemoryState/4 for EventType "
-                 << describe(ET) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  void restoreMemoryState(EventLocation const &Ev,
-                          MemoryState &Memory);
-  
-  void restoreMemoryState(EventLocation const &Ev,
-                          MemoryState &Memory,
-                          MemoryArea const &InArea);
-  
-  /// @}
-  
-
   /// \name Movement
   /// @{
 
@@ -207,6 +97,7 @@ class ThreadState {
   void addEvent(EventRecord<EventType::Alloca> const &);
   void addEvent(EventRecord<EventType::Malloc> const &);
   void addEvent(EventRecord<EventType::Free> const &);
+  void addEvent(EventRecord<EventType::Realloc> const &);
   void addEvent(EventRecord<EventType::StateTyped> const &);
   void addEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void addEvent(EventRecord<EventType::StateUntyped> const &);
@@ -228,6 +119,15 @@ class ThreadState {
   /// a defined addEvent (i.e. types with the trait is_subservient). Calling
   /// this function at runtime is an error.
   void addEvent(...) { llvm_unreachable("addEvent(...) called!"); }
+
+  /// Special handling when re-adding Allocas during the implementation of
+  /// another event (avoids adding the associated allocation to MemoryState).
+  void readdEvent(EventRecord<EventType::StackRestore> const &);
+  void readdEvent(EventRecord<EventType::Alloca> const &);
+  void readdEvent(EventRecord<EventType::ByValRegionAdd> const &);
+
+  template<EventType ET>
+  void readdEvent(EventRecord<ET> const &Ev, ...) { addEvent(Ev); }
 
 public:
   /// Add the event referenced by NextEvent to the state, and then increment
@@ -254,19 +154,12 @@ private:
   void removeEvent(EventRecord<EventType::Alloca> const &);
   void removeEvent(EventRecord<EventType::Malloc> const &);
   void removeEvent(EventRecord<EventType::Free> const &);
-  bool removeEventIfOverwrite(EventReference EvRef);
+  void removeEvent(EventRecord<EventType::Realloc> const &);
   void removeEvent(EventRecord<EventType::StateTyped> const &);
   void removeEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void removeEvent(EventRecord<EventType::StateUntyped> const &);
   void removeEvent(EventRecord<EventType::StateMemmove> const &);
   void removeEvent(EventRecord<EventType::StateClear> const &);
-  void removeEvent(EventRecord<EventType::StateOverwrite> const &);
-  void removeEvent(EventRecord<EventType::StateOverwriteFragment> const &);
-  void removeEvent(
-    EventRecord<EventType::StateOverwriteFragmentTrimmedRight> const &);
-  void removeEvent(
-    EventRecord<EventType::StateOverwriteFragmentTrimmedLeft> const &);
-  void removeEvent(EventRecord<EventType::StateOverwriteFragmentSplit> const &);
   void removeEvent(EventRecord<EventType::KnownRegionAdd> const &);
   void removeEvent(EventRecord<EventType::KnownRegionRemove> const &);
   void removeEvent(EventRecord<EventType::ByValRegionAdd> const &);
