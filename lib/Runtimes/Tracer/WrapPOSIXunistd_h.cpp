@@ -151,6 +151,8 @@ int
 SEEC_MANGLE_FUNCTION(dup3)
 (int const oldfd, int const newfd, int const flags)
 {
+  extern int dup3(int oldfd, int newfd, int flags) __attribute__((weak));
+
   return seec::SimpleWrapper<>
          {seec::runtime_errors::format_selects::CStdFunction::dup3}
          (dup3,
