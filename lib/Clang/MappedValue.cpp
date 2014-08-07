@@ -1002,14 +1002,17 @@ class ValueByMemoryForArray final : public ValueOfArray {
       return uint64_t(Size.getQuantity());
 
     if (auto const VAType = llvm::dyn_cast<clang::VariableArrayType>(Type)) {
-      auto const ElemSize = calculateElementTypeSize(ASTContext,
-                                                     VAType->getElementType().getTypePtr(),
-                                                     OwningFunction,
-                                                     Mapping);
+      auto const ElemSize =
+        calculateElementTypeSize(ASTContext,
+                                 VAType->getElementType().getTypePtr(),
+                                 OwningFunction,
+                                 Mapping);
       if (!ElemSize.assigned<uint64_t>())
-        return ElemSize;
+        return Maybe<uint64_t>();
 
-      auto const MappedStmt = Mapping.getMappedStmtForStmt(VAType->getSizeExpr());
+      auto const MappedStmt =
+        Mapping.getMappedStmtForStmt(VAType->getSizeExpr());
+
       if (!MappedStmt ||
           MappedStmt->getMapType() != seec_clang::MappedStmt::Type::RValScalar)
       {
@@ -1053,10 +1056,11 @@ public:
       if (OwningFunction) {
         if (auto StorePtr = Store.lock()) {
           auto const &Mapping = StorePtr->getImpl().getMapping();
-          auto const MaybeSize = calculateElementTypeSize(ASTContext,
-                                                          ElementTy.getTypePtr(),
-                                                          *OwningFunction,
-                                                          Mapping);
+          auto const MaybeSize =
+            calculateElementTypeSize(ASTContext,
+                                     ElementTy.getTypePtr(),
+                                     *OwningFunction,
+                                     Mapping);
           if (MaybeSize.assigned<uint64_t>())
             ElementSize = MaybeSize.get<uint64_t>();
         }
