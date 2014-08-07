@@ -1146,14 +1146,17 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
           recordRealloc(NewAddress, Size);
         }
         else {
+          // This allocation will be overwritten by the below call to
+          // recordMalloc, so we have to extract the size from it here.
           auto const Alloc =
             ProcessListener.getCurrentDynamicMemoryAllocation(OldAddress);
+          auto const CopySize = std::min(Alloc->size(), Size);
 
           // Malloc new address.
           recordMalloc(NewAddress, Size);
 
           // Record the state that was copied to the new address.
-          recordMemmove(OldAddress, NewAddress, Alloc->size());
+          recordMemmove(OldAddress, NewAddress, CopySize);
 
           // Free previous address and clear the memory.
           recordFreeAndClear(OldAddress);
