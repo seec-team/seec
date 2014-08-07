@@ -122,12 +122,15 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   // Add a TracedFunction to the stack and make it the ActiveFunction.
   {
     std::lock_guard<std::mutex> Lock(FunctionStackMutex);
-    auto const Parent = ActiveFunction;
+    auto const PriorStackSize = FunctionStack.size();
 
     FunctionStack.emplace_back(*this,
                                *FIndex,
                                *RecordedFunctions.back(),
                                std::move(PtrArgObjects));
+
+    auto const Parent = PriorStackSize ? &(FunctionStack[PriorStackSize-1])
+                                       : nullptr;
 
     ActiveFunction = &(FunctionStack.back());
 
