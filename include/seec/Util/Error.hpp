@@ -19,6 +19,10 @@
 #include <memory>
 
 
+namespace llvm {
+  class raw_ostream;
+}
+
 namespace seec {
 
 
@@ -79,6 +83,9 @@ public:
     return Message->describe();
   }
 };
+
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, Error const &Err);
 
 
 } // namespace seec

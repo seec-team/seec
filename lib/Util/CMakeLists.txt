@@ -26,6 +26,7 @@ set(HEADERS
   )
 
 set(SOURCES
+  Error.cpp
   Printing.cpp
   Resources.cpp
   SynchronizedExit.cpp
