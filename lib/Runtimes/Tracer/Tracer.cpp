@@ -266,6 +266,8 @@ ProcessEnvironment::ProcessEnvironment()
   }
   else {
     llvm::errs() << "\nSeeC: Failed to create output stream allocator.\n";
+    if (MaybeOutput.assigned<seec::Error>())
+      llvm::errs() << MaybeOutput.get<seec::Error>();
     exit(EXIT_FAILURE);
   }
   
