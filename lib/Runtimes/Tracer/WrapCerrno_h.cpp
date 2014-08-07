@@ -19,12 +19,11 @@
 
 extern "C" {
 
-extern int *__errno_location() __attribute__((weak));
-
 int *
 SEEC_MANGLE_FUNCTION(__errno_location)
 ()
 {
+  extern int *__errno_location() __attribute__((weak));
   assert(__errno_location);
 
   return seec::SimpleWrapper
@@ -32,6 +31,24 @@ SEEC_MANGLE_FUNCTION(__errno_location)
           {seec::runtime_errors::format_selects::CStdFunction::__errno_location}
           .returnPointerIsNewAndValid()
           (__errno_location,
+           [](int const * const Result){ return Result != nullptr; },
+           seec::ResultStateRecorderForStaticInternalObject{
+             seec::MemoryPermission::ReadWrite
+           });
+}
+
+int *
+SEEC_MANGLE_FUNCTION(__error)
+()
+{
+  extern int *__error() __attribute__((weak));
+  assert(__error);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+          {seec::runtime_errors::format_selects::CStdFunction::__error}
+          .returnPointerIsNewAndValid()
+          (__error,
            [](int const * const Result){ return Result != nullptr; },
            seec::ResultStateRecorderForStaticInternalObject{
              seec::MemoryPermission::ReadWrite

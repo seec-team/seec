@@ -41,6 +41,7 @@ SEEC_FORMAT_SELECT(CStdFunction,
   // errno.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, __errno_location, "__errno_location")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, __error,          "__error")
 
   //----------------------------------------------------------------------------
   // fenv.h
