@@ -610,11 +610,11 @@ OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
 {
   // Remove highlighting from the existing value (if any).
   if (auto const Prev = MouseOver.get()) {
-    if (auto const DV = llvm::dyn_cast<DisplayableValue>(Prev)) {
+    if (llvm::isa<DisplayableValue>(Prev)) {
       if (auto Access = CurrentAccess->getAccess())
         Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
     }
-    else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(Prev)) {
+    else if (llvm::isa<DisplayableDereference>(Prev)) {
       if (auto Access = CurrentAccess->getAccess())
         Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
     }

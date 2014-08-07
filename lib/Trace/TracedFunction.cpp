@@ -163,11 +163,9 @@ PointerTarget TracedFunction::getPointerObject(llvm::Value const *V) const
     return getPointerObject(I);
   else if (auto const A = llvm::dyn_cast<llvm::Argument>(V))
     return getPointerObject(A);
-  else if (auto const C = llvm::dyn_cast<llvm::Constant>(V)) {
-    if (auto const CE = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
-      if (CE->isCast()) {
-        return getPointerObject(CE->getOperand(0));
-      }
+  else if (auto const CE = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+    if (CE->isCast()) {
+      return getPointerObject(CE->getOperand(0));
     }
   }
   return ThreadListener.getProcessListener().getPointerObject(V);

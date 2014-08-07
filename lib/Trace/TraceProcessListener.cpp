@@ -517,7 +517,7 @@ static bool TypeIsOrContainsPointer(llvm::Type const *Ty)
 void TraceProcessListener::setGVInitialIMPO(llvm::Type *ElemTy,
                                             uintptr_t Address)
 {
-  if (auto const PTy = llvm::dyn_cast<llvm::PointerType>(ElemTy)) {
+  if (llvm::isa<llvm::PointerType>(ElemTy)) {
     // Get the value of the pointer from memory.
     auto const Value = *reinterpret_cast<uintptr_t const *>(Address);
     if (Value) {
