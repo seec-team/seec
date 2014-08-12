@@ -112,7 +112,7 @@ public:
   llvm::AllocaInst const *getInstruction() const;
 
   /// \brief Get the region of memory belonging to this AllocaState.
-  MemoryState::Region getMemoryRegion() const;
+  MemoryStateRegion getMemoryRegion() const;
 
   /// @} (Queries)
 

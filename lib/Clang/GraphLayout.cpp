@@ -884,65 +884,65 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
   std::size_t ElidingFrom;
   std::string ElidedPort;
   
-  auto ChildValue = Array.getChildAt(0);
-  if (ChildValue) {
-    auto const FirstAddress = ChildValue->getAddress();
-    auto const ChildSize = ChildValue->getTypeSizeInChars().getQuantity();
-    
+  assert(Array.isInMemory());
+  auto const FirstAddress = Array.getAddress();
+  auto const ChildSize    = Array.getChildSize();
+  auto const Region       = Array.getUnmappedMemoryRegion().get<0>();
+
+  auto const Data = Region.getByteValues();
+  auto const Init = Region.getByteInitialization();
+
+  if (ChildCount * ChildSize <= Data.size()) {
     for (unsigned i = 0; i < ChildCount; ++i) {
-      auto const Start = FirstAddress + (i * ChildSize);
-      auto const End = Start + ChildSize;
-      
-      ChildValue = Array.getChildAt(i);
-      if (!ChildValue)
-        continue;
-      
-      auto const &ChildArray = llvm::cast<ValueOfArray const>(*ChildValue);
-      if (ChildArray.getChildCount() == 0)
-        continue;
-      
-      auto const FirstChar = ChildArray.getChildAt(0);
-      auto const &Scalar = llvm::cast<ValueOfScalar const>(*FirstChar);
-      
-      auto const IsEmpty = !Scalar.isCompletelyInitialized() || Scalar.isZero();
+      auto const Offset = (i * ChildSize);
+      auto const IsEmpty =
+        Init[Offset] != std::numeric_limits<unsigned char>::max()
+        || Data[Offset] == 0;
+
+      auto const Start = FirstAddress + Offset;
+      auto const End   = Start + ChildSize;
       auto const IsReferenced = E.isAreaReferenced(Start, End);
-      
+
       if (IsEmpty && !IsReferenced) {
         if (!Eliding) {
           Eliding = true;
           ElidingFrom = i;
           ElidedPort = getStandardPortFor(V) + "_elided_" +
-                       std::to_string(ElidingFrom);
+                        std::to_string(ElidingFrom);
         }
-        
+
         continue;
       }
-      
+
+      auto const ChildValue = Array.getChildAt(i);
+      if (!ChildValue)
+        continue;
+
       if (Eliding) {
         // This element is non-empty or referenced, so stop eliding and
         // resume layout.
         Eliding = false;
-        
+
         // Write a row for the elided elements.
         Stream << "<TR><TD PORT=\"" << ElidedPort
-               << "\">&#91;" << ElidingFrom;
+                << "\">&#91;" << ElidingFrom;
         if (ElidingFrom < i - 1)
           Stream << " &#45; " << (i - 1);
         Stream << "&#93;</TD><TD>";
-        
+
         // Attempt to format and insert the elision placeholder text.
         UErrorCode Status = U_ZERO_ERROR;
         auto const Formatted = seec::format(ElidedText, Status,
                                             int64_t(i - ElidingFrom));
         if (U_SUCCESS(Status))
           Stream << EscapeForHTML(Formatted);
-        
+
         Stream << "</TD></TR>";
       }
-      
+
       // Layout this referenced value.
       Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
-      
+
       auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
       if (MaybeLayout.assigned<LayoutOfValue>()) {
         auto const &Layout = MaybeLayout.get<LayoutOfValue>();

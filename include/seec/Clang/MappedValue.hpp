@@ -15,6 +15,7 @@
 #define SEEC_CLANG_MAPPEDVALUE_HPP
 
 
+#include "seec/Trace/MemoryState.hpp"
 #include "seec/Util/Fallthrough.hpp"
 
 #include "clang/AST/CharUnits.h"
@@ -66,6 +67,11 @@ private:
   /// General Kind of this Value.
   Kind ThisKind;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const =0;
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const =0;
@@ -109,6 +115,12 @@ public:
   /// pre: isInMemory() == true
   ///
   virtual uintptr_t getAddress() const =0;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  seec::Maybe<seec::trace::MemoryStateRegion> getUnmappedMemoryRegion() const {
+    return getUnmappedMemoryRegionImpl();
+  }
   
   /// \brief Get the size of the value's type.
   ///
@@ -173,6 +185,10 @@ public:
 /// \brief Represents an aggregate's runtime value.
 ///
 class ValueOfArray : public Value {
+  /// \brief Get the size of each child in this value.
+  ///
+  virtual std::size_t getChildSizeImpl() const =0;
+
 public:
   /// \brief Constructor.
   ///
@@ -193,6 +209,10 @@ public:
   /// \brief Get a child of this value.
   ///
   virtual std::shared_ptr<Value const> getChildAt(unsigned Index) const =0;
+
+  /// \brief Get the size of each child in this value.
+  ///
+  std::size_t getChildSize() const { return getChildSizeImpl(); }
 };
 
 

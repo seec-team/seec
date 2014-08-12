@@ -138,6 +138,69 @@ public:
 };
 
 
+class MemoryState;
+
+
+/// \brief Represents a single region of MemoryState.
+///
+class MemoryStateRegion {
+  MemoryState const &State; ///< The state that this region belongs to.
+
+  MemoryArea const Area; ///< The area that this region covers.
+
+public:
+  /// \name Constructors
+  /// @{
+
+  /// \brief Construct a new Region covering an area in the given state.
+  ///
+  MemoryStateRegion(MemoryState const &InState, MemoryArea RegionArea)
+  : State(InState),
+    Area(RegionArea)
+  {}
+
+  /// @} (Constructors)
+
+  /// \name Accessors
+  /// @{
+
+  /// \brief Get the state that this region belongs to.
+  ///
+  MemoryState const &getState() const { return State; }
+
+  /// \brief Get the area that this region covers.
+  ///
+  MemoryArea const &getArea() const { return Area; }
+
+  /// @}
+
+  /// \name Queries
+  /// @{
+
+  /// \brief Find out if the contained bytes are initialized.
+  ///
+  bool isCompletelyInitialized() const;
+
+  /// \brief Find out if any contained byte is initialized.
+  /// If the region is completely initialized, this method will also return
+  /// true.
+  ///
+  bool isPartiallyInitialized() const;
+
+  /// \brief Find out whether each contained byte is initialized.
+  ///
+  llvm::ArrayRef<unsigned char> getByteInitialization() const;
+
+  /// \brief Find out the value of each contained byte.
+  ///
+  /// Uninitialized bytes will have a value of zero.
+  ///
+  llvm::ArrayRef<char> getByteValues() const;
+
+  /// @}
+};
+
+
 /// \brief The complete reconstructed state of memory.
 ///
 /// The memory state is stored as a collection of \c MemoryAllocation objects.
@@ -262,69 +325,10 @@ public:
   /// \name Regions
   /// @{
 
-  /// \brief Represents a single region of MemoryState.
-  ///
-  class Region {
-    MemoryState const &State; ///< The state that this region belongs to.
-
-    MemoryArea const Area; ///< The area that this region covers.
-
-  public:
-    /// \name Constructors
-    /// @{
-
-    /// \brief Construct a new Region covering an area in the given state.
-    ///
-    Region(MemoryState const &InState, MemoryArea RegionArea)
-    : State(InState),
-      Area(RegionArea)
-    {}
-
-    /// @} (Constructors)
-
-    /// \name Accessors
-    /// @{
-
-    /// \brief Get the state that this region belongs to.
-    ///
-    MemoryState const &getState() const { return State; }
-
-    /// \brief Get the area that this region covers.
-    ///
-    MemoryArea const &getArea() const { return Area; }
-
-    /// @}
-
-    /// \name Queries
-    /// @{
-
-    /// \brief Find out if the contained bytes are initialized.
-    ///
-    bool isCompletelyInitialized() const;
-    
-    /// \brief Find out if any contained byte is initialized.
-    /// If the region is completely initialized, this method will also return
-    /// true.
-    ///
-    bool isPartiallyInitialized() const;
-
-    /// \brief Find out whether each contained byte is initialized.
-    ///
-    llvm::ArrayRef<unsigned char> getByteInitialization() const;
-    
-    /// \brief Find out the value of each contained byte.
-    ///
-    /// Uninitialized bytes will have a value of zero.
-    ///
-    llvm::ArrayRef<char> getByteValues() const;
-
-    /// @}
-  };
-
   /// \brief Get a Region covering the given area.
   ///
-  Region getRegion(MemoryArea Area) const {
-    return Region(*this, Area);
+  MemoryStateRegion getRegion(MemoryArea Area) const {
+    return MemoryStateRegion(*this, Area);
   }
 
   /// @} (Regions)

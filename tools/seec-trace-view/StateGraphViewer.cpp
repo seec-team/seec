@@ -905,8 +905,7 @@ void StateGraphViewerPanel::renderGraph()
   if (!WebView || PathToDot.empty())
     return;
 
-  if (WebView && !PathToDot.empty())
-    WebView->RunScript(wxString{"ClearState();"});
+  WebView->RunScript(wxString{"ClearState();"});
 
   // Send the rendering task to the worker thread.
   std::unique_lock<std::mutex> Lock{TaskMutex};

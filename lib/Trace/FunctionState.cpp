@@ -36,7 +36,7 @@ llvm::AllocaInst const *AllocaState::getInstruction() const {
   return llvm::cast<llvm::AllocaInst>(Inst);
 }
 
-MemoryState::Region AllocaState::getMemoryRegion() const {
+MemoryStateRegion AllocaState::getMemoryRegion() const {
   auto &Thread = Parent->getParent();
   auto &Process = Thread.getParent();
   auto &Memory = Process.getMemory();

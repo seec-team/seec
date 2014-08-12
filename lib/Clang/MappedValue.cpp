@@ -143,7 +143,7 @@ public:
 
 template<typename T>
 struct GetMemoryOfBuiltinAsString {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
+  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
     if (Region.getArea().length() != sizeof(T))
       return std::string("<size mismatch>");
     
@@ -154,7 +154,7 @@ struct GetMemoryOfBuiltinAsString {
 
 template<>
 struct GetMemoryOfBuiltinAsString<char> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
+  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
     if (Region.getArea().length() != sizeof(char))
       return std::string("<size mismatch>");
     
@@ -187,7 +187,7 @@ struct GetMemoryOfBuiltinAsString<char> {
 
 template<>
 struct GetMemoryOfBuiltinAsString<void const *> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
+  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
     if (Region.getArea().length() != sizeof(void const *))
       return std::string("<size mismatch>");
     
@@ -205,14 +205,14 @@ struct GetMemoryOfBuiltinAsString<void const *> {
 
 template<>
 struct GetMemoryOfBuiltinAsString<void> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
+  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
     return std::string("<void>");
   }
 };
 
 std::string
 getScalarValueAsString(::clang::BuiltinType const *Type,
-                       seec::trace::MemoryState::Region const &Region)
+                       seec::trace::MemoryStateRegion const &Region)
 {
   switch (Type->getKind()) {
 #define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
@@ -286,7 +286,7 @@ getScalarValueAsString(::clang::BuiltinType const *Type,
 
 std::string
 getScalarValueAsString(::clang::Type const *Type,
-                       seec::trace::MemoryState::Region const &Region)
+                       seec::trace::MemoryStateRegion const &Region)
 {
   auto const CanonQualType = Type->getCanonicalTypeInternal();
   auto const CanonType = CanonQualType.getTypePtr();
@@ -394,6 +394,13 @@ class ValueByMemoryForScalar final : public ValueOfScalar {
   /// The state of recorded memory.
   seec::trace::MemoryState const &Memory;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -405,14 +412,12 @@ class ValueByMemoryForScalar final : public ValueOfScalar {
   /// pre: isCompletelyInitialized() == true
   ///
   virtual bool isZeroImpl() const override {
-    auto const Region = Memory.getRegion(MemoryArea(Address,
-                                                    Size.getQuantity()));
-    
-    for (auto const Byte: Region.getByteValues())
-      if (Byte)
-        return false;
-    
-    return true;
+    auto const Values = Memory.getRegion(MemoryArea(Address,
+                                                    Size.getQuantity()))
+                              .getByteValues();
+
+    return std::all_of(Values.begin(), Values.end(),
+                       [] (char const V) { return V == 0; });
   }
   
 public:
@@ -531,6 +536,15 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
     ProcessState(ForProcessState)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address,
+                           std::size_t(getTypeSizeInCharsImpl().getQuantity())};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -743,12 +757,21 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
     ProcessState(ForProcessState)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address,
+                           std::size_t(getTypeSizeInCharsImpl().getQuantity())};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
     return ASTContext.getTypeSizeInChars(CanonicalType);
   }
-  
+
 public:
   /// \brief Attempt to create a new instance of this class.
   ///
@@ -985,10 +1008,24 @@ class ValueByMemoryForArray final : public ValueOfArray {
     OwningFunction(WithOwningFunction)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address, ElementSize * ElementCount};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
     return ASTContext.getTypeSizeInChars(CanonicalType);
+  }
+
+  /// \brief Get the size of each child in this value.
+  ///
+  virtual std::size_t getChildSizeImpl() const override {
+    return ElementSize;
   }
   
   static Maybe<uint64_t>
@@ -1637,6 +1674,13 @@ class ValueByRuntimeValueForScalar final : public ValueOfScalar {
   /// The size of this value.
   ::clang::CharUnits TypeSizeInChars;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -1757,6 +1801,13 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
     PointeeSize(WithPointeeSize)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {

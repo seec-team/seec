@@ -170,6 +170,35 @@ void MemoryAllocation::resize(std::size_t const NewSize)
 }
 
 //------------------------------------------------------------------------------
+// MemoryStateRegion
+//------------------------------------------------------------------------------
+
+bool MemoryStateRegion::isCompletelyInitialized() const
+{
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+  auto const Initialization = getByteInitialization();
+  return std::all_of(Initialization.begin(), Initialization.end(),
+                     [] (unsigned char const Byte) { return Byte == Complete;});
+}
+
+bool MemoryStateRegion::isPartiallyInitialized() const
+{
+  auto const Initialization = getByteInitialization();
+  return std::any_of(Initialization.begin(), Initialization.end(),
+                     [] (unsigned char const Value) { return Value != 0; });
+}
+
+llvm::ArrayRef<unsigned char> MemoryStateRegion::getByteInitialization() const
+{
+  return State.getAllocation(Area).getAreaInitialization(Area);
+}
+
+llvm::ArrayRef<char> MemoryStateRegion::getByteValues() const
+{
+  return State.getAllocation(Area).getAreaData(Area);
+}
+
+//------------------------------------------------------------------------------
 // MemoryState
 //------------------------------------------------------------------------------
 
@@ -410,37 +439,6 @@ void MemoryState::removeClear(MemoryArea Area)
   }
 
   It->second.rewindArea(Area);
-}
-
-
-
-//------------------------------------------------------------------------------
-// MemoryState::Region
-//------------------------------------------------------------------------------
-
-bool MemoryState::Region::isCompletelyInitialized() const
-{
-  auto const Complete = std::numeric_limits<unsigned char>::max();
-  auto const Initialization = getByteInitialization();
-  return std::all_of(Initialization.begin(), Initialization.end(),
-                     [] (unsigned char const Byte) { return Byte == Complete;});
-}
-
-bool MemoryState::Region::isPartiallyInitialized() const
-{
-  auto const Initialization = getByteInitialization();
-  return std::any_of(Initialization.begin(), Initialization.end(),
-                     [] (unsigned char const Value) { return Value != 0; });
-}
-
-llvm::ArrayRef<unsigned char> MemoryState::Region::getByteInitialization() const
-{
-  return State.getAllocation(Area).getAreaInitialization(Area);
-}
-
-llvm::ArrayRef<char> MemoryState::Region::getByteValues() const
-{
-  return State.getAllocation(Area).getAreaData(Area);
 }
 
 
