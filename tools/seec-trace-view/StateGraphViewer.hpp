@@ -18,6 +18,7 @@
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -281,6 +282,9 @@ class StateGraphViewerPanel final : public wxPanel
 
   /// Worker's process state.
   seec::cm::ProcessState const *TaskProcess;
+
+  /// Used to indicate that graph generation should be terminated.
+  std::atomic_bool ContinueGraphGeneration;
 
   /// The WebView used to display the rendered state graphs.
   wxWebView *WebView;

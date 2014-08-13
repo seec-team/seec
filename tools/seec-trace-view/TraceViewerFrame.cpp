@@ -431,6 +431,9 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 }
 
 void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
+  // Clear the current state from this graph viewer.
+  GraphViewer->clear();
+  
   // Deny future access to the state (this will wait for current readers to
   // complete their work).
   if (StateAccess)
@@ -473,6 +476,9 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
 }
 
 void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
+  // Clear the current state from this graph viewer.
+  GraphViewer->clear();
+  
   // Deny future access to the state (this will wait for current readers to
   // complete their work).
   if (StateAccess)

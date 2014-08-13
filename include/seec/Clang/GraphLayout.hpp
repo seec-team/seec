@@ -20,6 +20,7 @@
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -457,6 +458,14 @@ public:
            seec::cm::ValueOfPointer const &Reference,
            Expansion const &Exp) const;
   
+  /// \brief Perform expansion and layout for a process state.
+  ///
+  /// Cancel expansion and layout if \c CancelIfFalse is false.
+  ///
+  LayoutOfProcess
+  doLayout(seec::cm::ProcessState const &State,
+           std::atomic_bool &CancelIfFalse) const;
+
   /// \brief Perform expansion and layout for a process state.
   ///
   LayoutOfProcess

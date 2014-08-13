@@ -2042,12 +2042,11 @@ static
 LayoutOfProcess
 doLayout(LayoutHandler const &Handler,
          seec::cm::ProcessState const &State,
-         seec::cm::graph::Expansion const &Expansion)
+         seec::cm::graph::Expansion const &Expansion,
+         std::atomic_bool &CancelIfFalse)
 {
   auto const TimeStart = std::chrono::steady_clock::now();
   
-#ifndef _LIBCPP_VERSION
-
   // Create tasks to generate global variable layouts.
   std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
   
@@ -2119,58 +2118,6 @@ doLayout(LayoutHandler const &Handler,
       std::async([&, Dir] () {
         return doLayout(Dir.second, Expansion); } ));
   }
-
-#else // _LIBCPP_VERSION
-
-  // Generate global variable layouts.
-  std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
-  
-  for (auto const &Global : State.getGlobalVariables()) {
-    if (Global->isInSystemHeader() && !Global->isReferenced())
-      continue;
-    
-    GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
-  }
-  
-  // Generate thread layouts.
-  std::vector<LayoutOfThread> ThreadLayouts;
-  
-  for (std::size_t i = 0; i < State.getThreadCount(); ++i)
-    ThreadLayouts.emplace_back(doLayout(Handler,
-                               State.getThread(i),
-                               Expansion));
-  
-  // Generate area layouts.
-  std::vector<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>> AreaLayouts;
-  
-  for (auto const &Area : State.getUnmappedStaticAreas())
-    AreaLayouts.emplace_back(
-      doLayout(Handler, Area, Expansion, AreaType::Static));
-  
-  for (auto const &Malloc : State.getDynamicMemoryAllocations())
-    AreaLayouts.emplace_back(doLayout(Handler,
-                                      MemoryArea(Malloc.getAddress(),
-                                                 Malloc.getSize()),
-                                      Expansion,
-                                      AreaType::Dynamic));
-  
-  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory())
-    AreaLayouts.emplace_back(doLayout(Handler,
-                                      MemoryArea(Known.Begin,
-                                                 (Known.End - Known.Begin) + 1,
-                                                 Known.Value),
-                                      Expansion,
-                                      AreaType::Static));
-  
-  // Generate stream layouts.
-  for (auto const &Stream : State.getStreams())
-    AreaLayouts.emplace_back(doLayout(Stream.second, Expansion));
-  
-  // Generate DIR layouts.
-  for (auto const &Dir : State.getDIRs())
-    AreaLayouts.emplace_back(doLayout(Dir.second, Expansion));
-  
-#endif // _LIBCPP_VERSION
   
   // Retrieve results and combine layouts.
   std::string DotString;
@@ -2184,11 +2131,10 @@ doLayout(LayoutHandler const &Handler,
             << "rankdir=LR;\n";
   
   for (auto &GlobalFuture : GlobalVariableLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Layout = GlobalFuture.get();
-#else
-    auto const &Layout = GlobalFuture;
-#endif
 
     DotStream << Layout.getDotString();
     
@@ -2199,11 +2145,10 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &ThreadFuture : ThreadLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Layout = ThreadFuture.get();
-#else
-    auto const &Layout = ThreadFuture;
-#endif
     
     DotStream << Layout.getDotString();
     
@@ -2213,11 +2158,10 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &AreaFuture : AreaLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Result = AreaFuture.get();
-#else
-    auto const &Result = AreaFuture;
-#endif
 
     auto const &MaybeLayout = Result.first;
     if (!MaybeLayout.assigned<LayoutOfArea>())
@@ -2449,9 +2393,20 @@ LayoutHandler::doLayout(seec::MemoryArea const &Area,
 }
 
 LayoutOfProcess
+LayoutHandler::doLayout(seec::cm::ProcessState const &State,
+                        std::atomic_bool &CancelIfFalse) const
+{
+  return seec::cm::graph::doLayout(*this,
+                                   State,
+                                   Expansion::from(State),
+                                   CancelIfFalse);
+}
+
+LayoutOfProcess
 LayoutHandler::doLayout(seec::cm::ProcessState const &State) const
 {
-  return seec::cm::graph::doLayout(*this, State, Expansion::from(State));
+  std::atomic_bool CancelIfFalse (true);
+  return doLayout(State, CancelIfFalse);
 }
 
 

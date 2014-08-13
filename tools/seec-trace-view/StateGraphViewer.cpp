@@ -209,11 +209,12 @@ std::string StateGraphViewerPanel::workerGenerateDot()
 {
   // Lock the current state while we read from it.
   auto Lock = TaskAccess->getAccess();
-  if (!Lock || !TaskProcess)
+  if (!Lock || !TaskProcess || !ContinueGraphGeneration)
     return std::string();
 
   std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-  auto const Layout = LayoutHandler->doLayout(*TaskProcess);
+  auto const Layout = LayoutHandler->doLayout(*TaskProcess,
+                                              ContinueGraphGeneration);
   auto const GraphString = Layout.getDotString();
 
   auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
@@ -241,8 +242,10 @@ void StateGraphViewerPanel::workerTaskLoop()
 
     // Create a graph of the process state in dot format.
     auto const GraphString = workerGenerateDot();
-    if (GraphString.empty())
+    if (GraphString.empty()) {
+      wxLogDebug("GraphString.empty()");
       continue;
+    }
 
     // The remainder of the graph generation does not use the state, so we can
     // release access to the task information.
@@ -423,6 +426,7 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   TaskCV(),
   TaskAccess(),
   TaskProcess(nullptr),
+  ContinueGraphGeneration(false),
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
@@ -911,6 +915,7 @@ void StateGraphViewerPanel::renderGraph()
   std::unique_lock<std::mutex> Lock{TaskMutex};
   TaskAccess = CurrentAccess;
   TaskProcess = CurrentProcess;
+  ContinueGraphGeneration = true;
   Lock.unlock();
   TaskCV.notify_one();
 }
@@ -959,8 +964,13 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
 
 void StateGraphViewerPanel::clear()
 {
+  // If the graph generation is still running, then terminate it now.
+  ContinueGraphGeneration = false;
+
+  // Clear any existing graph from the WebView.
   if (WebView && !PathToDot.empty())
     WebView->RunScript(wxString{"ClearState();"});
+
   MouseOver.reset();
 }
 
