@@ -533,14 +533,18 @@ void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
 }
 
 void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
-#ifdef __WXMAC_
+#ifdef __WXMAC__
   wxApp::SetExitOnFrameDelete(true);
 #endif
+
+  bool WindowsClosed = false;
 
 #ifdef SEEC_SHOW_DEBUG
   if (LogWindow) {
     if (auto Frame = LogWindow->GetFrame()) {
       Frame->Close(true);
+      LogWindow = nullptr;
+      WindowsClosed = true;
     }
   }
 #endif
@@ -548,12 +552,22 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
   if (Welcome) {
     Welcome->Close(true);
     Welcome = nullptr;
+    WindowsClosed = true;
   }
 
   for (auto Window : TopLevelWindows) {
     Window->Close(true);
+    WindowsClosed = true;
   }
   TopLevelWindows.clear();
+
+#ifdef __WXMAC__
+  // On Mac OS X, there may be no top-level windows when the the exit command
+  // is raised (i.e. if the user closed the welcome frame and all trace frames
+  // before attempting to quit the program). In this case we must exit manually:
+  if (!WindowsClosed)
+    ExitMainLoop();
+#endif
 }
 
 void TraceViewerApp::Raise()
