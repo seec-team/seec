@@ -188,6 +188,13 @@ bool MemoryStateRegion::isPartiallyInitialized() const
                      [] (unsigned char const Value) { return Value != 0; });
 }
 
+bool MemoryStateRegion::isUninitialized() const
+{
+  auto const Init = getByteInitialization();
+  return std::all_of(Init.begin(), Init.end(),
+                     [] (unsigned char const C) { return C == 0; });
+}
+
 llvm::ArrayRef<unsigned char> MemoryStateRegion::getByteInitialization() const
 {
   return State.getAllocation(Area).getAreaInitialization(Area);

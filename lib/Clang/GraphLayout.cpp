@@ -36,6 +36,7 @@
 #include "unicode/locid.h"
 #include "unicode/unistr.h"
 
+#include <algorithm>
 #include <future>
 
 
@@ -1048,7 +1049,6 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
-  unsigned const ChildCount = Array.getChildCount();
   
   Stream << "<TD PORT=\""
          << getStandardPortFor(V)
@@ -1056,7 +1056,17 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   Handler.writeStandardProperties(Stream, V);
   Stream << ">";
   
-  // Exit early if the array has no children.
+  assert(Array.isInMemory());
+
+  auto const FirstAddress = Array.getAddress();
+  auto const ChildCount   = Array.getChildCount();
+  auto const ChildSize    = Array.getChildSize();
+  auto const Region       = Array.getUnmappedMemoryRegion().get<0>();
+
+  assert(Region.getByteValues().size() >= ChildCount * ChildSize);
+
+  // Exit early if the array has no children, or if the memory region isn't
+  // sufficiently large to contain all of the children.
   if (ChildCount == 0) {
     Stream << "</TD>";
     Stream.flush();
@@ -1070,15 +1080,18 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   std::string ElidedPort;
   
   for (unsigned i = 0; i < ChildCount; ++i) {
-    auto const ChildValue = Array.getChildAt(i);
-    if (!ChildValue)
-      continue;
+    auto const Start = FirstAddress + (i * ChildSize);
+    auto const SubRegion = Region.getState().getRegion(MemoryArea(Start,
+                                                                  ChildSize));
+
+    auto const Data = SubRegion.getByteValues();
+    auto const IsEmpty = SubRegion.isUninitialized()
+      || std::all_of(Data.begin(), Data.end(),
+                     [] (char const C) { return C == 0; });
+
+    auto const IsReferenced = E.isAreaReferenced(Start, Start + ChildSize);
     
-    auto const &Scalar = llvm::cast<ValueOfScalar const>(*ChildValue);
-    auto const Elide = (!Scalar.isCompletelyInitialized() || Scalar.isZero())
-                        && !E.isReferencedDirectly(*ChildValue);
-    
-    if (Elide) {
+    if (IsEmpty && !IsReferenced) {
       if (!Eliding) {
         Eliding = true;
         ElidingFrom = i;
@@ -1111,6 +1124,10 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
     }
     
     // Layout this referenced value.
+    auto const ChildValue = Array.getChildAt(i);
+    if (!ChildValue)
+      continue;
+    
     Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
     
     auto const MaybeLayout = Handler.doLayout(*ChildValue, E);

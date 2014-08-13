@@ -187,6 +187,10 @@ public:
   ///
   bool isPartiallyInitialized() const;
 
+  /// \brief Find out if the contained bytes are uninitialized.
+  ///
+  bool isUninitialized() const;
+
   /// \brief Find out whether each contained byte is initialized.
   ///
   llvm::ArrayRef<unsigned char> getByteInitialization() const;
