@@ -953,8 +953,9 @@ public:
     auto const Ptr = reinterpret_cast<char const *>(Value);
     auto const Length = sizeof(*Value);
     
-    if (!ThreadListener.isKnownMemoryRegionAt(Address)) {
+    if (!ThreadListener.isKnownMemoryRegionCovering(Address, Length)) {
       // Set knowledge of the area.
+      ThreadListener.removeKnownMemoryRegion(Address);
       ThreadListener.addKnownMemoryRegion(Address, Length, Access);
     }
     

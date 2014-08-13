@@ -383,6 +383,13 @@ public:
   ///
   bool isKnownMemoryRegionAt(uintptr_t Address) const;
   
+  /// \brief Check if there is a region of known memory covering the given area.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
+  bool isKnownMemoryRegionCovering(uintptr_t const Address,
+                                   std::size_t const Length) const;
+
   /// \brief Remove the region of known memory starting at Address.
   ///
   /// pre: GlobalMemoryLock acquired by this object.

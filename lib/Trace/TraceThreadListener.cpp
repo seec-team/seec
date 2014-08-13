@@ -456,6 +456,21 @@ bool TraceThreadListener::isKnownMemoryRegionAt(uintptr_t Address) const
   return ProcessListener.getKnownMemory().count(Address);
 }
 
+bool TraceThreadListener::isKnownMemoryRegionCovering(uintptr_t const Address,
+                                                      std::size_t const Length)
+const
+{
+  assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+
+  auto &KnownMemory = ProcessListener.getKnownMemory();
+  auto const It = KnownMemory.find(Address);
+
+  if (It == KnownMemory.end())
+    return false;
+
+  return (It->Begin <= Address && It->End >= Address + Length);
+}
+
 bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
 {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
