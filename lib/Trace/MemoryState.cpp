@@ -177,6 +177,9 @@ bool MemoryStateRegion::isCompletelyInitialized() const
 {
   auto const Complete = std::numeric_limits<unsigned char>::max();
   auto const Initialization = getByteInitialization();
+  if (Initialization.empty())
+    return false;
+
   return std::all_of(Initialization.begin(), Initialization.end(),
                      [] (unsigned char const Byte) { return Byte == Complete;});
 }
@@ -184,6 +187,9 @@ bool MemoryStateRegion::isCompletelyInitialized() const
 bool MemoryStateRegion::isPartiallyInitialized() const
 {
   auto const Initialization = getByteInitialization();
+  if (Initialization.empty())
+    return false;
+
   return std::any_of(Initialization.begin(), Initialization.end(),
                      [] (unsigned char const Value) { return Value != 0; });
 }
@@ -197,12 +203,20 @@ bool MemoryStateRegion::isUninitialized() const
 
 llvm::ArrayRef<unsigned char> MemoryStateRegion::getByteInitialization() const
 {
-  return State.getAllocation(Area).getAreaInitialization(Area);
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return Alloc->getAreaInitialization(Area);
+
+  return llvm::ArrayRef<unsigned char>();
 }
 
 llvm::ArrayRef<char> MemoryStateRegion::getByteValues() const
 {
-  return State.getAllocation(Area).getAreaData(Area);
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return Alloc->getAreaData(Area);
+
+  return llvm::ArrayRef<char>();
 }
 
 //------------------------------------------------------------------------------

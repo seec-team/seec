@@ -148,7 +148,9 @@ struct GetMemoryOfBuiltinAsString {
       return std::string("<size mismatch>");
     
     auto const Bytes = Region.getByteValues();
-    return std::to_string(*reinterpret_cast<T const *>(Bytes.data()));
+    return Bytes.size() >= sizeof(T)
+           ? std::to_string(*reinterpret_cast<T const *>(Bytes.data()))
+           : std::string{};
   }
 };
 
@@ -163,6 +165,9 @@ struct GetMemoryOfBuiltinAsString<char> {
     {
       llvm::raw_string_ostream Stream(RetStr);
       auto const Bytes = Region.getByteValues();
+      if (Bytes.empty())
+        return RetStr;
+
       auto const Character = *reinterpret_cast<char const *>(Bytes.data());
       
       if (std::isprint(Character))
@@ -196,6 +201,9 @@ struct GetMemoryOfBuiltinAsString<void const *> {
     {
       llvm::raw_string_ostream Stream(RetStr);
       auto const Bytes = Region.getByteValues();
+      if (Bytes.size() < sizeof(void const *))
+        return RetStr;
+
       Stream << *reinterpret_cast<void const * const *>(Bytes.data());
     }
     
@@ -591,11 +599,14 @@ public:
     
     // Calculate the raw pointer value (don't worry if the memory is
     // uninitialized: getByteValues() will return zeros and we simply won't use
-    // the calculated value).
+    // the calculated value). We do have to be careful that the memory is
+    // allocated: if not, the raw bytes may be nonexistant or insufficient.
     auto const &Memory = ProcessState.getMemory();
     auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
     auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
+    auto const PtrValue = RawBytes.size() >= sizeof(uintptr_t)
+                        ? *reinterpret_cast<uintptr_t const *>(RawBytes.data())
+                        : 0;
     
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
