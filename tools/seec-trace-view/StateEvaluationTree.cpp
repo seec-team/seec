@@ -28,6 +28,7 @@
   #include <wx/wx.h>
 #endif
 #include <wx/bitmap.h>
+#include <wx/dcbuffer.h>
 #include <wx/dcmemory.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
@@ -794,7 +795,7 @@ void StateEvaluationTreePanel::clear()
 
 void StateEvaluationTreePanel::OnPaint(wxPaintEvent &Ev)
 {
-  wxPaintDC dc(this);
+  wxAutoBufferedPaintDC dc(this);
   render(dc);
 }
 
