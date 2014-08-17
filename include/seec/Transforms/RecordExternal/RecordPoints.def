@@ -42,6 +42,7 @@ HANDLE_RECORD_POINT(PostCallIntrinsic, void (types::i<32>))
 
 HANDLE_RECORD_POINT(PreDivide, void (types::i<32>))
 
+HANDLE_RECORD_POINT(UpdateVoid,     void (types::i<32>))
 HANDLE_RECORD_POINT(UpdatePointer,  void (types::i<32>, types::i<8>*))
 HANDLE_RECORD_POINT(UpdateInt8,     void (types::i<32>, types::i<8>))
 HANDLE_RECORD_POINT(UpdateInt16,    void (types::i<32>, types::i<16>))

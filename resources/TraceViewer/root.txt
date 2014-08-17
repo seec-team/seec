@@ -109,9 +109,13 @@ root:table {
 
       GoToStart:string {"Go to start"}
 
+      StepBackTopLevel:string {"Step back statement"}
+
       StepBack:string {"Step back"}
 
       StepForward:string {"Step forward"}
+
+      StepForwardTopLevel:string {"Step forward statement"}
 
       GoToNextError:string {"Go to next error"}
 
@@ -182,11 +186,15 @@ root:table {
     Movement:table {
       BackwardArrow:import {"Images/backward-arrow.png"}
 
+      BackwardArrowShort:import {"Images/backward-arrow-short.png"}
+
       BackwardArrowToBlock:import {"Images/backward-arrow-to-block.png"}
 
       BackwardArrowToError:import {"Images/backward-arrow-to-error.png"}
 
       ForwardArrow:import {"Images/forward-arrow.png"}
+
+      ForwardArrowShort:import {"Images/forward-arrow-short.png"}
 
       ForwardArrowToBlock:import {"Images/forward-arrow-to-block.png"}
 

@@ -45,12 +45,18 @@ void ThreadTimeControl::disableAll()
   if (ButtonGoToStart)
     ButtonGoToStart->Disable();
   
+  if (ButtonStepBackTopLevel)
+    ButtonStepBackTopLevel->Disable();
+
   if (ButtonStepBack)
     ButtonStepBack->Disable();
   
   if (ButtonStepForward)
     ButtonStepForward->Disable();
   
+  if (ButtonStepForwardTopLevel)
+    ButtonStepForwardTopLevel->Disable();
+
   if (ButtonGoToEnd)
     ButtonGoToEnd->Disable();
 }
@@ -98,11 +104,13 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
       this->NAME();                                                            \
     }});
   
-  SEEC_BUTTON(GoToStart,     "GoToStart",     "BackwardArrowToBlock")
-  SEEC_BUTTON(StepBack,      "StepBack",      "BackwardArrow")
-  SEEC_BUTTON(StepForward,   "StepForward",   "ForwardArrow")
+  SEEC_BUTTON(GoToStart,           "GoToStart",          "BackwardArrowToBlock")
+  SEEC_BUTTON(StepBackTopLevel,    "StepBackTopLevel",    "BackwardArrow")
+  SEEC_BUTTON(StepBack,            "StepBack",            "BackwardArrowShort")
+  SEEC_BUTTON(StepForward,         "StepForward",         "ForwardArrowShort")
+  SEEC_BUTTON(StepForwardTopLevel, "StepForwardTopLevel", "ForwardArrow")
   // SEEC_BUTTON(GoToNextError, "GoToNextError", "ForwardArrowToError")
-  SEEC_BUTTON(GoToEnd,       "GoToEnd",       "ForwardArrowToBlock")
+  SEEC_BUTTON(GoToEnd,             "GoToEnd",             "ForwardArrowToBlock")
   
 #undef SEEC_BUTTON
 
@@ -112,11 +120,13 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   
   wxSizerFlags ButtonSizer;
   
-  TopSizer->Add(ButtonGoToStart,     ButtonSizer);
-  TopSizer->Add(ButtonStepBack,      ButtonSizer);
-  TopSizer->Add(ButtonStepForward,   ButtonSizer);
-  // TopSizer->Add(ButtonGoToNextError, ButtonSizer);
-  TopSizer->Add(ButtonGoToEnd,       ButtonSizer);
+  TopSizer->Add(ButtonGoToStart,           ButtonSizer);
+  TopSizer->Add(ButtonStepBackTopLevel,    ButtonSizer);
+  TopSizer->Add(ButtonStepBack,            ButtonSizer);
+  TopSizer->Add(ButtonStepForward,         ButtonSizer);
+  TopSizer->Add(ButtonStepForwardTopLevel, ButtonSizer);
+  // TopSizer->Add(ButtonGoToNextError,    ButtonSizer);
+  TopSizer->Add(ButtonGoToEnd,             ButtonSizer);
   
   TopSizer->AddStretchSpacer(1);
   SetSizerAndFit(TopSizer);
@@ -127,10 +137,14 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
     [this] (std::size_t Thread, std::string &Button) -> void {
       if (Button == "GoToStart")
         GoToStart();
+      else if (Button == "StepBackTopLevel")
+        StepBackTopLevel();
       else if (Button == "StepBack")
         StepBack();
       else if (Button == "StepForward")
         StepForward();
+      else if (Button == "StepForwardTopLevel")
+        StepForwardTopLevel();
       else if (Button == "GoToNextError")
         GoToNextError();
       else if (Button == "GoToEnd")
@@ -156,20 +170,24 @@ void ThreadTimeControl::show(std::shared_ptr<StateAccessToken> Access,
   // Setup the backwards movement buttons.
   if (Thread.isAtStart()) {
     ButtonGoToStart->Disable();
+    ButtonStepBackTopLevel->Disable();
     ButtonStepBack->Disable();
   }
   else {
     ButtonGoToStart->Enable();
+    ButtonStepBackTopLevel->Enable();
     ButtonStepBack->Enable();
   }
   
   // Setup the forwards movement buttons.
   if (Thread.isAtEnd()) {
     ButtonStepForward->Disable();
+    ButtonStepForwardTopLevel->Disable();
     ButtonGoToEnd->Disable();
   }
   else {
     ButtonStepForward->Enable();
+    ButtonStepForwardTopLevel->Enable();
     ButtonGoToEnd->Enable();
   }
 }
@@ -181,6 +199,13 @@ void ThreadTimeControl::GoToStart() {
                      [] (seec::cm::ThreadState &Thread) -> bool {
                         return seec::cm::moveBackwardToEnd(Thread);
                      });
+}
+
+void ThreadTimeControl::StepBackTopLevel() {
+  raiseMovementEvent(*this, CurrentAccess, CurrentThreadIndex,
+    [] (seec::cm::ThreadState &Thread) -> bool {
+      return seec::cm::moveBackwardToCompleteTopLevelStmt(Thread);
+    });
 }
 
 void ThreadTimeControl::StepBack() {
@@ -199,6 +224,13 @@ void ThreadTimeControl::StepForward() {
                      [] (seec::cm::ThreadState &Thread) -> bool {
                         return seec::cm::moveForward(Thread);
                      });
+}
+
+void ThreadTimeControl::StepForwardTopLevel() {
+  raiseMovementEvent(*this, CurrentAccess, CurrentThreadIndex,
+    [] (seec::cm::ThreadState &Thread) -> bool {
+      return seec::cm::moveForwardToCompleteTopLevelStmt(Thread);
+    });
 }
 
 void ThreadTimeControl::GoToNextError() {}

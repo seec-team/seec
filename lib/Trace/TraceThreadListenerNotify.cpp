@@ -715,6 +715,17 @@ void TraceThreadListener::notifyPreDivide(
   }
 }
 
+void TraceThreadListener::notifyValue(uint32_t const Index,
+                                      llvm::Instruction const * const Instr)
+{
+  enterNotification();
+  auto OnExit = scopeExit([this](){exitNotification();});
+
+  ActiveFunction->setActiveInstruction(Instr);
+
+  EventsOut.write<EventType::Instruction>(Index, ++Time);
+}
+
 void TraceThreadListener::notifyValue(uint32_t Index,
                                       llvm::Instruction const *Instruction,
                                       void *Value) {

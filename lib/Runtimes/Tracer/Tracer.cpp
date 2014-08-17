@@ -584,6 +584,17 @@ void SeeCRecordPreDivide(uint32_t Index) {
   Listener.notifyPreDivide(Index, BinOp);
 }
 
+void SeeCRecordUpdateVoid(uint32_t Index) {
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  ThreadEnv.setInstructionIndex(Index);
+
+  if (ThreadEnv.getInstructionIsInterceptedCall())
+    return;
+
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyValue(Index, ThreadEnv.getInstruction());
+}
+
 #define SEEC_RECORD_TYPED(NAME, TYPE)                                          \
 void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \

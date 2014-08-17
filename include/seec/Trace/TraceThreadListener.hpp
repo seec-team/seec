@@ -646,6 +646,9 @@ public:
   void notifyPreDivide(uint32_t Index,
                        llvm::BinaryOperator const *Instruction);
 
+  void notifyValue(uint32_t const Index,
+                   llvm::Instruction const * const Instruction);
+
   void notifyValue(uint32_t Index,
                    llvm::Instruction const *Instruction,
                    void *Value);

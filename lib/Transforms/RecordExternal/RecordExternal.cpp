@@ -128,7 +128,18 @@ InsertExternalRecording::insertRecordUpdateForValue(Instruction &I,
     RecordFn = RecordUpdateFP128;
   else if (Ty->isPPC_FP128Ty())
     RecordFn = RecordUpdatePPCFP128;
-  else if (Ty->isVoidTy() || Ty->isLabelTy() || Ty->isMetadataTy())
+  else if (Ty->isVoidTy()) {
+    Value *Args[1] = {
+      ConstantInt::get(Int32Ty, InstructionIndex, false)
+    };
+
+    auto const RecordCall = CallInst::Create(RecordUpdateVoid, Args);
+    assert(RecordCall && "Couldn't create call instruction.");
+
+    RecordCall->insertAfter(&I);
+    return RecordCall;
+  }
+  else if (Ty->isLabelTy() || Ty->isMetadataTy())
     return nullptr;
   else
     return nullptr;

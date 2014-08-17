@@ -45,10 +45,14 @@ class ThreadTimeControl : public wxPanel
   
   wxButton *ButtonGoToStart;
   
+  wxButton *ButtonStepBackTopLevel;
+
   wxButton *ButtonStepBack;
   
   wxButton *ButtonStepForward;
   
+  wxButton *ButtonStepForwardTopLevel;
+
   // wxButton *ButtonGoToNextError;
   
   wxButton *ButtonGoToEnd;
@@ -74,8 +78,10 @@ public:
   : wxPanel(),
     Recording(nullptr),
     ButtonGoToStart(nullptr),
+    ButtonStepBackTopLevel(nullptr),
     ButtonStepBack(nullptr),
     ButtonStepForward(nullptr),
+    ButtonStepForwardTopLevel(nullptr),
     // ButtonGoToNextError(nullptr),
     ButtonGoToEnd(nullptr),
     CurrentAccess(),
@@ -114,8 +120,10 @@ public:
   
 private:
   void GoToStart();
+  void StepBackTopLevel();
   void StepBack();
   void StepForward();
+  void StepForwardTopLevel();
   void GoToNextError();
   void GoToEnd();
 };

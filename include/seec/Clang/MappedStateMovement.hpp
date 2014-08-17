@@ -47,6 +47,12 @@ bool moveForward(ThreadState &Thread);
 ///
 bool moveForwardToEnd(ThreadState &Thread);
 
+/// \brief Move Thread's state forward until the next time that a top-level Stmt
+///        is completed.
+/// \return true iff the state was moved.
+///
+bool moveForwardToCompleteTopLevelStmt(ThreadState &Thread);
+
 /// \brief Move Thread's state to the previous logical thread time.
 /// \return true iff the state was moved.
 ///
@@ -56,6 +62,12 @@ bool moveBackward(ThreadState &Thread);
 /// \return true iff the state was moved.
 ///
 bool moveBackwardToEnd(ThreadState &Thread);
+
+/// \brief Move Thread's state backward until the most recent preceding time
+///        that a top-level Stmt was completed.
+/// \return true iff the state was moved.
+///
+bool moveBackwardToCompleteTopLevelStmt(ThreadState &Thread);
 
 /// @} (Thread movement.)
 //===----------------------------------------------------------------------===//
