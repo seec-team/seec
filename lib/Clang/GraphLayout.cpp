@@ -1034,7 +1034,7 @@ bool LEVElideUninitOrZeroElements::canLayoutImpl(Value const &V) const
   if (!ElemTy)
     return false;
   
-  return ElemTy->isScalarType() && !ElemTy->isAnyPointerType();
+  return !ElemTy->isAnyPointerType();
 }
 
 LayoutOfValue
