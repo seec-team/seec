@@ -153,7 +153,7 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   DC.SetPen(PrevPen);
 
   // Draw the line over the node.
-  DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
+  DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd + 1, Node.YStart);
   
   // Draw borders around the node if it has an error.
   if (Node.Error == NodeError::Error) {
@@ -161,9 +161,9 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
                     1,
                     wxPENSTYLE_DOT});
 
-    DC.DrawLine(Node.XStart, Node.YEnd,   Node.XEnd,   Node.YEnd);
-    DC.DrawLine(Node.XStart, Node.YStart, Node.XStart, Node.YEnd);
-    DC.DrawLine(Node.XEnd,   Node.YStart, Node.XEnd,   Node.YEnd);
+    DC.DrawLine(Node.XStart, Node.YEnd,   Node.XEnd + 1, Node.YEnd);
+    DC.DrawLine(Node.XStart, Node.YStart, Node.XStart,   Node.YEnd + 1);
+    DC.DrawLine(Node.XEnd,   Node.YStart, Node.XEnd,     Node.YEnd + 1);
   }
 
   // Draw the node's value string.
