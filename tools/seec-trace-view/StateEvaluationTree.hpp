@@ -57,6 +57,13 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     Active,
     Highlighted
   };
+
+  /// \brief Determines if a node has an associated runtime error.
+  ///
+  enum class NodeError {
+    None,
+    Error
+  };
   
   /// \brief Information for a single node in the tree.
   ///
@@ -93,6 +100,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     /// End of this node's rectangle.
     wxCoord YEnd;
+
+    /// If this node's Stmt has a runtime error.
+    NodeError Error;
     
     /// \brief Constructor.
     ///
@@ -106,7 +116,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
              wxCoord WithXStart,
              wxCoord WithXEnd,
              wxCoord WithYStart,
-             wxCoord WithYEnd)
+             wxCoord WithYEnd,
+             NodeError WithError)
     : Statement(ForStatement),
       Value(std::move(WithValue)),
       ValueString(std::move(WithValueString)),
@@ -117,7 +128,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
       XStart(WithXStart),
       XEnd(WithXEnd),
       YStart(WithYStart),
-      YEnd(WithYEnd)
+      YEnd(WithYEnd),
+      Error(WithError)
     {}
   };
   
@@ -163,6 +175,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     wxColour NodeHighlightedBorder;
 
     wxColour NodeHighlightedText;
+    
+    wxColour NodeErrorBorder;
     
     /// \brief Constructor.
     ///

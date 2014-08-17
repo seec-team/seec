@@ -104,7 +104,8 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   NodeActiveText(88, 110, 117), // base01
   NodeHighlightedBackground(238, 232, 213), // base2
   NodeHighlightedBorder(108, 113, 196), // magenta
-  NodeHighlightedText(88, 110, 117) // base01
+  NodeHighlightedText(88, 110, 117), // base01
+  NodeErrorBorder(220, 50, 47) // red
 {}
 
 void StateEvaluationTreePanel::drawNode(wxDC &DC,
@@ -151,9 +152,19 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   DC.SetPen(PrevPen);
 
   // Draw the line over the node.
-  // DC.SetPen(wxPen{*wxBLACK});
   DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd, Node.YStart);
   
+  // Draw borders around the node if it has an error.
+  if (Node.Error == NodeError::Error) {
+    DC.SetPen(wxPen{Settings.NodeErrorBorder,
+                    1,
+                    wxPENSTYLE_DOT});
+
+    DC.DrawLine(Node.XStart, Node.YEnd,   Node.XEnd,   Node.YEnd);
+    DC.DrawLine(Node.XStart, Node.YStart, Node.XStart, Node.YEnd);
+    DC.DrawLine(Node.XEnd,   Node.YStart, Node.XEnd,   Node.YEnd);
+  }
+
   // Draw the node's value string.
   if (Node.Value) {
     auto const ValText = Node.ValueStringShort;
@@ -181,6 +192,10 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   
   // Draw the sub-Stmts' nodes.
   for (auto const &Node : Nodes) {
+    // Don't draw hovered nodes, they will be drawn later.
+    if (&*HoverNodeIt == &Node || &*ReplayHoverNodeIt == &Node)
+      continue;
+
     auto const DoHighlight =
       (HighlightedStmt && Node.Statement == HighlightedStmt)
       || (HighlightedValue && Node.Value.get() == HighlightedValue);
@@ -658,6 +673,7 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   
   ActiveFn = &(Stack.back().get());
   auto const MappedAST = ActiveFn->getMappedAST();
+  auto const &RunErrors = ActiveFn->getRuntimeErrors();
   auto const ActiveStmt = ActiveFn->getActiveStmt();
   if (!ActiveStmt) {
     render(dc);
@@ -733,6 +749,12 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
     auto const ValueStringShort =
       shortenValueString(ValueString, StmtRange.second.getLength());
     
+    auto const HasError =
+      std::any_of(RunErrors.begin(), RunErrors.end(),
+                  [&] (seec::cm::RuntimeErrorState const &Err) {
+                    return Err.getStmt() == StmtRange.first;
+                  });
+
     Nodes.emplace_back(StmtRange.first,
                        std::move(Value),
                        seec::towxString(ValueString),
@@ -743,7 +765,8 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
                        XStart,
                        XEnd,
                        YStart,
-                       YStart + CharHeight);
+                       YStart + CharHeight,
+                       HasError ? NodeError::Error : NodeError::None);
   }
   
   HoverNodeIt = Nodes.end();
