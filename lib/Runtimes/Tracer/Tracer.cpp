@@ -202,29 +202,6 @@ static uint64_t getUserArchiveSizeLimit()
                                getDefaultArchiveSizeLimit());
 }
 
-void ProcessEnvironment::archive()
-{
-  // Determine the size of the trace.
-  auto const MaybeSize = StreamAllocator->getTotalSize();
-  if (MaybeSize.assigned<seec::Error>()) {
-    fprintf(stderr, "\nSeeC: Couldn't read trace file size.\n");
-    return;
-  }
-  
-  if (MaybeSize.get<uint64_t>() > ArchiveSizeLimit) {
-    fprintf(stderr, "\nSeeC: Deciding to not archive the trace due to size.\n");
-    return;
-  }
-  
-  // Attempt to create the archive. If the ProgramName is empty, a name will
-  // be created based on the trace directory's name.
-  auto const MaybeError = StreamAllocator->archiveTo(ProgramName);
-  if (MaybeError.assigned<seec::Error>()) {
-    fprintf(stderr, "\nSeeC: Failed to archive the trace.\n");
-    return;
-  }
-}
-
 ProcessEnvironment::ProcessEnvironment()
 : Context(),
   Mod(),
@@ -362,6 +339,46 @@ ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
 void ProcessEnvironment::setProgramName(llvm::StringRef Name)
 {
   ProgramName = llvm::sys::path::filename(Name);
+}
+
+TraceArchiveResult ProcessEnvironment::archive()
+{
+  // Determine the size of the trace.
+  auto const MaybeSize = StreamAllocator->getTotalSize();
+  if (MaybeSize.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, "", "Couldn't read trace file size."};
+
+  if (MaybeSize.get<uint64_t>() > ArchiveSizeLimit)
+    return TraceArchiveResult{false, "", "Trace exceeds archive limit."};
+
+  // Attempt to create the archive. If the ProgramName is empty, a name will
+  // be created based on the trace directory's name.
+  auto MaybeArchived = StreamAllocator->archiveTo(ProgramName);
+  if (MaybeArchived.assigned<std::string>())
+    return TraceArchiveResult{true, MaybeArchived.move<std::string>(), ""};
+  else if (MaybeArchived.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, "", "Failed to archive the trace."};
+  else {
+    llvm_unreachable("No result from archiveTo()!");
+    return TraceArchiveResult{false, "", "Failed to archive the trace."};
+  }
+}
+
+TraceArchiveResult
+ProcessEnvironment::unarchive(TraceArchiveResult const &FromArchive)
+{
+  if (!FromArchive.getSuccess())
+    return TraceArchiveResult{false, FromArchive.getFilename(), ""};
+
+  auto const MaybeErr = StreamAllocator->extractFrom(FromArchive.getFilename());
+  if (MaybeErr.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, FromArchive.getFilename(),
+                              "Couldn't extract trace file."};
+
+  return TraceArchiveResult{true, FromArchive.getFilename(), ""};
 }
 
 

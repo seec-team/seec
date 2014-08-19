@@ -113,8 +113,7 @@ SEEC_MANGLE_FUNCTION(strdup)
     Listener.recordUntypedState(Result, Size);
   }
   else{
-    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                sizeof(errno));
+    seec::recordErrno(Listener, errno);
   }
 
   // Set the object for the returned pointer.

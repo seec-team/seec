@@ -154,6 +154,38 @@ public:
 };
 
 
+/// \brief Holds the result of an attempt to archive (or unarchive) the trace.
+///
+class TraceArchiveResult {
+  bool Success;
+
+  std::string Filename;
+
+  std::string Error;
+
+public:
+  TraceArchiveResult()
+  : Success(false),
+    Filename(),
+    Error()
+  {}
+
+  TraceArchiveResult(bool const WithSuccess,
+                     std::string WithFilename,
+                     std::string WithError)
+  : Success(WithSuccess),
+    Filename(std::move(WithFilename)),
+    Error(std::move(WithError))
+  {}
+
+  bool getSuccess() const { return Success; }
+
+  std::string const &getFilename() const { return Filename; }
+
+  std::string const &getError() const { return Error; }
+};
+
+
 /// \brief ProcessEnvironment.
 ///
 class ProcessEnvironment {
@@ -195,10 +227,6 @@ class ProcessEnvironment {
   
   /// The program name as found in argv[0], if we were notified of it.
   std::string ProgramName;
-  
-  /// \brief Attempt to archive the completed trace.
-  ///
-  void archive();
   
 public:
   /// \brief Constructor.
@@ -264,6 +292,20 @@ public:
   ///
   void setProgramName(llvm::StringRef Name);
   
+  /// @}
+
+
+  /// \name Archiving
+  /// @{
+
+  /// \brief Attempt to archive the completed trace.
+  ///
+  TraceArchiveResult archive();
+
+  /// \brief Attempt to extract an archived trace (to continue tracing).
+  ///
+  TraceArchiveResult unarchive(TraceArchiveResult const &FromArchive);
+
   /// @}
 };
 

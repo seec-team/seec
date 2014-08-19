@@ -40,12 +40,15 @@ class SpeculativeTraceClose {
 
   bool const WasEnabled;
 
+  seec::trace::TraceArchiveResult ArchiveResult;
+
 public:
   SpeculativeTraceClose(seec::trace::TraceProcessListener &WithProcess,
                         seec::trace::TraceThreadListener &WithThread)
   : Process(WithProcess),
     Thread(WithThread),
-    WasEnabled(Process.traceEnabled())
+    WasEnabled(Process.traceEnabled()),
+    ArchiveResult{}
   {
     if (WasEnabled) {
       Process.traceWrite();
@@ -54,12 +57,20 @@ public:
       Thread.traceWrite();
       Thread.traceFlush();
       Thread.traceClose();
+
+      ArchiveResult = seec::trace::getProcessEnvironment().archive();
     }
   }
 
   void reopen()
   {
     if (WasEnabled) {
+      if (ArchiveResult.getSuccess()) {
+        auto const ExtractResult =
+          seec::trace::getProcessEnvironment().unarchive(ArchiveResult);
+        // TODO: Check the extraction result!
+      }
+
       Process.traceOpen();
       Thread.traceOpen();
     }
@@ -264,8 +275,7 @@ SEEC_MANGLE_FUNCTION(execl)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
 
   return Result;
 }
@@ -373,8 +383,7 @@ SEEC_MANGLE_FUNCTION(execlp)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
 
   return Result;
 }
@@ -506,8 +515,7 @@ SEEC_MANGLE_FUNCTION(execle)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
 
   return Result;
 }
@@ -571,8 +579,7 @@ SEEC_MANGLE_FUNCTION(execv)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
   
   return Result;
 }
@@ -636,8 +643,7 @@ SEEC_MANGLE_FUNCTION(execvp)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
   
   return Result;
 }
@@ -705,8 +711,7 @@ SEEC_MANGLE_FUNCTION(execve)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
   
   return Result;
 }
@@ -788,8 +793,7 @@ SEEC_MANGLE_FUNCTION(execvpe)
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
-  Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                              sizeof(errno));
+  seec::recordErrno(Listener, errno);
   
   return Result;
 }
@@ -851,8 +855,7 @@ SEEC_MANGLE_FUNCTION(fork)
                        std::make_unsigned<pid_t>::type(Result));
   
   if (Result == -1)
-    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                sizeof(errno));
+    seec::recordErrno(Listener, errno);
   
   return Result;
 }
@@ -954,8 +957,7 @@ SEEC_MANGLE_FUNCTION(pipe)
                                 sizeof(int [2]));
   }
   else {
-    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                sizeof(errno));
+    seec::recordErrno(Listener, errno);
   }
   
   return Result;

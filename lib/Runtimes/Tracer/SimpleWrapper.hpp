@@ -42,6 +42,28 @@ namespace seec {
 
 
 //===----------------------------------------------------------------------===//
+// recordErrno
+//===----------------------------------------------------------------------===//
+
+inline void recordErrno(seec::trace::TraceThreadListener &Thread,
+                        int const &Errno)
+{
+  auto const CharPtr = reinterpret_cast<char const *>(&Errno);
+  auto const Address = reinterpret_cast<uintptr_t>(CharPtr);
+  auto const Length  = sizeof(Errno);
+
+  if (!Thread.isKnownMemoryRegionCovering(Address, Length)) {
+    // Set knowledge of the area.
+    Thread.removeKnownMemoryRegion(Address);
+    Thread.addKnownMemoryRegion(Address, Length, MemoryPermission::ReadWrite);
+  }
+
+  // Update memory state.
+  Thread.recordUntypedState(CharPtr, Length);
+}
+
+
+//===----------------------------------------------------------------------===//
 // ListenerNotifier
 //===----------------------------------------------------------------------===//
 
@@ -1359,10 +1381,8 @@ public:
     Notifier(Listener, InstructionIndex, Instruction, Result);
 
     // Record any changes to errno.
-    if (errno != PreCallErrno) {
-      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                  sizeof(errno));
-    }
+    if (errno != PreCallErrno)
+      recordErrno(Listener, errno);
     
     // Record any changes to global variables we are tracking.
     for (auto const &GVTracker : GVTrackers)
@@ -1484,10 +1504,8 @@ public:
     bool const Success = SuccessPred();
         
     // Record any changes to errno.
-    if (errno != PreCallErrno) {
-      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                  sizeof(errno));
-    }
+    if (errno != PreCallErrno)
+      recordErrno(Listener, errno);
     
     // Record any changes to global variables we are tracking.
     for (auto const &GVTracker : GVTrackers)

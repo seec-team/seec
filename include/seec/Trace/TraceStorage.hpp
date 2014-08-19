@@ -142,8 +142,15 @@ public:
   ///
   /// If the files are successfully archived, the originals will be deleted.
   ///
-  seec::Maybe<seec::Error> archiveTo(llvm::StringRef Path);
+  /// \return either the location of the archive, or an \c Error describing
+  ///         the reason that the archive was not created.
+  ///
+  Maybe<std::string, Error> archiveTo(llvm::StringRef Path);
   
+  /// \brief Unarchive all trace files from the given archive.
+  ///
+  Maybe<Error> extractFrom(std::string const &ArchivePath);
+
   /// @} (Mutators.)
 };
 

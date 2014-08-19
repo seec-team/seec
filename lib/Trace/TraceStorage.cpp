@@ -351,7 +351,7 @@ wxString getArchivePath(std::string const &TraceLocation,
          + ArchiveName.GetFullPath();
 }
 
-seec::Maybe<seec::Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
+Maybe<std::string, Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
 {
   wxString const ArchivePath =
     getArchivePath(TraceLocation, TraceDirectoryName, TraceArchiveName, Path);
@@ -411,7 +411,52 @@ seec::Maybe<seec::Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
       LazyMessageByRef::create("Trace", {"errors", "DeleteFilesFail"})};
   
   // The unassigned Maybe indicates that everything was OK.
-  return seec::Maybe<seec::Error>();
+  return ArchivePath.ToStdString();
+}
+
+Maybe<Error> OutputStreamAllocator::extractFrom(std::string const &ArchivePath)
+{
+  wxFileInputStream RawInput{ArchivePath};
+  if (!RawInput.IsOk())
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "OpenArchiveFail"},
+                               std::make_pair("path", ArchivePath.c_str()))};
+
+  // Recreate the trace directory if needed.
+  wxMkdir(TraceDirectoryPath);
+  // TODO: Check that the directory does indeed exist.
+
+  // Attempt to read from the file.
+  wxZipInputStream Input{RawInput};
+  std::unique_ptr<wxZipEntry> Entry;
+
+  while (Entry.reset(Input.GetNextEntry()), Entry) {
+    // Skip dir entries, because file entries have the complete path.
+    if (Entry->IsDir())
+      continue;
+
+    auto const &Name = Entry->GetName();
+
+    if (Name.StartsWith("trace/")) {
+      wxFileName Path{Name};
+      Path.RemoveDir(0);
+
+      auto const FullPath = TraceDirectoryPath
+                          + wxFileName::GetPathSeparator()
+                          + Path.GetFullPath();
+
+      wxFFileOutputStream Out{FullPath};
+      if (!Out.IsOk())
+        return Error{LazyMessageByRef::create("TraceViewer",
+                     {"errors", "ExtractFileFail"},
+                     std::make_pair("archive", ArchivePath.c_str()),
+                     std::make_pair("file", FullPath.c_str()))};
+
+      Out.Write(Input);
+    }
+  }
+
+  return Maybe<Error>();
 }
 
 
