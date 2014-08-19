@@ -560,27 +560,13 @@ SEEC_MANGLE_FUNCTION(execv)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Write a complete trace before we call execv, because if it succeeds we
-  // will no longer control the process.
-  auto const TraceEnabled = ProcessListener.traceEnabled();
-  
-  if (TraceEnabled) {
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
-    ProcessListener.traceClose();
-    Listener.traceWrite();
-    Listener.traceFlush();
-    Listener.traceClose();
-  }
-  
+  // Handles closing and reopening the trace (if it is currently open).
+  SpeculativeTraceClose STC(ProcessListener, Listener);
+
   // Forward to the default implementation of execv.
   auto Result = execv(filename, argv);
   
-  // At this point the execv has failed, so restore tracing.
-  if (TraceEnabled) {
-    ProcessListener.traceOpen();
-    Listener.traceOpen();
-  }
+  STC.reopen();
   
   Listener.notifyValue(InstructionIndex,
                        Instruction,
@@ -639,27 +625,13 @@ SEEC_MANGLE_FUNCTION(execvp)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Write a complete trace before we call execvp, because if it succeeds we
-  // will no longer control the process.
-  auto const TraceEnabled = ProcessListener.traceEnabled();
-  
-  if (TraceEnabled) {
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
-    ProcessListener.traceClose();
-    Listener.traceWrite();
-    Listener.traceFlush();
-    Listener.traceClose();
-  }
+  // Handles closing and reopening the trace (if it is currently open).
+  SpeculativeTraceClose STC(ProcessListener, Listener);
   
   // Forward to the default implementation of execvp.
   auto Result = execvp(filename, argv);
   
-  // At this point the execvp has failed, so restore tracing.
-  if (TraceEnabled) {
-    ProcessListener.traceOpen();
-    Listener.traceOpen();
-  }
+  STC.reopen();
   
   Listener.notifyValue(InstructionIndex,
                        Instruction,
@@ -722,27 +694,13 @@ SEEC_MANGLE_FUNCTION(execve)
   // Ensure that envp is accessible.
   Checker.checkCStringArray(2, envp);
   
-  // Write a complete trace before we call execve, because if it succeeds we
-  // will no longer control the process.
-  auto const TraceEnabled = ProcessListener.traceEnabled();
-  
-  if (TraceEnabled) {
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
-    ProcessListener.traceClose();
-    Listener.traceWrite();
-    Listener.traceFlush();
-    Listener.traceClose();
-  }
+  // Handles closing and reopening the trace (if it is currently open).
+  SpeculativeTraceClose STC(ProcessListener, Listener);
   
   // Forward to the default implementation of execve.
   auto Result = execve(filename, argv, envp);
   
-  // At this point the execve has failed, so restore tracing.
-  if (TraceEnabled) {
-    ProcessListener.traceOpen();
-    Listener.traceOpen();
-  }
+  STC.reopen();
   
   Listener.notifyValue(InstructionIndex,
                        Instruction,
