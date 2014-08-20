@@ -224,7 +224,8 @@ root:table {
     // function
     // parameter
     PassInvalidStream:string {
-      "Parameter {parameter} passed to function {function} is not a valid FILE pointer."
+      "FILE pointer passed to function {function} is invalid."
+      " Perhaps this stream was not opened successfully or was already closed?"
     }
 
     // function

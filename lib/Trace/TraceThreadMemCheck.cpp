@@ -784,8 +784,13 @@ checkPrintFormat(unsigned Parameter,
 //===------------------------------------------------------------------------===
 
 bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
-                                    FILE *Stream) {
+                                    FILE *Stream)
+{
   using namespace seec::runtime_errors;
+
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
 
   auto const FILEAddr = reinterpret_cast<uintptr_t>(Stream);
   auto const PtrVal = Call->getArgOperand(Parameter);
