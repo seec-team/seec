@@ -106,8 +106,7 @@ RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
 }
 
 bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
-                                       uintptr_t const Address,
-                                       seec::Maybe<MemoryArea> const &Area)
+                                       uintptr_t const Address)
 {
   if (!PtrObj) {
     raiseError(*createRunError<RunErrorType::PointerObjectNULL>(Address),
@@ -126,7 +125,21 @@ bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
     return false;
   }
 
-  if (!Area.assigned() || Area.get<MemoryArea>().start() != PtrObj.getBase()) {
+  auto const PtrArea = getContainingMemoryArea(Thread, PtrObj.getBase());
+
+  if (!PtrArea.assigned()) {
+    // This gives the most accurate error message for this case: "dereferencing
+    // a pointer whose target object has been deallocated". The temporal IDs
+    // are not used in the error messages, so it doesn't matter that we don't
+    // have a correct ID for the target object.
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), PtrObj.getTemporalID()),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  if (!PtrArea.get<MemoryArea>().contains(Address)) {
     raiseError(*createRunError<RunErrorType::PointerObjectMismatch>
                               (PtrObj.getBase(), Address),
                RunErrorSeverity::Fatal);
@@ -252,7 +265,7 @@ CStdLibChecker::memoryExistsForParameter(unsigned Parameter,
   // pointer does not have an associated object.
   //
   if (Call)
-    if (checkPointer(PtrObj, Address, Area))
+    if (checkPointer(PtrObj, Address))
       return true;
 
   // Check that the area exists.

@@ -528,7 +528,7 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
   auto const MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
   auto const Obj = ActiveFunction->getPointerObject(Load->getPointerOperand());
 
-  Checker.checkPointer(Obj, Address, MaybeArea);
+  Checker.checkPointer(Obj, Address);
   Checker.memoryExists(Address, Size, Access, MaybeArea);
   Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
@@ -567,7 +567,7 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
   auto const MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
   auto const Obj = ActiveFunction->getPointerObject(Store->getPointerOperand());
 
-  Checker.checkPointer(Obj, Address, MaybeArea);
+  Checker.checkPointer(Obj, Address);
   Checker.memoryExists(Address, Size, Access, MaybeArea);
   Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }

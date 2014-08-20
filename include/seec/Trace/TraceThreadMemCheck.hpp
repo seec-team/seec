@@ -98,9 +98,7 @@ public:
 
   /// \brief Check that a pointer is valid to dereference.
   ///
-  bool checkPointer(PointerTarget const &PtrObj,
-                    uintptr_t const Address,
-                    seec::Maybe<MemoryArea> const &Area);
+  bool checkPointer(PointerTarget const &PtrObj, uintptr_t const Address);
 
   /// \brief Create a MemoryUnowned runtime error if Area is unassigned.
   ///
