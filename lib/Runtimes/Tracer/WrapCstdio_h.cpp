@@ -370,21 +370,31 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       // writable. The conversion for strings (and sets) is a special case.
       if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
           || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
-        if (NextArg < VarArgs.size() && Conversion.WidthSpecified) {
-          // Check that the destination is writable and has sufficient space
-          // for the field width specified by the programmer.
+        if (NextArg < VarArgs.size()) {
           auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-          auto const Size = (Conversion.Length == LengthModifier::l)
-                          ? (Conversion.Width + 1) * sizeof(wchar_t)
-                          : (Conversion.Width + 1) * sizeof(char);
-          
+          std::size_t Size = 0;
+
+          if (Conversion.WidthSpecified) {
+            // Check that the destination is writable and has sufficient space
+            // for the field width specified by the programmer.
+            assert(Conversion.Width >= 0);
+
+            Size = (Conversion.Length == LengthModifier::l)
+                 ? (Conversion.Width + 1) * sizeof(wchar_t)
+                 : (Conversion.Width + 1) * sizeof(char);
+          }
+
+          // If no width was specified, this is simply used to ensure that the
+          // pointer itself is valid. We will check that the pointed to memory
+          // is sufficient as the string is read.
           if (!Checker.checkMemoryExistsAndAccessibleForParameter(
-                  VarArgs.offset() + NextArg,
-                  reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
-                  Size,
-                  seec::runtime_errors::format_selects::MemoryAccess::Write))
-            
+                VarArgs.offset() + NextArg,
+                reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
+                Size,
+                seec::runtime_errors::format_selects::MemoryAccess::Write))
+          {
             break; // Leave the main processing loop.
+          }
         }
       }
       else {
