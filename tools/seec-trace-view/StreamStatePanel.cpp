@@ -17,7 +17,7 @@
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
-#include <wx/listbook.h>
+#include <wx/aui/auibook.h>
 #include <wx/stc/stc.h>
 
 #include "ActionRecord.hpp"
@@ -264,7 +264,9 @@ bool StreamStatePanel::Create(wxWindow *Parent,
   Notifier = &WithNotifier;
   Recording = &WithRecording;
 
-  Book = new wxListbook(this, ID, Position, Size);
+  Book = new wxAuiNotebook(this, ID, Position, Size,
+                           wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT
+                           | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS);
 
   auto const Sizer = new wxBoxSizer(wxHORIZONTAL);
   Sizer->Add(Book, wxSizerFlags().Proportion(1).Expand());

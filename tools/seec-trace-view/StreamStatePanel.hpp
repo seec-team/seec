@@ -32,7 +32,7 @@ class ActionReplayFrame;
 class ContextNotifier;
 class StateAccessToken;
 class StreamPanel;
-class wxListbook;
+class wxBookCtrlBase;
 
 
 /// \brief Displays a collection of state viewers.
@@ -40,7 +40,7 @@ class wxListbook;
 class StreamStatePanel final : public wxPanel
 {
   /// Holds the individual stream pages.
-  wxListbook *Book;
+  wxBookCtrlBase *Book;
 
   /// Lookup pages by FILE * value.
   std::map<uintptr_t, StreamPanel *> Pages;
