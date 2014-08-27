@@ -55,36 +55,45 @@ char const * const cConfigKeyForWidth       = "/TraceViewerFrame/Width";
 char const * const cConfigKeyForHeight      = "/TraceViewerFrame/Height";
 
 
-static void createViewButton(wxMenu &Menu,
-                             wxAuiManager &Manager,
-                             wxWindow *Window,
-                             ResourceBundle const &Table,
-                             char const * const Key)
+void TraceViewerFrame::createViewButton(wxMenu &Menu,
+                                        wxWindow *Window,
+                                        ResourceBundle const &Table,
+                                        char const * const Key)
 {
   // This particular panel was not created for this trace viewer.
   if (!Window)
     return;
 
-  auto &PaneInfo = Manager.GetPane(Window);
+  auto &PaneInfo = Manager->GetPane(Window);
   if (!PaneInfo.IsOk())
     return;
 
-  auto const Item = Menu.Append(wxID_ANY, seec::getwxStringExOrKey(Table, Key));
+  auto const Item = Menu.AppendCheckItem(wxID_ANY,
+                                         seec::getwxStringExOrKey(Table, Key));
   if (!Item)
     return;
 
   Menu.Bind(
     wxEVT_MENU,
     std::function<void (wxEvent &)>{
-      [Window, &Manager] (wxEvent &) -> void {
-        auto &PI = Manager.GetPane(Window);
+      [this, Window, Item] (wxEvent &) -> void {
+        auto &PI = Manager->GetPane(Window);
         if (PI.IsOk()) {
-          PI.Show();
-          Manager.Update();
+          if (Item->IsChecked())
+            PI.Show();
+          else
+            PI.Hide();
+          Manager->Update();
         }
       }
     },
     Item->GetId());
+
+  auto &PI = Manager->GetPane(Window);
+  if (PI.IsOk() && PI.IsShown())
+    Item->Check(true);
+
+  ViewMenuLookup.insert(std::make_pair(Window, Item));
 }
 
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
@@ -98,10 +107,10 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
   
   auto Menu = seec::makeUnique<wxMenu>();
   
-  createViewButton(*Menu, *Manager, ExplanationCtrl, Text, "Explanation");
-  createViewButton(*Menu, *Manager, GraphViewer,     Text, "Graph");
-  createViewButton(*Menu, *Manager, EvaluationTree,  Text, "EvaluationTree");
-  createViewButton(*Menu, *Manager, StreamState,     Text, "StreamState");
+  createViewButton(*Menu, ExplanationCtrl, Text, "Explanation");
+  createViewButton(*Menu, GraphViewer,     Text, "Graph");
+  createViewButton(*Menu, EvaluationTree,  Text, "EvaluationTree");
+  createViewButton(*Menu, StreamState,     Text, "StreamState");
   
   return std::make_pair(std::move(Menu),
                         seec::getwxStringExOrKey(Text, "Title"));
@@ -148,6 +157,7 @@ TraceViewerFrame::TraceViewerFrame()
   RecordingControl(nullptr),
   Recording(nullptr),
   Replay(nullptr),
+  ViewMenuLookup(),
   ThreadTime(nullptr)
 {}
 
@@ -362,6 +372,17 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   else {
     // TODO: Setup the view for a multi-threaded trace.
   }
+
+  // Catch the wxAuiManager's close event to update the view menu.
+  Manager->Bind(wxEVT_AUI_PANE_CLOSE,
+    std::function<void (wxAuiManagerEvent &)>{
+      [this] (wxAuiManagerEvent &Ev) -> void {
+        if (auto const PI = Ev.GetPane()) {
+          auto const It = ViewMenuLookup.find(PI->window);
+          if (It != ViewMenuLookup.end())
+            It->second->Check(false);
+        }
+      }});
 
   // Load the user's last-used perspective.
   wxString Perspective;

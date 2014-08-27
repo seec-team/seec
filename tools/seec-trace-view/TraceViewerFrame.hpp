@@ -18,6 +18,10 @@
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "llvm/ADT/DenseMap.h"
+
+#include <unicode/resbund.h>
+
 #include <memory>
 #include <mutex>
 
@@ -88,6 +92,9 @@ class TraceViewerFrame : public wxFrame
   
   /// Used to replay user interactions.
   ActionReplayFrame *Replay;
+
+  /// Map from windows to their associated menu item in the view menu.
+  llvm::DenseMap<wxWindow const *, wxMenuItem *> ViewMenuLookup;
   
   
   /// \name Multi-threaded traces
@@ -107,6 +114,13 @@ class TraceViewerFrame : public wxFrame
   /// @} (Single-threaded traces)
   
   
+  /// \brief Create a single button in the view control menu.
+  ///
+  void createViewButton(wxMenu &Menu,
+                        wxWindow *Window,
+                        ResourceBundle const &Table,
+                        char const * const Key);
+
   /// \brief Create a view control menu.
   ///
   std::pair<std::unique_ptr<wxMenu>, wxString> createViewMenu();
