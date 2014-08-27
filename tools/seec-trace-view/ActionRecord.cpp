@@ -421,6 +421,20 @@ bool ActionRecord::finalize()
   if (!Enabled)
     return true;
   
+  // Check the size of the trace.
+  auto const &UnmappedTrace = *(Trace.getUnmappedTrace());
+  auto const MaybeSize = UnmappedTrace.getCombinedFileSize();
+  if (MaybeSize.assigned<seec::Error>())
+    return false;
+
+  // ActionRecordSizeLimit is in MiB, whereas combined file size is in bytes.
+  auto const SizeLimit = getActionRecordSizeLimit();
+  if (SizeLimit > 0 &&
+      MaybeSize.get<uint64_t>() / (1024 * 1024) > uint64_t(SizeLimit))
+  {
+    return false;
+  }
+
   auto const DateStr = wxDateTime::Now().Format("%F.%H-%M-%S");
   
   wxFileName ArchivePath;

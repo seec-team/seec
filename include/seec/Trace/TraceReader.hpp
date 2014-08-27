@@ -547,6 +547,10 @@ public:
   seec::Maybe<std::vector<TraceFile>, seec::Error>
   getAllFileData() const;
 
+  /// \brief Get the combined size of all files.
+  ///
+  Maybe<uint64_t, Error> getCombinedFileSize() const;
+
   /// @} (Accessors)
 
 

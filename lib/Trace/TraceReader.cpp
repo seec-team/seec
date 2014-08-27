@@ -247,6 +247,19 @@ ProcessTrace::getAllFileData() const
   return std::move(Files);
 }
 
+Maybe<uint64_t, Error> ProcessTrace::getCombinedFileSize() const
+{
+  auto MaybeFiles = getAllFileData();
+  if (MaybeFiles.assigned<Error>())
+    return MaybeFiles.move<Error>();
+
+  auto &Files = MaybeFiles.get<std::vector<TraceFile>>();
+  return std::accumulate(Files.begin(), Files.end(), uint64_t{0},
+                         [] (uint64_t const Sum, TraceFile const &File) {
+                           return Sum + File.getContents()->getBufferSize();
+                         });
+}
+
 Maybe<uint32_t>
 ProcessTrace::getIndexOfFunctionAt(uintptr_t const Address) const
 {
