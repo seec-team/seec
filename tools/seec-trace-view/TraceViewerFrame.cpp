@@ -436,7 +436,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Replay->RegisterHandler("TraceViewerFrame.Resize",
                           {{"width", "height"}}, seec::make_function(
     [this] (int width, int height) -> void {
-      wxLogDebug("TraceViewerFrame.Resize %d,%d", width, height);
       this->SetSize(width, height);
       this->Layout();
     }));
@@ -461,15 +460,7 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
     StateAccess->invalidate();
   
   // Move the process.
-  auto const MoveStart = std::chrono::steady_clock::now();
-  
   Event.getMover()(*State);
-  
-  auto const MoveEnd = std::chrono::steady_clock::now();
-  auto const MoveMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (MoveEnd - MoveStart);
-  wxLogDebug("Moved process in %" PRIu64 " ms",
-             static_cast<uint64_t>(MoveMS.count()));
   
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
@@ -488,12 +479,6 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
   else {
     // TODO: Show the state for a multi-threaded trace.
   }
-  
-  auto const ShowEnd = std::chrono::steady_clock::now();
-  auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (ShowEnd - MoveEnd);
-  wxLogDebug("Showed state in %" PRIu64 " ms",
-             static_cast<uint64_t>(ShowMS.count()));
 }
 
 void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
@@ -509,15 +494,7 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   auto const Index = Event.getThreadIndex();
   auto &Thread = State->getThread(Index);
   
-  auto const MoveStart = std::chrono::steady_clock::now();
-  
   Event.getMover()(Thread);
-  
-  auto const MoveEnd = std::chrono::steady_clock::now();
-  auto const MoveMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (MoveEnd - MoveStart);
-  wxLogDebug("Moved thread in %" PRIu64 " ms",
-             static_cast<uint64_t>(MoveMS.count()));
   
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
@@ -531,10 +508,4 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   GraphViewer->show(StateAccess, *State, ThreadState);
   SourceViewer->show(StateAccess, *State, ThreadState);
   StreamState->show(StateAccess, *State, ThreadState);
-  
-  auto const ShowEnd = std::chrono::steady_clock::now();
-  auto const ShowMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (ShowEnd - MoveEnd);
-  wxLogDebug("Showed state in %" PRIu64 " ms",
-             static_cast<uint64_t>(ShowMS.count()));
 }

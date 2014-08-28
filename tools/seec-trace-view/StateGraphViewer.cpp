@@ -217,12 +217,6 @@ std::string StateGraphViewerPanel::workerGenerateDot()
                                               ContinueGraphGeneration);
   auto const GraphString = Layout.getDotString();
 
-  auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (Layout.getTimeTaken());
-
-  wxLogDebug("State graph generated in %" PRIu64 " ms.",
-            static_cast<uint64_t>(TimeMS.count()));
-
   return GraphString;
 }
 
@@ -250,8 +244,6 @@ void StateGraphViewerPanel::workerTaskLoop()
     // The remainder of the graph generation does not use the state, so we can
     // release access to the task information.
     Lock.unlock();
-
-    auto const GVStart = std::chrono::steady_clock::now();
 
     // Write the graph to a temporary file.
     llvm::SmallString<256> GraphPath;
@@ -344,12 +336,6 @@ void StateGraphViewerPanel::workerTaskLoop()
       wxLogDebug("Couldn't read temporary svg file.");
       continue;
     }
-
-    auto const GVEnd = std::chrono::steady_clock::now();
-    auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                (GVEnd - GVStart);
-    wxLogDebug("Graphviz completed in %" PRIu64 " ms",
-              static_cast<uint64_t>(GVMS.count()));
 
     // Remove all non-print characters from the SVG and prepare it to be sent to
     // the WebView via javascript.
