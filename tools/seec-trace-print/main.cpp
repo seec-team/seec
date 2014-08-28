@@ -72,6 +72,9 @@ namespace {
   OutputDirectoryForClangMappedDot("G", cl::desc("output dot graphs to this directory"));
 
   static cl::opt<bool>
+  TestGraphGeneration("graph-test", cl::desc("generate dot graphs (but do not write them)"));
+
+  static cl::opt<bool>
   ShowCounts("counts", cl::desc("show event counts"));
 
   static cl::opt<bool>
@@ -85,6 +88,9 @@ namespace {
 
   static cl::opt<bool>
   OnlinePythonTutor("P", cl::desc("output suitable for Online Python Tutor"));
+
+  static cl::opt<bool>
+  ReverseStates("reverse", cl::desc("show reverse iterated states at the end"));
 }
 
 // From clang's driver.cpp:
@@ -100,7 +106,7 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
 
 void WriteDotGraph(seec::cm::ProcessState const &State,
                    char const *Filename,
-                   seec::cm::graph::LayoutHandler const &Handler)
+                   std::string const &DotString)
 {
   assert(Filename && "NULL Filename.");
   
@@ -112,7 +118,7 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
     return;
   }
   
-  Stream << Handler.doLayout(State).getDotString();
+  Stream << DotString;
 }
 
 void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
@@ -139,35 +145,47 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
       llvm::errs() << "Couldn't create output directory.\n";
       return;
     }
-    
+  }
+
+  if (!OutputDirectoryForClangMappedDot.empty() || TestGraphGeneration) {
     LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
     LayoutHandler->addBuiltinLayoutEngines();
   }
   
   if (State.getThreadCount() == 1) {
     llvm::outs() << "Using thread-level iterator.\n";
+    auto const WriteGraphs = !OutputForDot.empty() || TestGraphGeneration;
     
     do {
       // Write textual description to stdout.
-      llvm::outs() << State;
-      llvm::outs() << "\n";
+      llvm::outs() << State << "\n";
       
       // If enabled, write graphs in dot format.
-      if (!OutputForDot.empty()) {
-        // Add filename for this state.
-        FilenameString.clear();
-        FilenameStream << "state." << StateNumber++ << ".dot";
-        FilenameStream.flush();
-        
-        llvm::sys::path::append(OutputForDot, FilenameString);
-        
-        // Write the graph.
-        WriteDotGraph(State, OutputForDot.c_str(), *LayoutHandler);
-        
-        // Remove filename for this state.
-        llvm::sys::path::remove_filename(OutputForDot);
+      if (WriteGraphs) {
+        auto const Layout = LayoutHandler->doLayout(State);
+
+        if (!OutputForDot.empty()){
+          // Add filename for this state.
+          FilenameString.clear();
+          FilenameStream << "state." << StateNumber++ << ".dot";
+          FilenameStream.flush();
+
+          llvm::sys::path::append(OutputForDot, FilenameString);
+
+          // Write the graph.
+          WriteDotGraph(State, OutputForDot.c_str(), Layout.getDotString());
+
+          // Remove filename for this state.
+          llvm::sys::path::remove_filename(OutputForDot);
+        }
       }
     } while (seec::cm::moveForward(State.getThread(0)));
+
+    if (ReverseStates) {
+      while (seec::cm::moveBackward(State.getThread(0))) {
+        llvm::outs() << State << "\n";
+      }
+    }
   }
   else {
     llvm::outs() << "Using process-level iteration.\n";
@@ -322,9 +340,11 @@ void PrintUnmapped()
       outs() << ProcState << "\n";
     }
 
-    while (ProcState.getProcessTime() != 0) {
-      moveBackward(ProcState);
-      outs() << ProcState << "\n";
+    if (ReverseStates) {
+      while (ProcState.getProcessTime() != 0) {
+        moveBackward(ProcState);
+        outs() << ProcState << "\n";
+      }
     }
   }
 
