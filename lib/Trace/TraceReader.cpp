@@ -22,6 +22,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <memory>
+#include <numeric>
 #include <vector>
 
 namespace seec {
