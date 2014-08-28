@@ -298,14 +298,25 @@ void StreamStatePanel::show(std::shared_ptr<StateAccessToken> Access,
   for (auto const &StreamEntry : Process.getStreams()) {
     auto const Address = StreamEntry.first;
     auto const It = Pages.lower_bound(Address);
-
-    // If this FILE doesn't have a page then create one.
+    
+    // If this FILE doesn't have a page then create one. If it isn't stdin or
+    // stdout, then make it the selected page. This selects newly opened (or
+    // unclosed) streams as we move through the trace, which is nice, and also
+    // ensures that stdout is selected when we first open a trace.
     if (It == Pages.end() || It->first != Address) {
+      auto const &StreamName = StreamEntry.second.getFilename();
+      auto const Select = StreamName != "stdin" && StreamName != "stderr";
+
       auto const StreamPage = new StreamPanel(this,
                                               this->Recording,
                                               CurrentAccess,
                                               StreamEntry.second);
-      Book->AddPage(StreamPage, wxString{StreamEntry.second.getFilename()});
+
+      Book->InsertPage(0,
+                       StreamPage,
+                       wxString{StreamEntry.second.getFilename()},
+                       Select);
+
       Pages.insert(It, std::make_pair(Address, StreamPage));
     }
   }
