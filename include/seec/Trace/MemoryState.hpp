@@ -107,6 +107,20 @@ public:
   llvm::ArrayRef<unsigned char>
   getAreaInitialization(MemoryArea const &Area) const;
 
+  /// \brief Find out if the contained bytes are initialized.
+  ///
+  bool isCompletelyInitialized() const;
+
+  /// \brief Find out if any contained byte is initialized.
+  /// If the region is completely initialized, this method will also return
+  /// true.
+  ///
+  bool isPartiallyInitialized() const;
+
+  /// \brief Find out if all contained bytes are uninitialized.
+  ///
+  bool isUninitialized() const;
+
   /// \brief Add a new \c MappedMemoryBlock, updating the value and
   ///        initialization of the contained memory.
   ///

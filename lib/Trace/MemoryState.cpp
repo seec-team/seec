@@ -22,6 +22,8 @@ namespace seec {
 
 namespace trace {
 
+static constexpr bool debugPrintStateChanges() { return false; }
+
 
 //------------------------------------------------------------------------------
 // MemoryAllocation Mutators
@@ -45,8 +47,39 @@ MemoryAllocation::getAreaInitialization(MemoryArea const &Area) const
   return llvm::ArrayRef<unsigned char>(Init.data() + Offset, Area.length());
 }
 
+bool MemoryAllocation::isCompletelyInitialized() const
+{
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+  if (Init.empty())
+    return false;
+
+  return std::all_of(Init.cbegin(), Init.cend(),
+                     [] (unsigned char const Byte) { return Byte == Complete;});
+}
+
+bool MemoryAllocation::isPartiallyInitialized() const
+{
+  if (Init.empty())
+    return false;
+
+  return std::any_of(Init.cbegin(), Init.cend(),
+                     [] (unsigned char const Value) { return Value != 0; });
+}
+
+bool MemoryAllocation::isUninitialized() const
+{
+  return std::all_of(Init.cbegin(), Init.cend(),
+                     [] (unsigned char const C) { return C == 0; });
+}
+
 void MemoryAllocation::addBlock(MappedMemoryBlock const &Block)
 {
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : addBlock @" << Block.address()
+                 << " (" << Block.length() << ")\n";
+  }
+
   clearArea(Block.area());
 
   auto const Offset = Block.address() - Address;
@@ -62,6 +95,12 @@ void MemoryAllocation::addArea(uintptr_t const AtAddress,
                                llvm::ArrayRef<char> WithData,
                                llvm::ArrayRef<unsigned char> WithInitialization)
 {
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : addArea @" << AtAddress
+                 << " (" << WithData.size() << ")\n";
+  }
+
   assert(WithData.size() == WithInitialization.size());
 
   clearArea(MemoryArea(AtAddress, WithData.size()));
@@ -79,6 +118,12 @@ void MemoryAllocation::addArea(uintptr_t const AtAddress,
 
 void MemoryAllocation::clearArea(MemoryArea const &Area)
 {
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : clearArea @" << Area.address()
+                 << " (" << Area.length() << ")\n";
+  }
+
   assert(MemoryArea(Address, Size).contains(Area));
   assert(Area.length() != 0);
 
@@ -101,7 +146,7 @@ void MemoryAllocation::clearArea(MemoryArea const &Area)
   else if (std::all_of(InitBegin, InitEnd,
            [] (unsigned char const C) { return C == Complete; }))
   {
-    Type = EPreviousAreaType::Uninitialized;
+    Type = EPreviousAreaType::Complete;
   }
 
   PreviousType.push_back(Type);
@@ -123,6 +168,12 @@ void MemoryAllocation::clearArea(MemoryArea const &Area)
 
 void MemoryAllocation::rewindArea(MemoryArea const &Area)
 {
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : rewindArea @" << Area.address()
+                 << " (" << Area.length() << ")\n";
+  }
+
   assert(MemoryArea(Address, Size).contains(Area));
   assert(Area.length() != 0);
 
@@ -136,6 +187,17 @@ void MemoryAllocation::rewindArea(MemoryArea const &Area)
   assert(!PreviousType.empty());
   auto const Type = PreviousType.back();
   PreviousType.pop_back();
+
+  if (debugPrintStateChanges()) {
+    switch (Type) {
+      case EPreviousAreaType::Uninitialized:
+        llvm::errs() << "  ...to uninitialized.\n"; break;
+      case EPreviousAreaType::Partial:
+        llvm::errs() << "  ...to partially initialized.\n"; break;
+      case EPreviousAreaType::Complete:
+        llvm::errs() << "  ...to completely initialized.\n"; break;
+    }
+  }
 
   // Set area as uninitialized.
   if (Type == EPreviousAreaType::Uninitialized)
@@ -164,6 +226,11 @@ void MemoryAllocation::rewindArea(MemoryArea const &Area)
 
 void MemoryAllocation::resize(std::size_t const NewSize)
 {
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : resize from " << Size << " to " << NewSize << "\n";
+  }
+
   Data.resize(NewSize);
   Init.resize(NewSize);
   Size = NewSize;
@@ -472,7 +539,13 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << " MemoryState:\n";
 
   for (auto const &Alloc : State.getAllocations()) {
-    Out << "  @" << Alloc.first << " (" << Alloc.second.getSize() << ")\n";
+    Out << "  @" << Alloc.first << " (" << Alloc.second.getSize() << "): ";
+    if (Alloc.second.isCompletelyInitialized())
+      Out << "initialized\n";
+    else if (Alloc.second.isPartiallyInitialized())
+      Out << "partially initialized\n";
+    else
+      Out << "uninitialized\n";
   }
 
   return Out;
