@@ -237,12 +237,19 @@ SEEC_FORMAT_SELECT(CStdFunction,
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, qsort, "qsort")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, bsearch, "bsearch")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkstemp,   "mkstemp")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkostemp,  "mkostemp")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkstemps,  "mkstemps")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, mkostemps, "mkostemps")
   
   //----------------------------------------------------------------------------
   // string.h
   //----------------------------------------------------------------------------
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, strcasecmp,  "strcasecmp")
   SEEC_FORMAT_SELECT_ITEM(CStdFunction, strncasecmp, "strncasecmp")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strcasestr,  "strcasestr")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strndup,     "strndup")
+  SEEC_FORMAT_SELECT_ITEM(CStdFunction, strsep,      "strsep")
   
   //----------------------------------------------------------------------------
   // time.h

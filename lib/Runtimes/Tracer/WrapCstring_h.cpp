@@ -69,6 +69,28 @@ SEEC_MANGLE_FUNCTION(strncasecmp)
 
 
 //===----------------------------------------------------------------------===//
+// strcasestr
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(strcasestr)
+(char const * const haystack, char const * const needle)
+{
+  extern char *strcasestr(char const *, char const *) __attribute__((weak));
+  assert(strcasestr);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::strcasestr}
+          (strcasestr,
+           [](char * const){ return true; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(haystack),
+           seec::wrapInputCString(needle));
+}
+
+
+//===----------------------------------------------------------------------===//
 // strdup
 //===----------------------------------------------------------------------===//
 
@@ -121,6 +143,116 @@ SEEC_MANGLE_FUNCTION(strdup)
   Listener.getActiveFunction()->setPointerObject(
     Instruction,
     Listener.getProcessListener().makePointerObject(ResultAddr));
+
+  return Result;
+}
+
+
+//===----------------------------------------------------------------------===//
+// strndup
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(strndup)
+(char const * const String, size_t const Length)
+{
+  extern char *strndup(char const *, size_t) __attribute__((weak));
+  assert(strndup);
+
+  struct ResultStateRecorderForStrndup {
+    void record(seec::trace::TraceProcessListener &ProcessListener,
+                seec::trace::TraceThreadListener &ThreadListener,
+                char *Value)
+    {
+      if (Value != nullptr) {
+        auto const Length = std::strlen(Value) + 1;
+        ThreadListener.recordMalloc(reinterpret_cast<uintptr_t>(Value), Length);
+        ThreadListener.recordUntypedState(Value, Length);
+      }
+    }
+  };
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock,
+           seec::SimpleWrapperSetting::AcquireDynamicMemoryLock>
+          {seec::runtime_errors::format_selects::CStdFunction::strndup}
+          (strndup,
+           [](char * const Result){ return Result != nullptr; },
+           ResultStateRecorderForStrndup(),
+           seec::wrapInputCString(String).setLimited(Length),
+           Length);
+}
+
+
+//===----------------------------------------------------------------------===//
+// strsep
+//===----------------------------------------------------------------------===//
+
+char *
+SEEC_MANGLE_FUNCTION(strsep)
+(char ** const stringp, char const * const delim)
+{
+  extern char *strsep(char **, char const *) __attribute__((weak));
+  assert(strsep);
+
+  using namespace seec;
+
+  auto const FSFunction = runtime_errors::format_selects::CStdFunction::strsep;
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto &Process  = Listener.getProcessListener();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Lock global memory because strsep will modify *stringp.
+  Listener.acquireGlobalMemoryWriteLock();
+
+  // Get information about the call Instruction.
+  auto const Instruction      = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+  auto const ActiveFn         = Listener.getActiveFunction();
+
+  ActiveFn->setActiveInstruction(Instruction);
+
+  // We have to check that the first argument is a valid pointer to a char *,
+  // then we have to check if that char * is a valid pointer to a C string. We
+  // also have to check if delim is a valid C string.
+  seec::trace::CStdLibChecker Checker {Listener, InstructionIndex, FSFunction};
+
+  auto const stringpInt = reinterpret_cast<uintptr_t>(stringp);
+  Checker.checkMemoryExistsAndAccessibleForParameter
+            (0, stringpInt, sizeof(*stringp),
+             runtime_errors::format_selects::MemoryAccess::Write);
+
+  // Slightly misleading that we simply give parameter 0 as the string, but for
+  // now it's functional (in the future we could add a temporary note).
+  auto const str = *stringp;
+  Checker.checkCStringRead(0, str);
+
+  Checker.checkCStringRead(1, delim);
+
+  auto const Result = strsep(stringp, delim);
+
+  // Record the result.
+  Listener.notifyValue(InstructionIndex, Instruction, Result);
+
+  // The returned value's pointer information will match *stringp:
+  ActiveFn->setPointerObject(Instruction,
+                             Process.getInMemoryPointerObject(stringpInt));
+
+  if (*stringp == nullptr) {
+    // Update in-memory pointer information for *stringp.
+    Process.setInMemoryPointerObject(stringpInt, seec::trace::PointerTarget());
+  }
+  else {
+    // Update memory state for NULL character. *stringp still points to the
+    // same allocation (albeit a different C string), so its in memory pointer
+    // target does not require updating.
+    auto NewTerminatorPtr = *stringp - 1;
+    Listener.recordUntypedState(NewTerminatorPtr, 1);
+  }
 
   return Result;
 }

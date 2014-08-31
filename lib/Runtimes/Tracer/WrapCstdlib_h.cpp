@@ -619,4 +619,77 @@ SEEC_MANGLE_FUNCTION(bsearch)
 }
 
 
+//===----------------------------------------------------------------------===//
+// mkstemp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(mkstemp)
+(char * const Template)
+{
+  extern int mkstemp(char *) __attribute__((weak));
+  assert(mkstemp);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkstemp}
+          (mkstemp,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template));
+}
+
+int
+SEEC_MANGLE_FUNCTION(mkostemp)
+(char * const Template, int const Flags)
+{
+  extern int mkostemp(char *, int) __attribute__((weak));
+  assert(mkostemp);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkostemp}
+          (mkostemp,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           Flags);
+}
+
+int
+SEEC_MANGLE_FUNCTION(mkstemps)
+(char * const Template, int const SuffixLen)
+{
+  extern int mkstemps(char *, int) __attribute__((weak));
+  assert(mkstemps);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkstemps}
+          (mkstemps,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           SuffixLen);
+}
+
+int
+SEEC_MANGLE_FUNCTION(mkostemps)
+(char *Template, int const SuffixLen, int const Flags)
+{
+  extern int mkostemps(char *, int, int) __attribute__((weak));
+  assert(mkostemps);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkostemps}
+          (mkostemps,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           SuffixLen,
+           Flags);
+}
+
+
 } // extern "C"

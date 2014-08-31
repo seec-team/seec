@@ -316,9 +316,10 @@ public:
 // WrappedInputCString
 //===----------------------------------------------------------------------===//
 
+template<typename CharT>
 class WrappedInputCString {
-  char const *Value;
-  
+  CharT *Value;
+
   bool IgnoreNull;
 
   bool IsLimited;
@@ -326,7 +327,7 @@ class WrappedInputCString {
   std::size_t Limit;
   
 public:
-  WrappedInputCString(char const *ForValue)
+  WrappedInputCString(CharT *ForValue)
   : Value(ForValue),
     IgnoreNull(false),
     IsLimited(false),
@@ -358,21 +359,25 @@ public:
   /// \name Value information
   /// @{
   
-  operator char const *() const { return Value; }
+  operator CharT *() const { return Value; }
   
   uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
   
   /// @}
 };
 
-inline WrappedInputCString wrapInputCString(char const *ForValue) {
-  return WrappedInputCString(ForValue);
+inline WrappedInputCString<char> wrapInputCString(char *ForValue) {
+  return WrappedInputCString<char>(ForValue);
+}
+
+inline WrappedInputCString<char const> wrapInputCString(char const *ForValue) {
+  return WrappedInputCString<char const>(ForValue);
 }
 
 /// \brief WrappedArgumentChecker specialization for WrappedInputCString.
 ///
-template<>
-class WrappedArgumentChecker<WrappedInputCString>
+template<typename CharT>
+class WrappedArgumentChecker<WrappedInputCString<CharT>>
 {
   /// The underlying memory checker.
   seec::trace::CStdLibChecker &Checker;
@@ -386,13 +391,13 @@ public:
   
   /// \brief Check if the given value is OK.
   ///
-  bool check(WrappedInputCString &Value, int Parameter) {
-    if (Value == nullptr && Value.getIgnoreNull())
+  bool check(WrappedInputCString<CharT> &Value, int Parameter) {
+    if (Value == nullptr && Value.template getIgnoreNull())
       return true;
     
-    if (Value.isLimited()) {
+    if (Value.template isLimited()) {
       return Checker.checkLimitedCStringRead(Parameter, Value,
-                                             Value.getLimit());
+                                             Value.template getLimit());
     }
     else {
       return Checker.checkCStringRead(Parameter, Value);
