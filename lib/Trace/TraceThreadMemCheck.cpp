@@ -421,7 +421,7 @@ bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
 
   raiseError(*createRunError<RunErrorType::OverlappingSourceDest>
                             (Function, Overlap.start(), Overlap.length()),
-             RunErrorSeverity::Warning);
+             RunErrorSeverity::Fatal);
 
   return false;
 }
