@@ -16,6 +16,8 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <thread>
+#include <vector>
 
 namespace seec {
 
@@ -31,15 +33,19 @@ class SynchronizedExit {
   uint32_t NumThreads;
   
   uint32_t StoppedThreads;
+
+  std::thread::id StopMaster;
   
   std::condition_variable AllThreadsStopped;
   
   std::condition_variable StopCancelled;
   
-  void initiateStop();
+  bool initiateStop(std::unique_lock<std::mutex> &Lock);
   
   void joinStop(std::unique_lock<std::mutex> &Lock);
   
+  void cancelStop();
+
 public:
   /// \brief Constructor.
   ///
@@ -48,6 +54,7 @@ public:
     ExitCalled(false),
     NumThreads(0),
     StoppedThreads(0),
+    StopMaster(),
     AllThreadsStopped(),
     StopCancelled()
   {}
@@ -64,9 +71,31 @@ public:
   ///
   void threadFinish();
   
+  /// \brief Can be used to resume execution after an all-stop.
+  class StopCanceller {
+    friend class SynchronizedExit;
+
+    SynchronizedExit &SE;
+
+    bool Stopped;
+
+    bool Restarted;
+
+    StopCanceller(SynchronizedExit &TheSE, bool const WithStopped)
+    : SE(TheSE),
+      Stopped(WithStopped),
+      Restarted(false)
+    {}
+
+  public:
+    bool wasStopped() const { return Stopped; }
+
+    bool cancelStop();
+  };
+
   /// \brief Stop all threads and then return.
   ///
-  void stopAll();
+  StopCanceller stopAll();
   
   /// \brief Stop all threads and call std::abort().
   ///
@@ -80,14 +109,10 @@ public:
   ///
   void check() {
     std::unique_lock<std::mutex> Lock(Access);
-    
-    if (!StoppedThreads) // No stop is active.
-      return;
-      
-    if (ExitCalled)
-      return;
-    
-    joinStop(Lock);
+
+    if (StoppedThreads && !ExitCalled) {
+      joinStop(Lock);
+    }
   }
 };
 

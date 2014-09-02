@@ -735,7 +735,10 @@ TraceThreadListener
                         " error occurred in a child process.\n";
       }
       
-      // Shut down the tracing.
+      // Shut down the tracing. We must release all of our locks, because
+      // there might be other threads waiting to acquire a lock (before they
+      // can possibly join the synchronized exit).
+      exitPostNotification();
       SupportSyncExit.getSynchronizedExit().exit(EXIT_FAILURE);
       
       break;
