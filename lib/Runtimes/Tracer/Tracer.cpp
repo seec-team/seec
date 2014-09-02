@@ -457,14 +457,6 @@ void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
   Listener.notifyArgumentByVal(Index, Arg, Address);
 }
 
-void SeeCRecordSetReadable(void *Address, uint64_t Size) {
-  llvm::errs() << "readable " << Address << ", " << Size << "\n";
-}
-
-void SeeCRecordSetWritable(void *Address, uint64_t Size) {
-  llvm::errs() << "readable " << Address << ", " << Size << "\n";
-}
-
 void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
