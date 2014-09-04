@@ -63,13 +63,6 @@ void TraceThreadListener::exitPostNotification() {
   // We can't hold any locks when we do a synchronized exit, so we only check
   // for synchronized exits here (after any locks have been released).
   SupportSyncExit.getSynchronizedExit().check();
-
-  if (EventsOut.offset() > ThreadEventLimit) {
-    llvm::errs() << "\nSeeC: Thread event limit reached!\n";
-
-    // Shut down the tracing.
-    SupportSyncExit.getSynchronizedExit().exit(EXIT_SUCCESS);
-  }
 }
 
 void TraceThreadListener::notifyFunctionBegin(uint32_t Index,

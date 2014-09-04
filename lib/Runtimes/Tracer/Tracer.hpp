@@ -88,6 +88,17 @@ public:
   ProcessEnvironment &getProcessEnvironment() { return Process; }
   
   /// @} (Accessors.)
+
+
+  /// \name Trace output.
+  /// @{
+
+  /// \brief Check if this thread's output is too large, in which case the
+  ///        tracing will be stopped (but execution will continue).
+  ///
+  void checkOutputSize();
+
+  /// @}
   
   
   /// \name Function tracking.

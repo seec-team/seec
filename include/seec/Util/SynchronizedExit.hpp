@@ -28,8 +28,6 @@ namespace seec {
 class SynchronizedExit {
   std::mutex Access;
   
-  bool ExitCalled;
-  
   uint32_t NumThreads;
   
   uint32_t StoppedThreads;
@@ -51,7 +49,6 @@ public:
   ///
   SynchronizedExit()
   : Access(),
-    ExitCalled(false),
     NumThreads(0),
     StoppedThreads(0),
     StopMaster(),
@@ -110,7 +107,7 @@ public:
   void check() {
     std::unique_lock<std::mutex> Lock(Access);
 
-    if (StoppedThreads && !ExitCalled) {
+    if (StoppedThreads) {
       joinStop(Lock);
     }
   }

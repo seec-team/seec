@@ -86,6 +86,38 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
 ThreadEnvironment::~ThreadEnvironment()
 {}
 
+void ThreadEnvironment::checkOutputSize()
+{
+  if (!ThreadTracer.traceEnabled())
+    return;
+
+  if (ThreadTracer.traceEventSize() > Process.getThreadEventLimit()) {
+    llvm::errs() << "\nSeeC: Thread event limit reached!\n";
+
+    // Shut down the tracing and archive.
+    auto const &SupportSyncExit = ThreadTracer.getSupportSynchronizedExit();
+    auto StopCanceller = SupportSyncExit.getSynchronizedExit().stopAll();
+    if (!StopCanceller.wasStopped())
+      return;
+
+    auto &ProcessListener = Process.getProcessListener();
+
+    for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
+      ThreadListenerPtr->traceWrite();
+      ThreadListenerPtr->traceFlush();
+      ThreadListenerPtr->traceClose();
+    }
+
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+
+    Process.archive();
+
+    StopCanceller.cancelStop();
+  }
+}
+
 void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
   Stack.push_back(FunctionEnvironment{Fun});
   FunIndex = Process.getModuleIndex().getFunctionIndex(Fun);
@@ -433,6 +465,8 @@ void SeeCRecordFunctionBegin(uint32_t Index) {
   auto F = ModIndex.getFunction(Index);
   Listener.notifyFunctionBegin(Index, F);
   ThreadEnv.pushFunction(F);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const InstructionIndex) {
@@ -445,6 +479,8 @@ void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const InstructionIndex) {
 
   // Check F matches Index?
   Listener.notifyFunctionEnd(Index, F, InstructionIndex, I);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
@@ -455,6 +491,8 @@ void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
   assert(Arg && "Expected Argument");
   
   Listener.notifyArgumentByVal(Index, Arg, Address);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
@@ -466,12 +504,16 @@ void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
     auto &ProcessEnv = ThreadEnv.getProcessEnvironment();
     ProcessEnv.setProgramName(ArgV[0]);
   }
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordEnv(char **EnvP) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyEnv(EnvP);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordSetInstruction(uint32_t Index) {
@@ -509,6 +551,8 @@ void SeeCRecordPostLoad(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostLoad(Index, Load, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
@@ -520,6 +564,8 @@ void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPreStore(Index, Store, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
@@ -530,6 +576,8 @@ void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostStore(Index, Store, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreCall(uint32_t Index, void *Address) {
@@ -539,26 +587,27 @@ void SeeCRecordPreCall(uint32_t Index, void *Address) {
   auto &ProcessEnv = seec::trace::getProcessEnvironment();
   if (ProcessEnv.isInterceptedFunction(reinterpret_cast<uintptr_t>(Address))) {
     ThreadEnv.setInstructionIsInterceptedCall();
-    return;
   }
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
-  assert(Call && "Expected CallInst");
+  else {
+    auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
+    assert(Call && "Expected CallInst");
 
-  auto &Listener = ThreadEnv.getThreadListener();
-  Listener.notifyPreCall(Index, Call, Address);
+    auto &Listener = ThreadEnv.getThreadListener();
+    Listener.notifyPreCall(Index, Call, Address);
+  }
 }
 
 void SeeCRecordPostCall(uint32_t Index, void *Address) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  if (ThreadEnv.getInstructionIsInterceptedCall())
-    return;
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
-  assert(Call && "Expected CallInst");
+  if (!ThreadEnv.getInstructionIsInterceptedCall()) {
+    auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
+    assert(Call && "Expected CallInst");
 
-  auto &Listener = ThreadEnv.getThreadListener();
-  Listener.notifyPostCall(Index, Call, Address);
+    auto &Listener = ThreadEnv.getThreadListener();
+    Listener.notifyPostCall(Index, Call, Address);
+  }
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreCallIntrinsic(uint32_t Index) {
@@ -580,6 +629,8 @@ void SeeCRecordPostCallIntrinsic(uint32_t Index) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostCallIntrinsic(Index, Call);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreDivide(uint32_t Index) {
@@ -602,6 +653,8 @@ void SeeCRecordUpdateVoid(uint32_t Index) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyValue(Index, ThreadEnv.getInstruction());
+
+  ThreadEnv.checkOutputSize();
 }
 
 #define SEEC_RECORD_TYPED(NAME, TYPE)                                          \
@@ -612,6 +665,7 @@ void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
     return;                                                                    \
   auto &Listener = ThreadEnv.getThreadListener();                              \
   Listener.notifyValue(Index, ThreadEnv.getInstruction(), Value);              \
+  ThreadEnv.checkOutputSize();                                                 \
 }                                                                              \
 void SeeCRecordSetCurrent##NAME(TYPE Value) {                                  \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
@@ -619,6 +673,7 @@ void SeeCRecordSetCurrent##NAME(TYPE Value) {                                  \
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),                        \
                        ThreadEnv.getInstruction(),                             \
                        Value);                                                 \
+  ThreadEnv.checkOutputSize();                                                 \
 }
 
 SEEC_RECORD_TYPED(Pointer, void *)

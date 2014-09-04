@@ -55,7 +55,18 @@ void SynchronizedExit::joinStop(std::unique_lock<std::mutex> &Lock) {
 }
 
 void SynchronizedExit::cancelStop() {
-  AllThreadsStopped.notify_all();
+  std::unique_lock<std::mutex> Lock(Access);
+
+  if (StopMaster != std::this_thread::get_id())
+    return;
+
+  StopMaster = std::thread::id();
+
+  // Remove this thread itself from the stop.
+  --StoppedThreads;
+
+  // Notify the stopped threads that they may resume.
+  StopCancelled.notify_all();
 }
 
 void SynchronizedExit::threadStart() {
@@ -69,11 +80,6 @@ void SynchronizedExit::threadStart() {
 
 void SynchronizedExit::threadFinish() {
   std::unique_lock<std::mutex> Lock(Access);
-  
-  // We allow threads to finish if the exit() has already been called, because
-  // the stopped threads may be calling threadFinish() during destruction.
-  if (ExitCalled)
-    return;
   
   if (StoppedThreads)
     joinStop(Lock);
@@ -103,7 +109,6 @@ void SynchronizedExit::abort() {
     std::unique_lock<std::mutex> Lock(Access);
     while (!initiateStop(Lock))
       joinStop(Lock);
-    ExitCalled = true;
   }
   std::abort();
 }
@@ -113,7 +118,6 @@ void SynchronizedExit::exit(int ExitCode) {
     std::unique_lock<std::mutex> Lock(Access);
     while (!initiateStop(Lock))
       joinStop(Lock);
-    ExitCalled = true;
   }
   std::exit(ExitCode);
 }

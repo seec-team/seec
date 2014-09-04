@@ -418,6 +418,10 @@ public:
   ///
   bool traceEnabled() const { return OutputEnabled; }
   
+  /// \brief Get the size of the trace's event stream.
+  ///
+  offset_uint traceEventSize() const;
+
   /// \brief Write out complete trace information.
   ///
   void traceWrite();

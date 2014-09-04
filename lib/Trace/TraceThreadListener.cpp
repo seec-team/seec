@@ -565,6 +565,11 @@ TraceThreadListener::~TraceThreadListener()
 // Trace writing control.
 //------------------------------------------------------------------------------
 
+offset_uint TraceThreadListener::traceEventSize() const
+{
+  return EventsOut.offset();
+}
+
 void TraceThreadListener::traceWrite()
 {
   if (!OutputEnabled)
