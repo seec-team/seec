@@ -24,11 +24,19 @@
 
 class StateAccessToken;
 
+namespace seec {
+  namespace cm {
+    enum class MovementResult;
+  }
+}
+
 /// \brief Represents events requesting process state movement.
 ///
 class ProcessMoveEvent : public wxEvent
 {
-  typedef std::function<bool (seec::cm::ProcessState &State)> MoverTy;
+  typedef
+    std::function<seec::cm::MovementResult (seec::cm::ProcessState &State)>
+    MoverTy;
   
   /// Callback that will move the state.
   MoverTy Mover;
@@ -78,8 +86,10 @@ wxDECLARE_EVENT(SEEC_EV_PROCESS_MOVE, ProcessMoveEvent);
 
 
 void
-raiseMovementEvent(wxWindow &Control,
-                   std::shared_ptr<StateAccessToken> &Access,
-                   std::function<bool (seec::cm::ProcessState &State)> Mover);
+raiseMovementEvent(
+  wxWindow &Control,
+  std::shared_ptr<StateAccessToken> &Access,
+  std::function<seec::cm::MovementResult (seec::cm::ProcessState &State)> Mover
+);
 
 #endif // SEEC_TRACE_VIEW_PROCESSMOVEEVENT_HPP

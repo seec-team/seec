@@ -18,9 +18,10 @@ IMPLEMENT_CLASS(ProcessMoveEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_PROCESS_MOVE, ProcessMoveEvent);
 
 void
-raiseMovementEvent(wxWindow &Control,
-                   std::shared_ptr<StateAccessToken> &Access,
-                   std::function<bool (seec::cm::ProcessState &State)> Mover)
+raiseMovementEvent(
+  wxWindow &Control,
+  std::shared_ptr<StateAccessToken> &Access,
+  std::function<seec::cm::MovementResult (seec::cm::ProcessState &State)> Mover)
 {
   auto const Handler = Control.GetEventHandler();
   if (!Handler) {

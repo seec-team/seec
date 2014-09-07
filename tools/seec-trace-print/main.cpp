@@ -179,10 +179,13 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
           llvm::sys::path::remove_filename(OutputForDot);
         }
       }
-    } while (seec::cm::moveForward(State.getThread(0)));
+    } while (seec::cm::moveForward(State.getThread(0))
+             != seec::cm::MovementResult::Unmoved);
 
     if (ReverseStates) {
-      while (seec::cm::moveBackward(State.getThread(0))) {
+      while (seec::cm::moveBackward(State.getThread(0))
+             != seec::cm::MovementResult::Unmoved)
+      {
         llvm::outs() << State << "\n";
       }
     }

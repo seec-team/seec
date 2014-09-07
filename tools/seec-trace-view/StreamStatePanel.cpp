@@ -166,7 +166,7 @@ class StreamPanel final : public wxPanel
         }
 
         raiseMovementEvent(*this, ParentAccess,
-          [=] (seec::cm::ProcessState &ProcessState) -> bool {
+          [=] (seec::cm::ProcessState &ProcessState) {
             return seec::cm::moveBackwardToStreamWriteAt(ProcessState,
                                                          *State,
                                                          Position);

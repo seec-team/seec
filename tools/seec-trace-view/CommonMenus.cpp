@@ -127,7 +127,7 @@ void addStmtNavigation(wxWindow &Control,
       }
 
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
           return seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
         });
@@ -147,7 +147,7 @@ void addStmtNavigation(wxWindow &Control,
       }
 
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
           return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
         });
@@ -194,7 +194,7 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=, &Value] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             return seec::cm::moveToAllocation(State, Area.start());
           });
       });
@@ -208,7 +208,7 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
           });
       });
@@ -222,7 +222,7 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             return seec::cm::moveForwardUntilMemoryChanges(State, Area);
           });
       });
@@ -236,7 +236,7 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=, &Value] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             return seec::cm::moveToDeallocation(State, Area.start());
           });
       });
@@ -251,7 +251,8 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"thread", "stmt"}}, seec::make_function(
     [&] (std::size_t const ThreadIdx, clang::Stmt const * const Stmt) -> void {
       raiseMovementEvent(Control, Access,
-        [ThreadIdx, Stmt] (seec::cm::ProcessState &State) -> bool {
+        [ThreadIdx, Stmt]
+        (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIdx);
           return seec::cm::moveBackwardUntilEvaluated(Thread, Stmt);
         });
@@ -261,7 +262,8 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"thread", "stmt"}}, seec::make_function(
     [&] (std::size_t const ThreadIdx, clang::Stmt const * const Stmt) -> void {
       raiseMovementEvent(Control, Access,
-        [ThreadIdx, Stmt] (seec::cm::ProcessState &State) -> bool {
+        [ThreadIdx, Stmt]
+        (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIdx);
           return seec::cm::moveForwardUntilEvaluated(Thread, Stmt);
         });
@@ -271,7 +273,7 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"address"}}, seec::make_function(
     [&] (std::uintptr_t const Address) -> void {
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) {
           return seec::cm::moveToAllocation(State, Address);
         });
     }));
@@ -280,7 +282,7 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"address", "size"}}, seec::make_function(
     [&] (std::uintptr_t const Address, std::size_t const Size) -> void {
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) {
           auto const Area = seec::MemoryArea(Address, Size);
           return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
         });
@@ -290,7 +292,7 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"address", "size"}}, seec::make_function(
     [&] (std::uintptr_t const Address, std::size_t const Size) -> void {
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) {
           auto const Area = seec::MemoryArea(Address, Size);
           return seec::cm::moveForwardUntilMemoryChanges(State, Area);
         });
@@ -300,7 +302,7 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"address"}}, seec::make_function(
     [&] (std::uintptr_t const Address) -> void {
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) {
           return seec::cm::moveToDeallocation(State, Address);
         });
     }));
@@ -309,10 +311,10 @@ void registerNavigationReplay(wxWindow &Control,
                          {{"address", "position"}}, seec::make_function(
     [&] (std::uintptr_t const Address, std::size_t const Position) -> void {
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> bool {
+        [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto const Stream = State.getStream(Address);
           if (!Stream)
-            return false;
+            return seec::cm::MovementResult::Unmoved;
 
           return seec::cm::moveBackwardToStreamWriteAt(State,
                                                        *Stream,

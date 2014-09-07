@@ -24,15 +24,24 @@
 
 class StateAccessToken;
 
+namespace seec {
+  namespace cm {
+    enum class MovementResult;
+  }
+}
+
 /// \brief Represents events requesting thread movement.
 ///
 class ThreadMoveEvent : public wxEvent
 {
+  typedef std::function<seec::cm::MovementResult (seec::cm::ThreadState &State)>
+          MoverTy;
+
   /// The thread associated with this event.
   size_t ThreadIndex;
   
   /// Callback that will move the event.
-  std::function<bool (seec::cm::ThreadState &State)> Mover;
+  MoverTy Mover;
 
 public:
   // Make this class known to wxWidgets' class hierarchy.
@@ -43,7 +52,7 @@ public:
   ThreadMoveEvent(wxEventType EventType,
                   int WinID,
                   size_t ForThreadIndex,
-                  std::function<bool (seec::cm::ThreadState &State)> WithMover)
+                  MoverTy WithMover)
   : wxEvent(WinID, EventType),
     ThreadIndex(ForThreadIndex),
     Mover(std::move(WithMover))
@@ -86,9 +95,10 @@ wxDECLARE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 
 
 void
-raiseMovementEvent(wxWindow &Control,
-                   std::shared_ptr<StateAccessToken> &Access,
-                   std::size_t const ThreadIndex,
-                   std::function<bool (seec::cm::ThreadState &State)> Mover);
+raiseMovementEvent(
+  wxWindow &Control,
+  std::shared_ptr<StateAccessToken> &Access,
+  std::size_t const ThreadIndex,
+  std::function<seec::cm::MovementResult (seec::cm::ThreadState &State)> Mover);
 
 #endif // SEEC_TRACE_VIEW_THREADMOVEEVENT_HPP

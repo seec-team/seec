@@ -819,7 +819,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
                                            "CMFunctionRewindEntry")),
       [=] (wxEvent &Ev) -> void {
         raiseMovementEvent(*this, this->CurrentAccess,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) {
             return seec::cm::moveToFunctionEntry(*FnPtr);
           });
       });
@@ -830,7 +830,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
                                            "CMFunctionForwardExit")),
       [=] (wxEvent &Ev) -> void {
         raiseMovementEvent(*this, this->CurrentAccess,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) {
             return seec::cm::moveToFunctionFinished(*FnPtr);
           });
       });

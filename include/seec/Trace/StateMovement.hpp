@@ -42,43 +42,51 @@ typedef std::function<bool (llvm::Instruction const &)> InstructionPredTy;
 /// @}
 
 
+/// \brief Enumerates possible outcomes of requesting state movement.
+///
+enum class MovementResult {
+  Unmoved,
+  PredicateSatisfied,
+  ReachedBeginning,
+  ReachedEnd
+};
+
+
 /// \name ProcessState movement.
 /// @{
 
 /// \brief Move State forward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveForwardUntil(ProcessState &State,
-                      ProcessPredTy Predicate);
+///
+MovementResult moveForwardUntil(ProcessState &State, ProcessPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveBackwardUntil(ProcessState &State,
-                       ProcessPredTy Predicate);
+///
+MovementResult moveBackwardUntil(ProcessState &State, ProcessPredTy Predicate);
 
 /// \brief Move State forward to the next process time.
-/// \return true iff the State was moved.
-bool moveForward(ProcessState &State);
+///
+MovementResult moveForward(ProcessState &State);
 
 /// \brief Move State backward to the previous process time.
-/// \return true iff the State was moved.
-bool moveBackward(ProcessState &State);
+///
+MovementResult moveBackward(ProcessState &State);
 
 /// \brief Move State forward until the memory state in Area changes.
-/// \return true iff the State was moved.
-bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+///
+MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
+                                             MemoryArea const &Area);
 
 /// \brief Move State backward until the memory state in Area changes.
-/// \return true iff the State was moved.
-bool
-moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+///
+MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
+                                              MemoryArea const &Area);
 
 /// \brief Move \c State to the write to \c Stream that produced the character
 ///        at \c Position.
-/// \return true iff the State was moved.
-bool
-moveBackwardToStreamWriteAt(ProcessState &State,
-                            StreamState const &Stream,
-                            std::size_t const Position);
+///
+MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
+                                           StreamState const &Stream,
+                                           std::size_t const Position);
 
 /// @} (ProcessState movement)
 
@@ -87,22 +95,20 @@ moveBackwardToStreamWriteAt(ProcessState &State,
 /// @{
 
 /// \brief Move State forward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveForwardUntil(ThreadState &State,
-                      ThreadPredTy Predicate);
+///
+MovementResult moveForwardUntil(ThreadState &State, ThreadPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveBackwardUntil(ThreadState &State,
-                       ThreadPredTy Predicate);
+///
+MovementResult moveBackwardUntil(ThreadState &State, ThreadPredTy Predicate);
 
 /// \brief Move State forward to the next thread time.
-/// \return true iff the State was moved.
-bool moveForward(ThreadState &State);
+///
+MovementResult moveForward(ThreadState &State);
 
 /// \brief Move State backward to the previous thread time.
-/// \return true iff the State was moved.
-bool moveBackward(ThreadState &State);
+///
+MovementResult moveBackward(ThreadState &State);
 
 /// @} (ThreadState movement)
 

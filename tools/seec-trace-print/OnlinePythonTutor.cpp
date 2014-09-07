@@ -744,7 +744,7 @@ bool OPTPrinter::printAndMoveState()
   Indent.unindent();
   Out << Indent.getString() << "}";
 
-  if (Moved)
+  if (Moved != seec::cm::MovementResult::Unmoved)
     Out << ",\n";
   else
     Out << "\n";
@@ -765,7 +765,7 @@ bool OPTPrinter::printAndMoveState()
 
   StateString.clear();
 
-  return Moved;
+  return Moved != seec::cm::MovementResult::Unmoved;
 }
 
 bool OPTPrinter::printAllStates()

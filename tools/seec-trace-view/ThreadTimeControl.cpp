@@ -196,14 +196,14 @@ void ThreadTimeControl::GoToStart() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
-                     [] (seec::cm::ThreadState &Thread) -> bool {
+                     [] (seec::cm::ThreadState &Thread) {
                         return seec::cm::moveBackwardToEnd(Thread);
                      });
 }
 
 void ThreadTimeControl::StepBackTopLevel() {
   raiseMovementEvent(*this, CurrentAccess, CurrentThreadIndex,
-    [] (seec::cm::ThreadState &Thread) -> bool {
+    [] (seec::cm::ThreadState &Thread) {
       return seec::cm::moveBackwardToCompleteTopLevelStmt(Thread);
     });
 }
@@ -212,7 +212,7 @@ void ThreadTimeControl::StepBack() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
-                     [] (seec::cm::ThreadState &Thread) -> bool {
+                     [] (seec::cm::ThreadState &Thread) {
                         return seec::cm::moveBackward(Thread);
                      });
 }
@@ -221,14 +221,14 @@ void ThreadTimeControl::StepForward() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
-                     [] (seec::cm::ThreadState &Thread) -> bool {
+                     [] (seec::cm::ThreadState &Thread) {
                         return seec::cm::moveForward(Thread);
                      });
 }
 
 void ThreadTimeControl::StepForwardTopLevel() {
   raiseMovementEvent(*this, CurrentAccess, CurrentThreadIndex,
-    [] (seec::cm::ThreadState &Thread) -> bool {
+    [] (seec::cm::ThreadState &Thread) {
       return seec::cm::moveForwardToCompleteTopLevelStmt(Thread);
     });
 }
@@ -239,7 +239,7 @@ void ThreadTimeControl::GoToEnd() {
   raiseMovementEvent(*this,
                      CurrentAccess,
                      CurrentThreadIndex,
-                     [] (seec::cm::ThreadState &Thread) -> bool {
+                     [] (seec::cm::ThreadState &Thread) {
                         return seec::cm::moveForwardToEnd(Thread);
                      });
 }
