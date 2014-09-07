@@ -44,7 +44,7 @@ root:table {
           "other {Attempt to read unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "write {{address, select, "
           "NULL {Attempt to dereference NULL pointer for memory write.}"
-          "other {Attempt to write unallocated memory {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to write unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "other {{address, select, "
           "NULL {Attempt to dereference NULL pointer.}"
           "other {Attempt to {access_type} unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
@@ -54,7 +54,7 @@ root:table {
     // address
     // size
     MemoryUninitialized:string {
-      "Read uninitialized memory from address {address} ({size} bytes)."
+      "Read uninitialized memory (while reading {size, plural, =1 {one byte} other {{size} bytes}})."
     }
 
     // access_type {read, write}
@@ -65,9 +65,9 @@ root:table {
     // object_size
     MemoryOverflow:string {
       "{access_type, select, "
-       "read  {Attempting to read memory overflows object.}"
-       "write {Attempting to write memory overflows object.}"
-       "other {Accessing memory overflows object.}"
+       "read  {Attempt to read memory overflows object.}"
+       "write {Attempt to write memory overflows object.}"
+       "other {Attempt to access memory overflows object.}"
       "}"
     }
 
@@ -77,7 +77,7 @@ root:table {
       "{function, select, "
         "free {Attempting to free memory that is not dynamically allocated.}"
         "realloc {Attempting to realloc memory that is not dynamically allocated.}"
-        "other {Bad address {address} given to function {function}.}"
+        "other {Invalid pointer given to function {function}.}"
       "}"
     }
 
@@ -85,7 +85,7 @@ root:table {
     // overlap address
     // overlap size
     OverlappingSourceDest:string {
-      "Function {function} source and destination memory blocks overlap at address {address} ({size} bytes)."
+      "Function {function} source and destination memory blocks overlap ({size, plural, =1 {one byte overlaps}, other {{size} bytes overlap}})."
     }
 
     // string function name
@@ -129,7 +129,7 @@ root:table {
 
     // address
     PointerObjectNULL:string {
-      "Attempting to dereference a pointer that does not refer to an object."
+      "Attempting to dereference a NULL pointer."
     }
 
     // object
