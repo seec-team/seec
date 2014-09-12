@@ -27,11 +27,6 @@ root:table {
     }
 
     //
-    ExistsFail:string {
-      "Couldn't determine whether or not the output directory path already existed: \"{path\"."
-    }
-
-    //
     FileOutputBufferFail {
       "Couldn't create output buffer for file: \"{path}\"."
     }

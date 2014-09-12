@@ -282,6 +282,15 @@ root:table {
     ButtonPause:string {"Pause"}
 
     ButtonStep:string {"Step"}
+
+    CURLNotInitialized:string {"Can't send action recording because CURL was not initialized."}
+
+    CURLError:string {"Failed to send action recording: {message}"}
+  }
+
+
+  ActionRecordSubmitter:table {
+    Title:string {"Action recording submission"}
   }
 
 

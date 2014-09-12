@@ -85,46 +85,29 @@ root:table {
     // overlap address
     // overlap size
     OverlappingSourceDest:string {
-      "Function {function} source and destination memory blocks overlap ({size, plural, =1 {one byte overlaps}, other {{size} bytes overlap}})."
+      "Source and destination memory blocks overlap ({size, plural, =1 {one byte overlaps}, other {{size} bytes overlap}})."
     }
 
     // string function name
     // address of invalid string
     // index of the argument that held the pointer
     InvalidCString:string {
-      "{function, select, "
-        "other {"
-          "{parameter, plural, "
-            "=1    {The pointer passed as the @[arg:parameter]first parameter@[] to function {function} does not refer to a C string.}"
-            "=2    {The pointer passed as the @[arg:parameter]second parameter@[] to function {function} does not refer to a C string.}"
-            "=3    {The pointer passed as the @[arg:parameter]third parameter@[] to function {function} does not refer to a C string.}"
-            "=4    {The pointer passed as the @[arg:parameter]fourth parameter@[] to function {function} does not refer to a C string.}"
-            "=5    {The pointer passed as the @[arg:parameter]fifth parameter@[] to function {function} does not refer to a C string.}"
-            "=6    {The pointer passed as the @[arg:parameter]sixth parameter@[] to function {function} does not refer to a C string.}"
-            "=7    {The pointer passed as the @[arg:parameter]seventh parameter@[] to function {function} does not refer to a C string.}"
-            "=8    {The pointer passed as the @[arg:parameter]eighth parameter@[] to function {function} does not refer to a C string.}"
-            "=9    {The pointer passed as the @[arg:parameter]ninth parameter@[] to function {function} does not refer to a C string.}"
-            "=10   {The pointer passed as the @[arg:parameter]tenth parameter@[] to function {function} does not refer to a C string.}"
-            "other {The pointer passed as @[arg:parameter]parameter {parameter}@[] to function {function} does not refer to a C string.}"
-          "}"
-          " A C string must be terminated by a null character."
-        "}"
-      "}"
+      "Pointer passed to function does not refer to a valid C string. A C string must be terminated by a NULL character."
     }
-    
+
     // dummy
     DivideByZero:string {
-      "Divide by zero!"
+      "Division by zero. This causes undefined behaviour."
     }
 
     // dummy
     IntegerOverflow:string {
-      "Integer overflow!"
+      "Integer overflow."
     }
 
     // dummy
     IntegerUnderflow:string {
-      "Integer underflow!"
+      "Integer underflow."
     }
 
     // address
@@ -195,19 +178,7 @@ root:table {
     // object_address
     // object_size
     PassPointerToInsufficient:string {
-      "{parameter, plural, "
-        "=1    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the first parameter@[].}"
-        "=2    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the second parameter@[].}"
-        "=3    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the third parameter@[].}"
-        "=4    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fourth parameter@[].}"
-        "=5    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fifth parameter@[].}"
-        "=6    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the sixth parameter@[].}"
-        "=7    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the seventh parameter@[].}"
-        "=8    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the eighth parameter@[].}"
-        "=9    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the ninth parameter@[].}"
-        "=10   {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the tenth parameter@[].}"
-        "other {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]parameter {parameter}@[].}"
-      "}"
+      "Pointer passed to function references an insufficient amount of memory."
 
       "{access_size, plural, "
         "=1    { The function required one byte,}"
@@ -231,20 +202,21 @@ root:table {
     // function
     // stream
     UseInvalidStream:string {
-      "Call to function \"{function}\" would use standard stream \"{stream}\", which is closed. Perhaps the program previously closed this stream by calling fclose({stream})?"
+      "This function call would use standard stream \"{stream}\", which is closed. Perhaps the program previously closed this stream by calling fclose({stream})?"
     }
 
     // function
     // parameter
     PassInvalidDIR:string {
-      "Parameter {parameter} passed to function {function} is not a valid DIR pointer."
+      "DIR pointer passed as argument is invalid."
+      " Perhaps this DIR was not opened successfully or was already closed?"
     }
 
     // function
     // parameter
     // start
     FormatSpecifierParse:string {
-      "Failed to parse format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
+      "Failed to parse format specifier starting at position {start} in format string."
     }
 
     // function
@@ -253,7 +225,7 @@ root:table {
     // flag
     // end
     FormatSpecifierFlag:string {
-      "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
+      "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in format string."
     }
 
     // function
@@ -261,7 +233,7 @@ root:table {
     // start
     // end
     FormatSpecifierWidthDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), a width was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a width to be specified."
+      "Width was specified for the conversion specifier starting at position {start} in format string, but this conversion specifier does not allow a width to be specified."
     }
 
     // function
@@ -270,7 +242,8 @@ root:table {
     // end
     // width_parameter
     FormatSpecifierWidthArgType:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} indicated that a width would be passed as an argument (this is indicated by the '*' character). However, the argument provided (as parameter {width_parameter}) was not of type \"int\", which it is required to be."
+      "Conversion specifier starting at position {start} in format string indicated that a width would be passed as an argument (this is indicated by the '*' character)."
+      " However, the argument provided (as parameter {width_parameter}) was not of type \"int\", which it is required to be."
     }
 
     // function
@@ -278,7 +251,9 @@ root:table {
     // start
     // end
     FormatSpecifierWidthMissing:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} did not provide a maximum field width. It is possible for this to lead to a buffer overflow (if the conversion matches more characters than can fit into the destination buffer). For safety, provide a maximum field width (as an integer written directly after the \"%\" character that begins the conversion specifier)."
+      "Conversion specifier starting at position {start} in format string did not provide a maximum field width."
+      " It is possible for this to lead to a buffer overflow (if the conversion matches more characters than can fit into the destination buffer)."
+      " For safety, provide a maximum field width (as an integer written directly after the \"%\" character that begins the conversion specifier)."
     }
 
     // function
@@ -286,7 +261,8 @@ root:table {
     // start
     // end
     FormatSpecifierPrecisionDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), a precision was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a precision to be specified."
+      "A precision was specified for the conversion specifier starting at position {start} in the format string,"
+      " but this conversion specifier does not allow a precision to be specified."
     }
 
     // function
@@ -295,7 +271,10 @@ root:table {
     // end
     // precision_parameter
     FormatSpecifierPrecisionArgType:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} indicated that a precision would be passed as an argument (this is indicated by the '*' character following the precision character '.'). However, the argument provided (as parameter {precision_parameter}) was not of type \"int\", which it is required to be."
+      "The conversion specifier starting at position {start} in format string"
+      " indicated that a precision would be passed as an argument"
+      " (this is indicated by the '*' character following the precision character '.')."
+      " However, the argument provided (as parameter {precision_parameter}) was not of type \"int\", which it is required to be."
     }
 
     // function
@@ -304,7 +283,8 @@ root:table {
     // end
     // length
     FormatSpecifierLengthDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), the length modifier \"{length}\" was used for the conversion specifier starting at position {start}, but this conversion specifier does not support this length modifier."
+      "Length modifier \"{length}\" was used for the conversion specifier starting at position {start} in format string,"
+      " but this conversion specifier does not support this length modifier."
     }
 
     // function
@@ -312,7 +292,8 @@ root:table {
     // start
     // end
     FormatSpecifierSuppressionDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), the assignment-suppressing character \"*\" was present in the conversion specifier starting at position {start}, but this conversion specifier does not support assignment suppression."
+      "Assignment-suppressing character \"*\" was present in the conversion specifier starting at position {start} in format string,"
+      " but this conversion specifier does not support assignment suppression."
     }
 
     // function
@@ -322,7 +303,7 @@ root:table {
     // length
     // argument
     FormatSpecifierArgType:string {
-      "The type of the format specifier beginning at character {start} does not"
+      "The type of the format specifier beginning at character {start} in format string does not"
       " match the type of the corresponding argument (argument {argument})."
     }
 
@@ -336,7 +317,7 @@ root:table {
     // bytes_required
     //
     ScanFormattedStringOverflow:string {
-      "An overflow occurred while matching the string conversion specifier at character {specifier_start} in the format string given to function {function}."
+      "An overflow occurred while matching the string conversion specifier at character {specifier_start} in the format string."
       " There {bytes_available, plural, =0 {were no bytes available} =1 {was one byte available} other {were {bytes_available} bytes available}}"
       " at the destination of the pointer given as argument {argument},"
       " but the matched string required {bytes_required, plural, =1 {one byte} other {{bytes_required} bytes}}."
@@ -344,65 +325,67 @@ root:table {
       " The maximum field width specifies the maximum number of characters that will be used to match a conversion."
       " It is specified by placing an integer number, greater than zero, after the introductory \"%\" character."
       " For example, if we were reading into a buffer that could hold 20 characters, we would specify the maximum field width to be 19 like so: \"%19s\""
-      " (note that the last character in the buffer is reserved for the terminating null character which will be placed at the end of the string by the scan function)."
+      " (note that the last character in the buffer is reserved for the terminating NULL character which will be placed at the end of the string by the scan function)."
     }
 
     // function
     // expected
     // received
     VarArgsSuperfluous:string {
-      "Superfluous arguments passed to function {function}. Expected "
-        "{expected, plural, =0 {no variadic arguments} =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
+      "Superfluous arguments passed to function. Expected "
+        "{expected, plural, =0 {no variadic arguments} =1 {one variadic argument} other {{expected} variadic arguments}}"
         ", but received "
-        "{received, plural, =0 {none.} other {only {received}.}}"
+        "{received, plural, =0 {none.} =1 {only one.} other {only {received}.}}"
     }
 
     // function
     // expected
     // received
     VarArgsInsufficient:string {
-      "Insufficient arguments passed to function {function}. Expected "
+      "Insufficient arguments passed to function. Expected "
         "{expected, plural, =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
         ", but received "
-        "{received, plural, =0 {none.} other {only {received}.}}"
+        "{received, plural, =0 {none.} =1 {only one.} other {only {received}.}}"
     }
 
     // function
     VarArgsExpectedCharPointer:string {
-      "Argument is not a character pointer (but {function} requires it to be)."
+      "Argument is not a character pointer, but the function {function} requires it to be."
     }
 
     // function
     VarArgsExpectedCStringArray:string {
       "{function, select, "
         "execle {The {function} function expects the argument list's NULL terminator to be followed by a pointer to an array of pointers to NULL-terminated character strings, each of which specifies an environment variable for the new process. The array itself is also terminated by a NULL pointer. Consult documentation of {function} for more details.}"
-        "other {Argument is not a pointer to a NULL-terminated array of C strings, but {function} requires it to be.}}"
+        "other {Argument is not a pointer to a NULL-terminated array of C strings, but the function {function} requires it to be.}}"
     }
 
     // function
     VarArgsNonTerminated:string {
-      "The variadic argument list for {function} must be terminated by a NULL pointer."
+      "The variadic argument list for this function must be terminated by a NULL pointer."
     }
 
     // function
     VarArgsPostTerminator:string {
-      "Argument follows terminating NULL pointer and thus will not be used by {function}."
+      "Argument follows terminating NULL pointer and thus will not be used by called function."
     }
 
     // function
     UnsafeMultithreaded:string {
-      "Calling function {function} in a multithreaded program is unsafe."
+      "Calling this function in a multithreaded program is unsafe."
     }
 
     // function
     // parameter
     NonTerminatedArray:string {
-      "Passing a non-terminated array to function {function} as parameter {parameter}, but a terminated array is expected."
+      "Array passed as argument to function call is non-terminated, but the function requires it to be terminated"
+      " (the last element must be a NULL pointer)."
     }
 
     //
     StackOverflowAlloca:string {
-      "Required memory allocation would exceed the limit of the stack. This may be caused by the program recursing infinitely, or by using excessively large variables."
+      "Required memory allocation would exceed the limit of the stack."
+      " This may be caused by the program recursing infinitely, or by using excessively large variables."
     }
   }
 }

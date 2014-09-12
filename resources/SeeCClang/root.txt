@@ -1,16 +1,6 @@
 root:table {
   // Contains textual descriptions of errors that can occur in the library.
   errors:table {
-    // 
-    ProcessTraceReadFail:string {
-      "Couldn't read process trace from directory \"{path}\""
-    }
-
-    //
-    ParseModuleFail:string {
-      "Couldn't parse module file \"{path}\". Received the following error: {error}"
-    }
-
     //
     FileManagerGetFileFail:string {
       "Couldn't get file from FileManager."
@@ -20,21 +10,6 @@ root:table {
     SourceLocationInvalid:string {
       "Invalid source location."
     }
-
-    //
-    ResourcePathUnreadable:string { "Couldn't find resources directory (expected to be \"{path}\")." }
-
-    //
-    DriverBuildCompilationFailed:string { "Driver failed to build compilation." }
-
-    //
-    CompilationJobsSizeUnexpected:string { "Unexpected number of driver jobs: {size} (expected one)." }
-
-    //
-    JobCommandNull:string { "Job is not a Command." }
-
-    //
-    JobCommandNotClang:string { "Job is not clang." }
   }
 
   // Contains formatting for printing state information.
