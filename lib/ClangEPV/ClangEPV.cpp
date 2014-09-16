@@ -193,6 +193,18 @@ Formattable formatAsString(::clang::StringLiteral::StringKind Kind) {
   return formatAsString("<unknown StringKind>");
 }
 
+Formattable formatAsString(::clang::LinkageSpecDecl::LanguageIDs const Lang) {
+  switch (Lang) {
+    case ::clang::LinkageSpecDecl::LanguageIDs::lang_c:
+      return "c";
+    case ::clang::LinkageSpecDecl::LanguageIDs::lang_cxx:
+      return "cxx";
+  }
+
+  llvm_unreachable("unknown LinkageSpecDecl::LanguageIDs");
+  return formatAsString("<unknown LinkageSpecDecl::LanguageIDs>");
+}
+
 Formattable formatAsGeneralTypeString(::clang::Type const *T) {
   if (!T)
     return formatAsString("<null>");
@@ -284,26 +296,28 @@ void addRuntimeValue(::clang::Stmt const *ForStatement,
   UnicodeString UnicodeName(Name);
   UnicodeString UnicodeHasName = UnicodeString("has_") + UnicodeName;
   UnicodeString UnicodeHasBoolName = UnicodeString("has_bool_") + UnicodeName;
-  
+
+  bool HasValue = false;
+  bool HasBool  = false;
+
   if (ForStatement && ValueLookup.isValueAvailableFor(ForStatement)) {
     auto const ValueString = ValueLookup.getValueString(ForStatement);
     if (!ValueString.empty()) {
-      // Add the runtime value.
-      Arguments.add(UnicodeHasName, formatAsBool(true));
+      HasValue = true;
       Arguments.add(UnicodeName, formatAsString(ValueString));
     }
     
     auto const ValueAsBool = ValueLookup.getValueAsBool(ForStatement);
-    if (ValueAsBool.assigned()) {
+    if (ValueAsBool.assigned<bool>()) {
+      HasBool = true;
       UnicodeString UnicodeBoolName = UnicodeString("bool_") + UnicodeName;
-      Arguments.add(UnicodeHasBoolName, formatAsBool(true));
       Arguments.add(UnicodeBoolName, formatAsBool(ValueAsBool.get<bool>()));
     }
   }
-  
+
   // No runtime value found.
-  Arguments.add(UnicodeHasName, formatAsBool(false));
-  Arguments.add(UnicodeHasBoolName, formatAsBool(false));
+  Arguments.add(UnicodeHasName,     formatAsBool(HasValue));
+  Arguments.add(UnicodeHasBoolName, formatAsBool(HasBool));
 }
 
 

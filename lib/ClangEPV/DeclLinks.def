@@ -271,7 +271,9 @@ SEEC_DECL_LINK(ParmVarDecl,
 // ObjCCompatibleAlias
 
 SEEC_DECL_LINK(LinkageSpecDecl,
-  SEEC_PP_QUOTE(),
+  SEEC_PP_QUOTE(
+    ("language", String, getLanguage())
+  ),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 

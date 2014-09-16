@@ -390,7 +390,9 @@ SEEC_STMT_LINK(CompoundLiteralExpr,
 // TODO: InitListExpr.
 SEEC_STMT_LINK(InitListExpr,
   SEEC_PP_QUOTE(
-    ("type", String, getType().getTypePtr())
+    ("type", String, getType().getTypePtr()),
+    ("is_string_literal_init", Bool, isStringLiteralInit()),
+    ("had_array_range_designator", Bool, hadArrayRangeDesignator())
   ),
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE(
