@@ -387,10 +387,10 @@ class ActionRecordingSubmitterImpl final
   }
 
   static int WorkerProgress(void *OwnerPtr,
-                            curl_off_t const dltotal,
-                            curl_off_t const dlnow,
-                            curl_off_t const ultotal,
-                            curl_off_t const ulnow)
+                            double const dltotal,
+                            double const dlnow,
+                            double const ultotal,
+                            double const ulnow)
   {
     assert(OwnerPtr);
 
@@ -450,9 +450,9 @@ class ActionRecordingSubmitterImpl final
 
     // Track progress so that we can display it to the user.
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0);
-    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
+    curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION,
                      &ActionRecordingSubmitterImpl::WorkerProgress);
-    curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     this);
+    curl_easy_setopt(curl, CURLOPT_PROGRESSDATA,     this);
 
     auto const Result = curl_easy_perform(curl);
 
