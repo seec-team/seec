@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
 #define SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
 
+#include <memory>
+
 /// \brief Show the action recording settings dialog (modal).
 ///
 void showActionRecordSettings();
@@ -35,5 +37,24 @@ long getActionRecordSizeLimit();
 /// \brief Get the user-specified limit for locally stored recordings (in MiB).
 ///
 long getActionRecordStoreLimit();
+
+// Forward-declare implementation of ActionRecordingSubmitter.
+class ActionRecordingSubmitterImpl;
+
+/// \brief Handles the submission of action recordings.
+///
+class ActionRecordingSubmitter final
+{
+  std::unique_ptr<ActionRecordingSubmitterImpl> pImpl;
+
+public:
+  /// \brief Constructor.
+  ///
+  ActionRecordingSubmitter();
+
+  /// \brief Terminates any active submissions.
+  ///
+  ~ActionRecordingSubmitter();
+};
 
 #endif // SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP

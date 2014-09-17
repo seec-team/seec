@@ -32,11 +32,15 @@
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <curl/curl.h>
+
 #include <array>
 #include <cstdlib>
 #include <memory>
 #include <set>
 
+#include "ActionRecord.hpp"
+#include "ActionRecordSettings.hpp"
 #include "CommonMenus.hpp"
 #include "OpenTrace.hpp"
 #include "TraceViewerApp.hpp"
@@ -323,8 +327,19 @@ TraceViewerApp::TraceViewerApp()
   TopLevelWindows(),
   LogWindow(nullptr),
   ICUResources(),
-  CLFiles()
+  CLFiles(),
+  CURL(curl_global_init(CURL_GLOBAL_DEFAULT) == 0),
+  RecordingSubmitter()
 {}
+
+TraceViewerApp::~TraceViewerApp()
+{
+  // This function is not thread safe and should not be called when any other
+  // thread is running. While no other threads exist during the construction
+  // of TraceViewerApp, some exist during its destruction. We assume that they
+  // are not running and it is safe to call this.
+  curl_global_cleanup();
+}
 
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
@@ -433,7 +448,12 @@ bool TraceViewerApp::OnInit() {
                              wxDefaultPosition,
                              wxDefaultSize);
   Welcome->Show(true);
-  
+
+  // Setup the action recording submitter.
+#ifdef SEEC_USER_ACTION_RECORDING
+  RecordingSubmitter.reset(new ActionRecordingSubmitter());
+#endif
+
   // On Mac OpenFile is called automatically. On all other platforms, manually
   // open any files that the user passed on the command line.
 #ifndef __WXMAC__

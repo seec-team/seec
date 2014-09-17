@@ -12,14 +12,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/Util/Error.hpp"
 
 #include <wx/config.h>
 #include <wx/dialog.h>
+#include <wx/dir.h>
 #include <wx/stattext.h>
+#include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include <curl/curl.h>
 
 #include "ActionRecordSettings.hpp"
 #include "TraceViewerApp.hpp"
+
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 
 // These constants control the size of submitted recordings, in MiB.
@@ -323,3 +333,204 @@ long getActionRecordStoreLimit()
   
   return Config->ReadLong(cConfigKeyForStoreLimit, cRecordStoreDefault);
 }
+
+
+//===----------------------------------------------------------------------===//
+// ActionRecordingSubmitter
+//===----------------------------------------------------------------------===//
+
+//  ---------------------------------------------------------------------
+// cf   http://curl.haxx.se/libcurl/c/httpput.html
+// and  http://curl.haxx.se/libcurl/c/postit2.html
+
+/// \brief Implementation of action recording submission handler.
+///
+class ActionRecordingSubmitterImpl final
+{
+  static char const * const getSubmissionURL() {
+    return "https://secure.csse.uwa.edu.au/run/seeclogd";
+  }
+
+  std::thread WorkerThread;
+
+  bool Shutdown;
+
+  std::mutex ShutdownMutex;
+
+  std::condition_variable ShutdownCV;
+
+  static wxFileName GetRecordingDirFileName()
+  {
+    wxFileName RecordingDirPath;
+    RecordingDirPath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());
+    RecordingDirPath.AppendDir("recordings");
+    return RecordingDirPath;
+  }
+
+  static std::vector<wxString> WorkerGetAllRecordingFiles()
+  {
+    std::vector<wxString> RecordingFiles;
+
+    wxDir RecordingDir(GetRecordingDirFileName().GetFullPath());
+    if (!RecordingDir.IsOpened())
+      return RecordingFiles;
+
+    wxString RecordingPath;
+    bool GotFile = RecordingDir.GetFirst(&RecordingPath, "*.seecrecord");
+
+    while (GotFile) {
+      RecordingFiles.emplace_back(RecordingPath);
+      GotFile = RecordingDir.GetNext(&RecordingPath);
+    }
+
+    return RecordingFiles;
+  }
+
+  static int WorkerProgress(void *OwnerPtr,
+                            curl_off_t const dltotal,
+                            curl_off_t const dlnow,
+                            curl_off_t const ultotal,
+                            curl_off_t const ulnow)
+  {
+    assert(OwnerPtr);
+
+    auto &Owner = *reinterpret_cast<ActionRecordingSubmitterImpl *>(OwnerPtr);
+
+    std::lock_guard<std::mutex> ShutdownLock(Owner.ShutdownMutex);
+    if (Owner.Shutdown)
+      return 1; // Abort the transfer.
+
+    return 0;
+  }
+
+  enum class EWorkerSendResult {
+    TerminatedByShutdown,
+    Failure,
+    Success
+  };
+
+  EWorkerSendResult WorkerSendRecording(wxString const &Filename)
+  {
+    CURL *curl = curl_easy_init();
+    if (!curl)
+      return EWorkerSendResult::Failure;
+
+    auto const Token = getActionRecordToken().ToStdString();
+
+    auto const Path = [&] () -> wxFileName {
+      auto RecordingFileName = GetRecordingDirFileName();
+      RecordingFileName.SetFullName(Filename);
+      return RecordingFileName;
+    } ();
+
+    struct curl_httppost *post = nullptr;
+    struct curl_httppost *last = nullptr;
+
+    curl_formadd(&post, &last,
+                 CURLFORM_COPYNAME,     "seecticket",
+                 CURLFORM_COPYCONTENTS, Token.c_str(),
+                 CURLFORM_END);
+
+    curl_formadd(&post, &last,
+                 CURLFORM_COPYNAME,     "seectime",
+                 CURLFORM_COPYCONTENTS,
+                 static_cast<char const *>(Path.GetName().utf8_str()),
+                 CURLFORM_END);
+
+    curl_formadd(&post, &last,
+                 CURLFORM_COPYNAME,    Filename.ToStdString().c_str(),
+                 CURLFORM_FILE,
+                 static_cast<char const *>(Path.GetFullPath().utf8_str()),
+                 CURLFORM_CONTENTTYPE, "application/octet-stream",
+                 CURLFORM_END);
+
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_URL,      getSubmissionURL());
+    curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
+
+    // Track progress so that we can display it to the user.
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,
+                     &ActionRecordingSubmitterImpl::WorkerProgress);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     this);
+
+    auto const Result = curl_easy_perform(curl);
+
+    curl_easy_cleanup(curl);
+    curl = nullptr;
+
+    curl_formfree(post);
+
+    switch (Result) {
+      case CURLE_OK:
+        return EWorkerSendResult::Success;
+
+      case CURLE_ABORTED_BY_CALLBACK:
+        return EWorkerSendResult::TerminatedByShutdown;
+
+      default:
+        wxLogDebug("CURL failure: %s", curl_easy_strerror(Result));
+        return EWorkerSendResult::Failure;
+    }
+  }
+
+  void WorkerImpl()
+  {
+    auto const &App = wxGetApp();
+    if (App.checkCURL()) {
+      auto const AllRecordingFiles = WorkerGetAllRecordingFiles();
+
+      for (auto const &RecordingFile : AllRecordingFiles) {
+        auto const Result = WorkerSendRecording(RecordingFile);
+
+        if (Result == EWorkerSendResult::TerminatedByShutdown) {
+          break;
+        }
+        else if (Result == EWorkerSendResult::Failure) {
+          // TODO?
+        }
+        else if (Result == EWorkerSendResult::Success) {
+          auto Path = GetRecordingDirFileName();
+          Path.SetFullName(RecordingFile);
+
+          if (!wxRemoveFile(Path.GetFullPath())) {
+            wxLogDebug("Couldn't remove file %s!", RecordingFile);
+          }
+        }
+      }
+    }
+    else {
+      wxLogDebug("cURL is not initialized.");
+    }
+
+    std::unique_lock<std::mutex> ShutdownLock(ShutdownMutex);
+    while (!Shutdown)
+      ShutdownCV.wait(ShutdownLock);
+  }
+
+public:
+  ActionRecordingSubmitterImpl()
+  : WorkerThread(),
+    Shutdown(false),
+    ShutdownMutex(),
+    ShutdownCV()
+  {
+    WorkerThread = std::thread([this] () { WorkerImpl(); });
+  }
+
+  ~ActionRecordingSubmitterImpl()
+  {
+    // Notify the worker that it should terminate, then wait.
+    std::unique_lock<std::mutex> ShutdownLock(ShutdownMutex);
+    Shutdown = true;
+    ShutdownLock.unlock();
+    ShutdownCV.notify_one();
+    WorkerThread.join();
+  }
+};
+
+ActionRecordingSubmitter::ActionRecordingSubmitter()
+: pImpl(new ActionRecordingSubmitterImpl())
+{}
+
+ActionRecordingSubmitter::~ActionRecordingSubmitter() = default;

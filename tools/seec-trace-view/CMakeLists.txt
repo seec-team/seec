@@ -148,6 +148,9 @@ target_link_libraries(seec-view
  ${REQ_ICU_LIBRARIES}
 
  ${LLVM_LIB_DEPS}
+
+ # cURL
+ curl
 )
 
 #--------------------------------------------------------------------------------

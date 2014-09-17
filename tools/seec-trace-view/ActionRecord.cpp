@@ -24,6 +24,8 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
+#include "llvm/ADT/ArrayRef.h"
+
 #include <wx/wx.h>
 #include <wx/datetime.h>
 #include <wx/debug.h>
@@ -33,6 +35,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
+#include "TraceViewerApp.hpp"
 
 #include <memory>
 #include <utility>
@@ -439,6 +442,8 @@ bool ActionRecord::finalize()
   
   wxFileName ArchivePath;
   ArchivePath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());
+  ArchivePath.AppendDir("recordings");
+  ArchivePath.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
   
   wxFFile ArchiveFile;
   
@@ -453,17 +458,18 @@ bool ActionRecord::finalize()
     
     break;
   }
-  
-  wxFFileOutputStream ArchiveStream(ArchiveFile);
-  
-  if (archiveTo(ArchiveStream)) {
-    // TODO: Upload the archive to the server.
-    return true;
+
+  // Attempt to archive the recording.
+  {
+    wxFFileOutputStream ArchiveStream(ArchiveFile);
+    if (archiveTo(ArchiveStream)) {
+      // TODO: Notify the submitter of this new archive.
+      return true;
+    }
   }
-  else {
-    wxRemoveFile(ArchivePath.GetFullPath());
-    return false;
-  }
+
+  wxRemoveFile(ArchivePath.GetFullPath());
+  return false;
 }
 
 

@@ -16,6 +16,7 @@
 
 #include "seec/Util/Parsing.hpp"
 
+#include <wx/frame.h>
 #include <wx/panel.h>
 #include <wx/xml/xml.h>
 

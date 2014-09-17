@@ -27,6 +27,7 @@
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
+class ActionRecordingSubmitter;
 class SingleInstanceServer;
 class WelcomeFrame;
 class wxSingleInstanceChecker;
@@ -52,9 +53,15 @@ class TraceViewerApp : public wxApp
 
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
-  
+
   /// Files that the user passed on the command line.
   std::vector<wxString> CLFiles;
+
+  /// True iff curl was initialized without error.
+  bool const CURL;
+
+  /// Handles submission of user action recordings.
+  std::unique_ptr<ActionRecordingSubmitter> RecordingSubmitter;
 
   /// \brief Send any "files to open" to the existing trace viewer instance.
   ///
@@ -68,6 +75,10 @@ public:
   /// \brief Constructor.
   ///
   TraceViewerApp();
+
+  /// \brief Destructor.
+  ///
+  virtual ~TraceViewerApp();
 
   /// \name Interface to wxApp.
   /// @{
@@ -111,6 +122,10 @@ public:
 
   /// \name TraceViewer specific.
   /// @{
+
+  /// \brief Check if libcurl was initialized successfully.
+  ///
+  bool checkCURL() const { return CURL; }
 
   /// \brief Attempt to bring the viewer to the foreground.
   /// If there are traces open, then we will call \c Raise() on each trace
