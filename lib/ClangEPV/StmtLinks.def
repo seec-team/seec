@@ -302,8 +302,10 @@ SEEC_STMT_LINK(MemberExpr,
 
 SEEC_STMT_LINK(BinaryOperator,
   SEEC_PP_QUOTE(
-    ("opcode",       String,            getOpcode()),
-    ("type_general", GeneralTypeString, getType().getTypePtr())
+    ("opcode",           String,            getOpcode()),
+    ("type_general",     GeneralTypeString, getType().getTypePtr()),
+    ("lhs_type_general", GeneralTypeString, getLHS()->getType().getTypePtr()),
+    ("rhs_type_general", GeneralTypeString, getRHS()->getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
     ("rtv_of_lhs", getLHS()),
