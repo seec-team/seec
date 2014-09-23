@@ -576,7 +576,7 @@ root:table {
       " other {}}"
 
       "{num_args, plural,"
-      " =0 { In this case there are no arguments, so the parenthesis are empty.}"
+      " =0 { In this case there are no arguments, so the parentheses are empty.}"
       " =1 { In this case there is only one argument.}"
       " other { In this case there are {num_args} arguments.}"
       "}"
