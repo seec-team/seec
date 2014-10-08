@@ -379,9 +379,6 @@ void
 ActionRecord::recordEventV(std::string const &Handler,
                            std::vector<IAttributeReadOnly const *> const &Attrs)
 {
-  if (!Enabled)
-    return;
-  
   auto const Root = RecordDocument->GetRoot();
   if (!Root)
     return;

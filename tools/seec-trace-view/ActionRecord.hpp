@@ -470,9 +470,8 @@ public:
   void recordEventL(std::string const &Handler,
                     Ts &&... Attributes)
   {
-    if (Enabled)
-      recordEventV(Handler, std::vector<IAttributeReadOnly const *>
-                                       {&Attributes...});
+    recordEventV(Handler, std::vector<IAttributeReadOnly const *>
+                                      {&Attributes...});
   }
   
   /// \brief Finish this action record and submit it to the server.
