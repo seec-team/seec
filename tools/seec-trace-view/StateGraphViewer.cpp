@@ -36,6 +36,7 @@
   #error "wxWebView backend required!"
 #endif
 
+#include <wx/stdpaths.h>
 #include <wx/uri.h>
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
@@ -77,14 +78,7 @@ static std::string FindDotExecutable()
   
   char const *SearchPaths[] = {
     "/usr/bin",
-    "/usr/local/bin",
-    // TODO: This is a temporary setting for the lab machines. Make a setting
-    //       that can be overriden at compile time.
-#if defined(__APPLE__)
-    "/cslinux/adhoc/seec/bin"
-#else
-    "/cslinux/adhoc/seec/linux/bin"
-#endif
+    "/usr/local/bin"
   };
   
   llvm::SmallString<256> DotPath;
@@ -93,11 +87,15 @@ static std::string FindDotExecutable()
     DotPath = SearchPath;
     llvm::sys::path::append(DotPath, DotName);
     
-    if (!llvm::sys::fs::exists(DotPath.str()))
+    if (!llvm::sys::fs::exists(DotPath.str())) {
+      wxLogDebug("dot does not exist at %s", wxString(DotPath.str()));
       continue;
+    }
     
-    if (!llvm::sys::fs::can_execute(DotPath.str()))
+    if (!llvm::sys::fs::can_execute(DotPath.str())) {
+      wxLogDebug("dot not executable at %s", wxString(DotPath.str()));
       continue;
+    }
     
     return DotPath.str().str();
   }
@@ -251,12 +249,13 @@ void StateGraphViewerPanel::workerTaskLoop()
     {
       int GraphFD;
       auto const GraphErr =
-        llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.dot",
-                                        GraphFD,
-                                        GraphPath);
+        llvm::sys::fs::createTemporaryFile("seecgraph", "dot",
+                                           GraphFD,
+                                           GraphPath);
 
       if (GraphErr != llvm::errc::success) {
-        wxLogDebug("Couldn't create temporary dot file.");
+        wxLogDebug("Couldn't create temporary dot file: %s",
+                   wxString(GraphErr.message()));
         continue;
       }
 
@@ -273,10 +272,11 @@ void StateGraphViewerPanel::workerTaskLoop()
     // Create a temporary filename for the dot result.
     llvm::SmallString<256> SVGPath;
     auto const SVGErr =
-      llvm::sys::fs::createUniqueFile("seecgraph-%%%%%%%%.svg", SVGPath);
+      llvm::sys::fs::createTemporaryFile("seecgraph", "svg", SVGPath);
 
     if (SVGErr != llvm::errc::success) {
-      wxLogDebug("Couldn't create temporary svg file.");
+      wxLogDebug("Couldn't create temporary svg file: %s",
+                 wxString(SVGErr.message()));
       continue;
     }
 
