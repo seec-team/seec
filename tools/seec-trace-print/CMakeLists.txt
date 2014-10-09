@@ -1,4 +1,9 @@
-add_executable(seec-print main.cpp OnlinePythonTutor.cpp)
+add_executable(seec-print
+ ClangMapped.cpp
+ main.cpp
+ OnlinePythonTutor.cpp
+ Unmapped.cpp
+)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
