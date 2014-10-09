@@ -125,10 +125,14 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
 
     auto DataNode = SourceNode->getOperand(1u);
     auto Contents = llvm::dyn_cast<llvm::ConstantDataSequential>(DataNode);
-    assert(Contents);
-    
-    SourceFiles.emplace_back(Name->getString().str(),
-                             Contents->getRawDataValues());
+
+    if (Contents) {
+      SourceFiles.emplace_back(Name->getString().str(),
+                               Contents->getRawDataValues());
+    }
+    else {
+      SourceFiles.emplace_back(Name->getString().str(), "");
+    }
   }
   
   // Extract the invocation arguments.
