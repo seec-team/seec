@@ -149,8 +149,21 @@ bool isTopLevel(clang::Stmt const *S, seec::seec_clang::MappedAST const &AST)
     return false;
 
   auto const MaybeParent = AST.getParent(S);
-  if (MaybeParent.assigned<clang::Stmt const *>())
-    return !llvm::isa<clang::Expr>(MaybeParent.get<clang::Stmt const *>());
+  if (MaybeParent.assigned<clang::Stmt const *>()) {
+    auto const TheStmt = MaybeParent.get<clang::Stmt const *>();
+
+    if (auto const Expr = llvm::dyn_cast<clang::Expr>(TheStmt)) {
+      // If the parent is a top-level ParenExpr then also treat this Expr as
+      // top-level, because the parent won't exist in the IR.
+      if (auto const Paren = llvm::dyn_cast<clang::ParenExpr>(Expr)) {
+        return isTopLevel(Paren, AST);
+      }
+
+      return false;
+    }
+
+    return true;
+  }
 
   return true;
 }
