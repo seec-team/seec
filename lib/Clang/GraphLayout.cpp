@@ -1623,7 +1623,7 @@ doLayout(LayoutHandler const &Handler,
                 << ":fname -> "
                 << FunctionLayouts[i].getID()
                 << ":fname "
-                   "[constraint=false dir=back color=\"#268bd2\""
+                   "[dir=back color=\"#268bd2\""
                    " style=\"dashed\"];\n";
     }
   }
@@ -2033,13 +2033,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     
     if (IsPunned)
       EdgeAttributes += "style=dashed ";
-    
-    // Allow functions to be stacked vertically by forcing edges between
-    // functions to not be used in ranking.
-    if (HeadIt->getType() == NodeType::Function
-        && TailIt->getType() == NodeType::Function)
-      EdgeAttributes += "constraint=false ";
-    
+
     // Write attributes.
     if (!EdgeAttributes.empty()) {
       EdgeAttributes.pop_back();
