@@ -372,11 +372,18 @@ MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
   // in-place (hence the Region is still valid).
   return moveForwardUntil(State,
           [&] (ProcessState &) -> bool {
+            if (!Region.isAllocated())
+              return true;
+
             auto const NewInit = Region.getByteInitialization();
             auto const NewData = Region.getByteValues();
 
-            return !std::equal(Init.begin(), Init.end(), NewInit.begin())
-                || !std::equal(Data.begin(), Data.end(), NewData.begin());
+            for (std::size_t i = 0; i < Init.size(); ++i)
+              if (Init[i] != NewInit[i] ||
+                  (Init[i] & Data[i]) != (NewInit[i] & NewData[i]))
+                return true;
+
+            return false;
           });
 }
 
@@ -394,11 +401,18 @@ MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
   // in-place (hence the Region is still valid).
   return moveBackwardUntil(State,
           [&] (ProcessState &) -> bool {
+            if (!Region.isAllocated())
+              return true;
+
             auto const NewInit = Region.getByteInitialization();
             auto const NewData = Region.getByteValues();
 
-            return !std::equal(Init.begin(), Init.end(), NewInit.begin())
-                || !std::equal(Data.begin(), Data.end(), NewData.begin());
+            for (std::size_t i = 0; i < Init.size(); ++i)
+              if (Init[i] != NewInit[i] ||
+                  (Init[i] & Data[i]) != (NewInit[i] & NewData[i]))
+                return true;
+
+            return false;
           });
 }
 

@@ -240,6 +240,14 @@ void MemoryAllocation::resize(std::size_t const NewSize)
 // MemoryStateRegion
 //------------------------------------------------------------------------------
 
+bool MemoryStateRegion::isAllocated() const
+{
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return true;
+  return false;
+}
+
 bool MemoryStateRegion::isCompletelyInitialized() const
 {
   auto const Complete = std::numeric_limits<unsigned char>::max();

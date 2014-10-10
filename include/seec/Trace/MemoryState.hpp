@@ -191,6 +191,10 @@ public:
   /// \name Queries
   /// @{
 
+  /// \brief Find out if an allocation covers this area.
+  ///
+  bool isAllocated() const;
+
   /// \brief Find out if the contained bytes are initialized.
   ///
   bool isCompletelyInitialized() const;
