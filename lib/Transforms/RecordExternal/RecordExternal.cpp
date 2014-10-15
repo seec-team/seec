@@ -280,6 +280,7 @@ static void AddModuleInfo(Module &M,
 static void ReplaceUsesWithInterceptor(Function *Original,
                                        Function *Interceptor)
 {
+  auto const M   = Original->getParent();
   auto       It  = Original->use_begin();
   auto const End = Original->use_end();
 
@@ -294,7 +295,9 @@ static void ReplaceUsesWithInterceptor(Function *Original,
       }
     }
     else if (auto I = dyn_cast<Instruction>(TheUser)) {
-      if (I->getParent()->getParent() != Interceptor) {
+      auto const Fn = I->getParent()->getParent();
+
+      if (!GetInterceptorFor(*Fn, *M) && !IsMangledInterceptor(*Fn)) {
         Current.getUse().set(Interceptor);
       }
     }
@@ -375,7 +378,9 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
   // Perform SeeC's function interception.
   for (auto &F : M) {
-    if (!F.empty())
+    // If the function is defined by the user's program, and they haven't
+    // provided a custom interceptor, then don't intercept it.
+    if (!F.empty() && !GetInterceptorFor(F, M))
       continue;
     
     auto Name = F.getName();
