@@ -14,6 +14,7 @@
 #include "PrintRunError.hpp"
 #include "Tracer.hpp"
 
+#include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceFormat.hpp"
@@ -718,6 +719,41 @@ void SEEC_MANGLE_FUNCTION(LockMemoryForReading)() {
   Listener.acquireGlobalMemoryReadLock();
 }
 
+char SEEC_MANGLE_FUNCTION(IsKnownMemoryCovering)(void const * const Start,
+                                                 size_t const Size)
+{
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+
+  return seec::trace::getThreadEnvironment()
+                     .getThreadListener()
+                     .isKnownMemoryRegionCovering(Address, Size);
+}
+
+void SEEC_MANGLE_FUNCTION(RemoveKnownMemory)(void const * const Start) {
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+
+  seec::trace::getThreadEnvironment()
+              .getThreadListener()
+              .removeKnownMemoryRegion(Address);
+}
+
+void SEEC_MANGLE_FUNCTION(AddKnownMemory)(void const * const Start,
+                                          size_t const Size,
+                                          char const Readable,
+                                          char const Writable)
+{
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+  auto const Permission
+    = Readable ? (Writable ? seec::MemoryPermission::ReadWrite
+                           : seec::MemoryPermission::ReadOnly)
+               : (Writable ? seec::MemoryPermission::WriteOnly
+                           : seec::MemoryPermission::None);
+
+  seec::trace::getThreadEnvironment()
+              .getThreadListener()
+              .addKnownMemoryRegion(Address, Size, Permission);
+}
+
 void
 SEEC_MANGLE_FUNCTION(RecordUntypedState)
 (char const * const Data, size_t const Size)
@@ -731,7 +767,37 @@ void SEEC_MANGLE_FUNCTION(ReleaseLocks)() {
   Listener.exitPostNotification();
 }
 
-void SEEC_MANGLE_FUNCTION(CheckCStringRead)(char const * const CString) {
+void SEEC_MANGLE_FUNCTION(SetPointerTargetNewValid)(void const * const Pointer)
+{
+  auto &Thread = seec::trace::getThreadEnvironment().getThreadListener();
+  auto const Address = reinterpret_cast<uintptr_t>(Pointer);
+  auto const ActiveFn = Thread.getActiveFunction();
+
+  assert(ActiveFn);
+
+  auto const Area = seec::trace::getContainingMemoryArea(Thread, Address);
+  auto const Target = Area.assigned() ? Area.get<seec::MemoryArea>().start()
+                                      : Address;
+
+  ActiveFn->setPointerObject(ActiveFn->getActiveInstruction(),
+                             Thread.getProcessListener()
+                                   .makePointerObject(Target));
+}
+
+void SEEC_MANGLE_FUNCTION(SetPointerTargetFromArgument)(unsigned const ArgNo)
+{
+  auto const ActiveFn = seec::trace::getThreadEnvironment()
+                                    .getThreadListener()
+                                    .getActiveFunction();
+
+  assert(ActiveFn);
+
+  ActiveFn->transferArgPointerObjectToCall(ArgNo);
+}
+
+void SEEC_MANGLE_FUNCTION(CheckCStringRead)(size_t const Parameter,
+                                            char const * const CString)
+{
   using namespace seec::runtime_errors::format_selects;
   
   auto &Env = seec::trace::getThreadEnvironment();
@@ -740,7 +806,7 @@ void SEEC_MANGLE_FUNCTION(CheckCStringRead)(char const * const CString) {
                                        Env.getInstructionIndex(),
                                        CStdFunction::userdefined};
   
-  Checker.checkCStringRead(1, CString);
+  Checker.checkCStringRead(Parameter, CString);
 }
 
 } // extern "C"
