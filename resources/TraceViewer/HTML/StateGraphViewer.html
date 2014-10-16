@@ -163,8 +163,16 @@
         return;
 
       var Rect = Node.getBoundingClientRect();
-      var Top  = Rect.top  + document.body.scrollTop;
-      var Left = Rect.left + document.body.scrollLeft;
+      var Top  = document.body.scrollTop;
+      var Left = document.body.scrollLeft;
+
+      // If the value is off-screen vertically, scroll vertically.
+      if (Rect.top < 0 || Rect.top > document.body.clientHeight)
+        Top += Rect.top;
+
+      // If the value is off-screen horizontally, scroll horizontally.
+      if (Rect.left < 0 || Rect.left > document.body.clientWidth)
+        Left += Rect.left;
 
       $('html, body').animate({ scrollTop: Top, scrollLeft: Left}, 500);
     }
