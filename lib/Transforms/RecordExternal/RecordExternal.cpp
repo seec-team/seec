@@ -657,6 +657,19 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
   PostCall->insertAfter(&SI);
 }
 
+/// We simply record the value produced by the PHINode, but we must ensure that
+/// all PHINodes remain grouped at the top of the BasicBlock.
+///
+void InsertExternalRecording::visitPHINode(PHINode &I) {
+  BasicBlock::iterator it(&I);
+
+  do {
+    ++it;
+  } while (llvm::isa<PHINode>(*it));
+
+  insertRecordUpdateForValue(I, &*it);
+}
+
 /// Insert calls to tracing functions to handle a call instruction. There are
 /// three tracing functions: pre-call, post-call, and the generic update for
 /// the return value, if it is valid.

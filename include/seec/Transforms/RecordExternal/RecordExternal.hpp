@@ -159,7 +159,7 @@ public:
   SIMPLE_RECORD_UPDATE_FOR_VALUE(GetElementPtrInst)
 
   // Other operators
-  SIMPLE_RECORD_UPDATE_FOR_VALUE(PHINode)
+  void visitPHINode(PHINode &I);
   SIMPLE_RECORD_UPDATE_FOR_VALUE(SelectInst)
   void visitCallInst(CallInst &I);
 
