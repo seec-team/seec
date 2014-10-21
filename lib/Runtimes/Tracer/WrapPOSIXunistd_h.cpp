@@ -78,6 +78,118 @@ public:
 };
 
 
+namespace seec {
+
+/// \brief Error check and record argv given to getopt.
+///
+class WrappedMutatingArgV {
+  char * const *Value;
+
+  bool IgnoreNull;
+
+public:
+  WrappedMutatingArgV(char * const *ForValue)
+  : Value(ForValue),
+    IgnoreNull(false)
+  {}
+
+  /// \name Flags
+  /// @{
+
+  WrappedMutatingArgV &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+
+  bool getIgnoreNull() const { return IgnoreNull; }
+
+  /// @} (Flags)
+
+  /// \name Value information
+  /// @{
+
+  operator char * const *() const { return Value; }
+
+  uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
+
+  /// @}
+};
+
+/// \brief \c WrappedArgumentChecker specialization for \c WrappedMutatingArgV.
+///
+template<>
+class WrappedArgumentChecker<WrappedMutatingArgV>
+{
+  /// The underlying memory checker.
+  seec::trace::CStdLibChecker &Checker;
+
+public:
+  /// \brief Construct a new WrappedArgumentChecker.
+  ///
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
+  : Checker(WithChecker)
+  {}
+
+  /// \brief Check if the given value is OK.
+  ///
+  bool check(WrappedMutatingArgV &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+
+    return Checker.checkCStringArray(Parameter, Value) > 0;
+  }
+};
+
+/// \brief \c WrappedArgumentRecorder specialization for \c WrappedMutatingArgV.
+///
+template<>
+class WrappedArgumentRecorder<WrappedMutatingArgV> {
+  /// The underlying \c TraceProcessListener.
+  seec::trace::TraceProcessListener &Process;
+
+  /// The underlying \c TraceThreadListener.
+  seec::trace::TraceThreadListener &Listener;
+
+public:
+  /// \brief Construct a new \c WrappedArgumentRecorder.
+  ///
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &WithProcess,
+                          seec::trace::TraceThreadListener &WithListener)
+  : Process(WithProcess),
+    Listener(WithListener)
+  {}
+
+  /// \brief Record any state changes.
+  ///
+  bool record(WrappedMutatingArgV const &Value, bool Success) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+
+    if (Success) {
+      char const * const * const Ptr = Value;
+
+      unsigned Length = 0;
+      while (Ptr[Length]) {
+        auto const Address = reinterpret_cast<uintptr_t>(&Ptr[Length]);
+        auto const Target  = reinterpret_cast<uintptr_t>( Ptr[Length]);
+
+        Process.setInMemoryPointerObject(Address,
+                                         Process.makePointerObject(Target));
+
+        ++Length;
+      }
+
+      Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                  sizeof (char * [Length + 1]));
+    }
+
+    return true;
+  }
+};
+
+} // namespace seec
+
+
 extern "C" {
 
 
@@ -890,11 +1002,8 @@ int
 SEEC_MANGLE_FUNCTION(getopt)
 (int const argc, char * const argv[], char const * const optstring)
 {
+
   // Use the SimpleWrapper mechanism.
-  // int opterr
-  // int optopt
-  // int optind
-  // char *optarg
   return
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
@@ -907,7 +1016,7 @@ SEEC_MANGLE_FUNCTION(getopt)
        [](int const){ return true; },
        seec::ResultStateRecorderForNoOp(),
        argc,
-       seec::wrapInputCStringArray(argv),
+       seec::WrappedMutatingArgV(argv),
        seec::wrapInputCString(optstring));
 }
 

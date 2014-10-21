@@ -203,12 +203,15 @@ class WrappedInputPointer {
   std::size_t Size;
   
   bool IgnoreNull;
+
+  bool ForCopy;
   
 public:
   WrappedInputPointer(T ForValue)
   : Value(ForValue),
     Size(sizeof(*ForValue)),
-    IgnoreNull(false)
+    IgnoreNull(false),
+    ForCopy(false)
   {}
   
   /// \name Flags.
@@ -227,6 +230,13 @@ public:
   }
   
   bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputPointer &setForCopy(bool const Value) {
+    ForCopy = Value;
+    return *this;
+  }
+
+  bool getForCopy() const { return ForCopy; }
   
   /// @} (Flags.)
   
@@ -244,11 +254,15 @@ class WrappedInputPointer<void const *> {
   std::size_t Size;
   
   bool IgnoreNull;
+
+  bool ForCopy;
   
 public:
   WrappedInputPointer(void const * ForValue)
   : Value(ForValue),
-    Size(0)
+    Size(0),
+    IgnoreNull(false),
+    ForCopy(false)
   {}
   
   /// \name Flags.
@@ -267,6 +281,13 @@ public:
   }
   
   bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputPointer &setForCopy(bool const Value) {
+    ForCopy = Value;
+    return *this;
+  }
+
+  bool getForCopy() const { return ForCopy; }
   
   /// @} (Flags.)
   
@@ -303,11 +324,15 @@ public:
     if (Value == nullptr && Value.getIgnoreNull())
       return true;
     
+    auto const Access = Value.getForCopy()
+      ? seec::runtime_errors::format_selects::MemoryAccess::Copy
+      : seec::runtime_errors::format_selects::MemoryAccess::Read;
+
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),
               Value.getSize(),
-              seec::runtime_errors::format_selects::MemoryAccess::Read);
+              Access);
   }
 };
 

@@ -1033,7 +1033,8 @@ SEEC_MANGLE_FUNCTION(fwrite)
       (fwrite,
        [](size_t Result){ return Result != 0; },
        ResultStateRecorderForFwrite{buffer, size, stream},
-       seec::wrapInputPointer(CharBuffer).setSize(size * count),
+       seec::wrapInputPointer(CharBuffer).setSize(size * count)
+                                         .setForCopy(true),
        size,
        count,
        seec::wrapInputFILE(stream));
