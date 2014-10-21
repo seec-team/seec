@@ -167,6 +167,9 @@ PointerTarget TracedFunction::getPointerObject(llvm::Value const *V) const
     if (CE->isCast()) {
       return getPointerObject(CE->getOperand(0));
     }
+    else if (CE->isGEPWithNoNotionalOverIndexing()) {
+      return getPointerObject(CE->getOperand(0));
+    }
   }
   return ThreadListener.getProcessListener().getPointerObject(V);
 }
