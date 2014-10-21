@@ -1007,6 +1007,9 @@ class GlobalVariableTracker {
   
   /// Holds the pre-call contents of the global.
   llvm::SmallVector<char, 16> PreState;
+
+  /// Whether or not this global is a pointer.
+  bool const IsPointerType;
   
 public:
   /// \brief Constructor.
@@ -1015,7 +1018,8 @@ public:
   GlobalVariableTracker(T const &ForGlobal)
   : Global(reinterpret_cast<char const *>(&ForGlobal)),
     Size(sizeof(ForGlobal)),
-    PreState()
+    PreState(),
+    IsPointerType(std::is_pointer<T>::value)
   {}
   
   /// \brief Save the state of the global so that we can check if it changed.
@@ -1030,9 +1034,27 @@ public:
   ///
   void recordChanges(seec::trace::TraceThreadListener &ThreadListener) const
   {
-    // Update memory state if it has changed.
-    if (std::memcmp(PreState.data(), Global, Size)) {
-      ThreadListener.recordUntypedState(Global, Size);
+    // Update memory state if it has changed, and the allocation is visible to
+    // the user's program.
+    if (!std::memcmp(PreState.data(), Global, Size))
+      return;
+
+    auto const Address = reinterpret_cast<uintptr_t>(Global);
+    auto const MaybeArea = getContainingMemoryArea(ThreadListener, Address);
+    if (!MaybeArea.assigned<MemoryArea>())
+      return;
+
+    auto const &Area = MaybeArea.get<MemoryArea>();
+    if (!Area.contains(MemoryArea(Address, Size)))
+      return;
+
+    ThreadListener.recordUntypedState(Global, Size);
+
+    if (IsPointerType) {
+      auto &Process = ThreadListener.getProcessListener();
+      auto const Value = *reinterpret_cast<uintptr_t const *>(Global);
+      Process.setInMemoryPointerObject(Address,
+                                       Process.makePointerObject(Value));
     }
   }
 };
