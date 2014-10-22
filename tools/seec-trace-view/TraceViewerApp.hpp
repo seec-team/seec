@@ -154,6 +154,10 @@ public:
     TopLevelWindows.erase(Window);
   }
 
+  /// \brief Get the \c ActionRecordingSubmitter, if there is one.
+  ///
+  ActionRecordingSubmitter *getActionRecordingSubmitter() const;
+
   /// @}
 
 private:

@@ -460,7 +460,10 @@ bool ActionRecord::finalize()
   {
     wxFFileOutputStream ArchiveStream(ArchiveFile);
     if (archiveTo(ArchiveStream)) {
-      // TODO: Notify the submitter of this new archive.
+      // Notify the submitter of this new archive.
+      if (auto const Submitter = wxGetApp().getActionRecordingSubmitter()) {
+        Submitter->notifyOfNewRecording(ArchivePath.GetFullPath());
+      }
       return true;
     }
   }

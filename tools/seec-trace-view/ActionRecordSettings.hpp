@@ -16,6 +16,8 @@
 
 #include <memory>
 
+class wxString;
+
 /// \brief Show the action recording settings dialog (modal).
 ///
 void showActionRecordSettings();
@@ -55,6 +57,10 @@ public:
   /// \brief Terminates any active submissions.
   ///
   ~ActionRecordingSubmitter();
+
+  /// \brief Notify that a new recording is available to submit.
+  ///
+  void notifyOfNewRecording(wxString const &FullPath);
 };
 
 #endif // SEEC_TRACE_VIEW_ACTIONRECORDSETTINGS_HPP
