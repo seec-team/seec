@@ -28,10 +28,40 @@
 #include "StreamStatePanel.hpp"
 #include "SourceViewerSettings.hpp"
 
+#include <cassert>
+
 
 //===----------------------------------------------------------------------===//
 // StreamPanel
 //===----------------------------------------------------------------------===//
+
+static
+std::pair<int, int> getPositionsForCharacterRange(wxStyledTextCtrl *STC,
+                                                  int const Start,
+                                                  int const End)
+{
+  assert(Start <= End);
+
+  // Initially set the offset to the first valid offset preceding the
+  // "whole character" index. This will always be less than the required offset
+  // (because no encoding uses less than one byte per character).
+  int StartPos = STC->PositionBefore(Start);
+
+  // Find the "whole character" index of the initial position, use that to
+  // determine how many characters away from the desired position we are, and
+  // then iterate to the desired position.
+  auto const StartGuessCount = STC->CountCharacters(0, StartPos);
+  for (int i = 0; i < Start - StartGuessCount; ++i)
+    StartPos = STC->PositionAfter(StartPos);
+
+  // Get the EndPos by iterating from the StartPos.
+  auto const Length = End - Start;
+  int EndPos = StartPos;
+  for (int i = 0; i < Length; ++i)
+    EndPos = STC->PositionAfter(EndPos);
+
+  return std::make_pair(StartPos, EndPos);
+}
 
 /// \brief Shows the contents of a single FILE stream.
 ///
@@ -78,8 +108,23 @@ class StreamPanel final : public wxPanel
     MouseOverPosition = wxSTC_INVALID_POSITION;
     ClickUnmoved = false;
 
+    auto const &Written = State->getWritten();
+    wxString DisplayString;
+
+    for (auto const Ch : Written) {
+      if (std::isprint(Ch) || Ch == '\n') {
+        DisplayString.Append(Ch);
+      }
+      else if (std::iscntrl(Ch) && 0 <= Ch && Ch <= 31) {
+        DisplayString.Append(wxUniChar(0x2400+Ch));
+      }
+      else {
+        DisplayString.Append(wxUniChar(0xFFFD));
+      }
+    }
+
     Text->SetReadOnly(false);
-    Text->SetValue(wxString{State->getWritten()});
+    Text->SetValue(DisplayString);
     Text->SetReadOnly(true);
     Text->ScrollToEnd();
   }
@@ -92,14 +137,20 @@ class StreamPanel final : public wxPanel
     // Clear this in case we are inbetween right down and right up.
     ClickUnmoved = false;
 
-    // Find the character that is being hovered over.
-    long Position;
-    auto const Test = Text->HitTest(Ev.GetPosition(), &Position);
+    // Find the position that the mouse is hovering over. Note that this is the
+    // position in Scintilla's internal representation of the string, not
+    // necessarily the index of the character being hovered over.
+    long HitPos;
+    auto const Test = Text->HitTest(Ev.GetPosition(), &HitPos);
+    if (Test != wxTE_HT_ON_TEXT)
+      return;
 
-    if (Test != wxTE_HT_ON_TEXT
+    // Find the index of the character being hovered over.
+    auto const Position = Text->CountCharacters(0, HitPos);
+
+    if (Position == MouseOverPosition
         || Position < 0
-        || static_cast<unsigned long>(Position) >= State->getWritten().size()
-        || Position == MouseOverPosition)
+        || static_cast<unsigned long>(Position) >= State->getWritten().size())
       return;
 
     clearHighlight();
@@ -108,8 +159,12 @@ class StreamPanel final : public wxPanel
 
     // Highlight the write that we are hovering over.
     auto const Write = State->getWriteAt(Position);
-    HighlightStart = Write.Begin;
-    HighlightLength = Write.End - Write.Begin;
+    auto const Range =
+      getPositionsForCharacterRange(Text, Write.Begin, Write.End);
+
+    HighlightStart  = Range.first;
+    HighlightLength = Range.second - Range.first;
+
     Text->IndicatorFillRange(HighlightStart, HighlightLength);
   }
 
