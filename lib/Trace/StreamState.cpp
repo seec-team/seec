@@ -33,6 +33,16 @@ StreamState::getWriteAt(std::size_t const Position) const
   };
 }
 
+StreamState::StreamWrite StreamState::getWrite(std::size_t const I) const
+{
+  auto const It = Writes.cbegin() + I;
+
+  return StreamWrite{
+    It == Writes.begin() ? 0 : std::prev(It)->NewLength,
+    It->NewLength
+  };
+}
+
 void StreamState::write(llvm::ArrayRef<char> Data)
 {
   Written.append(Data.data(), Data.size());

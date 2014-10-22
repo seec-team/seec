@@ -114,6 +114,16 @@ public:
   ///
   StreamWrite getWriteAt(std::size_t const Position) const;
   
+  /// \brief Get the number of writes to this stream.
+  ///
+  std::size_t getWriteCount() const {
+    return Writes.size();
+  }
+
+  /// \brief Get the n-th write to this stream.
+  ///
+  StreamWrite getWrite(std::size_t const Index) const;
+
   /// @} (Queries)
   
   

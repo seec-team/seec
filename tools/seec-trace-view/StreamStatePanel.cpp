@@ -67,6 +67,11 @@ std::pair<int, int> getPositionsForCharacterRange(wxStyledTextCtrl *STC,
 ///
 class StreamPanel final : public wxPanel
 {
+  enum class EModeKind {
+    TextASCII,
+    BinASCIIAndOctal
+  };
+
   /// Displays the data written to this FILE.
   wxStyledTextCtrl *Text;
 
@@ -78,6 +83,9 @@ class StreamPanel final : public wxPanel
 
   /// Pointer to the \c StreamState displayed by this \c StreamPanel.
   seec::cm::StreamState const *State;
+
+  /// Mode currently being used to display the data.
+  EModeKind Mode;
 
   /// Character that the mouse is currently hovering over.
   long MouseOverPosition;
@@ -111,15 +119,47 @@ class StreamPanel final : public wxPanel
     auto const &Written = State->getWritten();
     wxString DisplayString;
 
-    for (auto const Ch : Written) {
-      if (std::isprint(Ch) || Ch == '\n') {
-        DisplayString.Append(Ch);
+    // Automatically pick the mode based on whether or not there are non-ASCII
+    // values in any of the stream writes.
+    auto const HasNonASCII = std::any_of(Written.cbegin(), Written.cend(),
+                                         [] (unsigned char const Value) {
+                                           return Value > 127;
+                                         });
+
+    Mode = HasNonASCII ? EModeKind::BinASCIIAndOctal : EModeKind::TextASCII;
+
+    if (Mode == EModeKind::TextASCII) {
+      for (auto const Ch : Written) {
+        if (std::isprint(Ch) || Ch == '\n') {
+          DisplayString.Append(Ch);
+        }
+        else if (std::iscntrl(Ch) && 0 <= Ch && Ch <= 31) {
+          DisplayString.Append(wxUniChar(0x2400+Ch));
+        }
+        else {
+          DisplayString.Append(wxUniChar(0xFFFD));
+        }
       }
-      else if (std::iscntrl(Ch) && 0 <= Ch && Ch <= 31) {
-        DisplayString.Append(wxUniChar(0x2400+Ch));
-      }
-      else {
-        DisplayString.Append(wxUniChar(0xFFFD));
+    }
+    else if (Mode == EModeKind::BinASCIIAndOctal) {
+      auto const NumWrites = State->getWriteCount();
+      char Buffer[5];
+
+      for (std::size_t i = 0; i < NumWrites; ++i) {
+        auto const Write = State->getWrite(i);
+
+        for (std::size_t j = Write.Begin; j < Write.End; ++j) {
+          auto const Ch = Written[j];
+
+          if (std::isprint(Ch))
+            DisplayString.Append(" '").Append(Ch).Append('\'');
+          else {
+            std::snprintf(Buffer, sizeof(Buffer), "%4hho", Ch);
+            DisplayString.Append(Buffer);
+          }
+        }
+
+        DisplayString.Append("\n");
       }
     }
 
@@ -127,6 +167,52 @@ class StreamPanel final : public wxPanel
     Text->SetValue(DisplayString);
     Text->SetReadOnly(true);
     Text->ScrollToEnd();
+  }
+
+  void SetPositionAndHighlightFromHit(long const HitPos)
+  {
+    switch (Mode)
+    {
+      case EModeKind::TextASCII:
+      {
+        auto const Position = Text->CountCharacters(0, HitPos);
+        if (Position == MouseOverPosition
+            || Position < 0
+            || static_cast<unsigned>(Position) >= State->getWritten().size())
+          return;
+
+        MouseOverPosition = Position;
+
+        auto const Write = State->getWriteAt(Position);
+        auto const Range =
+          getPositionsForCharacterRange(Text, Write.Begin, Write.End);
+
+        clearHighlight();
+        HighlightStart  = Range.first;
+        HighlightLength = Range.second - Range.first;
+
+        break;
+      }
+
+      case EModeKind::BinASCIIAndOctal:
+      {
+        auto const Line = Text->LineFromPosition(HitPos);
+        if (Line < 0 || static_cast<std::size_t>(Line) > State->getWriteCount())
+          return;
+
+        auto const Position = static_cast<long>(State->getWrite(Line).Begin);
+        if (Position == MouseOverPosition)
+          return;
+
+        MouseOverPosition = Position;
+
+        clearHighlight();
+        HighlightStart  = Text->GetLineIndentPosition(Line);
+        HighlightLength = Text->GetLineEndPosition(Line) - HighlightStart;
+      }
+    }
+
+    Text->IndicatorFillRange(HighlightStart, HighlightLength);
   }
 
   void OnTextMotion(wxMouseEvent &Ev) {
@@ -145,27 +231,7 @@ class StreamPanel final : public wxPanel
     if (Test != wxTE_HT_ON_TEXT)
       return;
 
-    // Find the index of the character being hovered over.
-    auto const Position = Text->CountCharacters(0, HitPos);
-
-    if (Position == MouseOverPosition
-        || Position < 0
-        || static_cast<unsigned long>(Position) >= State->getWritten().size())
-      return;
-
-    clearHighlight();
-
-    MouseOverPosition = Position;
-
-    // Highlight the write that we are hovering over.
-    auto const Write = State->getWriteAt(Position);
-    auto const Range =
-      getPositionsForCharacterRange(Text, Write.Begin, Write.End);
-
-    HighlightStart  = Range.first;
-    HighlightLength = Range.second - Range.first;
-
-    Text->IndicatorFillRange(HighlightStart, HighlightLength);
+    SetPositionAndHighlightFromHit(HitPos);
   }
 
   void OnTextEnter(wxMouseEvent &Ev) {
@@ -243,6 +309,7 @@ public:
     Recording(WithRecording),
     ParentAccess(WithParentAccess),
     State(&WithState),
+    Mode(EModeKind::TextASCII),
     MouseOverPosition(wxSTC_INVALID_POSITION),
     HighlightStart(0),
     HighlightLength(0),

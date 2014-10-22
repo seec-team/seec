@@ -48,6 +48,17 @@ StreamState::getWriteAt(std::size_t const Position) const
   return StreamWrite{UnmappedWrite.Begin, UnmappedWrite.End};
 }
 
+std::size_t StreamState::getWriteCount() const
+{
+  return UnmappedState.getWriteCount();
+}
+
+StreamState::StreamWrite StreamState::getWrite(std::size_t const Index) const
+{
+  auto const UnmappedWrite = UnmappedState.getWrite(Index);
+  return StreamWrite{UnmappedWrite.Begin, UnmappedWrite.End};
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, StreamState const &State)
 {
   Out << "@" << State.getAddress()
