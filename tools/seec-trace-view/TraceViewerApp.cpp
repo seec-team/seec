@@ -498,7 +498,6 @@ bool TraceViewerApp::OnCmdLineParsed(wxCmdLineParser &Parser) {
 
 void TraceViewerApp::MacNewFile() {
   // TODO
-  wxLogDebug("NewFile");
 }
 
 void TraceViewerApp::MacOpenFiles(wxArrayString const &FileNames) {
