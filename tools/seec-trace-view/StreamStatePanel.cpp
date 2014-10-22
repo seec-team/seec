@@ -330,6 +330,17 @@ bool StreamStatePanel::Create(wxWindow *Parent,
   return true;
 }
 
+/// Workaround because wxAuiNotebook has a bug that breaks member FindPage.
+///
+static int FindPage(wxBookCtrlBase const *Book, wxWindow const *Page)
+{
+  for (std::size_t i = 0, Count = Book->GetPageCount(); i < Count; ++i)
+    if (Book->GetPage(i) == Page)
+      return static_cast<int>(i);
+
+  return wxNOT_FOUND;
+}
+
 void StreamStatePanel::show(std::shared_ptr<StateAccessToken> Access,
                             seec::cm::ProcessState const &Process,
                             seec::cm::ThreadState const &Thread)
@@ -343,7 +354,7 @@ void StreamStatePanel::show(std::shared_ptr<StateAccessToken> Access,
       ++It;
     }
     else {
-      auto const Idx = Book->FindPage(It->second);
+      auto const Idx = FindPage(Book, It->second);
       if (Idx != wxNOT_FOUND)
         Book->DeletePage(static_cast<std::size_t>(Idx));
       Pages.erase(It++);
