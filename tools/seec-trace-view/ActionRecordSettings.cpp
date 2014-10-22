@@ -353,11 +353,15 @@ class ActionRecordingSubmitterImpl final
 
   std::thread WorkerThread;
 
+  /// Used by GUI thread to notify worker that it should shutdown.
   bool Shutdown;
 
-  std::mutex ShutdownMutex;
+  /// Used by GUI thread to send new recording paths to worker thread.
+  std::vector<wxString> NewRecordings;
 
-  std::condition_variable ShutdownCV;
+  std::mutex NotifyMutex;
+
+  std::condition_variable NotifyCV;
 
   static wxFileName GetRecordingDirFileName()
   {
@@ -396,7 +400,7 @@ class ActionRecordingSubmitterImpl final
 
     auto &Owner = *reinterpret_cast<ActionRecordingSubmitterImpl *>(OwnerPtr);
 
-    std::lock_guard<std::mutex> ShutdownLock(Owner.ShutdownMutex);
+    std::lock_guard<std::mutex> Lock(Owner.NotifyMutex);
     if (Owner.Shutdown)
       return 1; // Abort the transfer.
 
@@ -478,42 +482,58 @@ class ActionRecordingSubmitterImpl final
   {
     auto const &App = wxGetApp();
     if (App.checkCURL()) {
-      auto const AllRecordingFiles = WorkerGetAllRecordingFiles();
+      auto AllRecordingFiles = WorkerGetAllRecordingFiles();
 
-      for (auto const &RecordingFile : AllRecordingFiles) {
-        auto const Result = WorkerSendRecording(RecordingFile);
+      while (true) {
+        // Send all the recording files we know about.
+        while (!AllRecordingFiles.empty()) {
+          auto const RecordingFile = std::move(AllRecordingFiles.back());
+          AllRecordingFiles.pop_back();
 
-        if (Result == EWorkerSendResult::TerminatedByShutdown) {
-          break;
-        }
-        else if (Result == EWorkerSendResult::Failure) {
-          // TODO?
-        }
-        else if (Result == EWorkerSendResult::Success) {
-          auto Path = GetRecordingDirFileName();
-          Path.SetFullName(RecordingFile);
+          auto const Result = WorkerSendRecording(RecordingFile);
 
-          if (!wxRemoveFile(Path.GetFullPath())) {
-            wxLogDebug("Couldn't remove file %s!", RecordingFile);
+          if (Result == EWorkerSendResult::TerminatedByShutdown) {
+            break;
+          }
+          else if (Result == EWorkerSendResult::Failure) {
+            // TODO?
+          }
+          else if (Result == EWorkerSendResult::Success) {
+            auto Path = GetRecordingDirFileName();
+            Path.SetFullName(RecordingFile);
+            wxLogDebug("Submitted %s", RecordingFile);
+
+            if (!wxRemoveFile(Path.GetFullPath())) {
+              wxLogDebug("Couldn't remove file %s!", RecordingFile);
+            }
           }
         }
+
+        // Wait until either we get a new recording file, or we shutdown.
+        std::unique_lock<std::mutex> Lock(NotifyMutex);
+        while (!Shutdown && NewRecordings.empty())
+          NotifyCV.wait(Lock);
+
+        if (Shutdown)
+          break;
+
+        AllRecordingFiles.insert(AllRecordingFiles.end(),
+                                 std::make_move_iterator(NewRecordings.begin()),
+                                 std::make_move_iterator(NewRecordings.end()));
+        NewRecordings.clear();
       }
     }
     else {
       wxLogDebug("cURL is not initialized.");
     }
-
-    std::unique_lock<std::mutex> ShutdownLock(ShutdownMutex);
-    while (!Shutdown)
-      ShutdownCV.wait(ShutdownLock);
   }
 
 public:
   ActionRecordingSubmitterImpl()
   : WorkerThread(),
     Shutdown(false),
-    ShutdownMutex(),
-    ShutdownCV()
+    NotifyMutex(),
+    NotifyCV()
   {
     WorkerThread = std::thread([this] () { WorkerImpl(); });
   }
@@ -521,11 +541,22 @@ public:
   ~ActionRecordingSubmitterImpl()
   {
     // Notify the worker that it should terminate, then wait.
-    std::unique_lock<std::mutex> ShutdownLock(ShutdownMutex);
+    std::unique_lock<std::mutex> Lock(NotifyMutex);
     Shutdown = true;
-    ShutdownLock.unlock();
-    ShutdownCV.notify_one();
+    Lock.unlock();
+    NotifyCV.notify_one();
     WorkerThread.join();
+  }
+
+  void notifyOfNewRecording(wxString const &FullPath)
+  {
+    // Just take the file name from the path (it *should* be in our recording
+    // dir anyway).
+    wxFileName RecordingPath = FullPath;
+    std::unique_lock<std::mutex> Lock(NotifyMutex);
+    NewRecordings.push_back(RecordingPath.GetFullName());
+    Lock.unlock();
+    NotifyCV.notify_one();
   }
 };
 
@@ -534,3 +565,8 @@ ActionRecordingSubmitter::ActionRecordingSubmitter()
 {}
 
 ActionRecordingSubmitter::~ActionRecordingSubmitter() = default;
+
+void ActionRecordingSubmitter::notifyOfNewRecording(wxString const &FullPath)
+{
+  pImpl->notifyOfNewRecording(FullPath);
+}

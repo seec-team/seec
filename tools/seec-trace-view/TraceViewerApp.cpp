@@ -613,3 +613,8 @@ void TraceViewerApp::HandleFatalError(wxString Description) {
 
   std::exit(EXIT_FAILURE);
 }
+
+ActionRecordingSubmitter *TraceViewerApp::getActionRecordingSubmitter() const
+{
+  return RecordingSubmitter.get();
+}
