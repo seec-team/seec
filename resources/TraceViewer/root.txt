@@ -273,7 +273,7 @@ root:table {
 
     ReplayFileInvalid:string {"This does not appear to be a valid action recording."}
 
-    ReplayFileOld:string {"This action recording is for and older version of SeeC."}
+    ReplayFileOld:string {"This action recording is for an older version of SeeC."}
 
     ReplayFileNew:string {"A newer version of SeeC is required to view this action recording."}
 
