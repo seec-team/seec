@@ -85,7 +85,8 @@ root:table {
     // overlap address
     // overlap size
     OverlappingSourceDest:string {
-      "Source and destination memory blocks overlap ({size, plural, =1 {one byte overlaps}, other {{size} bytes overlap}})."
+      "Source and destination memory blocks overlap ("
+      "{size, plural, =1 {one byte overlaps} other {{size} bytes overlap}})."
     }
 
     // string function name
