@@ -278,7 +278,10 @@ root:table {
     Var:string {
       "This declares a variable named “{name}”, with type “{type}”."
 
-      "{is_static_local, select, true {\n\nThis is a local static variable. Read more about local static variables in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/10.html]Lecture 24@[].} false {} other {}"
+      "{is_static_local, select,"
+      " true {\n\nThis is a local static variable. Read more about local static variables in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/10.html]Lecture 24@[].}"
+      " false {}"
+      " other {}}"
     }
 
     // ParmVarDecl
@@ -328,7 +331,9 @@ root:table {
 
       " c {This specifies C language linkage.}"
 
-      " cxx {This specifies C++ language linkage.}}"
+      " cxx {This specifies C++ language linkage.}"
+
+      " other {}}"
     }
 
     // FileScopeAsmDecl
