@@ -1802,6 +1802,7 @@ doLayout(LayoutHandler const &Handler,
   // Remove pointers to void, incomplete types, or to children of other
   // pointees (e.g. pointers to struct members).
   seec::cm::graph::reduceReferences(Refs);
+  assert(!Refs.empty());
   
   if (Refs.size() == 1)
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),

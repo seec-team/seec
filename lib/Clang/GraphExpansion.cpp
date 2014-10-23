@@ -400,14 +400,15 @@ void reduceReferences(std::vector<std::shared_ptr<ValueOfPointer const>> &Refs)
                     // either us or the other pointer will be removed anyway.
                     auto const Direct = doReferenceSameValue(*Ptr, *Other);
                     if (Direct)
-                      return Ptr->getRawValue() >= Other->getRawValue();
+                      return Ptr->getRawValue() > Other->getRawValue();
 
                     // Check if this pointer directly references a child.
                     return isChildOfAnyDereference(Pointee, Other);
                   });
       });
 
-  Refs.erase(RemovedIt, Refs.end());
+  if (RemovedIt != Refs.begin())
+    Refs.erase(RemovedIt, Refs.end());
 }
 
 

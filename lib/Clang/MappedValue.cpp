@@ -2387,23 +2387,20 @@ bool doReferenceSameValue(ValueOfPointer const &LHS, ValueOfPointer const &RHS)
   auto const L0 = LHS.getDereferenced(0);
   auto const R0 = RHS.getDereferenced(0);
   
-  // Fail quickly if the pointees have different types.
-  if (L0->getCanonicalType() != R0->getCanonicalType())
+  auto const L0Size = L0->getTypeSizeInChars().getQuantity();
+  auto const R0Size = R0->getTypeSizeInChars().getQuantity();
+  if (L0Size != R0Size)
     return false;
-  
+
   if (LHS.getRawValue() <= RHS.getRawValue()) {
-    auto const Limit = LHS.getDereferenceIndexLimit();
-    
-    for (unsigned i = 0; i < Limit; ++i)
-      if (LHS.getDereferenced(i) == R0)
-        return true;
+    auto const Offset = (RHS.getRawValue() - LHS.getRawValue()) / L0Size;
+    auto const Limit  = LHS.getDereferenceIndexLimit();
+    return Offset < Limit && LHS.getDereferenced(Offset) == R0;
   }
   else {
-    auto const Limit = RHS.getDereferenceIndexLimit();
-    
-    for (unsigned i = 0; i < Limit; ++i)
-      if (RHS.getDereferenced(i) == L0)
-        return true;
+    auto const Offset = (LHS.getRawValue() - RHS.getRawValue()) / R0Size;
+    auto const Limit  = RHS.getDereferenceIndexLimit();
+    return Offset < Limit && RHS.getDereferenced(Offset) == L0;
   }
   
   return false;
