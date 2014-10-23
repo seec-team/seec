@@ -219,7 +219,7 @@ root:table {
 
   // Common contextual navigation resources.
   ContextualNavigation:table {
-    StmtRewind:string {"Rewind to when this statement was last evaluated"}
+    StmtRewind:string {"Rewind to when this statement was previously evaluated"}
 
     StmtForward:string {"Move forward to when this statement is next evaluated"}
 
@@ -227,7 +227,7 @@ root:table {
 
     ValueRewindAllocation:string {"Rewind to when this memory was allocated"}
 
-    ValueRewindModification:string {"Rewind to when this value was last changed"}
+    ValueRewindModification:string {"Rewind to when this value was previously changed"}
 
     ValueForwardModification:string {"Forward to when this value is next changed"}
 
