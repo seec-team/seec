@@ -182,11 +182,11 @@ Formattable formatAsString(::clang::StringLiteral::StringKind Kind) {
     case ::clang::StringLiteral::StringKind::Wide:
       return formatAsString("Wide");
     case ::clang::StringLiteral::StringKind::UTF8:
-      return formatAsString("UTF-8");
+      return formatAsString("UTF8");
     case ::clang::StringLiteral::StringKind::UTF16:
-      return formatAsString("UTF-16");
+      return formatAsString("UTF16");
     case ::clang::StringLiteral::StringKind::UTF32:
-      return formatAsString("UTF-32");
+      return formatAsString("UTF32");
   }
   
   llvm_unreachable("unknown StringKind");

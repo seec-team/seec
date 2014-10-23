@@ -1173,9 +1173,10 @@ root:table {
       "{string_kind, select,"
        " ASCII {This is an ASCII string literal.}"
        " Wide {This is a wide string literal.}"
-       " UTF-8 {This is a UTF-8 (Unicode) string literal.}"
-       " UTF-16 {This is a UTF-16 (Unicode) string literal.}"
-       " UTF-32 {This is a UTF-32 (Unicode) string literal.}}"
+       " UTF8 {This is a UTF-8 (Unicode) string literal.}"
+       " UTF16 {This is a UTF-16 (Unicode) string literal.}"
+       " UTF32 {This is a UTF-32 (Unicode) string literal.}"
+       " other {}}"
 
        "{num_concatenated, plural,"
        " =0    {}"
