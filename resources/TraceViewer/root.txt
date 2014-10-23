@@ -76,13 +76,9 @@ root:table {
 
     OpenTrace_FileType:string {"SeeC Process Trace (*.seec;*.spt)|*.seec;*.spt"}
 
-    OpenTrace_Status_Loaded {"Loaded trace with {0} states."}
-
     OpenTrace_Error_FailIsDirectory:string {"Couldn't check if path was a directory."}
 
     OpenTrace_Error_LoadProcessTrace:string {"Couldn't read process trace."}
-
-    OpenTrace_Error_ParseIRFile:string {"Couldn't parse LLVM Module."}
 
 
     //
