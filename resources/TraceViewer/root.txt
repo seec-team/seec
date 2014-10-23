@@ -90,16 +90,6 @@ root:table {
     //
     SourceBook_Title:string {"Source code"}
 
-    SourceView_FunctionEntry:string {"Entering function"}
-
-    SourceView_FunctionExit:string {"Leaving function"}
-
-
-    //
-    // ProcessTime scroller
-    //
-    ScrollProcessTime_Title:string {"Process time"}
-
 
     //
     // ThreadTime scroller
@@ -121,12 +111,6 @@ root:table {
 
       GoToEnd:string {"Go to end"}
     }
-
-
-    //
-    // Common
-    //
-    ThreadNumber:string {"Thread #{0}"}
 
 
     //
@@ -159,26 +143,6 @@ root:table {
     StreamState:table {
       Title:string {"FILE Streams"}
     }
-
-
-    //
-    // Call tree
-    //
-    CallTree_Column0Title:string {"Call tree"}
-
-    CallTree_UnknownFunction:string {"<Unknown Function>"}
-
-
-    //
-    // Dynamic memory view
-    //
-    MallocView_Title:string {"Dynamic memory"}
-
-    MallocView_ColumnTime:string {"Allocation Time"}
-
-    MallocView_ColumnAddress:string {"At Address"}
-
-    MallocView_ColumnSize:string {"Size (in bytes)"}
   }
 
 
