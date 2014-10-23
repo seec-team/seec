@@ -119,6 +119,21 @@ class StreamPanel final : public wxPanel
     auto const &Written = State->getWritten();
     wxString DisplayString;
 
+    static char const * const FormattedASCII[] = {
+      "\\0", "soh", "stx", "etx", "eot", "enq", "ack", "bel",  "bs", "\\t",
+      "\\n",  "vt", "\\f", "\\r",  "so",  "si", "dle", "dc1", "dc2", "dc3",
+      "dc4", "nak", "syn", "etb", "can",  "em", "sub", "esc",  "fs",  "gs",
+       "rs",  "us",  "sp",   "!",  "\"",   "#",   "$",   "%",   "&",   "'",
+        "(",   ")",   "*",   "+",   ",",   "-",   ".",   "/",   "0",   "1",
+        "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",   ":",   ";",
+        "<",   "=",   ">",   "?",   "@",   "A",   "B",   "C",   "D",   "E",
+        "F",   "G",   "H",   "I",   "J",   "K",   "L",   "M",   "N",   "O",
+        "P",   "Q",   "R",   "S",   "T",   "U",   "V",   "W",   "X",   "Y",
+        "Z",   "[",   "\\",  "]",   "^",   "_",   "`",   "a",   "b",   "c",
+        "d",   "e",   "f",   "g",   "h",   "i",   "j",   "k",   "l",   "m",
+        "n",   "o",   "p",   "q",   "r",   "s",   "t",   "u",   "v",   "w",
+        "x",   "y",   "z",   "{",   "|",   "}",   "~", "del" };
+
     // Automatically pick the mode based on whether or not there are non-ASCII
     // values in any of the stream writes.
     auto const HasNonASCII = std::any_of(Written.cbegin(), Written.cend(),
@@ -149,14 +164,14 @@ class StreamPanel final : public wxPanel
         auto const Write = State->getWrite(i);
 
         for (std::size_t j = Write.Begin; j < Write.End; ++j) {
-          auto const Ch = Written[j];
+          auto const Ch = static_cast<unsigned char>(Written[j]);
 
-          if (std::isprint(Ch))
-            DisplayString.Append(" '").Append(Ch).Append('\'');
-          else {
-            std::snprintf(Buffer, sizeof(Buffer), "%4hho", Ch);
-            DisplayString.Append(Buffer);
-          }
+          if (Ch < 0200)
+            snprintf(Buffer, sizeof(Buffer), "%4s", FormattedASCII[Ch]);
+          else
+            snprintf(Buffer, sizeof(Buffer), " %03hho", Ch);
+
+          DisplayString.Append(Buffer);
         }
 
         DisplayString.Append("\n");
