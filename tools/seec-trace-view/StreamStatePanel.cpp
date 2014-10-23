@@ -222,7 +222,7 @@ class StreamPanel final : public wxPanel
         MouseOverPosition = Position;
 
         clearHighlight();
-        HighlightStart  = Text->GetLineIndentPosition(Line);
+        HighlightStart  = Text->FindColumn(Line, 0);
         HighlightLength = Text->GetLineEndPosition(Line) - HighlightStart;
       }
     }
