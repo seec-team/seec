@@ -335,6 +335,7 @@ public:
   void OnMouseLeftWindow(wxMouseEvent &);
   void OnMouseRightDown(wxMouseEvent &);
   void OnMouseRightUp(wxMouseEvent &);
+  void OnMouseWheel(wxMouseEvent &);
   void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)

@@ -87,6 +87,7 @@ BEGIN_EVENT_TABLE(StateEvaluationTreePanel, wxScrolled<wxPanel>)
   EVT_LEAVE_WINDOW(StateEvaluationTreePanel::OnMouseLeftWindow)
   EVT_RIGHT_DOWN(StateEvaluationTreePanel::OnMouseRightDown)
   EVT_RIGHT_UP(StateEvaluationTreePanel::OnMouseRightUp)
+  EVT_MOUSEWHEEL(StateEvaluationTreePanel::OnMouseWheel)
 END_EVENT_TABLE()
 
 
@@ -856,6 +857,26 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     if (Value)
       addValueNavigation(*this, CurrentAccess, CM, *Value, Recording);
     PopupMenu(&CM);
+  }
+}
+
+void StateEvaluationTreePanel::OnMouseWheel(wxMouseEvent &Ev)
+{
+  if (!Ev.ControlDown()) {
+    Ev.Skip();
+    return;
+  }
+
+  auto const FontSize = CodeFont.GetPointSize() +
+                        (Ev.GetWheelRotation() > 0 ? 1 : -1);
+
+  if (FontSize < 1)
+    return;
+
+  CodeFont.SetPointSize(FontSize);
+
+  if (CurrentAccess->getAccess() && CurrentProcess && CurrentThread) {
+    show(CurrentAccess, *CurrentProcess, *CurrentThread);
   }
 }
 
