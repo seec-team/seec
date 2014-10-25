@@ -154,6 +154,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     unsigned CodeFontSize;
     
+    int PenWidth;
+    
     wxColour Background;
 
     wxColour Text;

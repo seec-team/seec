@@ -96,6 +96,7 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   PageBorderVertical(1.0),
   NodeBorderVertical(0.5),
   CodeFontSize(12),
+  PenWidth(1),
   Background(253, 246, 227), // base3
   Text(101, 123, 131), // base00
   NodeBackground(253, 246, 227), // base3
@@ -122,17 +123,17 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   // Set the background colour.
   switch (Decoration) {
     case NodeDecoration::None:
-      DC.SetPen(wxPen{Settings.NodeBorder});
+      DC.SetPen(wxPen{Settings.NodeBorder, Settings.PenWidth});
       DC.SetBrush(wxBrush{Settings.NodeBackground});
       DC.SetTextForeground(Settings.NodeText);
       break;
     case NodeDecoration::Active:
-      DC.SetPen(wxPen{Settings.NodeActiveBorder});
+      DC.SetPen(wxPen{Settings.NodeActiveBorder, Settings.PenWidth});
       DC.SetBrush(wxBrush{Settings.NodeActiveBackground});
       DC.SetTextForeground(Settings.NodeActiveText);
       break;
     case NodeDecoration::Highlighted:
-      DC.SetPen(wxPen{Settings.NodeHighlightedBorder});
+      DC.SetPen(wxPen{Settings.NodeHighlightedBorder, Settings.PenWidth});
       DC.SetBrush(wxBrush{Settings.NodeHighlightedBackground});
       DC.SetTextForeground(Settings.NodeHighlightedText);
       break;
@@ -159,7 +160,7 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   // Draw borders around the node if it has an error.
   if (Node.Error == NodeError::Error) {
     DC.SetPen(wxPen{Settings.NodeErrorBorder,
-                    1,
+                    Settings.PenWidth,
                     wxPENSTYLE_DOT});
 
     DC.DrawLine(Node.XStart, Node.YEnd,   Node.XEnd + 1, Node.YEnd);
@@ -874,6 +875,7 @@ void StateEvaluationTreePanel::OnMouseWheel(wxMouseEvent &Ev)
     return;
 
   CodeFont.SetPointSize(FontSize);
+  Settings.PenWidth = (FontSize / 13) + 1;
 
   if (CurrentAccess->getAccess() && CurrentProcess && CurrentThread) {
     show(CurrentAccess, *CurrentProcess, *CurrentThread);
