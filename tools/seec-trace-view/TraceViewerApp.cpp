@@ -42,6 +42,7 @@
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
 #include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "OpenTrace.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
@@ -233,6 +234,7 @@ void SingleInstanceClient::Disconnect()
 BEGIN_EVENT_TABLE(TraceViewerApp, wxApp)
   EVT_MENU(wxID_OPEN, TraceViewerApp::OnCommandOpen)
   EVT_MENU(wxID_EXIT, TraceViewerApp::OnCommandExit)
+  EVT_MENU(wxID_PREFERENCES, TraceViewerApp::OnCommandPreferences)
 END_EVENT_TABLE()
 
 
@@ -587,6 +589,11 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
   if (!WindowsClosed)
     ExitMainLoop();
 #endif
+}
+
+void TraceViewerApp::OnCommandPreferences(wxCommandEvent &Event)
+{
+  showLocaleSettings();
 }
 
 void TraceViewerApp::Raise()

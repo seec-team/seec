@@ -48,6 +48,10 @@ void BindMenuItem(wxMenuItem *Item,
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu();
 
+/// \brief Create the standard edit menu.
+///
+std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu();
+
 /// \brief Create the standard recording menu.
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString>

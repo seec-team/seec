@@ -117,6 +117,10 @@ public:
   /// \brief Quit the application.
   void OnCommandExit(wxCommandEvent &Event);
 
+  /// \brief Open the preferences menu.
+  ///
+  void OnCommandPreferences(wxCommandEvent &Event);
+
   /// @}
 
 

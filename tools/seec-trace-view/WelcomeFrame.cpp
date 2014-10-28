@@ -58,6 +58,7 @@ bool WelcomeFrame::Create(wxWindow *Parent,
   // Setup the menus.
   auto menuBar = new wxMenuBar();
   append(menuBar, createFileMenu());
+  append(menuBar, createEditMenu());
   append(menuBar, createRecordingMenu(*this));
 
   SetMenuBar(menuBar);

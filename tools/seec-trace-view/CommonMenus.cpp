@@ -58,6 +58,17 @@ std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
   return std::make_pair(std::move(Menu), Title);
 }
 
+std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu()
+{
+  auto const Title = seec::getwxStringExOrEmpty("TraceViewer",
+                        (char const *[]) {"GUIText", "Menu_Edit"});
+
+  auto Menu = seec::makeUnique<wxMenu>();
+  Menu->Append(wxID_PREFERENCES);
+
+  return std::make_pair(std::move(Menu), Title);
+}
+
 std::pair<std::unique_ptr<wxMenu>, wxString>
 createRecordingMenu(wxEvtHandler &EvtHandler)
 {

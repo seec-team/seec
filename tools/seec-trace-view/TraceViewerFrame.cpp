@@ -401,6 +401,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   // Setup the menus.
   auto menuBar = new wxMenuBar();
   append(menuBar, createFileMenu());
+  append(menuBar, createEditMenu());
   append(menuBar, createViewMenu());
   append(menuBar, createToolsMenu());
   append(menuBar, createRecordingMenu(*this));

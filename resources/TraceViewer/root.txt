@@ -31,6 +31,8 @@ root:table {
 
     Menu_File:string {"&File"}
 
+    Menu_Edit:string {"&Edit"}
+
     MenuRecord:table {
       Title:string {"&Recording"}
       Settings:string {"&Settings"}
@@ -138,6 +140,15 @@ root:table {
     //
     StreamState:table {
       Title:string {"FILE Streams"}
+    }
+
+
+    //
+    // Locale settings dialog
+    //
+
+    LocaleSettingsDialog:table {
+      Title:string {"Locale settings"}
     }
   }
 
