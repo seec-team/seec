@@ -83,6 +83,22 @@ class SourceViewerPanel : public wxPanel
 
   /// @} (Event handlers.)
 
+
+  /// \name Replay for \c SourceFilePanel events.
+  /// @{
+
+  void ReplayPageChanged(std::string &File);
+
+  void ReplayMouseEnter(std::string &File);
+
+  void ReplayMouseLeave(std::string &File);
+
+  void ReplayMouseOverDecl(clang::Decl const *TheDecl);
+
+  void ReplayMouseOverStmt(clang::Stmt const *TheStmt);
+
+  /// @}
+
 public:
   /// \name Recording for SourceFilePanel events.
   /// @{

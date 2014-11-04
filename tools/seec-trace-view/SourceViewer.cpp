@@ -23,6 +23,7 @@
 #include "seec/ICU/LineWrapper.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -41,6 +42,7 @@
 #include "unicode/brkiter.h"
 
 #include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
@@ -1047,6 +1049,65 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
 // SourceViewerPanel
 //------------------------------------------------------------------------------
 
+/// Workaround because wxAuiNotebook has a bug that breaks member FindPage.
+///
+static int FindPage(wxBookCtrlBase const *Book, wxWindow const *Page)
+{
+  for (std::size_t i = 0, Count = Book->GetPageCount(); i < Count; ++i)
+    if (Book->GetPage(i) == Page)
+      return static_cast<int>(i);
+
+  return wxNOT_FOUND;
+}
+
+void SourceViewerPanel::ReplayPageChanged(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      auto const Index = FindPage(Notebook, Page.second);
+      if (Index != wxNOT_FOUND)
+        Notebook->SetSelection(Index);
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseEnter(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      Page.second->temporaryIndicatorRemoveAll();
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseLeave(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      Page.second->temporaryIndicatorRemoveAll();
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseOverDecl(clang::Decl const *D)
+{
+  if (D)
+    highlightOn(D);
+  else
+    highlightOff();
+}
+
+void SourceViewerPanel::ReplayMouseOverStmt(clang::Stmt const *S)
+{
+  if (S)
+    highlightOn(S);
+  else
+    highlightOff();
+}
+
 void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
 {
   auto const Selection = Ev.GetSelection();
@@ -1247,6 +1308,22 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
     }
   }
   
+  // Setup replay of recorded actions.
+  WithReplay.RegisterHandler("SourceViewerPanel.PageChanged", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayPageChanged));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseEnter", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseEnter));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseLeave", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseLeave));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseOverDecl", {{"decl"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseOverDecl));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseOverStmt", {{"stmt"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseOverStmt));
+
   return true;
 }
 
