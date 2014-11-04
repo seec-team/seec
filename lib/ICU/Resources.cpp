@@ -96,6 +96,107 @@ getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
 
 
 //------------------------------------------------------------------------------
+// Resource
+//------------------------------------------------------------------------------
+
+Resource Resource::operator[] (char const * const Key) const &
+{
+  Resource Ret = *this;
+
+  if (!U_FAILURE(Ret.m_Status))
+    Ret.m_Bundle = Ret.m_Bundle.get(Key, Ret.m_Status);
+
+  return Ret;
+}
+
+Resource Resource::get(llvm::ArrayRef<char const *> Keys) const &
+{
+  Resource Ret = *this;
+
+  for (auto const Key : Keys)
+    Ret = Ret[Key];
+
+  return Ret;
+}
+
+std::pair<llvm::ArrayRef<uint8_t>, UErrorCode> Resource::getBinary() const &
+{
+  int32_t Length = -1;
+  UErrorCode Status = m_Status;
+  auto const Data = m_Bundle.getBinary(Length, Status);
+
+  if (U_FAILURE(Status) || Length < 0)
+    return std::make_pair(llvm::ArrayRef<uint8_t>(), Status);
+
+  return std::make_pair(llvm::ArrayRef<uint8_t>
+                                      (Data, static_cast<std::size_t>(Length)),
+                        Status);
+}
+
+std::pair<UnicodeString, UErrorCode> Resource::getString() const &
+{
+  std::pair<UnicodeString, UErrorCode> Result { UnicodeString(), U_ZERO_ERROR };
+
+  Result.first = m_Bundle.getString(Result.second);
+
+  return Result;
+}
+
+std::pair<UnicodeString, UErrorCode>
+Resource::getStringOrDefault(UnicodeString const &Default) const &
+{
+  auto Result = getString();
+
+  if (U_FAILURE(Result.second))
+    Result.first = Default;
+
+  return Result;
+}
+
+std::pair<int32_t, UErrorCode> Resource::getInt() const &
+{
+  return getIntOrDefault(0);
+}
+
+std::pair<int32_t, UErrorCode>
+Resource::getIntOrDefault(int32_t const Default) const &
+{
+  if (U_FAILURE(m_Status))
+    return std::make_pair(Default, m_Status);
+
+  UErrorCode Status = m_Status;
+  auto const Value = m_Bundle.getInt(Status);
+
+  return std::make_pair(U_SUCCESS(Status) ? Value : Default, Status);
+}
+
+llvm::ArrayRef<uint8_t> Resource::asBinary() const
+{
+  return getBinary().first;
+}
+
+UnicodeString Resource::asString() const &
+{
+  return getString().first;
+}
+
+UnicodeString Resource::asStringOrDefault(UnicodeString const &Default) const &
+{
+  return getStringOrDefault(Default).first;
+}
+
+int32_t Resource::asInt() const &
+{
+  return getInt().first;
+}
+
+int32_t Resource::asIntOrDefault(int32_t const Default) const &
+{
+  return getIntOrDefault(Default).first;
+}
+
+
+//------------------------------------------------------------------------------
 // ResourceLoader
 //------------------------------------------------------------------------------
 

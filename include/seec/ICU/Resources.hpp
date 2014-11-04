@@ -162,6 +162,93 @@ inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
 }
 
 
+/// \brief Convenience class for retrieving resources.
+///
+class Resource final {
+  /// Current status for this \c Resource.
+  UErrorCode m_Status;
+
+  /// The \c ResourceBundle wrapped by this \c Resource.
+  ResourceBundle m_Bundle;
+
+  Resource(UErrorCode const Status, ResourceBundle &&Bundle)
+  : m_Status(Status),
+    m_Bundle(std::move(Bundle))
+  {}
+
+  Resource(UErrorCode const Status, ResourceBundle const &Bundle)
+  : m_Status(Status),
+    m_Bundle(Bundle)
+  {}
+
+public:
+  /// \brief Construct a new \c Resource representing an entire package in a
+  ///        given locale.
+  ///
+  Resource(char const * const Package, ::icu::Locale const Locale)
+  : m_Status(U_ZERO_ERROR),
+    m_Bundle(Package, Locale, m_Status)
+  {}
+
+  /// \brief Get the status of this \c Resource.
+  ///
+  UErrorCode status() const { return m_Status; }
+
+  /// \brief Get the \c ResourceBundle wrapped by this \c Resource.
+  ///
+  ResourceBundle const &bundle() const { return m_Bundle; }
+
+  /// \brief Get a \c ResourceBundle contained in this \c Resource.
+  ///
+  Resource operator[] (char const * const Key) const &;
+
+  /// \brief Get a \c ResourceBundle contained in this \c Resource.
+  ///
+  Resource get(llvm::ArrayRef<char const *> Keys) const &;
+
+  /// \brief Get this \c Resource as binary data.
+  ///
+  std::pair<llvm::ArrayRef<uint8_t>, UErrorCode> getBinary() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  std::pair<UnicodeString, UErrorCode> getString() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  std::pair<UnicodeString, UErrorCode>
+  getStringOrDefault(UnicodeString const &Default) const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  std::pair<int32_t, UErrorCode> getInt() const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  std::pair<int32_t, UErrorCode> getIntOrDefault(int32_t const Default) const &;
+
+  /// \brief Get this \c Resource as binary data.
+  ///
+  llvm::ArrayRef<uint8_t> asBinary() const;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  UnicodeString asString() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  UnicodeString asStringOrDefault(UnicodeString const &Default) const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  int32_t asInt() const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  int32_t asIntOrDefault(int32_t const Default) const &;
+};
+
+
 /// \brief Handle loading and registering resources for ICU.
 ///
 class ResourceLoader {

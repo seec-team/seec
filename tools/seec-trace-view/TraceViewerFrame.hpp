@@ -30,6 +30,8 @@ namespace seec {
   namespace cm {
     class ProcessState;
   }
+
+  class Resource;
 }
 
 class ActionRecord;
@@ -118,7 +120,7 @@ class TraceViewerFrame : public wxFrame
   ///
   void createViewButton(wxMenu &Menu,
                         wxWindow *Window,
-                        ResourceBundle const &Table,
+                        seec::Resource const &Table,
                         char const * const Key);
 
   /// \brief Create a view control menu.

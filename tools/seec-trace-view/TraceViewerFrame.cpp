@@ -57,7 +57,7 @@ char const * const cConfigKeyForHeight      = "/TraceViewerFrame/Height";
 
 void TraceViewerFrame::createViewButton(wxMenu &Menu,
                                         wxWindow *Window,
-                                        ResourceBundle const &Table,
+                                        seec::Resource const &Table,
                                         char const * const Key)
 {
   // This particular panel was not created for this trace viewer.
@@ -68,8 +68,9 @@ void TraceViewerFrame::createViewButton(wxMenu &Menu,
   if (!PaneInfo.IsOk())
     return;
 
-  auto const Item = Menu.AppendCheckItem(wxID_ANY,
-                                         seec::getwxStringExOrKey(Table, Key));
+  auto const Item =
+    Menu.AppendCheckItem(wxID_ANY, seec::towxString(Table[Key].asString()));
+
   if (!Item)
     return;
 
@@ -98,11 +99,10 @@ void TraceViewerFrame::createViewButton(wxMenu &Menu,
 
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
 {
-  UErrorCode Status = U_ZERO_ERROR;
   auto const Text =
-    seec::getResource("TraceViewer", Locale::getDefault(), Status,
-                      "GUIText", "MenuView");
-  if (U_FAILURE(Status))
+    seec::Resource("TraceViewer", Locale())["GUIText"]["MenuView"];
+
+  if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
   
   auto Menu = seec::makeUnique<wxMenu>();
@@ -113,27 +113,27 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
   createViewButton(*Menu, StreamState,     Text, "StreamState");
   
   return std::make_pair(std::move(Menu),
-                        seec::getwxStringExOrKey(Text, "Title"));
+                        seec::towxString(Text["Title"].asString()));
 }
 
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
 {
-  UErrorCode Status = U_ZERO_ERROR;
   auto const Text =
-    seec::getResource("TraceViewer", Locale::getDefault(), Status,
-                      "GUIText", "MenuTools");
-  if (U_FAILURE(Status))
+    seec::Resource("TraceViewer", Locale())["GUIText"]["MenuTools"];
+
+  if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
 
   auto Menu = seec::makeUnique<wxMenu>();
 
   BindMenuItem(
     Menu->Append(wxID_ANY,
-                 seec::getwxStringExOrKey(Text, "SaveDETBMP")),
+                 seec::towxString(Text["SaveDETBMP"].asString())),
     [this, Text] (wxEvent &) {
       wxFileDialog Dlg(this,
-                       seec::getwxStringExOrKey(Text, "SaveBMP"), "", "",
-                       seec::getwxStringExOrKey(Text, "BMPFiles"),
+                       seec::towxString(Text["SaveBMP"].asString()),
+                       "", "",
+                       seec::towxString(Text["BMPFiles"].asString()),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
       if (Dlg.ShowModal() == wxID_CANCEL)
         return;
@@ -141,7 +141,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
     });
 
   return std::make_pair(std::move(Menu),
-                        seec::getwxStringExOrKey(Text, "Title"));
+                        seec::towxString(Text["Title"].asString()));
 }
 
 TraceViewerFrame::TraceViewerFrame()
@@ -239,12 +239,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Notifier = seec::makeUnique<ContextNotifier>();
 
   // Get the GUIText from the TraceViewer ICU resources.
-  UErrorCode Status = U_ZERO_ERROR;
-  auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
-                                     Status,
-                                     "GUIText");
-  assert(U_SUCCESS(Status));
+  auto const ResViewer = seec::Resource("TraceViewer", Locale());
+  auto const ResText = ResViewer["GUIText"];
+  assert(U_SUCCESS(ResText.status()));
   
   // Setup the layout manager.
   Manager = new wxAuiManager(this);
@@ -256,8 +253,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Create the action recording control.
     RecordingControl = new ActionRecordingControl(this, *Recording);
     auto const RecordingControlTitle =
-      seec::getwxStringExOrEmpty("TraceViewer",
-                                 (char const *[]){"RecordingToolbar", "Title"});
+      seec::towxString(ResViewer["RecordingToolbar"]["Title"].asString());
     Manager->AddPane(RecordingControl,
                      wxAuiPaneInfo().Name("RecordingControl")
                                     .Caption(RecordingControlTitle)
@@ -268,8 +264,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     // Create the thread time movement control.
     ThreadTime = new ThreadTimeControl(this, *Recording, Replay);
     auto const ThreadTimeTitle =
-      seec::getwxStringExOrEmpty(TextTable,
-                                 (char const *[]){"ScrollThreadTime", "Title"});
+      seec::towxString(ResText["ScrollThreadTime"]["Title"].asString());
     Manager->AddPane(ThreadTime,
                      wxAuiPaneInfo{}.Name("ThreadTime")
                                     .Caption(ThreadTimeTitle)
@@ -286,7 +281,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                          wxDefaultPosition,
                                          wxSize(200, 200));
     auto const SourceViewerTitle =
-      seec::getwxStringExOrEmpty(TextTable, "SourceBook_Title");
+      seec::towxString(ResText["SourceBook_Title"].asString());
     Manager->AddPane(SourceViewer,
                      wxAuiPaneInfo{}.Name("SourceViewer")
                                     .Caption(SourceViewerTitle)
@@ -301,8 +296,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                             wxDefaultPosition,
                                             wxSize(100, 100));
     auto const ExplanationCtrlTitle =
-      seec::getwxStringExOrEmpty(TextTable,
-                                 (char const *[]){"Explanation", "Title"});
+      seec::towxString(ResText["Explanation"]["Title"].asString());
     Manager->AddPane(ExplanationCtrl,
                      wxAuiPaneInfo{}.Name("ExplanationCtrl")
                                     .Caption(ExplanationCtrlTitle)
@@ -317,8 +311,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                                   wxDefaultPosition,
                                                   wxSize(100, 100));
     auto const EvaluationTreeTitle =
-      seec::getwxStringExOrEmpty(TextTable,
-                                 (char const *[]){"EvaluationTree", "Title"});
+      seec::towxString(ResText["EvaluationTree"]["Title"].asString());
     Manager->AddPane(EvaluationTree,
                      wxAuiPaneInfo{}.Name("EvaluationTree")
                                     .Caption(EvaluationTreeTitle)
@@ -334,8 +327,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                        wxDefaultPosition,
                                        wxSize(100, 100));
     auto const StreamStateTitle =
-      seec::getwxStringExOrEmpty(TextTable,
-                                 (char const *[]){"StreamState", "Title"});
+      seec::towxString(ResText["StreamState"]["Title"].asString());
     Manager->AddPane(StreamState,
                      wxAuiPaneInfo{}.Name("StreamState")
                                     .Caption(StreamStateTitle)
@@ -351,8 +343,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                             wxDefaultPosition,
                                             wxSize(200, 200));
     auto const GraphViewerTitle =
-      seec::getwxStringExOrEmpty(TextTable,
-                                 (char const *[]){"Graph", "Title"});
+      seec::towxString(ResText["Graph"]["Title"].asString());
     Manager->AddPane(GraphViewer,
                      wxAuiPaneInfo{}.Name("GraphViewer")
                                     .Caption(GraphViewerTitle)
