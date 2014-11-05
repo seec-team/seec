@@ -27,6 +27,7 @@
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
 #include "ExplanationViewer.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
@@ -327,7 +328,7 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
-                                                                 Locale());
+                                                                 getLocale());
     if (U_SUCCESS(Status)) {
       setText(seec::towxString(String));
     }
@@ -375,7 +376,7 @@ showExplanation(::clang::Stmt const *Statement,
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
-                                                                 Locale());
+                                                                 getLocale());
     if (U_SUCCESS(Status)) {
       setText(seec::towxString(String));
     }

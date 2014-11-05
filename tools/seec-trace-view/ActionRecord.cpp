@@ -35,6 +35,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
+#include "LocaleSettings.hpp"
 #include "TraceViewerApp.hpp"
 
 #include <memory>
@@ -487,7 +488,7 @@ bool ActionRecordingControl::Create(wxWindow *Parent, ActionRecord &WithRecord)
   // Get the GUI elements from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "RecordingToolbar");
   

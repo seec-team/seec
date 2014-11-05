@@ -24,6 +24,7 @@
 #include <curl/curl.h>
 
 #include "ActionRecordSettings.hpp"
+#include "LocaleSettings.hpp"
 #include "TraceViewerApp.hpp"
 
 #include <atomic>
@@ -171,7 +172,7 @@ bool ActionRecordSettingsDlg::Create(wxWindow *Parent)
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable =
-    seec::getResource("TraceViewer", Locale::getDefault(), Status,
+    seec::getResource("TraceViewer", getLocale(), Status,
                       "GUIText", "RecordingSettingsDialog");
   if (U_FAILURE(Status))
     return false;

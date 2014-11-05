@@ -27,6 +27,7 @@
 #include "ActionRecordSettings.hpp"
 #include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "TraceViewerFrame.hpp"
 
@@ -118,7 +119,7 @@ void addStmtNavigation(wxWindow &Control,
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
-                                           Locale::getDefault(),
+                                           getLocale(),
                                            Status,
                                            "ContextualNavigation");
   if (U_FAILURE(Status))
@@ -185,7 +186,7 @@ void addValueNavigation(wxWindow &Control,
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
-                                           Locale::getDefault(),
+                                           getLocale(),
                                            Status,
                                            "ContextualNavigation");
   if (U_FAILURE(Status))

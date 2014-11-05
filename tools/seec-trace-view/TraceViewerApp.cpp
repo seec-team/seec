@@ -310,7 +310,7 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
   else if (NewTrace.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto const Message = NewTrace.get<seec::Error>
-                                     ().getMessage(Status, Locale{});
+                                     ().getMessage(Status, getLocale());
     
     
     
@@ -418,7 +418,7 @@ bool TraceViewerApp::OnInit() {
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText");
   if (U_FAILURE(Status))
@@ -471,7 +471,7 @@ void TraceViewerApp::OnInitCmdLine(wxCmdLineParser &Parser) {
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText");
   if (U_FAILURE(Status))
@@ -526,7 +526,7 @@ void TraceViewerApp::MacReopenApp() {
 void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText");
   assert(U_SUCCESS(Status));

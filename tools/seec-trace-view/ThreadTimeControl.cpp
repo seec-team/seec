@@ -27,6 +27,7 @@
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
 #include "InternationalizedButton.hpp"
+#include "LocaleSettings.hpp"
 #include "OpenTrace.hpp"
 #include "ThreadMoveEvent.hpp"
 #include "ThreadTimeControl.hpp"
@@ -73,7 +74,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText",
                                      "ScrollThreadTime");
@@ -81,7 +82,7 @@ bool ThreadTimeControl::Create(wxWindow *Parent,
 
   // Get the GUI images from the TraceViewer ICU resources.
   auto ImageTable = seec::getResource("TraceViewer",
-                                      Locale::getDefault(),
+                                      getLocale(),
                                       Status,
                                       "GUIImages",
                                       "Movement");

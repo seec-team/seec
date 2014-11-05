@@ -17,6 +17,7 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "ActionReplay.hpp"
+#include "LocaleSettings.hpp"
 
 #include <wx/gauge.h>
 #include <wx/listctrl.h>
@@ -293,7 +294,7 @@ bool ActionReplayFrame::Create(wxWindow *Parent,
   // Get the internationalized resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto ICUTable = seec::getResource("TraceViewer",
-                                    Locale::getDefault(),
+                                    getLocale(),
                                     Status,
                                     "ActionRecording");
   if (U_FAILURE(Status))
@@ -371,7 +372,7 @@ bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
 {
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "ActionRecording");
   assert(U_SUCCESS(Status));

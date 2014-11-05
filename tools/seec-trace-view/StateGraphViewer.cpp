@@ -58,6 +58,7 @@
 
 #include "ActionRecord.hpp"
 #include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
@@ -497,7 +498,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   // Get our resources from ICU.
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "StateGraphViewer");
   
@@ -732,7 +733,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
   
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
-                                           Locale::getDefault(),
+                                           getLocale(),
                                            Status,
                                            "StateGraphViewer");
   if (U_FAILURE(Status)) {
@@ -763,7 +764,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
           continue;
         
         UErrorCode Status = U_ZERO_ERROR;
-        auto const Name = LazyName->get(Status, Locale());
+        auto const Name = LazyName->get(Status, getLocale());
         if (U_FAILURE(Status))
           continue;
         
@@ -858,7 +859,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
           continue;
         
         UErrorCode Status = U_ZERO_ERROR;
-        auto const Name = LazyName->get(Status, Locale());
+        auto const Name = LazyName->get(Status, getLocale());
         if (U_FAILURE(Status))
           continue;
         

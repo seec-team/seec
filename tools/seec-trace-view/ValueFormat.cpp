@@ -20,6 +20,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
+#include "LocaleSettings.hpp"
 #include "ValueFormat.hpp"
 
 
@@ -73,7 +74,7 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
 
     UErrorCode Status = U_ZERO_ERROR;
     auto Resources = seec::getResource("SeeCClang",
-                                       Locale::getDefault(),
+                                       getLocale(),
                                        Status,
                                        "Values",
                                        "Descriptive");
@@ -122,7 +123,7 @@ UnicodeString shortenValueString(UnicodeString ValueString, int32_t Length)
   
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("SeeCClang",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "Values",
                                      "Descriptive");

@@ -44,6 +44,7 @@
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -422,7 +423,7 @@ class SourceFilePanel : public wxPanel {
     //
     UErrorCode Status = U_ZERO_ERROR;
     auto KeywordRes = seec::getResource("TraceViewer",
-                                        Locale::getDefault(),
+                                        getLocale(),
                                         Status,
                                         "ScintillaKeywords",
                                         "C");
@@ -748,7 +749,7 @@ public:
     
     // Setup the BreakIterator used for line wrapping.
     UErrorCode Status = U_ZERO_ERROR;
-    Breaker.reset(BreakIterator::createLineInstance(Locale(), Status));
+    Breaker.reset(BreakIterator::createLineInstance(getLocale(), Status));
     
     if (U_FAILURE(Status)) {
       Breaker.reset();
@@ -1392,7 +1393,8 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
   if (MaybeDesc.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     
-    auto const Str = MaybeDesc.get<seec::Error>().getMessage(Status, Locale());
+    auto const Str = MaybeDesc.get<seec::Error>().getMessage(Status,
+                                                             getLocale());
     
     if (U_SUCCESS(Status)) {
       wxLogDebug("Error getting runtime error description: %s.",

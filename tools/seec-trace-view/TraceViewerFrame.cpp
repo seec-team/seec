@@ -36,6 +36,7 @@
 #include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "ExplanationViewer.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -100,7 +101,7 @@ void TraceViewerFrame::createViewButton(wxMenu &Menu,
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
 {
   auto const Text =
-    seec::Resource("TraceViewer", Locale())["GUIText"]["MenuView"];
+    seec::Resource("TraceViewer", getLocale())["GUIText"]["MenuView"];
 
   if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
@@ -119,7 +120,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
 {
   auto const Text =
-    seec::Resource("TraceViewer", Locale())["GUIText"]["MenuTools"];
+    seec::Resource("TraceViewer", getLocale())["GUIText"]["MenuTools"];
 
   if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
@@ -239,7 +240,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Notifier = seec::makeUnique<ContextNotifier>();
 
   // Get the GUIText from the TraceViewer ICU resources.
-  auto const ResViewer = seec::Resource("TraceViewer", Locale());
+  auto const ResViewer = seec::Resource("TraceViewer", getLocale());
   auto const ResText = ResViewer["GUIText"];
   assert(U_SUCCESS(ResText.status()));
   

@@ -25,6 +25,7 @@
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "TraceViewerApp.hpp"
 #include "WelcomeFrame.hpp"
 
@@ -50,7 +51,7 @@ bool WelcomeFrame::Create(wxWindow *Parent,
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText");
   assert(U_SUCCESS(Status));
