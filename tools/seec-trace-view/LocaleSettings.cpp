@@ -168,6 +168,9 @@ void showLocaleSettings()
 
     break;
   }
+
+  UErrorCode Status = U_ZERO_ERROR;
+  icu::Locale::setDefault(getLocale(), Status);
 }
 
 icu::Locale getLocale()

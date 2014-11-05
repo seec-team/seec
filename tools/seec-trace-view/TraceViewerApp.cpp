@@ -404,6 +404,10 @@ bool TraceViewerApp::OnInit() {
   
   wxConfigBase::Set(Config);
   
+  // Set ICU's default Locale according to the user's preferences.
+  UErrorCode Status = U_ZERO_ERROR;
+  icu::Locale::setDefault(getLocale(), Status);
+
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.
   LogWindow = new wxLogWindow(nullptr, "Log");
@@ -416,7 +420,7 @@ bool TraceViewerApp::OnInit() {
   wxFileSystem::AddHandler(new seec::ICUBundleFSHandler());
   
   // Get the GUIText from the TraceViewer ICU resources.
-  UErrorCode Status = U_ZERO_ERROR;
+  Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
                                      getLocale(),
                                      Status,
