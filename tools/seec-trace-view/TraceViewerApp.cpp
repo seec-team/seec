@@ -291,7 +291,9 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
     // The trace was read successfully, so create a new viewer to display it.
     auto TraceViewer =
       new TraceViewerFrame(nullptr,
-                           NewTrace.move<std::unique_ptr<OpenTrace>>());
+                           NewTrace.move<std::unique_ptr<OpenTrace>>(),
+                           wxID_ANY,
+                           wxFileNameFromPath(FileName));
     
     TopLevelWindows.insert(TraceViewer);
     TraceViewer->Show(true);
