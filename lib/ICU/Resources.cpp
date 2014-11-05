@@ -54,7 +54,7 @@ getResource(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys)
     return Status;
   
   for (auto const &Key : Keys) {
-    Bundle = Bundle.get(Key, Status);
+    Bundle = Bundle.getWithFallback(Key, Status);
     if (U_FAILURE(Status))
       return Status;
   }
@@ -104,7 +104,7 @@ Resource Resource::operator[] (char const * const Key) const &
   Resource Ret = *this;
 
   if (!U_FAILURE(Ret.m_Status))
-    Ret.m_Bundle = Ret.m_Bundle.get(Key, Ret.m_Status);
+    Ret.m_Bundle = Ret.m_Bundle.getWithFallback(Key, Ret.m_Status);
 
   return Ret;
 }

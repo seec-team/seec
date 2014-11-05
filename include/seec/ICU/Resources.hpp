@@ -61,11 +61,11 @@ inline ResourceBundle getResource(ResourceBundle const &Bundle,
 /// \param Keys
 /// \return
 template<typename KeyT, typename... KeyTs>
-ResourceBundle getResource(ResourceBundle const &Bundle,
+ResourceBundle getResource(ResourceBundle Bundle,
                            UErrorCode &Status,
                            KeyT Key,
                            KeyTs... Keys) {
-  return getResource(Bundle.get(Key, Status),
+  return getResource(Bundle.getWithFallback(Key, Status),
                      Status,
                      std::forward<KeyTs>(Keys)...);
 }
@@ -121,13 +121,13 @@ getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys);
 /// \param Bundle The resource bundle to extract from.
 /// \param Key The key of the integer that will be extracted.
 /// \param Status Fills in the outgoing error code.
-inline int32_t getIntEx(ResourceBundle const &Bundle,
+inline int32_t getIntEx(ResourceBundle Bundle,
                         char const *Key,
                         UErrorCode &Status) {
   if (U_FAILURE(Status))
     return int32_t{};
 
-  auto Resource = Bundle.get(Key, Status);
+  auto Resource = Bundle.getWithFallback(Key, Status);
   if (U_FAILURE(Status))
     return int32_t{};
 
@@ -154,11 +154,11 @@ inline llvm::ArrayRef<uint8_t> getBinary(ResourceBundle const &Resource,
 /// \param Bundle The resource bundle to extract from.
 /// \param Key The key of the binary data that will be extracted.
 /// \param Status Fills in the outgoing error code.
-inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
+inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle Bundle,
                                            char const *Key,
                                            UErrorCode  &Status)
 {
-  return getBinary(Bundle.get(Key, Status), Status);
+  return getBinary(Bundle.getWithFallback(Key, Status), Status);
 }
 
 
