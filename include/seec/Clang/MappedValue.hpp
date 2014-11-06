@@ -23,6 +23,7 @@
 
 #include "llvm/Support/Casting.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -332,6 +333,11 @@ public:
   /// \brief Access the underlying implementation.
   ///
   ValueStoreImpl const &getImpl() const;
+
+  /// \brief Find a \c Value from an address and type string.
+  ///
+  std::shared_ptr<Value const>
+  findFromAddressAndType(uintptr_t Address, llvm::StringRef TypeString) const;
 };
 
 

@@ -82,6 +82,15 @@ public:
     return std::shared_ptr<Value const>{};
   }
 
+  std::shared_ptr<Value const> getSharedFromTypeString(llvm::StringRef TS) const
+  {
+    for (auto const &Pair : Items)
+      if (Pair.second->getTypeAsString() == TS)
+        return Pair.second;
+
+    return std::shared_ptr<Value const>();
+  }
+
   Value const *get(MatchType const &ForType) const {
     for (auto const &Pair : Items)
       if (Pair.first == ForType)
@@ -134,6 +143,18 @@ public:
   /// \brief Get SeeC-Clang mapping information.
   ///
   seec::seec_clang::MappedModule const &getMapping() const { return Mapping; }
+
+  /// \brief Find first \c Value matching the given predicate.
+  ///
+  std::shared_ptr<Value const>
+  findFromAddressAndType(uintptr_t Address, llvm::StringRef TypeString) const {
+    auto const It = Store.find(Address);
+
+    if (It == Store.end())
+      return std::shared_ptr<Value const>();
+
+    return It->second.getSharedFromTypeString(TypeString);
+  }
 };
 
 
@@ -2159,6 +2180,13 @@ ValueStore::~ValueStore() = default;
 
 ValueStoreImpl const &ValueStore::getImpl() const {
   return *Impl;
+}
+
+std::shared_ptr<Value const>
+ValueStore::findFromAddressAndType(uintptr_t Address,
+                                   llvm::StringRef TypeString) const
+{
+  return Impl->findFromAddressAndType(Address, TypeString);
 }
 
 

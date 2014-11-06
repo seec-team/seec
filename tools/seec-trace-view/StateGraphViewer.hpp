@@ -309,9 +309,17 @@ class StateGraphViewerPanel final : public wxPanel
   ///
   void workerTaskLoop();
 
+  /// \brief Highlight a \c Value.
+  ///
+  void highlightValue(seec::cm::Value const *V);
+
   /// \brief Handle contextual events.
   ///
   void handleContextEvent(ContextEvent const &Ev);
+
+  /// \brief Replay MouseOverValue events.
+  ///
+  void replayMouseOverValue(uintptr_t Address, std::string &TypeString);
 
 public:
   /// \brief Construct.

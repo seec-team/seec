@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
@@ -57,6 +58,7 @@
 #include <string>
 
 #include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
@@ -371,6 +373,25 @@ void StateGraphViewerPanel::workerTaskLoop()
   }
 }
 
+void StateGraphViewerPanel::highlightValue(seec::cm::Value const *Value)
+{
+  wxString Script("HighlightValue(");
+  Script << reinterpret_cast<uintptr_t>(Value);
+
+  if (Value) {
+    if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>(Value)) {
+      if (Ptr->getDereferenceIndexLimit()) {
+        auto const Pointee = Ptr->getDereferenced(0);
+        Script << ", " << reinterpret_cast<uintptr_t>(Pointee.get());
+      }
+    }
+  }
+
+  Script << ");";
+
+  WebView->RunScript(Script);
+}
+
 void StateGraphViewerPanel::handleContextEvent(ContextEvent const &Ev)
 {
   if (auto const HighlightEv = llvm::dyn_cast<ConEvHighlightValue>(&Ev)) {
@@ -379,23 +400,25 @@ void StateGraphViewerPanel::handleContextEvent(ContextEvent const &Ev)
     if (CurrentAccess && CurrentAccess != HighlightEv->getAccess())
       return;
 
-    auto const Value = HighlightEv->getValue();
+    highlightValue(HighlightEv->getValue());
+  }
+}
 
-    wxString Script("HighlightValue(");
-    Script << reinterpret_cast<uintptr_t>(Value);
+void StateGraphViewerPanel::replayMouseOverValue(uintptr_t Address,
+                                                 std::string &TypeString)
+{
+  // Remove previous highlight. TODO: This is temporary because the recordings
+  // don't receive "MouseOverNone" events correctly on OS X.
+  highlightValue(nullptr);
 
-    if (Value) {
-      if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>(Value)) {
-        if (Ptr->getDereferenceIndexLimit()) {
-          auto const Pointee = Ptr->getDereferenced(0);
-          Script << ", " << reinterpret_cast<uintptr_t>(Pointee.get());
-        }
-      }
-    }
+  // Access the current state so that we can find the Value.
+  auto Lock = CurrentAccess->getAccess();
+  if (!Lock || !CurrentProcess)
+    return;
 
-    Script << ");";
-
-    WebView->RunScript(Script);
+  auto const Store = CurrentProcess->getCurrentValueStore();
+  if (auto const V = Store->findFromAddressAndType(Address, TypeString)) {
+    highlightValue(V.get());
   }
 }
 
@@ -562,6 +585,10 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     // Register for context notifications.
     Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
       this->handleContextEvent(Ev); });
+
+    WithReplay.RegisterHandler("StateGraphViewer.MouseOverValue",
+                               {{"address", "type"}},
+      seec::make_function(this, &StateGraphViewerPanel::replayMouseOverValue));
   }
   else {
     // If the user navigates to a link, open it in the default browser.
