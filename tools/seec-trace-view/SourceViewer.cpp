@@ -1095,18 +1095,60 @@ void SourceViewerPanel::ReplayMouseLeave(std::string &File)
 
 void SourceViewerPanel::ReplayMouseOverDecl(clang::Decl const *D)
 {
-  if (D)
-    highlightOn(D);
-  else
+  if (D == nullptr) {
     highlightOff();
+    return;
+  }
+
+  if (!Trace)
+    return;
+
+  auto const MappedAST = Trace->getTrace().getMapping().getASTForDecl(D);
+  if (!MappedAST)
+    return;
+
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(D, ASTUnit.getASTContext());
+  if (!Range.File)
+    return;
+
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+
+  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                        Range.Start,
+                                        Range.End);
+  PageIt->second->scrollToRange(Range);
 }
 
 void SourceViewerPanel::ReplayMouseOverStmt(clang::Stmt const *S)
 {
-  if (S)
-    highlightOn(S);
-  else
+  if (S == nullptr) {
     highlightOff();
+    return;
+  }
+
+  if (!Trace)
+    return;
+
+  auto const MappedAST = Trace->getTrace().getMapping().getASTForStmt(S);
+  if (!MappedAST)
+    return;
+
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(S, ASTUnit.getASTContext());
+  if (!Range.File)
+    return;
+
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+
+  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                        Range.Start,
+                                        Range.End);
+  PageIt->second->scrollToRange(Range);
 }
 
 void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
