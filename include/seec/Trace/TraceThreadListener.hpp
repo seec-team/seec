@@ -609,6 +609,10 @@ public:
   /// \brief Receive the contents of argc and argv.
   void notifyArgs(uint64_t ArgC, char **ArgV);
   
+private:
+  void setupEnvironTable(char **Environ);
+
+public:
   /// \brief Receive the contents of envp.
   void notifyEnv(char **EnvP);
 

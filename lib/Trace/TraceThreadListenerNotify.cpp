@@ -28,6 +28,12 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+extern "C" {
+  extern char **environ;
+}
+#endif
+
 namespace seec {
 
 namespace trace {
@@ -69,7 +75,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
                                               llvm::Function const *F) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
-  auto OnExit = scopeExit([=](){exitNotification();});
+  auto OnExit = scopeExit([=](){exitPostNotification();});
 
   uint64_t Entered = ++Time;
 
@@ -135,6 +141,21 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
       Parent->addChild(*ActiveFunction);
     else
       RecordedTopLevelFunctions.emplace_back(RecordOffset);
+
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+    if (!Parent && RecordedTopLevelFunctions.size() == 1 && environ) {
+      acquireGlobalMemoryWriteLock();
+
+      // Record the environ table (if it hasn't been done already).
+      setupEnvironTable(environ);
+      auto const EnvironValue = reinterpret_cast<uintptr_t>(environ);
+
+      // Update the GVIMPO.
+      ProcessListener.setInMemoryPointerObject(
+        reinterpret_cast<uintptr_t>(&environ),
+        ProcessListener.makePointerObject(EnvironValue));
+    }
+#endif
   }
 }
 
@@ -256,29 +277,59 @@ void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   GlobalMemoryLock.unlock();
 }
 
+void TraceThreadListener::setupEnvironTable(char **Environ)
+{
+  assert(GlobalMemoryLock.owns_lock());
+
+  // Find the number of pointers in the array (including the NULL pointer that
+  // terminates the array).
+  std::size_t Count = 0;
+  while (Environ[Count++]);
+
+  // Make the pointer array readable.
+  auto TableAddress = reinterpret_cast<uintptr_t>(Environ);
+  auto TableSize = sizeof(char *[Count]);
+
+  addKnownMemoryRegion(TableAddress,
+                       TableSize,
+                       MemoryPermission::ReadWrite);
+
+  // Set the state of the pointer array.
+  recordUntypedState(reinterpret_cast<char const *>(Environ), TableSize);
+
+  // Now each of the individual strings. The limit is Count-1 because the final
+  // entry in environ is a NULL pointer.
+  for (std::size_t i = 0; i < Count - 1; ++i) {
+    // Make the string readable.
+    auto StringAddress = reinterpret_cast<uintptr_t>(Environ[i]);
+    auto StringSize = strlen(Environ[i]) + 1;
+
+    addKnownMemoryRegion(StringAddress,
+                         StringSize,
+                         MemoryPermission::ReadOnly);
+
+    // Set the state of the string.
+    recordUntypedState(Environ[i], StringSize);
+
+    // Set the target of the pointer.
+    auto const PtrLocation = reinterpret_cast<uintptr_t>(Environ + i);
+    ProcessListener.setInMemoryPointerObject(
+      PtrLocation,
+      ProcessListener.makePointerObject(StringAddress));
+  }
+}
+
 void TraceThreadListener::notifyEnv(char **EnvP) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
-  
+
   GlobalMemoryLock = ProcessListener.lockMemory();
-  
-  // Find the number of pointers in the array (including the NULL pointer that
-  // terminates the array).
-  std::size_t Count = 0;
-  while (EnvP[Count++]);
-  
-  // Make the pointer array readable.
-  auto TableAddress = reinterpret_cast<uintptr_t>(EnvP);
-  auto TableSize = sizeof(char *[Count]);
-  
-  addKnownMemoryRegion(TableAddress,
-                       TableSize,
-                       MemoryPermission::ReadOnly);
-  
-  // Set the state of the pointer array.
-  recordUntypedState(reinterpret_cast<char const *>(EnvP), TableSize);
-  
+
+  // NOTE: The environ table setup is called from notifyFunctionBegin, so
+  // that it happens regardless of whether or not envp is specified, as it may
+  // be accessed through an "extern char **environ" declaration.
+
   // Set the object of the envp Argument. This must happen after the target
   // region is set to known, so that the temporal ID is correct.
   auto const EnvPArg = ActiveFunction->getFunctionIndex().getArgument(2);
@@ -286,27 +337,6 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
   ActiveFunction->setPointerObject(EnvPArg,
                                    ProcessListener.makePointerObject(EnvPAddr));
 
-  // Now each of the individual strings. The limit is Count-1 because the final
-  // entry in EnvP is a NULL pointer.
-  for (std::size_t i = 0; i < Count - 1; ++i) {
-    // Make the string readable.
-    auto StringAddress = reinterpret_cast<uintptr_t>(EnvP[i]);
-    auto StringSize = strlen(EnvP[i]) + 1;
-    
-    addKnownMemoryRegion(StringAddress,
-                         StringSize,
-                         MemoryPermission::ReadOnly);
-    
-    // Set the state of the string.
-    recordUntypedState(EnvP[i], StringSize);
-
-    // Set the target of the pointer.
-    auto const PtrLocation = reinterpret_cast<uintptr_t>(EnvP + i);
-    ProcessListener.setInMemoryPointerObject(
-      PtrLocation,
-      ProcessListener.makePointerObject(StringAddress));
-  }
-  
   GlobalMemoryLock.unlock();
 }
 
