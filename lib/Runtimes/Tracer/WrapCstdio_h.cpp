@@ -717,6 +717,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::d: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::i: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::o: SEEC_FALLTHROUGH;
+      case ScanConversionSpecifier::Specifier::X: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::x:
         // Read integer.
         {
@@ -1475,6 +1476,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
         IntConversionBase = 8;
         break;
       
+      case ScanConversionSpecifier::Specifier::X: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::x:
         IntConversion = true;
         IntConversionBase = 16;
