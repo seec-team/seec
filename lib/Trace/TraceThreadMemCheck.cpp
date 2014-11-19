@@ -109,10 +109,14 @@ bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
                                        uintptr_t const Address)
 {
   if (!PtrObj) {
+    return true;
+
+#if 0
     raiseError(*createRunError<RunErrorType::PointerObjectNULL>(Address),
                RunErrorSeverity::Fatal);
 
     return false;
+#endif
   }
 
   auto const &Process = Thread.getProcessListener();
