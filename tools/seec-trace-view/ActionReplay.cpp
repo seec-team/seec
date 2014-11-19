@@ -15,6 +15,7 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Parsing.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/wxWidgets/XmlNodeIterator.hpp"
 
 #include "ActionReplay.hpp"
 #include "LocaleSettings.hpp"
@@ -44,60 +45,12 @@ seec::Error IEventHandler::error_attribute(std::string const &Name) const
 
 
 //------------------------------------------------------------------------------
-// Make wxXmlNode work as an STL iterator.
-//------------------------------------------------------------------------------
-
-class wxXmlNodeIterator
-: public std::iterator<std::forward_iterator_tag, wxXmlNode>
-{
-  wxXmlNode *m_NodePtr;
-  
-public:
-  wxXmlNodeIterator()
-  : m_NodePtr(nullptr)
-  {}
-  
-  wxXmlNodeIterator(wxXmlNode *NodePtr)
-  : m_NodePtr(NodePtr)
-  {}
-  
-  bool operator==(wxXmlNodeIterator const &RHS) const {
-    return m_NodePtr == RHS.m_NodePtr;
-  }
-  
-  bool operator!=(wxXmlNodeIterator const &RHS) const {
-    return m_NodePtr != RHS.m_NodePtr;
-  }
-  
-  wxXmlNodeIterator &operator++() {
-    if (m_NodePtr)
-      m_NodePtr = m_NodePtr->GetNext();
-    return *this;
-  }
-  
-  wxXmlNode &operator*() const { return *m_NodePtr; }
-  
-  wxXmlNode *operator->() const { return m_NodePtr; }
-};
-
-wxXmlNodeIterator begin(wxXmlNode &Node)
-{
-  return wxXmlNodeIterator(Node.GetChildren());
-}
-
-wxXmlNodeIterator end(wxXmlNode &Node)
-{
-  return wxXmlNodeIterator();
-}
-
-
-//------------------------------------------------------------------------------
 // ActionEventListCtrl
 //------------------------------------------------------------------------------
 
 class ActionEventListCtrl : public wxListCtrl
 {
-  wxXmlNodeIterator m_FirstEvent;
+  seec::wxXmlNodeIterator m_FirstEvent;
   
   long m_CurrentEvent;
 
@@ -135,7 +88,7 @@ public:
     // Find the event.
     auto EventIt = m_FirstEvent;
     std::advance(EventIt, Item);
-    if (EventIt == wxXmlNodeIterator())
+    if (EventIt == seec::wxXmlNodeIterator())
       return wxEmptyString;
     
     switch (Column) {
@@ -147,8 +100,9 @@ public:
   
   void SetFirstEvent(wxXmlNode *FirstEvent)
   {
-    m_FirstEvent = wxXmlNodeIterator(FirstEvent);
-    auto const EventCount = std::distance(m_FirstEvent, wxXmlNodeIterator());
+    m_FirstEvent = seec::wxXmlNodeIterator(FirstEvent);
+    auto const EventCount = std::distance(m_FirstEvent,
+                                          seec::wxXmlNodeIterator());
     
     m_CurrentEvent = -1;
     

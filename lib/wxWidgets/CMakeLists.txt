@@ -23,6 +23,7 @@ set(HEADERS
   ../../include/seec/wxWidgets/ICUBundleFSHandler.hpp
   ../../include/seec/wxWidgets/ImageResources.hpp
   ../../include/seec/wxWidgets/StringConversion.hpp
+  ../../include/seec/wxWidgets/XmlNodeIterator.hpp
   )
 
 set(SOURCES
