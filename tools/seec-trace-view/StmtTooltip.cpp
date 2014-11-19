@@ -82,6 +82,8 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
     }
   }
 
+  TipString.Trim();
+
   // Display the generated tooltip (if any).
   if (TipString.size())
     return new wxTipWindow(Parent, TipString, MaxLength, nullptr, &RectBound);
