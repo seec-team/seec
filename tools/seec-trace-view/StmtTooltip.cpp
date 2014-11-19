@@ -18,6 +18,7 @@
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "clang/AST/Expr.h"
@@ -27,6 +28,7 @@
 
 #include "RuntimeValueLookup.hpp"
 #include "StmtTooltip.hpp"
+#include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
@@ -51,10 +53,13 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
   if (auto const E = llvm::dyn_cast<clang::Expr>(Stmt))
     TipString << E->getType().getAsString() << "\n";
 
+  auto const &Augmentations = wxGetApp().getAugmentations();
+
   // Attempt to get a general explanation of the statement.
   auto const MaybeExplanation =
     seec::clang_epv::explain(Stmt,
-                             RuntimeValueLookupForFunction{&ActiveFunction});
+                             RuntimeValueLookupForFunction{&ActiveFunction},
+                             Augmentations.getCallbackFn());
 
   if (MaybeExplanation.assigned(0)) {
     auto const &Explanation = MaybeExplanation.get<0>();

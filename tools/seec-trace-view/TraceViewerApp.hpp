@@ -27,6 +27,10 @@
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
+namespace seec {
+  class AugmentationCollection;
+}
+
 class ActionRecordingSubmitter;
 class SingleInstanceServer;
 class WelcomeFrame;
@@ -53,6 +57,9 @@ class TraceViewerApp : public wxApp
 
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
+
+  /// Holds resource augmentations used by this application.
+  std::unique_ptr<seec::AugmentationCollection> Augmentations;
 
   /// Files that the user passed on the command line.
   std::vector<wxString> CLFiles;
@@ -161,6 +168,12 @@ public:
   /// \brief Get the \c ActionRecordingSubmitter, if there is one.
   ///
   ActionRecordingSubmitter *getActionRecordingSubmitter() const;
+
+  /// \brief Get the \c AugmentationCollection.
+  ///
+  seec::AugmentationCollection &getAugmentations() const {
+    return *Augmentations;
+  }
 
   /// @}
 

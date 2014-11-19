@@ -12,8 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
@@ -26,6 +28,7 @@
 #include <wx/wx.h>
 #include <wx/cmdline.h>
 #include <wx/config.h>
+#include <wx/dir.h>
 #include <wx/filesys.h>
 #include <wx/ipc.h>
 #include <wx/snglinst.h>
@@ -331,6 +334,7 @@ TraceViewerApp::TraceViewerApp()
   TopLevelWindows(),
   LogWindow(nullptr),
   ICUResources(),
+  Augmentations(),
   CLFiles(),
   CURL(curl_global_init(CURL_GLOBAL_DEFAULT) == 0),
   RecordingSubmitter()
@@ -343,6 +347,26 @@ TraceViewerApp::~TraceViewerApp()
   // of TraceViewerApp, some exist during its destruction. We assume that they
   // are not running and it is safe to call this.
   curl_global_cleanup();
+}
+
+static void loadAugmentations(seec::AugmentationCollection &Augs,
+                              std::string const &ResourcePath)
+{
+  auto Path = wxFileName::DirName(ResourcePath);
+  Path.AppendDir("augment");
+
+  wxDir Dir(Path.GetFullPath());
+  if (!Dir.IsOpened())
+    return;
+
+  wxString File;
+  bool GotFile = Dir.GetFirst(&File, "*.xml");
+
+  while (GotFile) {
+    Path.SetName(File);
+    Augs.loadFromFile(Path.GetFullPath());
+    GotFile = Dir.GetNext(&File);
+  }
 }
 
 bool TraceViewerApp::OnInit() {
@@ -363,6 +387,8 @@ bool TraceViewerApp::OnInit() {
   if (!ICUResources->loadResources(ResourceList))
     HandleFatalError("Couldn't load resources!");
   
+  Augmentations = seec::makeUnique<seec::AugmentationCollection>();
+
   // Call default behaviour.
   if (!wxApp::OnInit())
     return false;
@@ -409,6 +435,9 @@ bool TraceViewerApp::OnInit() {
   // Set ICU's default Locale according to the user's preferences.
   UErrorCode Status = U_ZERO_ERROR;
   icu::Locale::setDefault(getLocale(), Status);
+
+  // Load resource augmentations from the resource directory.
+  loadAugmentations(*Augmentations, ResourcePath);
 
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.

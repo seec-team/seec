@@ -240,47 +240,75 @@ Formattable formatAsGeneralTypeString(::clang::Type const *T) {
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node)
 {
+  return explain(Node, AugmentationCallbackFn{});
+}
+
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node, AugmentationCallbackFn Augmenter)
+{
   if (Node == nullptr)
     return seec::Error(LazyMessageByRef::create("ClangEPV",
                                                 {"errors",
                                                  "ExplainNullDecl"}));
-  
-  return ExplanationOfDecl::create(Node, nullptr);
+
+  return ExplanationOfDecl::create(Node, nullptr, Augmenter);
 }
 
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node,
         RuntimeValueLookup const &ValueLookup)
 {
+  return explain(Node, ValueLookup, AugmentationCallbackFn{});
+}
+
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node,
+        RuntimeValueLookup const &ValueLookup,
+        AugmentationCallbackFn Augmenter)
+{
   if (Node == nullptr)
     return seec::Error(LazyMessageByRef::create("ClangEPV",
                                                 {"errors",
                                                  "ExplainNullDecl"}));
-  
-  return ExplanationOfDecl::create(Node, &ValueLookup);
+
+  return ExplanationOfDecl::create(Node, &ValueLookup, Augmenter);
 }
 
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node)
 {
+  return explain(Node, AugmentationCallbackFn{});
+}
+
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node, AugmentationCallbackFn Augmenter)
+{
   if (Node == nullptr)
     return seec::Error(LazyMessageByRef::create("ClangEPV",
                                                 {"errors",
                                                  "ExplainNullStmt"}));
-  
-  return ExplanationOfStmt::create(Node, nullptr);
+
+  return ExplanationOfStmt::create(Node, nullptr, Augmenter);
 }
 
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node,
         RuntimeValueLookup const &ValueLookup)
 {
+  return explain(Node, ValueLookup, AugmentationCallbackFn{});
+}
+
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node,
+        RuntimeValueLookup const &ValueLookup,
+        AugmentationCallbackFn Augmenter)
+{
   if (Node == nullptr)
     return seec::Error(LazyMessageByRef::create("ClangEPV",
                                                 {"errors",
                                                  "ExplainNullStmt"}));
-  
-  return ExplanationOfStmt::create(Node, &ValueLookup);
+
+  return ExplanationOfStmt::create(Node, &ValueLookup, Augmenter);
 }
 
 
@@ -393,7 +421,8 @@ void addInfoForDerivedAndBase(::clang::DERIVED##Decl const *Node,              \
 
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 ExplanationOfDecl::create(::clang::Decl const *Node,
-                          RuntimeValueLookup const *ValueLookup)
+                          RuntimeValueLookup const *ValueLookup,
+                          AugmentationCallbackFn Augmenter)
 {
   char const *DescriptionKey = nullptr;
   seec::icu::FormatArgumentsWithNames DescriptionArguments;
@@ -426,7 +455,7 @@ ExplanationOfDecl::create(::clang::Decl const *Node,
                                               Locale(),
                                               Status,
                                               "descriptions");
-  auto const Description = Descriptions.getStringEx(DescriptionKey, Status);
+  auto Description = Descriptions.getStringEx(DescriptionKey, Status);
   
   if (!U_SUCCESS(Status))
     return seec::Error(
@@ -434,6 +463,10 @@ ExplanationOfDecl::create(::clang::Decl const *Node,
                                        {"errors", "DescriptionNotFound"},
                                        std::make_pair("key", DescriptionKey)));
   
+  // Augment the raw description.
+  Description = augment(std::move(Description), Augmenter);
+  Description.trim();
+
   // Format the raw description.
   UnicodeString FormattedDescription = seec::icu::format(Description,
                                                          DescriptionArguments,
@@ -640,7 +673,8 @@ void addInfo(::clang::UnaryExprOrTypeTraitExpr const *Statement,
 ///
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 ExplanationOfStmt::create(::clang::Stmt const *Node,
-                          RuntimeValueLookup const *ValueLookup)
+                          RuntimeValueLookup const *ValueLookup,
+                          AugmentationCallbackFn Augmenter)
 {
   char const *DescriptionKey = nullptr;
   seec::icu::FormatArgumentsWithNames DescriptionArguments;
@@ -678,7 +712,7 @@ ExplanationOfStmt::create(::clang::Stmt const *Node,
                                               Locale(),
                                               Status,
                                               "descriptions");
-  auto const Description = Descriptions.getStringEx(DescriptionKey, Status);
+  auto Description = Descriptions.getStringEx(DescriptionKey, Status);
   
   if (!U_SUCCESS(Status))
     return seec::Error(
@@ -686,6 +720,10 @@ ExplanationOfStmt::create(::clang::Stmt const *Node,
                                        {"errors", "DescriptionNotFound"},
                                        std::make_pair("key", DescriptionKey)));
   
+  // Augment the raw description.
+  Description = augment(std::move(Description), Augmenter);
+  Description.trim();
+
   // Format the raw description.
   UnicodeString FormattedDescription = seec::icu::format(Description,
                                                          DescriptionArguments,

@@ -1,4 +1,5 @@
 set(HEADERS
+  ../../include/seec/ICU/Augmenter.hpp
   ../../include/seec/ICU/Format.hpp
   ../../include/seec/ICU/Indexing.hpp
   ../../include/seec/ICU/LazyMessage.hpp
@@ -8,6 +9,7 @@ set(HEADERS
   )
 
 set(SOURCES
+  Augmenter.cpp
   Format.cpp
   Indexing.cpp
   LazyMessage.cpp

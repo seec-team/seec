@@ -15,6 +15,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/ICU/Indexing.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -29,8 +30,10 @@
 #include "ExplanationViewer.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
+#include "RuntimeValueLookup.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "TraceViewerApp.hpp"
 
 #include <cassert>
 
@@ -318,7 +321,9 @@ void ExplanationViewer::show(std::shared_ptr<StateAccessToken> Access,
 
 void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 {
-  auto MaybeExplanation = seec::clang_epv::explain(Decl);
+  auto const &Augmentations = wxGetApp().getAugmentations();
+  auto MaybeExplanation =
+    seec::clang_epv::explain(Decl, Augmentations.getCallbackFn());
   
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
@@ -346,27 +351,12 @@ ExplanationViewer::
 showExplanation(::clang::Stmt const *Statement,
                 ::seec::cm::FunctionState const &InFunction)
 {
+  auto const &Augmentations = wxGetApp().getAugmentations();
   auto MaybeExplanation =
     seec::clang_epv::explain(
       Statement,
-      seec::clang_epv::makeRuntimeValueLookupByLambda(
-        [&](::clang::Stmt const *S) -> bool {
-          return InFunction.getStmtValue(S) ? true : false;
-        },
-        [&](::clang::Stmt const *S) -> std::string {
-          auto const Value = InFunction.getStmtValue(S);
-          return Value ? Value->getValueAsStringFull() : std::string();
-        },
-        [&](::clang::Stmt const *S) -> seec::Maybe<bool> {
-          auto const Value = InFunction.getStmtValue(S);
-          if (Value && Value->isCompletelyInitialized()
-              && llvm::isa<seec::cm::ValueOfScalar>(*Value))
-          {
-            auto &Scalar = llvm::cast<seec::cm::ValueOfScalar>(*Value);
-            return !Scalar.isZero();
-          }
-          return seec::Maybe<bool>();
-        }));
+      RuntimeValueLookupForFunction(&InFunction),
+      Augmentations.getCallbackFn());
   
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());

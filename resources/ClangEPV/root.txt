@@ -117,7 +117,7 @@ root:table {
 
       " other {This declares an enum named “{name}”. The enum is completed by a @[definition]definition@[].}}"
 
-      "\n\nRead more about enums in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/01.html]Lecture 24@[]."
+      "\n\n$[concept:enum]"
     }
 
     // RecordDecl
@@ -150,7 +150,7 @@ root:table {
     //
     Record:string {
       "{is_struct, select,"
-      " true {This declares a structure type named “{name}”.\n\nRead more about structures in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture22/01.html]Lecture 22@[].}"
+      " true {This declares a structure type named “{name}”.\n\n$[concept:struct]}"
       " other {"
         "{is_union, select,"
         " true {This declares a union type named “{name}”.}"
@@ -177,7 +177,7 @@ root:table {
     //   [Expr] init_expr
     //
     EnumConstant:string {
-      "This is an enum constant named “{name}”.\n\nRead more about enums in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/01.html]Lecture 24@[]." 
+      "This is an enum constant named “{name}”.\n\n$[concept:enum]"
     }
 
     // IndirectFieldDecl
@@ -279,7 +279,7 @@ root:table {
       "This declares a variable named “{name}”, with type “{type}”."
 
       "{is_static_local, select,"
-      " true {\n\nThis is a local static variable. Read more about local static variables in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/10.html]Lecture 24@[].}"
+      " true {\n\nThis is a local static variable. $[concept:local static]}"
       " false {}"
       " other {}}"
     }
@@ -371,13 +371,13 @@ root:table {
         " It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer."
         " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
-        "\n\nRead more about pointers in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture17/]Lecture 17@[].}"
+        "\n\n$[concept:pointers]}"
        " other {"
         "This is an array subscript expression."
         " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
         " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
-        "\n\nRead more about arrays in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture06/]Lecture 6@[].}}}"
+        "\n\n$[concept:arrays]}}}"
 
       " false {{base_type_general, select,"
        " Pointer {"
@@ -386,14 +386,14 @@ root:table {
         " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
         " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
-        "\n\nRead more about pointers in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture17/]Lecture 17@[].}"
+        "\n\n$[concept:pointers]}"
        " other {"
         "This is an array subscript expression."
         " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
         " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
         " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
-        "\n\nRead more about arrays in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture06/]Lecture 6@[].}}}"
+        "\n\n$[concept:arrays]}}}"
 
       " other {}}"
     }
@@ -405,7 +405,7 @@ root:table {
     BreakStmt:string {
       "This is a break statement."
       " It ends the execution of the first loop (“do”, “for”, or “while”) or “switch” statement that encloses it."
-      "\n\nRead more about using break statements in loops in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture04/06.html]Lecture 4@[]."
+      "\n\n$[concept:break loop]"
     }
 
     // BinaryOperator
@@ -593,7 +593,7 @@ root:table {
               " and become the value produced by this call expression.}"
       "}"
 
-      "\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[]."
+      "\n\n$[concept:function call]"
     }
 
     // CharacterLiteral
@@ -752,7 +752,7 @@ root:table {
       " It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it."
       " If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop."
       " If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression."
-      "\n\nRead more about the continue statement in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture04/06.html]Lecture 4@[]."
+      "\n\n$[concept:continue]"
     }
 
     // CStyleCastExpr
