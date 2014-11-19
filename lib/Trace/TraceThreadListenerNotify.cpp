@@ -538,7 +538,8 @@ void TraceThreadListener::notifyPreAlloca(uint32_t const Index,
 void TraceThreadListener::notifyPreLoad(uint32_t Index,
                                         llvm::LoadInst const *Load,
                                         void const *Data,
-                                        std::size_t Size) {
+                                        std::size_t Size)
+{
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitPreNotification();});
@@ -548,14 +549,44 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
 
   auto const Address = reinterpret_cast<uintptr_t>(Data);
   auto const Access = seec::runtime_errors::format_selects::MemoryAccess::Read;
-  
+
   RuntimeErrorChecker Checker(*this, Index);
   auto const MaybeArea = seec::trace::getContainingMemoryArea(*this, Address);
   auto const Obj = ActiveFunction->getPointerObject(Load->getPointerOperand());
 
   Checker.checkPointer(Obj, Address);
   Checker.memoryExists(Address, Size, Access, MaybeArea);
-  Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
+
+  // Only check memory access for individual members of struct types.
+  if (auto StructTy = llvm::dyn_cast<llvm::StructType>(Load->getType())) {
+    auto const &DL = getDataLayout();
+    llvm::SmallVector<std::pair<llvm::StructType *, uintptr_t>, 1> Elems;
+    Elems.push_back(std::make_pair(StructTy, Address));
+
+    while (!Elems.empty()) {
+      auto const Elem = Elems.pop_back_val();
+      auto const NumChildren = Elem.first->getNumElements();
+      auto const Layout = DL.getStructLayout(Elem.first);
+
+      for (unsigned i = 0; i < NumChildren; ++i) {
+        auto const ElemAddr = Elem.second + Layout->getElementOffset(i);
+        auto const ElemType = Elem.first->getElementType(i);
+
+        if (auto const STy = llvm::dyn_cast<llvm::StructType>(ElemType)) {
+          Elems.push_back(std::make_pair(STy, ElemAddr));
+        }
+        else {
+          Checker.checkMemoryAccess(ElemAddr,
+                                    DL.getTypeStoreSize(ElemType),
+                                    Access,
+                                    MaybeArea.get<0>());
+        }
+      }
+    }
+  }
+  else {
+    Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
+  }
 }
 
 void TraceThreadListener::notifyPostLoad(uint32_t Index,
