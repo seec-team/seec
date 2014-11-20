@@ -18,7 +18,7 @@
 #include <wx/bitmap.h>
 #include <wx/bmpcbox.h>
 #include <wx/config.h>
-#include <wx/dialog.h>
+#include <wx/frame.h>
 #include <wx/log.h>
 #include <wx/sizer.h>
 #include <wx/stdpaths.h>
@@ -28,57 +28,57 @@
 
 char const * const cConfigKeyForLocaleID = "/Locale/ID";
 
-/// \brief Allows the user to configure locale settings.
-///
-class LocaleSettingsDlg : public wxDialog
+bool LocaleSettingsWindow::SaveValuesImpl()
 {
-  wxBitmapComboBox *Selector;
+  auto const Selection = m_Selector->GetSelection();
+  if (Selection == wxNOT_FOUND)
+    return false;
 
-  std::vector<Locale> AvailableLocales;
+  auto const &TheLocale = m_AvailableLocales[Selection];
 
-public:
-  /// \brief Constructor (without creation).
-  ///
-  LocaleSettingsDlg()
-  : Selector(nullptr),
-    AvailableLocales()
-  {}
+  auto const Config = wxConfig::Get();
+  Config->Write(cConfigKeyForLocaleID, TheLocale.getName());
+  Config->Flush();
 
-  /// \brief Constructor (with creation).
-  ///
-  LocaleSettingsDlg(wxWindow *Parent)
-  : Selector(nullptr),
-    AvailableLocales()
-  {
-    Create(Parent);
+  UErrorCode Status = U_ZERO_ERROR;
+  icu::Locale::setDefault(getLocale(), Status);
+
+  return true;
+}
+
+wxString LocaleSettingsWindow::GetDisplayNameImpl()
+{
+  auto const CurrentLocale = getLocale();
+  auto const ResTraceViewer = seec::Resource("TraceViewer", CurrentLocale);
+  auto const ResText = ResTraceViewer["GUIText"]["LocaleSettingsDialog"];
+  return seec::towxString(ResText["Title"].asStringOrDefault("Locale"));
+}
+
+LocaleSettingsWindow::LocaleSettingsWindow()
+: m_Selector(nullptr),
+  m_AvailableLocales()
+{}
+
+LocaleSettingsWindow::LocaleSettingsWindow(wxWindow *Parent)
+: m_Selector(nullptr),
+  m_AvailableLocales()
+{
+  Create(Parent);
+}
+
+LocaleSettingsWindow::~LocaleSettingsWindow() = default;
+
+bool LocaleSettingsWindow::Create(wxWindow *Parent)
+{
+  if (!wxWindow::Create(Parent, wxID_ANY)) {
+    return false;
   }
 
-  /// \brief Destructor.
-  ///
-  virtual ~LocaleSettingsDlg()
-  {
+  auto const CurrentLocale = getLocale();
+  auto const ResTraceViewer = seec::Resource("TraceViewer", CurrentLocale);
+  auto const ResFlags = ResTraceViewer["GUIImages"]["CountryFlags"];
 
-  }
-
-  /// \brief Create the frame.
-  ///
-  bool Create(wxWindow *Parent)
-  {
-    auto const CurrentLocale = getLocale();
-    auto const ResTraceViewer = seec::Resource("TraceViewer", CurrentLocale);
-
-    auto const ResText = ResTraceViewer["GUIText"]["LocaleSettingsDialog"];
-    if (U_FAILURE(ResText.status()))
-      return false;
-
-    auto const Title = seec::towxString(ResText["Title"].asStringOrDefault(""));
-    if (!wxDialog::Create(Parent, wxID_ANY, Title)) {
-      return false;
-    }
-
-    auto const ResFlags = ResTraceViewer["GUIImages"]["CountryFlags"];
-
-    Selector = new wxBitmapComboBox(this,
+  m_Selector = new wxBitmapComboBox(this,
                                     wxID_ANY,
                                     wxEmptyString,
                                     wxDefaultPosition,
@@ -87,121 +87,72 @@ public:
                                     nullptr,
                                     wxCB_READONLY);
 
-    int CurrentLocaleIndex = wxNOT_FOUND;
+  int CurrentLocaleIndex = wxNOT_FOUND;
 
-    int32_t NumLocales = 0;
-    if (auto const Locales = icu::Locale::getAvailableLocales(NumLocales)) {
-      if (NumLocales > 0) {
-        std::string FlagKey;
-        UnicodeString DisplayName;
+  int32_t NumLocales = 0;
+  if (auto const Locales = icu::Locale::getAvailableLocales(NumLocales)) {
+    if (NumLocales > 0) {
+      std::string FlagKey;
+      UnicodeString DisplayName;
 
-        // Get a "root" flag to use when we don't have a matching flag.
-        auto const ResRootFlag = ResFlags["root"];
-        UErrorCode RootFlagStatus = ResRootFlag.status();
-        auto const RootFlag = seec::getwxImage(ResRootFlag.bundle(),
-                                               RootFlagStatus);
+      // Get a "root" flag to use when we don't have a matching flag.
+      auto const ResRootFlag = ResFlags["root"];
+      UErrorCode RootFlagStatus = ResRootFlag.status();
+      auto const RootFlag = seec::getwxImage(ResRootFlag.bundle(),
+                                              RootFlagStatus);
 
-        for (int32_t i = 0; i < NumLocales; ++i) {
-          // Attempt to open the TraceViewer ResourceBundle using this Locale,
-          // to check if SeeC has an appropriate translation.
-          auto const ResForLocale = seec::Resource("TraceViewer", Locales[i]);
+      for (int32_t i = 0; i < NumLocales; ++i) {
+        // Attempt to open the TraceViewer ResourceBundle using this Locale,
+        // to check if SeeC has an appropriate translation.
+        auto const ResForLocale = seec::Resource("TraceViewer", Locales[i]);
 
-          if (ResForLocale.status() == U_ZERO_ERROR) {
-            if (CurrentLocale == Locales[i])
-              CurrentLocaleIndex = static_cast<int>(Selector->GetCount());
+        if (ResForLocale.status() == U_ZERO_ERROR) {
+          if (CurrentLocale == Locales[i])
+            CurrentLocaleIndex = static_cast<int>(m_Selector->GetCount());
 
-            Locales[i].getDisplayName(Locales[i], DisplayName);
-            AvailableLocales.push_back(Locales[i]);
+          Locales[i].getDisplayName(Locales[i], DisplayName);
+          m_AvailableLocales.push_back(Locales[i]);
 
-            FlagKey = Locales[i].getCountry();
-            std::transform(FlagKey.begin(), FlagKey.end(), FlagKey.begin(),
-                           ::tolower);
+          FlagKey = Locales[i].getCountry();
+          std::transform(FlagKey.begin(), FlagKey.end(), FlagKey.begin(),
+                          ::tolower);
 
-            auto const ResFlag = ResFlags[FlagKey.c_str()];
-            UErrorCode Status = ResFlag.status();
-            auto const Flag = seec::getwxImage(ResFlag.bundle(), Status);
+          auto const ResFlag = ResFlags[FlagKey.c_str()];
+          UErrorCode Status = ResFlag.status();
+          auto const Flag = seec::getwxImage(ResFlag.bundle(), Status);
 
-            if (!FlagKey.empty() && U_FAILURE(Status)) {
-              wxLogDebug("no flag found for '%s'", wxString(FlagKey));
-            }
+          if (!FlagKey.empty() && U_FAILURE(Status)) {
+            wxLogDebug("no flag found for '%s'", wxString(FlagKey));
+          }
 
-            if (U_SUCCESS(Status)) {
-              Selector->Append(seec::towxString(DisplayName), wxBitmap(Flag));
-            }
-            else if (U_SUCCESS(RootFlagStatus)) {
-              Selector->Append(seec::towxString(DisplayName),
-                                wxBitmap(RootFlag));
-            }
-            else {
-              Selector->Append(seec::towxString(DisplayName));
-            }
+          if (U_SUCCESS(Status)) {
+            m_Selector->Append(seec::towxString(DisplayName), wxBitmap(Flag));
+          }
+          else if (U_SUCCESS(RootFlagStatus)) {
+            m_Selector->Append(seec::towxString(DisplayName),
+                               wxBitmap(RootFlag));
+          }
+          else {
+            m_Selector->Append(seec::towxString(DisplayName));
           }
         }
       }
     }
+  }
 
-    if (CurrentLocaleIndex != wxNOT_FOUND)
-      Selector->SetSelection(CurrentLocaleIndex);
+  if (CurrentLocaleIndex != wxNOT_FOUND)
+    m_Selector->SetSelection(CurrentLocaleIndex);
 
-    // Create accept/cancel buttons.
-    auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+  // Vertical sizer to hold each row of input.
+  auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
-    // Vertical sizer to hold each row of input.
-    auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
-    int const BorderDir = wxLEFT | wxRIGHT;
-    int const BorderSize = 5;
-    int const InterSettingSpace = 10;
-
-    ParentSizer->Add(Selector, wxSizerFlags().Proportion(1)
+  ParentSizer->Add(m_Selector, wxSizerFlags().Proportion(1)
                                              .Expand()
-                                             .Border(BorderDir | wxTOP,
-                                                     BorderSize));
+                                             .Border(wxALL, 5));
 
-    ParentSizer->AddSpacer(InterSettingSpace);
+  SetSizerAndFit(ParentSizer);
 
-    ParentSizer->Add(Buttons, wxSizerFlags().Expand()
-                                            .Border(BorderDir | wxBOTTOM,
-                                                    BorderSize));
-
-    SetSizerAndFit(ParentSizer);
-
-    return true;
-  }
-
-  /// \brief Save the current settings into the user's configuration.
-  ///
-  bool SaveValues()
-  {
-    auto const Selection = Selector->GetSelection();
-    if (Selection == wxNOT_FOUND)
-      return false;
-
-    auto const &TheLocale = AvailableLocales[Selection];
-
-    auto const Config = wxConfig::Get();
-    Config->Write(cConfigKeyForLocaleID, TheLocale.getName());
-    Config->Flush();
-
-    return true;
-  }
-};
-
-void showLocaleSettings()
-{
-  LocaleSettingsDlg Dlg(nullptr);
-
-  while (true) {
-    auto const Result = Dlg.ShowModal();
-
-    if (Result == wxID_OK)
-      if (!Dlg.SaveValues())
-        continue;
-
-    break;
-  }
-
-  UErrorCode Status = U_ZERO_ERROR;
-  icu::Locale::setDefault(getLocale(), Status);
+  return true;
 }
 
 icu::Locale getLocale()

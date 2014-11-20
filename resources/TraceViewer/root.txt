@@ -150,6 +150,15 @@ root:table {
     LocaleSettingsDialog:table {
       Title:string {"Locale settings"}
     }
+
+
+    //
+    // Preference dialog
+    //
+
+    PreferenceDialog:table {
+      Title:string {"Preferences"}
+    }
   }
 
 

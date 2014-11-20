@@ -47,6 +47,7 @@
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "OpenTrace.hpp"
+#include "Preferences.hpp"
 #include "TraceViewerApp.hpp"
 #include "TraceViewerFrame.hpp"
 #include "WelcomeFrame.hpp"
@@ -597,7 +598,7 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
 
 void TraceViewerApp::OnCommandPreferences(wxCommandEvent &Event)
 {
-  showLocaleSettings();
+  showPreferenceDialog();
 }
 
 void TraceViewerApp::Raise()

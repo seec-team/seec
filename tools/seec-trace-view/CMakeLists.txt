@@ -29,6 +29,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   MallocViewer.hpp
   NotifyContext.hpp
   OpenTrace.hpp
+  Preferences.hpp
   ProcessMoveEvent.hpp
   RuntimeValueLookup.hpp
   SourceViewer.hpp
@@ -60,6 +61,7 @@ set(SEEC_TRACE_VIEW_SRCS
   MallocViewer.cpp
   NotifyContext.cpp
   OpenTrace.cpp
+  Preferences.cpp
   ProcessMoveEvent.cpp
   RuntimeValueLookup.cpp
   SourceViewer.cpp

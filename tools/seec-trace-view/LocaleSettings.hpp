@@ -16,9 +16,48 @@
 
 #include <unicode/locid.h>
 
-/// \brief Show the locale settings dialog.
+#include <vector>
+
+#include "Preferences.hpp"
+
+class wxBitmapComboBox;
+
+/// \brief Allows the user to configure locale settings.
 ///
-void showLocaleSettings();
+class LocaleSettingsWindow final : public PreferenceWindow
+{
+  /// Allows the user to pick from the available locales.
+  wxBitmapComboBox *m_Selector;
+
+  /// Stores all available locales in the same order as Selector.
+  std::vector<Locale> m_AvailableLocales;
+
+protected:
+  /// \brief Save edited values back to the user's config file.
+  ///
+  virtual bool SaveValuesImpl() override;
+
+  /// \bried Get a string to describe this window.
+  ///
+  virtual wxString GetDisplayNameImpl() override;
+
+public:
+  /// \brief Constructor (without creation).
+  ///
+  LocaleSettingsWindow();
+
+  /// \brief Constructor (with creation).
+  ///
+  LocaleSettingsWindow(wxWindow *Parent);
+
+  /// \brief Destructor.
+  ///
+  virtual ~LocaleSettingsWindow();
+
+  /// \brief Create the frame.
+  ///
+  bool Create(wxWindow *Parent);
+};
 
 /// \brief Get the \c Locale that should be used.
 ///
