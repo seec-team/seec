@@ -20,11 +20,26 @@
 #include <wx/log.h>
 #include <wx/stdpaths.h>
 
+#include <cstdlib>
 #include <memory>
 
 namespace seec {
 
 namespace {
+
+void shutdownDummyAppConsole()
+{
+  auto const App = wxAppConsole::GetInstance();
+  if (!App)
+    return;
+
+  App->OnExit();
+  wxEntryCleanup();
+
+  wxAppConsole::SetInstance(nullptr);
+}
+
+} // anonymous namespace
 
 void setupDummyAppConsole()
 {
@@ -37,30 +52,13 @@ void setupDummyAppConsole()
   wxEntryStart(argc, argv);
 
   wxAppConsole::GetInstance()->OnInit();
+
+  std::atexit(shutdownDummyAppConsole);
 }
-
-void shutdownDummyAppConsole()
-{
-  auto const App = wxAppConsole::GetInstance();
-  App->OnExit();
-  wxEntryCleanup();
-
-  wxAppConsole::SetInstance(nullptr);
-}
-
-} // anonymous namespace
 
 bool setupCommonConfig()
 {
-  // If there isn't a wxApp already setup (e.g. we're in one of SeeC's console
-  // applications or the runtime library), then setup a dummy app while we
-  // setup the config!
-  auto OnExitShutdownDummyApp = seec::scopeExit(shutdownDummyAppConsole);
-
-  if (!wxAppConsole::GetInstance())
-    setupDummyAppConsole();
-  else
-    OnExitShutdownDummyApp.disable();
+  assert(wxAppConsole::GetInstance());
 
   auto &StdPaths = wxStandardPaths::Get();
 

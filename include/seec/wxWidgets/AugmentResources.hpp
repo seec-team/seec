@@ -46,6 +46,8 @@ public:
 
   void loadFromResources(std::string const &ResourcePath);
 
+  void loadFromUserLocalDataDir();
+
   wxString getAugmentationFor(wxString const &Type,
                               wxString const &Identifier,
                               ::icu::Locale const &Loc) const;

@@ -135,6 +135,9 @@ int main(int argc, char **argv, char * const *envp) {
     exit(EXIT_FAILURE);
   }
 
+  // Setup a dummy wxApp to enable some wxWidgets functionality.
+  seec::setupDummyAppConsole();
+
   // Attempt to get common config files.
   if (!seec::setupCommonConfig()) {
     llvm::errs() << "Failed to setup configuration.\n";
@@ -143,6 +146,7 @@ int main(int argc, char **argv, char * const *envp) {
   // Load augmentations.
   seec::AugmentationCollection Augmentations;
   Augmentations.loadFromResources(ResourcePath);
+  Augmentations.loadFromUserLocalDataDir();
 
   if (UseClangMapping || OnlinePythonTutor) {
     PrintClangMapped(Augmentations);

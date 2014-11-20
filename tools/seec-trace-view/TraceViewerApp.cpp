@@ -406,6 +406,7 @@ bool TraceViewerApp::OnInit() {
 
   // Load resource augmentations from the resource directory.
   Augmentations->loadFromResources(ResourcePath);
+  Augmentations->loadFromUserLocalDataDir();
 
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.

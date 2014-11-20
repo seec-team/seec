@@ -23,6 +23,7 @@
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
+#include "seec/wxWidgets/Config.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -287,8 +288,12 @@ ProcessEnvironment::ProcessEnvironment()
   ICUResourceLoader->loadResource("Trace");
   ICUResourceLoader->loadResource("RuntimeErrors");
 
+  // Setup a dummy wxApp to enable some wxWidgets functionality.
+  seec::setupDummyAppConsole();
+
   // Attempt to load augmentations.
   Augmentations->loadFromResources(__SeeC_ResourcePath__);
+  Augmentations->loadFromUserLocalDataDir();
 
   // Write a copy of the Module's bitcode into the trace directory.
   StreamAllocator->writeModule(BitcodeRef);

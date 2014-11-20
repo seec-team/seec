@@ -20,6 +20,7 @@
 #include <wx/dir.h>
 #include <wx/filename.h>
 #include <wx/log.h>
+#include <wx/stdpaths.h>
 #include <wx/xml/xml.h>
 
 #include <algorithm>
@@ -59,6 +60,13 @@ void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
 void AugmentationCollection::loadFromResources(std::string const &ResourcePath)
 {
   auto Path = wxFileName::DirName(ResourcePath);
+  Path.AppendDir("augment");
+  loadFromDirectory(Path.GetFullPath());
+}
+
+void AugmentationCollection::loadFromUserLocalDataDir()
+{
+  auto Path = wxFileName::DirName(wxStandardPaths::Get().GetUserLocalDataDir());
   Path.AppendDir("augment");
   loadFromDirectory(Path.GetFullPath());
 }
