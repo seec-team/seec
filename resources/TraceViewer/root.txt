@@ -171,6 +171,12 @@ root:table {
 
       ForwardArrowToError:import {"Images/forward-arrow-to-error.png"}
     }
+
+    CountryFlags:table {
+      root:import {"Images/Flags/root.png"}
+      en_AU:import {"Images/Flags/au.png"}
+      en_GB:import {"Images/Flags/gb.png"}
+    }
   }
 
 
