@@ -60,7 +60,7 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
 execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base
+ COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
@@ -72,6 +72,7 @@ target_link_libraries(seecRuntimeTracer
  SeeCUtil
  SeeCRuntimeErrors
  SeeCICU
+ SeeCwxWidgets
 
  ${REQ_WX_LIBRARIES}
 

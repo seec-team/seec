@@ -24,13 +24,15 @@ namespace runtime_errors {
   class RunError;
 }
 
+class AugmentationCollection;
 class ModuleIndex;
 
 namespace trace {
 
 void PrintRunError(seec::runtime_errors::RunError const &Error,
                    llvm::Instruction const *Instruction,
-                   seec::ModuleIndex const &ModIndex);
+                   seec::ModuleIndex const &ModIndex,
+                   seec::AugmentationCollection const &Augmentations);
 
 } // namespace trace (in seec)
 

@@ -19,6 +19,7 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Util/ModuleIndex.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -38,11 +39,12 @@ namespace trace {
 
 void PrintRunError(seec::runtime_errors::RunError const &Error,
                    llvm::Instruction const *Instruction,
-                   seec::ModuleIndex const &ModIndex)
+                   seec::ModuleIndex const &ModIndex,
+                   seec::AugmentationCollection const &Augmentations)
 {
   using namespace seec::runtime_errors;
 
-  auto MaybeDesc = Description::create(Error, AugmentationCallbackFn{});
+  auto MaybeDesc = Description::create(Error, Augmentations.getCallbackFn());
   if (!MaybeDesc.assigned<std::unique_ptr<Description>>())
     return;
 

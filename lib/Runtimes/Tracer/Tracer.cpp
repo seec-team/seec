@@ -22,6 +22,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -242,6 +243,7 @@ ProcessEnvironment::ProcessEnvironment()
   StreamAllocator(),
   SyncExit(),
   ICUResourceLoader(new ResourceLoader(__SeeC_ResourcePath__)),
+  Augmentations(new AugmentationCollection()),
   ProcessTracer(),
   ThreadLookup(),
   ThreadLookupMutex(),
@@ -285,6 +287,9 @@ ProcessEnvironment::ProcessEnvironment()
   ICUResourceLoader->loadResource("Trace");
   ICUResourceLoader->loadResource("RuntimeErrors");
 
+  // Attempt to load augmentations.
+  Augmentations->loadFromResources(__SeeC_ResourcePath__);
+
   // Write a copy of the Module's bitcode into the trace directory.
   StreamAllocator->writeModule(BitcodeRef);
   
@@ -302,7 +307,7 @@ ProcessEnvironment::ProcessEnvironment()
     [this] (seec::runtime_errors::RunError const &Error,
             llvm::Instruction const *Instruction)
     {
-      return PrintRunError(Error, Instruction, *ModIndex);
+      return PrintRunError(Error, Instruction, *ModIndex, *Augmentations);
     });
 
   // Give the listener the run-time locations of functions.

@@ -29,6 +29,7 @@
 
 namespace seec {
 
+class AugmentationCollection;
 class ResourceLoader;
 
 namespace trace {
@@ -217,6 +218,9 @@ class ProcessEnvironment {
   
   /// Loads ICU resources.
   std::unique_ptr<ResourceLoader> ICUResourceLoader;
+
+  /// Holds augmentations.
+  std::unique_ptr<seec::AugmentationCollection> Augmentations;
 
   /// Process listener.
   std::unique_ptr<TraceProcessListener> ProcessTracer;
