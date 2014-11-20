@@ -19,6 +19,7 @@
 #include <wx/bmpcbox.h>
 #include <wx/config.h>
 #include <wx/dialog.h>
+#include <wx/log.h>
 #include <wx/sizer.h>
 #include <wx/stdpaths.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -94,7 +95,7 @@ public:
         std::string FlagKey;
         UnicodeString DisplayName;
 
-        // Get a "root" flag to use for locales which don't have flags.
+        // Get a "root" flag to use when we don't have a matching flag.
         auto const ResRootFlag = ResFlags["root"];
         UErrorCode RootFlagStatus = ResRootFlag.status();
         auto const RootFlag = seec::getwxImage(ResRootFlag.bundle(),
@@ -112,23 +113,24 @@ public:
             Locales[i].getDisplayName(Locales[i], DisplayName);
             AvailableLocales.push_back(Locales[i]);
 
-            FlagKey = Locales[i].getLanguage();
-            if (auto const Country = Locales[i].getCountry()) {
-              if (*Country) {
-                (FlagKey += "_") += Country;
-              }
-            }
+            FlagKey = Locales[i].getCountry();
+            std::transform(FlagKey.begin(), FlagKey.end(), FlagKey.begin(),
+                           ::tolower);
 
             auto const ResFlag = ResFlags[FlagKey.c_str()];
             UErrorCode Status = ResFlag.status();
             auto const Flag = seec::getwxImage(ResFlag.bundle(), Status);
+
+            if (!FlagKey.empty() && U_FAILURE(Status)) {
+              wxLogDebug("no flag found for '%s'", wxString(FlagKey));
+            }
 
             if (U_SUCCESS(Status)) {
               Selector->Append(seec::towxString(DisplayName), wxBitmap(Flag));
             }
             else if (U_SUCCESS(RootFlagStatus)) {
               Selector->Append(seec::towxString(DisplayName),
-                               wxBitmap(RootFlag));
+                                wxBitmap(RootFlag));
             }
             else {
               Selector->Append(seec::towxString(DisplayName));
