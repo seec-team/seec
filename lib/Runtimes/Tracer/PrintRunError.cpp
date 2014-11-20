@@ -42,7 +42,7 @@ void PrintRunError(seec::runtime_errors::RunError const &Error,
 {
   using namespace seec::runtime_errors;
 
-  auto MaybeDesc = Description::create(Error);
+  auto MaybeDesc = Description::create(Error, AugmentationCallbackFn{});
   if (!MaybeDesc.assigned<std::unique_ptr<Description>>())
     return;
 

@@ -135,7 +135,9 @@ root:table {
     PointerArithmeticResultInvalid:string {
       "Result of pointer arithmetic is invalid because it does not point to the"
       " same object as the base pointer."
-      " This might be caused by accessing an array using an invalid index."
+      " This might be caused by accessing an array using an invalid index.\n"
+      "$[runerr:PointerArithmeticResultInvalid]"
+      "$[concept:pointers]"
     }
 
     // object

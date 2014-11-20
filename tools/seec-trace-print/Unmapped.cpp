@@ -269,7 +269,8 @@ void PrintUnmapped()
           if (RunErr.first) {
             using namespace seec::runtime_errors;
 
-            auto MaybeDesc = Description::create(*RunErr.first);
+            auto MaybeDesc = Description::create(*RunErr.first,
+                                                 AugmentationCallbackFn{});
 
             if (MaybeDesc.assigned(0)) {
               DescriptionPrinterUnicode Printer(MaybeDesc.move<0>(),

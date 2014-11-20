@@ -49,9 +49,11 @@ RuntimeErrorState(FunctionState &WithParent,
 {}
 
 void RuntimeErrorState::print(llvm::raw_ostream &Out,
-                              seec::util::IndentationGuide &Indentation) const
+                              seec::util::IndentationGuide &Indentation,
+                              AugmentationCallbackFn Augmenter)
+const
 {
-  auto const MaybeDescription = getDescription();
+  auto const MaybeDescription = getDescription(Augmenter);
   assert(MaybeDescription.assigned());
   
   if (MaybeDescription.assigned(0)) {
@@ -82,8 +84,8 @@ seec::runtime_errors::RunError const &RuntimeErrorState::getRunError() const {
 }
 
 seec::Maybe<std::unique_ptr<seec::runtime_errors::Description>, seec::Error>
-RuntimeErrorState::getDescription() const {
-  return seec::runtime_errors::Description::create(getRunError());
+RuntimeErrorState::getDescription(AugmentationCallbackFn Augmenter) const {
+  return seec::runtime_errors::Description::create(getRunError(), Augmenter);
 }
 
 clang::Decl const *RuntimeErrorState::getDecl() const {
@@ -127,7 +129,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               RuntimeErrorState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

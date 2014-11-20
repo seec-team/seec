@@ -98,12 +98,13 @@ Formattable formatArg(Arg const &A) {
 //===----------------------------------------------------------------------===//
 
 seec::Maybe<std::unique_ptr<Description>, seec::Error>
-Description::create(RunError const &Error) {
+Description::create(RunError const &Error, AugmentationCallbackFn Augmenter)
+{
   // Create descriptions for all of the additional errors.
   std::vector<std::unique_ptr<Description>> AdditionalDescriptions;
   
   for (auto const &Additional : Error.additional()) {
-    auto AddDescription = Description::create(*Additional);
+    auto AddDescription = Description::create(*Additional, Augmenter);
     
     if (AddDescription.assigned<seec::Error>()) {
       return seec::Maybe<std::unique_ptr<Description>, seec::Error>
@@ -124,7 +125,7 @@ Description::create(RunError const &Error) {
                                               Locale(),
                                               Status,
                                               "descriptions");
-  auto const Message = Descriptions.getStringEx(DescriptionKey, Status);
+  auto Message = Descriptions.getStringEx(DescriptionKey, Status);
   
   if (!U_SUCCESS(Status))
     return seec::Error(
@@ -132,6 +133,10 @@ Description::create(RunError const &Error) {
                                        {"errors", "DescriptionNotFound"},
                                        std::make_pair("key", DescriptionKey)));
   
+  // Apply or remove augmentations.
+  Message = augment(std::move(Message), Augmenter);
+  Message.trim();
+
   // Format the arguments.
   seec::icu::FormatArgumentsWithNames DescriptionArguments;
   

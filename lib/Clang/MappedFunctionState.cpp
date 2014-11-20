@@ -461,7 +461,9 @@ FunctionState::FunctionState(ThreadState &WithParent,
 FunctionState::~FunctionState() = default;
 
 void FunctionState::print(llvm::raw_ostream &Out,
-                          seec::util::IndentationGuide &Indentation) const
+                          seec::util::IndentationGuide &Indentation,
+                          AugmentationCallbackFn Augmenter)
+const
 {
   Out << Indentation.getString()
       << "Function \"" << this->getNameAsString() << "\"\n";
@@ -522,7 +524,7 @@ void FunctionState::print(llvm::raw_ostream &Out,
       Indentation.indent();
       
       for (auto const &Error : RuntimeErrors)
-        Error.print(Out, Indentation);
+        Error.print(Out, Indentation, Augmenter);
       
       Indentation.unindent();
     }
@@ -617,7 +619,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               FunctionState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

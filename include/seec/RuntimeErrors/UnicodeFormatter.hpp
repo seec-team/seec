@@ -14,6 +14,7 @@
 #ifndef SEEC_RUNTIMEERRORS_UNICODEFORMATTER_HPP
 #define SEEC_RUNTIMEERRORS_UNICODEFORMATTER_HPP
 
+#include "seec/ICU/Augmenter.hpp"
 #include "seec/ICU/Indexing.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -47,7 +48,7 @@ public:
   /// \brief Attempt to create a Description of the given RunError.
   ///
   static seec::Maybe<std::unique_ptr<Description>, seec::Error>
-  create(RunError const &Error);
+  create(RunError const &Error, AugmentationCallbackFn Augmenter);
   
   /// \brief Get a textual description of the parent error.
   ///

@@ -16,6 +16,8 @@
 #ifndef SEEC_CLANG_MAPPEDTHREADSTATE_HPP
 #define SEEC_CLANG_MAPPEDTHREADSTATE_HPP
 
+#include "seec/ICU/Augmenter.hpp"
+
 #include <functional>
 #include <memory>
 #include <vector>
@@ -92,7 +94,8 @@ public:
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
-             seec::util::IndentationGuide &Indentation) const;
+             seec::util::IndentationGuide &Indentation,
+             AugmentationCallbackFn Augmenter) const;
   
   
   /// \name Access underlying information.

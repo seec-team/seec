@@ -100,7 +100,9 @@ void ProcessState::cacheClear() {
 }
 
 void ProcessState::print(llvm::raw_ostream &Out,
-                         seec::util::IndentationGuide &Indentation) const
+                         seec::util::IndentationGuide &Indentation,
+                         AugmentationCallbackFn Augmenter)
+const
 {
   Out << "Process State @" << this->getProcessTime() << "\n";
   
@@ -168,7 +170,7 @@ void ProcessState::print(llvm::raw_ostream &Out,
       
       {
         Indentation.indent();
-        this->getThread(i).print(Out, Indentation);
+        this->getThread(i).print(Out, Indentation, Augmenter);
         Indentation.unindent();
       }
     }
@@ -270,7 +272,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

@@ -15,6 +15,7 @@
 #define SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/ICU/Augmenter.hpp"
 #include "seec/Util/Range.hpp"
 
 #include <string>
@@ -208,7 +209,8 @@ public:
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
-             seec::util::IndentationGuide &Indentation) const;
+             seec::util::IndentationGuide &Indentation,
+             AugmentationCallbackFn Augmenter) const;
   
   
   /// \name Access underlying information.

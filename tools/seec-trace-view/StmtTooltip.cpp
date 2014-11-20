@@ -54,12 +54,13 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
     TipString << E->getType().getAsString() << "\n";
 
   auto const &Augmentations = wxGetApp().getAugmentations();
+  auto Augmenter = Augmentations.getCallbackFn();
 
   // Attempt to get a general explanation of the statement.
   auto const MaybeExplanation =
     seec::clang_epv::explain(Stmt,
                              RuntimeValueLookupForFunction{&ActiveFunction},
-                             Augmentations.getCallbackFn());
+                             Augmenter);
 
   if (MaybeExplanation.assigned(0)) {
     auto const &Explanation = MaybeExplanation.get<0>();
@@ -73,7 +74,7 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
     if (RuntimeError.getStmt() != Stmt)
       continue;
 
-    auto const MaybeDescription = RuntimeError.getDescription();
+    auto const MaybeDescription = RuntimeError.getDescription(Augmenter);
     if (MaybeDescription.assigned(0)) {
       auto const &Description = MaybeDescription.get<0>();
       if (TipString.size())

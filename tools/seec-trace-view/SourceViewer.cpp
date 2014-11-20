@@ -26,6 +26,7 @@
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "clang/Basic/SourceManager.h"
@@ -51,6 +52,7 @@
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
 #include <functional>
@@ -1429,8 +1431,10 @@ void
 SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                                     seec::cm::FunctionState const &InFunction)
 {
+  auto const &Augmentations = wxGetApp().getAugmentations();
+
   // Generate a localised textual description of the error.
-  auto MaybeDesc = Error.getDescription();
+  auto MaybeDesc = Error.getDescription(Augmentations.getCallbackFn());
   
   if (MaybeDesc.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
