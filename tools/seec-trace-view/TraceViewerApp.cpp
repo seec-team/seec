@@ -354,19 +354,7 @@ static void loadAugmentations(seec::AugmentationCollection &Augs,
 {
   auto Path = wxFileName::DirName(ResourcePath);
   Path.AppendDir("augment");
-
-  wxDir Dir(Path.GetFullPath());
-  if (!Dir.IsOpened())
-    return;
-
-  wxString File;
-  bool GotFile = Dir.GetFirst(&File, "*.xml");
-
-  while (GotFile) {
-    Path.SetName(File);
-    Augs.loadFromFile(Path.GetFullPath());
-    GotFile = Dir.GetNext(&File);
-  }
+  Augs.loadFromDirectory(Path.GetFullPath());
 }
 
 bool TraceViewerApp::OnInit() {

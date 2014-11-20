@@ -41,6 +41,8 @@ public:
 
   void loadFromFile(wxString const &Path);
 
+  void loadFromDirectory(wxString const &Path);
+
   wxString getAugmentationFor(wxString const &Type,
                               wxString const &Identifier,
                               ::icu::Locale const &Loc) const;

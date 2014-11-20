@@ -17,8 +17,10 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
-#include <wx/xml/xml.h>
+#include <wx/dir.h>
+#include <wx/filename.h>
 #include <wx/log.h>
+#include <wx/xml/xml.h>
 
 #include <algorithm>
 
@@ -35,6 +37,23 @@ void AugmentationCollection::loadFromFile(wxString const &Path)
     return;
 
   m_XmlDocuments.emplace_back(std::move(Doc));
+}
+
+void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
+{
+  wxDir Dir(DirPath);
+  if (!Dir.IsOpened())
+    return;
+
+  auto Path = wxFileName::DirName(DirPath);
+  wxString File;
+  bool GotFile = Dir.GetFirst(&File, "*.xml");
+
+  while (GotFile) {
+    Path.SetName(File);
+    loadFromFile(Path.GetFullPath());
+    GotFile = Dir.GetNext(&File);
+  }
 }
 
 bool getStringsForAugFromPackageForLocale(wxXmlNode *Augmentations,
