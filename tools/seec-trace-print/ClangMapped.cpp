@@ -28,7 +28,9 @@
 #include "seec/Util/Error.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
+#include "seec/Util/Printing.hpp"
 #include "seec/Util/Resources.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -105,7 +107,8 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
   Stream << DotString;
 }
 
-void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
+void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace,
+                            seec::AugmentationCollection const &Augmentations)
 {
   seec::cm::ProcessState State(Trace);
 
@@ -139,10 +142,13 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
   if (State.getThreadCount() == 1) {
     llvm::outs() << "Using thread-level iterator.\n";
     auto const WriteGraphs = !OutputForDot.empty() || TestGraphGeneration;
+    seec::util::IndentationGuide Indent("  ");
+    auto Augmenter = Augmentations.getCallbackFn();
 
     do {
       // Write textual description to stdout.
-      llvm::outs() << State << "\n";
+      State.print(llvm::outs(), Indent, Augmenter);
+      llvm::outs() << "\n";
 
       // If enabled, write graphs in dot format.
       if (WriteGraphs) {
@@ -180,7 +186,7 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace)
   }
 }
 
-void PrintClangMapped()
+void PrintClangMapped(seec::AugmentationCollection const &Augmentations)
 {
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
@@ -207,7 +213,7 @@ void PrintClangMapped()
   auto CMProcessTrace = CMProcessTraceLoad.move<0>();
 
   if (ShowStates) {
-    PrintClangMappedStates(*CMProcessTrace);
+    PrintClangMappedStates(*CMProcessTrace, Augmentations);
   }
   else if (OnlinePythonTutor) {
     PrintOnlinePythonTutor(*CMProcessTrace,

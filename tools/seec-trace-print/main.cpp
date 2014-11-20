@@ -29,6 +29,8 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Resources.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
+#include "seec/wxWidgets/Config.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -133,11 +135,20 @@ int main(int argc, char **argv, char * const *envp) {
     exit(EXIT_FAILURE);
   }
 
+  // Attempt to get common config files.
+  if (!seec::setupCommonConfig()) {
+    llvm::errs() << "Failed to setup configuration.\n";
+  }
+
+  // Load augmentations.
+  seec::AugmentationCollection Augmentations;
+  Augmentations.loadFromResources(ResourcePath);
+
   if (UseClangMapping || OnlinePythonTutor) {
-    PrintClangMapped();
+    PrintClangMapped(Augmentations);
   }
   else {
-    PrintUnmapped();
+    PrintUnmapped(Augmentations);
   }
   
   return EXIT_SUCCESS;

@@ -56,6 +56,13 @@ void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
   }
 }
 
+void AugmentationCollection::loadFromResources(std::string const &ResourcePath)
+{
+  auto Path = wxFileName::DirName(ResourcePath);
+  Path.AppendDir("augment");
+  loadFromDirectory(Path.GetFullPath());
+}
+
 bool getStringsForAugFromPackageForLocale(wxXmlNode *Augmentations,
                                           wxString const &Name,
                                           wxString const &ID,

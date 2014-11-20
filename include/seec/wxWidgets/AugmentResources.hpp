@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 class wxString;
@@ -42,6 +43,8 @@ public:
   void loadFromFile(wxString const &Path);
 
   void loadFromDirectory(wxString const &Path);
+
+  void loadFromResources(std::string const &ResourcePath);
 
   wxString getAugmentationFor(wxString const &Type,
                               wxString const &Identifier,

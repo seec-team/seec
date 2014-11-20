@@ -16,6 +16,7 @@
 #include "seec/Util/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
+#include "seec/wxWidgets/Config.hpp"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
@@ -27,7 +28,6 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 #include <wx/wx.h>
 #include <wx/cmdline.h>
-#include <wx/config.h>
 #include <wx/dir.h>
 #include <wx/filesys.h>
 #include <wx/ipc.h>
@@ -349,19 +349,15 @@ TraceViewerApp::~TraceViewerApp()
   curl_global_cleanup();
 }
 
-static void loadAugmentations(seec::AugmentationCollection &Augs,
-                              std::string const &ResourcePath)
-{
-  auto Path = wxFileName::DirName(ResourcePath);
-  Path.AppendDir("augment");
-  Augs.loadFromDirectory(Path.GetFullPath());
-}
-
 bool TraceViewerApp::OnInit() {
   // Find the path to the executable.
   auto &StdPaths = wxStandardPaths::Get();
   auto const ExecutablePath = StdPaths.GetExecutablePath().ToStdString();
-  
+
+  // Set the app name to "seec" so that we share configuration with other
+  // SeeC applications (and the runtime library).
+  this->SetAppName("seec");
+
   // Load ICU resources for TraceViewer. Do this before calling wxApp's default
   // behaviour, so that OnInitCmdLine and OnCmdLineParsed have access to the
   // localized resources.
@@ -399,33 +395,17 @@ bool TraceViewerApp::OnInit() {
   // Setup server to receive information from other instances (see above).
   Server = SingleInstanceServer::create();
 
-  // Setup the configuration to use a file in the user's data directory. If we
-  // don't do this ourselves then the default places the config file in the same
-  // path as the directory would take, causing an unfortunate collision.
-  wxFileName ConfigPath;
-  ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
-  
-  if (!wxDirExists(ConfigPath.GetFullPath())) {
-    if (!wxMkdir(ConfigPath.GetFullPath())) {
-      HandleFatalError("Couldn't create local data directory!");
-    }
+  // Setup our configuration file location.
+  if (!seec::setupCommonConfig()) {
+    HandleFatalError("Failed to setup configuration.");
   }
-  
-  ConfigPath.SetFullName("config");
-  auto const Config =
-    new wxFileConfig(wxEmptyString, wxEmptyString, ConfigPath.GetFullPath());
-  
-  if (!Config)
-    HandleFatalError("Couldn't create config file!");
-  
-  wxConfigBase::Set(Config);
   
   // Set ICU's default Locale according to the user's preferences.
   UErrorCode Status = U_ZERO_ERROR;
   icu::Locale::setDefault(getLocale(), Status);
 
   // Load resource augmentations from the resource directory.
-  loadAugmentations(*Augmentations, ResourcePath);
+  Augmentations->loadFromResources(ResourcePath);
 
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.

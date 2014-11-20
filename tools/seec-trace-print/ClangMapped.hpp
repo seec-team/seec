@@ -14,6 +14,10 @@
 #ifndef SEEC_TRACE_PRINT_CLANGMAPPED_HPP
 #define SEEC_TRACE_PRINT_CLANGMAPPED_HPP
 
-void PrintClangMapped();
+namespace seec {
+  class AugmentationCollection;
+}
+
+void PrintClangMapped(seec::AugmentationCollection const &Augmentations);
 
 #endif // SEEC_TRACE_PRINT_CLANGMAPPED_HPP

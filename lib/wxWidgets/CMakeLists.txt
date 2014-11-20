@@ -21,6 +21,7 @@ set(HEADERS
   ../../include/seec/wxWidgets/AugmentResources.hpp
   ../../include/seec/wxWidgets/CallbackFSHandler.hpp
   ../../include/seec/wxWidgets/CleanPreprocessor.h
+  ../../include/seec/wxWidgets/Config.hpp
   ../../include/seec/wxWidgets/ICUBundleFSHandler.hpp
   ../../include/seec/wxWidgets/ImageResources.hpp
   ../../include/seec/wxWidgets/StringConversion.hpp
@@ -30,6 +31,7 @@ set(HEADERS
 set(SOURCES
   AugmentResources.cpp
   CallbackFSHandler.cpp
+  Config.cpp
   ICUBundleFSHandler.cpp
   ImageResources.cpp
   StringConversion.cpp

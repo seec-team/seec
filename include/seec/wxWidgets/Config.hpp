@@ -1,4 +1,4 @@
-//===- tools/seec-trace-print/Unmapped.hpp --------------------------------===//
+//===- include/seec/wxWidgets/Config.hpp ---------------------------- C++ -===//
 //
 //                                    SeeC
 //
@@ -11,13 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef SEEC_TRACE_PRINT_UNMAPPED_HPP
-#define SEEC_TRACE_PRINT_UNMAPPED_HPP
+#ifndef SEEC_WXWIDGETS_CONFIG_HPP
+#define SEEC_WXWIDGETS_CONFIG_HPP
 
 namespace seec {
-  class AugmentationCollection;
-}
 
-void PrintUnmapped(seec::AugmentationCollection const &Augmentations);
+bool setupCommonConfig();
 
-#endif // SEEC_TRACE_PRINT_UNMAPPED_HPP
+} // namespace seec
+
+#endif // SEEC_WXWIDGETS_CONFIG_HPP

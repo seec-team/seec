@@ -29,6 +29,7 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Resources.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -88,7 +89,7 @@ namespace seec {
 
 using namespace seec::trace_print;
 
-void PrintUnmapped()
+void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
 {
   auto &Context = llvm::getGlobalContext();
 
@@ -270,7 +271,7 @@ void PrintUnmapped()
             using namespace seec::runtime_errors;
 
             auto MaybeDesc = Description::create(*RunErr.first,
-                                                 AugmentationCallbackFn{});
+                                                 Augmentations.getCallbackFn());
 
             if (MaybeDesc.assigned(0)) {
               DescriptionPrinterUnicode Printer(MaybeDesc.move<0>(),
