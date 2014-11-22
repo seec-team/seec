@@ -28,6 +28,17 @@ wxString towxString(UnicodeString const &icu) {
   return wxString(Buffer.c_str(), wxConvUTF8);
 }
 
+wxString towxString(Resource const &R)
+{
+  return towxString(R.asString());
+}
+
+wxString towxStringOr(Resource const &R, wxString const &Default)
+{
+  auto const Str = R.asString();
+  return U_SUCCESS(R.status()) ? towxString(Str) : Default;
+}
+
 UnicodeString toUnicodeString(wxString const &wx) {
   return UnicodeString::fromUTF8(wx.utf8_str().data());
 }

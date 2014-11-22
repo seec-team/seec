@@ -24,9 +24,17 @@
 namespace seec {
 
 class Error;
+class Resource;
 
 /// \brief Convert a UnicodeString into a wxString.
 wxString towxString(UnicodeString const &icu);
+
+/// \brief Convert a \c seec::Resource into a \c wxString.
+wxString towxString(Resource const &R);
+
+/// \brief Convert a \c seec::Resource into a \c wxString.
+/// If the conversion fails, use the provided default.
+wxString towxStringOr(Resource const &R, wxString const &Default);
 
 /// \brief Convert a wxString into a UnicodeString.
 UnicodeString toUnicodeString(wxString const &wx);
