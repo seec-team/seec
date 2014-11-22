@@ -27,17 +27,38 @@
 
 namespace seec {
 
+bool isAugmentation(wxXmlDocument const &Doc)
+{
+  if (!Doc.IsOk())
+    return false;
+
+  auto const RootNode = Doc.GetRoot();
+  if (!RootNode || RootNode->GetName() != "package")
+    return false;
+
+  return true;
+}
+
 AugmentationCollection::AugmentationCollection() = default;
 
 AugmentationCollection::~AugmentationCollection() = default;
 
+bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc)
+{
+  if (!isAugmentation(*Doc))
+    return false;
+
+  m_XmlDocuments.emplace_back(std::move(Doc));
+  return true;
+}
+
 void AugmentationCollection::loadFromFile(wxString const &Path)
 {
   auto Doc = seec::makeUnique<wxXmlDocument>(Path);
-  if (!Doc)
+  if (!Doc || !Doc->IsOk())
     return;
 
-  m_XmlDocuments.emplace_back(std::move(Doc));
+  loadFromDoc(std::move(Doc));
 }
 
 void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
@@ -64,11 +85,16 @@ void AugmentationCollection::loadFromResources(std::string const &ResourcePath)
   loadFromDirectory(Path.GetFullPath());
 }
 
-void AugmentationCollection::loadFromUserLocalDataDir()
+wxString AugmentationCollection::getUserLocalDataDirForAugmentations()
 {
   auto Path = wxFileName::DirName(wxStandardPaths::Get().GetUserLocalDataDir());
   Path.AppendDir("augment");
-  loadFromDirectory(Path.GetFullPath());
+  return Path.GetFullPath();
+}
+
+void AugmentationCollection::loadFromUserLocalDataDir()
+{
+  loadFromDirectory(getUserLocalDataDirForAugmentations());
 }
 
 bool getStringsForAugFromPackageForLocale(wxXmlNode *Augmentations,

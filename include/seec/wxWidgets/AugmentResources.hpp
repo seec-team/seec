@@ -30,6 +30,11 @@ class wxXmlDocument;
 namespace seec {
 
 
+/// \brief Checks if a \x wxXmlDocument is a valid augmentation.
+///
+bool isAugmentation(wxXmlDocument const &Doc);
+
+
 /// \brief Holds augmentations for ICU resources.
 ///
 class AugmentationCollection final {
@@ -40,11 +45,15 @@ public:
 
   ~AugmentationCollection();
 
+  bool loadFromDoc(std::unique_ptr<wxXmlDocument> Doc);
+
   void loadFromFile(wxString const &Path);
 
   void loadFromDirectory(wxString const &Path);
 
   void loadFromResources(std::string const &ResourcePath);
+
+  static wxString getUserLocalDataDirForAugmentations();
 
   void loadFromUserLocalDataDir();
 
