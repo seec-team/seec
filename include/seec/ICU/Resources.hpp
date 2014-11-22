@@ -182,6 +182,14 @@ class Resource final {
   {}
 
 public:
+  /// \brief Construct a new \c Resource representing an entire package in the
+  ///        default locale.
+  ///
+  Resource(char const * const Package)
+  : m_Status(U_ZERO_ERROR),
+    m_Bundle(Package, ::icu::Locale::getDefault(), m_Status)
+  {}
+
   /// \brief Construct a new \c Resource representing an entire package in a
   ///        given locale.
   ///
