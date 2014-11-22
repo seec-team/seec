@@ -22,6 +22,7 @@
 
 #include <vector>
 
+#include "AugmentationSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "Preferences.hpp"
 
@@ -50,14 +51,18 @@ public:
     auto const ResText = ResTraceViewer["GUIText"]["PreferenceDialog"];
     auto const Title = seec::towxString(ResText["Title"].asStringOrDefault(""));
 
-    if (!wxDialog::Create(nullptr, wxID_ANY, Title))
+    if (!wxDialog::Create(nullptr, wxID_ANY, Title, wxDefaultPosition,
+                          wxSize(700, 300)))
+    {
       return;
+    }
 
     // Create book to hold the individual preference frames.
     m_Book = new wxListbook(this, wxID_ANY);
 
     // Create individual pages of the book.
     AddPage(new LocaleSettingsWindow(this));
+    AddPage(new AugmentationSettingsWindow(this));
 
     // Create accept/cancel buttons.
     auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
@@ -80,7 +85,8 @@ public:
                                             .Border(BorderDir | wxBOTTOM,
                                                     BorderSize));
 
-    SetSizerAndFit(ParentSizer);
+    // SetSizerAndFit(ParentSizer);
+    SetSizer(ParentSizer);
   }
 
   virtual ~PreferenceDialog() = default;

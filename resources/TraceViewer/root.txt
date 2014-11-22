@@ -148,7 +148,7 @@ root:table {
     //
 
     LocaleSettingsDialog:table {
-      Title:string {"Locale settings"}
+      Title:string {"Locale"}
     }
 
 
@@ -158,6 +158,33 @@ root:table {
 
     PreferenceDialog:table {
       Title:string {"Preferences"}
+    }
+
+
+    //
+    // Augmentation settings
+    //
+
+    AugmentationSettings:table {
+      Title:string {"Augmentations"}
+
+      Download:string {"Download new augmentation"}
+
+      DownloadMessage:string {"URL"}
+
+      DownloadCaption:string {"Enter augmentation location"}
+
+      DownloadingTitle:string {"Downloading augmentation"}
+
+      DownloadingMessage:string {"Progress"}
+
+      FailCaption:string {"Download failed"}
+
+      InvalidTitle:string {"Invalid augmentation"}
+
+      InvalidMessage:string {"Invalid augmentation"}
+
+      SaveFailTitle:string {"Couldn't save augmentation"}
     }
   }
 

@@ -18,7 +18,6 @@
 #include <wx/bitmap.h>
 #include <wx/bmpcbox.h>
 #include <wx/config.h>
-#include <wx/frame.h>
 #include <wx/log.h>
 #include <wx/sizer.h>
 #include <wx/stdpaths.h>
@@ -146,9 +145,7 @@ bool LocaleSettingsWindow::Create(wxWindow *Parent)
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
-  ParentSizer->Add(m_Selector, wxSizerFlags().Proportion(1)
-                                             .Expand()
-                                             .Border(wxALL, 5));
+  ParentSizer->Add(m_Selector, wxSizerFlags().Expand().Border(wxALL, 5));
 
   SetSizerAndFit(ParentSizer);
 
