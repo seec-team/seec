@@ -46,6 +46,7 @@ root:table {
     //
     Label:string {
       "This is a label named “{name}”. If execution reaches this label, or jumps to this label from another location, then the next evaluated statement will be @[stmt]the statement immediately following this label@[]."
+      "\n$[concept:label]"
     }
 
     // TypeDecl
@@ -80,6 +81,7 @@ root:table {
     //
     Typedef:string {
       "This is a typedef that associates the name “{name}” with the type “{underlying_type}”."
+      "\n$[concept:typedef]"
     }
 
     // EnumDecl
@@ -117,7 +119,7 @@ root:table {
 
       " other {This declares an enum named “{name}”. The enum is completed by a @[definition]definition@[].}}"
 
-      "\n\n$[concept:enum]"
+      "\n$[concept:enum]"
     }
 
     // RecordDecl
@@ -150,10 +152,10 @@ root:table {
     //
     Record:string {
       "{is_struct, select,"
-      " true {This declares a structure type named “{name}”.\n\n$[concept:struct]}"
+      " true {This declares a structure type named “{name}”.\n$[concept:struct]}"
       " other {"
         "{is_union, select,"
-        " true {This declares a union type named “{name}”.}"
+        " true {This declares a union type named “{name}”.\n$[concept:union]}"
         " other {"
           "This declares a record type named “{name}”."
         "}}"
@@ -177,7 +179,8 @@ root:table {
     //   [Expr] init_expr
     //
     EnumConstant:string {
-      "This is an enum constant named “{name}”.\n\n$[concept:enum]"
+      "This is an enum constant named “{name}”."
+      "\n$[concept:enum]"
     }
 
     // IndirectFieldDecl
@@ -197,6 +200,7 @@ root:table {
     //
     IndirectField:string {
       "This represents the @[anon_field]field named “{name}”@[], included in the parent scope by an anonymous union or struct."
+      "\n$[concept:anonymous record]"
     }
 
     // FunctionDecl
@@ -215,6 +219,7 @@ root:table {
     //
     Function:string {
       "This declares a function named “{name}”."
+      "\n$[concept:function declaration]"
     }
 
     // FieldDecl
@@ -243,6 +248,7 @@ root:table {
     //
     Field:string {
       "This declares a field named “{name}”, with type “{type}”, in @[parent]the enclosing record type@[]."
+      "\n$[concept:field declaration]"
     }
 
     // VarDecl
@@ -277,6 +283,7 @@ root:table {
     //
     Var:string {
       "This declares a variable named “{name}”, with type “{type}”."
+      "\n$[concept:variable declaration]"
 
       "{is_static_local, select,"
       " true {\n\nThis is a local static variable. $[concept:local static]}"
@@ -320,6 +327,7 @@ root:table {
     //
     ParmVar:string {
       "This declares a parameter named “{name}”, with type “{type}”."
+      "\n$[concept:parameter declaration]"
     }
 
     // LinkageSpecDecl
@@ -555,6 +563,7 @@ root:table {
       " If the @[lhs]left hand side@[] of this statement matches the value of the condition in the immediately enclosing switch statement, then the execution of the switch statement's body will begin with the @[rhs]right hand side@[] of this case."
       " If a break statement is encountered, then execution will jump to the end of the immediately enclosing switch statement."
       " If the end of this case is reached, then execution will proceed to the @[next_switch_case]next case@[], if one exists, otherwise it will proceed from the end of the immediately enclosing switch statement."
+      "\n$[concept:case statement]"
     }
 
     // CallExpr
@@ -688,6 +697,8 @@ root:table {
 
       " other {Unknown CompoundAssignOperator: {opcode}.}"
       "}"
+
+      "\n$[concept:compound assignment]"
     }
 
     // CompoundLiteralExpr
@@ -740,6 +751,7 @@ root:table {
       " the @[true_expr]true-expression@[]. Otherwise the @[false_expr]false-expression@[]"
       " is evaluated and the result of the conditional operator is the result of"
       " the @[false_expr]false-expression@[]."
+      "\n$[concept:conditional operator]"
     }
 
     // ContinueStmt
@@ -772,6 +784,7 @@ root:table {
       "This is an explicit cast expression."
       " It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it to a new type."
       " In this case the new type is “{type_as_written}”."
+      "\n$[concept:explicit cast]"
     }
 
     // DeclRefExpr
@@ -828,6 +841,7 @@ root:table {
       " reached, then execution will proceed to the"
       " @[next_switch_case]next case@[], if one exists, otherwise it will"
       " proceed from the end of the switch statement."
+      "\n$[concept:default statement]"
     }
 
     // DoStmt
@@ -848,6 +862,7 @@ root:table {
       " then execution transfers to the beginning of the loop:"
       " the @[body]body@[] is evaluated again, followed by the @[cond]condition@[]."
       " This continues until the @[cond]condition@[]'s result is false (zero)."
+      "\n$[concept:do while]"
     }
 
     // FloatingLiteral
@@ -910,6 +925,8 @@ root:table {
       " and before the @[inc]increment expression@[] is evaluated)."
       "{has_body, select, false { This for loop's body is empty.}"
                         " other {}}"
+
+      "\n$[concept:for]"
     }
 
     // GotoStmt
@@ -924,6 +941,7 @@ root:table {
       " There are many safety problems associated with using goto statements."
       " You should prefer to structure your code using if statements,"
       " switch statements, for loops, and while loops."
+      "\n$[concept:goto]"
     }
 
     // IfStmt
@@ -975,6 +993,8 @@ root:table {
                 " then the @[then]body@[] will be executed.}"
          "other {}}}"
        "other {}}"
+
+       "\n$[concept:if]"
     }
 
     // ImaginaryLiteral
@@ -1124,6 +1144,7 @@ root:table {
       " It wraps the contained @[sub_expr]sub-expression@[]."
       " This can be used, for example, to ensure that mathematical operators"
       " are associated with the intended operands."
+      "\n$[concept:parentheses]"
     }
 
     // PredefinedExpr
@@ -1161,6 +1182,8 @@ root:table {
       "{has_rtv_of_return_value, select,"
       " true  { This return statement is returning the value “{rtv_of_return_value}”.}"
       " other {}}"
+
+      "\n$[concept:return]"
     }
 
     // StringLiteral
@@ -1213,6 +1236,7 @@ root:table {
       " statement. Otherwise, execution will jump to the end of the"
       " @[body]body@[] (i.e. it will proceed from the first point immediately"
       " following the switch statement)."
+      "\n$[concept:switch]"
     }
 
     // UnaryExprOrTypeTraitExpr
@@ -1236,7 +1260,9 @@ root:table {
                 " @[argument_expr]expression@[], which has type {argument_type}."
                 " This operation returns the size of the type, which is the"
                 " number of bytes needed to store one object of this type.}"
-        " other {}}}"
+        " other {}}"
+        "\n$[concept:sizeof]"
+        "}"
 
       " UETT_AlignOf {"
         "{is_argument_type, select,"
@@ -1356,6 +1382,8 @@ root:table {
       " produced by the @[cond]condition expression@[] is false (zero), then"
       " the loop is terminated and execution proceeds to the first statement"
       " following the end of the @[body]body@[]."
+
+      "\n$[concept:while]"
     }
 
     // InitListExpr
