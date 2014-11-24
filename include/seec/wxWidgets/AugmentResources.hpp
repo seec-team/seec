@@ -15,6 +15,7 @@
 #define SEEC_WXWIDGETS_AUGMENTRESOURCES_HPP
 
 #include "seec/ICU/Augmenter.hpp"
+#include "seec/Util/Maybe.hpp"
 
 #include <unicode/locid.h>
 #include <unicode/unistr.h>
@@ -35,10 +36,34 @@ namespace seec {
 bool isAugmentation(wxXmlDocument const &Doc);
 
 
+/// \brief Represents a single augmentation file.
+///
+class Augmentation final {
+  std::unique_ptr<wxXmlDocument> m_XmlDocument;
+
+  Augmentation(std::unique_ptr<wxXmlDocument> Doc);
+
+public:
+  ~Augmentation();
+
+  Augmentation(Augmentation &&) = default;
+
+  Augmentation &operator=(Augmentation &&) = default;
+
+  static Maybe<Augmentation> fromDoc(std::unique_ptr<wxXmlDocument> Doc);
+
+  wxXmlDocument const &getXmlDocument() const { return *m_XmlDocument; }
+
+  wxString getName() const;
+
+  wxString getID() const;
+};
+
+
 /// \brief Holds augmentations for ICU resources.
 ///
 class AugmentationCollection final {
-  std::vector<std::unique_ptr<wxXmlDocument>> m_XmlDocuments;
+  std::vector<Augmentation> m_Augmentations;
 
 public:
   AugmentationCollection();

@@ -36,8 +36,37 @@ bool isAugmentation(wxXmlDocument const &Doc)
   if (!RootNode || RootNode->GetName() != "package")
     return false;
 
+  if (!RootNode->HasAttribute("name") || !RootNode->HasAttribute("id"))
+    return false;
+
   return true;
 }
+
+
+Augmentation::Augmentation(std::unique_ptr<wxXmlDocument> Doc)
+: m_XmlDocument(std::move(Doc))
+{}
+
+Augmentation::~Augmentation() = default;
+
+Maybe<Augmentation> Augmentation::fromDoc(std::unique_ptr<wxXmlDocument> Doc)
+{
+  if (!isAugmentation(*Doc))
+    return Maybe<Augmentation>();
+
+  return Augmentation(std::move(Doc));
+}
+
+wxString Augmentation::getName() const
+{
+  return m_XmlDocument->GetRoot()->GetAttribute("name");
+}
+
+wxString Augmentation::getID() const
+{
+  return m_XmlDocument->GetRoot()->GetAttribute("id");
+}
+
 
 AugmentationCollection::AugmentationCollection() = default;
 
@@ -45,10 +74,11 @@ AugmentationCollection::~AugmentationCollection() = default;
 
 bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc)
 {
-  if (!isAugmentation(*Doc))
+  auto MaybeAug = Augmentation::fromDoc(std::move(Doc));
+  if (!MaybeAug.assigned())
     return false;
 
-  m_XmlDocuments.emplace_back(std::move(Doc));
+  m_Augmentations.push_back(MaybeAug.move<Augmentation>());
   return true;
 }
 
@@ -161,8 +191,8 @@ wxString AugmentationCollection::getAugmentationFor(wxString const &Type,
 const
 {
   std::vector<wxString> Strings;
-  for (auto const &Doc : m_XmlDocuments)
-    getStringsForAugFromDoc(*Doc, Type, Identifier, Loc, Strings);
+  for (auto const &A : m_Augmentations)
+    getStringsForAugFromDoc(A.getXmlDocument(), Type, Identifier, Loc, Strings);
 
   wxString Combined;
   for (auto &String : Strings)
