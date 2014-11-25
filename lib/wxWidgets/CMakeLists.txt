@@ -44,3 +44,19 @@ INSTALL(TARGETS SeeCwxWidgets
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
+
+set(GUI_HEADERS
+  ../../include/seec/wxWidgets/AugmentationCollectionDataViewModel.hpp
+  )
+
+set(GUI_SOURCES
+  AugmentationCollectionDataViewModel.cpp
+  )
+
+add_library(SeeCwxWidgetsGUI ${GUI_HEADERS} ${GUI_SOURCES})
+
+INSTALL(TARGETS SeeCwxWidgetsGUI
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)

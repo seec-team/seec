@@ -134,6 +134,7 @@ target_link_libraries(seec-view
  SeeCICU
  SeeCUtil
  SeeCwxWidgets
+ SeeCwxWidgetsGUI
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangFrontend.a

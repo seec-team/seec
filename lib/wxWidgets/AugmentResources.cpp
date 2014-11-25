@@ -11,12 +11,14 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/wxWidgets/AugmentationCollectionDataViewModel.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
+#include <wx/dataview.h>
 #include <wx/dir.h>
 #include <wx/filename.h>
 #include <wx/log.h>
@@ -43,6 +45,10 @@ bool isAugmentation(wxXmlDocument const &Doc)
 }
 
 
+//------------------------------------------------------------------------------
+// Augmentation
+//------------------------------------------------------------------------------
+
 Augmentation::Augmentation(std::unique_ptr<wxXmlDocument> Doc)
 : m_XmlDocument(std::move(Doc))
 {}
@@ -67,6 +73,27 @@ wxString Augmentation::getID() const
   return m_XmlDocument->GetRoot()->GetAttribute("id");
 }
 
+wxString Augmentation::getSource() const
+{
+  return m_XmlDocument->GetRoot()->GetAttribute("source");
+}
+
+wxDateTime Augmentation::getDownloaded() const
+{
+  auto const Root = m_XmlDocument->GetRoot();
+  wxDateTime Ret;
+
+  if (Root->HasAttribute("downloaded")) {
+    Ret.ParseISOCombined(Root->GetAttribute("downloaded"));
+  }
+
+  return Ret;
+}
+
+
+//------------------------------------------------------------------------------
+// AugmentationCollection
+//------------------------------------------------------------------------------
 
 AugmentationCollection::AugmentationCollection() = default;
 
@@ -79,6 +106,10 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc)
     return false;
 
   m_Augmentations.push_back(MaybeAug.move<Augmentation>());
+
+  for (auto const L : m_Listeners)
+    L->DocAppended(*this);
+
   return true;
 }
 
@@ -208,6 +239,20 @@ const
   return toUnicodeString(getAugmentationFor(towxString(Type),
                                             towxString(Identifier),
                                             icu::Locale::getDefault()));
+}
+
+void AugmentationCollection::addListener(Listener * const TheListener)
+{
+  m_Listeners.push_back(TheListener);
+}
+
+void AugmentationCollection::removeListener(Listener * const TheListener)
+{
+  auto const It = std::find(m_Listeners.begin(), m_Listeners.end(),
+                            TheListener);
+
+  if (It != m_Listeners.end())
+    m_Listeners.erase(It);
 }
 
 } // namespace seec

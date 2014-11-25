@@ -15,12 +15,16 @@
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/AugmentationCollectionDataViewModel.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <llvm/Support/FileSystem.h>
 
 #include <wx/button.h>
+#include <wx/dataview.h>
+#include <wx/datetime.h>
 #include <wx/ffile.h>
 #include <wx/filename.h>
 #include <wx/log.h>
@@ -278,10 +282,24 @@ bool AugmentationSettingsWindow::Create(wxWindow* Parent)
   Button->Bind(wxEVT_BUTTON,
     seec::make_function(this, &AugmentationSettingsWindow::OnDownloadClick));
 
+  auto &Augmentations = wxGetApp().getAugmentations();
+  auto const Data = new wxDataViewCtrl(this, wxID_ANY);
+
+  Data->AssociateModel(new AugmentationCollectionDataViewModel(Augmentations));
+  Data->AppendColumn(AugmentationCollectionDataViewModel::getEnabledColumn()
+                      .release());
+  Data->AppendColumn(AugmentationCollectionDataViewModel::getNameColumn()
+                      .release());
+  Data->AppendColumn(AugmentationCollectionDataViewModel::getSourceColumn()
+                      .release());
+
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
   ParentSizer->Add(Button, wxSizerFlags().Centre().Top().Border(wxALL, 5));
+  ParentSizer->Add(Data, wxSizerFlags().Proportion(1)
+                                       .Expand()
+                                       .Border(wxALL, 5));
 
   SetSizerAndFit(ParentSizer);
 

@@ -185,6 +185,13 @@ root:table {
       InvalidMessage:string {"Invalid augmentation"}
 
       SaveFailTitle:string {"Couldn't save augmentation"}
+
+      Columns:table {
+        ID:string {"ID"}
+        Enabled:string {"Enabled"}
+        Name:string {"Name"}
+        Source:string {"Source"}
+      }
     }
   }
 
