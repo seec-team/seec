@@ -21,6 +21,7 @@
 #include <memory>
 
 class wxDataViewColumn;
+class wxDataViewItemAttr;
 class wxString;
 class wxVariant;
 
@@ -97,6 +98,10 @@ public:
   /// \brief Set the value of a cell.
   ///
   virtual bool SetValueByRow(wxVariant const &, unsigned, unsigned) override;
+
+  /// \brief Get special attributes for a cell.
+  ///
+  virtual bool GetAttrByRow(unsigned, unsigned, wxDataViewItemAttr &) const;
 
   /// @}
 

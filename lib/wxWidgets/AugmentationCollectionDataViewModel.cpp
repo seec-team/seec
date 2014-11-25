@@ -17,6 +17,7 @@
 #include "seec/Util/MakeUnique.hpp"
 
 #include <wx/log.h>
+#include <wx/settings.h>
 
 #include <string>
 
@@ -170,6 +171,20 @@ AugmentationCollectionDataViewModel::SetValueByRow(wxVariant const &Variant,
                                                    unsigned const Column)
 {
   wxLogDebug("Attempting to set value!");
+  return false;
+}
+
+bool
+AugmentationCollectionDataViewModel::GetAttrByRow(unsigned const Row,
+                                                  unsigned const Column,
+                                                  wxDataViewItemAttr &Attr)
+const
+{
+  if (!m_Collection.isActive(Row)) {
+    Attr.SetColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+    return true;
+  }
+
   return false;
 }
 

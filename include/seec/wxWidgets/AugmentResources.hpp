@@ -135,8 +135,12 @@ public:
   };
 
 private:
-  /// Holds the \c Augmentation objects.
+  /// Holds all \c Augmentation objects.
   std::vector<Augmentation> m_Augmentations;
+
+  /// Holds indices of the active \c Augmentation objects (those which are not
+  /// outdated by another \c Augmentation object).
+  std::vector<unsigned> m_ActiveAugmentations;
 
   /// All active \c Listener pointers.
   std::vector<Listener *> m_Listeners;
@@ -189,6 +193,10 @@ public:
   std::vector<Augmentation> const &getAugmentations() const {
     return m_Augmentations;
   }
+
+  /// \brief Check if the \c Augmentation at a given index is active.
+  ///
+  bool isActive(unsigned const Index) const;
 
   wxString getAugmentationFor(wxString const &Type,
                               wxString const &Identifier,

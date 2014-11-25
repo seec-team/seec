@@ -27,6 +27,8 @@
 
 #include <algorithm>
 
+using namespace std;
+
 namespace seec {
 
 bool isAugmentation(wxXmlDocument const &Doc)
@@ -134,6 +136,23 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
   for (auto const L : m_Listeners)
     L->DocAppended(*this);
 
+  // Check if this document aliases an existing document.
+  auto const &NewAug = m_Augmentations.back();
+  auto const It =
+    find_if(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(),
+      [this, &NewAug] (unsigned const Index) {
+        return m_Augmentations[Index].getID() == NewAug.getID();
+      });
+
+  if (It == m_ActiveAugmentations.end()) {
+    // This is a new document, make it active.
+    m_ActiveAugmentations.push_back(m_Augmentations.size() - 1);
+  }
+  else if (NewAug.getVersion() > m_Augmentations[*It].getVersion()) {
+    // This document aliases an existing one and is newer.
+    *It = m_Augmentations.size() - 1;
+  }
+
   return true;
 }
 
@@ -196,12 +215,56 @@ bool AugmentationCollection::deleteUserLocalAugmentation(unsigned const Index)
   if (!wxRemoveFile(m_Augmentations[Index].getPath()))
     return false;
 
+  // Store the ID so we can activate an aliasing augmentation if this
+  // augmentation was active prior to removal.
+  auto const ID = m_Augmentations[Index].getID();
+
   m_Augmentations.erase(m_Augmentations.begin() + Index);
 
   for (auto const L : m_Listeners)
     L->DocDeleted(*this, Index);
 
+  // Find the removed augmentation in the active augmentations.
+  auto const It =
+    find(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(), Index);
+
+  // Update all active augmentation indices that were higher than the removed.
+  for (auto &I : m_ActiveAugmentations)
+    if (I > Index)
+      --I;
+
+  // Update the active index of the removed augmentation (or erase it if there
+  // is no replacement augmentation).
+  if (It != m_ActiveAugmentations.end()) {
+    // Find the "max" augmentation, where an augmentation matching our removed
+    // augmentation's ID is higher than any that does not match, and
+    // augmentations that both match are ordered by their versions.
+    auto const ReplacementIt =
+      max_element(m_Augmentations.begin(), m_Augmentations.end(),
+                  [&ID] (Augmentation const &A, Augmentation const &B) {
+                    if (A.getID() != ID) return B.getID() == ID;
+                    if (B.getID() != ID) return false;
+                    return A.getVersion() < B.getVersion();
+                  });
+
+    // If we found a replacement augmentation then update the index, otherwise
+    // simply remove it.
+    if (ReplacementIt != m_Augmentations.end() && ReplacementIt->getID() == ID)
+    {
+      *It = std::distance(m_Augmentations.begin(), ReplacementIt);
+    }
+    else {
+      m_ActiveAugmentations.erase(It);
+    }
+  }
+
   return true;
+}
+
+bool AugmentationCollection::isActive(unsigned const Index) const
+{
+  return find(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(), Index)
+          != m_ActiveAugmentations.end();
 }
 
 bool getStringsForAugFromPackageForLocale(wxXmlNode *Augmentations,
@@ -268,8 +331,10 @@ wxString AugmentationCollection::getAugmentationFor(wxString const &Type,
 const
 {
   std::vector<wxString> Strings;
-  for (auto const &A : m_Augmentations)
-    getStringsForAugFromDoc(A.getXmlDocument(), Type, Identifier, Loc, Strings);
+  for (auto const Index : m_ActiveAugmentations) {
+    getStringsForAugFromDoc(m_Augmentations[Index].getXmlDocument(),
+                            Type, Identifier, Loc, Strings);
+  }
 
   wxString Combined;
   for (auto &String : Strings)
