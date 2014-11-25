@@ -117,6 +117,11 @@ public:
   virtual void DocDeleted(AugmentationCollection const &Collection,
                           unsigned const Index);
 
+  /// \brief Called when an \c Augmentation is updated.
+  ///
+  virtual void DocChanged(AugmentationCollection const &Collection,
+                          unsigned const Index);
+
   /// @}
 };
 

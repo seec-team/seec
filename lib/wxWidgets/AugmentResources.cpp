@@ -18,6 +18,7 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
+#include <wx/config.h>
 #include <wx/dataview.h>
 #include <wx/dir.h>
 #include <wx/filename.h>
@@ -114,6 +115,25 @@ unsigned Augmentation::getVersion() const
   return static_cast<unsigned>(Value);
 }
 
+static wxString getConfigKeyForAugmentation(Augmentation const &A)
+{
+  return wxString("/Augmentations/")
+          + A.getID() + "_" + std::to_string(A.getVersion());
+}
+
+bool Augmentation::isEnabled() const
+{
+  auto const Config = wxConfig::Get();
+  return Config->ReadBool(getConfigKeyForAugmentation(*this)+"/Enabled", true);
+}
+
+void Augmentation::setEnabled(bool const Value)
+{
+  auto const Config = wxConfig::Get();
+  Config->Write(getConfigKeyForAugmentation(*this)+"/Enabled", Value);
+  Config->Flush();
+}
+
 
 //------------------------------------------------------------------------------
 // AugmentationCollection
@@ -133,25 +153,10 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
 
   m_Augmentations.push_back(MaybeAug.move<Augmentation>());
 
+  activate(m_Augmentations.size() - 1);
+
   for (auto const L : m_Listeners)
     L->DocAppended(*this);
-
-  // Check if this document aliases an existing document.
-  auto const &NewAug = m_Augmentations.back();
-  auto const It =
-    find_if(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(),
-      [this, &NewAug] (unsigned const Index) {
-        return m_Augmentations[Index].getID() == NewAug.getID();
-      });
-
-  if (It == m_ActiveAugmentations.end()) {
-    // This is a new document, make it active.
-    m_ActiveAugmentations.push_back(m_Augmentations.size() - 1);
-  }
-  else if (NewAug.getVersion() > m_Augmentations[*It].getVersion()) {
-    // This document aliases an existing one and is newer.
-    *It = m_Augmentations.size() - 1;
-  }
 
   return true;
 }
@@ -215,50 +220,93 @@ bool AugmentationCollection::deleteUserLocalAugmentation(unsigned const Index)
   if (!wxRemoveFile(m_Augmentations[Index].getPath()))
     return false;
 
-  // Store the ID so we can activate an aliasing augmentation if this
-  // augmentation was active prior to removal.
-  auto const ID = m_Augmentations[Index].getID();
+  // Deactive this augmentation (this will active the next best candidate).
+  deactivate(Index);
 
   m_Augmentations.erase(m_Augmentations.begin() + Index);
-
-  for (auto const L : m_Listeners)
-    L->DocDeleted(*this, Index);
-
-  // Find the removed augmentation in the active augmentations.
-  auto const It =
-    find(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(), Index);
 
   // Update all active augmentation indices that were higher than the removed.
   for (auto &I : m_ActiveAugmentations)
     if (I > Index)
       --I;
 
-  // Update the active index of the removed augmentation (or erase it if there
-  // is no replacement augmentation).
-  if (It != m_ActiveAugmentations.end()) {
-    // Find the "max" augmentation, where an augmentation matching our removed
-    // augmentation's ID is higher than any that does not match, and
-    // augmentations that both match are ordered by their versions.
-    auto const ReplacementIt =
-      max_element(m_Augmentations.begin(), m_Augmentations.end(),
-                  [&ID] (Augmentation const &A, Augmentation const &B) {
-                    if (A.getID() != ID) return B.getID() == ID;
-                    if (B.getID() != ID) return false;
-                    return A.getVersion() < B.getVersion();
-                  });
+  for (auto const L : m_Listeners)
+    L->DocDeleted(*this, Index);
 
-    // If we found a replacement augmentation then update the index, otherwise
-    // simply remove it.
-    if (ReplacementIt != m_Augmentations.end() && ReplacementIt->getID() == ID)
-    {
-      *It = std::distance(m_Augmentations.begin(), ReplacementIt);
+  return true;
+}
+
+void AugmentationCollection::activate(unsigned const Index)
+{
+  // Check if this document aliases an existing document.
+  auto const &NewAug = m_Augmentations[Index];
+  if (!NewAug.isEnabled()) {
+    return;
+  }
+
+  auto const It =
+    find_if(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(),
+      [this, &NewAug] (unsigned const I) {
+        return m_Augmentations[I].getID() == NewAug.getID();
+      });
+
+  if (It == m_ActiveAugmentations.end()) {
+    // This is a new document, make it active.
+    m_ActiveAugmentations.push_back(Index);
+
+    for (auto const L : m_Listeners) {
+      L->DocChanged(*this, Index);
     }
-    else {
-      m_ActiveAugmentations.erase(It);
+  }
+  else if (NewAug.getVersion() > m_Augmentations[*It].getVersion()) {
+    // This document aliases an existing one and is newer.
+    auto const PrevActive = *It;
+    *It = Index;
+
+    for (auto const L : m_Listeners) {
+      L->DocChanged(*this, Index);
+      L->DocChanged(*this, PrevActive);
+    }
+  }
+}
+
+void AugmentationCollection::deactivate(unsigned const Index)
+{
+  // Find the deactivated augmentation in the active augmentations.
+  auto const It =
+    find(m_ActiveAugmentations.begin(), m_ActiveAugmentations.end(), Index);
+
+  if (It == m_ActiveAugmentations.end())
+    return;
+
+  auto const &Deactivated = m_Augmentations[Index];
+  unsigned NewIndex = Index;
+
+  for (unsigned i = 0; i < m_Augmentations.size(); ++i) {
+    auto const &Aug= m_Augmentations[i];
+
+    if (i != Index && Aug.getID() == Deactivated.getID() && Aug.isEnabled()) {
+      if (NewIndex == Index
+          || Aug.getVersion() > m_Augmentations[NewIndex].getVersion())
+      {
+        NewIndex = i;
+      }
     }
   }
 
-  return true;
+  if (NewIndex != Index) {
+    *It = NewIndex;
+
+    for (auto const L : m_Listeners) {
+      L->DocChanged(*this, NewIndex);
+    }
+  }
+  else
+    m_ActiveAugmentations.erase(It);
+
+  for (auto const L : m_Listeners) {
+    L->DocChanged(*this, Index);
+  }
 }
 
 bool AugmentationCollection::isActive(unsigned const Index) const

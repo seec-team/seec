@@ -116,6 +116,14 @@ public:
   /// \brief Get the path to this augmentation document on disk.
   ///
   std::string const &getPath() const { return m_Path; }
+
+  /// \brief Check if this augmentation is enabled.
+  ///
+  bool isEnabled() const;
+
+  /// \brief Set whether this augmentation is enabled.
+  ///
+  void setEnabled(bool const Value);
 };
 
 
@@ -132,6 +140,9 @@ public:
 
     /// \brief Called when an \c Augmentation is removed.
     virtual void DocDeleted(AugmentationCollection const &, unsigned Index) =0;
+
+    /// \brief Called when an \c Augmentation is updated.
+    virtual void DocChanged(AugmentationCollection const &, unsigned Index) =0;
   };
 
 private:
@@ -193,6 +204,23 @@ public:
   std::vector<Augmentation> const &getAugmentations() const {
     return m_Augmentations;
   }
+
+  /// \brief Get the \c Augmentation at the given index.
+  ///
+  Augmentation &getAugmentation(unsigned const Index) {
+    return m_Augmentations[Index];
+  }
+
+  /// \brief Active the \c Augmentation at the given index, if it is the best
+  ///        candidate (highest enabled version).
+  ///
+  void activate(unsigned const Index);
+
+  /// \brief Remove the \c Augmentation at the given index from activity (if it
+  ///        is currently active).
+  /// \return the index of the newly active \c Augmentation (if any).
+  ///
+  void deactivate(unsigned const Index);
 
   /// \brief Check if the \c Augmentation at a given index is active.
   ///

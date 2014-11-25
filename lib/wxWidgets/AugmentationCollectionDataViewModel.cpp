@@ -150,7 +150,7 @@ const
       Variant = Aug.getID();
       break;
     case EColumnKind::Enabled:
-      Variant = true;
+      Variant = Aug.isEnabled();
       break;
     case EColumnKind::Name:
       Variant = Aug.getName();
@@ -170,7 +170,34 @@ AugmentationCollectionDataViewModel::SetValueByRow(wxVariant const &Variant,
                                                    unsigned const Row,
                                                    unsigned const Column)
 {
-  wxLogDebug("Attempting to set value!");
+  assert(Column < static_cast<unsigned>(EColumnKind::Last));
+
+  if (Row >= m_Collection.getAugmentations().size())
+    return false;
+
+  auto &Aug = m_Collection.getAugmentation(Row);
+
+  switch (static_cast<EColumnKind>(Column)) {
+    case EColumnKind::ID:      return false;
+    case EColumnKind::Enabled:
+    {
+      auto const Value = Variant.GetBool();
+      Aug.setEnabled(Value);
+
+      if (Value)
+        m_Collection.activate(Row);
+      else
+        m_Collection.deactivate(Row);
+
+      return true;
+    }
+    case EColumnKind::Name:    return false;
+    case EColumnKind::Source:  return false;
+    case EColumnKind::Version: return false;
+    case EColumnKind::Last:    return false;
+  }
+
+  // Should be unreachable.
   return false;
 }
 
@@ -200,6 +227,13 @@ AugmentationCollectionDataViewModel
 ::DocDeleted(AugmentationCollection const &Collection, unsigned const Index)
 {
   RowDeleted(Index);
+}
+
+void
+AugmentationCollectionDataViewModel
+::DocChanged(AugmentationCollection const &Collection, unsigned const Index)
+{
+  RowChanged(Index);
 }
 
 } // namespace seec
