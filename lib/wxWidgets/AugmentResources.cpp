@@ -49,18 +49,24 @@ bool isAugmentation(wxXmlDocument const &Doc)
 // Augmentation
 //------------------------------------------------------------------------------
 
-Augmentation::Augmentation(std::unique_ptr<wxXmlDocument> Doc)
-: m_XmlDocument(std::move(Doc))
+Augmentation::Augmentation(std::unique_ptr<wxXmlDocument> Doc,
+                           EKind const Kind,
+                           std::string Path)
+: m_XmlDocument(std::move(Doc)),
+  m_Kind(Kind),
+  m_Path(std::move(Path))
 {}
 
 Augmentation::~Augmentation() = default;
 
-Maybe<Augmentation> Augmentation::fromDoc(std::unique_ptr<wxXmlDocument> Doc)
+Maybe<Augmentation> Augmentation::fromDoc(std::unique_ptr<wxXmlDocument> Doc,
+                                          EKind const Kind,
+                                          std::string Path)
 {
   if (!isAugmentation(*Doc))
     return Maybe<Augmentation>();
 
-  return Augmentation(std::move(Doc));
+  return Augmentation(std::move(Doc), Kind, std::move(Path));
 }
 
 wxString Augmentation::getName() const
@@ -115,9 +121,11 @@ AugmentationCollection::AugmentationCollection() = default;
 
 AugmentationCollection::~AugmentationCollection() = default;
 
-bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc)
+bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
+                                         Augmentation::EKind const Kind,
+                                         std::string Path)
 {
-  auto MaybeAug = Augmentation::fromDoc(std::move(Doc));
+  auto MaybeAug = Augmentation::fromDoc(std::move(Doc), Kind, std::move(Path));
   if (!MaybeAug.assigned())
     return false;
 
@@ -129,16 +137,18 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc)
   return true;
 }
 
-void AugmentationCollection::loadFromFile(wxString const &Path)
+void AugmentationCollection::loadFromFile(wxString const &Path,
+                                          Augmentation::EKind const Kind)
 {
   auto Doc = seec::makeUnique<wxXmlDocument>(Path);
   if (!Doc || !Doc->IsOk())
     return;
 
-  loadFromDoc(std::move(Doc));
+  loadFromDoc(std::move(Doc), Kind, Path.ToStdString());
 }
 
-void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
+void AugmentationCollection::loadFromDirectory(wxString const &DirPath,
+                                               Augmentation::EKind const Kind)
 {
   wxDir Dir(DirPath);
   if (!Dir.IsOpened())
@@ -150,7 +160,7 @@ void AugmentationCollection::loadFromDirectory(wxString const &DirPath)
 
   while (GotFile) {
     Path.SetName(File);
-    loadFromFile(Path.GetFullPath());
+    loadFromFile(Path.GetFullPath(), Kind);
     GotFile = Dir.GetNext(&File);
   }
 }
@@ -159,7 +169,7 @@ void AugmentationCollection::loadFromResources(std::string const &ResourcePath)
 {
   auto Path = wxFileName::DirName(ResourcePath);
   Path.AppendDir("augment");
-  loadFromDirectory(Path.GetFullPath());
+  loadFromDirectory(Path.GetFullPath(), Augmentation::EKind::Resource);
 }
 
 wxString AugmentationCollection::getUserLocalDataDirForAugmentations()
@@ -171,7 +181,27 @@ wxString AugmentationCollection::getUserLocalDataDirForAugmentations()
 
 void AugmentationCollection::loadFromUserLocalDataDir()
 {
-  loadFromDirectory(getUserLocalDataDirForAugmentations());
+  loadFromDirectory(getUserLocalDataDirForAugmentations(),
+                    Augmentation::EKind::UserLocal);
+}
+
+bool AugmentationCollection::deleteUserLocalAugmentation(unsigned const Index)
+{
+  if (Index >= m_Augmentations.size())
+    return false;
+
+  if (m_Augmentations[Index].getKind() != Augmentation::EKind::UserLocal)
+    return false;
+
+  if (!wxRemoveFile(m_Augmentations[Index].getPath()))
+    return false;
+
+  m_Augmentations.erase(m_Augmentations.begin() + Index);
+
+  for (auto const L : m_Listeners)
+    L->DocDeleted(*this, Index);
+
+  return true;
 }
 
 bool getStringsForAugFromPackageForLocale(wxXmlNode *Augmentations,

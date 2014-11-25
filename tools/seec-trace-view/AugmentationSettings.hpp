@@ -17,13 +17,24 @@
 #include "Preferences.hpp"
 
 class wxCommandEvent;
+class wxDataViewCtrl;
+
+namespace seec {
+  class AugmentationCollectionDataViewModel;
+}
 
 /// \brief Allows the user to configure augmentations.
 ///
 class AugmentationSettingsWindow final : public PreferenceWindow
 {
 private:
+  wxDataViewCtrl *m_DataView;
+
+  seec::AugmentationCollectionDataViewModel *m_DataModel;
+
   void OnDownloadClick(wxCommandEvent &Ev);
+
+  void OnDeleteClick(wxCommandEvent &Ev);
 
 protected:
   /// \brief Save edited values back to the user's config file.

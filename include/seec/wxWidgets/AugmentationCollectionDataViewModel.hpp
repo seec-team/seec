@@ -107,6 +107,11 @@ public:
   ///
   virtual void DocAppended(AugmentationCollection const &Collection);
 
+  /// \brief Called when an \c Augmentation is removed from the collection.
+  ///
+  virtual void DocDeleted(AugmentationCollection const &Collection,
+                          unsigned const Index);
+
   /// @}
 };
 

@@ -39,12 +39,27 @@ bool isAugmentation(wxXmlDocument const &Doc);
 /// \brief Represents a single augmentation file.
 ///
 class Augmentation final {
+public:
+  enum class EKind {
+    Resource, ///< From SeeC's shared resources directory.
+    UserLocal ///< From the user's local data directory.
+  };
+
+private:
   /// The \x wxXmlDocument defining this augmentation.
   std::unique_ptr<wxXmlDocument> m_XmlDocument;
 
+  /// Determine what kind of augmentation document this is.
+  EKind m_Kind;
+
+  /// Path to the augmentation document on disk.
+  std::string m_Path;
+
   /// \brief Constructor.
   ///
-  Augmentation(std::unique_ptr<wxXmlDocument> Doc);
+  Augmentation(std::unique_ptr<wxXmlDocument> Doc,
+               EKind const Kind,
+               std::string Path);
 
 public:
   /// \brief Destructor.
@@ -63,7 +78,9 @@ public:
   /// If the \c Doc is not an augmentation according to \c isAugmentation(),
   /// then this method returns an unassigned \c Maybe.
   ///
-  static Maybe<Augmentation> fromDoc(std::unique_ptr<wxXmlDocument> Doc);
+  static Maybe<Augmentation> fromDoc(std::unique_ptr<wxXmlDocument> Doc,
+                                     EKind const Kind,
+                                     std::string Path);
 
   /// \brief Get the underlying \c wxXmlDocument.
   ///
@@ -91,6 +108,14 @@ public:
   /// \brief Get the version of this augmentation.
   ///
   unsigned getVersion() const;
+
+  /// \brief Get the \c EKind of this augmentation.
+  ///
+  EKind getKind() const { return m_Kind; }
+
+  /// \brief Get the path to this augmentation document on disk.
+  ///
+  std::string const &getPath() const { return m_Path; }
 };
 
 
@@ -104,6 +129,9 @@ public:
   public:
     /// \brief Called when a new \c Augmentation is added.
     virtual void DocAppended(AugmentationCollection const &) =0;
+
+    /// \brief Called when an \c Augmentation is removed.
+    virtual void DocDeleted(AugmentationCollection const &, unsigned Index) =0;
   };
 
 private:
@@ -124,16 +152,20 @@ public:
 
   /// \brief Load an \c Augmentation directly from a \c wxXmlDocument.
   ///
-  bool loadFromDoc(std::unique_ptr<wxXmlDocument> Doc);
+  bool loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
+                   Augmentation::EKind const Kind,
+                   std::string Path);
 
   /// \brief Load an \c Augmentation from the given file path.
   ///
-  void loadFromFile(wxString const &Path);
+  void loadFromFile(wxString const &Path,
+                    Augmentation::EKind const Kind);
 
   /// \brief Load all *.xml files in the given directory as \c Augmentation
   ///        objects.
   ///
-  void loadFromDirectory(wxString const &Path);
+  void loadFromDirectory(wxString const &Path,
+                         Augmentation::EKind const Kind);
 
   /// \brief Load all augmentations from SeeC's resource directory.
   ///
@@ -146,6 +178,11 @@ public:
   /// \brief Load all augmentations from the user-specific directory.
   ///
   void loadFromUserLocalDataDir();
+
+  /// \brief Delete a user-local augmentation document, and remove it from this
+  ///        collection.
+  ///
+  bool deleteUserLocalAugmentation(unsigned const Index);
 
   /// \brief Get all \c Augmentation objects in this collection.
   ///

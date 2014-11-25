@@ -180,4 +180,11 @@ AugmentationCollectionDataViewModel
   RowAppended();
 }
 
+void
+AugmentationCollectionDataViewModel
+::DocDeleted(AugmentationCollection const &Collection, unsigned const Index)
+{
+  RowDeleted(Index);
+}
+
 } // namespace seec

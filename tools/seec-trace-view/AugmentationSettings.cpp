@@ -243,7 +243,41 @@ void AugmentationSettingsWindow::OnDownloadClick(wxCommandEvent &Ev)
 
   // Give to our App's collection.
   auto &Augmentations = wxGetApp().getAugmentations();
-  Augmentations.loadFromFile(Path);
+  Augmentations.loadFromFile(Path, Augmentation::EKind::UserLocal);
+}
+
+void AugmentationSettingsWindow::OnDeleteClick(wxCommandEvent &Ev)
+{
+  auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
+
+  wxDataViewItemArray SelectedItems;
+  auto const Count = m_DataView->GetSelections(SelectedItems);
+
+  if (Count < 1) {
+    wxMessageBox(towxString(Res["DeleteNoneMessage"]),
+                 towxString(Res["DeleteNoneCaption"]));
+    return;
+  }
+
+  auto &Collection = wxGetApp().getAugmentations();
+  auto const &Augmentations = Collection.getAugmentations();
+
+  for (int i = 0; i < Count; ++i) {
+    auto const Row = m_DataModel->GetRow(SelectedItems[i]);
+    assert(0 <= Row && Row < Augmentations.size());
+
+    if (Augmentations[Row].getKind() != Augmentation::EKind::UserLocal) {
+      wxMessageBox(towxString(Res["DeleteNonUserLocalMessage"]),
+                   towxString(Res["DeleteNonUserLocalCaption"]));
+    }
+    else {
+      auto const Result = Collection.deleteUserLocalAugmentation(Row);
+      if (!Result) {
+        wxMessageBox(towxString(Res["DeleteFailedMessage"]),
+                     towxString(Res["DeleteFailedCaption"]));
+      }
+    }
+  }
 }
 
 bool AugmentationSettingsWindow::SaveValuesImpl()
@@ -261,9 +295,12 @@ wxString AugmentationSettingsWindow::GetDisplayNameImpl()
 }
 
 AugmentationSettingsWindow::AugmentationSettingsWindow()
+: m_DataView(nullptr),
+  m_DataModel(nullptr)
 {}
 
 AugmentationSettingsWindow::AugmentationSettingsWindow(wxWindow* Parent)
+: AugmentationSettingsWindow()
 {
   Create(Parent);
 }
@@ -276,16 +313,26 @@ bool AugmentationSettingsWindow::Create(wxWindow* Parent)
   auto const ResTraceViewer = Resource("TraceViewer");
   auto const ResText = ResTraceViewer["GUIText"]["AugmentationSettings"];
 
-  auto const Button =
-    new wxButton(this, wxID_ANY, towxString(ResText["Download"].asString()));
+  // Button for downloading new augmentations.
+  auto const DownloadButton =
+    new wxButton(this, wxID_ANY, towxString(ResText["Download"]));
 
-  Button->Bind(wxEVT_BUTTON,
+  DownloadButton->Bind(wxEVT_BUTTON,
     seec::make_function(this, &AugmentationSettingsWindow::OnDownloadClick));
 
-  auto &Augmentations = wxGetApp().getAugmentations();
-  auto const Data = new wxDataViewCtrl(this, wxID_ANY);
+  // Button for deleting existing augmentations.
+  auto const DeleteButton =
+    new wxButton(this, wxID_ANY, towxString(ResText["Delete"]));
 
-  Data->AssociateModel(new AugmentationCollectionDataViewModel(Augmentations));
+  DeleteButton->Bind(wxEVT_BUTTON,
+    seec::make_function(this, &AugmentationSettingsWindow::OnDeleteClick));
+
+  // Setup the data view showing all loaded augmentations.
+  auto &Augmentations = wxGetApp().getAugmentations();
+  auto const Data = m_DataView = new wxDataViewCtrl(this, wxID_ANY);
+
+  m_DataModel = new AugmentationCollectionDataViewModel(Augmentations);
+  Data->AssociateModel(m_DataModel);
   Data->AppendColumn(AugmentationCollectionDataViewModel::getEnabledColumn()
                       .release());
   Data->AppendColumn(AugmentationCollectionDataViewModel::getNameColumn()
@@ -298,10 +345,17 @@ bool AugmentationSettingsWindow::Create(wxWindow* Parent)
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
-  ParentSizer->Add(Button, wxSizerFlags().Centre().Top().Border(wxALL, 5));
   ParentSizer->Add(Data, wxSizerFlags().Proportion(1)
                                        .Expand()
                                        .Border(wxALL, 5));
+
+  // Horizontal sizer for the buttons.
+  auto const ButtonSizer = new wxBoxSizer(wxHORIZONTAL);
+  ButtonSizer->Add(DownloadButton, wxSizerFlags());
+  ButtonSizer->AddStretchSpacer();
+  ButtonSizer->Add(DeleteButton, wxSizerFlags());
+
+  ParentSizer->Add(ButtonSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
   SetSizerAndFit(ParentSizer);
 

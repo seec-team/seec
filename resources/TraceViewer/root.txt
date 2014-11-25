@@ -170,6 +170,17 @@ root:table {
 
       Download:string {"Download new augmentation"}
 
+      Delete:string {"Delete selected"}
+
+      DeleteNoneMessage:string {"No augmentations selected!"}
+      DeleteNoneCaption:string {"Delete failure"}
+
+      DeleteNonUserLocalMessage:string {"You don't own this augmentation."}
+      DeleteNonUserLocalCaption:string {"Delete failure"}
+
+      DeleteFailedMessage:string {"Couldn't delete augmentation file."}
+      DeleteFailedCaption:string {"Delete failure"}
+
       DownloadMessage:string {"URL"}
 
       DownloadCaption:string {"Enter augmentation location"}
