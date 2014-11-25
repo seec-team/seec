@@ -18,6 +18,8 @@
 
 #include <wx/log.h>
 
+#include <string>
+
 namespace seec {
 
 //------------------------------------------------------------------------------
@@ -78,6 +80,20 @@ AugmentationCollectionDataViewModel::getSourceColumn()
                           wxALIGN_LEFT);
 }
 
+std::unique_ptr<wxDataViewColumn>
+AugmentationCollectionDataViewModel::getVersionColumn()
+{
+  auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
+  auto const Col = static_cast<unsigned>(EColumnKind::Version);
+
+  return seec::makeUnique<wxDataViewColumn>
+                         (towxString(Res["Columns"]["Version"]),
+                          new wxDataViewTextRenderer(),
+                          Col,
+                          wxDVC_DEFAULT_WIDTH,
+                          wxALIGN_RIGHT);
+}
+
 AugmentationCollectionDataViewModel
 ::AugmentationCollectionDataViewModel(AugmentationCollection &Collection)
 : wxDataViewVirtualListModel(Collection.getAugmentations().size()),
@@ -107,6 +123,7 @@ AugmentationCollectionDataViewModel::GetColumnType(unsigned const Column) const
     case EColumnKind::Enabled:    return "bool";
     case EColumnKind::Name:       return "string";
     case EColumnKind::Source:     return "string";
+    case EColumnKind::Version:    return "string";
     case EColumnKind::Last:       return "null";
   }
 
@@ -139,6 +156,9 @@ const
       break;
     case EColumnKind::Source:
       Variant = Aug.getSource();
+      break;
+    case EColumnKind::Version:
+      Variant = wxString(std::to_string(Aug.getVersion()));
       break;
     case EColumnKind::Last: break;
   }

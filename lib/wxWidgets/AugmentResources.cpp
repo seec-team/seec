@@ -90,6 +90,22 @@ wxDateTime Augmentation::getDownloaded() const
   return Ret;
 }
 
+unsigned Augmentation::getVersion() const
+{
+  auto const Root = m_XmlDocument->GetRoot();
+  unsigned long Value = 0;
+
+  if (Root->HasAttribute("version")) {
+    if (!Root->GetAttribute("version").ToULong(&Value))
+      Value = 0;
+  }
+
+  if (Value >= std::numeric_limits<unsigned>::max())
+    Value = std::numeric_limits<unsigned>::max();
+
+  return static_cast<unsigned>(Value);
+}
+
 
 //------------------------------------------------------------------------------
 // AugmentationCollection

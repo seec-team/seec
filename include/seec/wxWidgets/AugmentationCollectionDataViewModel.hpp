@@ -45,6 +45,7 @@ public:
     Enabled,
     Name,
     Source,
+    Version,
     Last
   };
 
@@ -63,6 +64,10 @@ public:
   /// \brief Get a \c wxDataViewColumn for the Source column.
   ///
   static std::unique_ptr<wxDataViewColumn> getSourceColumn();
+
+  /// \brief Get a \c wxDataViewColumn for the Version column.
+  ///
+  static std::unique_ptr<wxDataViewColumn> getVersionColumn();
 
   /// \brief Construct a new model for the given collection.
   ///

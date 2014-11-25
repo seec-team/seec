@@ -292,6 +292,8 @@ bool AugmentationSettingsWindow::Create(wxWindow* Parent)
                       .release());
   Data->AppendColumn(AugmentationCollectionDataViewModel::getSourceColumn()
                       .release());
+  Data->AppendColumn(AugmentationCollectionDataViewModel::getVersionColumn()
+                      .release());
 
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);

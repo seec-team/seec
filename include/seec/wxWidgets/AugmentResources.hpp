@@ -87,6 +87,10 @@ public:
   ///        downloaded through SeeC's trace viewer).
   ///
   wxDateTime getDownloaded() const;
+
+  /// \brief Get the version of this augmentation.
+  ///
+  unsigned getVersion() const;
 };
 
 

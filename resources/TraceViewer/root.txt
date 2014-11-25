@@ -191,6 +191,7 @@ root:table {
         Enabled:string {"Enabled"}
         Name:string {"Name"}
         Source:string {"Source"}
+        Version:string {"Version"}
       }
     }
   }
