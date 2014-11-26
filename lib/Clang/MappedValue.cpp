@@ -24,7 +24,6 @@
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/GetRecreatedValue.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
@@ -1907,13 +1906,11 @@ public:
          llvm::Value const *LLVMValue)
   {
     // Get the raw runtime value of the pointer.
-    auto const MaybeValue =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                           (FunctionState, LLVMValue);
+    auto const MaybeValue = seec::trace::getAPInt(FunctionState, LLVMValue);
     if (!MaybeValue.assigned())
       return std::shared_ptr<ValueByRuntimeValueForPointer>();
     
-    auto const PtrValue = MaybeValue.get<uintptr_t>();
+    auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
     
     // Get the MappedAST and ASTContext.
     auto const &MappedAST = SMap.getAST();
@@ -2275,14 +2272,14 @@ getValue(std::shared_ptr<ValueStore const> Store,
     case seec::seec_clang::MappedStmt::Type::LValSimple:
     {
       // Extract the address of the in-memory object that this lval represents.
-      auto const MaybeValue =
-        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                             (FunctionState, SMap.getValue());
+      auto const MaybeValue = seec::trace::getAPInt(FunctionState,
+                                                    SMap.getValue());
+
       if (!MaybeValue.assigned()) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,
@@ -2358,14 +2355,14 @@ getValue(std::shared_ptr<ValueStore const> Store,
     case seec::seec_clang::MappedStmt::Type::RValAggregate:
     {
       // Extract the address of the in-memory object that this rval represents.
-      auto const MaybeValue =
-        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                             (FunctionState, SMap.getValue());
+      auto const MaybeValue = seec::trace::getAPInt(FunctionState,
+                                                    SMap.getValue());
+
       if (!MaybeValue.assigned()) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,
