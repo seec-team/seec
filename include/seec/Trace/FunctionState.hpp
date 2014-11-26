@@ -338,34 +338,16 @@ public:
   /// @} (Mutators)
   
   
-  /// \name Support getCurrentRuntimeValueAs().
+  /// \name Access runtime values.
   /// @{
-  
-  /// \brief Get the \c llvm::DataLayout for the \c Module.
-  ///
-  llvm::DataLayout const &getDataLayout() const;
 
-  /// \brief Get the run-time address of a Function.
-  ///
-  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
-  
-  /// \brief Get the run-time address of a GlobalVariable.
-  ///
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
-  
   /// \brief Get a pointer to an Instruction's RuntimeValue, by index.
   ///
   RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const;
-  
+
   /// \brief Get a pointer to an Instruction's RuntimeValue.
   ///
   RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
-  
-  /// @}
-  
-  
-  /// \name Access runtime values.
-  /// @{
   
   /// \brief Get a reference to an Instruction's RuntimeValue, by index.
   ///
