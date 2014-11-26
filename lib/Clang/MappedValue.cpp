@@ -732,10 +732,16 @@ public:
   virtual std::string getValueAsStringShort() const override {
     if (!isCompletelyInitialized())
       return std::string("<uninitialized>");
-    
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    return getScalarValueAsString(CanonicalType, Region);
+
+    std::string RetString;
+
+    {
+      llvm::raw_string_ostream Stream(RetString);
+      Stream << "0x";
+      Stream.write_hex(RawValue);
+    } // destruction of Stream will flush to RetString.
+
+    return RetString;
   }
   
   /// Get a string describing the value.
