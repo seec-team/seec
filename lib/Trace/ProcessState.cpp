@@ -100,7 +100,7 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
 
 ProcessState::~ProcessState() = default;
 
-void ProcessState::addMalloc(uintptr_t const Address,
+void ProcessState::addMalloc(stateptr_ty const Address,
                              std::size_t const Size,
                              llvm::Instruction const *Allocator)
 {
@@ -109,14 +109,14 @@ void ProcessState::addMalloc(uintptr_t const Address,
                   std::forward_as_tuple(Address, Size, Allocator));
 }
 
-void ProcessState::unaddMalloc(uintptr_t const Address)
+void ProcessState::unaddMalloc(stateptr_ty const Address)
 {
   auto const It = Mallocs.find(Address);
   assert(It != Mallocs.end());
   Mallocs.erase(It);
 }
 
-void ProcessState::removeMalloc(uintptr_t const Address)
+void ProcessState::removeMalloc(stateptr_ty const Address)
 {
   auto const It = Mallocs.find(Address);
   assert(It != Mallocs.end());
@@ -124,7 +124,7 @@ void ProcessState::removeMalloc(uintptr_t const Address)
   Mallocs.erase(It);
 }
 
-void ProcessState::unremoveMalloc(uintptr_t const Address)
+void ProcessState::unremoveMalloc(stateptr_ty const Address)
 {
   assert(!PreviousMallocs.empty());
   assert(PreviousMallocs.back().getAddress() == Address);
@@ -136,7 +136,7 @@ void ProcessState::unremoveMalloc(uintptr_t const Address)
 }
 
 seec::Maybe<MemoryArea>
-ProcessState::getContainingMemoryArea(uintptr_t Address) const {
+ProcessState::getContainingMemoryArea(stateptr_ty Address) const {
   // Check global variables.
   for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
     auto const Begin = Trace->getGlobalVariableAddress(Index);
@@ -200,12 +200,12 @@ bool ProcessState::addStream(StreamState Stream)
   return Result.second;
 }
 
-bool ProcessState::removeStream(uintptr_t const Address)
+bool ProcessState::removeStream(stateptr_ty const Address)
 {
   return Streams.erase(Address);
 }
 
-bool ProcessState::closeStream(uintptr_t const Address)
+bool ProcessState::closeStream(stateptr_ty const Address)
 {
   auto const It = Streams.find(Address);
   if (It == Streams.end())
@@ -216,7 +216,7 @@ bool ProcessState::closeStream(uintptr_t const Address)
   return true;
 }
 
-bool ProcessState::restoreStream(uintptr_t const Address)
+bool ProcessState::restoreStream(stateptr_ty const Address)
 {
   if (StreamsClosed.empty() || StreamsClosed.back().getAddress() != Address)
     return false;
@@ -226,13 +226,13 @@ bool ProcessState::restoreStream(uintptr_t const Address)
   return true;
 }
 
-StreamState *ProcessState::getStream(uintptr_t const Address)
+StreamState *ProcessState::getStream(stateptr_ty const Address)
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
 }
 
-StreamState const *ProcessState::getStream(uintptr_t const Address) const
+StreamState const *ProcessState::getStream(stateptr_ty const Address) const
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
@@ -253,24 +253,24 @@ bool ProcessState::addDir(DIRState Dir)
   return Result.second;
 }
 
-bool ProcessState::removeDir(uintptr_t const Address)
+bool ProcessState::removeDir(stateptr_ty const Address)
 {
   return Dirs.erase(Address);
 }
 
-DIRState const *ProcessState::getDir(uintptr_t const Address) const
+DIRState const *ProcessState::getDir(stateptr_ty const Address) const
 {
   auto const It = Dirs.find(Address);
   return It != Dirs.end() ? &It->second : nullptr;
 }
 
-uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
+stateptr_ty ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
   assert(MaybeIndex.assigned());
   return Trace->getFunctionAddress(MaybeIndex.get<0>());
 }
 
-uintptr_t
+stateptr_ty
 ProcessState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
   auto const MaybeIndex = Module->getIndexOfGlobal(GV);
   assert(MaybeIndex.assigned());

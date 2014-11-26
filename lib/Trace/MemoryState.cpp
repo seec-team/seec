@@ -91,7 +91,7 @@ void MemoryAllocation::addBlock(MappedMemoryBlock const &Block)
               Block.length());
 }
 
-void MemoryAllocation::addArea(uintptr_t const AtAddress,
+void MemoryAllocation::addArea(stateptr_ty const AtAddress,
                                llvm::ArrayRef<char> WithData,
                                llvm::ArrayRef<unsigned char> WithInitialization)
 {
@@ -332,7 +332,7 @@ MemoryState::getAllocation(MemoryArea const &ForArea) const
 }
 
 MemoryAllocation const *
-MemoryState::findAllocation(uintptr_t const ForAddress) const
+MemoryState::findAllocation(stateptr_ty const ForAddress) const
 {
   if (Allocations.empty())
     return nullptr;
@@ -350,7 +350,8 @@ MemoryState::findAllocation(uintptr_t const ForAddress) const
   return &(It->second);
 }
 
-void MemoryState::allocationAdd(uintptr_t const Address, std::size_t const Size)
+void MemoryState::allocationAdd(stateptr_ty const Address,
+                                std::size_t const Size)
 {
   if (Size == 0)
     return;
@@ -361,7 +362,7 @@ void MemoryState::allocationAdd(uintptr_t const Address, std::size_t const Size)
   assert(Result.second && "Allocation already exists!");
 }
 
-void MemoryState::allocationRemove(uintptr_t const Address,
+void MemoryState::allocationRemove(stateptr_ty const Address,
                                    std::size_t const Size)
 {
   if (Size == 0)
@@ -374,7 +375,7 @@ void MemoryState::allocationRemove(uintptr_t const Address,
   Allocations.erase(It);
 }
 
-void MemoryState::allocationResize(uintptr_t const Address,
+void MemoryState::allocationResize(stateptr_ty const Address,
                                    std::size_t const CurrentSize,
                                    std::size_t const NewSize)
 {
@@ -399,7 +400,7 @@ void MemoryState::allocationResize(uintptr_t const Address,
   Alloc.resize(NewSize);
 }
 
-void MemoryState::allocationUnremove(uintptr_t const Address,
+void MemoryState::allocationUnremove(stateptr_ty const Address,
                                      std::size_t const Size)
 {
   if (Size == 0)
@@ -416,7 +417,7 @@ void MemoryState::allocationUnremove(uintptr_t const Address,
   PreviousAllocations.pop();
 }
 
-void MemoryState::allocationUnadd(uintptr_t const Address,
+void MemoryState::allocationUnadd(stateptr_ty const Address,
                                   std::size_t const Size)
 {
   if (Size == 0)
@@ -428,7 +429,7 @@ void MemoryState::allocationUnadd(uintptr_t const Address,
   Allocations.erase(It);
 }
 
-void MemoryState::allocationUnresize(uintptr_t const Address,
+void MemoryState::allocationUnresize(stateptr_ty const Address,
                                      std::size_t const CurrentSize,
                                      std::size_t const NewSize)
 {
@@ -463,8 +464,8 @@ void MemoryState::removeBlock(MemoryArea Area)
   getAllocation(Area).rewindArea(Area);
 }
 
-void MemoryState::addCopy(uintptr_t const Source,
-                          uintptr_t const Destination,
+void MemoryState::addCopy(stateptr_ty const Source,
+                          stateptr_ty const Destination,
                           std::size_t const Size)
 {
   auto const SArea = MemoryArea(Source, Size);
@@ -477,8 +478,8 @@ void MemoryState::addCopy(uintptr_t const Source,
                  SAlloc.getAreaInitialization(SArea));
 }
 
-void MemoryState::removeCopy(uintptr_t const Source,
-                             uintptr_t const Destination,
+void MemoryState::removeCopy(stateptr_ty const Source,
+                             stateptr_ty const Destination,
                              std::size_t const Size)
 {
   auto const DArea = MemoryArea(Destination, Size);

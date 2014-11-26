@@ -15,6 +15,7 @@
 #define SEEC_TRACE_MEMORYSTATE_HPP
 
 #include "seec/DSA/MappedMemoryBlock.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
@@ -34,7 +35,7 @@ namespace trace {
 ///
 class MemoryAllocation {
   /// The address that this allocation starts at.
-  uintptr_t Address;
+  stateptr_ty Address;
 
   /// The size of this allocation (in \c char units).
   std::size_t Size;
@@ -75,7 +76,7 @@ class MemoryAllocation {
 public:
   /// \brief Construct a new \c MemoryAllocation.
   ///
-  explicit MemoryAllocation(uintptr_t const WithAddress,
+  explicit MemoryAllocation(stateptr_ty const WithAddress,
                             std::size_t const WithSize)
   : Address(WithAddress),
     Size(WithSize),
@@ -91,7 +92,7 @@ public:
 
   /// \brief Get this allocation's start address.
   ///
-  uintptr_t const getAddress() const { return Address; }
+  stateptr_ty const getAddress() const { return Address; }
 
   /// \brief Get the size of this allocation, in \c char units.
   ///
@@ -130,7 +131,7 @@ public:
   ///        a the given address (contained within this allocation). The
   ///        current value and initialization of the area will be saved.
   ///
-  void addArea(uintptr_t const AtAddress,
+  void addArea(stateptr_ty const AtAddress,
                llvm::ArrayRef<char> WithData,
                llvm::ArrayRef<unsigned char> WithInitialization);
 
@@ -231,7 +232,7 @@ public:
 ///
 class MemoryState {
   /// Map allocation start addresses to the allocations themselves.
-  std::map<uintptr_t, MemoryAllocation> Allocations;
+  std::map<stateptr_ty, MemoryAllocation> Allocations;
 
   /// Historical allocations (that were deallocated).
   std::stack<MemoryAllocation> PreviousAllocations;
@@ -269,7 +270,7 @@ public:
   /// \brief Find the \c MemoryAllocation that contains the given \c MemoryArea.
   ///        This method will return \c nullptr if no such allocation exists.
   ///
-  MemoryAllocation const *findAllocation(uintptr_t const ForAddress) const;
+  MemoryAllocation const *findAllocation(stateptr_ty const ForAddress) const;
 
   /// @} (Accessors)
 
@@ -279,29 +280,29 @@ public:
 
   /// \brief Add a new allocation (moving forward).
   ///
-  void allocationAdd(uintptr_t const Address, std::size_t const Size);
+  void allocationAdd(stateptr_ty const Address, std::size_t const Size);
 
   /// \brief Remove an allocation (moving forward).
   ///
-  void allocationRemove(uintptr_t const Address, std::size_t const Size);
+  void allocationRemove(stateptr_ty const Address, std::size_t const Size);
 
   /// \brief Resize an allocation (moving forward).
   ///
-  void allocationResize(uintptr_t const Address,
+  void allocationResize(stateptr_ty const Address,
                         std::size_t const CurrentSize,
                         std::size_t const NewSize);
 
   /// \brief Unremove an allocation (moving backward).
   ///
-  void allocationUnremove(uintptr_t const Address, std::size_t const Size);
+  void allocationUnremove(stateptr_ty const Address, std::size_t const Size);
 
   /// \brief Unadd an allocation (moving backward).
   ///
-  void allocationUnadd(uintptr_t const Address, std::size_t const Size);
+  void allocationUnadd(stateptr_ty const Address, std::size_t const Size);
 
   /// \brief Resize an allocation (moving backward).
   ///
-  void allocationUnresize(uintptr_t const Address,
+  void allocationUnresize(stateptr_ty const Address,
                           std::size_t const CurrentSize,
                           std::size_t const NewSize);
 
@@ -320,16 +321,16 @@ public:
   ///        to the memory beginning at \c Destination. \c Size \c char units
   ///        of state and initialization will be copied.
   ///
-  void addCopy(uintptr_t const Source,
-               uintptr_t const Destination,
+  void addCopy(stateptr_ty const Source,
+               stateptr_ty const Destination,
                std::size_t const Size);
 
   /// \brief Rewind a previous copy from \c Source to \c Destination. The value
   ///        and initialization of memory at \c Destination will be rewound to
   ///        its state prior to the copy.
   ///
-  void removeCopy(uintptr_t const Source,
-                  uintptr_t const Destination,
+  void removeCopy(stateptr_ty const Source,
+                  stateptr_ty const Destination,
                   std::size_t const Size);
 
   /// \brief Clear the given \c MemoryArea, setting it to be uninitialized.

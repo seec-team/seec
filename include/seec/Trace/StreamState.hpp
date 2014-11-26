@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_STREAMSTATE_HPP
 #define SEEC_TRACE_STREAMSTATE_HPP
 
+#include "seec/Trace/StateCommon.hpp"
+
 #include "llvm/ADT/ArrayRef.h"
 
 #include <string>
@@ -42,7 +44,7 @@ class StreamState {
   };
   
   /// The runtime address of the stream (the raw value of the FILE *).
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The filename used when opening the stream.
   std::string Filename;
@@ -59,7 +61,7 @@ class StreamState {
 public:
   /// \brief Constructor.
   ///
-  StreamState(uintptr_t WithAddress,
+  StreamState(stateptr_ty WithAddress,
               std::string WithFilename,
               std::string WithMode)
   : Address(WithAddress),
@@ -83,7 +85,7 @@ public:
   
   /// \brief Get the runtime address of the stream.
   ///
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
   
   /// \brief Get the filename used when opening the stream.
   ///
@@ -150,7 +152,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
 ///
 class DIRState {
   /// The runtime address of the DIR (the raw value of the DIR *).
-  uintptr_t const Address;
+  stateptr_ty const Address;
   
   /// The path used to open the DIR.
   std::string const Dirname;
@@ -158,7 +160,7 @@ class DIRState {
 public:
   /// \brief Constructor.
   ///
-  DIRState(uintptr_t WithAddress,
+  DIRState(stateptr_ty WithAddress,
            std::string WithDirname)
   : Address(WithAddress),
     Dirname(std::move(WithDirname))
@@ -169,7 +171,7 @@ public:
   
   /// \brief Get the runtime address of the DIR.
   ///
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
   
   /// \brief Get the pathname used when opening the DIR.
   ///

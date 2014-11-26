@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 #define SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Augmenter.hpp"
 #include "seec/Util/Range.hpp"
@@ -63,7 +64,7 @@ class ParamState {
   FunctionState &Parent;
   
   /// The address of the parameter in memory.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The mapped Decl.
   ::clang::VarDecl const *Decl;
@@ -72,7 +73,7 @@ public:
   /// \brief Constructor.
   ///
   ParamState(FunctionState &WithParent,
-             uintptr_t WithAddress,
+             stateptr_ty WithAddress,
              ::clang::VarDecl const *ForDecl)
   : Parent(WithParent),
     Address(WithAddress),
@@ -116,7 +117,7 @@ class LocalState {
   FunctionState &Parent;
   
   /// The address of the variable in memory.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The mapped Decl.
   ::clang::VarDecl const *Decl;
@@ -125,7 +126,7 @@ public:
   /// \brief Constructor.
   ///
   LocalState(FunctionState &WithParent,
-             uintptr_t WithAddress,
+             stateptr_ty WithAddress,
              ::clang::VarDecl const *ForDecl)
   : Parent(WithParent),
     Address(WithAddress),

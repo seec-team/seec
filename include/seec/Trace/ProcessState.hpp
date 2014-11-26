@@ -16,6 +16,7 @@
 
 #include "seec/DSA/IntervalMapVector.hpp"
 #include "seec/Trace/MemoryState.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
@@ -46,7 +47,7 @@ namespace trace {
 ///
 class MallocState {
   /// Address of the allocated memory.
-  uintptr_t Address;
+  stateptr_ty Address;
 
   /// Size of the allocated memory.
   std::size_t Size;
@@ -58,7 +59,7 @@ class MallocState {
 public:
   /// \brief Construct a new \c MallocState with the given values.
   ///
-  MallocState(uintptr_t Address,
+  MallocState(stateptr_ty Address,
               std::size_t Size,
               llvm::Instruction const *WithAllocator)
   : Address(Address),
@@ -68,7 +69,7 @@ public:
 
   /// \brief Get the address of the allocated memory.
   ///
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
 
   /// \brief Get the size of the allocated memory.
   ///
@@ -131,7 +132,7 @@ private:
   std::vector<std::unique_ptr<ThreadState>> ThreadStates;
 
   /// All current dynamic memory allocations, indexed by address.
-  std::map<uintptr_t, MallocState> Mallocs;
+  std::map<stateptr_ty, MallocState> Mallocs;
 
   /// Previous dynamic memory allocations, from oldest to youngest.
   std::vector<MallocState> PreviousMallocs;
@@ -140,16 +141,16 @@ private:
   MemoryState Memory;
   
   /// Known, but unowned, regions of memory.
-  IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
+  IntervalMapVector<stateptr_ty, MemoryPermission> KnownMemory;
   
   /// Currently open streams.
-  llvm::DenseMap<uintptr_t, StreamState> Streams;
+  llvm::DenseMap<stateptr_ty, StreamState> Streams;
 
   /// Previously closed streams (in order of closing).
   std::vector<StreamState> StreamsClosed;
   
   /// Currently open DIRs.
-  llvm::DenseMap<uintptr_t, DIRState> Dirs;
+  llvm::DenseMap<stateptr_ty, DIRState> Dirs;
 
   /// @} (Variable data.)
 
@@ -218,21 +219,21 @@ public:
 
   /// \brief Add a dynamic memory allocation (moving forwards).
   ///
-  void addMalloc(uintptr_t const Address,
+  void addMalloc(stateptr_ty const Address,
                  std::size_t const Size,
                  llvm::Instruction const *Allocator);
 
   /// \brief Unadd a dynamic memory allocation (moving backwards).
   ///
-  void unaddMalloc(uintptr_t const Address);
+  void unaddMalloc(stateptr_ty const Address);
 
   /// \brief Remove a dynamic memory allocation (moving forwards).
   ///
-  void removeMalloc(uintptr_t const Address);
+  void removeMalloc(stateptr_ty const Address);
 
   /// \brief Unremove a dynamic memory allocation (moving backwards).
   ///
-  void unremoveMalloc(uintptr_t const Address);
+  void unremoveMalloc(stateptr_ty const Address);
 
   /// \brief Get the map of dynamic memory allocations.
   ///
@@ -248,7 +249,7 @@ public:
   
   /// \brief Add a region of known memory.
   ///
-  void addKnownMemory(uintptr_t Address,
+  void addKnownMemory(stateptr_ty Address,
                       std::size_t Length,
                       MemoryPermission Access)
   {
@@ -257,7 +258,7 @@ public:
   
   /// \brief Remove the region of known memory at the given address.
   ///
-  bool removeKnownMemory(uintptr_t Address) {
+  bool removeKnownMemory(stateptr_ty Address) {
     return (KnownMemory.erase(Address) != 0);
   }
   
@@ -274,7 +275,7 @@ public:
   ///  - Thread stacks.
   ///
   seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const;
+  getContainingMemoryArea(stateptr_ty Address) const;
   
   /// @} (Memory.)
   
@@ -294,26 +295,26 @@ public:
   /// \brief Remove a stream from the currently open streams.
   /// \return true iff the stream was removed (existed).
   ///
-  bool removeStream(uintptr_t Address);
+  bool removeStream(stateptr_ty Address);
 
   /// \brief Close a currently open stream.
   /// \return true iff the stream was closed (existed).
   ///
-  bool closeStream(uintptr_t const Address);
+  bool closeStream(stateptr_ty const Address);
 
   /// \brief Restore the most recently closed stream.
   /// \param Address used to ensure that the correct stream is restored.
   /// \return true iff the stream was restored.
   ///
-  bool restoreStream(uintptr_t const Address);
+  bool restoreStream(stateptr_ty const Address);
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
-  StreamState *getStream(uintptr_t Address);
+  StreamState *getStream(stateptr_ty Address);
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
-  StreamState const *getStream(uintptr_t Address) const;
+  StreamState const *getStream(stateptr_ty Address) const;
   
   /// \brief Get a pointer to the stdout stream, if it is open.
   ///
@@ -337,11 +338,11 @@ public:
   /// \brief Remove a DIR from the currently open DIRs.
   /// \return true iff the DIR was removed (existed).
   ///
-  bool removeDir(uintptr_t Address);
+  bool removeDir(stateptr_ty Address);
   
   /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
   ///
-  DIRState const *getDir(uintptr_t Address) const;
+  DIRState const *getDir(stateptr_ty Address) const;
   
   /// @} (Dirs.)
   
@@ -351,11 +352,11 @@ public:
   
   /// \brief Get the run-time address of a Function.
   ///
-  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
+  stateptr_ty getRuntimeAddress(llvm::Function const *F) const;
   
   /// \brief Get the run-time address of a GlobalVariable.
   ///
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
+  stateptr_ty getRuntimeAddress(llvm::GlobalVariable const *GV) const;
   
   /// @} (Get run-time addresses.)
 };

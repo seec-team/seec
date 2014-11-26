@@ -224,7 +224,7 @@ std::vector<MallocState> ProcessState::getDynamicMemoryAllocations() const
 }
 
 seec::Maybe<MallocState>
-ProcessState::getDynamicMemoryAllocation(uintptr_t const Address) const
+ProcessState::getDynamicMemoryAllocation(stateptr_ty const Address) const
 {
   auto const It = UnmappedState->getMallocs().find(Address);
   if (It == UnmappedState->getMallocs().end())
@@ -238,7 +238,7 @@ ProcessState::getDynamicMemoryAllocation(uintptr_t const Address) const
 // ProcessState: Streams
 //===----------------------------------------------------------------------===//
 
-StreamState const *ProcessState::getStream(uintptr_t const Address) const
+StreamState const *ProcessState::getStream(stateptr_ty const Address) const
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
@@ -257,7 +257,7 @@ StreamState const *ProcessState::getStreamStdout() const
 // ProcessState: DIRs
 //===----------------------------------------------------------------------===//
 
-DIRState const *ProcessState::getDIR(uintptr_t const Address) const
+DIRState const *ProcessState::getDIR(stateptr_ty const Address) const
 {
   auto const It = Dirs.find(Address);
   return It != Dirs.end() ? &It->second : nullptr;

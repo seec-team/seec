@@ -352,7 +352,8 @@ MovementResult moveToFunctionFinished(FunctionState &Function)
 //===----------------------------------------------------------------------===//
 // Contextual movement for memory.
 
-MovementResult moveToAllocation(ProcessState &Process, uintptr_t const Address)
+MovementResult moveToAllocation(ProcessState &Process,
+                                stateptr_ty const Address)
 {
   auto &Unmapped = Process.getUnmappedProcessState();
   
@@ -379,7 +380,7 @@ MovementResult moveToAllocation(ProcessState &Process, uintptr_t const Address)
 }
 
 MovementResult moveToDeallocation(ProcessState &Process,
-                                  uintptr_t const Address)
+                                  stateptr_ty const Address)
 {
   auto &Unmapped = Process.getUnmappedProcessState();
   

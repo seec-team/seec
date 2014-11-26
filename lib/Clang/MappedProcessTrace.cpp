@@ -55,7 +55,7 @@ ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
 }
 
 seec::seec_clang::MappedFunctionDecl const *
-ProcessTrace::getMappedFunctionAt(uintptr_t const Address) const
+ProcessTrace::getMappedFunctionAt(stateptr_ty const Address) const
 {
   auto const MaybeIndex = UnmappedTrace->getIndexOfFunctionAt(Address);
   if (!MaybeIndex.assigned<uint32_t>())

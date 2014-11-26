@@ -25,7 +25,7 @@ StreamState::StreamState(seec::trace::StreamState const &ForUnmappedState)
 : UnmappedState(ForUnmappedState)
 {}
 
-uintptr_t StreamState::getAddress() const {
+stateptr_ty StreamState::getAddress() const {
   return UnmappedState.getAddress();
 }
 
@@ -72,7 +72,7 @@ DIRState::DIRState(seec::trace::DIRState const &ForUnmappedState)
 : UnmappedState(ForUnmappedState)
 {}
 
-uintptr_t DIRState::getAddress() const {
+stateptr_ty DIRState::getAddress() const {
   return UnmappedState.getAddress();
 }
 

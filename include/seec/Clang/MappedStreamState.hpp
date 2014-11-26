@@ -15,6 +15,8 @@
 #define SEEC_CLANG_MAPPEDSTREAMSTATE_HPP
 
 
+#include "seec/Clang/MappedStateCommon.hpp"
+
 #include <string>
 
 
@@ -54,7 +56,7 @@ public:
 
   /// \brief Get the runtime address of the stream.
   ///
-  uintptr_t getAddress() const;
+  stateptr_ty getAddress() const;
   
   /// \brief Get the filename used when opening the stream.
   ///
@@ -118,7 +120,7 @@ public:
   
   /// \brief Get the runtime address of the DIR.
   ///
-  uintptr_t getAddress() const;
+  stateptr_ty getAddress() const;
   
   /// \brief Get the pathname used when opening the DIR.
   ///

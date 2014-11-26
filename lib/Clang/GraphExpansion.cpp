@@ -20,6 +20,7 @@
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Range.hpp"
 
@@ -44,7 +45,7 @@ class ExpansionImpl final {
   
   /// Map from address to pointers that reference that address.
   ///
-  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointer const>> Pointers;
+  std::multimap<stateptr_ty, std::shared_ptr<ValueOfPointer const>> Pointers;
   
 public:
   ExpansionImpl()
@@ -78,9 +79,9 @@ public:
   getReferencesOf(Value const &Val) const;
   
   std::vector<std::shared_ptr<ValueOfPointer const>>
-  getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
+  getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const;
   
-  bool isAreaReferenced(uintptr_t Start, uintptr_t End) const;
+  bool isAreaReferenced(stateptr_ty Start, stateptr_ty End) const;
   
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getAllPointers() const {
@@ -105,7 +106,7 @@ ExpansionImpl::getReferencesOf(Value const &Val) const
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
-ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+ExpansionImpl::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 {
   auto const Range = seec::range(Pointers.lower_bound(Start),
                                  Pointers.lower_bound(End));
@@ -118,7 +119,7 @@ ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
   return Ret;
 }
 
-bool ExpansionImpl::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+bool ExpansionImpl::isAreaReferenced(stateptr_ty Start, stateptr_ty End) const
 {
   return Pointers.lower_bound(Start) != Pointers.lower_bound(End);
 }
@@ -299,12 +300,12 @@ Expansion::isReferencedDirectly(Value const &Value) const
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
-Expansion::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+Expansion::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 {
   return Impl->getReferencesOfArea(Start, End);
 }
 
-bool Expansion::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+bool Expansion::isAreaReferenced(stateptr_ty Start, stateptr_ty End) const
 {
   return Impl->isAreaReferenced(Start, End);
 }

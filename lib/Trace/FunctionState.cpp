@@ -99,7 +99,7 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
 }
 
 seec::Maybe<MemoryArea>
-FunctionState::getContainingMemoryArea(uintptr_t Address) const {
+FunctionState::getContainingMemoryArea(stateptr_ty Address) const {
   auto const Alloca = getAllocaContaining(Address);
   if (Alloca)
     return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
@@ -202,7 +202,7 @@ FunctionState::getParamByValArea(llvm::Argument const *Arg) const
 }
 
 void FunctionState::addByValArea(unsigned ArgumentNumber,
-                                 uintptr_t Address,
+                                 stateptr_ty Address,
                                  std::size_t Size)
 {
   auto const Fn = getFunction();
@@ -214,7 +214,7 @@ void FunctionState::addByValArea(unsigned ArgumentNumber,
   ParamByVals.emplace_back(&*ArgIt, MemoryArea(Address, Size));
 }
 
-void FunctionState::removeByValArea(uintptr_t Address)
+void FunctionState::removeByValArea(stateptr_ty Address)
 {
   auto const It = std::find_if(ParamByVals.begin(),
                                ParamByVals.end(),

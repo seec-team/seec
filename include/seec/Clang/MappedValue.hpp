@@ -15,6 +15,7 @@
 #define SEEC_CLANG_MAPPEDVALUE_HPP
 
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Util/Fallthrough.hpp"
 
@@ -115,7 +116,7 @@ public:
   /// 
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const =0;
+  virtual stateptr_ty getAddress() const =0;
 
   /// \brief Get the region of memory that this Value occupies.
   ///
@@ -257,7 +258,7 @@ private:
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const =0;
+  virtual stateptr_ty getRawValueImpl() const =0;
   
   /// \brief Get the size of the pointee type.
   ///
@@ -290,7 +291,7 @@ public:
   
   /// \brief Get the raw value of this pointer.
   ///
-  uintptr_t getRawValue() const { return getRawValueImpl(); }
+  stateptr_ty getRawValue() const { return getRawValueImpl(); }
   
   /// \brief Get the size of the pointee type.
   ///
@@ -337,7 +338,7 @@ public:
   /// \brief Find a \c Value from an address and type string.
   ///
   std::shared_ptr<Value const>
-  findFromAddressAndType(uintptr_t Address, llvm::StringRef TypeString) const;
+  findFromAddressAndType(stateptr_ty Address, llvm::StringRef TypeString) const;
 };
 
 
@@ -350,7 +351,7 @@ std::shared_ptr<Value const>
 getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState,
          seec::trace::FunctionState const *OwningFunction);
 

@@ -14,7 +14,6 @@
 #ifndef SEEC_TRACE_TRACETHREADLISTENER_HPP
 #define SEEC_TRACE_TRACETHREADLISTENER_HPP
 
-#include "seec/DSA/MemoryBlock.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/RuntimeValue.hpp"

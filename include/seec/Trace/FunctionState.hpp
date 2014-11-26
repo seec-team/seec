@@ -14,10 +14,10 @@
 #ifndef SEEC_TRACE_FUNCTIONSTATE_HPP
 #define SEEC_TRACE_FUNCTIONSTATE_HPP
 
-#include "seec/DSA/MemoryBlock.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
@@ -58,7 +58,7 @@ class AllocaState {
   uint32_t InstructionIndex;
 
   /// Runtime address for this allocation.
-  uintptr_t Address;
+  stateptr_ty Address;
 
   /// Size of the element type that this allocation was for.
   std::size_t ElementSize;
@@ -70,7 +70,7 @@ public:
   /// Construct a new AllocaState with the specified values.
   AllocaState(FunctionState const &Parent,
               uint32_t InstructionIndex,
-              uintptr_t Address,
+              stateptr_ty Address,
               std::size_t ElementSize,
               std::size_t ElementCount)
   : Parent(&Parent),
@@ -91,7 +91,7 @@ public:
   uint32_t getInstructionIndex() const { return InstructionIndex; }
 
   /// \brief Get the runtime address for this allocation.
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
 
   /// \brief Get the size of the element type that this allocation was for.
   std::size_t getElementSize() const { return ElementSize; }
@@ -303,7 +303,7 @@ public:
   /// This method is thread safe.
   ///
   seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const;
+  getContainingMemoryArea(stateptr_ty Address) const;
 
   /// @} (Accessors)
 
@@ -378,7 +378,7 @@ public:
   /// \brief Find the Alloca that covers the given address, or nullptr if none
   ///        exists.
   ///
-  AllocaState const *getAllocaContaining(uintptr_t Address) const {
+  AllocaState const *getAllocaContaining(stateptr_ty Address) const {
     for (auto const &Alloca : Allocas) {
       auto const Area = MemoryArea(Alloca.getAddress(), Alloca.getTotalSize());
       if (Area.contains(Address))
@@ -408,12 +408,12 @@ public:
   /// \brief Add an argument byval memory area.
   ///
   void addByValArea(unsigned ArgumentNumber,
-                    uintptr_t Address,
+                    stateptr_ty Address,
                     std::size_t Size);
   
   /// \brief Remove the argument byval memory area that begins at Address.
   ///
-  void removeByValArea(uintptr_t Address);
+  void removeByValArea(stateptr_ty Address);
   
   /// @} (Argument byval memory area tracking.)
   

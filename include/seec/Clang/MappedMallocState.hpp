@@ -16,6 +16,7 @@
 
 
 #include "seec/Clang/MappedModule.hpp"
+#include "seec/Clang/MappedStateCommon.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -65,7 +66,7 @@ public:
   
   /// \brief Get the runtime address of this allocation.
   ///
-  uintptr_t getAddress() const;
+  stateptr_ty getAddress() const;
   
   /// \brief Get the number of bytes allocated.
   ///

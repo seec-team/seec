@@ -18,6 +18,7 @@
 
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Error.hpp"
@@ -116,7 +117,7 @@ public:
   ///         available for the function at the given address.
   ///
   seec::seec_clang::MappedFunctionDecl const *
-  getMappedFunctionAt(uintptr_t const Address) const;
+  getMappedFunctionAt(stateptr_ty const Address) const;
 };
 
 

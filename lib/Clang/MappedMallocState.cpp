@@ -40,7 +40,7 @@ MallocState::MallocState(ProcessState const &WithParent,
   UnmappedState(ForState)
 {}
 
-uintptr_t MallocState::getAddress() const
+stateptr_ty MallocState::getAddress() const
 {
   return UnmappedState.getAddress();
 }

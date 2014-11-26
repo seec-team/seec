@@ -114,7 +114,7 @@ class ValueStoreImpl final {
   // Two-stage lookup to find previously created Value objects.
   // The first stage is the in-memory address of the object.
   // The second stage is the canonical type of the object.
-  mutable llvm::DenseMap<uintptr_t, TypedValueSet> Store;
+  mutable llvm::DenseMap<stateptr_ty, TypedValueSet> Store;
 
   /// SeeC-Clang mapping information.
   seec::seec_clang::MappedModule const &Mapping;
@@ -139,7 +139,7 @@ public:
   getValue(std::shared_ptr<ValueStore const> StorePtr,
            ::clang::QualType QualType,
            ::clang::ASTContext const &ASTContext,
-           uintptr_t Address,
+           stateptr_ty Address,
            seec::trace::ProcessState const &ProcessState,
            seec::trace::FunctionState const *OwningFunction) const;
 
@@ -150,7 +150,8 @@ public:
   /// \brief Find first \c Value matching the given predicate.
   ///
   std::shared_ptr<Value const>
-  findFromAddressAndType(uintptr_t Address, llvm::StringRef TypeString) const {
+  findFromAddressAndType(stateptr_ty Address, llvm::StringRef TypeString) const
+  {
     auto const It = Store.find(Address);
 
     if (It == Store.end())
@@ -159,6 +160,37 @@ public:
     return It->second.getSharedFromTypeString(TypeString);
   }
 };
+
+
+//===----------------------------------------------------------------------===//
+// readAPIntFromMemory()
+//===----------------------------------------------------------------------===//
+
+Maybe<llvm::APInt> readAPIntFromMemory(clang::ASTContext const &AST,
+                                       clang::Type const *Type,
+                                       stateptr_ty const Address,
+                                       seec::trace::MemoryState const &Memory)
+{
+  auto const Size = AST.getTypeSizeInChars(Type);
+  auto const Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+    return Maybe<llvm::APInt>();
+
+  auto const BitWidth = AST.getTypeSize(Type);
+  auto const RawBytes = Region.getByteValues();
+  auto const Data = RawBytes.data();
+
+  switch (BitWidth) {
+    case 8:  return llvm::APInt(8,  *reinterpret_cast<uint8_t  const *>(Data));
+    case 16: return llvm::APInt(16, *reinterpret_cast<uint16_t const *>(Data));
+    case 32: return llvm::APInt(32, *reinterpret_cast<uint32_t const *>(Data));
+    case 64: return llvm::APInt(64, *reinterpret_cast<uint64_t const *>(Data));
+  }
+
+  llvm::errs() << "readAPIntFromMemory: unsupported bitwidth " << BitWidth
+               << "\n";
+  return Maybe<llvm::APInt>();
+}
 
 
 //===----------------------------------------------------------------------===//
@@ -434,7 +466,7 @@ class ValueByMemoryForScalar final : public ValueOfScalar {
   ::clang::Type const * CanonicalType;
   
   /// The recorded memory address of the value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of the value.
   ::clang::CharUnits Size;
@@ -472,7 +504,7 @@ public:
   /// \brief Constructor.
   ///
   ValueByMemoryForScalar(::clang::Type const *WithCanonicalType,
-                         uintptr_t WithAddress,
+                         stateptr_ty WithAddress,
                          ::clang::CharUnits WithSize,
                          seec::trace::ProcessState const &ForProcessState)
   : ValueOfScalar(),
@@ -502,7 +534,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   virtual bool isCompletelyInitialized() const override {
     auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
@@ -555,13 +587,13 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   ::clang::Type const *CanonicalType;
   
   /// The address of this pointer (not the value of the pointer).
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of the pointee type.
   ::clang::CharUnits PointeeSize;
   
   /// The raw value of this pointer.
-  uintptr_t RawValue;
+  stateptr_ty RawValue;
   
   /// The ProcessState that this value is for.
   seec::trace::ProcessState const &ProcessState;
@@ -571,9 +603,9 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   ValueByMemoryForPointer(std::weak_ptr<ValueStore const> InStore,
                           ::clang::ASTContext const &WithASTContext,
                           ::clang::Type const *WithCanonicalType,
-                          uintptr_t WithAddress,
+                          stateptr_ty WithAddress,
                           ::clang::CharUnits WithPointeeSize,
-                          uintptr_t WithRawValue,
+                          stateptr_ty WithRawValue,
                           seec::trace::ProcessState const &ForProcessState)
   : Store(InStore),
     ASTContext(WithASTContext),
@@ -608,7 +640,7 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const override {
+  virtual stateptr_ty getRawValueImpl() const override {
     return RawValue;
   }
   
@@ -625,7 +657,7 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState)
   {
     // Get the size of pointee type.
@@ -637,17 +669,16 @@ public:
                            ? ::clang::CharUnits::fromQuantity(0)
                            : ASTContext.getTypeSizeInChars(PointeeQType);
     
-    // Calculate the raw pointer value (don't worry if the memory is
-    // uninitialized: getByteValues() will return zeros and we simply won't use
-    // the calculated value). We do have to be careful that the memory is
-    // allocated: if not, the raw bytes may be nonexistant or insufficient.
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = RawBytes.size() >= sizeof(uintptr_t)
-                        ? *reinterpret_cast<uintptr_t const *>(RawBytes.data())
+    // Get the raw pointer value.
+    auto const MaybeValue = readAPIntFromMemory(ASTContext,
+                                                Type,
+                                                Address,
+                                                ProcessState.getMemory());
+
+    auto const PtrValue = MaybeValue.assigned<llvm::APInt>()
+                        ? MaybeValue.get<llvm::APInt>().getLimitedValue()
                         : 0;
-    
+
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
                           (new ValueByMemoryForPointer(Store,
@@ -675,7 +706,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   virtual bool isCompletelyInitialized() const override {
     auto const &Memory = ProcessState.getMemory();
@@ -787,7 +818,7 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
   ::clang::Type const *CanonicalType;
   
   /// The memory address of this Value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The process state that this Value is in.
   seec::trace::ProcessState const &ProcessState;
@@ -798,7 +829,7 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
                          ::clang::ASTContext const &WithASTContext,
                          ::clang::ASTRecordLayout const &WithLayout,
                          ::clang::Type const *WithCanonicalType,
-                         uintptr_t WithAddress,
+                         stateptr_ty WithAddress,
                          seec::trace::ProcessState const &ForProcessState)
   : Store(InStore),
     ASTContext(WithASTContext),
@@ -830,7 +861,7 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState)
   {
     auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
@@ -869,7 +900,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   /// \brief Check if this value is completely initialized.
   ///
@@ -1025,7 +1056,7 @@ class ValueByMemoryForArray final : public ValueOfArray {
   ::clang::ArrayType const *CanonicalType;
   
   /// The memory address of this Value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of an element.
   unsigned ElementSize;
@@ -1044,7 +1075,7 @@ class ValueByMemoryForArray final : public ValueOfArray {
   ValueByMemoryForArray(std::weak_ptr<ValueStore const> InStore,
                         ::clang::ASTContext const &WithASTContext,
                         ::clang::ArrayType const *WithCanonicalType,
-                        uintptr_t WithAddress,
+                        stateptr_ty WithAddress,
                         unsigned WithElementSize,
                         unsigned WithElementCount,
                         seec::trace::ProcessState const &ForProcessState,
@@ -1131,7 +1162,7 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState,
          seec::trace::FunctionState const *OwningFunction)
   {
@@ -1224,7 +1255,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   /// \brief Check if this value is completely initialized.
   ///
@@ -1796,7 +1827,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return 0; }
+  virtual stateptr_ty getAddress() const override { return 0; }
   
   /// \brief Runtime values are always initialized (at the moment).
   ///
@@ -1842,7 +1873,7 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   seec::trace::ProcessState const &ProcessState;
   
   /// The value of this pointer.
-  uintptr_t PtrValue;
+  stateptr_ty PtrValue;
   
   /// The size of the pointee type.
   ::clang::CharUnits PointeeSize;
@@ -1853,7 +1884,7 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
                                 ::clang::Expr const *ForExpression,
                                 seec::seec_clang::MappedAST const &WithAST,
                                 seec::trace::ProcessState const &ForState,
-                                uintptr_t WithPtrValue,
+                                stateptr_ty WithPtrValue,
                                 ::clang::CharUnits WithPointeeSize)
   : Store(WithStore),
     Expression(ForExpression),
@@ -1887,7 +1918,7 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const override { return PtrValue; }
+  virtual stateptr_ty getRawValueImpl() const override { return PtrValue; }
   
   /// \brief Get the size of the pointee type.
   ///
@@ -1954,7 +1985,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return 0; }
+  virtual stateptr_ty getAddress() const override { return 0; }
   
   /// \brief Runtime values are always initialized (at the moment).
   ///
@@ -2041,7 +2072,7 @@ std::shared_ptr<Value const>
 createValue(std::shared_ptr<ValueStore const> Store,
             ::clang::QualType QualType,
             ::clang::ASTContext const &ASTContext,
-            uintptr_t Address,
+            stateptr_ty Address,
             seec::trace::ProcessState const &ProcessState,
             seec::trace::FunctionState const *OwningFunction)
 {
@@ -2169,7 +2200,7 @@ std::shared_ptr<Value const>
 ValueStoreImpl::getValue(std::shared_ptr<ValueStore const> StorePtr,
                          ::clang::QualType QualType,
                          ::clang::ASTContext const &ASTContext,
-                         uintptr_t Address,
+                         stateptr_ty Address,
                          seec::trace::ProcessState const &ProcessState,
                          seec::trace::FunctionState const *OwningFunction) const
 {
@@ -2223,7 +2254,7 @@ ValueStoreImpl const &ValueStore::getImpl() const {
 }
 
 std::shared_ptr<Value const>
-ValueStore::findFromAddressAndType(uintptr_t Address,
+ValueStore::findFromAddressAndType(stateptr_ty Address,
                                    llvm::StringRef TypeString) const
 {
   return Impl->findFromAddressAndType(Address, TypeString);
@@ -2240,7 +2271,7 @@ std::shared_ptr<Value const>
 getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState,
          seec::trace::FunctionState const *OwningFunction)
 {

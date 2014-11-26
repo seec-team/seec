@@ -14,6 +14,7 @@
 #ifndef SEEC_LIB_CLANG_GRAPHEXPANSION_HPP
 #define SEEC_LIB_CLANG_GRAPHEXPANSION_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedValue.hpp"
 
 #include <memory>
@@ -101,11 +102,11 @@ public:
   /// \brief Get all pointers that point directly into a memory area.
   ///
   std::vector<std::shared_ptr<ValueOfPointer const>>
-  getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
+  getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const;
   
   /// \brief Check if any pointer points into a memory area.
   ///
-  bool isAreaReferenced(uintptr_t Start, uintptr_t End) const;
+  bool isAreaReferenced(stateptr_ty Start, stateptr_ty End) const;
   
   /// \brief Get all pointers.
   ///

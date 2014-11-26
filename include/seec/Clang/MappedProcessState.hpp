@@ -17,6 +17,7 @@
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
 #include "seec/Clang/MappedMallocState.hpp"
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedStreamState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
@@ -79,10 +80,10 @@ class ProcessState {
   std::shared_ptr<ValueStore const> CurrentValueStore;
   
   /// Currently open streams.
-  llvm::DenseMap<uintptr_t, StreamState> Streams;
+  llvm::DenseMap<stateptr_ty, StreamState> Streams;
   
   /// Currently open DIRs.
-  llvm::DenseMap<uintptr_t, DIRState> Dirs;
+  llvm::DenseMap<stateptr_ty, DIRState> Dirs;
   
 public:
   /// \brief Constructor.
@@ -204,7 +205,8 @@ public:
   ///
   std::vector<MallocState> getDynamicMemoryAllocations() const;
 
-  seec::Maybe<MallocState> getDynamicMemoryAllocation(uintptr_t Address) const;
+  seec::Maybe<MallocState>
+  getDynamicMemoryAllocation(stateptr_ty Address) const;
   
   /// @} (Dynamic memory allocations.)
   
@@ -224,7 +226,7 @@ public:
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
-  StreamState const *getStream(uintptr_t Address) const;
+  StreamState const *getStream(stateptr_ty Address) const;
   
   /// \brief Get a pointer to the stdout stream, if it is open.
   ///
@@ -242,7 +244,7 @@ public:
   
   /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
   ///
-  DIRState const *getDIR(uintptr_t Address) const;
+  DIRState const *getDIR(stateptr_ty Address) const;
   
   /// @} (Streams.)
 };

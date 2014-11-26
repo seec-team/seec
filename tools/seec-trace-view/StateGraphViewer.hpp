@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 #define SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
+
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
@@ -319,7 +321,8 @@ class StateGraphViewerPanel final : public wxPanel
 
   /// \brief Replay MouseOverValue events.
   ///
-  void replayMouseOverValue(uintptr_t Address, std::string &TypeString);
+  void replayMouseOverValue(seec::cm::stateptr_ty Address,
+                            std::string &TypeString);
 
 public:
   /// \brief Construct.

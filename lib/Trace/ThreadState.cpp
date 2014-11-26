@@ -978,7 +978,7 @@ void ThreadState::removePreviousEvent() {
 //------------------------------------------------------------------------------
 
 seec::Maybe<MemoryArea>
-ThreadState::getContainingMemoryArea(uintptr_t Address) const {
+ThreadState::getContainingMemoryArea(stateptr_ty Address) const {
   seec::Maybe<MemoryArea> Area;
   
   for (auto const &FunctionStatePtr : CallStack) {

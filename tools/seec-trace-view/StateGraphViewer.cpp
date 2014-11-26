@@ -404,7 +404,7 @@ void StateGraphViewerPanel::handleContextEvent(ContextEvent const &Ev)
   }
 }
 
-void StateGraphViewerPanel::replayMouseOverValue(uintptr_t Address,
+void StateGraphViewerPanel::replayMouseOverValue(seec::cm::stateptr_ty Address,
                                                  std::string &TypeString)
 {
   // Remove previous highlight. TODO: This is temporary because the recordings

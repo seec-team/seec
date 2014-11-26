@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 #define SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 
 namespace clang {
@@ -100,12 +101,13 @@ MovementResult moveToFunctionFinished(FunctionState &Function);
 /// \brief Move backwards to the initial allocation of the memory that owns
 ///        \c Address.
 ///
-MovementResult moveToAllocation(ProcessState &Process, uintptr_t const Address);
+MovementResult moveToAllocation(ProcessState &Process,
+                                stateptr_ty const Address);
 
 /// \brief Move forwards until the memory that owns \c Address is deallocated.
 ///
 MovementResult moveToDeallocation(ProcessState &Process,
-                                  uintptr_t const Address);
+                                  stateptr_ty const Address);
 
 /// \brief Move State forward until the memory state in Area changes.
 ///

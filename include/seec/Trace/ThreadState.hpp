@@ -16,6 +16,7 @@
 
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
@@ -245,7 +246,7 @@ public:
   ///  - Functions' stack allocations.
   ///
   seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const;
+  getContainingMemoryArea(stateptr_ty Address) const;
   
   /// @} (Memory.)
 };

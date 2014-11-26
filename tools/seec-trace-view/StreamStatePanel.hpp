@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_STREAMSTATEPANEL_HPP
 #define SEEC_TRACE_VIEW_STREAMSTATEPANEL_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
+
 #include <wx/wx.h>
 #include "seec/wxWidgets/CleanPreprocessor.h"
 
@@ -43,7 +45,7 @@ class StreamStatePanel final : public wxPanel
   wxBookCtrlBase *Book;
 
   /// Lookup pages by FILE * value.
-  std::map<uintptr_t, StreamPanel *> Pages;
+  std::map<seec::cm::stateptr_ty, StreamPanel *> Pages;
 
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
