@@ -23,6 +23,7 @@
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/GetRecreatedValue.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -39,6 +40,9 @@
 
 #include <cctype>
 #include <string>
+
+
+using namespace std;
 
 
 namespace seec {
@@ -167,11 +171,27 @@ struct GetMemoryOfBuiltinAsString {
   static std::string impl(seec::trace::MemoryStateRegion const &Region) {
     if (Region.getArea().length() != sizeof(T))
       return std::string("<size mismatch>");
-    
+
     auto const Bytes = Region.getByteValues();
     return Bytes.size() >= sizeof(T)
            ? std::to_string(*reinterpret_cast<T const *>(Bytes.data()))
            : std::string{};
+  }
+};
+
+// Temporary hack that expects x87 80 bit long doubles.
+template<>
+struct GetMemoryOfBuiltinAsString<long double> {
+  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
+    long double Value = 0;
+
+    if (Region.getArea().length() != 10)
+      return std::string("<size mismatch>");
+
+    auto const Bytes = Region.getByteValues();
+    memcpy(reinterpret_cast<char *>(&Value), Bytes.data(), 10);
+
+    return std::to_string(Value);
   }
 };
 
@@ -1089,16 +1109,17 @@ class ValueByMemoryForArray final : public ValueOfArray {
         return Maybe<uint64_t>();
       }
 
-      auto const MaybeSize = trace::getCurrentRuntimeValueAs<uint64_t>
-                              (OwningFunction, MappedStmt->getValue());
+      auto const MaybeSize =
+        seec::trace::getAPInt(OwningFunction, MappedStmt->getValue());
 
-      if (!MaybeSize.assigned<uint64_t>()) {
+      if (!MaybeSize.assigned<llvm::APInt>()) {
         llvm::errs() << "VariableArrayType size expr unresolvable.\n";
         llvm::errs() << *(MappedStmt->getValue()) << "\n";
         return Maybe<uint64_t>();
       }
 
-      return ElemSize.get<uint64_t>() * MaybeSize.get<uint64_t>();
+      return ElemSize.get<uint64_t>()
+             * MaybeSize.get<llvm::APInt>().getZExtValue();
     }
 
     return uint64_t(Size.getQuantity());
@@ -1299,23 +1320,6 @@ public:
 // getScalarValueAsAPSInt() - from llvm::Value
 //===----------------------------------------------------------------------===//
 
-template<typename T>
-struct GetValueOfBuiltinAsAPSInt {
-  static seec::Maybe<llvm::APSInt>
-  impl(seec::trace::FunctionState const &State, ::llvm::Value const *Value)
-  {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
-                                                                 (State, Value);
-    if (!MaybeValue.assigned())
-      return seec::Maybe<llvm::APSInt>();
-    
-    llvm::APSInt APSValue(sizeof(T) * CHAR_BIT, std::is_unsigned<T>::value);
-    APSValue = MaybeValue.template get<0>();
-    
-    return APSValue;
-  }
-};
-
 seec::Maybe<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::BuiltinType const *Type,
@@ -1324,7 +1328,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
   switch (Type->getKind()) {
 #define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
     case clang::BuiltinType::KIND:                                             \
-      return GetValueOfBuiltinAsAPSInt<HOST_TYPE>::impl(State, Value);
+      return seec::trace::getAPSInt(State, Value);
 
 #define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
     case clang::BuiltinType::KIND:                                             \
@@ -1432,20 +1436,54 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 // getScalarValueAsString() - from llvm::Value
 //===----------------------------------------------------------------------===//
 
+template<typename T, typename Enable = void>
+struct GetValueOfBuiltinAsString; // undefined
+
 template<typename T>
-struct GetValueOfBuiltinAsString {
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_integral<T>::value && is_signed<T>::value>::type>
+{
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
-                                                                 (State, Value);
-    if (!MaybeValue.assigned()) {
-      return std::string("<")
-             + __PRETTY_FUNCTION__
-             + ": couldn't get current runtime value>";
+    auto const MaybeValue = seec::trace::getAPSInt(State, Value);
+    if (MaybeValue.assigned())
+      return MaybeValue.get<llvm::APSInt>().toString(10);
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
+  }
+};
+
+template<typename T>
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_integral<T>::value && is_unsigned<T>::value>::type>
+{
+  static std::string impl(seec::trace::FunctionState const &State,
+                          ::llvm::Value const *Value)
+  {
+    auto const MaybeValue = seec::trace::getAPInt(State, Value);
+    if (MaybeValue.assigned())
+      return MaybeValue.get<llvm::APInt>().toString(10, false);
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
+  }
+};
+
+template<typename T>
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_floating_point<T>::value>::type>
+{
+  static std::string impl(seec::trace::FunctionState const &State,
+                          ::llvm::Value const *Value)
+  {
+    auto const MaybeValue = seec::trace::getAPFloat(State, Value);
+    if (MaybeValue.assigned()) {
+      llvm::SmallString<32> Buffer;
+      MaybeValue.get<llvm::APFloat>().toString(Buffer);
+      return Buffer.str().str();
     }
-    
-    return std::to_string(MaybeValue.template get<0>());
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
   }
 };
 
@@ -1454,19 +1492,12 @@ struct GetValueOfBuiltinAsString<void const *> {
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<void const *>
-                                                                 (State, Value);
+    auto const MaybeValue = seec::trace::getAPInt(State, Value);
     if (!MaybeValue.assigned())
       return std::string("<void const *: couldn't get current runtime value>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      Stream << MaybeValue.get<0>();
-    }
-    
-    return RetStr;
+
+    return std::string{"0x"}
+           + MaybeValue.get<llvm::APInt>().toString(16, false);
   }
 };
 
@@ -1625,12 +1656,12 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     // PointerType
     case ::clang::Type::Pointer:
     {
-      auto const MaybeInt = GetValueOfBuiltinAsAPSInt<uintptr_t>::impl(State,
-                                                                       Value);
-      if (!MaybeInt.assigned<llvm::APSInt>())
+      auto const MaybeInt = seec::trace::getAPInt(State, Value);
+      if (!MaybeInt.assigned<llvm::APInt>())
         return std::string("<pointer: couldn't get value>");
       
-      return std::string("0x") + MaybeInt.get<llvm::APSInt>().toString(16);
+      auto const Value = MaybeInt.get<llvm::APInt>();
+      return std::string("0x") + Value.toString(16, false);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -2029,11 +2060,23 @@ createValue(std::shared_ptr<ValueStore const> Store,
     return std::shared_ptr<Value const>(); // No values for incomplete types.
   }
   
-  auto const TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
+  auto TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
   
   switch (CanonicalType->getTypeClass()) {
     // Scalar values.
-    case ::clang::Type::Builtin: SEEC_FALLTHROUGH;
+    case ::clang::Type::Builtin:
+    {
+      // Correct the size of long double to only consider the used bytes.
+      auto const BT = llvm::dyn_cast< ::clang::BuiltinType >(CanonicalType);
+      if (BT->getKind() == clang::BuiltinType::LongDouble) {
+        auto const &Semantics = ASTContext.getFloatTypeSemantics(CanonicalType);
+        if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+          TypeSize = ::clang::CharUnits::fromQuantity(10);
+        }
+      }
+
+      SEEC_FALLTHROUGH;
+    }
     case ::clang::Type::Atomic:  SEEC_FALLTHROUGH;
     case ::clang::Type::Enum:
     {
