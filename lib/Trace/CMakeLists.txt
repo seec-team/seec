@@ -14,6 +14,7 @@ set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
   ../../include/seec/Trace/FunctionState.hpp
   ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
+  ../../include/seec/Trace/GetRecreatedValue.hpp
   ../../include/seec/Trace/MemoryState.hpp
   ../../include/seec/Trace/ProcessState.hpp
   ../../include/seec/Trace/StateMovement.hpp
@@ -29,6 +30,7 @@ set(TRACE_HEADERS
 
 set(TRACE_SOURCES
   FunctionState.cpp
+  GetRecreatedValue.cpp
   MemoryState.cpp
   ProcessState.cpp
   StateMovement.cpp
