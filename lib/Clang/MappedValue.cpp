@@ -197,176 +197,133 @@ Maybe<llvm::APInt> readAPIntFromMemory(clang::ASTContext const &AST,
 // getScalarValueAsString() - from memory
 //===----------------------------------------------------------------------===//
 
-template<typename T>
-struct GetMemoryOfBuiltinAsString {
-  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
-    if (Region.getArea().length() != sizeof(T))
-      return std::string("<size mismatch>");
-
-    auto const Bytes = Region.getByteValues();
-    return Bytes.size() >= sizeof(T)
-           ? std::to_string(*reinterpret_cast<T const *>(Bytes.data()))
-           : std::string{};
-  }
-};
-
-// Temporary hack that expects x87 80 bit long doubles.
-template<>
-struct GetMemoryOfBuiltinAsString<long double> {
-  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
-    long double Value = 0;
-
-    if (Region.getArea().length() != 10)
-      return std::string("<size mismatch>");
-
-    auto const Bytes = Region.getByteValues();
-    memcpy(reinterpret_cast<char *>(&Value), Bytes.data(), 10);
-
-    return std::to_string(Value);
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<char> {
-  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
-    if (Region.getArea().length() != sizeof(char))
-      return std::string("<size mismatch>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      auto const Bytes = Region.getByteValues();
-      if (Bytes.empty())
-        return RetStr;
-
-      auto const Character = *reinterpret_cast<char const *>(Bytes.data());
-      
-      if (std::isprint(Character))
-        Stream << Character;
-      else {
-        Stream << '\\';
-        
-        switch (Character) {
-          case '\t': Stream << 't'; break;
-          case '\f': Stream << 'f'; break;
-          case '\v': Stream << 'v'; break;
-          case '\n': Stream << 'n'; break;
-          case '\r': Stream << 'r'; break;
-          default:   Stream << int(Character); break;
-        }
-      }
-    }
-    
-    return RetStr;
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<void const *> {
-  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
-    if (Region.getArea().length() != sizeof(void const *))
-      return std::string("<size mismatch>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      auto const Bytes = Region.getByteValues();
-      if (Bytes.size() < sizeof(void const *))
-        return RetStr;
-
-      Stream << *reinterpret_cast<void const * const *>(Bytes.data());
-    }
-    
-    return RetStr;
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<void> {
-  static std::string impl(seec::trace::MemoryStateRegion const &Region) {
-    return std::string("<void>");
-  }
-};
-
 std::string
-getScalarValueAsString(::clang::BuiltinType const *Type,
-                       seec::trace::MemoryStateRegion const &Region)
+getScalarValueAsString(clang::ASTContext const &AST,
+                       clang::BuiltinType const *Type,
+                       stateptr_ty const Address,
+                       seec::trace::MemoryState const &Memory)
 {
-  switch (Type->getKind()) {
-#define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
-    case clang::BuiltinType::KIND:                                             \
-      return GetMemoryOfBuiltinAsString<HOST_TYPE>::impl(Region);
+  if (Type->getKind() == clang::BuiltinType::Char_S
+      || Type->getKind() == clang::BuiltinType::Char_U)
+  {
+    // Special handling to pretty-print chars.
+    auto const Region = Memory.getRegion(MemoryArea(Address, 1));
+    if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+      return std::string{"<uninitialized>"};
 
-#define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
-    case clang::BuiltinType::KIND:                                             \
-      return std::string("<builtin \"" #KIND "\" not implemented>"); 
+    auto const Value = Region.getByteValues()[0];
+    std::string Printed;
 
-    // Builtin types
-    SEEC_HANDLE_BUILTIN(Void, void)
+    if ((static_cast<uint8_t>(Value) & 128) == 0) {
+      static char const * const FormattedASCII[] = {
+        "\\0", "soh", "stx", "etx", "eot", "enq", "ack", "bel",  "bs", "\\t",
+        "\\n",  "vt", "\\f", "\\r",  "so",  "si", "dle", "dc1", "dc2", "dc3",
+        "dc4", "nak", "syn", "etb", "can",  "em", "sub", "esc",  "fs",  "gs",
+         "rs",  "us",  "sp",   "!",  "\"",   "#",   "$",   "%",   "&",   "'",
+          "(",   ")",   "*",   "+",   ",",   "-",   ".",   "/",   "0",   "1",
+          "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",   ":",   ";",
+          "<",   "=",   ">",   "?",   "@",   "A",   "B",   "C",   "D",   "E",
+          "F",   "G",   "H",   "I",   "J",   "K",   "L",   "M",   "N",   "O",
+          "P",   "Q",   "R",   "S",   "T",   "U",   "V",   "W",   "X",   "Y",
+          "Z",   "[",   "\\",  "]",   "^",   "_",   "`",   "a",   "b",   "c",
+          "d",   "e",   "f",   "g",   "h",   "i",   "j",   "k",   "l",   "m",
+          "n",   "o",   "p",   "q",   "r",   "s",   "t",   "u",   "v",   "w",
+          "x",   "y",   "z",   "{",   "|",   "}",   "~", "del" };
 
-    // Unsigned types
-    SEEC_HANDLE_BUILTIN(Bool, bool)
-    SEEC_HANDLE_BUILTIN(Char_U, char)
-    SEEC_HANDLE_BUILTIN(UChar, unsigned char)
-    SEEC_HANDLE_BUILTIN(WChar_U, wchar_t)
-    SEEC_HANDLE_BUILTIN(Char16, char16_t)
-    SEEC_HANDLE_BUILTIN(Char32, char32_t)
-    SEEC_HANDLE_BUILTIN(UShort, unsigned short)
-    SEEC_HANDLE_BUILTIN(UInt, unsigned int)
-    SEEC_HANDLE_BUILTIN(ULong, unsigned long)
-    SEEC_HANDLE_BUILTIN(ULongLong, unsigned long long)
-    SEEC_UNHANDLED_BUILTIN(UInt128)
+      Printed = FormattedASCII[static_cast<unsigned>(Value)];
+    }
+    else if (Type->getKind() == clang::BuiltinType::Char_S) {
+      Printed = std::to_string(static_cast<signed char>(Value));
+    }
+    else {
+      Printed = std::to_string(static_cast<unsigned char>(Value));
+    }
 
-    // Signed types
-    SEEC_HANDLE_BUILTIN(Char_S, char)
-    SEEC_HANDLE_BUILTIN(SChar, signed char)
-    SEEC_HANDLE_BUILTIN(WChar_S, wchar_t)
-    SEEC_HANDLE_BUILTIN(Short, short)
-    SEEC_HANDLE_BUILTIN(Int, int)
-    SEEC_HANDLE_BUILTIN(Long, long)
-    SEEC_HANDLE_BUILTIN(LongLong, long long)
-    SEEC_UNHANDLED_BUILTIN(Int128)
-
-    // Floating point types
-    SEEC_UNHANDLED_BUILTIN(Half)
-    SEEC_HANDLE_BUILTIN(Float, float)
-    SEEC_HANDLE_BUILTIN(Double, double)
-    SEEC_HANDLE_BUILTIN(LongDouble, long double)
-
-    // Language-specific types
-    SEEC_UNHANDLED_BUILTIN(NullPtr)
-    SEEC_UNHANDLED_BUILTIN(ObjCId)
-    SEEC_UNHANDLED_BUILTIN(ObjCClass)
-    SEEC_UNHANDLED_BUILTIN(ObjCSel)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage3d)
-    SEEC_UNHANDLED_BUILTIN(OCLSampler)
-    SEEC_UNHANDLED_BUILTIN(OCLEvent)
-    SEEC_UNHANDLED_BUILTIN(Dependent)
-    SEEC_UNHANDLED_BUILTIN(Overload)
-    SEEC_UNHANDLED_BUILTIN(BoundMember)
-    SEEC_UNHANDLED_BUILTIN(PseudoObject)
-    SEEC_UNHANDLED_BUILTIN(UnknownAny)
-    SEEC_UNHANDLED_BUILTIN(BuiltinFn)
-    SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
-
-#undef SEEC_HANDLE_BUILTIN
-#undef SEEC_UNHANDLED_BUILTIN
+    return Printed;
   }
-  
-  llvm_unreachable("unexpected builtin.");
+  else if (Type->isInteger()) {
+    auto const Size     = AST.getTypeSizeInChars(Type);
+    auto const Region   = Memory.getRegion(MemoryArea(Address,
+                                                      Size.getQuantity()));
+
+    if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+      return std::string{"<unallocated or uninitialized>"};
+
+    auto const BitWidth = AST.getTypeSize(Type);
+    auto const NWords   = BitWidth / 64 + (BitWidth % 64 ? 1 : 0);
+
+    uint64_t Words[NWords];
+    std::memcpy(reinterpret_cast<char *>(Words),
+                Region.getByteValues().data(),
+                Size.getQuantity());
+
+    llvm::APSInt Value(llvm::APInt(BitWidth,
+                                   llvm::ArrayRef<uint64_t>(Words, NWords)),
+                       Type->isUnsignedInteger());
+
+    llvm::SmallString<32> Buffer;
+    Value.toString(Buffer);
+    return Buffer.str().str();
+  }
+  else if (Type->isFloatingPoint()) {
+    auto const &Semantics = AST.getFloatTypeSemantics(clang::QualType(Type, 0));
+
+    if (&Semantics == &llvm::APFloat::IEEEsingle) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(float)));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      auto const RawBytes = Region.getByteValues();
+      auto const Value = *reinterpret_cast<float const *>(RawBytes.data());
+      return std::to_string(Value);
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEdouble) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(double)));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      auto const RawBytes = Region.getByteValues();
+      auto const Value = *reinterpret_cast<double const *>(RawBytes.data());
+      return std::to_string(Value);
+    }
+    else if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, 10));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      uint64_t Vals[2] = {0, 0}; // 16 bytes.
+      memcpy(reinterpret_cast<char *>(Vals), Region.getByteValues().data(), 10);
+      llvm::APFloat APF(Semantics, llvm::APInt(80, Vals));
+
+      llvm::SmallString<32> Buffer;
+      APF.toString(Buffer);
+      return Buffer.str().str();
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEhalf) {
+      return std::string{"<IEEEhalf unsupported>"};
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEquad) {
+      return std::string{"<IEEEquad unsupported>"};
+    }
+    else if (&Semantics == &llvm::APFloat::PPCDoubleDouble) {
+      return std::string{"<PPCDoubleDouble unsupported>"};
+    }
+  }
+  else if (Type->isVoidType()) {
+    return std::string{"<void>"};
+  }
+
+  clang::LangOptions LangOpts;
+  clang::PrintingPolicy Policy(LangOpts);
+  llvm::errs() << "unexpected builtin: " << Type->getName(Policy) << "\n";
   return std::string("<unexpected builtin>");
 }
 
 std::string
-getScalarValueAsString(::clang::Type const *Type,
-                       seec::trace::MemoryStateRegion const &Region)
+getScalarValueAsString(clang::ASTContext const &AST,
+                       clang::Type const *Type,
+                       stateptr_ty const Address,
+                       seec::trace::MemoryState const &Memory)
 {
   auto const CanonQualType = Type->getCanonicalTypeInternal();
   auto const CanonType = CanonQualType.getTypePtr();
@@ -376,7 +333,7 @@ getScalarValueAsString(::clang::Type const *Type,
     case ::clang::Type::Builtin:
     {
       auto const Ty = llvm::cast< ::clang::BuiltinType>(CanonType);
-      return getScalarValueAsString(Ty, Region);
+      return getScalarValueAsString(AST, Ty, Address, Memory);
     }
     
     // AtomicType
@@ -385,7 +342,7 @@ getScalarValueAsString(::clang::Type const *Type,
       // Recursive on the underlying type.
       auto const Ty = llvm::cast< ::clang::AtomicType>(CanonType);
       auto const ValueTy = Ty->getValueType().getCanonicalType().getTypePtr();
-      return getScalarValueAsString(ValueTy, Region);
+      return getScalarValueAsString(AST, ValueTy, Address, Memory);
     }
     
     // EnumType
@@ -395,24 +352,30 @@ getScalarValueAsString(::clang::Type const *Type,
       auto const Ty = llvm::cast< ::clang::EnumType>(CanonType);
       auto const IntegerTy = Ty->getDecl()->getIntegerType();
       auto const CanonicalIntegerTy = IntegerTy.getCanonicalType().getTypePtr();
-      return getScalarValueAsString(CanonicalIntegerTy, Region);
+      return getScalarValueAsString(AST, CanonicalIntegerTy, Address, Memory);
     }
     
     // PointerType
     case ::clang::Type::Pointer:
     {
-      return GetMemoryOfBuiltinAsString<void const *>::impl(Region);
+      auto const MaybeValue = readAPIntFromMemory(AST, Type, Address, Memory);
+      if (MaybeValue.assigned<llvm::APInt>()) {
+        return std::string{"0x"}
+               + MaybeValue.get<llvm::APInt>().toString(16, false);
+      }
+      return std::string{"<unassigned value>"};
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
     case ::clang::Type::CLASS:                                                 \
       return std::string("<type class " #CLASS " not implemented>");
     
-    SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(Record) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(ConstantArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(VariableArray) // TODO.
+    // Not needed because this function is only for scalars.
+    SEEC_UNHANDLED_TYPE_CLASS(Complex)
+    SEEC_UNHANDLED_TYPE_CLASS(Record)
+    SEEC_UNHANDLED_TYPE_CLASS(ConstantArray)
+    SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray)
+    SEEC_UNHANDLED_TYPE_CLASS(VariableArray)
     
     // Not needed because we don't support the language(s).
     SEEC_UNHANDLED_TYPE_CLASS(BlockPointer) // ObjC
@@ -462,6 +425,9 @@ getScalarValueAsString(::clang::Type const *Type,
 /// \brief Represents a simple scalar Value in memory.
 ///
 class ValueByMemoryForScalar final : public ValueOfScalar {
+  /// \c ASTContext for the \c Type of this value.
+  clang::ASTContext const &AST;
+
   /// The canonical Type of this value.
   ::clang::Type const * CanonicalType;
   
@@ -506,8 +472,10 @@ public:
   ValueByMemoryForScalar(::clang::Type const *WithCanonicalType,
                          stateptr_ty WithAddress,
                          ::clang::CharUnits WithSize,
-                         seec::trace::ProcessState const &ForProcessState)
+                         seec::trace::ProcessState const &ForProcessState,
+                         clang::ASTContext const &WithAST)
   : ValueOfScalar(),
+    AST(WithAST),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     Size(WithSize),
@@ -556,12 +524,8 @@ public:
   virtual std::string getValueAsStringShort() const override {
     if (!isCompletelyInitialized())
       return std::string("<uninitialized>");
-    
-    auto const Length = Size.getQuantity();
-    
-    return getScalarValueAsString(CanonicalType,
-                                  Memory.getRegion(MemoryArea(Address,
-                                                              Length)));
+
+    return getScalarValueAsString(AST, CanonicalType, Address, Memory);
   }
   
   virtual std::string getValueAsStringFull() const override {
@@ -2118,7 +2082,8 @@ createValue(std::shared_ptr<ValueStore const> Store,
                              (CanonicalType.getTypePtr(),
                               Address,
                               TypeSize,
-                              ProcessState);
+                              ProcessState,
+                              ASTContext);
     }
     
     case ::clang::Type::Pointer:
