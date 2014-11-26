@@ -6,6 +6,9 @@ seec_test_run_pass(arithmetic "ok-one-past"  "3")
 seec_test_run_fail(arithmetic "fail-low"    "-1")
 seec_test_run_fail(arithmetic "fail-high"    "4")
 
+seec_test_build(constexpr constexpr.c "")
+seec_test_run_pass(constexpr "ok" "")
+
 seec_test_build(dereferencing dereferencing.c "")
 seec_test_run_pass(dereferencing "ok-zero"       "0")
 seec_test_run_fail(dereferencing "fail-one-past" "3")
