@@ -19,7 +19,7 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Trace/GetRecreatedValue.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
@@ -416,13 +416,12 @@ FunctionState::FunctionState(ThreadState &WithParent,
         continue; // Alloca should not yet be visible.
     }
     
-    auto const MaybeAddress =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
-    
-    if (!MaybeAddress.assigned<uintptr_t>())
+    auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
+    if (!MaybeAddress.assigned<llvm::APInt>())
       continue;
     
-    Parameters.emplace_back(*this, MaybeAddress.get<uintptr_t>(), MP.getDecl());
+    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
+    Parameters.emplace_back(*this, Address, MP.getDecl());
   }
   
   // Add locals.
@@ -443,13 +442,13 @@ FunctionState::FunctionState(ThreadState &WithParent,
         continue; // Alloca should not yet be visible.
     }
     
-    auto const MaybeAddress =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
-    
-    if (!MaybeAddress.assigned<uintptr_t>())
+    auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
+    if (!MaybeAddress.assigned<llvm::APInt>())
       continue;
+
+    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
     
-    Variables.emplace_back(*this, MaybeAddress.get<uintptr_t>(), ML.getDecl());
+    Variables.emplace_back(*this, Address, ML.getDecl());
   }
   
   // Add runtime errors.
