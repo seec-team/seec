@@ -40,5 +40,6 @@ endmacro(seec_test_run_fail)
 
 add_subdirectory(byval)
 add_subdirectory(cstdlib)
+add_subdirectory(longdouble)
 add_subdirectory(pointers)
 
