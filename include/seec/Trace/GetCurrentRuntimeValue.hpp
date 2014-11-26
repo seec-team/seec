@@ -144,26 +144,31 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
 
             auto ElemAddress = getCurrentRuntimeValueAs(Source, Base)
                                .template get<uintptr_t>();
-            llvm::Type *ElemType = llvm::dyn_cast<llvm::SequentialType>
-                                                 (Base->getType());
+            llvm::Type *ElemType = Base->getType();
 
             auto const NumOperands = CE->getNumOperands();
 
             for (unsigned i = 1; i < NumOperands; ++i) {
-              ElemType = llvm::dyn_cast<llvm::SequentialType>(ElemType)
-                         ->getElementType();
-
               auto const MaybeValue =
                 getCurrentRuntimeValueAs(Source, CE->getOperand(i));
 
               if (!MaybeValue.template assigned<uintptr_t>()) {
                 llvm::errs() << "GetElementPtr const expr couldn't value of: "
-                             << *(CE->getOperand(i)) << "\n";
+                            << *(CE->getOperand(i)) << "\n";
                 return Maybe<uintptr_t>();
               }
 
-              ElemAddress += (MaybeValue.template get<uintptr_t>()
-                              * DL.getTypeAllocSize(ElemType));
+              auto const Value = MaybeValue.template get<uintptr_t>();
+
+              if (auto ST = llvm::dyn_cast<llvm::SequentialType>(ElemType)) {
+                ElemType = ST->getElementType();
+                ElemAddress += (Value * DL.getTypeAllocSize(ElemType));
+              }
+              else if (auto ST = llvm::dyn_cast<llvm::StructType>(ElemType)) {
+                auto const Layout = DL.getStructLayout(ST);
+                ElemType = ST->getElementType(Value);
+                ElemAddress += Layout->getElementOffset(Value);
+              }
             }
 
             return ElemAddress;
