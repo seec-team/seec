@@ -17,9 +17,13 @@
 #include "seec/Trace/TraceFormat.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/APSInt.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <cstdint>
+#include <cfloat>
 #include <limits>
 
 namespace seec {
@@ -82,6 +86,40 @@ public:
     RecordOffset = Offset;
     Data.LongDouble = Value;
   }
+
+  llvm::APFloat getAPFloat(llvm::Type *Type) const {
+    switch (Type->getTypeID()) {
+      case llvm::Type::FloatTyID:    return llvm::APFloat(Data.Float);
+      case llvm::Type::DoubleTyID:   return llvm::APFloat(Data.Double);
+      case llvm::Type::X86_FP80TyID:
+      {
+        assert(LDBL_MANT_DIG == 64);
+        uint64_t Vals[2] = {0, 0}; // 16 bytes.
+        memcpy(reinterpret_cast<char *>(Vals),
+               reinterpret_cast<char const *>(&(Data.LongDouble)),
+               10);
+        return llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+                             llvm::APInt(80, Vals));
+      }
+      case llvm::Type::HalfTyID:      break; // TODO
+      case llvm::Type::FP128TyID:     break; // TODO
+      case llvm::Type::PPC_FP128TyID: break; // TODO
+      case llvm::Type::VoidTyID:      break;
+      case llvm::Type::LabelTyID:     break;
+      case llvm::Type::MetadataTyID:  break;
+      case llvm::Type::X86_MMXTyID:   break;
+      case llvm::Type::IntegerTyID:   break;
+      case llvm::Type::FunctionTyID:  break;
+      case llvm::Type::StructTyID:    break;
+      case llvm::Type::ArrayTyID:     break;
+      case llvm::Type::PointerTyID:   break;
+      case llvm::Type::VectorTyID:    break;
+      case llvm::Type::NumTypeIDs:    break;
+    }
+
+    llvm_unreachable("getAPFloat called with unsupported type.");
+    return llvm::APFloat(0.0);
+  }
   
   llvm::APInt getAPInt(llvm::IntegerType *Type, bool isSigned = false) const {
     auto BitWidth = Type->getBitWidth();
@@ -99,6 +137,10 @@ public:
     }
     
     return llvm::APInt(BitWidth, Value, isSigned);
+  }
+
+  llvm::APSInt getAPSInt(llvm::IntegerType *Type) const {
+    return llvm::APSInt(getAPInt(Type, true));
   }
   
   decltype(Data) const &getData() const { return Data; }
