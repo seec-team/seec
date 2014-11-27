@@ -182,11 +182,24 @@ Maybe<llvm::APInt> readAPIntFromMemory(clang::ASTContext const &AST,
   auto const RawBytes = Region.getByteValues();
   auto const Data = RawBytes.data();
 
-  switch (BitWidth) {
+  if (AST.getTargetInfo().isBigEndian() == llvm::sys::IsBigEndianHost) {
+    switch (BitWidth) {
     case 8:  return llvm::APInt(8,  *reinterpret_cast<uint8_t  const *>(Data));
     case 16: return llvm::APInt(16, *reinterpret_cast<uint16_t const *>(Data));
     case 32: return llvm::APInt(32, *reinterpret_cast<uint32_t const *>(Data));
     case 64: return llvm::APInt(64, *reinterpret_cast<uint64_t const *>(Data));
+    }
+  }
+  else {
+    switch (BitWidth) {
+    case 8:  return llvm::APInt(8,  *reinterpret_cast<uint8_t  const *>(Data));
+    case 16: return llvm::APInt(16, *reinterpret_cast<uint16_t const *>(Data))
+                          .byteSwap();
+    case 32: return llvm::APInt(32, *reinterpret_cast<uint32_t const *>(Data))
+                          .byteSwap();
+    case 64: return llvm::APInt(64, *reinterpret_cast<uint64_t const *>(Data))
+                          .byteSwap();
+    }
   }
 
   llvm::errs() << "readAPIntFromMemory: unsupported bitwidth " << BitWidth
