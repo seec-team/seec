@@ -32,9 +32,11 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Type.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTUnit.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cctype>
@@ -257,12 +259,24 @@ getScalarValueAsString(clang::ASTContext const &AST,
                 Region.getByteValues().data(),
                 Size.getQuantity());
 
-    llvm::APSInt Value(llvm::APInt(BitWidth,
-                                   llvm::ArrayRef<uint64_t>(Words, NWords)),
-                       Type->isUnsignedInteger());
-
     llvm::SmallString<32> Buffer;
-    Value.toString(Buffer);
+
+    if (AST.getTargetInfo().isBigEndian() == llvm::sys::IsBigEndianHost) {
+      // Host and recorder have the same endianness.
+      llvm::APSInt Value(llvm::APInt(BitWidth,
+                                     llvm::ArrayRef<uint64_t>(Words, NWords)),
+                         Type->isUnsignedInteger());
+      Value.toString(Buffer);
+    }
+    else {
+      // Recorder's representation must be byte-swapped to match current host.
+      llvm::APSInt Value(llvm::APInt(BitWidth,
+                                     llvm::ArrayRef<uint64_t>(Words, NWords))
+                                    .byteSwap(),
+                         Type->isUnsignedInteger());
+      Value.toString(Buffer);
+    }
+
     return Buffer.str().str();
   }
   else if (Type->isFloatingPoint()) {
