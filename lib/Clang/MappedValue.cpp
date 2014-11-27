@@ -1353,9 +1353,13 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::llvm::Value const *Value)
 {
   switch (Type->getKind()) {
-#define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
+#define SEEC_HANDLE_BUILTIN_UNSIGNED(KIND, HOST_TYPE)                          \
     case clang::BuiltinType::KIND:                                             \
-      return seec::trace::getAPSInt(State, Value);
+      return seec::trace::getAPSIntUnsigned(State, Value);
+
+#define SEEC_HANDLE_BUILTIN_SIGNED(KIND, HOST_TYPE)                            \
+    case clang::BuiltinType::KIND:                                             \
+      return seec::trace::getAPSIntSigned(State, Value);
 
 #define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
     case clang::BuiltinType::KIND:                                             \
@@ -1365,26 +1369,26 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(Void)
     
     // Unsigned types
-    SEEC_HANDLE_BUILTIN(Bool, bool)
-    SEEC_HANDLE_BUILTIN(Char_U, char)
-    SEEC_HANDLE_BUILTIN(UChar, unsigned char)
-    SEEC_HANDLE_BUILTIN(WChar_U, wchar_t)
-    SEEC_HANDLE_BUILTIN(Char16, char16_t)
-    SEEC_HANDLE_BUILTIN(Char32, char32_t)
-    SEEC_HANDLE_BUILTIN(UShort, unsigned short)
-    SEEC_HANDLE_BUILTIN(UInt, unsigned int)
-    SEEC_HANDLE_BUILTIN(ULong, unsigned long)
-    SEEC_HANDLE_BUILTIN(ULongLong, unsigned long long)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Bool, bool)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char_U, char)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UChar, unsigned char)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(WChar_U, wchar_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char16, char16_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char32, char32_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UShort, unsigned short)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UInt, unsigned int)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(ULong, unsigned long)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(ULongLong, unsigned long long)
     SEEC_UNHANDLED_BUILTIN(UInt128)
 
     // Signed types
-    SEEC_HANDLE_BUILTIN(Char_S, char)
-    SEEC_HANDLE_BUILTIN(SChar, signed char)
-    SEEC_HANDLE_BUILTIN(WChar_S, wchar_t)
-    SEEC_HANDLE_BUILTIN(Short, short)
-    SEEC_HANDLE_BUILTIN(Int, int)
-    SEEC_HANDLE_BUILTIN(Long, long)
-    SEEC_HANDLE_BUILTIN(LongLong, long long)
+    SEEC_HANDLE_BUILTIN_SIGNED(Char_S, char)
+    SEEC_HANDLE_BUILTIN_SIGNED(SChar, signed char)
+    SEEC_HANDLE_BUILTIN_SIGNED(WChar_S, wchar_t)
+    SEEC_HANDLE_BUILTIN_SIGNED(Short, short)
+    SEEC_HANDLE_BUILTIN_SIGNED(Int, int)
+    SEEC_HANDLE_BUILTIN_SIGNED(Long, long)
+    SEEC_HANDLE_BUILTIN_SIGNED(LongLong, long long)
     SEEC_UNHANDLED_BUILTIN(Int128)
 
     // Floating point types
@@ -1414,7 +1418,8 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(BuiltinFn)
     SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
 
-#undef SEEC_HANDLE_BUILTIN
+#undef SEEC_HANDLE_BUILTIN_UNSIGNED
+#undef SEEC_HANDLE_BUILTIN_SIGNED
 #undef SEEC_UNHANDLED_BUILTIN
   }
   
@@ -1473,7 +1478,7 @@ struct GetValueOfBuiltinAsString
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getAPSInt(State, Value);
+    auto const MaybeValue = seec::trace::getAPSIntSigned(State, Value);
     if (MaybeValue.assigned())
       return MaybeValue.get<llvm::APSInt>().toString(10);
     else

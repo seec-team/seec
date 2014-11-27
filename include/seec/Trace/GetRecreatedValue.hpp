@@ -34,7 +34,10 @@ Maybe<llvm::APInt>
 getAPInt(FunctionState const &State, llvm::Value const *Value);
 
 Maybe<llvm::APSInt>
-getAPSInt(FunctionState const &State, llvm::Value const *Value);
+getAPSIntUnsigned(FunctionState const &State, llvm::Value const *Value);
+
+Maybe<llvm::APSInt>
+getAPSIntSigned(FunctionState const &State, llvm::Value const *Value);
 
 Maybe<llvm::APFloat>
 getAPFloat(FunctionState const &State, llvm::Value const *Value);

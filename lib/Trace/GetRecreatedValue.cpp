@@ -104,7 +104,7 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
       if (auto const ST = dyn_cast<SequentialType>(ElemType)) {
         // SequentialType indices are signed and can have any width, but
         // practically speaking are limited to i64.
-        auto const MaybeValue = getAPSInt(State, CE->getOperand(i));
+        auto const MaybeValue = getAPSIntSigned(State, CE->getOperand(i));
         if (!MaybeValue.assigned<APSInt>()) {
           llvm::errs() << "no value for: " << *(CE->getOperand(i)) << "\n";
           return Maybe<APInt>();
@@ -149,7 +149,7 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
   {
     if (auto const I = dyn_cast<Instruction>(V)) {
       if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-        return RTV->getAPInt(cast<IntegerType>(V->getType()), false);
+        return RTV->getAPInt(cast<IntegerType>(V->getType()));
       }
 
       return Maybe<APInt>();
@@ -166,7 +166,7 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
     // If this is an Instruction, get the recorded runtime value.
     if (auto const I = dyn_cast<Instruction>(V)) {
       if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-        return APInt(BitWidth, RTV->getUInt64(), false);
+        return APInt(BitWidth, RTV->getUInt64());
       }
 
       return Maybe<APInt>();
@@ -194,20 +194,29 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
   return Maybe<APInt>();
 }
 
-Maybe<APSInt> getAPSInt(FunctionState const &State, Value const *V)
+Maybe<APSInt> getAPSIntUnsigned(FunctionState const &State, Value const *V)
+{
+  auto MaybeValue = getAPInt(State, V);
+  if (MaybeValue.assigned<APInt>())
+    return APSInt(MaybeValue.move<APInt>(), /* isUnsigned */ true);
+
+  return Maybe<APSInt>();
+}
+
+Maybe<APSInt> getAPSIntSigned(FunctionState const &State, Value const *V)
 {
   if (!V->getType()->isIntegerTy())
     return Maybe<APSInt>();
 
   if (auto const I = dyn_cast<Instruction>(V)) {
     if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-      return RTV->getAPSInt(cast<IntegerType>(V->getType()));
+      return RTV->getAPSIntSigned(cast<IntegerType>(V->getType()));
     }
 
     return Maybe<APSInt>();
   }
   else if (auto const CI = dyn_cast<ConstantInt>(V)) {
-    return APSInt(CI->getValue());
+    return APSInt(CI->getValue(), /* isUnsigned */ false);
   }
 
   llvm_unreachable("don't know how to extract APSInt");

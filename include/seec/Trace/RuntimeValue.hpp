@@ -121,26 +121,14 @@ public:
     return llvm::APFloat(0.0);
   }
   
-  llvm::APInt getAPInt(llvm::IntegerType *Type, bool isSigned = false) const {
+  llvm::APInt getAPInt(llvm::IntegerType *Type) const {
     auto BitWidth = Type->getBitWidth();
-    
     assert(BitWidth <= 64 && "Can't get int with more than 64 bits.");
-    
-    uint64_t Value = Data.UInt64;
-    
-    // If they want a signed value, and it appears that the run-time value
-    // would have been negative, then fill the extra bits in the uint64_t
-    // with 1s (as though it were an int64_t).
-    if (isSigned && (Value & Type->getSignBit())) {
-      uint64_t BitMask = Type->getBitMask();
-      Value |= ~BitMask;
-    }
-    
-    return llvm::APInt(BitWidth, Value, isSigned);
+    return llvm::APInt(BitWidth, Data.UInt64);
   }
 
-  llvm::APSInt getAPSInt(llvm::IntegerType *Type) const {
-    return llvm::APSInt(getAPInt(Type, true));
+  llvm::APSInt getAPSIntSigned(llvm::IntegerType *Type) const {
+    return llvm::APSInt(getAPInt(Type), /* isUnsigned*/ false);
   }
   
   decltype(Data) const &getData() const { return Data; }
