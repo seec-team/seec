@@ -39,6 +39,7 @@ target_link_libraries(seec-print
  # SeeC libraries
  SeeCClang
  SeeCClangMappedTrace
+ SeeCTraceReader
  SeeCTrace
  SeeCRuntimeErrors
  SeeCICU

@@ -129,6 +129,7 @@ target_link_libraries(seec-view
  SeeCClangEPV
  SeeCClangMappedTrace
  SeeCClang
+ SeeCTraceReader
  SeeCTrace
  SeeCRuntimeErrors
  SeeCICU

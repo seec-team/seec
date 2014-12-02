@@ -12,23 +12,32 @@ endif ()
 
 set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
-  ../../include/seec/Trace/FunctionState.hpp
   ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
+  ../../include/seec/Trace/RuntimeValue.hpp
+  ../../include/seec/Trace/TraceFormat.hpp
+  ../../include/seec/Trace/TracePointer.hpp
+  ../../include/seec/Trace/TraceStorage.hpp
+  )
+
+set(TRACE_SOURCES
+  TraceFormat.cpp
+  TracePointer.cpp
+  TraceStorage.cpp
+)
+
+set(TRACE_READER_HEADERS
+  ../../include/seec/Trace/FunctionState.hpp
   ../../include/seec/Trace/GetRecreatedValue.hpp
   ../../include/seec/Trace/MemoryState.hpp
   ../../include/seec/Trace/ProcessState.hpp
   ../../include/seec/Trace/StateMovement.hpp
   ../../include/seec/Trace/StreamState.hpp
-  ../../include/seec/Trace/RuntimeValue.hpp
   ../../include/seec/Trace/ThreadState.hpp
-  ../../include/seec/Trace/TraceFormat.hpp
-  ../../include/seec/Trace/TracePointer.hpp
   ../../include/seec/Trace/TraceReader.hpp
   ../../include/seec/Trace/TraceSearch.hpp
-  ../../include/seec/Trace/TraceStorage.hpp
   )
 
-set(TRACE_SOURCES
+set(TRACE_READER_SOURCES
   FunctionState.cpp
   GetRecreatedValue.cpp
   MemoryState.cpp
@@ -36,10 +45,7 @@ set(TRACE_SOURCES
   StateMovement.cpp
   StreamState.cpp
   ThreadState.cpp
-  TraceFormat.cpp
-  TracePointer.cpp
   TraceReader.cpp
-  TraceStorage.cpp
 )
 
 set(EXECUTION_TRACER_HEADERS
@@ -83,9 +89,10 @@ set(EXECUTION_TRACER_SOURCES
   )
 
 add_library(SeeCTrace ${TRACE_HEADERS} ${TRACE_SOURCES})
+add_library(SeeCTraceReader ${TRACE_READER_HEADERS} ${TRACE_READER_SOURCES})
 add_library(SeeCExecutionTracer ${EXECUTION_TRACER_HEADERS} ${EXECUTION_TRACER_SOURCES})
 
-INSTALL(TARGETS SeeCTrace SeeCExecutionTracer
+INSTALL(TARGETS SeeCTrace SeeCTraceReader SeeCExecutionTracer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
