@@ -12,8 +12,6 @@ endif ()
 
 set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
-  ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
-  ../../include/seec/Trace/RuntimeValue.hpp
   ../../include/seec/Trace/TraceFormat.hpp
   ../../include/seec/Trace/TracePointer.hpp
   ../../include/seec/Trace/TraceStorage.hpp
@@ -60,6 +58,8 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/DetectCalls/DetectCallsCstring.def
   ../../include/seec/Trace/DetectCalls/DetectCallsCtime.def
   ../../include/seec/Trace/DetectCallsLookup.hpp
+  ../../include/seec/Trace/GetCurrentRuntimeValue.hpp
+  ../../include/seec/Trace/RuntimeValue.hpp
   ../../include/seec/Trace/TracedFunction.hpp
   ../../include/seec/Trace/TraceEventWriter.hpp
   ../../include/seec/Trace/TraceMemory.hpp

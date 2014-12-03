@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/FunctionState.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
