@@ -197,7 +197,7 @@ Process @8
    Instruction values [Active=6]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)0
 
 Process @9
  Dynamic Allocations: 0
@@ -254,7 +254,7 @@ Process @10
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
 
 Process @11
  Dynamic Allocations: 0
@@ -283,7 +283,7 @@ Process @11
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
 
 Process @12
  Dynamic Allocations: 0
@@ -312,7 +312,7 @@ Process @12
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -348,7 +348,7 @@ Process @13
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -356,7 +356,7 @@ Process @13
    Instruction values [Active=6]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)3.14159265358979323851
 
 Process @14
  Dynamic Allocations: 0
@@ -385,7 +385,7 @@ Process @14
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
 
 Process @15
  Dynamic Allocations: 0
@@ -414,8 +414,8 @@ Process @15
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
 
 Process @16
  Dynamic Allocations: 0
@@ -444,8 +444,8 @@ Process @16
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
 
 Process @17
  Dynamic Allocations: 0
@@ -474,8 +474,8 @@ Process @17
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -511,8 +511,8 @@ Process @18
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -520,7 +520,7 @@ Process @18
    Instruction values [Active=6]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)-3.14159265358979323851
 
 Process @19
  Dynamic Allocations: 0
@@ -549,8 +549,8 @@ Process @19
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
 
 Process @20
  Dynamic Allocations: 0
@@ -579,9 +579,9 @@ Process @20
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
-    27 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
+    27 = (long double)-3.14159265358979323851
 
 Process @21
  Dynamic Allocations: 0
@@ -617,9 +617,9 @@ Process @20
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
-    27 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
+    27 = (long double)-3.14159265358979323851
 
 Process @19
  Dynamic Allocations: 0
@@ -648,9 +648,9 @@ Process @19
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
-    27 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
+    27 = (long double)-3.14159265358979323851
 
 Process @18
  Dynamic Allocations: 0
@@ -679,8 +679,8 @@ Process @18
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -688,8 +688,8 @@ Process @18
    Instruction values [Active=7]:
     0 = 
     1 = 
-    5 = (unknown type)
-    7 = (unknown type)
+    5 = (long double)-3.14159265358979323851
+    7 = (long double)-3.14159265358979323851
 
 Process @17
  Dynamic Allocations: 0
@@ -718,8 +718,8 @@ Process @17
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -727,7 +727,7 @@ Process @17
    Instruction values [Active=5]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)-3.14159265358979323851
 
 Process @16
  Dynamic Allocations: 0
@@ -756,8 +756,8 @@ Process @16
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -793,8 +793,8 @@ Process @15
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
 
 Process @14
  Dynamic Allocations: 0
@@ -823,8 +823,8 @@ Process @14
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
-    22 = (unknown type)
+    17 = (long double)0
+    22 = (long double)3.14159265358979323851
 
 Process @13
  Dynamic Allocations: 0
@@ -853,7 +853,7 @@ Process @13
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -861,8 +861,8 @@ Process @13
    Instruction values [Active=7]:
     0 = 
     1 = 
-    5 = (unknown type)
-    7 = (unknown type)
+    5 = (long double)3.14159265358979323851
+    7 = (long double)3.14159265358979323851
 
 Process @12
  Dynamic Allocations: 0
@@ -891,7 +891,7 @@ Process @12
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -899,7 +899,7 @@ Process @12
    Instruction values [Active=5]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)3.14159265358979323851
 
 Process @11
  Dynamic Allocations: 0
@@ -928,7 +928,7 @@ Process @11
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -964,7 +964,7 @@ Process @10
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
 
 Process @9
  Dynamic Allocations: 0
@@ -993,7 +993,7 @@ Process @9
     6 = 
     7 = 
     8 = 
-    17 = (unknown type)
+    17 = (long double)0
 
 Process @8
  Dynamic Allocations: 0
@@ -1029,8 +1029,8 @@ Process @8
    Instruction values [Active=7]:
     0 = 
     1 = 
-    5 = (unknown type)
-    7 = (unknown type)
+    5 = (long double)0
+    7 = (long double)0
 
 Process @7
  Dynamic Allocations: 0
@@ -1066,7 +1066,7 @@ Process @7
    Instruction values [Active=5]:
     0 = 
     1 = 
-    5 = (unknown type)
+    5 = (long double)0
 
 Process @6
  Dynamic Allocations: 0

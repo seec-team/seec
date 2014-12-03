@@ -186,7 +186,7 @@ Process @9
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @10
  Dynamic Allocations: 0
@@ -331,7 +331,7 @@ Process @14
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @15
  Dynamic Allocations: 0
@@ -409,7 +409,7 @@ Process @14
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @13
  Dynamic Allocations: 0
@@ -444,7 +444,7 @@ Process @13
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @12
  Dynamic Allocations: 0
@@ -571,7 +571,7 @@ Process @9
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @8
  Dynamic Allocations: 0
@@ -605,7 +605,7 @@ Process @8
     11 = 
     12 = (double)nan
     15 = 
-    16 = (unknown type)
+    16 = (long double)NaN
 
 Process @7
  Dynamic Allocations: 0

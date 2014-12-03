@@ -247,7 +247,7 @@ Process @10
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
 
 Process @11
  Dynamic Allocations: 0
@@ -278,7 +278,7 @@ Process @11
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
 
 Process @12
  Dynamic Allocations: 0
@@ -309,11 +309,11 @@ Process @12
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
     26 = (float)1.000000e+02
     27 = (double)1.000000e+02
     28 = (double)1.000000e+02
-    29 = (unknown type)
+    29 = (long double)100
     30 = 
     31 = (int64_t)51, (uint64_t)51
 
@@ -353,11 +353,11 @@ Process @12
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
     26 = (float)1.000000e+02
     27 = (double)1.000000e+02
     28 = (double)1.000000e+02
-    29 = (unknown type)
+    29 = (long double)100
     30 = 
     31 = (int64_t)51, (uint64_t)51
 
@@ -390,11 +390,11 @@ Process @11
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
     26 = (float)1.000000e+02
     27 = (double)1.000000e+02
     28 = (double)1.000000e+02
-    29 = (unknown type)
+    29 = (long double)100
     30 = 
 
 Process @10
@@ -426,7 +426,7 @@ Process @10
     8 = 
     18 = (float)0.000000e+00
     21 = (double)0.000000e+00
-    24 = (unknown type)
+    24 = (long double)0
 
 Process @9
  Dynamic Allocations: 0

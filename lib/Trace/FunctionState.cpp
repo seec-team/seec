@@ -444,12 +444,9 @@ void printComparable(llvm::raw_ostream &Out, FunctionState const &State)
     {
       auto const Value = State.getValueAPFloat(Instruction);
       if (Value.assigned<llvm::APFloat>()) {
-        Out << "    " << i << " = (unknown type)\n";
-#if 0 // TEMPORARILY DISABLED TO MATCH OLD OUTPUT.
         llvm::SmallString<32> Buffer;
         Value.get<llvm::APFloat>().toString(Buffer);
         Out << "    " << i << " = (long double)" << Buffer << "\n";
-#endif
       }
     }
   }
