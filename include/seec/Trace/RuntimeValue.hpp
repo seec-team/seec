@@ -30,6 +30,63 @@ namespace seec {
 
 namespace trace {
 
+/// \brief Holds a single runtime value (the result of an \c llvm::Instruction).
+///
+union RuntimeValueRecord {
+  /// Used for any integers <=64 bits. We simply zero extend smaller values.
+  /// Larger width integers are not currently supported.
+  uint64_t UInt64;
+
+  /// Used to hold pointer type values.
+  uintptr_t UIntPtr;
+
+  float Float;
+
+  double Double;
+
+  long double LongDouble;
+
+  /// \brief Default construct.
+  RuntimeValueRecord()
+  {}
+
+  /// \brief Copy construct.
+  RuntimeValueRecord(RuntimeValueRecord const &Other) = default;
+
+  /// \brief Construct a new record holding a uint32_t.
+  explicit RuntimeValueRecord(uint32_t Value)
+  : UInt64(Value)
+  {}
+
+  /// \brief Construct a new record holding a uint64_t.
+  explicit RuntimeValueRecord(uint64_t Value)
+  : UInt64(Value)
+  {}
+
+  /// \brief Create a new record holding a uintptr_t.
+  explicit RuntimeValueRecord(void const *Value)
+  : UIntPtr(reinterpret_cast<uintptr_t>(Value))
+  {}
+
+  /// \brief Construct a new record holding a float.
+  explicit RuntimeValueRecord(float Value)
+  : Float(Value)
+  {}
+
+  /// \brief Construct a new record holding a double.
+  explicit RuntimeValueRecord(double Value)
+  : Double(Value)
+  {}
+
+  /// \brief Construct a new record holding a long double.
+  explicit RuntimeValueRecord(long double Value)
+  : LongDouble(Value)
+  {}
+
+  /// \brief Copy assign.
+  RuntimeValueRecord &operator=(RuntimeValueRecord const &RHS) = default;
+};
+
 class RuntimeValue {
   offset_uint RecordOffset;
 
@@ -86,52 +143,6 @@ public:
     RecordOffset = Offset;
     Data.LongDouble = Value;
   }
-
-  llvm::APFloat getAPFloat(llvm::Type *Type) const {
-    switch (Type->getTypeID()) {
-      case llvm::Type::FloatTyID:    return llvm::APFloat(Data.Float);
-      case llvm::Type::DoubleTyID:   return llvm::APFloat(Data.Double);
-      case llvm::Type::X86_FP80TyID:
-      {
-        assert(LDBL_MANT_DIG == 64);
-        uint64_t Vals[2] = {0, 0}; // 16 bytes.
-        memcpy(reinterpret_cast<char *>(Vals),
-               reinterpret_cast<char const *>(&(Data.LongDouble)),
-               10);
-        return llvm::APFloat(llvm::APFloat::x87DoubleExtended,
-                             llvm::APInt(80, Vals));
-      }
-      case llvm::Type::HalfTyID:      break; // TODO
-      case llvm::Type::FP128TyID:     break; // TODO
-      case llvm::Type::PPC_FP128TyID: break; // TODO
-      case llvm::Type::VoidTyID:      break;
-      case llvm::Type::LabelTyID:     break;
-      case llvm::Type::MetadataTyID:  break;
-      case llvm::Type::X86_MMXTyID:   break;
-      case llvm::Type::IntegerTyID:   break;
-      case llvm::Type::FunctionTyID:  break;
-      case llvm::Type::StructTyID:    break;
-      case llvm::Type::ArrayTyID:     break;
-      case llvm::Type::PointerTyID:   break;
-      case llvm::Type::VectorTyID:    break;
-      case llvm::Type::NumTypeIDs:    break;
-    }
-
-    llvm_unreachable("getAPFloat called with unsupported type.");
-    return llvm::APFloat(0.0);
-  }
-  
-  llvm::APInt getAPInt(llvm::IntegerType *Type) const {
-    auto BitWidth = Type->getBitWidth();
-    assert(BitWidth <= 64 && "Can't get int with more than 64 bits.");
-    return llvm::APInt(BitWidth, Data.UInt64);
-  }
-
-  llvm::APSInt getAPSIntSigned(llvm::IntegerType *Type) const {
-    return llvm::APSInt(getAPInt(Type), /* isUnsigned*/ false);
-  }
-  
-  decltype(Data) const &getData() const { return Data; }
   
   uint64_t getUInt64() const { return Data.UInt64; }
   
