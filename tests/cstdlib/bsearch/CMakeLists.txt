@@ -8,8 +8,8 @@ seec_test_run_fail(ok-simple not-found-high 14)
 seec_test_run_fail(ok-simple err-arg-null   "")
 
 seec_test_build(err-array-null err-array-null.c "")
-seec_test_run_fail(err-array-null "" "")
+seec_test_run_fail(err-array-null "" 2)
 
 seec_test_build(err-array-overflow err-array-overflow.c "")
-seec_test_run_fail(err-array-overflow "" "")
+seec_test_run_fail(err-array-overflow "" 2)
 
