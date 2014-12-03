@@ -251,6 +251,10 @@ public:
   /// @} (Memory.)
 };
 
+/// \brief Print a comparable textual description of a \c ThreadState.
+///
+void printComparable(llvm::raw_ostream &Out, ThreadState const &State);
+
 /// Print a textual description of a ThreadState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ThreadState const &State);

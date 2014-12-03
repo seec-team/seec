@@ -84,10 +84,23 @@ namespace seec {
     extern cl::opt<bool> OnlinePythonTutor;
 
     extern cl::opt<bool> ReverseStates;
+
+    extern cl::opt<bool> ShowComparable;
   }
 }
 
 using namespace seec::trace_print;
+
+void PrintUnmappedState(seec::trace::ProcessState const &State)
+{
+  if (ShowComparable) {
+    seec::trace::printComparable(outs(), State);
+    outs() << "\n";
+  }
+  else {
+    outs() << State << "\n";
+  }
+}
 
 void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
 {
@@ -194,17 +207,17 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
     outs() << "Recreating states:\n";
 
     trace::ProcessState ProcState{Trace, ModIndexPtr};
-    outs() << ProcState << "\n";
+    PrintUnmappedState(ProcState);
 
     while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
       moveForward(ProcState);
-      outs() << ProcState << "\n";
+      PrintUnmappedState(ProcState);
     }
 
     if (ReverseStates) {
       while (ProcState.getProcessTime() != 0) {
         moveBackward(ProcState);
-        outs() << ProcState << "\n";
+        PrintUnmappedState(ProcState);
       }
     }
   }

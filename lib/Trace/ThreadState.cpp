@@ -995,6 +995,17 @@ ThreadState::getContainingMemoryArea(stateptr_ty Address) const {
 // Printing.
 //------------------------------------------------------------------------------
 
+void printComparable(llvm::raw_ostream &Out, ThreadState const &State)
+{
+  Out << " Thread #" << State.getTrace().getThreadID()
+      << " @TT=" << State.getThreadTime()
+      << "\n";
+
+  for (auto &Function : State.getCallStack()) {
+    printComparable(Out, *Function);
+  }
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ThreadState const &State) {
   Out << " Thread #" << State.getTrace().getThreadID()

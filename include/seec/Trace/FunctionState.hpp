@@ -435,6 +435,10 @@ public:
   /// @}
 };
 
+/// \brief Print a comparable textual description of a \c FunctionState.
+///
+void printComparable(llvm::raw_ostream &Out, FunctionState const &State);
+
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               FunctionState const &State);

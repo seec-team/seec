@@ -277,6 +277,35 @@ ProcessState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
   return Trace->getGlobalVariableAddress(MaybeIndex.get<0>());
 }
 
+void printComparable(llvm::raw_ostream &Out, ProcessState const &State)
+{
+  Out << "Process @" << State.getProcessTime() << "\n";
+
+  Out << " Dynamic Allocations: " << State.getMallocs().size() << "\n";
+
+  Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
+
+  // TODO: Memory state.
+
+  Out << " Open Streams: " << State.getStreams().size()     << "\n";
+#if 0
+  for (auto const &Stream : State.getStreams()) {
+    Out << Stream.second;
+  }
+#endif
+
+  Out << " Open DIRs: " << State.getDirs().size() << "\n";
+#if 0
+  for (auto const &Dir : State.getDirs()) {
+    Out << Dir.second;
+  }
+#endif
+
+  for (auto &ThreadStatePtr : State.getThreadStates()) {
+    printComparable(Out, *ThreadStatePtr);
+  }
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State) {
   Out << "Process @" << State.getProcessTime() << "\n";

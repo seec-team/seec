@@ -96,6 +96,9 @@ namespace seec {
 
     cl::opt<bool>
     ReverseStates("reverse", cl::desc("show reverse iterated states at the end"));
+
+    cl::opt<bool>
+    ShowComparable("comparable", cl::desc("print comparable states (don't show raw addresses)"));
   }
 }
 

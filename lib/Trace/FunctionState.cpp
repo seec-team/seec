@@ -227,6 +227,58 @@ void FunctionState::removeByValArea(stateptr_ty Address)
 }
 
 
+void printComparable(llvm::raw_ostream &Out, FunctionState const &State)
+{
+  Out << "  Function [Index=" << State.getIndex() << "]\n";
+
+  Out << "   Allocas:\n";
+  for (auto const &Alloca : State.getAllocas()) {
+    Out << "    " << Alloca.getInstructionIndex()
+        <<  " =[" << Alloca.getElementCount()
+        <<    "x" << Alloca.getElementSize()
+        <<  "]\n";
+  }
+
+  Out << "   Instruction values [Active=";
+  if (State.getActiveInstructionIndex().assigned(0))
+    Out << State.getActiveInstructionIndex().get<0>();
+  else
+    Out << "unassigned";
+  Out << "]:\n";
+
+  auto const InstructionCount = State.getInstructionCount();
+  for (std::size_t i = 0; i < InstructionCount; ++i) {
+    auto const Value = State.getCurrentRuntimeValue(i);
+    if (!Value || !Value->assigned())
+      continue;
+
+    auto Type = State.getInstruction(i)->getType();
+
+    Out << "    " << i << " = ";
+
+    if (llvm::isa<llvm::IntegerType>(Type)) {
+      Out << "(int64_t)" << getAs<int64_t>(*Value, Type)
+          << ", (uint64_t)" << getAs<uint64_t>(*Value, Type);
+    }
+    else if (Type->isFloatTy()) {
+      Out << "(float)" << getAs<float>(*Value, Type);
+    }
+    else if (Type->isDoubleTy()) {
+      Out << "(double)" << getAs<double>(*Value, Type);
+    }
+    else if (Type->isPointerTy()) {
+      // TODO: a comparable pointer representation (this requires us to
+      //       determine the allocation that a pointer references, and then
+      //       display the pointer value relative to that allocation).
+    }
+    else {
+      Out << "(unknown type)";
+    }
+
+    Out << "\n";
+  }
+}
+
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               FunctionState const &State) {

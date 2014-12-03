@@ -361,6 +361,10 @@ public:
   /// @} (Get run-time addresses.)
 };
 
+/// \brief Print a comparable textual description of a \c ProcessState.
+///
+void printComparable(llvm::raw_ostream &Out, ProcessState const &State);
+
 /// Print a textual description of a ProcessState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State);
