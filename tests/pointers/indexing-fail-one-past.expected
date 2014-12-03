@@ -1,0 +1,193 @@
+Recreating states:
+Process @0
+ Dynamic Allocations: 0
+ Known Memory Regions: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=0
+
+Process @2
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=1
+  Function [Index=0]
+   Allocas:
+   Instruction values [Active=unassigned]:
+
+Process @3
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=7
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=5]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @4
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=8
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=6]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @5
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=9
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=8]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @6
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=15
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=15]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+    11 = 
+    12 = 
+    13 = 
+    14 = (int64_t)3, (uint64_t)3
+
+Process @5
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=14
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=14]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+    11 = 
+    12 = 
+    13 = 
+    14 = (int64_t)3, (uint64_t)3
+
+Process @4
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=8
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=6]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @3
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=7
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=5]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @2
+ Dynamic Allocations: 0
+ Known Memory Regions: 73
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=6
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x4]
+    4 =[1x8]
+   Instruction values [Active=4]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @0
+ Dynamic Allocations: 0
+ Known Memory Regions: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=0
+
