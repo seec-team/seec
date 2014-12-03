@@ -470,16 +470,16 @@ class ProcessTrace {
   uint64_t FinalProcessTime;
 
   /// Global variable runtime addresses, by index.
-  std::vector<uintptr_t> GlobalVariableAddresses;
+  std::vector<uint64_t> GlobalVariableAddresses;
 
   /// Offsets of global variable's initial data.
   std::vector<offset_uint> GlobalVariableInitialData;
 
   /// Function runtime addresses, by index.
-  std::vector<uintptr_t> FunctionAddresses;
+  std::vector<uint64_t> FunctionAddresses;
   
   /// Runtime addresses of the initial standard input/output streams.
-  std::vector<uintptr_t> StreamsInitial;
+  std::vector<uint64_t> StreamsInitial;
 
   /// Thread-specific traces, by (ThreadID - 1).
   std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
@@ -492,10 +492,10 @@ class ProcessTrace {
                std::string ModuleIdentifier,
                uint32_t NumThreads,
                uint64_t FinalProcessTime,
-               std::vector<uintptr_t> GVAddresses,
+               std::vector<uint64_t> GVAddresses,
                std::vector<offset_uint> GVInitialData,
-               std::vector<uintptr_t> FAddresses,
-               std::vector<uintptr_t> WithStreamsInitial,
+               std::vector<uint64_t> FAddresses,
+               std::vector<uint64_t> WithStreamsInitial,
                std::vector<std::unique_ptr<ThreadTrace>> TTraces);
 
 public:
@@ -538,7 +538,7 @@ public:
   
   /// \brief Get the runtime addresses of the initial standard streams.
   ///
-  std::vector<uintptr_t> const &getStreamsInitial() const {
+  std::vector<uint64_t> const &getStreamsInitial() const {
     return StreamsInitial;
   }
   
@@ -561,7 +561,7 @@ public:
   /// \param Index the index of the GlobalVariable in the Module.
   /// \return the run-time address of the specified GlobalVariable.
   ///
-  uintptr_t getGlobalVariableAddress(uint32_t Index) const {
+  uint64_t getGlobalVariableAddress(uint32_t Index) const {
     assert(Index < GlobalVariableAddresses.size());
     return GlobalVariableAddresses[Index];
   }
@@ -588,7 +588,7 @@ public:
   /// \param Index the index of the Function in the Module.
   /// \return the run-time address of the specified Function.
   ///
-  uintptr_t getFunctionAddress(uint32_t Index) const {
+  uint64_t getFunctionAddress(uint32_t Index) const {
     assert(Index < FunctionAddresses.size());
     return FunctionAddresses[Index];
   }
@@ -598,7 +598,7 @@ public:
   /// \return the index of the Function with the specified run-time Address, or
   ///         an unassigned Maybe if no such Function exists.
   ///
-  Maybe<uint32_t> getIndexOfFunctionAt(uintptr_t const Address) const;
+  Maybe<uint32_t> getIndexOfFunctionAt(uint64_t const Address) const;
 
   /// @} (Functions)
 

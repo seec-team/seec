@@ -119,10 +119,10 @@ ProcessTrace::ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
                            std::string ModuleIdentifier,
                            uint32_t NumThreads,
                            uint64_t FinalProcessTime,
-                           std::vector<uintptr_t> GVAddresses,
+                           std::vector<uint64_t> GVAddresses,
                            std::vector<offset_uint> GVInitialData,
-                           std::vector<uintptr_t> FAddresses,
-                           std::vector<uintptr_t> WithStreamsInitial,
+                           std::vector<uint64_t> FAddresses,
+                           std::vector<uint64_t> WithStreamsInitial,
                            std::vector<std::unique_ptr<ThreadTrace>> TTraces
                            )
 : Allocator(std::move(WithAllocator)),
@@ -172,10 +172,10 @@ ProcessTrace::readFrom(std::unique_ptr<InputBufferAllocator> Allocator)
   std::string ModuleIdentifier;
   uint32_t NumThreads;
   uint64_t FinalProcessTime;
-  std::vector<uintptr_t> GlobalVariableAddresses;
+  std::vector<uint64_t> GlobalVariableAddresses;
   std::vector<offset_uint> GlobalVariableInitialData;
-  std::vector<uintptr_t> FunctionAddresses;
-  std::vector<uintptr_t> StreamsInitial;
+  std::vector<uint64_t> FunctionAddresses;
+  std::vector<uint64_t> StreamsInitial;
   std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   TraceReader >> ModuleIdentifier
@@ -262,7 +262,7 @@ Maybe<uint64_t, Error> ProcessTrace::getCombinedFileSize() const
 }
 
 Maybe<uint32_t>
-ProcessTrace::getIndexOfFunctionAt(uintptr_t const Address) const
+ProcessTrace::getIndexOfFunctionAt(uint64_t const Address) const
 {
   for (uint32_t i = 0; i < FunctionAddresses.size(); ++i)
     if (FunctionAddresses[i] == Address)

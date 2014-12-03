@@ -112,15 +112,20 @@ void TraceProcessListener::traceWrite() {
   
   uint64_t Version = formatVersion();
   uint32_t NumThreads = NextThreadID - 1;
+
+  // Make these fixed-width for the trace file.
+  std::vector<uint64_t> GlobalVariableAddresses64 = GlobalVariableAddresses;
+  std::vector<uint64_t> FunctionAddresses64       = FunctionAddresses;
+  std::vector<uint64_t> StreamsInitial64          = StreamsInitial;
   
   writeBinary(*Out, Version);
   writeBinary(*Out, Module.getModuleIdentifier());
   writeBinary(*Out, NumThreads);
   writeBinary(*Out, Time);
-  writeBinary(*Out, GlobalVariableAddresses);
+  writeBinary(*Out, GlobalVariableAddresses64);
   writeBinary(*Out, GlobalVariableInitialData);
-  writeBinary(*Out, FunctionAddresses);
-  writeBinary(*Out, StreamsInitial);
+  writeBinary(*Out, FunctionAddresses64);
+  writeBinary(*Out, StreamsInitial64);
 }
 
 void TraceProcessListener::traceFlush() {
