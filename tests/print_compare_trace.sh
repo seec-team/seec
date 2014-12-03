@@ -16,5 +16,8 @@ done
 program=$1
 shift
 
-$program -S -comparable -reverse $1 | cmp -s - $2
-
+if ! $program -S -comparable -reverse $1 | cmp -s - $2
+then
+  $program -S -comparable -reverse $1 | diff - $2
+  exit 1
+fi
