@@ -29,6 +29,7 @@
 #include <sys/resource.h>
 #endif
 
+#include <algorithm>
 #include <type_traits>
 
 namespace seec {
@@ -717,13 +718,31 @@ TraceThreadListener
   // Call the runtime error callback, if there is one.
   auto const &Callback = ProcessListener.getRunErrorCallback();
   if (Callback) {
-    llvm::Instruction const *I = ActiveFunction->getActiveInstruction();
-    if (PreInstructionIndex.assigned<uint32_t>()) {
-      auto const Index = PreInstructionIndex.get<uint32_t>();
-      I = ActiveFunction->getFunctionIndex().getInstruction(Index);
+    llvm::Instruction const *TheInstruction = nullptr;
+
+    if (!ActiveFunction->isShim()) {
+      TheInstruction = ActiveFunction->getActiveInstruction();
+      if (PreInstructionIndex.assigned<uint32_t>()) {
+        auto const Idx = PreInstructionIndex.get<uint32_t>();
+        TheInstruction = ActiveFunction->getFunctionIndex().getInstruction(Idx);
+      }
+    }
+    else {
+      auto const FnIt = std::find_if(FunctionStack.rbegin(),
+                                     FunctionStack.rend(),
+                                     [] (TracedFunction const &TF) {
+                                       return !TF.isShim();
+                                     });
+      assert(FnIt != FunctionStack.rend() && "Shim with no non-shim parent?");
+
+      TheInstruction = FnIt->getActiveInstruction();
+      if (PreInstructionIndex.assigned<uint32_t>()) {
+        auto const Idx = PreInstructionIndex.get<uint32_t>();
+        TheInstruction = FnIt->getFunctionIndex().getInstruction(Idx);
+      }
     }
 
-    Callback(Error, I);
+    Callback(Error, TheInstruction);
   }
   
   switch (Severity) {
