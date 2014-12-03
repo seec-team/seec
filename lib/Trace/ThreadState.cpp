@@ -124,7 +124,8 @@ void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
 }
 
 void ThreadState::addEvent(
-      EventRecord<EventType::InstructionWithSmallValue> const &Ev) {
+      EventRecord<EventType::InstructionWithUInt8> const &Ev)
+{
   auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
@@ -132,56 +133,116 @@ void ThreadState::addEvent(
   auto &FuncState = *(CallStack.back());
   FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
   FuncState.setActiveInstructionComplete(Index);
-  
+
   ThreadTime = Ev.getThreadTime();
 }
 
 void ThreadState::addEvent(
-      EventRecord<EventType::InstructionWithValue> const &Ev) {
+      EventRecord<EventType::InstructionWithUInt16> const &Ev)
+{
   auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  auto const Instruction = FuncState.getInstruction(Index);
-  auto const Type = Instruction->getType();
-
-  if (Type->isIntegerTy()) {
-    FuncState.setValueUInt64(Instruction, Offset, Value.UInt64);
-  }
-  else if (Type->isPointerTy()) {
-    FuncState.setValuePtr(Instruction, Offset, Value.UIntPtr);
-  }
-  else if (Type->isFloatTy()) {
-    FuncState.setValueFloat(Instruction, Offset, Value.Float);
-  }
-  else if (Type->isDoubleTy()) {
-    FuncState.setValueDouble(Instruction, Offset, Value.Double);
-  }
-  else if (Type->isX86_FP80Ty()) {
-    assert(LDBL_MANT_DIG == 64);
-    uint64_t Vals[2] = {0, 0}; // 16 bytes.
-    memcpy(reinterpret_cast<char *>(Vals),
-           reinterpret_cast<char const *>(&(Value.LongDouble)),
-           10);
-    FuncState.setValueAPFloat(Instruction,
-                              Offset,
-                              llvm::APFloat(llvm::APFloat::x87DoubleExtended,
-                                            llvm::APInt(80, Vals)));
-  }
-  else {
-    llvm_unreachable("can't handle value");
-  }
-
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
   FuncState.setActiveInstructionComplete(Index);
 
   ThreadTime = Ev.getThreadTime();
 }
 
 void ThreadState::addEvent(
-      EventRecord<EventType::InstructionWithLargeValue> const &Ev) {
-  // TODO
-  llvm_unreachable("not yet implemented");
+      EventRecord<EventType::InstructionWithUInt32> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  auto const Value = Ev.getValue();
+
+  auto &FuncState = *(CallStack.back());
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setActiveInstructionComplete(Index);
+
+  ThreadTime = Ev.getThreadTime();
+}
+
+void ThreadState::addEvent(
+      EventRecord<EventType::InstructionWithUInt64> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  auto const Value = Ev.getValue();
+
+  auto &FuncState = *(CallStack.back());
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setActiveInstructionComplete(Index);
+
+  ThreadTime = Ev.getThreadTime();
+}
+
+void ThreadState::addEvent(
+      EventRecord<EventType::InstructionWithPtr> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  auto const Value = Ev.getValue();
+
+  auto &FuncState = *(CallStack.back());
+  FuncState.setValuePtr(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setActiveInstructionComplete(Index);
+
+  ThreadTime = Ev.getThreadTime();
+}
+
+void ThreadState::addEvent(
+      EventRecord<EventType::InstructionWithFloat> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  auto const Value = Ev.getValue();
+
+  auto &FuncState = *(CallStack.back());
+  FuncState.setValueFloat(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setActiveInstructionComplete(Index);
+
+  ThreadTime = Ev.getThreadTime();
+}
+
+void ThreadState::addEvent(
+      EventRecord<EventType::InstructionWithDouble> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  auto const Value = Ev.getValue();
+
+  auto &FuncState = *(CallStack.back());
+  FuncState.setValueDouble(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setActiveInstructionComplete(Index);
+
+  ThreadTime = Ev.getThreadTime();
+}
+
+void ThreadState::addEvent(
+      EventRecord<EventType::InstructionWithLongDouble> const &Ev)
+{
+  auto const Offset = Trace.events().offsetOf(Ev);
+  auto const Index = Ev.getIndex();
+  uint64_t const Words[2] = { Ev.getValueWord1(), Ev.getValueWord2() };
+
+  auto &FuncState = *(CallStack.back());
+  auto const Instruction = FuncState.getInstruction(Index);
+  auto const Type = Instruction->getType();
+
+  if (Type->isX86_FP80Ty()) {
+    FuncState.setValueAPFloat(Instruction, Offset,
+                              llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+                                            llvm::APInt(80, Words)));
+  }
+  else {
+    llvm_unreachable("unhandled long double type");
+  }
+
+  FuncState.setActiveInstructionComplete(Index);
+  ThreadTime = Ev.getThreadTime();
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
@@ -210,20 +271,20 @@ void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
-  // Find the preceding InstructionWithValue event.
+  // Find the preceding InstructionWithPtr event.
   EventReference EvRef(Ev);
 
   assert(EvRef != Trace.events().begin() && "Malformed event trace");
 
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
                                   (rangeBeforeIncluding(Trace.events(), EvRef));
 
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &InstrEv = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &InstrEv = InstrRef.get<EventType::InstructionWithPtr>();
 
-  auto const Address = InstrEv.getValue().UInt64;
+  auto const Address = InstrEv.getValue();
   
   llvm::Instruction const *Allocator = nullptr;
   if (!CallStack.empty())
@@ -251,15 +312,15 @@ void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
   auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
 
   // Find the Instruction that the Malloc was attached to.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
                                   (rangeBeforeIncluding(MallocThread.events(),
                                                         MallocRef));
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
 
-  auto const Address = Instr.getValue().UInt64;
+  auto const Address = Instr.getValue();
   auto const Size = Parent.Mallocs.find(Address)->second.getSize();
 
   // Update the shared ProcessState.
@@ -449,14 +510,14 @@ void ThreadState::readdEvent(EventRecord<EventType::Alloca> const &Ev) {
 
   assert(EvRef != Trace.events().begin() && "Malformed event trace");
 
-  // Find the preceding InstructionWithValue event.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>(
+  // Find the preceding InstructionWithPtr event.
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>(
                                 rangeBeforeIncluding(Trace.events(), EvRef));
 
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
 
   // Add Alloca information.
   FunctionState &FuncState = *(CallStack.back());
@@ -464,7 +525,7 @@ void ThreadState::readdEvent(EventRecord<EventType::Alloca> const &Ev) {
 
   Allocas.emplace_back(FuncState,
                        Instr.getIndex(),
-                       Instr.getValue().UInt64,
+                       Instr.getValue(),
                        Ev.getElementSize(),
                        Ev.getElementCount());
 }
@@ -654,52 +715,32 @@ void ThreadState::removeEvent(EventRecord<EventType::Instruction> const &Ev) {
   ThreadTime = Ev.getThreadTime() - 1;
 }
 
-void ThreadState::removeEvent(
-      EventRecord<EventType::InstructionWithSmallValue> const &Ev) {
-  auto &FuncState = *(CallStack.back());
-
-  auto const PreviousOffset = Ev.getPreviousSame();
-  if (PreviousOffset != noOffset()) {
-    auto &Prev
-      = Trace.events().eventAtOffset<EventType::InstructionWithSmallValue>
-                                    (PreviousOffset);
-    readdEvent(Prev);
-  }
-  else {
-    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));
-  }
-
-  // Find the previous instruction and set it as the active instruction.
-  makePreviousInstructionActive(EventReference(Ev));
-
-  ThreadTime = Ev.getThreadTime() - 1;
+#define SEEC_IMPLEMENT_REMOVE_INSTRUCTION(TYPE)                                \
+void ThreadState::removeEvent(                                                 \
+      EventRecord<EventType::InstructionWith##TYPE> const &Ev) {               \
+  auto const PreviousOffset = Ev.getPreviousSame();                            \
+  if (PreviousOffset != noOffset()) {                                          \
+    readdEvent(Trace.events().eventAtOffset<EventType::InstructionWith##TYPE>  \
+                                           (PreviousOffset));                  \
+  }                                                                            \
+  else {                                                                       \
+    auto &FuncState = *(CallStack.back());                                     \
+    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));             \
+  }                                                                            \
+  makePreviousInstructionActive(EventReference(Ev));                           \
+  ThreadTime = Ev.getThreadTime() - 1;                                         \
 }
 
-void ThreadState::removeEvent(
-      EventRecord<EventType::InstructionWithValue> const &Ev) {
-  auto &FuncState = *(CallStack.back());
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt8)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt16)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt32)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt64)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(Ptr)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(Float)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(Double)
+SEEC_IMPLEMENT_REMOVE_INSTRUCTION(LongDouble)
 
-  auto const PreviousOffset = Ev.getPreviousSame();
-  if (PreviousOffset != noOffset()) {
-    auto &Prev = Trace.events().eventAtOffset<EventType::InstructionWithValue>
-                                             (PreviousOffset);
-    readdEvent(Prev);
-  }
-  else {
-    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));
-  }
-
-  // Find the previous instruction and set it as the active instruction.
-  makePreviousInstructionActive(EventReference(Ev));
-
-  ThreadTime = Ev.getThreadTime() - 1;
-}
-
-void ThreadState::removeEvent(
-      EventRecord<EventType::InstructionWithLargeValue> const &Ev) {
-  // TODO
-  llvm_unreachable("Not yet implemented.");
-}
+#undef SEEC_IMPLEMENT_REMOVE_INSTRUCTION
 
 void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   auto &FuncState = *(CallStack.back());
@@ -793,15 +834,15 @@ void ThreadState::removeEvent(EventRecord<EventType::Alloca> const &Ev) {
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
-  // Find the preceding InstructionWithValue event.
+  // Find the preceding InstructionWithPtr event.
   EventReference EvRef(Ev);
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
                                   (rangeBeforeIncluding(Trace.events(), EvRef));
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithValue>();
-  auto const Address = Instr.getValue().UInt64;
+  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
+  auto const Address = Instr.getValue();
 
   Parent.unaddMalloc(Address);
   Parent.Memory.allocationUnadd(Address, Ev.getSize());
@@ -823,16 +864,16 @@ void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
   auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
 
   // Find the Instruction that the Malloc was attached to.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithValue>
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
                                   (rangeBeforeIncluding(MallocThread.events(),
                                                         MallocRef));
   assert(MaybeInstrRef.assigned() && "Malformed event trace");
 
   auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &InstrEv = InstrRef.get<EventType::InstructionWithValue>();
+  auto const &InstrEv = InstrRef.get<EventType::InstructionWithPtr>();
 
   // Information required to recreate the dynamic memory allocation.
-  auto const Address = InstrEv.getValue().UInt64;
+  auto const Address = InstrEv.getValue();
 
   // Restore the dynamic memory allocation.
   Parent.unremoveMalloc(Address);

@@ -107,7 +107,20 @@ SEEC_TRACE_EVENT(Instruction,
     (Instruction, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithSmallValue,
+SEEC_TRACE_EVENT(InstructionWithUInt8,
+  SEEC_PP_QUOTE(
+    (uint8_t, Value),
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithUInt8, is_block_start),
+    (InstructionWithUInt8, is_function_level),
+    (InstructionWithUInt8, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithUInt16,
   SEEC_PP_QUOTE(
     (uint16_t, Value),
     (uint32_t, Index),
@@ -115,35 +128,88 @@ SEEC_TRACE_EVENT(InstructionWithSmallValue,
     (offset_uint, PreviousSame)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithSmallValue, is_block_start),
-    (InstructionWithSmallValue, is_function_level),
-    (InstructionWithSmallValue, is_instruction)
+    (InstructionWithUInt16, is_block_start),
+    (InstructionWithUInt16, is_function_level),
+    (InstructionWithUInt16, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithValue,
+SEEC_TRACE_EVENT(InstructionWithUInt32,
+  SEEC_PP_QUOTE(
+    (uint32_t, Value),
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithUInt32, is_block_start),
+    (InstructionWithUInt32, is_function_level),
+    (InstructionWithUInt32, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithUInt64,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
     (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
-    (RuntimeValueRecord, Value)
+    (uint64_t, Value)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithValue, is_block_start),
-    (InstructionWithValue, is_function_level),
-    (InstructionWithValue, is_instruction)
+    (InstructionWithUInt64, is_block_start),
+    (InstructionWithUInt64, is_function_level),
+    (InstructionWithUInt64, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithLargeValue,
+SEEC_TRACE_EVENT(InstructionWithPtr,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
     (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
-    (offset_uint, DataOffset)
+    (uint64_t, Value)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithLargeValue, is_block_start),
-    (InstructionWithLargeValue, is_function_level),
-    (InstructionWithLargeValue, is_instruction)
+    (InstructionWithPtr, is_block_start),
+    (InstructionWithPtr, is_function_level),
+    (InstructionWithPtr, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithFloat,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame),
+    (float, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithFloat, is_block_start),
+    (InstructionWithFloat, is_function_level),
+    (InstructionWithFloat, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithDouble,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame),
+    (double, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithDouble, is_block_start),
+    (InstructionWithDouble, is_function_level),
+    (InstructionWithDouble, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithLongDouble,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ThreadTime),
+    (offset_uint, PreviousSame),
+    (uint64_t, ValueWord1),
+    (uint64_t, ValueWord2)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithLongDouble, is_block_start),
+    (InstructionWithLongDouble, is_function_level),
+    (InstructionWithLongDouble, is_instruction)
   ))
 
 SEEC_TRACE_EVENT(Alloca,
