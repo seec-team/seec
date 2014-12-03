@@ -269,8 +269,8 @@ CStdLibChecker::memoryExistsForParameter(unsigned Parameter,
   // pointer does not have an associated object.
   //
   if (Call)
-    if (checkPointer(PtrObj, Address))
-      return true;
+    if (!checkPointer(PtrObj, Address))
+      return false;
 
   // Check that the area exists.
   if (!Area.assigned()) {
