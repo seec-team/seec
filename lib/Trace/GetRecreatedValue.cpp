@@ -145,11 +145,12 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
 
 Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
 {
-  if (V->getType()->isIntegerTy())
+  if (auto const IntTy = dyn_cast<IntegerType>(V->getType()))
   {
     if (auto const I = dyn_cast<Instruction>(V)) {
-      if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-        return RTV->getAPInt(cast<IntegerType>(V->getType()));
+      auto const Value = State.getValueUInt64(I);
+      if (Value.assigned<uint64_t>()) {
+        return APInt(IntTy->getBitWidth(), Value.get<uint64_t>());
       }
 
       return Maybe<APInt>();
@@ -165,8 +166,9 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
 
     // If this is an Instruction, get the recorded runtime value.
     if (auto const I = dyn_cast<Instruction>(V)) {
-      if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-        return APInt(BitWidth, RTV->getUInt64());
+      auto const Value = State.getValuePtr(I);
+      if (Value.assigned<stateptr_ty>()) {
+        return APInt(BitWidth, Value.get<stateptr_ty>());
       }
 
       return Maybe<APInt>();
@@ -205,12 +207,15 @@ Maybe<APSInt> getAPSIntUnsigned(FunctionState const &State, Value const *V)
 
 Maybe<APSInt> getAPSIntSigned(FunctionState const &State, Value const *V)
 {
-  if (!V->getType()->isIntegerTy())
+  auto const IntTy = dyn_cast<IntegerType>(V->getType());
+  if (!IntTy)
     return Maybe<APSInt>();
 
   if (auto const I = dyn_cast<Instruction>(V)) {
-    if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-      return RTV->getAPSIntSigned(cast<IntegerType>(V->getType()));
+    auto const MaybeValue = State.getValueUInt64(I);
+    if (MaybeValue.assigned<uint64_t>()) {
+      return APSInt(APInt(IntTy->getBitWidth(), MaybeValue.get<uint64_t>()),
+                    /* isUnsigned*/ false);
     }
 
     return Maybe<APSInt>();
@@ -225,12 +230,27 @@ Maybe<APSInt> getAPSIntSigned(FunctionState const &State, Value const *V)
 
 Maybe<APFloat> getAPFloat(FunctionState const &State, Value const *V)
 {
-  if (!V->getType()->isFloatingPointTy())
+  auto const TheType = V->getType();
+  if (!TheType->isFloatingPointTy())
     return Maybe<APFloat>();
 
   if (auto const I = dyn_cast<Instruction>(V)) {
-    if (auto const RTV = State.getCurrentRuntimeValue(I)) {
-      return RTV->getAPFloat(V->getType());
+    if (TheType->isFloatTy()) {
+      auto const MaybeValue = State.getValueFloat(I);
+      if (MaybeValue.assigned<float>()) {
+        return APFloat(MaybeValue.get<float>());
+      }
+    }
+    else if (TheType->isDoubleTy()) {
+      auto const MaybeValue = State.getValueDouble(I);
+      if (MaybeValue.assigned<double>()) {
+        return APFloat(MaybeValue.get<double>());
+      }
+    }
+    else if (TheType->isX86_FP80Ty() || TheType->isFP128Ty()
+             || TheType->isPPC_FP128Ty())
+    {
+      return State.getValueAPFloat(I);
     }
 
     return Maybe<APFloat>();

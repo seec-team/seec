@@ -2334,8 +2334,7 @@ getValue(std::shared_ptr<ValueStore const> Store,
       // If the first Value is an Instruction, then ensure that it has been
       // evaluated and is still valid.
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.first)) {
-        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
-        if (!RTV || !RTV->assigned()) {
+        if (!FunctionState.hasValue(I)) {
           return std::shared_ptr<Value const>();
         }
       }
@@ -2375,8 +2374,7 @@ getValue(std::shared_ptr<ValueStore const> Store,
       // If the second Value is an Instruction, then ensure that it has been
       // evaluated and is still valid.
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second)) {
-        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
-        if (!RTV || !RTV->assigned()) {
+        if (!FunctionState.hasValue(I)) {
           return std::shared_ptr<Value const>();
         }
       }

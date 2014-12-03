@@ -16,12 +16,13 @@
 
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/MemoryState.hpp"
-#include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Instructions.h"
 
 #include <cstdint>
@@ -239,8 +240,12 @@ class FunctionState {
   /// true iff the active \llvm::Instruction has completed execution.
   bool ActiveInstructionComplete;
 
-  /// Runtime values indexed by Instruction index.
-  std::vector<RuntimeValue> InstructionValues;
+  // Runtime values for Instructions.
+  llvm::DenseMap<llvm::Instruction const *, uint64_t>      ValuesUInt64;
+  llvm::DenseMap<llvm::Instruction const *, stateptr_ty>   ValuesPtr;
+  llvm::DenseMap<llvm::Instruction const *, float>         ValuesFloat;
+  llvm::DenseMap<llvm::Instruction const *, double>        ValuesDouble;
+  llvm::DenseMap<llvm::Instruction const *, llvm::APFloat> ValuesAPFloat;
 
   /// All active stack allocations for this function.
   std::vector<AllocaState> Allocas;
@@ -285,7 +290,7 @@ public:
   FunctionTrace getTrace() const { return Trace; }
 
   /// \brief Get the number of llvm::Instructions in this llvm::Function.
-  std::size_t getInstructionCount() const { return InstructionValues.size(); }
+  std::size_t getInstructionCount() const;
   
   /// \brief Get the llvm::Instruction at the specified index.
   llvm::Instruction const *getInstruction(uint32_t Index) const;
@@ -341,21 +346,24 @@ public:
   /// \name Access runtime values.
   /// @{
 
-  /// \brief Get a pointer to an Instruction's RuntimeValue, by index.
-  ///
-  RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const;
+  void setValueUInt64 (llvm::Instruction const *, offset_uint, uint64_t);
+  void setValuePtr    (llvm::Instruction const *, offset_uint, stateptr_ty);
+  void setValueFloat  (llvm::Instruction const *, offset_uint, float);
+  void setValueDouble (llvm::Instruction const *, offset_uint, double);
+  void setValueAPFloat(llvm::Instruction const *, offset_uint, llvm::APFloat);
 
-  /// \brief Get a pointer to an Instruction's RuntimeValue.
-  ///
-  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
-  
-  /// \brief Get a reference to an Instruction's RuntimeValue, by index.
-  ///
-  RuntimeValue &getRuntimeValue(uint32_t Index) {
-    assert(Index < InstructionValues.size());
-    return InstructionValues[Index];
-  }
-  
+  void clearValue(llvm::Instruction const *);
+
+  bool isDominatedByActive(llvm::Instruction const *) const;
+  bool hasValue(llvm::Instruction const *) const;
+
+  Maybe<int64_t>       getValueInt64  (llvm::Instruction const *) const;
+  Maybe<uint64_t>      getValueUInt64 (llvm::Instruction const *) const;
+  Maybe<stateptr_ty>   getValuePtr    (llvm::Instruction const *) const;
+  Maybe<float>         getValueFloat  (llvm::Instruction const *) const;
+  Maybe<double>        getValueDouble (llvm::Instruction const *) const;
+  Maybe<llvm::APFloat> getValueAPFloat(llvm::Instruction const *) const;
+
   /// @}
 
 

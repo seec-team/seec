@@ -130,7 +130,7 @@ void ThreadState::addEvent(
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.getRuntimeValue(Index).set(Offset, Value);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
   FuncState.setActiveInstructionComplete(Index);
   
   ThreadTime = Ev.getThreadTime();
@@ -143,7 +143,36 @@ void ThreadState::addEvent(
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.getRuntimeValue(Index).set(Offset, Value);
+  auto const Instruction = FuncState.getInstruction(Index);
+  auto const Type = Instruction->getType();
+
+  if (Type->isIntegerTy()) {
+    FuncState.setValueUInt64(Instruction, Offset, Value.UInt64);
+  }
+  else if (Type->isPointerTy()) {
+    FuncState.setValuePtr(Instruction, Offset, Value.UIntPtr);
+  }
+  else if (Type->isFloatTy()) {
+    FuncState.setValueFloat(Instruction, Offset, Value.Float);
+  }
+  else if (Type->isDoubleTy()) {
+    FuncState.setValueDouble(Instruction, Offset, Value.Double);
+  }
+  else if (Type->isX86_FP80Ty()) {
+    assert(LDBL_MANT_DIG == 64);
+    uint64_t Vals[2] = {0, 0}; // 16 bytes.
+    memcpy(reinterpret_cast<char *>(Vals),
+           reinterpret_cast<char const *>(&(Value.LongDouble)),
+           10);
+    FuncState.setValueAPFloat(Instruction,
+                              Offset,
+                              llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+                                            llvm::APInt(80, Vals)));
+  }
+  else {
+    llvm_unreachable("can't handle value");
+  }
+
   FuncState.setActiveInstructionComplete(Index);
 
   ThreadTime = Ev.getThreadTime();
@@ -637,8 +666,7 @@ void ThreadState::removeEvent(
     readdEvent(Prev);
   }
   else {
-    auto const Index = Ev.getIndex();
-    FuncState.getRuntimeValue(Index).clear();
+    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));
   }
 
   // Find the previous instruction and set it as the active instruction.
@@ -658,8 +686,7 @@ void ThreadState::removeEvent(
     readdEvent(Prev);
   }
   else {
-    auto const Index = Ev.getIndex();
-    FuncState.getRuntimeValue(Index).clear();
+    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));
   }
 
   // Find the previous instruction and set it as the active instruction.
