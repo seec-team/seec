@@ -102,84 +102,73 @@ void ThreadState::addEvent(EventRecord<EventType::NewProcessTime> const &Ev)
 
 void ThreadState::addEvent(EventRecord<EventType::NewThreadTime> const &Ev)
 {
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt8> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt16> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt32> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt64> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithPtr> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithFloat> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithDouble> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithLongDouble> const &Ev)
 {
   readdEvent(Ev);
-  assert(ThreadTime + 1 == Ev.getThreadTime());
-  ThreadTime = Ev.getThreadTime();
+  ++ThreadTime;
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
@@ -766,18 +755,18 @@ void ThreadState::removeEvent(
 void ThreadState::removeEvent(
       EventRecord<EventType::NewThreadTime> const &Ev)
 {
-  ThreadTime = Ev.getThreadTime() - 1;
+  --ThreadTime;
 }
 
 void ThreadState::removeEvent(
       EventRecord<EventType::PreInstruction> const &Ev) {
   makePreviousInstructionActive(EventReference(Ev));
-  ThreadTime = Ev.getThreadTime() - 1;
+  --ThreadTime;
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Instruction> const &Ev) {
   makePreviousInstructionActive(EventReference(Ev));
-  ThreadTime = Ev.getThreadTime() - 1;
+  --ThreadTime;
 }
 
 #define SEEC_IMPLEMENT_REMOVE_INSTRUCTION(TYPE)                                \
@@ -793,7 +782,7 @@ void ThreadState::removeEvent(                                                 \
     FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));             \
   }                                                                            \
   makePreviousInstructionActive(EventReference(Ev));                           \
-  ThreadTime = Ev.getThreadTime() - 1;                                         \
+  --ThreadTime;                                                                \
 }
 
 SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt8)
