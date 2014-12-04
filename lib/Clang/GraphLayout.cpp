@@ -1234,7 +1234,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
     }
   }
   else if (Limit > 1) {
-    for (unsigned i = 0; i < Limit; ++i) {
+    for (int i = 0; i < Limit; ++i) {
       auto const Pointee = Reference.getDereferenced(i);
       if (Pointee) {
         auto const MaybeLayout = Handler.doLayout(*Pointee, E);
@@ -1328,7 +1328,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   std::size_t ElidingFrom;
   std::size_t ElidingCount;
   
-  for (unsigned i = 0; i < Limit; ++i) {
+  for (int i = 0; i < Limit; ++i) {
     auto const ChildValue = Reference.getDereferenced(i);
     if (!ChildValue) {
       if (!Eliding)

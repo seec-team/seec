@@ -743,7 +743,7 @@ public:
   
   /// \brief Get the highest legal dereference of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const override {
+  virtual int getDereferenceIndexLimit() const override {
     if (!isCompletelyInitialized())
       return 0;
     
@@ -777,7 +777,7 @@ public:
   /// \brief Get the value of this pointer dereferenced using the given Index.
   ///
   virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
+  getDereferenced(int Index) const override {
     // Find the Store (if it still exists).
     auto StorePtr = Store.lock();
     if (!StorePtr)
@@ -2018,7 +2018,7 @@ public:
   
   /// \brief Get the highest legal dereference of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const override {
+  virtual int getDereferenceIndexLimit() const override {
     // TODO: Move these calculations into the construction process.
     auto const MaybeArea = ProcessState.getContainingMemoryArea(PtrValue);
     if (!MaybeArea.assigned<MemoryArea>())
@@ -2046,7 +2046,7 @@ public:
   /// \brief Get the value of this pointer dereferenced using the given Index.
   ///
   virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
+  getDereferenced(int Index) const override {
     // Get the store (if it still exists).
     auto StorePtr = Store.lock();
     if (!StorePtr)
@@ -2493,12 +2493,12 @@ bool doReferenceSameValue(ValueOfPointer const &LHS, ValueOfPointer const &RHS)
     return false;
 
   if (LHS.getRawValue() <= RHS.getRawValue()) {
-    auto const Offset = (RHS.getRawValue() - LHS.getRawValue()) / L0Size;
+    int  const Offset = (RHS.getRawValue() - LHS.getRawValue()) / L0Size;
     auto const Limit  = LHS.getDereferenceIndexLimit();
     return Offset < Limit && LHS.getDereferenced(Offset) == R0;
   }
   else {
-    auto const Offset = (LHS.getRawValue() - RHS.getRawValue()) / R0Size;
+    int  const Offset = (LHS.getRawValue() - RHS.getRawValue()) / R0Size;
     auto const Limit  = RHS.getDereferenceIndexLimit();
     return Offset < Limit && RHS.getDereferenced(Offset) == L0;
   }

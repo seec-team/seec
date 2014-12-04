@@ -328,7 +328,7 @@ isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
 {
   auto const Limit = Ptr->getDereferenceIndexLimit();
 
-  for (unsigned i = 0; i < Limit; ++i) {
+  for (int i = 0; i < Limit; ++i) {
     auto const Pointee = Ptr->getDereferenced(i);
     if (isContainedChild(*Child, *Pointee))
       return true;

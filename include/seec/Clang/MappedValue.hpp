@@ -279,11 +279,11 @@ public:
   
   /// \brief Get the highest legal dereference index of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const =0;
+  virtual int getDereferenceIndexLimit() const =0;
   
   /// \brief Get the Value of this Value dereferenced.
   ///
-  virtual std::shared_ptr<Value const> getDereferenced(unsigned Index) const =0;
+  virtual std::shared_ptr<Value const> getDereferenced(int Index) const =0;
   
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
