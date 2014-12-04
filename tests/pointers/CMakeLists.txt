@@ -43,5 +43,5 @@ seec_test_build(temporal_local temporal_local.c "")
 seec_test_run_fail(temporal_local "fail" "")
 
 seec_test_build(print_argv_envp print_argv_envp.c "")
-seec_test_run_pass(print_argv_envp "ok" "arg1 arg2 arg3")
+seec_test_run_pass_without_comparison(print_argv_envp "ok" "arg1 arg2 arg3")
 
