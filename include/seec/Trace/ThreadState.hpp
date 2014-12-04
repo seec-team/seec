@@ -126,6 +126,20 @@ class ThreadState {
   /// this function at runtime is an error.
   void addEvent(...) { llvm_unreachable("addEvent(...) called!"); }
 
+  /// Special handling when re-adding the following, so that they do not set
+  /// the thread time.
+  void readdEvent(EventRecord<EventType::NewThreadTime> const &);
+  void readdEvent(EventRecord<EventType::PreInstruction> const &);
+  void readdEvent(EventRecord<EventType::Instruction> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithUInt8> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithUInt16> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithUInt32> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithUInt64> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithPtr> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithFloat> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithDouble> const &);
+  void readdEvent(EventRecord<EventType::InstructionWithLongDouble> const &);
+
   /// Special handling when re-adding Allocas during the implementation of
   /// another event (avoids adding the associated allocation to MemoryState).
   void readdEvent(EventRecord<EventType::StackRestore> const &);
