@@ -188,9 +188,6 @@ public:
   /// Get the value of this event's ProcessTime, if it has one.
   seec::Maybe<uint64_t> getProcessTime() const;
   
-  /// Get the value of this event's ThreadTime, if it has one.
-  seec::Maybe<uint64_t> getThreadTime() const;
-  
   /// Get the value of this event's Index member, if it has one.
   seec::Maybe<uint32_t> getIndex() const;
   

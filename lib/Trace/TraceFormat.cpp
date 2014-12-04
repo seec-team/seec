@@ -218,44 +218,6 @@ seec::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
 
 
 //------------------------------------------------------------------------------
-// EventRecordBase::getThreadTime
-//------------------------------------------------------------------------------
-
-SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_get_thread_time, getThreadTime)
-
-template<typename RecordT>
-typename std::enable_if<
-  has_get_thread_time<RecordT,
-                       uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
-getThreadTime(RecordT const &Record) {
-  return Record.getThreadTime();
-}
-
-template<typename RecordT>
-typename std::enable_if<
-  !has_get_thread_time<RecordT,
-                        uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
-getThreadTime(RecordT const &Record) {
-  return seec::Maybe<uint64_t>();
-}
-
-seec::Maybe<uint64_t> EventRecordBase::getThreadTime() const {
-  switch (getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-    case EventType::NAME:                                                      \
-      return seec::trace::getThreadTime(                                       \
-              *(static_cast<EventRecord<EventType::NAME> const *>(this)));
-#include "seec/Trace/Events.def"
-    default: llvm_unreachable("Reference to unknown event type!");
-  }
-  
-  return seec::Maybe<uint64_t>();
-}
-
-
-//------------------------------------------------------------------------------
 // EventRecordBase::getIndex
 //------------------------------------------------------------------------------
 
