@@ -70,19 +70,17 @@ void addVarDeclsVisible(clang::DeclStmt const *Parent,
 {
   if (Parent->isSingleDecl()) {
     auto const Decl = Parent->getSingleDecl();
-    if (PriorToDecl && Decl == PriorToDecl)
-      return;
     
     if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
       Set.insert(VarDecl);
   }
   else {
     for (auto const Decl : Parent->getDeclGroup()) {
-      if (PriorToDecl && Decl == PriorToDecl)
-        return;
-      
       if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
         Set.insert(VarDecl);
+
+      if (PriorToDecl && Decl == PriorToDecl)
+        return;
     }
   }
 }
@@ -94,11 +92,11 @@ void addVarDeclsVisible(clang::CompoundStmt const *Parent,
                         llvm::DenseSet<clang::VarDecl const *> &Set)
 {
   for (auto const Stmt : Parent->children()) {
-    if (Stmt == PriorToStmt)
-      return;
-    
     if (auto const DeclStmt = llvm::dyn_cast<clang::DeclStmt>(Stmt))
       addVarDeclsVisible(DeclStmt, nullptr, nullptr, Map, Set);
+
+    if (Stmt == PriorToStmt)
+      return;
   }
 }
 
