@@ -709,8 +709,8 @@ TraceThreadListener
 {
   // PreInstruction event precedes the RuntimeError
   if (PreInstructionIndex.assigned()) {
-    EventsOut.write<EventType::PreInstruction>(PreInstructionIndex.get<0>(),
-                                               ++Time);
+    ++Time;
+    EventsOut.write<EventType::PreInstruction>(PreInstructionIndex.get<0>());
   }
   
   writeError(EventsOut, Error, true);

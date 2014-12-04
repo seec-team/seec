@@ -416,7 +416,8 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   detectPreCall(CallInst, Index, Address);
   
   // Emit a PreInstruction so that the call becomes active.
-  EventsOut.write<EventType::PreInstruction>(Index, ++Time);
+  ++Time;
+  EventsOut.write<EventType::PreInstruction>(Index);
 }
 
 void TraceThreadListener::notifyPostCall(uint32_t Index,
@@ -501,7 +502,8 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
         recordStateClear(Cleared.address(), Cleared.length());
       }
 
-      EventsOut.write<EventType::Instruction>(Index, ++Time);
+      ++Time;
+      EventsOut.write<EventType::Instruction>(Index);
       
       // Write StackRestore event.
       EventsOut.write<EventType::StackRestore>
@@ -636,7 +638,8 @@ void TraceThreadListener::notifyPostStore(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});
   
-  EventsOut.write<EventType::Instruction>(Index, ++Time);
+  ++Time;
+  EventsOut.write<EventType::Instruction>(Index);
 
   auto StoreValue = Store->getValueOperand();
 
@@ -779,7 +782,8 @@ void TraceThreadListener::notifyValue(uint32_t const Index,
 
   ActiveFunction->setActiveInstruction(Instr);
 
-  EventsOut.write<EventType::Instruction>(Index, ++Time);
+  ++Time;
+  EventsOut.write<EventType::Instruction>(Index);
 }
 
 void TraceThreadListener::notifyValue(uint32_t Index,
@@ -792,9 +796,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   auto &RTValue = *(ActiveFunction->getCurrentRuntimeValue(Index));
   ActiveFunction->setActiveInstruction(Instruction);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithPtr>(
                                   Index,
-                                  ++Time,
                                   RTValue.getRecordOffset(),
                                   reinterpret_cast<uintptr_t>(Value));
 
@@ -917,9 +921,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt64>
                                (Index,
-                                ++Time,
                                 RTValue.getRecordOffset(),
                                 Value);
 
@@ -939,10 +943,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt32>
                                (Value,
                                 Index,
-                                ++Time,
                                 RTValue.getRecordOffset());
 
   // Ensure that RTValues are still valid when tracing is disabled.
@@ -961,10 +965,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt16>
                                (Value,
                                 Index,
-                                ++Time,
                                 RTValue.getRecordOffset());
 
   // Ensure that RTValues are still valid when tracing is disabled.
@@ -983,10 +987,10 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt8>
                                (Value,
                                 Index,
-                                ++Time,
                                 RTValue.getRecordOffset());
 
   // Ensure that RTValues are still valid when tracing is disabled.
@@ -1005,9 +1009,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithFloat>
                                (Index,
-                                ++Time,
                                 RTValue.getRecordOffset(),
                                 Value);
 
@@ -1027,9 +1031,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithDouble>
                                (Index,
-                                ++Time,
                                 RTValue.getRecordOffset(),
                                 Value);
 
@@ -1056,9 +1060,9 @@ void TraceThreadListener::notifyValue(uint32_t Index,
          reinterpret_cast<char const *>(&Value),
          sizeof(Value));
 
+  ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithLongDouble>
                                (Index,
-                                ++Time,
                                 RTValue.getRecordOffset(),
                                 Words[0], Words[1]);
 

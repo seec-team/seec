@@ -1068,8 +1068,10 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
 
 void TraceThreadListener::postCfree(llvm::CallInst const *Call,
                                     uint32_t Index,
-                                    void *Address) {
-  EventsOut.write<EventType::Instruction>(Index, ++Time);
+                                    void *Address)
+{
+  ++Time;
+  EventsOut.write<EventType::Instruction>(Index);
   
   auto FreedMalloc = recordFree(reinterpret_cast<uintptr_t>(Address));
   

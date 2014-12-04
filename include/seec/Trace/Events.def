@@ -87,8 +87,7 @@ SEEC_TRACE_EVENT(NewThreadTime,
 
 SEEC_TRACE_EVENT(PreInstruction,
   SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (uint64_t, ThreadTime)
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
     (PreInstruction, is_block_start),
@@ -98,8 +97,7 @@ SEEC_TRACE_EVENT(PreInstruction,
 
 SEEC_TRACE_EVENT(Instruction,
   SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (uint64_t, ThreadTime)
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
     (Instruction, is_block_start),
@@ -111,7 +109,6 @@ SEEC_TRACE_EVENT(InstructionWithUInt8,
   SEEC_PP_QUOTE(
     (uint8_t, Value),
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame)
   ),
   SEEC_PP_QUOTE(
@@ -124,7 +121,6 @@ SEEC_TRACE_EVENT(InstructionWithUInt16,
   SEEC_PP_QUOTE(
     (uint16_t, Value),
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame)
   ),
   SEEC_PP_QUOTE(
@@ -137,7 +133,6 @@ SEEC_TRACE_EVENT(InstructionWithUInt32,
   SEEC_PP_QUOTE(
     (uint32_t, Value),
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame)
   ),
   SEEC_PP_QUOTE(
@@ -149,7 +144,6 @@ SEEC_TRACE_EVENT(InstructionWithUInt32,
 SEEC_TRACE_EVENT(InstructionWithUInt64,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
     (uint64_t, Value)
   ),
@@ -162,7 +156,6 @@ SEEC_TRACE_EVENT(InstructionWithUInt64,
 SEEC_TRACE_EVENT(InstructionWithPtr,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
     (uint64_t, Value)
   ),
@@ -175,7 +168,6 @@ SEEC_TRACE_EVENT(InstructionWithPtr,
 SEEC_TRACE_EVENT(InstructionWithFloat,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
     (float, Value)
   ),
@@ -188,7 +180,6 @@ SEEC_TRACE_EVENT(InstructionWithFloat,
 SEEC_TRACE_EVENT(InstructionWithDouble,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
     (double, Value)
   ),
@@ -201,7 +192,6 @@ SEEC_TRACE_EVENT(InstructionWithDouble,
 SEEC_TRACE_EVENT(InstructionWithLongDouble,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
     (offset_uint, PreviousSame),
     (uint64_t, ValueWord1),
     (uint64_t, ValueWord2)
