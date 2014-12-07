@@ -99,6 +99,12 @@ namespace seec {
 
     cl::opt<bool>
     ShowComparable("comparable", cl::desc("print comparable states (don't show raw addresses)"));
+
+    cl::opt<bool>
+    Quiet("quiet", cl::desc("don't print recreated states (for timing)"));
+
+    cl::opt<bool>
+    TestMovement("test-movement", cl::desc("test movement only"));
   }
 }
 

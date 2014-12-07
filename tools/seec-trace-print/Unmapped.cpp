@@ -86,6 +86,10 @@ namespace seec {
     extern cl::opt<bool> ReverseStates;
 
     extern cl::opt<bool> ShowComparable;
+
+    extern cl::opt<bool> Quiet;
+
+    extern cl::opt<bool> TestMovement;
   }
 }
 
@@ -93,6 +97,9 @@ using namespace seec::trace_print;
 
 void PrintUnmappedState(seec::trace::ProcessState const &State)
 {
+  if (Quiet)
+    return;
+
   if (ShowComparable) {
     seec::trace::printComparable(outs(), State);
     outs() << "\n";
@@ -220,6 +227,16 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
         PrintUnmappedState(ProcState);
       }
     }
+  }
+
+  // Test state movement only.
+  if (TestMovement) {
+    trace::ProcessState ProcState{Trace, ModIndexPtr};
+    moveForwardUntil(ProcState,
+                     [] (trace::ProcessState const &) { return false; });
+
+    moveBackwardUntil(ProcState,
+                      [] (trace::ProcessState const &) { return false; });
   }
 
   // Print basic descriptions of all run-time errors.
