@@ -797,10 +797,8 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   ActiveFunction->setActiveInstruction(Instruction);
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithPtr>(
-                                  Index,
-                                  RTValue.getRecordOffset(),
-                                  reinterpret_cast<uintptr_t>(Value));
+  auto Offset = EventsOut.write<EventType::InstructionWithPtr>
+                               (Index, reinterpret_cast<uintptr_t>(Value));
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -923,9 +921,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt64>
-                               (Index,
-                                RTValue.getRecordOffset(),
-                                Value);
+                               (Index, Value);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -945,9 +941,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt32>
-                               (Value,
-                                Index,
-                                RTValue.getRecordOffset());
+                               (Value, Index);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -967,9 +961,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt16>
-                               (Value,
-                                Index,
-                                RTValue.getRecordOffset());
+                               (Value, Index);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -989,9 +981,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt8>
-                               (Value,
-                                Index,
-                                RTValue.getRecordOffset());
+                               (Value, Index);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -1011,9 +1001,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithFloat>
-                               (Index,
-                                RTValue.getRecordOffset(),
-                                Value);
+                               (Index, Value);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -1033,9 +1021,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithDouble>
-                               (Index,
-                                RTValue.getRecordOffset(),
-                                Value);
+                               (Index, Value);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)
@@ -1062,9 +1048,7 @@ void TraceThreadListener::notifyValue(uint32_t Index,
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithLongDouble>
-                               (Index,
-                                RTValue.getRecordOffset(),
-                                Words[0], Words[1]);
+                               (Index, Words[0], Words[1]);
 
   // Ensure that RTValues are still valid when tracing is disabled.
   if (!OutputEnabled)

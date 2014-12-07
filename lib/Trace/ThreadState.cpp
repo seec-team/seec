@@ -771,13 +771,28 @@ void ThreadState::removeEvent(EventRecord<EventType::Instruction> const &Ev) {
   --ThreadTime;
 }
 
+template<EventType ET>
+EventRecord<ET> const *getPreviousSame(ThreadTrace const &Trace,
+                                       EventRecord<ET> const &Ev)
+{
+  auto const Range = rangeBefore(Trace.events(), Ev);
+  auto const MaybeRef =
+    rfindInFunction(Trace, Range, [&Ev] (EventRecordBase const &Other) {
+      return Other.getType() == ET
+             && Other.as<ET>().getIndex() == Ev.getIndex();
+    });
+
+  if (MaybeRef.template assigned<EventReference>())
+    return &(MaybeRef.template get<EventReference>().template get<ET>());
+
+  return nullptr;
+}
+
 #define SEEC_IMPLEMENT_REMOVE_INSTRUCTION(TYPE)                                \
 void ThreadState::removeEvent(                                                 \
       EventRecord<EventType::InstructionWith##TYPE> const &Ev) {               \
-  auto const PreviousOffset = Ev.getPreviousSame();                            \
-  if (PreviousOffset != noOffset()) {                                          \
-    readdEvent(Trace.events().eventAtOffset<EventType::InstructionWith##TYPE>  \
-                                           (PreviousOffset));                  \
+  if (auto const Prev = getPreviousSame(Trace, Ev)) {                          \
+    readdEvent(*Prev);                                                         \
   }                                                                            \
   else {                                                                       \
     auto &FuncState = *(CallStack.back());                                     \
