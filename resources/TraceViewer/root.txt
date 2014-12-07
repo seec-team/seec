@@ -205,6 +205,19 @@ root:table {
         Version:string {"Version"}
       }
     }
+
+
+    //
+    // Tracing preferences
+    //
+
+    TracingPreferences:table {
+      Title:string {"Tracing"}
+
+      ThreadEventLimit:string {"Event record limit (in uncompressed MiB):"}
+
+      ArchiveLimit:string {"Compress all traces less than (in MiB):"}
+    }
   }
 
 

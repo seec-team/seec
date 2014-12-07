@@ -24,6 +24,7 @@
 #include "seec/Util/SynchronizedExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/Config.hpp"
+#include "seec/wxWidgets/ConfigTracing.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -60,16 +61,8 @@ static constexpr char const *getThreadEventLimitEnvVar() {
   return "SEEC_EVENT_LIMIT";
 }
 
-static constexpr offset_uint getDefaultThreadEventLimit() {
-  return 1024 * 1024 * 1024; // 1 GiB
-}
-
 static constexpr char const *getArchiveSizeLimitEnvVar() {
   return "SEEC_ARCHIVE_LIMIT";
-}
-
-static constexpr uint64_t getDefaultArchiveSizeLimit() {
-  return 512 * 1024 * 1024; // 0.5 GiB
 }
 
 
@@ -175,13 +168,9 @@ static uint64_t getMultiplierForBytes(char const *ForUnit)
 
 /// \brief Get the number of bytes represented by a string.
 ///
-template<typename T>
-T getByteSizeFromEnvVar(char const * const EnvVarName, T const Default)
+uint64_t getByteSizeFromEnvVar(char const * const EnvVarName,
+                               char const * const StringValue)
 {
-  auto const StringValue = std::getenv(EnvVarName);
-  if (!StringValue)
-    return Default;
-  
   char *Remainder = nullptr;
   auto const Value = std::strtoull(StringValue, &Remainder, 10);
   if (Remainder == StringValue) {
@@ -190,7 +179,7 @@ T getByteSizeFromEnvVar(char const * const EnvVarName, T const Default)
   }
   
   // Ensure that the value fits in the given type.
-  auto const MaxValue = std::numeric_limits<T>::max();
+  auto const MaxValue = std::numeric_limits<uint64_t>::max();
   if (Value > MaxValue) {
     fprintf(stderr, "\nSeeC: Value of '%s' is too large.\n", EnvVarName);
     fprintf(stderr, "\tMaximum = %s bytes.\n",
@@ -223,8 +212,11 @@ T getByteSizeFromEnvVar(char const * const EnvVarName, T const Default)
 ///
 static offset_uint getUserThreadEventLimit()
 {
-  return getByteSizeFromEnvVar(getThreadEventLimitEnvVar(),
-                               getDefaultThreadEventLimit());
+  auto const EnvVarName = getThreadEventLimitEnvVar();
+  if (auto const EnvVar = std::getenv(EnvVarName))
+    return getByteSizeFromEnvVar(EnvVarName, EnvVar);
+
+  return seec::getThreadEventLimit() * (1024 * 1024);
 }
 
 /// \brief Get the size limit for archiving traces.
@@ -233,8 +225,11 @@ static offset_uint getUserThreadEventLimit()
 ///
 static uint64_t getUserArchiveSizeLimit()
 {
-  return getByteSizeFromEnvVar(getArchiveSizeLimitEnvVar(),
-                               getDefaultArchiveSizeLimit());
+  auto const EnvVarName = getArchiveSizeLimitEnvVar();
+  if (auto const EnvVar = std::getenv(EnvVarName))
+    return getByteSizeFromEnvVar(EnvVarName, EnvVar);
+
+  return seec::getArchiveLimit() * (1024 * 1024);
 }
 
 ProcessEnvironment::ProcessEnvironment()
@@ -249,8 +244,8 @@ ProcessEnvironment::ProcessEnvironment()
   ThreadLookup(),
   ThreadLookupMutex(),
   InterceptorAddresses(),
-  ThreadEventLimit(getUserThreadEventLimit()),
-  ArchiveSizeLimit(getUserArchiveSizeLimit()),
+  ThreadEventLimit(0), // set after wxConfig is available.
+  ArchiveSizeLimit(0), // set after wxConfig is available.
   ProgramName()
 {
   // Setup multithreading support for LLVM.
@@ -290,6 +285,14 @@ ProcessEnvironment::ProcessEnvironment()
 
   // Setup a dummy wxApp to enable some wxWidgets functionality.
   seec::setupDummyAppConsole();
+  seec::setupCommonConfig();
+
+  // Setup limits.
+  ThreadEventLimit = getUserThreadEventLimit();
+  ArchiveSizeLimit = getUserArchiveSizeLimit();
+
+  fprintf(stderr, "ThreadEventLimit %lu", (unsigned long)ThreadEventLimit);
+  fprintf(stderr, "ArchiveSizeLimit %lu", (unsigned long)ArchiveSizeLimit);
 
   // Attempt to load augmentations.
   Augmentations->loadFromResources(__SeeC_ResourcePath__);

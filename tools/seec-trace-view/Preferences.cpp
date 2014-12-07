@@ -25,6 +25,7 @@
 #include "AugmentationSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "Preferences.hpp"
+#include "TracingPreferences.hpp"
 
 class PreferenceDialog final : public wxDialog
 {
@@ -63,6 +64,7 @@ public:
     // Create individual pages of the book.
     AddPage(new LocaleSettingsWindow(this));
     AddPage(new AugmentationSettingsWindow(this));
+    AddPage(new TracingPreferencesWindow(this));
 
     // Create accept/cancel buttons.
     auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
