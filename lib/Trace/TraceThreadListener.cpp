@@ -350,6 +350,9 @@ void TraceThreadListener::recordUntypedState(char const *Data,
                                              std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
   
+  if (Size == 0)
+    return;
+
   uintptr_t Address = reinterpret_cast<uintptr_t>(Data);
 
   ProcessTime = getCIProcessTime();
@@ -395,6 +398,9 @@ void TraceThreadListener::recordTypedState(void const *Data,
 void TraceThreadListener::recordStateClear(uintptr_t Address,
                                            std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+
+  if (Size == 0)
+    return;
   
   ProcessTime = getCIProcessTime();
   
@@ -414,6 +420,9 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
                                         uintptr_t Destination,
                                         std::size_t Size) {
   assert(GlobalMemoryLock.owns_lock() && "Global memory is not locked.");
+
+  if (Size == 0)
+    return;
   
   ProcessTime = getCIProcessTime();
   
