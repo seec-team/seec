@@ -1,14 +1,12 @@
 Recreating states:
 Process @0
  Dynamic Allocations: 0
- Known Memory Regions: 0
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=0
 
 Process @2
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=1
@@ -18,7 +16,6 @@ Process @2
 
 Process @3
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=5
@@ -34,7 +31,6 @@ Process @3
 
 Process @4
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=6
@@ -50,7 +46,6 @@ Process @4
 
 Process @5
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=7
@@ -66,7 +61,6 @@ Process @5
 
 Process @6
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=8
@@ -83,7 +77,6 @@ Process @6
 
 Process @7
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=11
@@ -103,7 +96,6 @@ Process @7
 
 Process @8
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=12
@@ -124,7 +116,6 @@ Process @8
 
 Process @9
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=13
@@ -145,7 +136,6 @@ Process @9
 
 Process @10
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=14
@@ -167,7 +157,6 @@ Process @10
 
 Process @11
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=17
@@ -192,14 +181,12 @@ Process @11
 
 Process @12
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=18
 
 Process @11
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=17
@@ -224,7 +211,6 @@ Process @11
 
 Process @10
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=16
@@ -248,7 +234,6 @@ Process @10
 
 Process @9
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=13
@@ -269,7 +254,6 @@ Process @9
 
 Process @8
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=12
@@ -290,7 +274,6 @@ Process @8
 
 Process @7
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=11
@@ -310,7 +293,6 @@ Process @7
 
 Process @6
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=10
@@ -329,7 +311,6 @@ Process @6
 
 Process @5
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=7
@@ -345,7 +326,6 @@ Process @5
 
 Process @4
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=6
@@ -361,7 +341,6 @@ Process @4
 
 Process @3
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=5
@@ -377,7 +356,6 @@ Process @3
 
 Process @2
  Dynamic Allocations: 0
- Known Memory Regions: 72
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=4
@@ -393,7 +371,6 @@ Process @2
 
 Process @0
  Dynamic Allocations: 0
- Known Memory Regions: 0
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=0

@@ -283,7 +283,8 @@ void printComparable(llvm::raw_ostream &Out, ProcessState const &State)
 
   Out << " Dynamic Allocations: " << State.getMallocs().size() << "\n";
 
-  Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
+  // Don't print this because it's affected by extern environ.
+  // Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
 
   // TODO: Memory state.
 

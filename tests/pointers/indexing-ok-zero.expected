@@ -1,14 +1,12 @@
 Recreating states:
 Process @0
  Dynamic Allocations: 0
- Known Memory Regions: 0
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=0
 
 Process @2
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=1
@@ -18,7 +16,6 @@ Process @2
 
 Process @3
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=7
@@ -38,7 +35,6 @@ Process @3
 
 Process @4
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=8
@@ -58,7 +54,6 @@ Process @4
 
 Process @5
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=9
@@ -78,7 +73,6 @@ Process @5
 
 Process @6
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=15
@@ -102,7 +96,6 @@ Process @6
 
 Process @7
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=21
@@ -131,14 +124,12 @@ Process @7
 
 Process @8
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=22
 
 Process @7
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=21
@@ -167,7 +158,6 @@ Process @7
 
 Process @6
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=20
@@ -196,7 +186,6 @@ Process @6
 
 Process @5
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=14
@@ -220,7 +209,6 @@ Process @5
 
 Process @4
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=8
@@ -240,7 +228,6 @@ Process @4
 
 Process @3
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=7
@@ -260,7 +247,6 @@ Process @3
 
 Process @2
  Dynamic Allocations: 0
- Known Memory Regions: 73
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=6
@@ -280,7 +266,6 @@ Process @2
 
 Process @0
  Dynamic Allocations: 0
- Known Memory Regions: 0
  Open Streams: 3
  Open DIRs: 0
  Thread #1 @TT=0
