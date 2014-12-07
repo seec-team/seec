@@ -366,8 +366,10 @@ ThreadState::addEvent(EventRecord<EventType::FileWriteFromMemory> const &Ev)
   auto const Region = Parent.Memory.getRegion(MemoryArea(Ev.getDataAddress(),
                                                          Ev.getDataSize()));
   
-  assert(Region.isCompletelyInitialized() &&
-         "FileWriteFromMemory with invalid MemoryArea!");
+  if (Ev.getDataSize()) {
+    assert(Region.isCompletelyInitialized() &&
+           "FileWriteFromMemory with invalid MemoryArea!");
+  }
   
   Stream->write(Region.getByteValues());
 
