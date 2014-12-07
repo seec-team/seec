@@ -60,4 +60,5 @@ add_subdirectory(byval)
 add_subdirectory(cstdlib)
 add_subdirectory(longdouble)
 add_subdirectory(pointers)
+add_subdirectory(stackrestore)
 
