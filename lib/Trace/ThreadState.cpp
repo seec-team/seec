@@ -803,19 +803,24 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   // Clear the current allocas.
   FuncState.getAllocas().clear();
 
-  auto const PreviousOffset = Ev.getPrevious();
+  // Attempt to find a previous StackRestore in this function.
+  auto const MaybePrevious =
+    rfindInFunction(Trace, rangeBefore(Trace.events(), Ev),
+                    [] (EventRecordBase const &E) {
+                      return E.getType() == EventType::StackRestore;
+                    });
 
-  if (PreviousOffset != noOffset()) {
+  if (MaybePrevious.assigned<EventReference>()) {
     auto Events = Trace.events();
 
     // Add the Allocas that were valid after the previous StackRestore.
-    auto &RestoreEv
-      = Events.eventAtOffset<EventType::StackRestore>(PreviousOffset);
+    auto &RestoreEv = MaybePrevious.get<EventReference>()
+                                   .get<EventType::StackRestore>();
     readdEvent(RestoreEv);
 
     // Now add all Allocas that occured between the previous StackRestore and
     // the current StackRestore.
-    auto PreviousEvRef = Events.referenceToOffset(PreviousOffset);
+    auto PreviousEvRef = MaybePrevious.get<EventReference>();
     EventReference CurrentEvRef(Ev);
 
     // Iterate through the events, skipping any child functions as we go.
@@ -826,6 +831,7 @@ void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
         It = Events.referenceToOffset(Info.getEventEnd());
         // It will be incremented when we finish this iteration, so the
         // FunctionEnd for this child will (correctly) not be seen.
+        assert(It < CurrentEvRef);
       }
       else if (It->getType() == EventType::Alloca) {
         readdEvent(It.get<EventType::Alloca>());
