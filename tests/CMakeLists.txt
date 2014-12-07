@@ -61,4 +61,5 @@ add_subdirectory(cstdlib)
 add_subdirectory(longdouble)
 add_subdirectory(pointers)
 add_subdirectory(stackrestore)
+add_subdirectory(streams)
 
