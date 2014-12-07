@@ -18,7 +18,6 @@
 #include "seec/wxWidgets/AugmentationCollectionDataViewModel.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <llvm/Support/FileSystem.h>
 

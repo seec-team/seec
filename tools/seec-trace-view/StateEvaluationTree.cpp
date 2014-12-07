@@ -30,7 +30,6 @@
 #include <wx/bitmap.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcmemory.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"

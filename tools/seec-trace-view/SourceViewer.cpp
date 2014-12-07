@@ -38,7 +38,6 @@
 #include <wx/font.h>
 #include <wx/tokenzr.h>
 #include <wx/stc/stc.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "unicode/brkiter.h"
 

@@ -18,7 +18,6 @@
 #include <wx/panel.h>
 #include <wx/timer.h>
 #include <wx/tipwin.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
 

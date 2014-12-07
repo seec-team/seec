@@ -22,7 +22,6 @@
 
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"

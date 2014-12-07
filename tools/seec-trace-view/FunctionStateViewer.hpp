@@ -15,7 +15,6 @@
 #define SEEC_TRACE_VIEW_FUNCTIONSTATEVIEWER_HPP
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 

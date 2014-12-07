@@ -15,7 +15,6 @@
 #define SEEC_TRACE_VIEW_WELCOMEFRAME_HPP
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 /// \brief Frame to display when no files are open.
 ///

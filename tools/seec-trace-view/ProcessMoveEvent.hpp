@@ -17,7 +17,6 @@
 #include "seec/Clang/MappedProcessState.hpp"
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <functional>
 #include <memory>

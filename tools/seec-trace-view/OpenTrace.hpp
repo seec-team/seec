@@ -19,7 +19,6 @@
 #include "seec/Util/Maybe.hpp"
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 #include <string>

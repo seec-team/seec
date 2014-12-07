@@ -23,7 +23,6 @@
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include <wx/stc/stc.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 

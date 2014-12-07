@@ -17,7 +17,6 @@
 #include "seec/ICU/Resources.hpp"
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 #include <set>

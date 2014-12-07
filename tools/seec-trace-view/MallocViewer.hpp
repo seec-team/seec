@@ -16,7 +16,6 @@
 
 #include <wx/wx.h>
 #include <wx/panel.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #if 0 // NEEDS UPDATING TO USE seec::cm
 

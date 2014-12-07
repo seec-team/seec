@@ -19,7 +19,6 @@
 #include <wx/dir.h>
 #include <wx/stattext.h>
 #include <wx/stdpaths.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <curl/curl.h>
 

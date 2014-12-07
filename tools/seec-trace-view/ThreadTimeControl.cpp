@@ -22,7 +22,6 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/bmpbuttn.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"

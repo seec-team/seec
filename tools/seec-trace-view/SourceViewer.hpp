@@ -20,7 +20,6 @@
 #include <wx/panel.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/auibook.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <map>
 #include <memory>

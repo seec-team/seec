@@ -23,7 +23,6 @@
 #include "llvm/ADT/ArrayRef.h"
 
 #include <wx/collpane.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "FunctionStateViewer.hpp"
 #include "OpenTrace.hpp"

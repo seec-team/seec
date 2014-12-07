@@ -18,7 +18,6 @@
 
 #include <wx/wx.h>
 #include <wx/panel.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <atomic>
 #include <condition_variable>

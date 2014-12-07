@@ -21,7 +21,6 @@
 #include <wx/log.h>
 #include <wx/sizer.h>
 #include <wx/stdpaths.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "LocaleSettings.hpp"
 

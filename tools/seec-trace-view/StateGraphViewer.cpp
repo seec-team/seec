@@ -42,7 +42,6 @@
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
 #include <wx/wfstream.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/OwningPtr.h"

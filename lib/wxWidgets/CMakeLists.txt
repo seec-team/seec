@@ -20,7 +20,6 @@ endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(HEADERS
   ../../include/seec/wxWidgets/AugmentResources.hpp
   ../../include/seec/wxWidgets/CallbackFSHandler.hpp
-  ../../include/seec/wxWidgets/CleanPreprocessor.h
   ../../include/seec/wxWidgets/Config.hpp
   ../../include/seec/wxWidgets/ICUBundleFSHandler.hpp
   ../../include/seec/wxWidgets/ImageResources.hpp

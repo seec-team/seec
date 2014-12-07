@@ -33,7 +33,6 @@
 #include <wx/ipc.h>
 #include <wx/snglinst.h>
 #include <wx/stdpaths.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <curl/curl.h>
 

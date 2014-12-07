@@ -16,7 +16,6 @@
 
 #include <wx/log.h>
 #include <wx/tokenzr.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "LocaleSettings.hpp"
 #include "SourceViewerSettings.hpp"

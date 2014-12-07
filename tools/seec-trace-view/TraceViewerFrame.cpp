@@ -26,7 +26,6 @@
 #include <wx/config.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/framemanager.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <chrono>
 #include <cinttypes>

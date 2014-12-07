@@ -26,7 +26,6 @@
 #include <wx/wfstream.h>
 #include <wx/xml/xml.h>
 #include <wx/zipstrm.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "OpenTrace.hpp"
 

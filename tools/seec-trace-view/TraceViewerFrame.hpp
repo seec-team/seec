@@ -16,7 +16,6 @@
 
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
 
