@@ -410,7 +410,7 @@ Maybe<std::string, Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
     return Error{
       LazyMessageByRef::create("Trace", {"errors", "DeleteFilesFail"})};
   
-  // The unassigned Maybe indicates that everything was OK.
+  // Maybe containing the archive path indicates success.
   return ArchivePath.ToStdString();
 }
 
