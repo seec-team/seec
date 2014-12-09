@@ -21,6 +21,8 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "wx/archive.h"
+
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -208,6 +210,28 @@ ProcessTrace::readFrom(std::unique_ptr<InputBufferAllocator> Allocator)
                              std::move(FunctionAddresses),
                              std::move(StreamsInitial),
                              std::move(ThreadTraces)));
+}
+
+bool ProcessTrace::writeToArchive(wxArchiveOutputStream &Stream)
+{
+  if (!Stream.PutNextDirEntry("trace"))
+    return false;
+
+  auto const MaybeFiles = getAllFileData();
+  if (MaybeFiles.assigned<Error>())
+    return false;
+
+  for (auto const &File : MaybeFiles.get<std::vector<TraceFile>>())
+  {
+    if (!Stream.PutNextEntry(wxString{"trace/"} + File.getName()))
+      return false;
+
+    auto const &Buffer = File.getContents();
+    if (!Stream.WriteAll(Buffer->getBufferStart(), Buffer->getBufferSize()))
+      return false;
+  }
+
+  return true;
 }
 
 seec::Maybe<std::vector<TraceFile>, seec::Error>

@@ -318,21 +318,8 @@ bool ActionRecord::archiveTo(wxOutputStream &Stream)
   RecordDocument->Save(Output); // CHECK ME
   
   // Save the contents of the trace to the archive.
-  Output.PutNextDirEntry("trace");
-  
-  auto const &UnmappedTrace = *(Trace.getUnmappedTrace());
-  auto MaybeFiles = UnmappedTrace.getAllFileData();
-  if (MaybeFiles.assigned<seec::Error>())
+  if (!Trace.getUnmappedTrace()->writeToArchive(Output))
     return false;
-  
-  auto const &Files = MaybeFiles.get<std::vector<seec::trace::TraceFile>>();
-  
-  for (auto const &File : Files) {
-    Output.PutNextEntry(wxString{"trace/"} + File.getName());
-    
-    auto const &Buffer = *(File.getContents());
-    Output.Write(Buffer.getBufferStart(), Buffer.getBufferSize());
-  }
   
   if (!Output.Close())
     return false;

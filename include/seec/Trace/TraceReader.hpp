@@ -37,6 +37,9 @@ namespace llvm {
 } // namespace llvm
 
 
+class wxArchiveOutputStream;
+
+
 namespace seec {
 
 namespace runtime_errors {
@@ -504,6 +507,11 @@ public:
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
   readFrom(std::unique_ptr<InputBufferAllocator> Allocator);
+
+  /// \brief Write execution trace to an archive.
+  /// \return true iff write successful.
+  ///
+  bool writeToArchive(wxArchiveOutputStream &Stream);
 
   /// \name Accessors
   /// @{
