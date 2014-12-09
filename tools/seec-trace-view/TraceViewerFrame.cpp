@@ -173,8 +173,11 @@ TraceViewerFrame::TraceViewerFrame(wxWindow *Parent,
 }
 
 TraceViewerFrame::~TraceViewerFrame() {
-  // Finalize the recording.
+  // Finalize the recording. This stores the trace and recording into a combined
+  // archive, and sets the archive up for automatic submission to a server.
+#if defined(SEEC_USER_ACTION_RECORDING)
   Recording->finalize();
+#endif
 
   auto const Config = wxConfig::Get();
 
@@ -224,9 +227,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   
   // Setup the action record.
   Recording = seec::makeUnique<ActionRecord>(Trace->getTrace());
-#ifdef SEEC_USER_ACTION_RECORDING
   Recording->enable();
-#endif
   
   // Setup the action replay frame.
   Replay = new ActionReplayFrame(this, Trace->getTrace());
@@ -249,7 +250,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.
 
-#ifdef SEEC_USER_ACTION_RECORDING
     // Create the action recording control.
     RecordingControl = new ActionRecordingControl(this, *Recording);
     auto const RecordingControlTitle =
@@ -259,7 +259,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Caption(RecordingControlTitle)
                                     .Top()
                                     .ToolbarPane());
-#endif
 
     // Create the thread time movement control.
     ThreadTime = new ThreadTimeControl(this, *Recording, Replay);

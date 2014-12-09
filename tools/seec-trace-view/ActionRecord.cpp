@@ -351,11 +351,7 @@ ActionRecord::ActionRecord(seec::cm::ProcessTrace const &ForTrace)
 
 bool ActionRecord::enable()
 {
-  if (!hasValidActionRecordToken())
-    return false;
-  
   Enabled = true;
-  
   return true;
 }
 
@@ -413,7 +409,7 @@ bool ActionRecord::writeToArchive(wxArchiveOutputStream &Stream)
 
 bool ActionRecord::finalize()
 {
-  if (!Enabled)
+  if (!Enabled || !hasValidActionRecordToken())
     return true;
   
   // Check the size of the trace.
