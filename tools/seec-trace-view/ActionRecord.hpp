@@ -37,6 +37,7 @@ namespace seec {
   }
 }
 
+class wxArchiveOutputStream;
 class wxButton;
 class wxPoint;
 class wxSize;
@@ -474,6 +475,10 @@ public:
                                       {&Attributes...});
   }
   
+  /// \brief Write this action record to the given archive.
+  ///
+  bool writeToArchive(wxArchiveOutputStream &Stream);
+
   /// \brief Finish this action record and submit it to the server.
   ///
   bool finalize();

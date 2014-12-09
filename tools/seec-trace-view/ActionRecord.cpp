@@ -26,6 +26,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 
+#include <wx/archive.h>
 #include <wx/wx.h>
 #include <wx/datetime.h>
 #include <wx/debug.h>
@@ -314,9 +315,9 @@ bool ActionRecord::archiveTo(wxOutputStream &Stream)
     return false;
   
   // Save the recording of this session to the archive.
-  Output.PutNextEntry("record.xml"); // CHECK ME
-  RecordDocument->Save(Output); // CHECK ME
-  
+  if (!writeToArchive(Output))
+    return false;
+
   // Save the contents of the trace to the archive.
   if (!Trace.getUnmappedTrace()->writeToArchive(Output))
     return false;
@@ -402,6 +403,12 @@ recordEventV(std::string const &Handler,
     RawPtrs.emplace_back(AttrPtr.get());
 
   return recordEventV(Handler, RawPtrs);
+}
+
+bool ActionRecord::writeToArchive(wxArchiveOutputStream &Stream)
+{
+  return Stream.PutNextEntry("record.xml")
+      && RecordDocument->Save(Stream);
 }
 
 bool ActionRecord::finalize()
