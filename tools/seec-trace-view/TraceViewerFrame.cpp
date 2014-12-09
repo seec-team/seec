@@ -544,6 +544,7 @@ void TraceViewerFrame::OnSaveAs(wxCommandEvent &Event)
                         towxString(Res["CommitFailTitle"]),
                         towxString(Res["CommitFailMessage"]));
     Dlg.ShowModal();
+    Output.Discard();
     return;
   }
 }
