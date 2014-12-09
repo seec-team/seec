@@ -357,6 +357,7 @@ bool TraceViewerApp::OnInit() {
   // Set the app name to "seec" so that we share configuration with other
   // SeeC applications (and the runtime library).
   this->SetAppName("seec");
+  this->SetAppDisplayName("SeeC");
 
   // Load ICU resources for TraceViewer. Do this before calling wxApp's default
   // behaviour, so that OnInitCmdLine and OnCmdLineParsed have access to the
