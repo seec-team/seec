@@ -160,6 +160,10 @@ public:
   /// \brief Close the current file.
   ///
   void OnClose(wxCommandEvent &Event);
+
+  /// \brief Request to save the current trace.
+  ///
+  void OnSaveAs(wxCommandEvent &Event);
   
   /// \brief Handle a request to move the process.
   ///

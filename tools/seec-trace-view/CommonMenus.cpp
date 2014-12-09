@@ -31,6 +31,8 @@
 #include "ProcessMoveEvent.hpp"
 #include "TraceViewerFrame.hpp"
 
+#include <algorithm>
+
 void BindMenuItem(wxMenuItem *Item,
                   std::function<void (wxEvent &)> Handler)
 {
@@ -44,19 +46,34 @@ void BindMenuItem(wxMenuItem *Item,
   Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
 }
 
-std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
+template<typename ContainerT, typename T>
+bool contains(ContainerT const &Container, T const &Item) {
+  return std::find(begin(Container), end(Container), Item) != end(Container);
+}
+
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createFileMenu(std::vector<wxStandardID> const &AdditionalIDs)
 {
-  auto const Title = seec::getwxStringExOrEmpty("TraceViewer",
-                        (char const *[]) {"GUIText", "Menu_File"});
+  auto const Title = seec::towxString(seec::Resource("TraceViewer")
+                                      ["GUIText"]["Menu_File"]);
   
   auto Menu = seec::makeUnique<wxMenu>();
   
   Menu->Append(wxID_OPEN);
   Menu->Append(wxID_CLOSE);
+
+  if (contains(AdditionalIDs, wxID_SAVEAS))
+    Menu->Append(wxID_SAVEAS);
+
   Menu->AppendSeparator();
   Menu->Append(wxID_EXIT);
   
   return std::make_pair(std::move(Menu), Title);
+}
+
+std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
+{
+  return createFileMenu({});
 }
 
 std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu()

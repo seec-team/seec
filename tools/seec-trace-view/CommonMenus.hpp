@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 
 namespace seec {
@@ -43,6 +44,12 @@ class TraceViewerFrame;
 ///
 void BindMenuItem(wxMenuItem *Item,
                   std::function<void (wxEvent &)> Handler);
+
+/// \brief Create the standard file menu, with listed additional items.
+/// Supported additional items: \c wxID_SAVEAS.
+///
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createFileMenu(std::vector<wxStandardID> const &AdditionalIDs);
 
 /// \brief Create the standard file menu.
 ///

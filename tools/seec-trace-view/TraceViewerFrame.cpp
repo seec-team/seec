@@ -23,7 +23,13 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
+#include <wx/archive.h>
+#include <wx/checkbox.h>
 #include <wx/config.h>
+#include <wx/file.h>
+#include <wx/filedlg.h>
+#include <wx/wfstream.h>
+#include <wx/zipstrm.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/framemanager.h>
 
@@ -390,7 +396,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   // Setup the menus.
   auto menuBar = new wxMenuBar();
-  append(menuBar, createFileMenu());
+  append(menuBar, createFileMenu({wxID_SAVEAS}));
   append(menuBar, createEditMenu());
   append(menuBar, createViewMenu());
   append(menuBar, createToolsMenu());
@@ -404,6 +410,9 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Bind(wxEVT_COMMAND_MENU_SELECTED,
        &TraceViewerFrame::OnClose, this,
        wxID_CLOSE);
+
+  Bind(wxEVT_COMMAND_MENU_SELECTED, &TraceViewerFrame::OnSaveAs, this,
+       wxID_SAVEAS);
   
   Bind(SEEC_EV_PROCESS_MOVE, &TraceViewerFrame::OnProcessMove, this);
   
@@ -439,6 +448,104 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
 void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
   Close(true);
+}
+
+class SaveExtraControlWindow final : public wxWindow
+{
+  wxCheckBox *m_IncludeActionRecording;
+
+public:
+  SaveExtraControlWindow(wxWindow * const Parent);
+
+  bool getIncludeActionRecording() const {
+    return m_IncludeActionRecording->GetValue();
+  }
+};
+
+SaveExtraControlWindow::SaveExtraControlWindow(wxWindow * const Parent)
+{
+  if (!wxWindow::Create(Parent, wxID_ANY))
+    return;
+
+  auto const Res = seec::Resource("TraceViewer")["GUIText"]["SaveTrace"];
+
+  m_IncludeActionRecording =
+    new wxCheckBox(this, wxID_ANY,
+                   seec::towxString(Res["IncludeActionRecording"]));
+}
+
+wxWindow *SaveControlCreator(wxWindow * const Parent)
+{
+  return new SaveExtraControlWindow(Parent);
+}
+
+void TraceViewerFrame::OnSaveAs(wxCommandEvent &Event)
+{
+  auto const Res = seec::Resource("TraceViewer")["GUIText"]["SaveTrace"];
+
+  wxFileDialog SaveDlg(this,
+                       seec::towxString(Res["Title"]),
+                       /* default dir  */ wxEmptyString,
+                       /* default file */ wxEmptyString,
+                       seec::towxString(Res["FileType"]),
+                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+  SaveDlg.SetExtraControlCreator(SaveControlCreator);
+
+  if (SaveDlg.ShowModal() == wxID_CANCEL)
+    return;
+
+  // Now to save!
+  auto const ExtraControls = static_cast<SaveExtraControlWindow const *>
+                                        (SaveDlg.GetExtraControl());
+
+  // Create temporary archive stream.
+  wxTempFileOutputStream Output(SaveDlg.GetFilename());
+  wxZipOutputStream ZipOutput(Output);
+  if (!ZipOutput.IsOk()) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["OpenFailTitle"]),
+                        towxString(Res["OpenFailMessage"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  // Write the trace.
+  if (!Trace->getTrace().getUnmappedTrace()->writeToArchive(ZipOutput)) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["WriteTraceFailTitle"]),
+                        towxString(Res["WriteTraceFailMessage"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  // Optionally write the action recording.
+  if (ExtraControls->getIncludeActionRecording()) {
+    if (!Recording->writeToArchive(ZipOutput)) {
+      wxMessageDialog Dlg(this,
+                          towxString(Res["WriteActionRecordingFailTitle"]),
+                          towxString(Res["WriteActionRecordingFailMessage"]));
+      Dlg.ShowModal();
+      return;
+    }
+  }
+
+  // Commit the archive.
+  if (!ZipOutput.Close()) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["ZipCloseFailTitle"]),
+                        towxString(Res["ZipCloseFailMessage"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  if (!Output.Commit()) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["CommitFailTitle"]),
+                        towxString(Res["CommitFailMessage"]));
+    Dlg.ShowModal();
+    return;
+  }
 }
 
 void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
