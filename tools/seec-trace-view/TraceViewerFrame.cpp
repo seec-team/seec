@@ -294,6 +294,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Setup the explanation viewer.
     ExplanationCtrl = new ExplanationViewer(this,
+                                            *Trace,
                                             *Notifier,
                                             *Recording,
                                             *Replay,

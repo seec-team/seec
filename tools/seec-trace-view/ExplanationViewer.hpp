@@ -43,6 +43,7 @@ namespace seec {
 class ActionRecord;
 class ActionReplayFrame;
 class ContextNotifier;
+class OpenTrace;
 class StateAccessToken;
 
 
@@ -50,11 +51,17 @@ class StateAccessToken;
 ///
 class ExplanationViewer final : public wxStyledTextCtrl
 {
+  /// The trace that this viewer will display states from.
+  OpenTrace *Trace;
+
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
   /// Used to record user interactions.
   ActionRecord *Recording;
+
+  /// Holds the byte length of displayed annotation text.
+  long AnnotationLength;
 
   /// Hold current explanatory material.
   std::unique_ptr<seec::clang_epv::Explanation> Explanation;
@@ -76,16 +83,20 @@ class ExplanationViewer final : public wxStyledTextCtrl
   
   /// \brief Get byte offset range from "whole character" range.
   ///
-  std::pair<int, int> getByteOffsetRange(int32_t Start, int32_t End);
+  std::pair<int, int> getExplanationByteOffsetRange(int32_t Start, int32_t End);
   
-  /// \brief Set the contents of this viewer.
+  /// \brief Set the annotation text.
   ///
-  void setText(wxString const &Value);
+  void setAnnotationText(wxString const &Value);
+
+  /// \brief Set the explanation text.
+  ///
+  void setExplanationText(wxString const &Value);
   
   /// \brief Set indicators for the interactive text areas in the current
   ///        \c Explanation.
   ///
-  void setIndicators();
+  void setExplanationIndicators();
 
   /// \brief Clear the current information.
   ///
@@ -96,8 +107,10 @@ public:
   ///
   ExplanationViewer()
   : wxStyledTextCtrl(),
+    Trace(nullptr),
     Notifier(nullptr),
     Recording(nullptr),
+    AnnotationLength(0),
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
@@ -109,6 +122,7 @@ public:
   /// \brief Construct and create.
   ///
   ExplanationViewer(wxWindow *Parent,
+                    OpenTrace &WithTrace,
                     ContextNotifier &WithNotifier,
                     ActionRecord &WithRecording,
                     ActionReplayFrame &WithReplay,
@@ -117,7 +131,8 @@ public:
                     wxSize const &Size = wxDefaultSize)
   : ExplanationViewer()
   {
-    Create(Parent, WithNotifier, WithRecording, WithReplay, ID, Position, Size);
+    Create(Parent, WithTrace, WithNotifier, WithRecording, WithReplay, ID,
+           Position, Size);
   }
 
   /// \brief Destructor.
@@ -127,6 +142,7 @@ public:
   /// \brief Create the viewer.
   ///
   bool Create(wxWindow *Parent,
+              OpenTrace &WithTrace,
               ContextNotifier &WithNotifier,
               ActionRecord &WithRecording,
               ActionReplayFrame &WithReplay,
@@ -154,6 +170,11 @@ public:
   /// \name Mutators.
   /// @{
   
+private:
+  void showAnnotations(seec::cm::ProcessState const &Process,
+                       seec::cm::ThreadState const &Thread);
+
+public:
   void show(std::shared_ptr<StateAccessToken> Access,
             seec::cm::ProcessState const &Process,
             seec::cm::ThreadState const &Thread);
