@@ -82,6 +82,10 @@ root:table {
 
     OpenTrace_Error_LoadProcessTrace:string {"Couldn't read process trace."}
 
+    OpenTrace_Error_AnnotationXml:string {"Annotation file is invalid."}
+
+    OpenTrace_Error_AnnotationBad:string {"Annotation file is invalid."}
+
 
     //
     // Save trace dialog

@@ -20,9 +20,12 @@
 
 #include <wx/wx.h>
 
+#include "Annotations.hpp"
+
 #include <memory>
 #include <string>
 
+class Annotation;
 
 class wxXmlDocument;
 
@@ -47,12 +50,16 @@ class OpenTrace
   /// The action recording.
   std::unique_ptr<wxXmlDocument> Recording;
 
+  /// The annotations.
+  AnnotationCollection Annotations;
+
   /// \brief Constructor.
   ///
   OpenTrace(std::string WithTempDir,
             std::vector<std::string> WithTempFiles,
             std::unique_ptr<seec::cm::ProcessTrace> WithTrace,
-            std::unique_ptr<wxXmlDocument> WithRecording);
+            std::unique_ptr<wxXmlDocument> WithRecording,
+            AnnotationCollection WithAnnotations);
   
   /// \brief Constructor.
   ///
@@ -99,6 +106,10 @@ public:
   /// \brief Get the action recording associated with this trace, if any.
   ///
   decltype(Recording) const &getRecording() const { return Recording; }
+
+  /// \brief Get the \c AnnotationCollection for this trace.
+  ///
+  AnnotationCollection &getAnnotations() { return Annotations; }
 
   /// @}
 };

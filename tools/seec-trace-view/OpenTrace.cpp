@@ -35,18 +35,21 @@
 OpenTrace::OpenTrace(std::string WithTempDir,
                      std::vector<std::string> WithTempFiles,
                      std::unique_ptr<seec::cm::ProcessTrace> WithTrace,
-                     std::unique_ptr<wxXmlDocument> WithRecording)
+                     std::unique_ptr<wxXmlDocument> WithRecording,
+                     AnnotationCollection WithAnnotations)
 : TempDir(std::move(WithTempDir)),
   TempFiles(std::move(WithTempFiles)),
   Trace(std::move(WithTrace)),
-  Recording(std::move(WithRecording))
+  Recording(std::move(WithRecording)),
+  Annotations(std::move(WithAnnotations))
 {}
 
 OpenTrace::OpenTrace(std::unique_ptr<seec::cm::ProcessTrace> WithTrace)
 : OpenTrace(std::string{},
             std::vector<std::string>{},
             std::move(WithTrace),
-            std::unique_ptr<wxXmlDocument>{})
+            std::unique_ptr<wxXmlDocument>{},
+            AnnotationCollection{})
 {}
 
 seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>
@@ -105,6 +108,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
   wxZipInputStream Input{RawInput};
   std::unique_ptr<wxZipEntry> Entry;
   std::unique_ptr<wxXmlDocument> Record;
+  AnnotationCollection Annotations;
   std::vector<std::string> TempFiles;
   
   while (Entry.reset(Input.GetNextEntry()), Entry) {
@@ -120,6 +124,21 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
         return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
                             {"GUIText", "OpenTrace_Error_LoadProcessTrace"})};
       }
+    }
+    else if (Name == "annotations.xml") {
+      auto XmlDoc = seec::makeUnique<wxXmlDocument>(Input);
+      if (!XmlDoc->IsOk()) {
+        return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                            {"GUIText", "OpenTrace_Error_AnnotationXml"})};
+      }
+
+      auto MaybeAnnotations = AnnotationCollection::fromDoc(std::move(XmlDoc));
+      if (!MaybeAnnotations.assigned<AnnotationCollection>()) {
+        return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+                            {"GUIText", "OpenTrace_Error_AnnotationBad"})};
+      }
+
+      Annotations = MaybeAnnotations.move<AnnotationCollection>();
     }
     else if (Name.StartsWith("trace/")) {
       wxFileName Path{Name};
@@ -153,7 +172,8 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
     new OpenTrace(TempPath.ToStdString(),
                   std::move(TempFiles),
                   MaybeTrace.move<std::unique_ptr<seec::cm::ProcessTrace>>(),
-                  std::move(Record))};
+                  std::move(Record),
+                  std::move(Annotations))};
 }
 
 OpenTrace::~OpenTrace()
