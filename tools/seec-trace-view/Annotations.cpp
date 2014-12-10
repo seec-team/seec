@@ -15,17 +15,131 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/ICU/Indexing.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Util/MakeUnique.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
 
+#include <unicode/regex.h>
+
 #include <wx/archive.h>
+#include <wx/log.h>
 #include <wx/xml/xml.h>
 
 #include "Annotations.hpp"
 
 using namespace seec;
+
+//------------------------------------------------------------------------------
+// AnnotationIndex
+//------------------------------------------------------------------------------
+
+clang::Decl const *AnnotationIndex::getDecl() const
+{
+  // Example of our Decl identifier: decl:0,10
+  UErrorCode Status = U_ZERO_ERROR;
+  ::icu::RegexMatcher Matcher("^decl:(\\d+),(\\d+)$", 0, Status);
+  if (U_FAILURE(Status))
+    return nullptr;
+
+  Matcher.reset(m_Index);
+  if (!Matcher.find())
+    return nullptr;
+
+  auto const StrASTIndex  = towxString(Matcher.group(1, Status));
+  unsigned long ASTIndex = 0;
+  if (!StrASTIndex.ToULong(&ASTIndex))
+    return nullptr;
+
+  auto const StrDeclIndex = towxString(Matcher.group(2, Status));
+  unsigned long DeclIndex = 0;
+  if (!StrDeclIndex.ToULong(&DeclIndex))
+    return nullptr;
+
+  auto const &ASTs = m_Trace.getMapping().getASTs();
+  if (ASTIndex >= ASTs.size())
+    return nullptr;
+
+  return ASTs[ASTIndex]->getDeclFromIdx(DeclIndex);
+}
+
+clang::Stmt const *AnnotationIndex::getStmt() const
+{
+  // Example of our Stmt identifier: stmt:0,10
+  UErrorCode Status = U_ZERO_ERROR;
+  ::icu::RegexMatcher Matcher("^stmt:(\\d+),(\\d+)$", 0, Status);
+  if (U_FAILURE(Status))
+    return nullptr;
+
+  Matcher.reset(m_Index);
+  if (!Matcher.find())
+    return nullptr;
+
+  auto const StrASTIndex  = towxString(Matcher.group(1, Status));
+  unsigned long ASTIndex = 0;
+  if (!StrASTIndex.ToULong(&ASTIndex))
+    return nullptr;
+
+  auto const StrStmtIndex = towxString(Matcher.group(2, Status));
+  unsigned long StmtIndex = 0;
+  if (!StrStmtIndex.ToULong(&StmtIndex))
+    return nullptr;
+
+  auto const &ASTs = m_Trace.getMapping().getASTs();
+  if (ASTIndex >= ASTs.size())
+    return nullptr;
+
+  return ASTs[ASTIndex]->getStmtFromIdx(StmtIndex);
+}
+
+//------------------------------------------------------------------------------
+// IndexedAnnotationText
+//------------------------------------------------------------------------------
+
+IndexedAnnotationText::
+IndexedAnnotationText(cm::ProcessTrace const &WithTrace,
+                      std::unique_ptr<seec::icu::IndexedString> WithText)
+: m_Trace(WithTrace),
+  m_Text(std::move(WithText))
+{}
+
+Maybe<IndexedAnnotationText>
+IndexedAnnotationText::create(cm::ProcessTrace const &WithTrace,
+                              wxString const &WithText)
+{
+  using namespace seec::icu;
+
+  auto MaybeIndexed = IndexedString::from(toUnicodeString(WithText));
+  if (!MaybeIndexed.assigned<IndexedString>())
+    return Maybe<IndexedAnnotationText>();
+
+  return IndexedAnnotationText(WithTrace,
+                               makeUnique<IndexedString>
+                                         (MaybeIndexed.move<IndexedString>()));
+}
+
+IndexedAnnotationText::~IndexedAnnotationText() = default;
+
+wxString IndexedAnnotationText::getText() const
+{
+  return towxString(m_Text->getString());
+}
+
+Maybe<AnnotationIndex>
+IndexedAnnotationText::getPrimaryIndexAt(int32_t const CharPosition) const
+{
+  auto const It = m_Text->lookupPrimaryIndexAtCharacter(CharPosition);
+  if (It != m_Text->getNeedleLookup().end()) {
+    return AnnotationIndex(m_Trace,
+                           It->first,
+                           It->second.getStart(),
+                           It->second.getEnd());
+  }
+
+  return Maybe<AnnotationIndex>();
+}
 
 //------------------------------------------------------------------------------
 // AnnotationPoint

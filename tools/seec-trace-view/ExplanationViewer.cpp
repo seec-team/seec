@@ -40,20 +40,20 @@
 
 
 std::pair<int, int>
-ExplanationViewer::getExplanationByteOffsetRange(int32_t const Start,
-                                                 int32_t const End)
+ExplanationViewer::getAnnotationByteOffsetRange(int32_t const Start,
+                                                int32_t const End)
 {
   assert(Start <= End);
 
   // Initially set the offset to the first valid offset preceding the
   // "whole character" index. This will always be less than the required offset
   // (because no encoding uses less than one byte per character).
-  int StartPos = PositionBefore(AnnotationLength + Start);
+  int StartPos = PositionBefore(Start);
 
   // Find the "whole character" index of the initial position, use that to
   // determine how many characters away from the desired position we are, and
   // then iterate to the desired position.
-  auto const StartGuessCount = CountCharacters(AnnotationLength, StartPos);
+  auto const StartGuessCount = CountCharacters(0, StartPos);
   for (int i = 0; i < Start - StartGuessCount; ++i)
     StartPos = PositionAfter(StartPos);
 
@@ -66,14 +66,40 @@ ExplanationViewer::getExplanationByteOffsetRange(int32_t const Start,
   return std::make_pair(StartPos, EndPos);
 }
 
+std::pair<int, int>
+ExplanationViewer::getExplanationByteOffsetRange(int32_t const Start,
+                                                 int32_t const End)
+{
+  auto const AnnotationText = Annotation->getText();
+  return getAnnotationByteOffsetRange(Start + AnnotationText.length(),
+                                      End   + AnnotationText.length());
+}
+
 void ExplanationViewer::setAnnotationText(wxString const &Value)
 {
+  auto MaybeIndexed = IndexedAnnotationText::create(Trace->getTrace(), Value);
+  if (!MaybeIndexed.assigned<IndexedAnnotationText>())
+    return;
+
+  Annotation = seec::makeUnique<IndexedAnnotationText>
+                               (MaybeIndexed.move<IndexedAnnotationText>());
+
   this->SetEditable(true);
   auto const ExplanationLength = GetLength() - AnnotationLength;
-  this->Replace(0, AnnotationLength, Value);
+  this->Replace(0, AnnotationLength, Annotation->getText());
   AnnotationLength = GetLength() - ExplanationLength;
   this->SetEditable(false);
   this->ClearSelections();
+
+  // Set indicators for the indexed parts of the annotation.
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::TextInteractive));
+
+  for (auto const &Pair : Annotation->getIndexedString().getNeedleLookup()) {
+    auto const &Needle = Pair.second;
+    auto const Range = getAnnotationByteOffsetRange(Needle.getStart(),
+                                                    Needle.getEnd());
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+  }
 }
 
 void ExplanationViewer::setExplanationText(wxString const &Value)
@@ -98,6 +124,47 @@ void ExplanationViewer::setExplanationIndicators()
     auto const Range = getExplanationByteOffsetRange(Needle.getStart(),
                                                      Needle.getEnd());
     IndicatorFillRange(Range.first, Range.second - Range.first);
+  }
+}
+
+void ExplanationViewer::mouseOverDecl(clang::Decl const *TheDecl)
+{
+  if (HighlightedDecl != TheDecl) {
+    HighlightedDecl = TheDecl;
+
+    Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseOverDeclLink",
+                              make_attribute("decl", TheDecl));
+    }
+  }
+}
+
+void ExplanationViewer::mouseOverStmt(clang::Stmt const *TheStmt)
+{
+  if (HighlightedStmt != TheStmt) {
+    HighlightedStmt = TheStmt;
+
+    Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
+
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseOverStmtLink",
+                              make_attribute("stmt", TheStmt));
+    }
+  }
+}
+
+void ExplanationViewer::mouseOverHyperlink(UnicodeString const &URL)
+{
+  SetCursor(wxCursor(wxCURSOR_HAND));
+  URLHover = true;
+  URLHovered.clear();
+  URL.toUTF8String(URLHovered);
+
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseOverURL",
+                            make_attribute("url", URLHovered));
   }
 }
 
@@ -175,10 +242,41 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   
   if (Pos == wxSTC_INVALID_POSITION) {
     URLClick = false;
+    URLHovered.clear();
     return;
   }
   
-  if (CurrentMousePosition >= AnnotationLength) {
+  if (CurrentMousePosition < AnnotationLength) {
+    // This is the "whole character" offset into the annotation.
+    auto const Count = CountCharacters(0, Pos);
+
+    auto const MaybeIndex = Annotation->getPrimaryIndexAt(Count);
+    if (!MaybeIndex.assigned<AnnotationIndex>())
+      return;
+
+    auto const &Index = MaybeIndex.get<AnnotationIndex>();
+
+    SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
+
+    auto const Range = getAnnotationByteOffsetRange(Index.getStart(),
+                                                    Index.getEnd());
+
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+
+    if (auto const TheDecl = Index.getDecl())
+      mouseOverDecl(TheDecl);
+
+    if (auto const TheStmt = Index.getStmt())
+      mouseOverStmt(TheStmt);
+
+    if (Index.getIndex().indexOf("://") != -1)
+      mouseOverHyperlink(Index.getIndex());
+    else {
+      URLClick = false;
+      URLHovered.clear();
+    }
+  }
+  else {
     // This is the "whole character" offset (regardless of the text's encoding).
     auto const Count = CountCharacters(AnnotationLength, Pos);
 
@@ -194,46 +292,17 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
 
     IndicatorFillRange(Range.first, Range.second - Range.first);
 
-    if (auto const Decl = Links.getPrimaryDecl()) {
-      if (HighlightedDecl != Decl) {
-        HighlightedDecl = Decl;
+    if (auto const Decl = Links.getPrimaryDecl())
+      mouseOverDecl(Decl);
 
-        Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+    if (auto const Stmt = Links.getPrimaryStmt())
+      mouseOverStmt(Stmt);
 
-        if (Recording) {
-          Recording->recordEventL("ExplanationViewer.MouseOverDeclLink",
-                                  make_attribute("decl", Decl));
-        }
-      }
-    }
-
-    if (auto const Stmt = Links.getPrimaryStmt()) {
-      if (HighlightedStmt != Stmt) {
-        HighlightedStmt = Stmt;
-
-        Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
-
-        if (Recording) {
-          Recording->recordEventL("ExplanationViewer.MouseOverStmtLink",
-                                  make_attribute("stmt", Stmt));
-        }
-      }
-    }
-
-    if (Links.getPrimaryIndex().indexOf("://") != -1) {
-      SetCursor(wxCursor(wxCURSOR_HAND));
-      URLHover = true;
-
-      if (Recording) {
-        std::string URL;
-        Links.getPrimaryIndex().toUTF8String(URL);
-
-        Recording->recordEventL("ExplanationViewer.MouseOverURL",
-                                make_attribute("url", URL));
-      }
-    }
+    if (Links.getPrimaryIndex().indexOf("://") != -1)
+      mouseOverHyperlink(Links.getPrimaryIndex());
     else {
       URLClick = false;
+      URLHovered.clear();
     }
   }
 }
@@ -265,6 +334,7 @@ void ExplanationViewer::OnLeftDown(wxMouseEvent &Event)
   }
   else {
     URLClick = false;
+    URLHovered.clear();
     Event.Skip();
   }
 }
@@ -272,26 +342,12 @@ void ExplanationViewer::OnLeftDown(wxMouseEvent &Event)
 void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
 {
   if (URLClick) {
-    if (CurrentMousePosition >= AnnotationLength) {
-      // This is the "whole character" offset into the explanation.
-      auto const Count = CountCharacters(AnnotationLength,
-                                         CurrentMousePosition);
-
-      auto const Links = Explanation->getCharacterLinksAt(Count);
-      if (Links.getPrimaryIndex().isEmpty()) {
-        return;
-      }
-
-      std::string URL;
-      Links.getPrimaryIndex().toUTF8String(URL);
-
-      if (Recording) {
-        Recording->recordEventL("ExplanationViewer.MouseLeftClickURL",
-                                make_attribute("url", URL));
-      }
-
-      ::wxLaunchDefaultBrowser(URL);
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseLeftClickURL",
+                              make_attribute("url", URLHovered));
     }
+
+    ::wxLaunchDefaultBrowser(URLHovered);
   }
   else {
     if (Recording) {

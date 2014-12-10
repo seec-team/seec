@@ -25,6 +25,7 @@
 #include <wx/stc/stc.h>
 
 #include <memory>
+#include <string>
 
 
 // Forward declarations.
@@ -43,6 +44,7 @@ namespace seec {
 class ActionRecord;
 class ActionReplayFrame;
 class ContextNotifier;
+class IndexedAnnotationText;
 class OpenTrace;
 class StateAccessToken;
 
@@ -59,6 +61,9 @@ class ExplanationViewer final : public wxStyledTextCtrl
   
   /// Used to record user interactions.
   ActionRecord *Recording;
+
+  /// Holds the current annotation text.
+  std::unique_ptr<IndexedAnnotationText> Annotation;
 
   /// Holds the byte length of displayed annotation text.
   long AnnotationLength;
@@ -78,9 +83,16 @@ class ExplanationViewer final : public wxStyledTextCtrl
   /// Is the mouse currently hovering on a URL?
   bool URLHover;
   
+  /// The URL that the mouse is hovering over.
+  std::string URLHovered;
+
   /// Is the mouse on the same URL as when the left button was clicked?
   bool URLClick;
   
+  /// \brief Get byte offset range from "whole character" range.
+  ///
+  std::pair<int, int> getAnnotationByteOffsetRange(int32_t Start, int32_t End);
+
   /// \brief Get byte offset range from "whole character" range.
   ///
   std::pair<int, int> getExplanationByteOffsetRange(int32_t Start, int32_t End);
@@ -98,6 +110,18 @@ class ExplanationViewer final : public wxStyledTextCtrl
   ///
   void setExplanationIndicators();
 
+  /// \brief Handle mouse moving over a link to a \c clang::Decl.
+  ///
+  void mouseOverDecl(clang::Decl const *);
+
+  /// \brief Handle mouse moving over a link to a \c clang::Stmt.
+  ///
+  void mouseOverStmt(clang::Stmt const *);
+
+  /// \brief Handle mouse moving over a hyperlink.
+  ///
+  void mouseOverHyperlink(UnicodeString const &);
+
   /// \brief Clear the current information.
   ///
   void clearCurrent();
@@ -110,12 +134,14 @@ public:
     Trace(nullptr),
     Notifier(nullptr),
     Recording(nullptr),
+    Annotation(nullptr),
     AnnotationLength(0),
     Explanation(),
     CurrentMousePosition(wxSTC_INVALID_POSITION),
     HighlightedDecl(nullptr),
     HighlightedStmt(nullptr),
     URLHover(false),
+    URLHovered(),
     URLClick(false)
   {}
 
