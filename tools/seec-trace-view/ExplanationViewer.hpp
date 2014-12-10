@@ -197,7 +197,10 @@ public:
   /// @{
   
 private:
-  void showAnnotations(seec::cm::ProcessState const &Process,
+  /// \brief Show annotations for this state.
+  /// \return true iff ClangEPV explanation should be suppressed.
+  ///
+  bool showAnnotations(seec::cm::ProcessState const &Process,
                        seec::cm::ThreadState const &Thread);
 
 public:

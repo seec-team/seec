@@ -358,7 +358,7 @@ void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
   }
 }
 
-void ExplanationViewer::showAnnotations(seec::cm::ProcessState const &Process,
+bool ExplanationViewer::showAnnotations(seec::cm::ProcessState const &Process,
                                         seec::cm::ThreadState const &Thread)
 {
   // Get annotation for this process state (if any).
@@ -383,10 +383,38 @@ void ExplanationViewer::showAnnotations(seec::cm::ProcessState const &Process,
     }
   }
 
+  bool SuppressEPV = false;
+  auto const &CallStack = Thread.getCallStack();
+  if (!CallStack.empty()) {
+    auto const &Function = CallStack.back().get();
+    seec::Maybe<AnnotationPoint> MaybeAnno;
+
+    if (auto const ActiveStmt = Function.getActiveStmt())
+      MaybeAnno = Annotations.getPointForNode(Trace->getTrace(), ActiveStmt);
+    else if (auto const FunctionDecl = Function.getFunctionDecl())
+      MaybeAnno = Annotations.getPointForNode(Trace->getTrace(), FunctionDecl);
+
+    if (MaybeAnno.assigned<AnnotationPoint>()) {
+      auto const &Point = MaybeAnno.get<AnnotationPoint>();
+
+      auto const Text = Point.getText();
+      if (!Text.empty()) {
+        if (!CombinedText.empty())
+          CombinedText << "\n";
+        CombinedText << Text << "\n";
+      }
+
+      if (Point.hasSuppressEPV())
+        SuppressEPV = true;
+    }
+  }
+
   if (!CombinedText.empty()) {
     CombinedText << "\n";
     setAnnotationText(CombinedText);
   }
+
+  return SuppressEPV;
 }
 
 void ExplanationViewer::show(std::shared_ptr<StateAccessToken> Access,
@@ -402,25 +430,22 @@ void ExplanationViewer::show(std::shared_ptr<StateAccessToken> Access,
   if (!Lock)
     return;
   
-  showAnnotations(Process, Thread);
+  auto const SuppressEPV = showAnnotations(Process, Thread);
 
-  // Find the active function (if any).
-  auto const &CallStack = Thread.getCallStack();
-  if (CallStack.empty())
-    return;
-  
-  auto const &Function = CallStack.back().get();
-  
-  // If there is an active Stmt then explain it. Otherwise, explain the active
-  // function's Decl.
-  auto const ActiveStmt = Function.getActiveStmt();
-  if (ActiveStmt) {
-    showExplanation(ActiveStmt, Function);
-  }
-  else {
-    auto const FunctionDecl = Function.getFunctionDecl();
-    if (FunctionDecl) {
-      showExplanation(FunctionDecl);
+  if (!SuppressEPV) {
+    // Find the active function (if any).
+    auto const &CallStack = Thread.getCallStack();
+    if (!CallStack.empty()) {
+      auto const &Function = CallStack.back().get();
+
+      // If there is an active Stmt then explain it. Otherwise, explain the
+      // active function's Decl.
+      if (auto const ActiveStmt = Function.getActiveStmt()) {
+        showExplanation(ActiveStmt, Function);
+      }
+      else if (auto const FunctionDecl = Function.getFunctionDecl()) {
+        showExplanation(FunctionDecl);
+      }
     }
   }
 }
