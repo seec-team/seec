@@ -145,7 +145,7 @@ IndexedAnnotationText::getPrimaryIndexAt(int32_t const CharPosition) const
 // AnnotationPoint
 //------------------------------------------------------------------------------
 
-bool AnnotationPoint::isForNode() const
+bool AnnotationPoint::isForThreadState() const
 {
   return m_Node->GetName() == "threadState";
 }
@@ -155,9 +155,14 @@ bool AnnotationPoint::isForProcessState() const
   return m_Node->GetName() == "processState";
 }
 
-bool AnnotationPoint::isForThreadState() const
+bool AnnotationPoint::isForDecl() const
 {
-  return m_Node->GetName() == "threadState";
+  return m_Node->GetName() == "decl";
+}
+
+bool AnnotationPoint::isForStmt() const
+{
+  return m_Node->GetName() == "stmt";
 }
 
 wxString AnnotationPoint::getText() const
@@ -283,14 +288,15 @@ AnnotationCollection::getPointForProcessState(cm::ProcessState const &State)
 namespace {
 
 Maybe<AnnotationPoint> getPointForNode(wxXmlNode &Root,
+                                       wxString const &NodeType,
                                        unsigned const ForASTIndex,
                                        uint64_t const ForNodeIndex)
 {
   auto const It = std::find_if(
     wxXmlNodeIterator(Root.GetChildren()),
     wxXmlNodeIterator(),
-    [ForASTIndex, ForNodeIndex] (wxXmlNode const &Node) -> bool {
-      if (Node.GetName() != "node")
+    [ForASTIndex, ForNodeIndex, &NodeType] (wxXmlNode const &Node) -> bool {
+      if (Node.GetName() != NodeType)
         return false;
 
       auto const StrASTIndex = Node.GetAttribute("ASTIndex");
@@ -332,6 +338,7 @@ AnnotationCollection::getPointForNode(cm::ProcessTrace const &Trace,
     return Maybe<AnnotationPoint>();
 
   return ::getPointForNode(*(m_XmlDocument->GetRoot()),
+                           "decl",
                            MaybeASTIndex.get<0>(),
                            MaybeIndex.get<uint64_t>());
 }
@@ -354,6 +361,7 @@ AnnotationCollection::getPointForNode(cm::ProcessTrace const &Trace,
     return Maybe<AnnotationPoint>();
 
   return ::getPointForNode(*(m_XmlDocument->GetRoot()),
+                           "stmt",
                            MaybeASTIndex.get<0>(),
                            MaybeIndex.get<uint64_t>());
 }

@@ -161,9 +161,13 @@ public:
   ///
   bool isForProcessState() const;
 
-  /// \brief Check if this point is for an AST node.
+  /// \brief Check if this point is for a \c clang::Decl.
   ///
-  bool isForNode() const;
+  bool isForDecl() const;
+
+  /// \brief Check if this point is for a \c clang::Stmt.
+  ///
+  bool isForStmt() const;
 
   /// \brief Get annotation text (if any).
   /// \return annotation text or, if there is none, an empty string.
