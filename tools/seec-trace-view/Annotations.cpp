@@ -176,6 +176,15 @@ wxString AnnotationPoint::getText() const
   return wxEmptyString;
 }
 
+bool AnnotationPoint::hasSuppressEPV() const
+{
+  return std::any_of(wxXmlNodeIterator(m_Node->GetChildren()),
+                     wxXmlNodeIterator(),
+                     [] (wxXmlNode const &Node) {
+                       return Node.GetName() == "suppressEPV";
+                     });
+}
+
 //------------------------------------------------------------------------------
 // AnnotationCollection
 //------------------------------------------------------------------------------

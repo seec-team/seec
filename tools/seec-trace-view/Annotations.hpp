@@ -173,6 +173,10 @@ public:
   /// \return annotation text or, if there is none, an empty string.
   ///
   wxString getText() const;
+
+  /// \brief Indicates that ClangEPV explanations should be suppressed.
+  ///
+  bool hasSuppressEPV() const;
 };
 
 /// \brief Holds all annotations for an execution trace.

@@ -40,27 +40,35 @@ wxTipWindow *makeDeclTooltip(wxWindow *Parent,
                              wxRect &RectBound)
 {
   wxString TipString;
+  bool SuppressEPV = false;
 
   auto &Annotations = Trace.getAnnotations();
   auto const MaybeAnno = Annotations.getPointForNode(Trace.getTrace(), Decl);
   if (MaybeAnno.assigned<AnnotationPoint>()) {
-    auto const Text = MaybeAnno.get<AnnotationPoint>().getText();
+    auto const &Point = MaybeAnno.get<AnnotationPoint>();
+
+    auto const Text = Point.getText();
     if (!Text.empty()) {
       if (!TipString.empty())
         TipString << "\n";
       TipString << Text << "\n";
     }
+
+    if (Point.hasSuppressEPV())
+      SuppressEPV = true;
   }
 
-  auto const &Augmentations = wxGetApp().getAugmentations();
-  auto Augmenter = Augmentations.getCallbackFn();
+  if (!SuppressEPV) {
+    auto const &Augmentations = wxGetApp().getAugmentations();
+    auto Augmenter = Augmentations.getCallbackFn();
 
-  auto const MaybeExplanation = seec::clang_epv::explain(Decl, Augmenter);
-  if (MaybeExplanation.assigned(0)) {
-    auto const &Explanation = MaybeExplanation.get<0>();
-    if (!TipString.empty())
-      TipString << "\n";
-    TipString << seec::towxString(Explanation->getString()) << "\n";
+    auto const MaybeExplanation = seec::clang_epv::explain(Decl, Augmenter);
+    if (MaybeExplanation.assigned(0)) {
+      auto const &Explanation = MaybeExplanation.get<0>();
+      if (!TipString.empty())
+        TipString << "\n";
+      TipString << seec::towxString(Explanation->getString()) << "\n";
+    }
   }
 
   TipString.Trim();
@@ -79,6 +87,7 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
                              wxRect *RectBound)
 {
   wxString TipString;
+  bool SuppressEPV = false;
 
   if (ActiveFunction) {
     if (auto const V = ActiveFunction->getStmtValue(Stmt)) {
@@ -95,42 +104,49 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
   auto &Annotations = Trace.getAnnotations();
   auto const MaybeAnno = Annotations.getPointForNode(Trace.getTrace(), Stmt);
   if (MaybeAnno.assigned<AnnotationPoint>()) {
-    auto const Text = MaybeAnno.get<AnnotationPoint>().getText();
+    auto const &Point = MaybeAnno.get<AnnotationPoint>();
+
+    auto const Text = Point.getText();
     if (!Text.empty()) {
       if (!TipString.empty())
         TipString << "\n";
       TipString << Text << "\n";
     }
+
+    if (Point.hasSuppressEPV())
+      SuppressEPV = true;
   }
 
-  auto const &Augmentations = wxGetApp().getAugmentations();
-  auto Augmenter = Augmentations.getCallbackFn();
+  if (!SuppressEPV) {
+    auto const &Augmentations = wxGetApp().getAugmentations();
+    auto Augmenter = Augmentations.getCallbackFn();
 
-  // Attempt to get a general explanation of the statement.
-  auto const MaybeExplanation =
-    seec::clang_epv::explain(Stmt,
-                             RuntimeValueLookupForFunction(ActiveFunction),
-                             Augmenter);
+    // Attempt to get a general explanation of the statement.
+    auto const MaybeExplanation =
+      seec::clang_epv::explain(Stmt,
+                              RuntimeValueLookupForFunction(ActiveFunction),
+                              Augmenter);
 
-  if (MaybeExplanation.assigned(0)) {
-    auto const &Explanation = MaybeExplanation.get<0>();
-    if (TipString.size())
-      TipString << "\n";
-    TipString << seec::towxString(Explanation->getString()) << "\n";
-  }
+    if (MaybeExplanation.assigned(0)) {
+      auto const &Explanation = MaybeExplanation.get<0>();
+      if (TipString.size())
+        TipString << "\n";
+      TipString << seec::towxString(Explanation->getString()) << "\n";
+    }
 
-  if (ActiveFunction) {
-    // Get any runtime errors related to the Stmt.
-    for (auto const &RuntimeError : ActiveFunction->getRuntimeErrors()) {
-      if (RuntimeError.getStmt() != Stmt)
-        continue;
+    if (ActiveFunction) {
+      // Get any runtime errors related to the Stmt.
+      for (auto const &RuntimeError : ActiveFunction->getRuntimeErrors()) {
+        if (RuntimeError.getStmt() != Stmt)
+          continue;
 
-      auto const MaybeDescription = RuntimeError.getDescription(Augmenter);
-      if (MaybeDescription.assigned(0)) {
-        auto const &Description = MaybeDescription.get<0>();
-        if (TipString.size())
-          TipString << "\n";
-        TipString << seec::towxString(Description->getString());
+        auto const MaybeDescription = RuntimeError.getDescription(Augmenter);
+        if (MaybeDescription.assigned(0)) {
+          auto const &Description = MaybeDescription.get<0>();
+          if (TipString.size())
+            TipString << "\n";
+          TipString << seec::towxString(Description->getString());
+        }
       }
     }
   }
