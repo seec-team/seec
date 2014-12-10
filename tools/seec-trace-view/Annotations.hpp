@@ -16,6 +16,8 @@
 
 #include "seec/Util/Maybe.hpp"
 
+#include <wx/string.h>
+
 #include <memory>
 
 namespace seec {
@@ -60,6 +62,11 @@ public:
   /// \brief Check if this point is for an AST node.
   ///
   bool isForNode() const;
+
+  /// \brief Get annotation text (if any).
+  /// \return annotation text or, if there is none, an empty string.
+  ///
+  wxString getText() const;
 };
 
 /// \brief Holds all annotations for an execution trace.

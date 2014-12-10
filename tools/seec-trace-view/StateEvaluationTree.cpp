@@ -290,6 +290,10 @@ bool StateEvaluationTreePanel::setHoverNode(decltype(Nodes)::iterator const It)
 
 void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
 {
+  auto Access = CurrentAccess->getAccess();
+  if (!Access)
+    return;
+
   // TODO: This should appear on the node rather than the mouse.
   int const XStart = Node.XStart;
   int const YStart = Node.YStart;
@@ -306,7 +310,7 @@ void StateEvaluationTreePanel::showHoverTooltip(NodeInfo const &Node)
   auto const WindowSize = GetSize();
   auto const TipWidth = WindowSize.GetWidth();
 
-  makeStmtTooltip(this, Node.Statement, *ActiveFn, TipWidth, NodeBounds);
+  makeStmtTooltip(this, *Trace, Node.Statement, *ActiveFn, TipWidth,NodeBounds);
 }
 
 bool StateEvaluationTreePanel::treeContainsStmt(clang::Stmt const *S) const
@@ -414,6 +418,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
 {}
 
 StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
+                                                   OpenTrace &WithTrace,
                                                    ContextNotifier &TheNotifier,
                                                    ActionRecord &TheRecording,
                                                    ActionReplayFrame &TheReplay,
@@ -422,12 +427,14 @@ StateEvaluationTreePanel::StateEvaluationTreePanel(wxWindow *Parent,
                                                    wxSize const &Size)
 : StateEvaluationTreePanel()
 {
-  Create(Parent, TheNotifier, TheRecording, TheReplay, ID, Position, Size);
+  Create(Parent, WithTrace, TheNotifier, TheRecording, TheReplay, ID, Position,
+         Size);
 }
 
 StateEvaluationTreePanel::~StateEvaluationTreePanel() = default;
 
 bool StateEvaluationTreePanel::Create(wxWindow *Parent,
+                                      OpenTrace &WithTrace,
                                       ContextNotifier &WithNotifier,
                                       ActionRecord &WithRecording,
                                       ActionReplayFrame &WithReplay,
@@ -438,6 +445,7 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   if (!wxScrolled<wxPanel>::Create(Parent, ID, Position, Size))
     return false;
   
+  Trace = &WithTrace;
   Notifier = &WithNotifier;
   Recording = &WithRecording;
   

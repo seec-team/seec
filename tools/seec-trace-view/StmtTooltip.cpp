@@ -26,17 +26,31 @@
 
 #include <wx/tipwin.h>
 
+#include "Annotations.hpp"
+#include "OpenTrace.hpp"
 #include "RuntimeValueLookup.hpp"
 #include "StmtTooltip.hpp"
 #include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
 wxTipWindow *makeDeclTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Decl const * const Decl,
                              wxCoord MaxLength,
                              wxRect &RectBound)
 {
   wxString TipString;
+
+  auto &Annotations = Trace.getAnnotations();
+  auto const MaybeAnno = Annotations.getPointForNode(Trace.getTrace(), Decl);
+  if (MaybeAnno.assigned<AnnotationPoint>()) {
+    auto const Text = MaybeAnno.get<AnnotationPoint>().getText();
+    if (!Text.empty()) {
+      if (!TipString.empty())
+        TipString << "\n";
+      TipString << Text;
+    }
+  }
 
   auto const &Augmentations = wxGetApp().getAugmentations();
   auto Augmenter = Augmentations.getCallbackFn();
@@ -56,6 +70,7 @@ wxTipWindow *makeDeclTooltip(wxWindow *Parent,
 }
 
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Stmt const * const Stmt,
                              wxCoord MaxLength,
                              seec::cm::FunctionState const *ActiveFunction,
@@ -74,6 +89,17 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
   // Add the type of the value.
   if (auto const E = llvm::dyn_cast<clang::Expr>(Stmt))
     TipString << E->getType().getAsString() << "\n";
+
+  auto &Annotations = Trace.getAnnotations();
+  auto const MaybeAnno = Annotations.getPointForNode(Trace.getTrace(), Stmt);
+  if (MaybeAnno.assigned<AnnotationPoint>()) {
+    auto const Text = MaybeAnno.get<AnnotationPoint>().getText();
+    if (!Text.empty()) {
+      if (!TipString.empty())
+        TipString << "\n";
+      TipString << Text << "\n";
+    }
+  }
 
   auto const &Augmentations = wxGetApp().getAugmentations();
   auto Augmenter = Augmentations.getCallbackFn();
@@ -117,18 +143,20 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
 }
 
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Stmt const * const Stmt,
-                             seec::cm::FunctionState const &ActiveFunction,
+                             seec::cm::FunctionState const &Fun,
                              wxCoord MaxLength,
                              wxRect &RectBound)
 {
-  return makeStmtTooltip(Parent, Stmt, MaxLength, &ActiveFunction, &RectBound);
+  return makeStmtTooltip(Parent, Trace, Stmt, MaxLength, &Fun, &RectBound);
 }
 
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Stmt const * const Stmt,
                              wxCoord MaxLength,
                              wxRect &RectBound)
 {
-  return makeStmtTooltip(Parent, Stmt, MaxLength, nullptr, &RectBound);
+  return makeStmtTooltip(Parent, Trace, Stmt, MaxLength, nullptr, &RectBound);
 }

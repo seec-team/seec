@@ -42,6 +42,7 @@ class ActionRecord;
 class ActionReplayFrame;
 class ContextEvent;
 class ContextNotifier;
+class OpenTrace;
 class StateAccessToken;
 
 
@@ -187,6 +188,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// Settings for the display of the evaluation tree.
   DisplaySettings Settings;
   
+  /// The trace that this tree will render states from.
+  OpenTrace *Trace;
+
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
@@ -297,6 +301,7 @@ public:
   /// \brief Construct and create.
   ///
   StateEvaluationTreePanel(wxWindow *Parent,
+                           OpenTrace &WithTrace,
                            ContextNotifier &WithNotifier,
                            ActionRecord &WithRecording,
                            ActionReplayFrame &WithReplay,
@@ -311,6 +316,7 @@ public:
   /// \brief Create (if default constructed).
   ///
   bool Create(wxWindow *Parent,
+              OpenTrace &WithTrace,
               ContextNotifier &WithNotifier,
               ActionRecord &WithRecording,
               ActionReplayFrame &WithReplay,

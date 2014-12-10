@@ -61,7 +61,7 @@ class SourceViewerPanel : public wxPanel
   wxAuiNotebook *Notebook;
   
   /// The currently associated trace information.
-  OpenTrace const *Trace;
+  OpenTrace *Trace;
   
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
@@ -124,7 +124,7 @@ public:
   /// \brief Construct and create.
   ///
   SourceViewerPanel(wxWindow *Parent,
-                    OpenTrace const &TheTrace,
+                    OpenTrace &TheTrace,
                     ContextNotifier &WithNotifier,
                     ActionRecord &WithRecording,
                     ActionReplayFrame &WithReplay,
@@ -139,7 +139,7 @@ public:
   /// \brief Create the panel.
   ///
   bool Create(wxWindow *Parent,
-              OpenTrace const &TheTrace,
+              OpenTrace &TheTrace,
               ContextNotifier &WithNotifier,
               ActionRecord &WithRecording,
               ActionReplayFrame &WithReplay,
@@ -148,6 +148,11 @@ public:
               wxSize const &Size = wxDefaultSize);
   
   
+  /// \brief Get the currently associated trace.
+  ///
+  OpenTrace *getTrace() { return Trace; }
+
+
   /// \name Mutators.
   /// @{
   

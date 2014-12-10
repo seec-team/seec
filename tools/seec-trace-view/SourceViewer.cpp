@@ -715,6 +715,9 @@ class SourceFilePanel : public wxPanel {
     if (HoverIndicator == end(TemporaryIndicators))
       return;
 
+    auto const Trace = Parent->getTrace();
+    assert(Trace && "SourceViewerPanel has no trace!");
+
     auto const Start = HoverIndicator->Start;
     auto const End   = Start + HoverIndicator->Length;
 
@@ -728,10 +731,10 @@ class SourceFilePanel : public wxPanel {
     auto const TipWidth = WindowSize.GetWidth();
 
     if (HoverDecl) {
-      makeDeclTooltip(this, HoverDecl, TipWidth, ScreenRect);
+      makeDeclTooltip(this, *Trace, HoverDecl, TipWidth, ScreenRect);
     }
     else if (HoverStmt) {
-      makeStmtTooltip(this, HoverStmt, TipWidth, ScreenRect);
+      makeStmtTooltip(this, *Trace, HoverStmt, TipWidth, ScreenRect);
     }
   }
 
@@ -1346,7 +1349,7 @@ SourceViewerPanel::SourceViewerPanel()
 {}
 
 SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
-                                     OpenTrace const &TheTrace,
+                                     OpenTrace &TheTrace,
                                      ContextNotifier &WithNotifier,
                                      ActionRecord &WithRecording,
                                      ActionReplayFrame &WithReplay,
@@ -1369,7 +1372,7 @@ SourceViewerPanel::~SourceViewerPanel()
 {}
 
 bool SourceViewerPanel::Create(wxWindow *Parent,
-                               OpenTrace const &TheTrace,
+                               OpenTrace &TheTrace,
                                ContextNotifier &WithNotifier,
                                ActionRecord &WithRecording,
                                ActionReplayFrame &WithReplay,

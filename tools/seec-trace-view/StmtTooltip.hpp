@@ -27,12 +27,14 @@ namespace clang {
   class Stmt;
 }
 
+class OpenTrace;
 class wxTipWindow;
 
 
 /// \brief Create a tooltip describing a \c clang::Decl.
 ///
 wxTipWindow *makeDeclTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Decl const * const Decl,
                              wxCoord MaxLength,
                              wxRect &RectBound);
@@ -41,6 +43,7 @@ wxTipWindow *makeDeclTooltip(wxWindow *Parent,
 ///        particular \c seec::cm::FunctionState.
 ///
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Stmt const * const Stmt,
                              seec::cm::FunctionState const &ActiveFunction,
                              wxCoord MaxLength,
@@ -49,6 +52,7 @@ wxTipWindow *makeStmtTooltip(wxWindow *Parent,
 /// \brief Create a tooltip describing a \c clang::Stmt.
 ///
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             OpenTrace &Trace,
                              clang::Stmt const * const Stmt,
                              wxCoord MaxLength,
                              wxRect &RectBound);

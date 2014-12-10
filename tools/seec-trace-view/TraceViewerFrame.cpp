@@ -309,6 +309,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
     // Create the evaluation tree.
     EvaluationTree = new StateEvaluationTreePanel(this,
+                                                  *Trace,
                                                   *Notifier,
                                                   *Recording,
                                                   *Replay,

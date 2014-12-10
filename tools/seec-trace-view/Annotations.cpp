@@ -46,6 +46,17 @@ bool AnnotationPoint::isForThreadState() const
   return m_Node->GetName() == "threadState";
 }
 
+wxString AnnotationPoint::getText() const
+{
+  for (auto const &Node : *m_Node) {
+    if (Node.GetName() == "text") {
+      return Node.GetNodeContent();
+    }
+  }
+
+  return wxEmptyString;
+}
+
 //------------------------------------------------------------------------------
 // AnnotationCollection
 //------------------------------------------------------------------------------
