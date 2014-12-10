@@ -48,7 +48,7 @@ wxTipWindow *makeDeclTooltip(wxWindow *Parent,
     if (!Text.empty()) {
       if (!TipString.empty())
         TipString << "\n";
-      TipString << Text;
+      TipString << Text << "\n";
     }
   }
 
@@ -58,6 +58,8 @@ wxTipWindow *makeDeclTooltip(wxWindow *Parent,
   auto const MaybeExplanation = seec::clang_epv::explain(Decl, Augmenter);
   if (MaybeExplanation.assigned(0)) {
     auto const &Explanation = MaybeExplanation.get<0>();
+    if (!TipString.empty())
+      TipString << "\n";
     TipString << seec::towxString(Explanation->getString()) << "\n";
   }
 
