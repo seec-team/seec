@@ -36,6 +36,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/font.h>
+#include <wx/timer.h>
 #include <wx/tokenzr.h>
 #include <wx/stc/stc.h>
 
@@ -51,6 +52,7 @@
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "StmtTooltip.hpp"
 #include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
@@ -58,6 +60,49 @@
 #include <list>
 #include <map>
 #include <memory>
+
+
+//------------------------------------------------------------------------------
+// Helpers
+//------------------------------------------------------------------------------
+
+wxRect RectFromRange(wxStyledTextCtrl * const Text,
+                     int const Start,
+                     int const End)
+{
+  auto const StartLine = Text->LineFromPosition(Start);
+  auto const EndLine   = Text->LineFromPosition(End);
+
+  auto const StartPos = Text->PointFromPosition(Start);
+  auto const EndPos   = Text->PointFromPosition(End);
+
+  // Calculate the "minimum x" position.
+  auto TopLeftX = StartPos.x;
+  for (auto Line = StartLine + 1; Line <= EndLine; ++Line) {
+    auto const Pos   = Text->GetLineIndentPosition(Line);
+    auto const Point = Text->PointFromPosition(Pos);
+    if (Point.x < TopLeftX)
+      TopLeftX = Point.x;
+  }
+
+  // Calculate the "maximum x" position.
+  auto BottomRightX = EndPos.x;
+  for (auto Line = StartLine; Line < EndLine; ++Line) {
+    auto const Pos   = Text->GetLineEndPosition(Line);
+    auto const Point = Text->PointFromPosition(Pos);
+    if (Point.x > BottomRightX)
+      BottomRightX = Point.x;
+  }
+
+  auto const EndHeight = Text->TextHeight(EndLine);
+
+  auto const TopLeft = wxPoint(TopLeftX, StartPos.y);
+
+  auto const BottomRight = wxPoint(BottomRightX, EndPos.y + EndHeight);
+
+  return wxRect(TopLeft, wxSize(BottomRight.x - TopLeft.x,
+                                BottomRight.y - TopLeft.y));
+}
 
 
 //------------------------------------------------------------------------------
@@ -402,6 +447,9 @@ class SourceFilePanel : public wxPanel {
   /// Temporary indicator for the node that the mouse is hovering over.
   decltype(TemporaryIndicators)::iterator HoverIndicator;
   
+  /// Timer to determine how long the mouse has hovered over the current node.
+  wxTimer HoverTimer;
+
   /// Used to determine if the mouse remains stationary during a click.
   bool ClickUnmoved;
   
@@ -632,11 +680,13 @@ class SourceFilePanel : public wxPanel {
       return;
     
     if (HoverDecl) {
+      HoverTimer.Stop();
       Parent->OnRightClick(*this, HoverDecl);
       return;
     }
     
     if (HoverStmt) {
+      HoverTimer.Stop();
       Parent->OnRightClick(*this, HoverStmt);
 
       auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
@@ -658,6 +708,32 @@ class SourceFilePanel : public wxPanel {
   
   /// @} (Mouse events.)
   
+  /// \brief Called when the mouse has hovered on a node.
+  ///
+  void OnHover(wxTimerEvent &Ev)
+  {
+    if (HoverIndicator == end(TemporaryIndicators))
+      return;
+
+    auto const Start = HoverIndicator->Start;
+    auto const End   = Start + HoverIndicator->Length;
+
+    auto const ClientRect = RectFromRange(Text, Start, End);
+
+    wxRect ScreenRect(ClientToScreen(ClientRect.GetTopLeft()),
+                      ClientRect.GetSize());
+
+    // Determine a good maximum width for the tip window.
+    auto const WindowSize = GetSize();
+    auto const TipWidth = WindowSize.GetWidth();
+
+    if (HoverDecl) {
+      makeDeclTooltip(this, HoverDecl, TipWidth, ScreenRect);
+    }
+    else if (HoverStmt) {
+      makeStmtTooltip(this, HoverStmt, TipWidth, ScreenRect);
+    }
+  }
 
 public:
   /// Type used to reference temporary indicators.
@@ -684,6 +760,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
+    HoverTimer(),
     ClickUnmoved(false)
   {}
 
@@ -787,6 +864,9 @@ public:
     Text->Bind(wxEVT_RIGHT_DOWN,   &SourceFilePanel::OnTextRightDown,   this);
     Text->Bind(wxEVT_RIGHT_UP,     &SourceFilePanel::OnTextRightUp,     this);
 
+    // Detect when the mouse has hovered on a node.
+    HoverTimer.Bind(wxEVT_TIMER, &SourceFilePanel::OnHover, this);
+
     return true;
   }
   
@@ -809,6 +889,9 @@ public:
   /// \brief Clear state-related information.
   ///
   void clearState() {
+    // Remove hovers.
+    clearHoverNode();
+
     // Remove temporary indicators.
     for (auto &Region : StateIndications) {
       Text->SetIndicatorCurrent(Region.Indicator);
@@ -816,7 +899,7 @@ public:
     }
     
     StateIndications.clear();
-  
+
     // Remove temporary annotations.
     for (auto const &LineAnno : StateAnnotations) {
       Text->AnnotationClearLine(LineAnno.first);
@@ -972,6 +1055,8 @@ void SourceFilePanel::clearHoverNode() {
     temporaryIndicatorRemove(HoverIndicator);
     HoverIndicator = TemporaryIndicators.end();
   }
+
+  HoverTimer.Stop();
 }
 
 void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
@@ -1023,6 +1108,8 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
         if (PreviousHoverDecl != HoverDecl)
           Parent->OnMouseOver(*this, HoverDecl);
       }
+
+      HoverTimer.Start(1000, wxTIMER_ONE_SHOT);
       
       break;
     }
@@ -1040,6 +1127,8 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
         if (PreviousHoverStmt != HoverStmt)
           Parent->OnMouseOver(*this, HoverStmt);
       }
+
+      HoverTimer.Start(1000, wxTIMER_ONE_SHOT);
       
       break;
     }

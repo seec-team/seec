@@ -23,17 +23,33 @@ namespace seec {
 }
 
 namespace clang {
+  class Decl;
   class Stmt;
 }
 
 class wxTipWindow;
 
 
-/// \brief
+/// \brief Create a tooltip describing a \c clang::Decl.
+///
+wxTipWindow *makeDeclTooltip(wxWindow *Parent,
+                             clang::Decl const * const Decl,
+                             wxCoord MaxLength,
+                             wxRect &RectBound);
+
+/// \brief Create a tooltip describing a \c clang::Stmt, in the context of a
+///        particular \c seec::cm::FunctionState.
 ///
 wxTipWindow *makeStmtTooltip(wxWindow *Parent,
                              clang::Stmt const * const Stmt,
                              seec::cm::FunctionState const &ActiveFunction,
+                             wxCoord MaxLength,
+                             wxRect &RectBound);
+
+/// \brief Create a tooltip describing a \c clang::Stmt.
+///
+wxTipWindow *makeStmtTooltip(wxWindow *Parent,
+                             clang::Stmt const * const Stmt,
                              wxCoord MaxLength,
                              wxRect &RectBound);
 
