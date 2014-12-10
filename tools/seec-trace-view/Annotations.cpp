@@ -18,6 +18,22 @@
 
 #include "Annotations.hpp"
 
+namespace {
+
+bool isAnnotationCollection(wxXmlDocument &Doc)
+{
+  if (!Doc.IsOk())
+    return false;
+
+  auto const RootNode = Doc.GetRoot();
+  if (!RootNode || RootNode->GetName() != "annotations")
+    return false;
+
+  return true;
+}
+
+} // anonymous namespace
+
 AnnotationCollection::
 AnnotationCollection(std::unique_ptr<wxXmlDocument> XmlDocument)
 : m_XmlDocument(std::move(XmlDocument))
@@ -37,6 +53,9 @@ AnnotationCollection::~AnnotationCollection() = default;
 seec::Maybe<AnnotationCollection>
 AnnotationCollection::fromDoc(std::unique_ptr<wxXmlDocument> Doc)
 {
+  if (!isAnnotationCollection(*Doc))
+    return seec::Maybe<AnnotationCollection>();
+
   return AnnotationCollection(std::move(Doc));
 }
 
