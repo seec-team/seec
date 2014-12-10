@@ -540,10 +540,6 @@ InputBufferAllocator::createForArchive(llvm::StringRef ArchivePath)
       Out.Write(Input);
       TempFiles.emplace_back(FullPath.ToStdString());
     }
-    else {
-      return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
-                            {"errors", "ProcessTraceFailRead"})};
-    }
   }
 
   return seec::Maybe<InputBufferAllocator, seec::Error>
