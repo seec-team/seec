@@ -452,10 +452,16 @@ void TraceViewerFrame::OnClose(wxCommandEvent &Event) {
 
 class SaveExtraControlWindow final : public wxWindow
 {
+  wxCheckBox *m_IncludeAnnotations;
+
   wxCheckBox *m_IncludeActionRecording;
 
 public:
   SaveExtraControlWindow(wxWindow * const Parent);
+
+  bool getIncludeAnnotations() const {
+    return m_IncludeAnnotations->GetValue();
+  }
 
   bool getIncludeActionRecording() const {
     return m_IncludeActionRecording->GetValue();
@@ -469,9 +475,22 @@ SaveExtraControlWindow::SaveExtraControlWindow(wxWindow * const Parent)
 
   auto const Res = seec::Resource("TraceViewer")["GUIText"]["SaveTrace"];
 
+  auto ParentSizer = new wxBoxSizer(wxVERTICAL);
+
+  m_IncludeAnnotations =
+    new wxCheckBox(this, wxID_ANY,
+                   seec::towxString(Res["IncludeAnnotations"]));
+
+  m_IncludeAnnotations->SetValue(true);
+
   m_IncludeActionRecording =
     new wxCheckBox(this, wxID_ANY,
                    seec::towxString(Res["IncludeActionRecording"]));
+
+  ParentSizer->Add(m_IncludeAnnotations, wxSizerFlags());
+  ParentSizer->Add(m_IncludeActionRecording, wxSizerFlags());
+
+  SetSizerAndFit(ParentSizer);
 }
 
 wxWindow *SaveControlCreator(wxWindow * const Parent)
@@ -517,6 +536,17 @@ void TraceViewerFrame::OnSaveAs(wxCommandEvent &Event)
                         towxString(Res["WriteTraceFailMessage"]));
     Dlg.ShowModal();
     return;
+  }
+
+  // Optionally write the annotations.
+  if (ExtraControls->getIncludeAnnotations()) {
+    if (!Trace->getAnnotations().writeToArchive(ZipOutput)) {
+      wxMessageDialog Dlg(this,
+                          towxString(Res["WriteAnnotationsFailTitle"]),
+                          towxString(Res["WriteAnnotationsFailMessage"]));
+      Dlg.ShowModal();
+      return;
+    }
   }
 
   // Optionally write the action recording.

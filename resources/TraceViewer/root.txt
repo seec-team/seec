@@ -94,7 +94,8 @@ root:table {
     SaveTrace:table {
       Title:string {"Save execution trace as..."}
       FileType:string {"SeeC Execution Trace (*.seec)|*.seec"}
-      IncludeActionRecording:string {"Include action recordings"}
+      IncludeAnnotations:string {"Include annotations"}
+      IncludeActionRecording:string {"Include action recordings from this session"}
 
       // Couldn't open temporary file for saving.
       OpenFailTitle:string {"Failed to open file for writing."}
@@ -103,6 +104,10 @@ root:table {
       // Couldn't write the trace into the archive.
       WriteTraceFailTitle:string {"Failed to write execution trace."}
       WriteTraceFailMessage:string {"Save failed"}
+
+      // Couldn't write the annotations into the archive.
+      WriteAnnotationsFailTitle:string {"Failed to write annotations."}
+      WriteAnnotationsFailMessage:string {"Save failed"}
 
       // Couldn't write the user action recording into the archive.
       WriteActionRecordingFailTitle:string {"Failed to write action recordings."}

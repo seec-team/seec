@@ -18,6 +18,7 @@
 
 #include <memory>
 
+class wxArchiveOutputStream;
 class wxXmlDocument;
 
 /// \brief Holds all annotations for an execution trace.
@@ -58,6 +59,10 @@ public:
   /// \brief Get the underlying \c wxXmlDocument.
   ///
   wxXmlDocument const &getXmlDocument() const { return *m_XmlDocument; }
+
+  /// \brief Write to "annotations.xml" in the given archive.
+  ///
+  bool writeToArchive(wxArchiveOutputStream &Stream);
 };
 
 #endif // SEEC_TRACE_VIEW_ANNOTATIONS_HPP

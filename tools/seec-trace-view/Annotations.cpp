@@ -13,6 +13,7 @@
 
 #include "seec/Util/MakeUnique.hpp"
 
+#include <wx/archive.h>
 #include <wx/xml/xml.h>
 
 #include "Annotations.hpp"
@@ -37,4 +38,10 @@ seec::Maybe<AnnotationCollection>
 AnnotationCollection::fromDoc(std::unique_ptr<wxXmlDocument> Doc)
 {
   return AnnotationCollection(std::move(Doc));
+}
+
+bool AnnotationCollection::writeToArchive(wxArchiveOutputStream &Stream)
+{
+  return Stream.PutNextEntry("annotations.xml")
+      && m_XmlDocument->Save(Stream);
 }
