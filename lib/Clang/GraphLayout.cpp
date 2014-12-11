@@ -2017,7 +2017,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
         if (HeadAddress == HeadIt->getArea().start())
           DotStream << ":nw";
         
-        EdgeAttributes += "arrowhead=odot ";
+        EdgeAttributes += "arrowhead=onormal ";
         IsPunned = true;
       }
     }
@@ -2032,7 +2032,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       if (HeadAddress == HeadIt->getArea().start())
         DotStream << ":nw";
       
-      EdgeAttributes += "arrowhead=odot ";
+      EdgeAttributes += "arrowhead=onormal ";
       IsPunned = true;
     }
     
