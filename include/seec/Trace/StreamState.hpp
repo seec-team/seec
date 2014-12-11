@@ -33,6 +33,12 @@ namespace trace {
 /// \brief State of an open FILE stream.
 ///
 class StreamState {
+public:
+  /// \brief Used to identify standard streams.
+  ///
+  enum class StandardStreamKind { none, in, out, err };
+
+private:
   /// \brief Describes an individual write to a stream.
   ///
   struct Write {
@@ -46,6 +52,9 @@ class StreamState {
   /// The runtime address of the stream (the raw value of the FILE *).
   stateptr_ty Address;
   
+  /// Indicates if this is one of the standard streams.
+  StandardStreamKind Kind;
+
   /// The filename used when opening the stream.
   std::string Filename;
   
@@ -62,9 +71,11 @@ public:
   /// \brief Constructor.
   ///
   StreamState(stateptr_ty WithAddress,
+              StandardStreamKind WithKind,
               std::string WithFilename,
               std::string WithMode)
   : Address(WithAddress),
+    Kind(WithKind),
     Filename(std::move(WithFilename)),
     Mode(std::move(WithMode)),
     Written(),
@@ -86,6 +97,13 @@ public:
   /// \brief Get the runtime address of the stream.
   ///
   stateptr_ty getAddress() const { return Address; }
+
+  /// \brief Check if this is one of the standard streams.
+  ///
+  bool isstd()    const { return Kind != StandardStreamKind::none; }
+  bool isstdin()  const { return Kind == StandardStreamKind::in; }
+  bool isstdout() const { return Kind == StandardStreamKind::out; }
+  bool isstderr() const { return Kind == StandardStreamKind::err; }
   
   /// \brief Get the filename used when opening the stream.
   ///

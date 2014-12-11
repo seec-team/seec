@@ -58,6 +58,13 @@ public:
   ///
   stateptr_ty getAddress() const;
   
+  /// \brief Check if this is one of the standard streams.
+  ///
+  bool isstd()    const;
+  bool isstdin()  const;
+  bool isstdout() const;
+  bool isstderr() const;
+
   /// \brief Get the filename used when opening the stream.
   ///
   std::string const &getFilename() const;

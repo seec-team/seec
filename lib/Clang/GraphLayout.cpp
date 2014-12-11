@@ -1833,7 +1833,7 @@ doLayout(StreamState const &State, Expansion const &Expansion)
   auto const Address = State.getAddress();
   
   // Don't render unreferenced streams.
-  if (!Expansion.isAreaReferenced(Address, Address + 1))
+  if (State.isstd() && !Expansion.isAreaReferenced(Address, Address + 1))
     return std::make_pair(Maybe<LayoutOfArea>(), MemoryArea{Address, 1});
   
   // Generate the identifier for this node.

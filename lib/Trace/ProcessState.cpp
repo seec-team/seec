@@ -80,13 +80,19 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
     default:
       SEEC_FALLTHROUGH;
     case 3:
-      addStream(StreamState{StreamsInitial[2], "stderr", "w"});
+      addStream(StreamState{StreamsInitial[2],
+                            StreamState::StandardStreamKind::err,
+                            "stderr", "w"});
       SEEC_FALLTHROUGH;
     case 2:
-      addStream(StreamState{StreamsInitial[1], "stdout", "w"});
+      addStream(StreamState{StreamsInitial[1],
+                            StreamState::StandardStreamKind::out,
+                            "stdout", "w"});
       SEEC_FALLTHROUGH;
     case 1:
-      addStream(StreamState{StreamsInitial[0], "stdin", "r"});
+      addStream(StreamState{StreamsInitial[0],
+                            StreamState::StandardStreamKind::in,
+                            "stdin", "r"});
       SEEC_FALLTHROUGH;
     case 0: break;
   }

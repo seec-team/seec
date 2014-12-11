@@ -29,6 +29,26 @@ stateptr_ty StreamState::getAddress() const {
   return UnmappedState.getAddress();
 }
 
+bool StreamState::isstd() const
+{
+  return UnmappedState.isstd();
+}
+
+bool StreamState::isstdin() const
+{
+  return UnmappedState.isstdin();
+}
+
+bool StreamState::isstdout() const
+{
+  return UnmappedState.isstdout();
+}
+
+bool StreamState::isstderr() const
+{
+  return UnmappedState.isstderr();
+}
+
 std::string const &StreamState::getFilename() const {
   return UnmappedState.getFilename();
 }

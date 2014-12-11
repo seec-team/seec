@@ -338,6 +338,7 @@ void ThreadState::addEvent(EventRecord<EventType::FileOpen> const &Ev)
   auto const Mode = Trace.getDataRaw(Ev.getModeOffset());
   
   Parent.addStream(StreamState{Ev.getFileAddress(),
+                               StreamState::StandardStreamKind::none,
                                std::string{Filename},
                                std::string{Mode}});
 
