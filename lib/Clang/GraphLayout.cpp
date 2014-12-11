@@ -490,7 +490,8 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
     }
   }
   
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+  if (V.getKind() == Value::Kind::Pointer || E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   Stream.flush();
   return LayoutOfValue{std::move(DotString), std::move(Ports)};
@@ -535,7 +536,9 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = static_cast<ValueOfArray const &>(V);
@@ -598,7 +601,8 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
       Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "> </TD>";
       
-      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+      if (E.isReferencedDirectly(*ChildValue))
+        Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
     
     // If this was a terminating null character, start eliding.
@@ -667,7 +671,9 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
@@ -860,7 +866,9 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
@@ -1045,7 +1053,9 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
@@ -1308,7 +1318,9 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(Reference, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(Reference))
+    Ports.add(Reference, ValuePort{EdgeEndType::Standard});
   
   Stream << IDString
          << " [ label = <"
@@ -1351,11 +1363,6 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
                  << "\"> </TD>";
         }
         
-        Ports.add(*ChildValue,
-                  ValuePort(EdgeEndType::Elided,
-                            IDString
-                            + "_elided_" + std::to_string(ElidingFrom)));
-        
         continue;
       }
     }
@@ -1377,7 +1384,8 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
       Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "> </TD>";
       
-      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+      if (E.isReferencedDirectly(*ChildValue))
+        Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
     
     // If this was a terminating null character, start eliding.
