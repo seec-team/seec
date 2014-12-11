@@ -30,41 +30,6 @@ class ProcessState;
 namespace graph {
 
 
-/// \brief Represents a dereference of a pointer with a given index (e.g. p[i]).
-///
-class Dereference {
-  /// The base pointer.
-  std::shared_ptr<ValueOfPointer const> Pointer;
-  
-  /// The index dereferenced.
-  unsigned Index;
-  
-public:
-  /// \brief Constructor.
-  ///
-  Dereference(std::shared_ptr<ValueOfPointer const> OfPointer,
-              unsigned WithIndex)
-  : Pointer(std::move(OfPointer)),
-    Index(WithIndex)
-  {}
-  
-  /// \name Accessors.
-  /// @{
-  
-  /// \brief Get the pointer that is the source of this reference.
-  ///
-  std::shared_ptr<ValueOfPointer const> const &getPointer() const {
-    return Pointer;
-  }
-  
-  /// \brief Get the index used with the pointer to achieve this reference.
-  ///
-  unsigned getIndex() const { return Index; }
-  
-  /// @} (Accessors.)
-};
-
-
 class ExpansionImpl;
 
 

@@ -22,9 +22,14 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StateCommon.hpp"
 #include "seec/Util/Fallthrough.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
+#include "llvm/ADT/DenseMap.h"
+
 #include <map>
+#include <memory>
+#include <vector>
 
 
 namespace seec {
@@ -39,23 +44,27 @@ namespace graph {
 //===----------------------------------------------------------------------===//
 
 class ExpansionImpl final {
-  /// Map from Value to pointer dereferences that reference that Value.
+  /// Contains a true entry if the \c seec::cm::Value is directly referenced.
   ///
-  std::multimap<Value const *, Dereference> Edges;
+  llvm::DenseMap<Value const *, bool> DirectlyReferenced;
   
+  /// Used for all unreferenced \c Value objects.
+  ///
+  std::vector<Value const *> EmptyReferences;
+
   /// Map from address to pointers that reference that address.
   ///
   std::multimap<stateptr_ty, std::shared_ptr<ValueOfPointer const>> Pointers;
   
 public:
   ExpansionImpl()
-  : Edges(),
+  : DirectlyReferenced(),
     Pointers()
   {}
   
-  void addReference(Value const &ToValue, Dereference FromPointer)
+  void addDirectReference(Value const &ToValue, Value const &FromPointer)
   {
-    Edges.insert(std::make_pair(&ToValue, std::move(FromPointer)));
+    DirectlyReferenced[&ToValue] = true;
   }
   
   /// \brief Add the given pointer if it doesn't already exist.
@@ -75,8 +84,7 @@ public:
     return true;
   }
   
-  std::vector<Dereference>
-  getReferencesOf(Value const &Val) const;
+  bool isDirectlyReferenced(Value const &Val) const;
   
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const;
@@ -94,15 +102,10 @@ public:
   }
 };
 
-std::vector<Dereference>
-ExpansionImpl::getReferencesOf(Value const &Val) const
+bool ExpansionImpl::isDirectlyReferenced(Value const &Val) const
 {
-  std::vector<Dereference> Ret;
-  
-  for (auto const &Pair : seec::range(Edges.equal_range(&Val)))
-    Ret.emplace_back(Pair.second);
-  
-  return Ret;
+  auto const It = DirectlyReferenced.find(&Val);
+  return It != DirectlyReferenced.end() ? It->second : false;
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
@@ -211,7 +214,8 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
         
         for (unsigned i = 0; i < Limit; ++i) {
           auto const Pointee = Ptr->getDereferenced(i);
-          EI.addReference(*Pointee, Dereference{Ptr, i});
+          if (i == 0)
+            EI.addDirectReference(*Pointee, *Ptr);
           expand(EI, Pointee);
         }
       }
@@ -293,10 +297,7 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
 bool
 Expansion::isReferencedDirectly(Value const &Value) const
 {
-  for (auto const &Deref : Impl->getReferencesOf(Value))
-    if (Deref.getIndex() == 0)
-      return true;
-  return false;
+  return Impl->isDirectlyReferenced(Value);
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
