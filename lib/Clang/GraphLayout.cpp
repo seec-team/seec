@@ -1981,9 +1981,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       // Tail port was explicitly defined during layout.
       auto const &TailPort = MaybeTailPort.get<ValuePort>();
       
-      if (!TailPort.getCustomPort().empty())
-        DotStream << ':' << TailPort.getCustomPort();
-      else if (TailPort.getEdgeEnd() == EdgeEndType::Standard)
+      if (TailPort.getEdgeEnd() == EdgeEndType::Standard)
         DotStream << ':'
                   << getStandardPortFor(*Pointer)
                   << ":c";
@@ -2010,9 +2008,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
         // Tail port was explicitly defined during layout.
         auto const &HeadPort = MaybeHeadPort.get<ValuePort>();
         
-        if (!HeadPort.getCustomPort().empty())
-          DotStream << ':' << HeadPort.getCustomPort();
-        else if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
+        if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
           DotStream << ':'
                     << getStandardPortFor(*Pointee)
                     << ":nw";

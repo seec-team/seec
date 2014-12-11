@@ -81,34 +81,12 @@ enum class AreaType {
 class ValuePort {
   EdgeEndType EdgeEnd;
   
-  std::string CustomPort;
-  
 public:
   ValuePort(EdgeEndType WithEdgeEnd)
-  : EdgeEnd(WithEdgeEnd),
-    CustomPort()
-  {}
-  
-  ValuePort(EdgeEndType WithEdgeEnd,
-            std::string WithCustomPort)
-  : EdgeEnd(WithEdgeEnd),
-    CustomPort(std::move(WithCustomPort))
+  : EdgeEnd(WithEdgeEnd)
   {}
   
   EdgeEndType getEdgeEnd() const { return EdgeEnd; }
-  
-  /// \brief Get the custom port for this Value, or an empty string if there is
-  ///        none.
-  ///
-  /// A custom port is used if the standard port that would be returned from
-  /// getStandardPortFor() does not exist, but a useful port is still available.
-  /// For example, if a layout engine elides a number of values, but shows a
-  /// marker where the values would be, then a port for this marker may be a
-  /// reasonable custom port for all of the elided values.
-  ///
-  std::string getCustomPort() const {
-    return CustomPort;
-  }
 };
 
 
