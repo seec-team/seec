@@ -291,9 +291,6 @@ ProcessEnvironment::ProcessEnvironment()
   ThreadEventLimit = getUserThreadEventLimit();
   ArchiveSizeLimit = getUserArchiveSizeLimit();
 
-  fprintf(stderr, "ThreadEventLimit %lu", (unsigned long)ThreadEventLimit);
-  fprintf(stderr, "ArchiveSizeLimit %lu", (unsigned long)ArchiveSizeLimit);
-
   // Attempt to load augmentations.
   Augmentations->loadFromResources(__SeeC_ResourcePath__);
   Augmentations->loadFromUserLocalDataDir();
