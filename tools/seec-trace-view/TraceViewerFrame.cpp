@@ -124,8 +124,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
 
 std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
 {
-  auto const Text =
-    seec::Resource("TraceViewer", getLocale())["GUIText"]["MenuTools"];
+  auto const Text = seec::Resource("TraceViewer")["GUIText"]["MenuTools"];
 
   if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
@@ -134,16 +133,30 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
 
   BindMenuItem(
     Menu->Append(wxID_ANY,
-                 seec::towxString(Text["SaveDETBMP"].asString())),
+                 seec::towxString(Text["SaveDETBMP"])),
     [this, Text] (wxEvent &) {
       wxFileDialog Dlg(this,
-                       seec::towxString(Text["SaveBMP"].asString()),
+                       seec::towxString(Text["SaveBMP"]),
                        "", "",
-                       seec::towxString(Text["BMPFiles"].asString()),
+                       seec::towxString(Text["BMPFiles"]),
                        wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
       if (Dlg.ShowModal() == wxID_CANCEL)
         return;
       EvaluationTree->renderToBMP(Dlg.GetPath());
+    });
+
+  BindMenuItem(
+    Menu->Append(wxID_ANY,
+                 seec::towxString(Text["ExportGraphSVG"])),
+    [this, Text] (wxEvent &) {
+      wxFileDialog Dlg(this,
+                       seec::towxString(Text["SaveGraphSVG"]),
+                       "", "",
+                       seec::towxString(Text["SVGFiles"]),
+                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+      if (Dlg.ShowModal() == wxID_CANCEL)
+        return;
+      GraphViewer->renderToSVG(Dlg.GetPath());
     });
 
   return std::make_pair(std::move(Menu),

@@ -52,6 +52,10 @@ root:table {
       SaveDETBMP:string {"&Export evaluation tree"}
       SaveBMP:string {"Save evaluation tree as bitmap"}
       BMPFiles:string {"Bitmap files (*.bmp)|*.bmp"}
+
+      ExportGraphSVG:string {"&Export graph"}
+      SaveGraphSVG:string {"Save graph as SVG"}
+      SVGFiles:string {"SVG files (*.svg)|*.svg"}
     }
 
 
@@ -163,6 +167,14 @@ root:table {
     //
     Graph:table {
       Title:string {"Graph"}
+
+      RenderToSVG {
+        NoGraphTitle:string {"Export graph error"}
+        NoGraphMessage:string {"There is no graph to export."}
+
+        GraphWriteFailedTitle:string {"Export graph error"}
+        GraphWriteFailedMessage:string {"Failed to write graph file."}
+      }
     }
 
 

@@ -269,6 +269,9 @@ class StateGraphViewerPanel final : public wxPanel
   /// The current process state.
   seec::cm::ProcessState const *CurrentProcess;
 
+  /// The SVG of the currently displayed graph.
+  std::shared_ptr<std::string const> CurrentGraphSVG;
+
   /// A worker thread that generates the graphs.
   std::thread WorkerThread;
 
@@ -377,6 +380,17 @@ public:
   /// \brief Clear the display of this panel.
   ///
   void clear();
+
+  /// \name Render to SVG.
+  /// @{
+
+  /// \brief Write the current graph as SVG to the given file.
+  /// This will overwrite any existing file at the given location.
+  /// \return true iff the file was written successfully.
+  ///
+  void renderToSVG(wxString const &Filename);
+
+  /// @}
 
 private:
   /// \brief Notify that the mouse is over a node.

@@ -121,6 +121,8 @@ Displayable::~Displayable() = default;
 ///
 class GraphRenderedEvent : public wxEvent
 {
+  std::shared_ptr<std::string const> RawSVG;
+
   std::shared_ptr<wxString const> SetStateScript;
   
 public:
@@ -130,8 +132,10 @@ public:
   ///
   GraphRenderedEvent(wxEventType EventType,
                      int WinID,
+                     std::shared_ptr<std::string const> WithRawSVG,
                      std::shared_ptr<wxString const> WithSetStateScript)
   : wxEvent(WinID, EventType),
+    RawSVG(std::move(WithRawSVG)),
     SetStateScript(std::move(WithSetStateScript))
   {}
   
@@ -144,6 +148,10 @@ public:
   /// \name Accessors.
   /// @{
   
+  /// \brief Get the raw SVG.
+  ///
+  std::shared_ptr<std::string const> const &getRawSVG() const { return RawSVG; }
+
   /// \brief Get the SetState() script.
   ///
   wxString const &getSetStateScript() const { return *SetStateScript; }
@@ -339,6 +347,9 @@ void StateGraphViewerPanel::workerTaskLoop()
       continue;
     }
 
+    auto SharedSVG = std::make_shared<std::string>(SVGData->getBufferStart(),
+                                                   SVGData->getBufferEnd());
+
     // Remove all non-print characters from the SVG and prepare it to be sent to
     // the WebView via javascript.
     auto SharedScript = std::make_shared<wxString>();
@@ -347,12 +358,8 @@ void StateGraphViewerPanel::workerTaskLoop()
     Script.reserve(SVGData->getBufferSize() + 256);
     Script << "SetState(\"";
 
-    for (auto It = SVGData->getBufferStart(), End = SVGData->getBufferEnd();
-        It != End;
-        ++It)
+    for (auto const Ch : *SharedSVG)
     {
-      auto const Ch = *It;
-
       if (std::isprint(Ch)) {
         if (Ch == '\\' || Ch == '"')
           Script << '\\';
@@ -362,9 +369,11 @@ void StateGraphViewerPanel::workerTaskLoop()
 
     Script << "\");";
 
-    auto EvPtr = seec::makeUnique<GraphRenderedEvent>(SEEC_EV_GRAPH_RENDERED,
-                                                      this->GetId(),
-                                                      std::move(SharedScript));
+    auto EvPtr = seec::makeUnique<GraphRenderedEvent>
+                                 (SEEC_EV_GRAPH_RENDERED,
+                                  this->GetId(),
+                                  std::move(SharedSVG),
+                                  std::move(SharedScript));
 
     EvPtr->SetEventObject(this);
 
@@ -430,6 +439,7 @@ StateGraphViewerPanel::StateGraphViewerPanel()
   PathToGraphvizPlugins(),
   CurrentAccess(),
   CurrentProcess(nullptr),
+  CurrentGraphSVG(),
   WorkerThread(),
   TaskMutex(),
   TaskCV(),
@@ -618,6 +628,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
 
 void StateGraphViewerPanel::OnGraphRendered(GraphRenderedEvent const &Ev)
 {
+  CurrentGraphSVG = Ev.getRawSVG();
   WebView->RunScript(Ev.getSetStateScript());
 }
 
@@ -923,6 +934,7 @@ void StateGraphViewerPanel::renderGraph()
     return;
 
   WebView->RunScript(wxString{"ClearState();"});
+  CurrentGraphSVG.reset();
 
   // Send the rendering task to the worker thread.
   std::unique_lock<std::mutex> Lock{TaskMutex};
@@ -984,7 +996,37 @@ void StateGraphViewerPanel::clear()
   if (WebView && !PathToDot.empty())
     WebView->RunScript(wxString{"ClearState();"});
 
+  CurrentGraphSVG.reset();
+
   MouseOver.reset();
+}
+
+void StateGraphViewerPanel::renderToSVG(const wxString &Filename)
+{
+  auto const Res = seec::Resource("TraceViewer")
+                    ["GUIText"]["Graph"]["RenderToSVG"];
+
+  if (!CurrentGraphSVG || CurrentGraphSVG->empty()) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["NoGraphMessage"]),
+                        towxString(Res["NoGraphTitle"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  wxTempFile Out(Filename);
+  if (!Out.Write(*CurrentGraphSVG)) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["GraphWriteFailedMessage"]),
+                        towxString(Res["GraphWriteFailedTitle"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  if (!Out.Commit()) {
+    Out.Discard();
+    return;
+  }
 }
 
 void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
