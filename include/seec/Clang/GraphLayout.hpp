@@ -20,6 +20,8 @@
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/ADT/DenseMap.h"
+
 #include <atomic>
 #include <chrono>
 #include <map>
@@ -93,7 +95,7 @@ public:
 /// \brief Contains several ValuePorts.
 ///
 class ValuePortMap {
-  std::map<Value const *, ValuePort> Map;
+  llvm::DenseMap<Value const *, ValuePort> Map;
   
 public:
   /// \brief Find the port for a Value, if it exists.
