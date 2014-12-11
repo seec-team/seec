@@ -27,8 +27,10 @@
 
 #include "llvm/ADT/DenseMap.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 
@@ -52,13 +54,27 @@ class ExpansionImpl final {
   ///
   std::vector<Value const *> EmptyReferences;
 
+  /// Set of all pointers that have been expanded.
+  ///
+  llvm::DenseSet<ValueOfPointer const *> ExpandedPointers;
+
+  using PtrEntryTy = std::pair<stateptr_ty,
+                               std::shared_ptr<ValueOfPointer const>>;
+
   /// Map from address to pointers that reference that address.
   ///
-  std::multimap<stateptr_ty, std::shared_ptr<ValueOfPointer const>> Pointers;
-  
+  std::vector<PtrEntryTy> Pointers;
+
+  static bool CompareAddressOnly(PtrEntryTy const &Entry,
+                                 stateptr_ty const &Address)
+  {
+    return Entry.first < Address;
+  }
+
 public:
   ExpansionImpl()
   : DirectlyReferenced(),
+    ExpandedPointers(),
     Pointers()
   {}
   
@@ -73,15 +89,17 @@ public:
   ///
   bool addPointer(std::shared_ptr<ValueOfPointer const> const &Pointer)
   {
-    auto const Address = Pointer->getRawValue();
-    
-    for (auto const &Pair : range(Pointers.equal_range(Address)))
-      if (Pair.second == Pointer)
-        return false;
-    
-    Pointers.insert(std::make_pair(Address, Pointer));
-    
+    auto const NewExpansion = ExpandedPointers.insert(Pointer.get());
+    if (!NewExpansion.second)
+      return false;
+
+    Pointers.emplace_back(Pointer->getRawValue(), Pointer);
     return true;
+  }
+
+  void finalize()
+  {
+    std::sort(begin(Pointers), end(Pointers));
   }
   
   bool isDirectlyReferenced(Value const &Val) const;
@@ -94,6 +112,8 @@ public:
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getAllPointers() const {
     std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+
+    Ret.reserve(Pointers.size());
     
     for (auto const &Pair : Pointers)
       Ret.emplace_back(Pair.second);
@@ -111,10 +131,11 @@ bool ExpansionImpl::isDirectlyReferenced(Value const &Val) const
 std::vector<std::shared_ptr<ValueOfPointer const>>
 ExpansionImpl::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 {
-  auto const Range = seec::range(Pointers.lower_bound(Start),
-                                 Pointers.lower_bound(End));
-  
   std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+
+  auto const Range = seec::range(
+    std::lower_bound(begin(Pointers), end(Pointers), Start, CompareAddressOnly),
+    std::lower_bound(begin(Pointers), end(Pointers), End, CompareAddressOnly));
   
   for (auto const &Pair : Range)
     Ret.emplace_back(Pair.second);
@@ -124,7 +145,11 @@ ExpansionImpl::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 
 bool ExpansionImpl::isAreaReferenced(stateptr_ty Start, stateptr_ty End) const
 {
-  return Pointers.lower_bound(Start) != Pointers.lower_bound(End);
+  auto const Range = seec::range(
+    std::lower_bound(begin(Pointers), end(Pointers), Start, CompareAddressOnly),
+    std::lower_bound(begin(Pointers), end(Pointers), End, CompareAddressOnly));
+
+  return begin(Range) != end(Range);
 }
 
 
@@ -286,6 +311,7 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
   std::unique_ptr<ExpansionImpl> EI {new ExpansionImpl()};
   
   expand(*EI, State);
+  EI->finalize();
   
   Expansion E;
   
