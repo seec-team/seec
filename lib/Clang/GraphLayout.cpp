@@ -554,7 +554,6 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   bool Eliding = false;
-  std::size_t ElidingFrom;
   std::size_t ElidingCount;
   
   for (unsigned i = 0; i < ChildCount; ++i) {
@@ -567,19 +566,14 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     
     if (Eliding) {
       if (E.isReferencedDirectly(*ChildValue)) {
-        // This char is referenced. Stop eliding and resume layout.
+        // This char is referenced. Stop eliding and resume layout. Write a cell
+        // to represent the elided characters.
+        Stream << "<TD> </TD>";
         Eliding = false;
       }
       else {
         // Elide this char and move to the next.
-        if (++ElidingCount == 1) {
-          // Write a cell that will be used for all elided chars.
-          Stream << "<TD PORT=\""
-                 << getStandardPortFor(V)
-                 << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"> </TD>";
-        }
-        
+        ++ElidingCount;
         continue;
       }
     }
@@ -609,7 +603,6 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     auto const &Scalar = static_cast<ValueOfScalar const &>(*ChildValue);
     if (Scalar.isZero()) {
       Eliding = true;
-      ElidingFrom = i + 1;
       ElidingCount = 0;
     }
   }
@@ -1377,13 +1370,13 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     }
     else {
       // No layout generated.
-      
+
       Stream << "<TD PORT=\""
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "> </TD>";
-      
+
       if (E.isReferencedDirectly(*ChildValue))
         Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
