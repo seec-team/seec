@@ -153,10 +153,10 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
 
   m_Augmentations.push_back(MaybeAug.move<Augmentation>());
 
-  activate(m_Augmentations.size() - 1);
-
   for (auto const L : m_Listeners)
     L->DocAppended(*this);
+
+  activate(m_Augmentations.size() - 1);
 
   return true;
 }
