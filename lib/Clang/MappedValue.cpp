@@ -231,19 +231,19 @@ getScalarValueAsString(clang::ASTContext const &AST,
 
     if ((static_cast<uint8_t>(Value) & 128) == 0) {
       static char const * const FormattedASCII[] = {
-        "\\0", "soh", "stx", "etx", "eot", "enq", "ack", "bel",  "bs", "\\t",
-        "\\n",  "vt", "\\f", "\\r",  "so",  "si", "dle", "dc1", "dc2", "dc3",
-        "dc4", "nak", "syn", "etb", "can",  "em", "sub", "esc",  "fs",  "gs",
-         "rs",  "us",  "sp",   "!",  "\"",   "#",   "$",   "%",   "&",   "'",
+        "\\0", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",  "BS", "\\t",
+        "\\n",  "VT", "\\f", "\\r",  "SO",  "SI", "DLE", "DC1", "DC2", "DC3",
+        "DC4", "NAK", "SYN", "ETB", "CAN",  "EM", "SUB", "ESC",  "FS",  "GS",
+         "RS",  "US",   " ",   "!",  "\"",   "#",   "$",   "%",   "&",   "'",
           "(",   ")",   "*",   "+",   ",",   "-",   ".",   "/",   "0",   "1",
           "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",   ":",   ";",
           "<",   "=",   ">",   "?",   "@",   "A",   "B",   "C",   "D",   "E",
           "F",   "G",   "H",   "I",   "J",   "K",   "L",   "M",   "N",   "O",
           "P",   "Q",   "R",   "S",   "T",   "U",   "V",   "W",   "X",   "Y",
-          "Z",   "[",   "\\",  "]",   "^",   "_",   "`",   "a",   "b",   "c",
+          "Z",   "[",  "\\",   "]",   "^",   "_",   "`",   "a",   "b",   "c",
           "d",   "e",   "f",   "g",   "h",   "i",   "j",   "k",   "l",   "m",
           "n",   "o",   "p",   "q",   "r",   "s",   "t",   "u",   "v",   "w",
-          "x",   "y",   "z",   "{",   "|",   "}",   "~", "del" };
+          "x",   "y",   "z",   "{",   "|",   "}",   "~", "DEL" };
 
       Printed = FormattedASCII[static_cast<unsigned>(Value)];
     }
