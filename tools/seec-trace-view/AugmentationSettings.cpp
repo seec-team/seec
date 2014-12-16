@@ -147,9 +147,13 @@ bool CURLDownloadDialog::DoDownload()
 wxString SaveAugmentation(wxXmlDocument &Doc, wxString &OutErr)
 {
   // Save into the user local augmentation dir.
-  auto const Path = AugmentationCollection
-                      ::getUserLocalDataDirForAugmentations().ToStdString()
-                    + "%%%%%%%%.xml";
+  auto const DirPath =
+    AugmentationCollection::getUserLocalDataDirForAugmentations();
+
+  // Create the directory if it doesn't already exist.
+  wxFileName::DirName(DirPath).Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+
+  auto const Path = DirPath.ToStdString() + "%%%%%%%%.xml";
 
   llvm::SmallString<128> UniquePath;
   int UniqueFD = 0;
