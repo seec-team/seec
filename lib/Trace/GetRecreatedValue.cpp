@@ -110,14 +110,15 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
           return Maybe<APInt>();
         }
 
+        auto const Index = MaybeValue.get<APSInt>().getSExtValue();
+
         ElemType = ST->getElementType();
         auto const ElemSize = DL.getTypeAllocSize(ElemType);
-        auto const Offset = MaybeValue.get<APSInt>().getSExtValue() * ElemSize;
 
-        if (Offset >= 0)
-          ElemAddress = ElemAddress + static_cast<uint64_t>(Offset);
+        if (Index >= 0)
+          ElemAddress = ElemAddress + static_cast<uint64_t>(Index)  * ElemSize;
         else
-          ElemAddress = ElemAddress - static_cast<uint64_t>(-Offset);
+          ElemAddress = ElemAddress - static_cast<uint64_t>(-Index) * ElemSize;
       }
       else if (auto const ST = dyn_cast<StructType>(ElemType)) {
         // All struct indices are i32 unsigned.

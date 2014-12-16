@@ -122,8 +122,10 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
       if (auto const Arg = llvm::dyn_cast<llvm::Argument>(V)) {
         if (Arg->hasByValAttr()) {
           auto const MaybeArea = Source.getParamByValArea(Arg);
-          if (MaybeArea.template assigned<seec::MemoryArea>())
-            return MaybeArea.template get<seec::MemoryArea>().start();
+          if (MaybeArea.template assigned<seec::MemoryArea>()) {
+            auto const Val = MaybeArea.template get<seec::MemoryArea>().start();
+            return static_cast<uintptr_t>(Val);
+          }
           return seec::Maybe<uintptr_t>();
         }
         

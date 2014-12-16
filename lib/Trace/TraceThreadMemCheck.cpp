@@ -244,7 +244,8 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
   auto const MaybeStrArea = getCStringInArea(String, Area);
   
   if (MaybeStrArea.assigned()) {
-    auto const Length = std::min(MaybeStrArea.get<0>().length(), Limit);
+    auto const AreaLen = MaybeStrArea.get<0>().length();
+    auto const Length = std::min(AreaLen, uint64_t(Limit));
     return MaybeStrArea.get<0>().withLength(Length);
   }
   
