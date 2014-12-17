@@ -866,6 +866,8 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
       CM.AppendSeparator();
       addValueNavigation(*this, CurrentAccess, CM, *Value, Recording);
     }
+    CM.AppendSeparator();
+    addStmtAnnotationEdit(CM, this, *Trace, Stmt);
     PopupMenu(&CM);
   }
 }

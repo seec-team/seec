@@ -180,6 +180,8 @@ public:
   ActionRecord &getRecording() { return *Recording; }
   
   ActionReplayFrame *getReplay() { return Replay; }
+
+  OpenTrace &getTrace() { return *Trace; }
   
   /// @} (Accessors.)
 };

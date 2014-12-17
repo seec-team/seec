@@ -682,7 +682,10 @@ class SourceFilePanel : public wxPanel {
     if (HoverDecl) {
       HoverTimer.Stop();
       Parent->OnRightClick(*this, HoverDecl);
-      return;
+
+      wxMenu CM{};
+      addDeclAnnotationEdit(CM, this, *(this->Parent->getTrace()), HoverDecl);
+      PopupMenu(&CM);
     }
     
     if (HoverStmt) {
@@ -702,6 +705,8 @@ class SourceFilePanel : public wxPanel {
                         ThreadIndex,
                         HoverStmt,
                         Recording);
+      CM.AppendSeparator();
+      addStmtAnnotationEdit(CM, this, *(this->Parent->getTrace()), HoverStmt);
       PopupMenu(&CM);
     }
   }

@@ -26,6 +26,7 @@
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
 #include "ActionReplay.hpp"
+#include "AnnotationEditor.hpp"
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -125,6 +126,34 @@ bool append(wxMenuBar *MenuBar,
   
   return MenuBar->Append(MenuWithTitle.first.release(),
                          MenuWithTitle.second);
+}
+
+void addDeclAnnotationEdit(wxMenu &Menu,
+                           wxWindow *Parent,
+                           OpenTrace &Trace,
+                           clang::Decl const *Declaration)
+{
+  auto Res = seec::Resource("TraceViewer")["GUIText"]["AnnotationEditor"];
+
+  BindMenuItem(
+    Menu.Append(wxID_ANY, seec::towxString(Res["EditDecl"])),
+    [&, Parent, Declaration] (wxEvent &) -> void {
+      showAnnotationEditorDialog(Parent, Trace, Declaration);
+    });
+}
+
+void addStmtAnnotationEdit(wxMenu &Menu,
+                           wxWindow *Parent,
+                           OpenTrace &Trace,
+                           clang::Stmt const *Statement)
+{
+  auto Res = seec::Resource("TraceViewer")["GUIText"]["AnnotationEditor"];
+
+  BindMenuItem(
+    Menu.Append(wxID_ANY, seec::towxString(Res["EditStmt"])),
+    [&, Parent, Statement] (wxEvent &) -> void {
+      showAnnotationEditorDialog(Parent, Trace, Statement);
+    });
 }
 
 void addStmtNavigation(wxWindow &Control,

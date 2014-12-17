@@ -269,6 +269,17 @@ root:table {
 
       ArchiveLimit:string {"Compress all traces less than (in MiB):"}
     }
+
+
+    //
+    // Annotation editor
+    //
+
+    AnnotationEditor:table {
+      EditStmt:string {"Edit statement annotation"}
+      EditDecl:string {"Edit declaration annotation"}
+      EditorTitle:string {"Annotation editor"}
+    }
   }
 
 

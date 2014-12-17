@@ -28,6 +28,7 @@ namespace seec {
 } // namespace seec
 
 namespace clang {
+  class Decl;
   class Stmt;
 } // namespace clang
 
@@ -36,6 +37,7 @@ class wxWindow;
 
 class ActionRecord;
 class ActionReplayFrame;
+class OpenTrace;
 class StateAccessToken;
 class TraceViewerFrame;
 
@@ -73,6 +75,20 @@ createRecordingMenu(TraceViewerFrame &Viewer);
 ///
 bool append(wxMenuBar *MenuBar,
             std::pair<std::unique_ptr<wxMenu>, wxString> MenuWithTitle);
+
+/// \brief Add annotation editing menu item for the given Decl.
+///
+void addDeclAnnotationEdit(wxMenu &Menu,
+                           wxWindow *Parent,
+                           OpenTrace &Trace,
+                           clang::Decl const *Declaration);
+
+/// \brief Add annotation editing menu item for the given Stmt.
+///
+void addStmtAnnotationEdit(wxMenu &Menu,
+                           wxWindow *Parent,
+                           OpenTrace &Trace,
+                           clang::Stmt const *Statement);
 
 /// \brief Add contextual navigation menu items for the given Stmt.
 ///

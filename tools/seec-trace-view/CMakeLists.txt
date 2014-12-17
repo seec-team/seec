@@ -21,6 +21,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   ActionRecord.hpp
   ActionRecordSettings.hpp
   ActionReplay.hpp
+  AnnotationEditor.hpp
   Annotations.hpp
   AugmentationSettings.hpp
   CommonMenus.hpp
@@ -56,6 +57,7 @@ set(SEEC_TRACE_VIEW_SRCS
   ActionRecord.cpp
   ActionRecordSettings.cpp
   ActionReplay.cpp
+  AnnotationEditor.cpp
   Annotations.cpp
   AugmentationSettings.cpp
   CommonMenus.cpp

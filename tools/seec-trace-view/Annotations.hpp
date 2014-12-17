@@ -174,6 +174,10 @@ public:
   ///
   wxString getText() const;
 
+  /// \brief Set the annotation text.
+  ///
+  void setText(wxString const &Value);
+
   /// \brief Indicates that ClangEPV explanations should be suppressed.
   ///
   bool hasSuppressEPV() const;
@@ -237,10 +241,20 @@ public:
   seec::Maybe<AnnotationPoint> getPointForNode(seec::cm::ProcessTrace const &,
                                                clang::Decl const *);
 
+  /// \brief Get or create the \c AnnotationPoint for a Decl.
+  ///
+  seec::Maybe<AnnotationPoint>
+  getOrCreatePointForNode(seec::cm::ProcessTrace const &, clang::Decl const *);
+
   /// \brief Get the \c AnnotationPoint for a Stmt (if it exists).
   ///
   seec::Maybe<AnnotationPoint> getPointForNode(seec::cm::ProcessTrace const &,
                                                clang::Stmt const *);
+
+  /// \brief Get or create the \c AnnotationPoint for a Stmt.
+  ///
+  seec::Maybe<AnnotationPoint>
+  getOrCreatePointForNode(seec::cm::ProcessTrace const &, clang::Stmt const *);
 };
 
 #endif // SEEC_TRACE_VIEW_ANNOTATIONS_HPP

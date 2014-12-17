@@ -145,6 +145,28 @@ IndexedAnnotationText::getPrimaryIndexAt(int32_t const CharPosition) const
 // AnnotationPoint
 //------------------------------------------------------------------------------
 
+namespace {
+
+wxXmlNode *getFirstChildNamed(wxXmlNode * const Parent, wxString const &Name)
+{
+  for (auto &Node : *Parent)
+    if (Node.GetName() == Name)
+      return &Node;
+
+  return nullptr;
+}
+
+wxXmlNode *getFirstChildTyped(wxXmlNode * const Parent, wxXmlNodeType Type)
+{
+  for (auto &Node : *Parent)
+    if (Node.GetType() == Type)
+      return &Node;
+
+  return nullptr;
+}
+
+}
+
 bool AnnotationPoint::isForThreadState() const
 {
   return m_Node->GetName() == "threadState";
@@ -167,13 +189,29 @@ bool AnnotationPoint::isForStmt() const
 
 wxString AnnotationPoint::getText() const
 {
-  for (auto const &Node : *m_Node) {
-    if (Node.GetName() == "text") {
-      return Node.GetNodeContent();
-    }
-  }
+  if (auto const Node = getFirstChildNamed(m_Node, "text"))
+    return Node->GetNodeContent();
 
   return wxEmptyString;
+}
+
+void AnnotationPoint::setText(const wxString &Value)
+{
+  auto Node = getFirstChildNamed(m_Node, "text");
+  if (!Node) {
+    Node = new wxXmlNode(wxXML_ELEMENT_NODE, "text");
+    if (!Node)
+      return;
+    Node->AddAttribute("locale", "root");
+    m_Node->AddChild(Node);
+  }
+
+  if (auto const Text = getFirstChildTyped(Node, wxXML_TEXT_NODE)) {
+    Text->SetContent(Value);
+  }
+  else {
+    Node->AddChild(new wxXmlNode(wxXML_TEXT_NODE, wxEmptyString, Value));
+  }
 }
 
 bool AnnotationPoint::hasSuppressEPV() const
@@ -214,7 +252,7 @@ AnnotationCollection::AnnotationCollection()
 {
   m_XmlDocument = makeUnique<wxXmlDocument>();
 
-  auto const Root = new wxXmlNode(nullptr, wxXML_ELEMENT_NODE, "annotations");
+  auto const Root = new wxXmlNode(wxXML_ELEMENT_NODE, "annotations");
 
   m_XmlDocument->SetRoot(Root);
 }
@@ -327,6 +365,25 @@ Maybe<AnnotationPoint> getPointForNode(wxXmlNode &Root,
   return Maybe<AnnotationPoint>();
 }
 
+AnnotationPoint getOrCreatePointForNode(wxXmlNode &Root,
+                                        wxString const &NodeType,
+                                        unsigned const ForASTIndex,
+                                        uint64_t const ForNodeIndex)
+{
+  auto Existing = getPointForNode(Root, NodeType, ForASTIndex, ForNodeIndex);
+  if (Existing.assigned<AnnotationPoint>())
+    return Existing.move<AnnotationPoint>();
+
+  auto Node = seec::makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, NodeType);
+  Node->AddAttribute("ASTIndex",  std::to_string(ForASTIndex));
+  Node->AddAttribute("nodeIndex", std::to_string(ForNodeIndex));
+
+  wxXmlNode &NodeRef = *Node;
+  Root.AddChild(Node.release());
+
+  return AnnotationPoint(NodeRef);
+}
+
 }
 
 Maybe<AnnotationPoint>
@@ -353,6 +410,29 @@ AnnotationCollection::getPointForNode(cm::ProcessTrace const &Trace,
 }
 
 Maybe<AnnotationPoint>
+AnnotationCollection::getOrCreatePointForNode(cm::ProcessTrace const &Trace,
+                                              clang::Decl const *Node)
+{
+  auto const &Mapping = Trace.getMapping();
+  auto const AST = Mapping.getASTForDecl(Node);
+  if (!AST)
+    return Maybe<AnnotationPoint>();
+
+  auto const MaybeIndex = AST->getIdxForDecl(Node);
+  if (!MaybeIndex.assigned<uint64_t>())
+    return Maybe<AnnotationPoint>();
+
+  auto const MaybeASTIndex = Mapping.getASTIndex(AST);
+  if (!MaybeASTIndex.assigned(0))
+    return Maybe<AnnotationPoint>();
+
+  return ::getOrCreatePointForNode(*(m_XmlDocument->GetRoot()),
+                                   "decl",
+                                   MaybeASTIndex.get<0>(),
+                                   MaybeIndex.get<uint64_t>());
+}
+
+Maybe<AnnotationPoint>
 AnnotationCollection::getPointForNode(cm::ProcessTrace const &Trace,
                                       clang::Stmt const *Node)
 {
@@ -373,4 +453,27 @@ AnnotationCollection::getPointForNode(cm::ProcessTrace const &Trace,
                            "stmt",
                            MaybeASTIndex.get<0>(),
                            MaybeIndex.get<uint64_t>());
+}
+
+Maybe<AnnotationPoint>
+AnnotationCollection::getOrCreatePointForNode(cm::ProcessTrace const &Trace,
+                                              clang::Stmt const *Node)
+{
+  auto const &Mapping = Trace.getMapping();
+  auto const AST = Mapping.getASTForStmt(Node);
+  if (!AST)
+    return Maybe<AnnotationPoint>();
+
+  auto const MaybeIndex = AST->getIdxForStmt(Node);
+  if (!MaybeIndex.assigned<uint64_t>())
+    return Maybe<AnnotationPoint>();
+
+  auto const MaybeASTIndex = Mapping.getASTIndex(AST);
+  if (!MaybeASTIndex.assigned(0))
+    return Maybe<AnnotationPoint>();
+
+  return ::getOrCreatePointForNode(*(m_XmlDocument->GetRoot()),
+                                   "stmt",
+                                   MaybeASTIndex.get<0>(),
+                                   MaybeIndex.get<uint64_t>());
 }
