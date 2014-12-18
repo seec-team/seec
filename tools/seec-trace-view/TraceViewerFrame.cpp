@@ -534,7 +534,7 @@ void TraceViewerFrame::OnSaveAs(wxCommandEvent &Event)
                                         (SaveDlg.GetExtraControl());
 
   // Create temporary archive stream.
-  wxTempFileOutputStream Output(SaveDlg.GetFilename());
+  wxTempFileOutputStream Output(SaveDlg.GetPath());
   wxZipOutputStream ZipOutput(Output);
   if (!ZipOutput.IsOk()) {
     wxMessageDialog Dlg(this,
