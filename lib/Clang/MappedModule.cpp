@@ -191,7 +191,9 @@ void MappedCompileInfo::createVirtualFiles(clang::FileManager &FM,
                                          Contents.getBufferSize(),
                                          0 /* ModificationTime */);
 
-    SM.overrideFileContents(Entry, &Contents, true /* DoNotFree */);
+    SM.overrideFileContents(Entry,
+      llvm::MemoryBuffer::getMemBuffer(Contents.getBuffer(),
+                                       Contents.getBufferIdentifier()));
   }
 }
 

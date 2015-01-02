@@ -52,15 +52,15 @@ execute_process(
 string(STRIP ${LLVM_CXX_FLAGS} LLVM_CXX_FLAGS)
 
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --ldflags
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --system-libs
  COMMAND tr -s " " "\n"
  COMMAND grep "\\-l"
  COMMAND tr -s "\n-" " -"
  OUTPUT_VARIABLE LLVM_LIB_DEPS
 )
-string(STRIP ${LLVM_LIB_DEPS} LLVM_LIB_DEPS)
-string(REPLACE "-l" "" LLVM_LIB_DEPS ${LLVM_LIB_DEPS})
-string(REPLACE " " ";" LLVM_LIB_DEPS ${LLVM_LIB_DEPS})
+string(STRIP "${LLVM_LIB_DEPS}" LLVM_LIB_DEPS)
+string(REPLACE "-l" "" LLVM_LIB_DEPS "${LLVM_LIB_DEPS}")
+string(REPLACE " " ";" LLVM_LIB_DEPS "${LLVM_LIB_DEPS}")
 
 message("LLVM_LIB_DEPS: ${LLVM_LIB_DEPS}")
 

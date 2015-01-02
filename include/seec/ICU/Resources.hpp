@@ -20,7 +20,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/system_error.h"
 
 #include "unicode/resbund.h"
 #include "unicode/udata.h"
@@ -32,6 +31,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <system_error>
 
 namespace seec {
 

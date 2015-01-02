@@ -20,7 +20,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <atomic>
 #include <cstring>

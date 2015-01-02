@@ -25,7 +25,7 @@
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <cctype>
 #include <cinttypes>

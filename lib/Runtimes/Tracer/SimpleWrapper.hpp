@@ -23,7 +23,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cerrno>

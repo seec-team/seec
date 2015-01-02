@@ -248,9 +248,6 @@ ProcessEnvironment::ProcessEnvironment()
   ArchiveSizeLimit(0), // set after wxConfig is available.
   ProgramName()
 {
-  // Setup multithreading support for LLVM.
-  llvm::llvm_start_multithreaded();
-  
   // Parse the Module bitcode, which is stored in a global variable.
   llvm::StringRef BitcodeRef {
     SeeCInfoModuleBitcode,
@@ -258,13 +255,15 @@ ProcessEnvironment::ProcessEnvironment()
   };
   
   auto BitcodeBuffer = llvm::MemoryBuffer::getMemBuffer(BitcodeRef, "", false);
-  
-  Mod.reset(llvm::ParseBitcodeFile(BitcodeBuffer, Context));
-  
-  if (!Mod) {
-    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n";
+  auto MaybeMod = llvm::parseBitcodeFile(BitcodeBuffer, Context);
+
+  if (!MaybeMod) {
+    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n"
+                 << MaybeMod.getError().message() << "\n";
     exit(EXIT_FAILURE);
   }
+
+  Mod.reset(MaybeMod.get());
   
   // Create the output stream allocator.
   auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();

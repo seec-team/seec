@@ -16,9 +16,9 @@
 
 #include "seec/Util/ModuleIndex.hpp"
 
-#include "llvm/InstVisitor.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/DataTypes.h"
@@ -65,7 +65,7 @@ private:
   Type *Int8PtrTy; ///< Type of i8 *.
 
   /// DataLayout for the Module.
-  DataLayout *DL;
+  std::unique_ptr<DataLayout> DL;
 
   /// Index of the Module.
   std::unique_ptr<seec::ModuleIndex> ModIndex;

@@ -50,7 +50,6 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/system_error.h"
 
 #include "unicode/unistr.h"
 
@@ -59,6 +58,7 @@
 
 #include <array>
 #include <memory>
+#include <system_error>
 #include <type_traits>
 
 using namespace seec;
@@ -97,7 +97,8 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
   assert(Filename && "NULL Filename.");
 
   std::string StreamError;
-  llvm::raw_fd_ostream Stream {Filename, StreamError};
+  llvm::raw_fd_ostream Stream {Filename, StreamError,
+                               llvm::sys::fs::OpenFlags::F_Text};
 
   if (!StreamError.empty()) {
     llvm::errs() << "Error opening dot file: " << StreamError << "\n";
@@ -123,13 +124,14 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace,
   if (!OutputDirectoryForClangMappedDot.empty()) {
     OutputForDot = OutputDirectoryForClangMappedDot;
 
-    bool Existed;
+    bool Existed = false;
     auto const Err =
       llvm::sys::fs::create_directories(llvm::StringRef(OutputForDot),
                                         Existed);
 
-    if (Err != llvm::errc::success) {
-      llvm::errs() << "Couldn't create output directory.\n";
+    if (Err) {
+      llvm::errs() << "Couldn't create output directory: "
+                   << Err.message() << "\n";
       return;
     }
   }

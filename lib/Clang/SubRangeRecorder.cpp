@@ -344,8 +344,10 @@ makeCompilerInstance(seec::seec_clang::MappedAST const &MappedAST)
   Clang->setInvocation(CI.release());
 
   Clang->setTarget(
-    clang::TargetInfo::CreateTargetInfo(Clang->getDiagnostics(),
-                                        &Clang->getTargetOpts()));
+    clang::TargetInfo::CreateTargetInfo(
+      Clang->getDiagnostics(),
+      std::make_shared<clang::TargetOptions>(Clang->getTargetOpts())));
+
   if (!Clang->hasTarget())
     return nullptr;
 
@@ -354,11 +356,15 @@ makeCompilerInstance(seec::seec_clang::MappedAST const &MappedAST)
   CompileInfo.createVirtualFiles(Clang->getFileManager(),
                                  Clang->getSourceManager());
 
-  Clang->createPreprocessor();
+  Clang->createPreprocessor(clang::TranslationUnitKind::TU_Complete);
 
   auto const MainFileName = CompileInfo.getMainFileName();
   auto const MainFile = Clang->getFileManager().getFile(MainFileName);
-  Clang->getSourceManager().createMainFileID(MainFile);
+
+  auto &SM = Clang->getSourceManager();
+  SM.setMainFileID(SM.createFileID(MainFile,
+                                   clang::SourceLocation(),
+                                   clang::SrcMgr::C_User));
 
   return Clang;
 }

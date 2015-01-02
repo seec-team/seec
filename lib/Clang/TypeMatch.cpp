@@ -205,10 +205,10 @@ static bool matchType(::clang::ASTContext const &AContext,
   
   return matchImpl(AContext,
                    AHistory,
-                   A->getResultType().getTypePtr(),
+                   A->getReturnType().getTypePtr(),
                    BContext,
                    BHistory,
-                   B->getResultType().getTypePtr());
+                   B->getReturnType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,

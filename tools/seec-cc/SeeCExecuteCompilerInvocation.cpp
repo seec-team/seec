@@ -24,6 +24,7 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
+#include "clang/Frontend/Utils.h"
 #include "clang/Rewrite/Frontend/FrontendActions.h"
 #include "clang/StaticAnalyzer/Frontend/FrontendActions.h"
 #include "llvm/Option/OptTable.h"
@@ -40,6 +41,7 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
   using namespace seec::seec_clang;
   using namespace clang::frontend;
   StringRef Action("unknown");
+  (void)Action;
 
   switch (CI.getFrontendOpts().ProgramAction) {
   case ASTDeclList:            return new ASTDeclListAction();
@@ -51,68 +53,53 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
   case EmitAssembly:           return new SeeCEmitAssemblyAction(ArgBegin,
                                                                  ArgEnd);
   case EmitBC:                 return new SeeCEmitBCAction(ArgBegin, ArgEnd);
-#ifdef CLANG_ENABLE_REWRITER
   case EmitHTML:               return new HTMLPrintAction();
-#else
-  case EmitHTML:               Action = "EmitHTML"; break;
-#endif
   case EmitLLVM:               return new SeeCEmitLLVMAction(ArgBegin, ArgEnd);
   case EmitLLVMOnly:           return new SeeCEmitLLVMOnlyAction(ArgBegin,
                                                                  ArgEnd);
   case EmitCodeGenOnly:        return new SeeCEmitCodeGenOnlyAction(ArgBegin,
                                                                     ArgEnd);
   case EmitObj:                return new SeeCEmitBCAction(ArgBegin, ArgEnd);
-#ifdef CLANG_ENABLE_REWRITER
   case FixIt:                  return new FixItAction();
-#else
-  case FixIt:                  Action = "FixIt"; break;
-#endif
   case GenerateModule:         return new GenerateModuleAction;
   case GeneratePCH:            return new GeneratePCHAction;
   case GeneratePTH:            return new GeneratePTHAction();
   case InitOnly:               return new InitOnlyAction();
   case ParseSyntaxOnly:        return new SyntaxOnlyAction();
   case ModuleFileInfo:         return new DumpModuleInfoAction();
+  case VerifyPCH:              return new VerifyPCHAction();
 
   case PluginAction: {
     for (FrontendPluginRegistry::iterator it =
            FrontendPluginRegistry::begin(), ie = FrontendPluginRegistry::end();
          it != ie; ++it) {
       if (it->getName() == CI.getFrontendOpts().ActionName) {
-        OwningPtr<PluginASTAction> P(it->instantiate());
+        std::unique_ptr<PluginASTAction> P(it->instantiate());
         if (!P->ParseArgs(CI, CI.getFrontendOpts().PluginArgs))
-          return 0;
-        return P.take();
+          return nullptr;
+        return P.release();
       }
     }
 
     CI.getDiagnostics().Report(diag::err_fe_invalid_plugin_name)
       << CI.getFrontendOpts().ActionName;
-    return 0;
+    return nullptr;
   }
 
   case PrintDeclContext:       return new DeclContextPrintAction();
   case PrintPreamble:          return new PrintPreambleAction();
   case PrintPreprocessedInput: {
-    if (CI.getPreprocessorOutputOpts().RewriteIncludes) {
-#ifdef CLANG_ENABLE_REWRITER
+    if (CI.getPreprocessorOutputOpts().RewriteIncludes)
       return new RewriteIncludesAction();
-#else
-      Action = "RewriteIncludesAction";
-      break;
-#endif
-    }
     return new PrintPreprocessedAction();
   }
 
-#ifdef CLANG_ENABLE_REWRITER
   case RewriteMacros:          return new RewriteMacrosAction();
-  case RewriteObjC:            return new RewriteObjCAction();
   case RewriteTest:            return new RewriteTestAction();
+#ifdef CLANG_ENABLE_OBJC_REWRITER
+  case RewriteObjC:            return new RewriteObjCAction();
 #else
-  case RewriteMacros:          Action = "RewriteMacros"; break;
   case RewriteObjC:            Action = "RewriteObjC"; break;
-  case RewriteTest:            Action = "RewriteTest"; break;
 #endif
 #ifdef CLANG_ENABLE_ARCMT
   case MigrateSource:          return new arcmt::MigrateSourceAction();
@@ -128,7 +115,7 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
   }
 
 #if !defined(CLANG_ENABLE_ARCMT) || !defined(CLANG_ENABLE_STATIC_ANALYZER) \
-  || !defined(CLANG_ENABLE_REWRITER)
+  || !defined(CLANG_ENABLE_OBJC_REWRITER)
   CI.getDiagnostics().Report(diag::err_fe_action_not_available) << Action;
   return 0;
 #else
@@ -142,18 +129,17 @@ static FrontendAction *CreateFrontendAction(CompilerInstance &CI,
   // Create the underlying action.
   FrontendAction *Act = CreateFrontendBaseAction(CI, ArgBegin, ArgEnd);
   if (!Act)
-    return 0;
+    return nullptr;
 
   const FrontendOptions &FEOpts = CI.getFrontendOpts();
 
-#ifdef CLANG_ENABLE_REWRITER
   if (FEOpts.FixAndRecompile) {
     Act = new FixItRecompile(Act);
   }
-#endif
   
 #ifdef CLANG_ENABLE_ARCMT
-  if (CI.getFrontendOpts().ProgramAction != frontend::MigrateSource) {
+  if (CI.getFrontendOpts().ProgramAction != frontend::MigrateSource &&
+      CI.getFrontendOpts().ProgramAction != frontend::GeneratePCH) {
     // Potentially wrap the base FE action in an ARC Migrate Tool action.
     switch (FEOpts.ARCMTAction) {
     case FrontendOptions::ARCMT_None:
@@ -193,7 +179,7 @@ bool DoCompilerInvocation(CompilerInstance *Clang,
 {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
-    OwningPtr<OptTable> Opts(driver::createDriverOptTable());
+    std::unique_ptr<OptTable> Opts(driver::createDriverOptTable());
     Opts->PrintHelp(llvm::outs(), "clang -cc1",
                     "LLVM 'Clang' Compiler: http://clang.llvm.org",
                     /*Include=*/ driver::options::CC1Option, /*Exclude=*/ 0);
@@ -224,12 +210,12 @@ bool DoCompilerInvocation(CompilerInstance *Clang,
   // This should happen AFTER plugins have been loaded!
   if (!Clang->getFrontendOpts().LLVMArgs.empty()) {
     unsigned NumArgs = Clang->getFrontendOpts().LLVMArgs.size();
-    const char **Args = new const char*[NumArgs + 2];
+    auto Args = llvm::make_unique<const char*[]>(NumArgs + 2);
     Args[0] = "clang (LLVM option parsing)";
     for (unsigned i = 0; i != NumArgs; ++i)
       Args[i + 1] = Clang->getFrontendOpts().LLVMArgs[i].c_str();
-    Args[NumArgs + 1] = 0;
-    llvm::cl::ParseCommandLineOptions(NumArgs + 1, Args);
+    Args[NumArgs + 1] = nullptr;
+    llvm::cl::ParseCommandLineOptions(NumArgs + 1, Args.get());
   }
 
 #ifdef CLANG_ENABLE_STATIC_ANALYZER
@@ -249,11 +235,12 @@ bool DoCompilerInvocation(CompilerInstance *Clang,
   Clang->getInvocation().getCodeGenOpts().EmitDeclMetadata = 1;
   
   // Create and execute the frontend action.
-  OwningPtr<FrontendAction> Act(CreateFrontendAction(*Clang, ArgBegin, ArgEnd));
+  std::unique_ptr<FrontendAction> Act(CreateFrontendAction(*Clang,
+                                                           ArgBegin, ArgEnd));
   if (!Act)
     return false;
   bool Success = Clang->ExecuteAction(*Act);
   if (Clang->getFrontendOpts().DisableFree)
-    Act.take();
+    BuryPointer(Act.release());
   return Success;
 }

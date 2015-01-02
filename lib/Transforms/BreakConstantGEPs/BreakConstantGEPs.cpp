@@ -20,7 +20,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 
 #include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 

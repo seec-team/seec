@@ -5,7 +5,7 @@ add_executable(seec-cc
 
 # Determine the LLVM libraries that we need
 execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets asmparser bitreader bitwriter irreader codegen instrumentation ipo linker selectiondag core support option
+ COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets analysis codegen core ipa ipo instcombine instrumentation mc mcparser objcarcopts option scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata
  OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
 )
 string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
@@ -35,7 +35,7 @@ target_link_libraries(seec-cc
  ${LLVM_INSTALL}/lib/libclangParse.a
  ${LLVM_INSTALL}/lib/libclangSema.a
  ${LLVM_INSTALL}/lib/libclangRewriteFrontend.a
- ${LLVM_INSTALL}/lib/libclangRewriteCore.a
+ ${LLVM_INSTALL}/lib/libclangRewrite.a
  ${LLVM_INSTALL}/lib/libclangAnalysis.a
  ${LLVM_INSTALL}/lib/libclangEdit.a
  ${LLVM_INSTALL}/lib/libclangAST.a

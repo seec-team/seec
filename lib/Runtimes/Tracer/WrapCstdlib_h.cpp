@@ -22,7 +22,7 @@
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/IR/Function.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <cstdlib>
 #include <stack>

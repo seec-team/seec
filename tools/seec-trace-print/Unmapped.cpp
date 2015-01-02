@@ -49,7 +49,6 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/system_error.h"
 
 #include "unicode/unistr.h"
 
@@ -58,6 +57,7 @@
 
 #include <array>
 #include <memory>
+#include <system_error>
 #include <type_traits>
 
 using namespace seec;

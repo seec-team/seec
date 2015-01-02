@@ -15,16 +15,16 @@
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Resources.hpp"
 
-#include "llvm/Linker.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -102,11 +102,6 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
     Triple.setTriple(llvm::sys::getDefaultTargetTriple());
   Passes.add(new llvm::TargetLibraryInfo(Triple));
 
-  // Add an appropriate DataLayout instance for this module.
-  auto const &ModuleDataLayout = Module.getDataLayout();
-  if (!ModuleDataLayout.empty())
-    Passes.add(new llvm::DataLayout(ModuleDataLayout));
-
   // Determine the path to SeeC's resource directory:
 
   // This just needs to be some symbol in the binary; C++ doesn't
@@ -154,8 +149,9 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
   auto const Err =
     llvm::sys::fs::createUniqueFile("seec-instr-%%%%%%%%%%.o", FD, Path);
   
-  if (Err != llvm::errc::success) {
-    llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
+  if (Err) {
+    llvm::errs() << ProgramName << ": couldn't create temporary file.\n"
+                 << Err.message() << "\n";
     exit(EXIT_FAILURE);
   }
   
@@ -210,11 +206,6 @@ Compile(char const *ProgramName,
   
   Machine->addAnalysisPasses(Passes);
   
-  if (auto const *DL = Machine->getDataLayout())
-    Passes.add(new llvm::DataLayout(*DL));
-  else
-    Passes.add(new llvm::DataLayout(&Module));
-  
   llvm::formatted_raw_ostream FOS(Out->os());
   
   if (Machine->addPassesToEmitFile(Passes,
@@ -235,7 +226,7 @@ static bool MaybeModule(char const *File)
     return false;
   
   llvm::sys::fs::file_status Status;
-  if (llvm::sys::fs::status(File, Status) != llvm::errc::success)
+  if (llvm::sys::fs::status(File, Status))
     return false;
   
   if (!llvm::sys::fs::exists(Status))
@@ -246,7 +237,7 @@ static bool MaybeModule(char const *File)
     return false;
   
   llvm::sys::fs::file_magic Magic;
-  if (llvm::sys::fs::identify_magic(File, Magic) != llvm::errc::success)
+  if (llvm::sys::fs::identify_magic(File, Magic))
     return false;
   
   switch (Magic) {

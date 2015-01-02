@@ -15,7 +15,7 @@
 #ifndef BREAKCONSTANTGEPS_H
 #define BREAKCONSTANTGEPS_H
 
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 

@@ -159,7 +159,7 @@ wxString SaveAugmentation(wxXmlDocument &Doc, wxString &OutErr)
   int UniqueFD = 0;
   auto const Err = llvm::sys::fs::createUniqueFile(Path, UniqueFD, UniquePath);
 
-  if (Err != llvm::errc::success) {
+  if (Err) {
     return wxString{};
   }
 

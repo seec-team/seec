@@ -13,9 +13,10 @@
 
 #include "seec/ICU/Resources.hpp"
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <memory>
 
 namespace seec {
 
@@ -217,18 +218,14 @@ bool ResourceLoader::loadResource(char const *Package)
   llvm::sys::path::append(PackagePath, Package);
   PackagePath.append(".dat");
 
-  llvm::OwningPtr<llvm::MemoryBuffer> Holder;
-  llvm::MemoryBuffer::getFile(PackagePath.str(), Holder);
-
+  auto Holder = llvm::MemoryBuffer::getFile(PackagePath.str());
   if (!Holder) {
     return false;
   }
 
   // add to our resource map
-  auto Insert = Resources.insert(
-                  std::make_pair(
-                    std::move(PackageStr),
-                    std::unique_ptr<llvm::MemoryBuffer>(Holder.take())));
+  auto Insert = Resources.insert(std::make_pair(std::move(PackageStr),
+                                                std::move(*Holder)));
 
   // register the data with ICU
   UErrorCode Status = U_ZERO_ERROR;

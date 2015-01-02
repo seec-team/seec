@@ -37,7 +37,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Analysis/Verifier.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -459,7 +459,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 
   llvm::SmallString<256> CurrentDirectory;
   auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
-  assert(Err == llvm::errc::success);
+  assert(!Err);
 
   // setup the file node for the main file and add it to the files node
   llvm::Value *MainFileNodeOps[] {
@@ -689,7 +689,7 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
   
   llvm::SmallString<256> CurrentDirectory;
   auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
-  assert(Err == llvm::errc::success);
+  assert(!Err);
   
   llvm::Value *MainFileOperands[] = {
     llvm::MDString::get(LLVMContext, MainFileEntry->getName()),

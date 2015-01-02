@@ -44,7 +44,6 @@
 #include <wx/wfstream.h>
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -263,7 +262,7 @@ void StateGraphViewerPanel::workerTaskLoop()
                                            GraphFD,
                                            GraphPath);
 
-      if (GraphErr != llvm::errc::success) {
+      if (GraphErr) {
         wxLogDebug("Couldn't create temporary dot file: %s",
                    wxString(GraphErr.message()));
         continue;
@@ -284,7 +283,7 @@ void StateGraphViewerPanel::workerTaskLoop()
     auto const SVGErr =
       llvm::sys::fs::createTemporaryFile("seecgraph", "svg", SVGPath);
 
-    if (SVGErr != llvm::errc::success) {
+    if (SVGErr) {
       wxLogDebug("Couldn't create temporary svg file: %s",
                  wxString(SVGErr.message()));
       continue;
@@ -339,14 +338,14 @@ void StateGraphViewerPanel::workerTaskLoop()
     }
 
     // Read the dot-generated SVG from the temporary file.
-    llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
-
-    auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath.str(), SVGData);
-    if (ReadErr != llvm::errc::success) {
-      wxLogDebug("Couldn't read temporary svg file.");
+    auto ErrorOrSVGData = llvm::MemoryBuffer::getFile(SVGPath.str());
+    if (!ErrorOrSVGData) {
+      wxLogDebug("Couldn't read temporary svg file: %s",
+                 wxString(ErrorOrSVGData.getError().message()));
       continue;
     }
 
+    auto &SVGData = *ErrorOrSVGData;
     auto SharedSVG = std::make_shared<std::string>(SVGData->getBufferStart(),
                                                    SVGData->getBufferEnd());
 

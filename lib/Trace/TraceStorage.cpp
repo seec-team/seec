@@ -14,12 +14,10 @@
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/system_error.h"
 
 #include <wx/file.h>
 #include <wx/filename.h>
@@ -28,7 +26,9 @@
 #include <wx/zipstrm.h>
 
 #include <cstdlib>
+#include <memory>
 #include <string>
+#include <system_error>
 
 #ifdef __unix__
 #include <unistd.h>
@@ -106,7 +106,8 @@ bool OutputStreamAllocator::deleteAll()
 ///
 static void getDefaultTraceLocation(llvm::SmallVectorImpl<char> &Result)
 {
-  if (llvm::sys::fs::current_path(Result) == llvm::errc::success)
+  auto const Err = llvm::sys::fs::current_path(Result);
+  if (!Err)
     return;
   
   llvm::sys::path::system_temp_directory(true, Result);
@@ -119,7 +120,7 @@ static seec::Maybe<seec::Error> checkTraceLocation(llvm::StringRef Path)
   bool IsDirectory;
   auto const ErrCode = llvm::sys::fs::is_directory(Path, IsDirectory);
   
-  if (ErrCode != llvm::errc::success)
+  if (ErrCode)
     return Error{
       LazyMessageByRef::create("Trace", {"errors", "IsDirectoryFail"},
                                std::make_pair("path", Path.str().c_str()))};
@@ -137,17 +138,12 @@ static seec::Maybe<seec::Error> checkTraceLocation(llvm::StringRef Path)
 ///
 static seec::Maybe<seec::Error> createTraceDirectory(llvm::StringRef Path)
 {
-  bool OutDirExisted;
-  auto const ErrCode = llvm::sys::fs::create_directory(Path, OutDirExisted);
+  auto const ErrCode =
+    llvm::sys::fs::create_directory(Path, /* IgnoreExisting */ false);
   
-  if (ErrCode != llvm::errc::success)
+  if (ErrCode)
     return Error{
       LazyMessageByRef::create("Trace", {"errors", "CreateDirectoryFail"},
-                               std::make_pair("path", Path.str().c_str()))};
-  
-  if (OutDirExisted)
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "OutDirectoryExists"},
                                std::make_pair("path", Path.str().c_str()))};
   
   return seec::Maybe<seec::Error>();
@@ -257,12 +253,12 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
   llvm::sys::path::append(Path, getModuleFilename());
   
   // Attempt to open an output buffer for the bitcode file.
-  llvm::OwningPtr<llvm::FileOutputBuffer> Output;
+  std::unique_ptr<llvm::FileOutputBuffer> Output;
   
   auto ErrCode = llvm::FileOutputBuffer::create(llvm::StringRef(Path),
                                                 Bitcode.size(),
                                                 Output);
-  if (ErrCode != llvm::errc::success) {
+  if (ErrCode) {
     return Error{LazyMessageByRef::create("Trace",
                                           {"errors", "FileOutputBufferFail"},
                                           std::make_pair("path",
@@ -288,8 +284,6 @@ OutputStreamAllocator::getProcessStream(ProcessSegment Segment,
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
   
-  Flags |= llvm::sys::fs::OpenFlags::F_Binary;
-  
   std::string ErrorInfo;
   auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
   if (!Out) {
@@ -313,8 +307,6 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
   
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
-  
-  Flags |= llvm::sys::fs::OpenFlags::F_Binary;
 
   std::string ErrorInfo;
   auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
@@ -467,13 +459,13 @@ Maybe<Error> OutputStreamAllocator::extractFrom(std::string const &ArchivePath)
 seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
 InputBufferAllocator::getBuffer(llvm::StringRef Path) const
 {
-  llvm::OwningPtr<llvm::MemoryBuffer> Buffer;
+  auto MaybeBuffer =
+    llvm::MemoryBuffer::getFile(Path.str(),
+                                /* FileSize */ -1,
+                                /* RequiresNullTerminator */ false);
   
-  auto const ReadError =
-    llvm::MemoryBuffer::getFile(Path.str(), Buffer, -1, false);
-  
-  if (ReadError != llvm::error_code::success()) {
-    auto Message = UnicodeString::fromUTF8(ReadError.message());
+  if (!MaybeBuffer) {
+    auto Message = UnicodeString::fromUTF8(MaybeBuffer.getError().message());
     
     return Error(
       LazyMessageByRef::create("Trace",
@@ -482,7 +474,7 @@ InputBufferAllocator::getBuffer(llvm::StringRef Path) const
                                 std::make_pair("error", std::move(Message))));
   }
   
-  return std::unique_ptr<llvm::MemoryBuffer>(Buffer.take());
+  return std::move(*MaybeBuffer);
 }
 
 InputBufferAllocator::~InputBufferAllocator()
@@ -550,7 +542,7 @@ InputBufferAllocator::createForArchive(llvm::StringRef ArchivePath)
 seec::Maybe<InputBufferAllocator, seec::Error>
 InputBufferAllocator::createForDirectory(llvm::StringRef Directory)
 {
-  llvm::error_code ErrCode;
+  std::error_code ErrCode;
   llvm::SmallString<256> Path;
 
   if (!Directory.empty()) {
@@ -558,7 +550,7 @@ InputBufferAllocator::createForDirectory(llvm::StringRef Directory)
   }
   else {
     ErrCode = llvm::sys::fs::current_path(Path);
-    if (ErrCode != llvm::errc::success) {
+    if (ErrCode) {
       return Error(LazyMessageByRef::create("Trace",
                                             {"errors", "CurrentPathFail"}));
     }
@@ -566,7 +558,7 @@ InputBufferAllocator::createForDirectory(llvm::StringRef Directory)
 
   bool IsDirectory;
   ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(Path), IsDirectory);
-  if (ErrCode != llvm::errc::success) {
+  if (ErrCode) {
     return Error(LazyMessageByRef::create("Trace",
                                           {"errors", "IsDirectoryFail"},
                                           std::make_pair("path",
@@ -611,10 +603,10 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
   auto &Buffer = MaybeBuffer.get<std::unique_ptr<llvm::MemoryBuffer>>();
   
   // Parse the Module from the bitcode.
-  std::string ParseError;
-  auto Mod = llvm::ParseBitcodeFile(Buffer.release(), Context, &ParseError);
+  auto MaybeMod = llvm::parseBitcodeFile(Buffer.get(), Context);
   
-  if (!Mod) {
+  if (!MaybeMod) {
+    auto ParseError = MaybeMod.getError().message();
     return Error(LazyMessageByRef::create("Trace",
                                           {"errors",
                                            "ParseBitcodeFileFail"},
@@ -622,7 +614,7 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
                                                          ParseError.c_str())));
   }
   
-  return Mod;
+  return *MaybeMod;
 }
 
 seec::Maybe<TraceFile, seec::Error>

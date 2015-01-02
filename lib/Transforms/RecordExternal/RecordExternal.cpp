@@ -20,6 +20,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeBuilder.h"
@@ -28,7 +29,6 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DataTypes.h"
-#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -286,19 +286,18 @@ static void ReplaceUsesWithInterceptor(Function *Original,
 
   while (It != End) {
     auto Current = It++;
-    auto TheUser = *Current;
+    auto TheUser = Current->getUser();
 
     if (auto C = dyn_cast<Constant>(TheUser)) {
       if (!isa<GlobalValue>(C)) {
-        C->replaceUsesOfWithOnConstant(Original, Interceptor,
-                                       &Current.getUse());
+        C->replaceUsesOfWithOnConstant(Original, Interceptor, &*Current);
       }
     }
     else if (auto I = dyn_cast<Instruction>(TheUser)) {
       auto const Fn = I->getParent()->getParent();
 
       if (!GetInterceptorFor(*Fn, *M) && !IsMangledInterceptor(*Fn)) {
-        Current.getUse().set(Interceptor);
+        Current->set(Interceptor);
       }
     }
   }
@@ -318,9 +317,7 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   Int8PtrTy = Type::getInt8PtrTy(Context);
 
   // Get DataLayout
-  DL = getAnalysisIfAvailable<DataLayout>();
-  if (!DL)
-    return false;
+  DL.reset(new llvm::DataLayout(&M));
   
   // Index the module (prior to adding any functions)
   ModIndex.reset(new seec::ModuleIndex(M));

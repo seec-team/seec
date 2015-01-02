@@ -56,13 +56,12 @@ seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>
 OpenTrace::ReadTraceFromFilePath(wxString const &FilePath)
 {
   // Create an InputBufferAllocator for the folder containing the trace file.
-  llvm::error_code ErrCode;
   llvm::SmallString<256> DirPath {FilePath.ToStdString()};
   
   bool IsDirectory;
-  ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(DirPath), IsDirectory);
+  auto Err = llvm::sys::fs::is_directory(llvm::StringRef(DirPath), IsDirectory);
   
-  if (ErrCode != llvm::errc::success)
+  if (Err)
     return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
                         {"GUIText", "OpenTrace_Error_FailIsDirectory"})};
   
