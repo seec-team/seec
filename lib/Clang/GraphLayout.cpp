@@ -1284,7 +1284,8 @@ class LEACString final : public LayoutEngineForArea {
   {
     auto const Ty = llvm::cast< ::clang::PointerType >
                               (Reference.getCanonicalType());
-    return Ty->getPointeeType()->isCharType();
+    return Ty->getPointeeType()->isCharType()
+        && Reference.getDereferenceIndexLimit() != 0;
   }
   
   virtual LayoutOfArea
@@ -1777,6 +1778,8 @@ doLayout(LayoutHandler const &Handler,
   typedef std::shared_ptr<ValueOfPointer const> ValOfPtr;
   
   auto Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  if (Area.length() == 0)
+    Refs = Expansion.getReferencesOfArea(Area.start(), Area.start() + 1);
   
   // Layout as an unreferenced area? We should only do this for mallocs.
   if (Refs.empty())
@@ -1939,9 +1942,11 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     auto const HeadIt =
       std::find_if(AllNodeInfo.begin(),
                    AllNodeInfo.end(),
-                   [=] (NodeInfo const &NI) { return NI.getArea()
-                                                       .contains(HeadAddress);
-                                            });
+                   [=] (NodeInfo const &NI) {
+                     auto Area = NI.getArea();
+                     return Area.contains(HeadAddress)
+                         || (Area.length() == 0 && Area.start() == HeadAddress);
+                   });
     
     if (HeadIt == AllNodeInfo.end())
       continue;
