@@ -36,11 +36,18 @@ getMappedValueFromMD(llvm::MDNode const *ValueMap,
   
   if (TypeStr.equals("instruction")) {
     assert(ValueMap->getNumOperands() == 3);
+
+    auto FuncVal = ValueMap->getOperand(1u);
+    if (!FuncVal)
+      return nullptr;
+
     auto Func = llvm::dyn_cast<llvm::Function>(ValueMap->getOperand(1u));
     auto Idx = llvm::dyn_cast<llvm::ConstantInt>(ValueMap->getOperand(2u));
-    assert(Func && Idx);
+    assert(Idx);
+
     auto FuncIndex = ModIndex.getFunctionIndex(Func);
     assert(FuncIndex);
+
     auto IdxValue = static_cast<uint32_t>(Idx->getZExtValue());
     return FuncIndex->getInstruction(IdxValue);
   }
