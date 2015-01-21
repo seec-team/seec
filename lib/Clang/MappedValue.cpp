@@ -562,6 +562,121 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// ValueByMemoryForComplex
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents a complex Value in memory.
+///
+class ValueByMemoryForComplex final : public ValueOfComplex {
+  /// \c ASTContext for the \c Type of this value.
+  clang::ASTContext const &AST;
+
+  /// The canonical Type of this value.
+  ::clang::ComplexType const * CanonicalType;
+
+  /// The recorded memory address of the value.
+  stateptr_ty Address;
+
+  /// The size of the value.
+  ::clang::CharUnits Size;
+
+  /// The state of recorded memory.
+  seec::trace::MemoryState const &Memory;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  }
+
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return Size;
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  ValueByMemoryForComplex(::clang::ComplexType const *WithCanonicalType,
+                          stateptr_ty WithAddress,
+                          ::clang::CharUnits WithSize,
+                          seec::trace::ProcessState const &ForProcessState,
+                          clang::ASTContext const &WithAST)
+  : ValueOfComplex(),
+    AST(WithAST),
+    CanonicalType(WithCanonicalType),
+    Address(WithAddress),
+    Size(WithSize),
+    Memory(ForProcessState.getMemory())
+  {}
+
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
+  }
+
+  /// \brief In-memory scalar values never have an associated Expr.
+  /// \return nullptr.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return nullptr; }
+
+  /// \brief In-memory values are always in memory.
+  /// \return true.
+  ///
+  virtual bool isInMemory() const override { return true; }
+
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual stateptr_ty getAddress() const override { return Address; }
+
+  virtual bool isCompletelyInitialized() const override {
+    auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+    return Region.isCompletelyInitialized();
+  }
+
+  virtual bool isPartiallyInitialized() const override {
+    auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+    return Region.isPartiallyInitialized();
+  }
+
+  virtual std::string getValueAsStringShort() const override {
+    if (!isCompletelyInitialized())
+      return std::string("<uninitialized>");
+
+    return getScalarValueAsString(AST, CanonicalType, Address, Memory);
+  }
+
+  virtual std::string getValueAsStringFull() const override {
+    std::string Ret;
+
+    auto const ElemTy =
+      llvm::dyn_cast<clang::BuiltinType>
+                    (CanonicalType->getElementType().getTypePtr());
+
+    auto const ElemSize = AST.getTypeSizeInChars(ElemTy);
+
+    auto const RealAddr = Address;
+    auto const ImagAddr = RealAddr + ElemSize.getQuantity();
+
+    Ret = getScalarValueAsString(AST, ElemTy, RealAddr, Memory);
+    auto const ImagStr = getScalarValueAsString(AST, ElemTy, ImagAddr, Memory);
+
+    if (ImagStr.size() == 0 || ImagStr[0] != '-')
+      Ret.push_back('+');
+    Ret += ImagStr;
+    Ret.push_back('i');
+
+    return Ret;
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // ValueByMemoryForPointer
 //===----------------------------------------------------------------------===//
 
@@ -2228,6 +2343,17 @@ createValue(std::shared_ptr<ValueStore const> Store,
                               ProcessState,
                               ASTContext);
     }
+
+    case ::clang::Type::Complex:
+    {
+      auto const CT = llvm::dyn_cast< ::clang::ComplexType>(CanonicalType);
+      return std::make_shared<ValueByMemoryForComplex>
+                             (CT,
+                              Address,
+                              TypeSize,
+                              ProcessState,
+                              ASTContext);
+    }
     
     case ::clang::Type::Pointer:
     {
@@ -2262,8 +2388,6 @@ createValue(std::shared_ptr<ValueStore const> Store,
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
     case ::clang::Type::CLASS:                                                 \
       return std::shared_ptr<Value const>();
-    
-    SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
     
     // Not needed because we don't support the language(s).
     SEEC_UNHANDLED_TYPE_CLASS(BlockPointer) // ObjC
