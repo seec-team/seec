@@ -256,7 +256,8 @@ void OPTPrinter::printPointer(ValueOfPointer const &PV,
 void OPTPrinter::printValue(Value const &V)
 {
   switch (V.getKind()) {
-    case Value::Kind::Basic:
+    case Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:
       writeJSONStringLiteral(V.getValueAsStringFull(), Out);
       break;
 
@@ -300,7 +301,8 @@ void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V,
   }
 
   switch (V->getKind()) {
-    case Value::Kind::Basic:
+    case Value::Kind::Basic: SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:
       if (Location == ValuePrintLocation::HeapNested)
         writeJSONStringLiteral(V->getValueAsStringFull(), Out);
       else {

@@ -60,6 +60,7 @@ public:
   enum class Kind {
     Basic,
     Scalar,
+    Complex,
     Array,
     Record,
     Pointer
@@ -181,6 +182,24 @@ public:
   /// pre: isCompletelyInitialized() == true
   ///
   bool isZero() const { return isZeroImpl(); }
+};
+
+
+/// \brief Represents a complex runtime value.
+///
+class ValueOfComplex : public Value {
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfComplex()
+  : Value(Value::Kind::Complex)
+  {}
+
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Complex;
+  }
 };
 
 
@@ -465,6 +484,7 @@ bool searchChildren(Value const &V, FnT &&Predicate) {
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:       SEEC_FALLTHROUGH;
     case Value::Kind::Pointer:       break;
   }
   

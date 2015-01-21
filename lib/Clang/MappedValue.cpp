@@ -1856,6 +1856,117 @@ public:
 
 
 //===----------------------------------------------------------------------===//
+// ValueByRuntimeValueForComplex
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents a complex Value in LLVM's virtual registers.
+///
+class ValueByRuntimeValueForComplex final : public ValueOfComplex {
+  /// The Expr that this value is for.
+  ::clang::Expr const *m_Expression;
+
+  /// The FunctionState that this value is for.
+  seec::trace::FunctionState const &m_FunctionState;
+
+  /// The LLVM Value for the real part of this value.
+  llvm::Value const *m_Real;
+
+  /// The LLVM Value for the imaginary part of this value.
+  llvm::Value const *m_Imag;
+
+  /// The size of this value.
+  ::clang::CharUnits m_TypeSize;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return m_TypeSize;
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  ValueByRuntimeValueForComplex(::clang::Expr const *ForExpression,
+                               seec::trace::FunctionState const &ForState,
+                               llvm::Value const *WithRealValue,
+                               llvm::Value const *WithImagValue,
+                               ::clang::CharUnits WithTypeSizeInChars)
+  : ValueOfComplex(),
+    m_Expression(ForExpression),
+    m_FunctionState(ForState),
+    m_Real(WithRealValue),
+    m_Imag(WithImagValue),
+    m_TypeSize(WithTypeSizeInChars)
+  {}
+
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return m_Expression->getType().getCanonicalType().getTypePtr();
+  }
+
+  /// \brief Get the Expr that this Value is for.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return m_Expression; }
+
+  /// \brief Runtime values are never in memory.
+  ///
+  virtual bool isInMemory() const override { return false; }
+
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual stateptr_ty getAddress() const override { return 0; }
+
+  /// \brief Runtime values are always initialized (at the moment).
+  ///
+  virtual bool isCompletelyInitialized() const override { return true; }
+
+  /// \brief Runtime values are never partially initialized (at the moment).
+  ///
+  virtual bool isPartiallyInitialized() const override { return false; }
+
+  /// \brief Get a string describing the value (which may be elided).
+  ///
+  virtual std::string getValueAsStringShort() const override {
+    auto const MaybeReal = getAPFloat(m_FunctionState, m_Real);
+    if (!MaybeReal.assigned<llvm::APFloat>())
+      return "<real part not found>";
+
+    auto const MaybeImag = getAPFloat(m_FunctionState, m_Imag);
+    if (!MaybeImag.assigned<llvm::APFloat>())
+      return "<imaginary part not found>";
+
+    auto const &Real = MaybeReal.get<llvm::APFloat>();
+    auto const &Imag = MaybeImag.get<llvm::APFloat>();
+
+    llvm::SmallString<32> TheString;
+    Real.toString(TheString);
+
+    if (!Imag.isInfinity() && !Imag.isNegative())
+      TheString.push_back('+');
+    Imag.toString(TheString);
+    TheString.push_back('i');
+    return TheString.str().str();
+  }
+
+  /// \brief Get a string describing the value.
+  ///
+  virtual std::string getValueAsStringFull() const override {
+    return getValueAsStringShort();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // ValueByRuntimeValueForPointer
 //===----------------------------------------------------------------------===//
 
@@ -2339,10 +2450,14 @@ getValue(std::shared_ptr<ValueStore const> Store,
         }
       }
       
+      auto const ExprType = Expression->getType();
+      auto const TypeSize = SMap.getAST()
+                                .getASTUnit()
+                                .getASTContext()
+                                .getTypeSizeInChars(ExprType);
+
       // Simple scalar value.
       if (LLVMValues.second == nullptr) {
-        auto const ExprType = Expression->getType();
-        
         if (ExprType->getAs<clang::PointerType>()) {
           // Pointer types use a special implementation.
           return ValueByRuntimeValueForPointer::create(Store,
@@ -2351,16 +2466,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
                                                        FunctionState,
                                                        LLVMValues.first);
         }
+        else if (ExprType->isIncompleteType()) {
+          return std::shared_ptr<Value const>();
+        }
         else {
-          if (ExprType->isIncompleteType())
-            return std::shared_ptr<Value const>();
-          
           // All other types use a single implementation.
-          auto const TypeSize = SMap.getAST()
-                                    .getASTUnit()
-                                    .getASTContext()
-                                    .getTypeSizeInChars(ExprType);
-          
           return std::make_shared<ValueByRuntimeValueForScalar>
                                  (Expression,
                                   FunctionState,
@@ -2368,20 +2478,23 @@ getValue(std::shared_ptr<ValueStore const> Store,
                                   TypeSize);
         }
       }
-      
-      // Complex value.
-      
-      // If the second Value is an Instruction, then ensure that it has been
-      // evaluated and is still valid.
-      if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second)) {
-        if (!FunctionState.hasValue(I)) {
-          return std::shared_ptr<Value const>();
+      else { // Complex value.
+        // If the second Value is an Instruction, then ensure that it has been
+        // evaluated and is still valid.
+        if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second))
+        {
+          if (!FunctionState.hasValue(I)) {
+            return std::shared_ptr<Value const>();
+          }
         }
+
+        return std::make_shared<ValueByRuntimeValueForComplex>
+                              (Expression,
+                                FunctionState,
+                                LLVMValues.first,
+                                LLVMValues.second,
+                                TypeSize);
       }
-      
-      // TODO: Generate complex Value.
-      
-      return std::shared_ptr<Value const>();
     }
     
     case seec::seec_clang::MappedStmt::Type::RValAggregate:
@@ -2466,6 +2579,7 @@ bool isContainedChild(Value const &Child, Value const &Parent)
     
     case Value::Kind::Basic: SEEC_FALLTHROUGH;
     case Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case Value::Kind::Complex: SEEC_FALLTHROUGH;
     case Value::Kind::Pointer:
       return false;
   }

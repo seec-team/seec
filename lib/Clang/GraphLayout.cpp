@@ -331,7 +331,8 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
   
   switch (V.getKind()) {
     case Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case Value::Kind::Scalar:
+    case Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:
     {
       auto const IsInit = V.isCompletelyInitialized();
       
@@ -2350,6 +2351,7 @@ void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
   switch (ForValue.getKind()) {
     case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
     case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Complex: SEEC_FALLTHROUGH;
     case seec::cm::Value::Kind::Pointer:
       if (!ForValue.isCompletelyInitialized())
         Out << " BGCOLOR=\"#AAAAAA\"";

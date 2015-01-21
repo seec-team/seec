@@ -190,7 +190,8 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
   
   switch (State->getKind()) {
     case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::Scalar:
+    case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Complex:
       break;
     
     case seec::cm::Value::Kind::Array:

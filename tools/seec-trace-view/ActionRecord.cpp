@@ -289,6 +289,10 @@ void addAttributesForValue(std::vector<std::unique_ptr<IAttributeReadOnly>> &As,
       As.emplace_back(new_attribute("kind", "Scalar"));
       break;
 
+    case seec::cm::Value::Kind::Complex:
+      As.emplace_back(new_attribute("kind", "Complex"));
+      break;
+
     case seec::cm::Value::Kind::Array:
       As.emplace_back(new_attribute("kind", "Array"));
       break;
