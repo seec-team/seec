@@ -272,9 +272,11 @@ llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
   auto TypeStr = Type->getString();
   
   if (TypeStr.equals("instruction")) {
+    auto FuncVal = ValueMapMD->getOperand(1u);
+    if (!FuncVal)
+      return nullptr;
+
     auto Func = llvm::dyn_cast<llvm::Function>(ValueMapMD->getOperand(1u));
-    assert(Func);
-    
     auto FuncIndex = ModIndex.getFunctionIndex(Func);
     assert(FuncIndex);
     
