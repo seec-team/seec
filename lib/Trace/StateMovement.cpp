@@ -309,7 +309,7 @@ public:
     if (PredicateWasSatisfied)
       return MovementResult::PredicateSatisfied;
     else if (Moved)
-      return MovementResult::ReachedEnd;
+      return MovementResult::ReachedBeginning;
     else
       return MovementResult::Unmoved;
   }
