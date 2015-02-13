@@ -597,6 +597,7 @@ void TraceViewerFrame::OnSaveAs(wxCommandEvent &Event)
 
 void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
   // Clear the current state from this graph viewer.
+  EvaluationTree->clear();
   GraphViewer->clear();
   
   // Deny future access to the state (this will wait for current readers to
@@ -628,6 +629,7 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
 
 void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   // Clear the current state from this graph viewer.
+  EvaluationTree->clear();
   GraphViewer->clear();
   
   // Deny future access to the state (this will wait for current readers to
