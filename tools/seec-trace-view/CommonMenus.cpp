@@ -52,6 +52,47 @@ bool contains(ContainerT const &Container, T const &Item) {
   return std::find(begin(Container), end(Container), Item) != end(Container);
 }
 
+namespace {
+
+char const *getKeyForMovementResult(seec::cm::MovementResult const Result)
+{
+  switch (Result)
+  {
+    case seec::cm::MovementResult::Unmoved:
+      return "Unmoved";
+    case seec::cm::MovementResult::PredicateSatisfied:
+      return "PredicateSatisfied";
+    case seec::cm::MovementResult::ReachedBeginning:
+      return "ReachedBeginning";
+    case seec::cm::MovementResult::ReachedEnd:
+      return "ReachedEnd";
+  }
+
+  llvm_unreachable("unexpected seec::cm::MovementResult");
+}
+
+void describeContextualNavigationResult(wxWindow &Control,
+                                        char const * const NavigationKey,
+                                        seec::cm::MovementResult const Result)
+{
+  auto const Res =
+    seec::Resource("TraceViewer")["ContextualNavigationFailure"]
+                                 [NavigationKey]
+                                 [getKeyForMovementResult(Result)];
+
+  if (U_FAILURE(Res.status())) {
+    wxLogDebug("Couldn't get message for contextual navigation failure with "
+               "Key='%s' and Result='%s'",
+               NavigationKey,
+               getKeyForMovementResult(Result));
+    return;
+  }
+
+  wxMessageBox(seec::towxString(Res));
+}
+
+} // anonymous namespace
+
 std::pair<std::unique_ptr<wxMenu>, wxString>
 createFileMenu(std::vector<wxStandardID> const &AdditionalIDs)
 {
@@ -204,9 +245,14 @@ void addStmtNavigation(wxWindow &Control,
       }
 
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+        [=, &Control]
+        (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
-          return seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
+          auto Ret = seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
+          if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+            describeContextualNavigationResult(Control, "StmtRewind", Ret);
+          }
+          return Ret;
         });
     });
   
@@ -224,9 +270,14 @@ void addStmtNavigation(wxWindow &Control,
       }
 
       raiseMovementEvent(Control, Access,
-        [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+        [=, &Control]
+        (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
-          return seec::cm::moveForwardUntilEvaluated(Thread, Statement);
+          auto Ret = seec::cm::moveForwardUntilEvaluated(Thread, Statement);
+          if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+            describeContextualNavigationResult(Control, "StmtForward", Ret);
+          }
+          return Ret;
         });
     });
 }
@@ -271,8 +322,14 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            return seec::cm::moveToAllocation(State, Area.start());
+          [=, &Control]
+          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+            auto const Ret = seec::cm::moveToAllocation(State, Area.start());
+            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+              describeContextualNavigationResult(Control,
+                                                 "ValueRewindAllocation", Ret);
+            }
+            return Ret;
           });
       });
 
@@ -285,8 +342,15 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+          [=, &Control]
+          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+            auto Ret = seec::cm::moveBackwardUntilMemoryChanges(State, Area);
+            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+              describeContextualNavigationResult(Control,
+                                                 "ValueRewindModification",
+                                                 Ret);
+            }
+            return Ret;
           });
       });
 
@@ -299,8 +363,15 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            return seec::cm::moveForwardUntilMemoryChanges(State, Area);
+          [=, &Control]
+          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+            auto Ret = seec::cm::moveForwardUntilMemoryChanges(State, Area);
+            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+              describeContextualNavigationResult(Control,
+                                                 "ValueForwardModification",
+                                                 Ret);
+            }
+            return Ret;
           });
       });
 
@@ -313,8 +384,15 @@ void addValueNavigation(wxWindow &Control,
                               Value, Recording);
 
         raiseMovementEvent(Control, Access,
-          [=] (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            return seec::cm::moveToDeallocation(State, Area.start());
+          [=, &Control]
+          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+            auto const Ret = seec::cm::moveToDeallocation(State, Area.start());
+            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+              describeContextualNavigationResult(Control,
+                                                 "ValueForwardDeallocation",
+                                                 Ret);
+            }
+            return Ret;
           });
       });
   }

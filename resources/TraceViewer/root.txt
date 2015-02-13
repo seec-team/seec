@@ -583,7 +583,42 @@ root:table {
     ValueForwardModification:string {"Forward to when this value is next changed"}
 
     ValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
-}
+  }
+
+
+  // Describe contextual navigation failure.
+  ContextualNavigationFailure:table {
+    StmtRewind:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a previous evaluation of the statement."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an evaluation of the statement."}
+    }
+    StmtForward:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a previous evaluation of the statement."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an evaluation of the statement."}
+    }
+    ValueRewindAllocation:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding an allocation for this memory."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an allocation for this memory."}
+    }
+    ValueRewindModification:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a modification of this value."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a modification of this value."}
+    }
+    ValueForwardModification:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a modification of this value."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a modification of this value."}
+    }
+    ValueForwardDeallocation:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a deallocation for this memory."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a deallocation for this memory."}
+    }
+  }
 
 
   // StateGraphViewerPanel resources
