@@ -157,7 +157,7 @@ icu::Locale getLocale()
 
   wxString LocaleID;
   if (Config->Read(cConfigKeyForLocaleID, &LocaleID)) {
-    auto const TheLocale = icu::Locale::createFromName(LocaleID);
+    auto const TheLocale = icu::Locale::createFromName(LocaleID.c_str());
     if (!TheLocale.isBogus())
       return TheLocale;
   }
