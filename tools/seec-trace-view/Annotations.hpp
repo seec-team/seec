@@ -181,6 +181,10 @@ public:
   /// \brief Indicates that ClangEPV explanations should be suppressed.
   ///
   bool hasSuppressEPV() const;
+
+  /// \brief Set whether ClangEPV explanations should be suppressed.
+  ///
+  void setSuppressEPV(bool const Value) const;
 };
 
 /// \brief Holds all annotations for an execution trace.

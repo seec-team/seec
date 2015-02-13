@@ -223,6 +223,32 @@ bool AnnotationPoint::hasSuppressEPV() const
                      });
 }
 
+void AnnotationPoint::setSuppressEPV(bool const Value) const
+{
+  auto const Current = hasSuppressEPV();
+  if (Value == Current)
+    return;
+
+  if (Value) {
+    // Add a new suppressEPV node.
+    m_Node->AddChild(new wxXmlNode(wxXML_ELEMENT_NODE, "suppressEPV"));
+  }
+  else {
+    // Remove existing suppressEPV node.
+    auto const It = std::find_if(wxXmlNodeIterator(m_Node->GetChildren()),
+                                 wxXmlNodeIterator(),
+                                 [] (wxXmlNode const &Node) {
+                                   return Node.GetName() == "suppressEPV";
+                                 });
+
+    if (It != wxXmlNodeIterator()) {
+      if (m_Node->RemoveChild(&*It)) {
+        delete &*It;
+      }
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 // AnnotationCollection
 //------------------------------------------------------------------------------

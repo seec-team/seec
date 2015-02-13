@@ -29,6 +29,8 @@ class AnnotationEditorDialog final : public wxDialog
 
   wxStyledTextCtrl *m_Text;
 
+  wxCheckBox *m_SuppressEPV;
+
   void OnButton(wxCommandEvent &Ev);
 
 public:
@@ -49,13 +51,18 @@ void AnnotationEditorDialog::OnButton(wxCommandEvent &Ev)
   }
 
   m_Point.setText(m_Text->GetValue());
+
+  if (m_SuppressEPV)
+    m_Point.setSuppressEPV(m_SuppressEPV->GetValue());
+
   Ev.Skip();
 }
 
 AnnotationEditorDialog::AnnotationEditorDialog(wxWindow *Parent,
                                                AnnotationPoint ForPoint)
 : m_Point(std::move(ForPoint)),
-  m_Text(nullptr)
+  m_Text(nullptr),
+  m_SuppressEPV(nullptr)
 {
   auto const Res = seec::Resource("TraceViewer")["GUIText"]["AnnotationEditor"];
   auto const DlgStyle = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER;
@@ -78,6 +85,13 @@ AnnotationEditorDialog::AnnotationEditorDialog(wxWindow *Parent,
   m_Text->SetWrapMode(wxSTC_WRAP_WORD);
   m_Text->SetValue(m_Point.getText());
 
+  // If this annotation is on an AST node, setup the checkbox for SuppressEPV.
+  if (ForPoint.isForDecl() || ForPoint.isForStmt()) {
+    m_SuppressEPV = new wxCheckBox(this, wxID_ANY,
+                                   seec::towxString(Res["SuppressEPV"]));
+    m_SuppressEPV->SetValue(ForPoint.hasSuppressEPV());
+  }
+
   // Create accept/cancel buttons.
   auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
@@ -94,6 +108,12 @@ AnnotationEditorDialog::AnnotationEditorDialog(wxWindow *Parent,
                                  .Border(BorderDir | wxTOP, BorderSize));
 
   ParentSizer->AddSpacer(InterSettingSpace);
+
+  if (m_SuppressEPV) {
+    ParentSizer->Add(m_SuppressEPV,
+                     wxSizerFlags().Border(BorderDir, BorderSize));
+    ParentSizer->AddSpacer(InterSettingSpace);
+  }
 
   ParentSizer->Add(Buttons,
                    wxSizerFlags().Expand()

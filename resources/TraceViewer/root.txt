@@ -282,6 +282,7 @@ root:table {
       EditStmt:string {"Edit statement annotation"}
       EditDecl:string {"Edit declaration annotation"}
       EditorTitle:string {"Annotation editor"}
+      SuppressEPV:string {"Hide default explanation"}
     }
   }
 
