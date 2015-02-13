@@ -298,6 +298,7 @@ void addValueNavigation(wxWindow &Control,
                         std::shared_ptr<StateAccessToken> &Access,
                         wxMenu &Menu,
                         seec::cm::Value const &Value,
+                        seec::cm::ProcessState const &State,
                         ActionRecord * const Recording)
 {
   UErrorCode Status = U_ZERO_ERROR;
@@ -312,26 +313,29 @@ void addValueNavigation(wxWindow &Control,
   if (Value.isInMemory()) {
     auto const Size = Value.getTypeSizeInChars().getQuantity();
     auto const Area = seec::MemoryArea(Value.getAddress(), Size);
+    auto const IsStatic = State.isStaticallyAllocated(Area.address());
 
-    BindMenuItem(
-      Menu.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "ValueRewindAllocation")),
-      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
-        recordValueNavigation("ContextualNavigation.ValueRewindAllocation",
-                              Value, Recording);
+    if (!IsStatic) {
+      BindMenuItem(
+        Menu.Append(wxID_ANY,
+                    seec::getwxStringExOrEmpty(TextTable,
+                                              "ValueRewindAllocation")),
+        [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+          recordValueNavigation("ContextualNavigation.ValueRewindAllocation",
+                                Value, Recording);
 
-        raiseMovementEvent(Control, Access,
-          [=, &Control]
-          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            auto const Ret = seec::cm::moveToAllocation(State, Area.start());
-            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-              describeContextualNavigationResult(Control,
-                                                 "ValueRewindAllocation", Ret);
-            }
-            return Ret;
-          });
-      });
+          raiseMovementEvent(Control, Access,
+            [=, &Control]
+            (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+              auto const Ret = seec::cm::moveToAllocation(State, Area.start());
+              if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+                describeContextualNavigationResult(Control,
+                                                  "ValueRewindAllocation", Ret);
+              }
+              return Ret;
+            });
+        });
+    }
 
     BindMenuItem(
       Menu.Append(wxID_ANY,
@@ -375,26 +379,29 @@ void addValueNavigation(wxWindow &Control,
           });
       });
 
-    BindMenuItem(
-      Menu.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "ValueForwardDeallocation")),
-      [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
-        recordValueNavigation("ContextualNavigation.ValueForwardDeallocation",
-                              Value, Recording);
+    if (!IsStatic) {
+      BindMenuItem(
+        Menu.Append(wxID_ANY,
+                    seec::getwxStringExOrEmpty(TextTable,
+                                              "ValueForwardDeallocation")),
+        [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
+          recordValueNavigation("ContextualNavigation.ValueForwardDeallocation",
+                                Value, Recording);
 
-        raiseMovementEvent(Control, Access,
-          [=, &Control]
-          (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
-            auto const Ret = seec::cm::moveToDeallocation(State, Area.start());
-            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-              describeContextualNavigationResult(Control,
-                                                 "ValueForwardDeallocation",
-                                                 Ret);
-            }
-            return Ret;
-          });
-      });
+          raiseMovementEvent(Control, Access,
+            [=, &Control]
+            (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+              auto const Ret = seec::cm::moveToDeallocation(State,
+                                                            Area.start());
+              if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
+                describeContextualNavigationResult(Control,
+                                                  "ValueForwardDeallocation",
+                                                  Ret);
+              }
+              return Ret;
+            });
+        });
+    }
   }
 }
 

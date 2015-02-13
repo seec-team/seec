@@ -194,6 +194,10 @@ public:
   decltype(UnmappedStaticAreas) const &getUnmappedStaticAreas() const {
     return UnmappedStaticAreas;
   };
+
+  /// \brief Determine if an address is in statically allocated memory.
+  ///
+  bool isStaticallyAllocated(stateptr_ty const Address) const;
   
   /// @} (Global variables.)
   

@@ -209,6 +209,16 @@ ThreadState const &ProcessState::getThread(std::size_t Index) const {
 
 
 //===----------------------------------------------------------------------===//
+// ProcessState: Global variables
+//===----------------------------------------------------------------------===//
+
+bool ProcessState::isStaticallyAllocated(stateptr_ty const Address) const
+{
+  return UnmappedState->isContainedByGlobalVariable(Address);
+}
+
+
+//===----------------------------------------------------------------------===//
 // ProcessState: Dynamic memory allocations
 //===----------------------------------------------------------------------===//
 

@@ -23,6 +23,7 @@
 
 namespace seec {
   namespace cm {
+    class ProcessState;
     class Value;
   } // namespace cm
 } // namespace seec
@@ -112,6 +113,7 @@ void addValueNavigation(wxWindow &Control,
                         std::shared_ptr<StateAccessToken> &Access,
                         wxMenu &Menu,
                         seec::cm::Value const &Value,
+                        seec::cm::ProcessState const &State,
                         ActionRecord * const Recording);
 
 /// \brief Register handlers to replay contextual navigation menu events.

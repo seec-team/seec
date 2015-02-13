@@ -266,6 +266,10 @@ public:
   ///
   decltype(KnownMemory) const &getKnownMemory() const { return KnownMemory; }
   
+  /// \brief Check if an address is contained in a global variable.
+  ///
+  bool isContainedByGlobalVariable(stateptr_ty const Address) const;
+
   /// \brief Find the allocated range that owns an address.
   ///
   /// This method will search in the following order:

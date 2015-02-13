@@ -784,7 +784,8 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     
     wxMenu CM{};
     
-    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr, Recording);
+    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr, *CurrentProcess,
+                       Recording);
     
     // Allow the user to select the Value's layout engine.
     std::unique_lock<std::mutex> LockLayoutHandler(LayoutHandlerMutex);

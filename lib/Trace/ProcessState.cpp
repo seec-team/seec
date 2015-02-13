@@ -141,6 +141,28 @@ void ProcessState::unremoveMalloc(stateptr_ty const Address)
   PreviousMallocs.pop_back();
 }
 
+bool ProcessState::isContainedByGlobalVariable(stateptr_ty const Address) const
+{
+  // Check global variables.
+  for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
+    auto const Begin = Trace->getGlobalVariableAddress(Index);
+    if (Address < Begin)
+      continue;
+
+    auto const Global = Module->getGlobal(Index);
+    auto const Size = DL.getTypeStoreSize(Global->getType()->getElementType());
+    auto const Permission = Global->isConstant() ? MemoryPermission::ReadOnly
+                                                 : MemoryPermission::ReadWrite;
+
+    auto const Area = MemoryArea(Begin, Size, Permission);
+
+    if (Area.contains(Address))
+      return true;
+  }
+
+  return false;
+}
+
 seec::Maybe<MemoryArea>
 ProcessState::getContainingMemoryArea(stateptr_ty Address) const {
   // Check global variables.

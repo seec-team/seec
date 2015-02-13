@@ -864,7 +864,8 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     addStmtNavigation(*this, CurrentAccess, CM, ThreadIndex, Stmt, Recording);
     if (Value) {
       CM.AppendSeparator();
-      addValueNavigation(*this, CurrentAccess, CM, *Value, Recording);
+      addValueNavigation(*this, CurrentAccess, CM, *Value, *CurrentProcess,
+                         Recording);
     }
     CM.AppendSeparator();
     addStmtAnnotationEdit(CM, this, *Trace, Stmt);
