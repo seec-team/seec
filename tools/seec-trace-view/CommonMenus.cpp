@@ -79,13 +79,32 @@ std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu()
 
 std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu()
 {
-  auto const Title = seec::getwxStringExOrEmpty("TraceViewer",
-                        (char const *[]) {"GUIText", "Menu_Edit"});
+  auto const Res = seec::Resource("TraceViewer")["GUIText"]["MenuEdit"];
+  auto const Title = seec::towxString(Res["Title"]);
 
   auto Menu = seec::makeUnique<wxMenu>();
   Menu->Append(wxID_PREFERENCES);
 
   return std::make_pair(std::move(Menu), Title);
+}
+
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createEditMenu(TraceViewerFrame &TheFrame)
+{
+  auto TheMenu = createEditMenu();
+
+  if (TheMenu.first) {
+    auto const Res = seec::Resource("TraceViewer")["GUIText"]["MenuEdit"];
+
+    BindMenuItem(
+      TheMenu.first->Append(wxID_ANY,
+                            seec::towxString(Res["ThreadTimeAnnotation"])),
+      [&TheFrame] (wxEvent &) -> void {
+        TheFrame.editThreadTimeAnnotation();
+      });
+  }
+
+  return TheMenu;
 }
 
 std::pair<std::unique_ptr<wxMenu>, wxString>

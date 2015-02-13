@@ -31,7 +31,10 @@ root:table {
 
     Menu_File:string {"&File"}
 
-    Menu_Edit:string {"&Edit"}
+    MenuEdit:table {
+      Title:string {"&Edit"}
+      ThreadTimeAnnotation:string {"&Annotation"}
+    }
 
     MenuRecord:table {
       Title:string {"&Recording"}

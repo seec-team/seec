@@ -39,6 +39,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "AnnotationEditor.hpp"
 #include "CommonMenus.hpp"
 #include "ExplanationViewer.hpp"
 #include "LocaleSettings.hpp"
@@ -412,7 +413,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   // Setup the menus.
   auto menuBar = new wxMenuBar();
   append(menuBar, createFileMenu({wxID_SAVEAS}));
-  append(menuBar, createEditMenu());
+  append(menuBar, createEditMenu(*this));
   append(menuBar, createViewMenu());
   append(menuBar, createToolsMenu());
   append(menuBar, createRecordingMenu(*this));
@@ -652,4 +653,14 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   GraphViewer->show(StateAccess, *State, ThreadState);
   SourceViewer->show(StateAccess, *State, ThreadState);
   StreamState->show(StateAccess, *State, ThreadState);
+}
+
+void TraceViewerFrame::editThreadTimeAnnotation()
+{
+  if (StateAccess) {
+    if (auto Access = StateAccess->getAccess()) {
+      auto const &ThreadState = State->getThread(0);
+      showAnnotationEditorDialog(this, *Trace, ThreadState);
+    }
+  }
 }

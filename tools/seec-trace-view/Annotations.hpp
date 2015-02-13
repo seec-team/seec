@@ -231,6 +231,11 @@ public:
   seec::Maybe<AnnotationPoint>
   getPointForThreadState(seec::cm::ThreadState const &);
 
+  /// \brief Get or create the \c AnnotationPoint for a \c ThreadState.
+  ///
+  seec::Maybe<AnnotationPoint>
+  getOrCreatePointForThreadState(seec::cm::ThreadState const &);
+
   /// \brief Get the \c AnnotationPoint for a \c ProcessState (if it exists).
   ///
   seec::Maybe<AnnotationPoint>

@@ -61,6 +61,11 @@ std::pair<std::unique_ptr<wxMenu>, wxString> createFileMenu();
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu();
 
+/// \brief Create the edit menu for a \c TraceViewerFrame.
+///
+std::pair<std::unique_ptr<wxMenu>, wxString>
+createEditMenu(TraceViewerFrame &TheFrame);
+
 /// \brief Create the standard recording menu.
 ///
 std::pair<std::unique_ptr<wxMenu>, wxString>

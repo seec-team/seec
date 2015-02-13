@@ -307,6 +307,25 @@ AnnotationCollection::getPointForThreadState(cm::ThreadState const &State)
 }
 
 Maybe<AnnotationPoint>
+AnnotationCollection::getOrCreatePointForThreadState(cm::ThreadState const &S)
+{
+  auto Existing = getPointForThreadState(S);
+  if (Existing.assigned<AnnotationPoint>())
+    return Existing.move<AnnotationPoint>();
+
+  auto Node = seec::makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, "threadState");
+  Node->AddAttribute("thread", std::to_string(S.getThreadID()));
+
+  Node->AddAttribute("time",
+                     std::to_string(S.getUnmappedState().getThreadTime()));
+
+  wxXmlNode &NodeRef = *Node;
+  m_XmlDocument->GetRoot()->AddChild(Node.release());
+
+  return AnnotationPoint(NodeRef);
+}
+
+Maybe<AnnotationPoint>
 AnnotationCollection::getPointForProcessState(cm::ProcessState const &State)
 {
   auto const StateTime = State.getUnmappedProcessState().getProcessTime();

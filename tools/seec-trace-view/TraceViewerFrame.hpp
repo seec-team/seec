@@ -182,6 +182,8 @@ public:
   ActionReplayFrame *getReplay() { return Replay; }
 
   OpenTrace &getTrace() { return *Trace; }
+
+  void editThreadTimeAnnotation();
   
   /// @} (Accessors.)
 };

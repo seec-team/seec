@@ -19,6 +19,12 @@ namespace clang {
   class Stmt;
 }
 
+namespace seec {
+  namespace cm {
+    class ThreadState;
+  }
+}
+
 class OpenTrace;
 class wxWindow;
 
@@ -33,5 +39,11 @@ void showAnnotationEditorDialog(wxWindow *Parent,
 void showAnnotationEditorDialog(wxWindow *Parent,
                                 OpenTrace &Trace,
                                 clang::Stmt const *Statement);
+
+/// \brief Show a dialog allowing the user to edit a single \c AnnotationPoint.
+///
+void showAnnotationEditorDialog(wxWindow *Parent,
+                                OpenTrace &Trace,
+                                seec::cm::ThreadState const &State);
 
 #endif // SEEC_TRACE_VIEW_ANNOTATIONEDITOR_HPP

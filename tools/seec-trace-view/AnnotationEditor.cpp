@@ -129,3 +129,17 @@ void showAnnotationEditorDialog(wxWindow *Parent,
   if (Dlg)
     Dlg->Show();
 }
+
+void showAnnotationEditorDialog(wxWindow *Parent,
+                                OpenTrace &Trace,
+                                seec::cm::ThreadState const &State)
+{
+  auto &Annotations = Trace.getAnnotations();
+  auto Point = Annotations.getOrCreatePointForThreadState(State);
+  if (!Point.assigned<AnnotationPoint>())
+    return;
+
+  auto Dlg = new AnnotationEditorDialog(Parent, Point.move<AnnotationPoint>());
+  if (Dlg)
+    Dlg->Show();
+}
