@@ -22,6 +22,15 @@ set(WX_TOOLCHAIN "" CACHE STRING "Build of wxWidgets to use.")
 set(MULTIARCH "" CACHE STRING "Architecture to build for multiarch systems.")
 option(SEEC_USER_ACTION_RECORDING "Support user action recording." OFF)
 
+# find MULTIARCH automatically if we can.
+if(MULTIARCH STREQUAL "")
+  if(EXISTS /usr/bin/dpkg-architecture)
+    execute_process(COMMAND /usr/bin/dpkg-architecture -qDEB_HOST_MULTIARCH
+                    OUTPUT_VARIABLE THE_MULTIARCH)
+    string(STRIP ${THE_MULTIARCH} MULTIARCH)
+  endif(EXISTS /usr/bin/dpkg-architecture)
+endif(MULTIARCH STREQUAL "")
+
 #--------------------------------------------------------------------------------
 # find LLVM
 #--------------------------------------------------------------------------------
