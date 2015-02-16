@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_STATEMOVEMENT_HPP
 #define SEEC_TRACE_STATEMOVEMENT_HPP
 
+#include "seec/Trace/StateCommon.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -87,6 +89,12 @@ MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
 MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
                                            StreamState const &Stream,
                                            std::size_t const Position);
+
+/// \brief Move \c State backward until an allocation exists for the given
+///        \c Address.
+///
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address);
 
 /// @} (ProcessState movement)
 

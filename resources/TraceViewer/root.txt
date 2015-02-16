@@ -583,6 +583,8 @@ root:table {
     ValueForwardModification:string {"Forward to when this value is next changed"}
 
     ValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
+
+    ValueOfPointerRewindValid:string {"Rewind to when this pointer's reference was valid"}
   }
 
 

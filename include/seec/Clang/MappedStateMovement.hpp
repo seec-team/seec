@@ -119,6 +119,12 @@ MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
 MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
                                               MemoryArea const &Area);
 
+/// \brief Move \c State backward until an allocation exists for the given
+///        \c Address.
+///
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address);
+
 /// @} (Contextual movement for memory.)
 //===----------------------------------------------------------------------===//
 

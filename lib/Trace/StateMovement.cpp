@@ -438,6 +438,19 @@ MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
   return Moved;
 }
 
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address)
+{
+  auto const Moved = moveBackwardUntil(State,
+    [=] (ProcessState const &P) -> bool {
+      return P.getStream(Address)
+          || P.getDir(Address)
+          || P.getContainingMemoryArea(Address).assigned<seec::MemoryArea>();
+    });
+
+  return Moved;
+}
+
 
 //===------------------------------------------------------------------------===
 // ThreadState movement

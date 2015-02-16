@@ -429,6 +429,17 @@ MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
   return toCMResult(Moved);
 }
 
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address)
+{
+  auto &Unmapped = State.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveBackwardUntilAllocated(Unmapped, Address);
+
+  State.cacheClear();
+
+  return toCMResult(Moved);
+}
+
 // (Contextual movement for memory.)
 //===----------------------------------------------------------------------===//
 

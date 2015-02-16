@@ -75,6 +75,9 @@ void describeContextualNavigationResult(wxWindow &Control,
                                         char const * const NavigationKey,
                                         seec::cm::MovementResult const Result)
 {
+  if (Result == seec::cm::MovementResult::PredicateSatisfied)
+    return;
+
   auto const Res =
     seec::Resource("TraceViewer")["ContextualNavigationFailure"]
                                  [NavigationKey]
@@ -249,9 +252,7 @@ void addStmtNavigation(wxWindow &Control,
         (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
           auto Ret = seec::cm::moveBackwardUntilEvaluated(Thread, Statement);
-          if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-            describeContextualNavigationResult(Control, "StmtRewind", Ret);
-          }
+          describeContextualNavigationResult(Control, "StmtRewind", Ret);
           return Ret;
         });
     });
@@ -274,9 +275,7 @@ void addStmtNavigation(wxWindow &Control,
         (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
           auto &Thread = State.getThread(ThreadIndex);
           auto Ret = seec::cm::moveForwardUntilEvaluated(Thread, Statement);
-          if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-            describeContextualNavigationResult(Control, "StmtForward", Ret);
-          }
+          describeContextualNavigationResult(Control, "StmtForward", Ret);
           return Ret;
         });
     });
@@ -301,12 +300,9 @@ void addValueNavigation(wxWindow &Control,
                         seec::cm::ProcessState const &State,
                         ActionRecord * const Recording)
 {
-  UErrorCode Status = U_ZERO_ERROR;
-  auto const TextTable = seec::getResource("TraceViewer",
-                                           getLocale(),
-                                           Status,
-                                           "ContextualNavigation");
-  if (U_FAILURE(Status))
+  auto const TextTable = seec::Resource("TraceViewer")["ContextualNavigation"];
+
+  if (U_FAILURE(TextTable.status()))
     return;
 
   // Contextual movement based on the Value's memory.
@@ -318,8 +314,7 @@ void addValueNavigation(wxWindow &Control,
     if (!IsStatic) {
       BindMenuItem(
         Menu.Append(wxID_ANY,
-                    seec::getwxStringExOrEmpty(TextTable,
-                                              "ValueRewindAllocation")),
+                    seec::towxString(TextTable["ValueRewindAllocation"])),
         [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
           recordValueNavigation("ContextualNavigation.ValueRewindAllocation",
                                 Value, Recording);
@@ -328,10 +323,9 @@ void addValueNavigation(wxWindow &Control,
             [=, &Control]
             (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
               auto const Ret = seec::cm::moveToAllocation(State, Area.start());
-              if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-                describeContextualNavigationResult(Control,
-                                                  "ValueRewindAllocation", Ret);
-              }
+              describeContextualNavigationResult(Control,
+                                                 "ValueRewindAllocation",
+                                                 Ret);
               return Ret;
             });
         });
@@ -339,8 +333,7 @@ void addValueNavigation(wxWindow &Control,
 
     BindMenuItem(
       Menu.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "ValueRewindModification")),
+                  seec::towxString(TextTable["ValueRewindModification"])),
       [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
         recordValueNavigation("ContextualNavigation.ValueRewindModification",
                               Value, Recording);
@@ -349,19 +342,16 @@ void addValueNavigation(wxWindow &Control,
           [=, &Control]
           (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             auto Ret = seec::cm::moveBackwardUntilMemoryChanges(State, Area);
-            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-              describeContextualNavigationResult(Control,
-                                                 "ValueRewindModification",
-                                                 Ret);
-            }
+            describeContextualNavigationResult(Control,
+                                               "ValueRewindModification",
+                                               Ret);
             return Ret;
           });
       });
 
     BindMenuItem(
       Menu.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "ValueForwardModification")),
+                  seec::towxString(TextTable["ValueForwardModification"])),
       [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
         recordValueNavigation("ContextualNavigation.ValueForwardModification",
                               Value, Recording);
@@ -370,11 +360,9 @@ void addValueNavigation(wxWindow &Control,
           [=, &Control]
           (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
             auto Ret = seec::cm::moveForwardUntilMemoryChanges(State, Area);
-            if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-              describeContextualNavigationResult(Control,
-                                                 "ValueForwardModification",
-                                                 Ret);
-            }
+            describeContextualNavigationResult(Control,
+                                               "ValueForwardModification",
+                                               Ret);
             return Ret;
           });
       });
@@ -382,8 +370,7 @@ void addValueNavigation(wxWindow &Control,
     if (!IsStatic) {
       BindMenuItem(
         Menu.Append(wxID_ANY,
-                    seec::getwxStringExOrEmpty(TextTable,
-                                              "ValueForwardDeallocation")),
+                    seec::towxString(TextTable["ValueForwardDeallocation"])),
         [=, &Control, &Access, &Value] (wxEvent &Ev) -> void {
           recordValueNavigation("ContextualNavigation.ValueForwardDeallocation",
                                 Value, Recording);
@@ -393,14 +380,44 @@ void addValueNavigation(wxWindow &Control,
             (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
               auto const Ret = seec::cm::moveToDeallocation(State,
                                                             Area.start());
-              if (Ret != seec::cm::MovementResult::PredicateSatisfied) {
-                describeContextualNavigationResult(Control,
-                                                  "ValueForwardDeallocation",
-                                                  Ret);
-              }
+              describeContextualNavigationResult(Control,
+                                                 "ValueForwardDeallocation",
+                                                 Ret);
               return Ret;
             });
         });
+    }
+
+    // Pointer values.
+    if (auto const PtrVal = llvm::dyn_cast<seec::cm::ValueOfPointer>(&Value)) {
+      auto const Address = PtrVal->getRawValue();
+      auto const Limit = PtrVal->getDereferenceIndexLimit();
+
+      if (Address && Limit == 0 && !PtrVal->isValidOpaque()) {
+        Menu.AppendSeparator();
+
+        BindMenuItem(
+          Menu.Append(wxID_ANY,
+                      seec::towxString(TextTable["ValueOfPointerRewindValid"])),
+          [=, &Control, &Access] (wxEvent &Ev) -> void {
+            if (Recording) {
+              Recording->recordEventL(
+                "ContextualNavigation.ValueOfPointerRewindValid",
+                make_attribute("raw_value", Address));
+            }
+
+            raiseMovementEvent(Control, Access,
+              [=, &Control]
+              (seec::cm::ProcessState &State) -> seec::cm::MovementResult {
+                auto const Ret = seec::cm::moveBackwardUntilAllocated(State,
+                                                                      Address);
+                describeContextualNavigationResult(Control,
+                                                   "ValueOfPointerRewindValid",
+                                                   Ret);
+                return Ret;
+              });
+          });
+      }
     }
   }
 }
@@ -466,6 +483,15 @@ void registerNavigationReplay(wxWindow &Control,
       raiseMovementEvent(Control, Access,
         [=] (seec::cm::ProcessState &State) {
           return seec::cm::moveToDeallocation(State, Address);
+        });
+    }));
+
+  Replay.RegisterHandler("ContextualNavigation.ValueOfPointerRewindValid",
+                         {{"raw_value"}}, seec::make_function(
+    [&] (std::uintptr_t const RawValue) -> void {
+      raiseMovementEvent(Control, Access,
+        [=] (seec::cm::ProcessState &State) {
+          return seec::cm::moveBackwardUntilAllocated(State, RawValue);
         });
     }));
 
