@@ -95,12 +95,7 @@ add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_V
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader option
- OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
-)
-string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
-string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader option)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)

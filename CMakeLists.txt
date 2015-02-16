@@ -16,7 +16,6 @@ endif()
 # Cached variables.
 #--------------------------------------------------------------------------------
 set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundles (Mac OS X).")
-set(LLVM_INSTALL "/usr/local" CACHE PATH "Root of LLVM install.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
 set(WX_TOOLCHAIN "" CACHE STRING "Build of wxWidgets to use.")
@@ -27,45 +26,18 @@ option(SEEC_USER_ACTION_RECORDING "Support user action recording." OFF)
 # find LLVM
 #--------------------------------------------------------------------------------
 
-# A bit of a sanity check:
-if( NOT EXISTS ${LLVM_INSTALL}/include/llvm )
-  message(FATAL_ERROR "LLVM_INSTALL (${LLVM_INSTALL}) is not a valid LLVM installation.")
-endif()
+find_package(LLVM REQUIRED CONFIG)
 
-# Now set the header paths:
-message("Using LLVM install at ${LLVM_INSTALL}")
-include_directories( BEFORE ${LLVM_INSTALL}/include )
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LLVM_INSTALL}/lib")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${LLVM_INSTALL}/lib")
+set(LLVM_INSTALL "${LLVM_DIR}/../../../")
 
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --cflags
- OUTPUT_VARIABLE LLVM_C_FLAGS
-)
-string(STRIP ${LLVM_C_FLAGS} LLVM_C_FLAGS)
-
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --cxxflags
- OUTPUT_VARIABLE LLVM_CXX_FLAGS
-)
-string(STRIP ${LLVM_CXX_FLAGS} LLVM_CXX_FLAGS)
-
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --system-libs
- COMMAND tr -s " " "\n"
- COMMAND grep "\\-l"
- COMMAND tr -s "\n-" " -"
- OUTPUT_VARIABLE LLVM_LIB_DEPS
-)
-string(STRIP "${LLVM_LIB_DEPS}" LLVM_LIB_DEPS)
-string(REPLACE "-l" "" LLVM_LIB_DEPS "${LLVM_LIB_DEPS}")
-string(REPLACE " " ";" LLVM_LIB_DEPS "${LLVM_LIB_DEPS}")
-
-message("LLVM_LIB_DEPS: ${LLVM_LIB_DEPS}")
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 # Copy Clang resources into our resources build directory:
-file(COPY ${LLVM_INSTALL}/lib/clang DESTINATION ${CMAKE_BINARY_DIR}/resources/)
+file(COPY ${LLVM_DIR}/../../../lib/clang DESTINATION ${CMAKE_BINARY_DIR}/resources/)
 
 INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION lib/seec/resources)
 
@@ -125,8 +97,16 @@ if (SEEC_USER_ACTION_RECORDING)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEEC_USER_ACTION_RECORDING")
 endif (SEEC_USER_ACTION_RECORDING)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99 -DWXINTL_NO_GETTEXT_MACRO")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11 -DWXINTL_NO_GETTEXT_MACRO")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99 -fPIC -DWXINTL_NO_GETTEXT_MACRO")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11 -fPIC -DWXINTL_NO_GETTEXT_MACRO")
+
+if (NOT ${LLVM_ENABLE_RTTI})
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+endif (NOT ${LLVM_ENABLE_RTTI})
+
+if (NOT ${LLVM_ENABLE_EH})
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
+endif (NOT ${LLVM_ENABLE_EH})
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
@@ -212,31 +192,31 @@ endmacro(icu_resources)
 include_directories( BEFORE ${PROJECT_SOURCE_DIR}/include )
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
-  message("Build: Debug")
-  message("C flags: ${CMAKE_C_FLAGS_DEBUG}")
-  message("C++ flags: ${CMAKE_CXX_FLAGS_DEBUG}")
+  message(STATUS "Build: Debug")
+  message(STATUS "C flags: ${CMAKE_C_FLAGS_DEBUG}")
+  message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS_DEBUG}")
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
-  message("Build: Release")
-  message("C flags: ${CMAKE_C_FLAGS_RELEASE}")
-  message("C++ flags: ${CMAKE_CXX_FLAGS_RELEASE}")  
+  message(STATUS "Build: Release")
+  message(STATUS "C flags: ${CMAKE_C_FLAGS_RELEASE}")
+  message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 else ()
-  message("Build: Default")
-  message("C flags: ${CMAKE_C_FLAGS}")
-  message("C++ flags: ${CMAKE_CXX_FLAGS}")
+  message(STATUS "Build: Default")
+  message(STATUS "C flags: ${CMAKE_C_FLAGS}")
+  message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS}")
 endif ()
 
-message("LD flags (bin): ${CMAKE_EXE_LINKER_FLAGS}")
-message("LD flags (so): ${CMAKE_SHARED_LINKER_FLAGS}")
+message(STATUS "LD flags (bin): ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "LD flags (so): ${CMAKE_SHARED_LINKER_FLAGS}")
 
-message("Will build SeeC resources.")
+message(STATUS "Will build SeeC resources.")
 add_subdirectory(resources)
 
-message("Will build SeeC libraries.")
+message(STATUS "Will build SeeC libraries.")
 add_subdirectory(lib)
 
 option(SEEC_BUILD_TOOLS "Build the SeeC tools." ON)
 if(SEEC_BUILD_TOOLS)
-  message("Will build SeeC tools.")
+  message(STATUS "Will build SeeC tools.")
   add_subdirectory(tools)
 endif(SEEC_BUILD_TOOLS)
 

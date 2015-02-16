@@ -4,12 +4,9 @@ add_executable(seec-cc
                SeeCExecuteCompilerInvocation.cpp)
 
 # Determine the LLVM libraries that we need
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets analysis codegen core ipa ipo instcombine instrumentation mc mcparser objcarcopts option scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata
- OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
-)
-string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
-string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} analysis codegen core ipa ipo instcombine instrumentation mc mcparser objcarcopts option scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata)
+
+message(STATUS "seec-cc llvm libs: ${REQ_LLVM_LIBRARIES}")
 
 # Determine ICU libraries that we need
 execute_process(
