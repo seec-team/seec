@@ -441,6 +441,7 @@ void visitChildren(Value const &V, FnT &&Callback) {
     
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:       SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
     case Value::Kind::Pointer:       break;
   }
