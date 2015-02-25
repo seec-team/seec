@@ -107,7 +107,7 @@ if (SEEC_USER_ACTION_RECORDING)
 endif (SEEC_USER_ACTION_RECORDING)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99 -fPIC -DWXINTL_NO_GETTEXT_MACRO")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11 -fPIC -DWXINTL_NO_GETTEXT_MACRO")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11 -fPIC -fvisibility-inlines-hidden -DWXINTL_NO_GETTEXT_MACRO")
 
 if (NOT ${LLVM_ENABLE_RTTI})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
