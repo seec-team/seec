@@ -228,7 +228,7 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
     llvm_unreachable("bundle support not implemented.");
   }
   else {
-    llvm::sys::path::append(ResourcePath, "lib");
+    llvm::sys::path::append(ResourcePath, "lib", "seec");
   }
   
   return ResourcePath.str().str();
