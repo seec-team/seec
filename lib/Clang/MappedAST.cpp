@@ -212,7 +212,7 @@ bool MappedAST::contains(::clang::Stmt const *Stmt) const {
 }
 
 static MappedAST::ASTNodeTy
-getFirstParent(clang::ASTContext::ParentVector const &Parents)
+getFirstParent(ArrayRef<ast_type_traits::DynTypedNode> const &Parents)
 {
   if (!Parents.empty()) {
     auto const &Parent = Parents[0];

@@ -41,7 +41,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::BuiltinType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return A->getKind() == B->getKind();
@@ -54,7 +56,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::ComplexType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return matchImpl(AContext,
@@ -72,7 +76,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::PointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return matchImpl(AContext,
@@ -90,7 +96,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::BlockPointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return matchImpl(AContext,
@@ -111,7 +119,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::ReferenceType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return matchImpl(AContext,
@@ -129,7 +139,9 @@ static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &BHistory,
                       ::clang::MemberPointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return matchImpl(AContext,
@@ -231,7 +243,9 @@ static bool matchType(::clang::ASTContext const &AContext,
     return false; // TODO: Can we decide if this is a match in some cases?
   
   // Check the size and alignment of each type.
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   // Check that the fields in each definition are matching.
@@ -276,7 +290,9 @@ static bool matchType(::clang::ASTContext const &AContext,
     return false; // TODO: Can we decide if this is a match in some cases?
   
   // Check the size and alignment of each type.
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   // Check that the underlying type of the enums matches.

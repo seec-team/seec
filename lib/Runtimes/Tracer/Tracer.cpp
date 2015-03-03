@@ -255,7 +255,8 @@ ProcessEnvironment::ProcessEnvironment()
   };
   
   auto BitcodeBuffer = llvm::MemoryBuffer::getMemBuffer(BitcodeRef, "", false);
-  auto MaybeMod = llvm::parseBitcodeFile(BitcodeBuffer, Context);
+  auto MaybeMod = llvm::parseBitcodeFile(BitcodeBuffer->getMemBufferRef(),
+                                         Context);
 
   if (!MaybeMod) {
     llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n"

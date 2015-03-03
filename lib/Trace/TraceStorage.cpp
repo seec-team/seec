@@ -284,10 +284,11 @@ OutputStreamAllocator::getProcessStream(ProcessSegment Segment,
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
   
-  std::string ErrorInfo;
-  auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
+  std::error_code EC;
+  auto Out = new llvm::raw_fd_ostream(Path.c_str(), EC, Flags);
   if (!Out) {
-    llvm::errs() << "\nSeeC encountered a fatal error: " << ErrorInfo << "\n";
+    llvm::errs() << "\nSeeC encountered a fatal error: "
+                 << EC.message() << "\n";
     exit(EXIT_FAILURE);
   }
 
@@ -308,10 +309,11 @@ OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
   llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
   llvm::sys::path::append(Path, File);
 
-  std::string ErrorInfo;
-  auto Out = new llvm::raw_fd_ostream(Path.c_str(), ErrorInfo, Flags);
+  std::error_code EC;
+  auto Out = new llvm::raw_fd_ostream(Path.c_str(), EC, Flags);
   if (!Out) {
-    llvm::errs() << "\nSeeC encountered a fatal error: " << ErrorInfo << "\n";
+    llvm::errs() << "\nSeeC encountered a fatal error: "
+                 << EC.message() << "\n";
     exit(EXIT_FAILURE);
   }
   
@@ -603,7 +605,7 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
   auto &Buffer = MaybeBuffer.get<std::unique_ptr<llvm::MemoryBuffer>>();
   
   // Parse the Module from the bitcode.
-  auto MaybeMod = llvm::parseBitcodeFile(Buffer.get(), Context);
+  auto MaybeMod = llvm::parseBitcodeFile(Buffer->getMemBufferRef(), Context);
   
   if (!MaybeMod) {
     auto ParseError = MaybeMod.getError().message();

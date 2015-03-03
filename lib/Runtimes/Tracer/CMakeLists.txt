@@ -38,7 +38,7 @@ add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
-llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES bitreader asmparser target jit mcparser support core option)
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES bitreader asmparser target mcparser support core option)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)

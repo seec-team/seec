@@ -21,6 +21,7 @@
 #include <string>
 
 namespace llvm {
+  class Metadata;
   class Value;
 }
 
@@ -54,7 +55,7 @@ public:
   MappedFile(MappedFile &&) = default;
   
   /// \brief Read a MappedFile from metadata.
-  static seec::Maybe<MappedFile> fromMetadata(llvm::Value *);
+  static seec::Maybe<MappedFile> fromMetadata(llvm::Metadata *);
   
   /// @}
   

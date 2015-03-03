@@ -63,7 +63,13 @@ bool EraseFunctionPredicate(Function &F) {
 
 ///
 bool ReplaceCStdLibIntrinsics::doFinalization(Module &M) {
-  M.getFunctionList().erase_if(EraseFunctionPredicate);
+  auto &Funs = M.getFunctionList();
+  for (auto I = Funs.begin(), E = Funs.end(); I != E; ) {
+    auto Next = I; ++Next;
+    if (EraseFunctionPredicate(*I))
+      Funs.erase(I);
+    I = Next;
+  }
   return true;
 }
 

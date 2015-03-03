@@ -35,8 +35,8 @@ using namespace clang;
 using namespace llvm::opt;
 
 static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
-                                                const char **ArgBegin,
-                                                const char **ArgEnd)
+                                                const char * const *ArgBegin,
+                                                const char * const *ArgEnd)
 {
   using namespace seec::seec_clang;
   using namespace clang::frontend;
@@ -124,8 +124,8 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI,
 }
 
 static FrontendAction *CreateFrontendAction(CompilerInstance &CI,
-                                            const char **ArgBegin,
-                                            const char **ArgEnd) {
+                                            const char * const *ArgBegin,
+                                            const char * const *ArgEnd) {
   // Create the underlying action.
   FrontendAction *Act = CreateFrontendBaseAction(CI, ArgBegin, ArgEnd);
   if (!Act)
@@ -174,8 +174,8 @@ static FrontendAction *CreateFrontendAction(CompilerInstance &CI,
 }
 
 bool DoCompilerInvocation(CompilerInstance *Clang,
-                          const char **ArgBegin,
-                          const char **ArgEnd)
+                          const char * const *ArgBegin,
+                          const char * const *ArgEnd)
 {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {

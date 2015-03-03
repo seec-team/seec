@@ -83,7 +83,7 @@ static std::unique_ptr<llvm::Module> LoadFile(char const *ProgramName,
 {
   llvm::SMDiagnostic Err;
   auto Result = std::unique_ptr<llvm::Module>
-                               (llvm::ParseIRFile(Filename, Err, Context));
+                               (llvm::parseIRFile(Filename, Err, Context));
   if (!Result)
     Err.print(ProgramName, llvm::errs());
   return Result;
@@ -129,13 +129,14 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
   }
 
   if (auto const Path = std::getenv("SEEC_WRITE_INSTRUMENTED")) {
-    std::string ErrorInfo;
-    raw_fd_ostream Out(Path, ErrorInfo, llvm::sys::fs::OpenFlags::F_Excl);
+    std::error_code EC;
+    raw_fd_ostream Out(Path, EC, llvm::sys::fs::OpenFlags::F_Excl);
 
-    if (ErrorInfo.empty())
+    if (!EC)
       Out << Module;
     else
-      llvm::errs() << ProgramName << ": couldn't write to " << Path << ".\n";
+      llvm::errs() << ProgramName << ": couldn't write to " << Path << ": "
+                   << EC.message() << "\n";
   }
   
   return true;
@@ -288,9 +289,8 @@ int main(int argc, char **argv)
       if (Module) {
         if (Linker) {
           // Attempt to link this new Module to the existing Module.
-          if (Linker->linkInModule(Module.get(), &ErrorMessage)) {
-            llvm::errs() << argv[0] << ": error linking '" << argv[i] << "': "
-                         << ErrorMessage << "\n";
+          if (Linker->linkInModule(Module.get())) {
+            llvm::errs() << argv[0] << ": error linking '" << argv[i] << "'\n";
             exit(EXIT_FAILURE);
           }
         }

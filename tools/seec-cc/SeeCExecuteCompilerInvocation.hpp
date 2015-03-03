@@ -19,7 +19,7 @@ namespace clang {
 }
 
 bool DoCompilerInvocation(clang::CompilerInstance *Clang,
-                          const char **ArgBegin,
-                          const char **ArgEnd);
+                          const char * const *ArgBegin,
+                          const char * const *ArgEnd);
 
 #endif // SEEC_CC_SEECEXECUTECOMPILERINVOCATION_HPP

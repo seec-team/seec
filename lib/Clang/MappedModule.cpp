@@ -123,7 +123,9 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
     auto Name = llvm::dyn_cast<llvm::MDString>(SourceNode->getOperand(0u));
     assert(Name);
 
-    auto DataNode = SourceNode->getOperand(1u);
+    auto DataNode = llvm::cast<llvm::ConstantAsMetadata>
+                              (SourceNode->getOperand(1u).get())
+                              ->getValue();
     auto Contents = llvm::dyn_cast<llvm::ConstantDataSequential>(DataNode);
 
     if (Contents) {
@@ -387,13 +389,17 @@ MappedModule::MappedModule(
       auto FilePath = getPathFromFileNode(FileNode);
       assert(!FilePath.empty());
       
-      auto const Global = Node->getOperand(1u);
+      auto const Global = llvm::cast<llvm::ConstantAsMetadata>
+                                    (Node->getOperand(1u).get())
+                                    ->getValue();
       if (!Global) {
         DEBUG(dbgs() << "Global is null.\n");
         continue;
       }
 
-      auto const DeclIdx = llvm::dyn_cast<ConstantInt>(Node->getOperand(2u));
+      auto const DeclIdxMD = llvm::cast<llvm::ConstantAsMetadata>
+                                       (Node->getOperand(2u).get());
+      auto const DeclIdx = llvm::dyn_cast<ConstantInt>(DeclIdxMD->getValue());
       assert(DeclIdx);
 
       auto const Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
@@ -545,7 +551,9 @@ MappedModule::getASTAndDecl(llvm::MDNode const *DeclIdentifier) const {
     return std::pair<MappedAST const *, clang::Decl const *>(nullptr, nullptr);
   
   auto AST = getASTForFile(FileMD);
-  auto DeclIdx = llvm::dyn_cast<ConstantInt>(DeclIdentifier->getOperand(1u));
+  auto DeclIdxMD = llvm::cast<llvm::ConstantAsMetadata>
+                             (DeclIdentifier->getOperand(1u).get());
+  auto DeclIdx = llvm::dyn_cast<ConstantInt>(DeclIdxMD->getValue());
   
   if (!AST || !DeclIdx)
     return std::pair<MappedAST const *, clang::Decl const *>(nullptr, nullptr);
@@ -563,7 +571,9 @@ MappedModule::getASTAndStmt(llvm::MDNode const *StmtIdentifier) const {
     return std::pair<MappedAST const *, clang::Stmt const *>(nullptr, nullptr);
   
   auto AST = getASTForFile(FileMD);
-  auto StmtIdx = llvm::dyn_cast<ConstantInt>(StmtIdentifier->getOperand(1u));
+  auto StmtIdxMD = llvm::cast<llvm::ConstantAsMetadata>
+                             (StmtIdentifier->getOperand(1u).get());
+  auto StmtIdx = llvm::dyn_cast<ConstantInt>(StmtIdxMD->getValue());
   
   if (!AST || !StmtIdx)
     return std::pair<MappedAST const *, clang::Stmt const *>(nullptr, nullptr);
@@ -686,7 +696,8 @@ Decl const *MappedModule::getDecl(Instruction const *I) const {
   if (!AST)
     return nullptr;
 
-  ConstantInt const *CI = dyn_cast<ConstantInt>(DeclIdxNode->getOperand(1));
+  auto const IdxMD = cast<ConstantAsMetadata>(DeclIdxNode->getOperand(1).get());
+  auto const CI = dyn_cast<ConstantInt>(IdxMD->getValue());
   if (!CI)
     return nullptr;
 
@@ -707,7 +718,8 @@ MappedModule::getDeclAndMappedAST(llvm::Instruction const *I) const {
   if (!AST)
     return std::make_pair(nullptr, nullptr);
 
-  ConstantInt const *CI = dyn_cast<ConstantInt>(DeclIdxNode->getOperand(1));
+  auto const IdxMD = cast<ConstantAsMetadata>(DeclIdxNode->getOperand(1).get());
+  auto const CI = dyn_cast<ConstantInt>(IdxMD->getValue());
   if (!CI)
     return std::make_pair(nullptr, nullptr);
 
@@ -727,7 +739,8 @@ Stmt const *MappedModule::getStmt(Instruction const *I) const {
   if (!AST)
     return nullptr;
 
-  ConstantInt const *CI = dyn_cast<ConstantInt>(StmtIdxNode->getOperand(1));
+  auto const IdxMD = cast<ConstantAsMetadata>(StmtIdxNode->getOperand(1).get());
+  auto const CI = dyn_cast<ConstantInt>(IdxMD->getValue());
   if (!CI)
     return nullptr;
 
@@ -748,7 +761,8 @@ MappedModule::getStmtAndMappedAST(llvm::Instruction const *I) const {
   if (!AST)
     return std::make_pair(nullptr, nullptr);
 
-  ConstantInt const *CI = dyn_cast<ConstantInt>(StmtIdxNode->getOperand(1));
+  auto const IdxMD = cast<ConstantAsMetadata>(StmtIdxNode->getOperand(1).get());
+  auto const CI = dyn_cast<ConstantInt>(IdxMD->getValue());
   if (!CI)
     return std::make_pair(nullptr, nullptr);
 
@@ -784,9 +798,11 @@ MappedModule::getStmtCompletions(llvm::Instruction const &I,
 
   auto const NumOperands = MD->getNumOperands();
   for (unsigned i = 0; i < NumOperands; ++i) {
-    if (auto const CI = llvm::dyn_cast<llvm::ConstantInt>(MD->getOperand(i))) {
-      if (auto const Stmt = MappedAST.getStmtFromIdx(CI->getZExtValue())) {
-        Out.push_back(Stmt);
+    if (auto const Op = dyn_cast<ConstantAsMetadata>(MD->getOperand(i).get())) {
+      if (auto const CI = dyn_cast<ConstantInt>(Op->getValue())) {
+        if (auto const Stmt = MappedAST.getStmtFromIdx(CI->getZExtValue())) {
+          Out.push_back(Stmt);
+        }
       }
     }
   }
@@ -806,9 +822,11 @@ MappedModule::getDeclCompletions(llvm::Instruction const &I,
 
   auto const NumOperands = MD->getNumOperands();
   for (unsigned i = 0; i < NumOperands; ++i) {
-    if (auto const CI = llvm::dyn_cast<llvm::ConstantInt>(MD->getOperand(i))) {
-      if (auto const Decl = MappedAST.getDeclFromIdx(CI->getZExtValue())) {
-        Out.push_back(Decl);
+    if (auto const Op = dyn_cast<ConstantAsMetadata>(MD->getOperand(i).get())) {
+      if (auto const CI = dyn_cast<ConstantInt>(Op->getValue())) {
+        if (auto const Decl = MappedAST.getDeclFromIdx(CI->getZExtValue())) {
+          Out.push_back(Decl);
+        }
       }
     }
   }

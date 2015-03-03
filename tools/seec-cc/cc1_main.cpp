@@ -67,8 +67,7 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 }
 #endif
 
-int cc1_main(const char **ArgBegin, const char **ArgEnd,
-             const char *Argv0, void *MainAddr) {
+int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   std::unique_ptr<CompilerInstance> Clang(new CompilerInstance());
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
@@ -88,9 +87,8 @@ int cc1_main(const char **ArgBegin, const char **ArgEnd,
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagsBuffer);
-  bool Success;
-  Success = CompilerInvocation::CreateFromArgs(Clang->getInvocation(),
-                                               ArgBegin, ArgEnd, Diags);
+  bool Success = CompilerInvocation::CreateFromArgs(
+      Clang->getInvocation(), Argv.begin(), Argv.end(), Diags);
 
   // Emit debug information, as it assists SeeC.
   Clang->getCodeGenOpts()
@@ -117,7 +115,7 @@ int cc1_main(const char **ArgBegin, const char **ArgEnd,
     return 1;
 
   // Execute the frontend actions.
-  Success = DoCompilerInvocation(Clang.get(), ArgBegin, ArgEnd);
+  Success = DoCompilerInvocation(Clang.get(), Argv.begin(), Argv.end());
 
   // If any timers were active but haven't been destroyed yet, print their
   // results now.  This happens in -disable-free mode.
@@ -132,7 +130,7 @@ int cc1_main(const char **ArgBegin, const char **ArgEnd,
   if (Clang->getFrontendOpts().DisableFree) {
     if (llvm::AreStatisticsEnabled() || Clang->getFrontendOpts().ShowStats)
       llvm::PrintStatistics();
-    BuryPointer(Clang.release());
+    BuryPointer(std::move(Clang));
     return !Success;
   }
 

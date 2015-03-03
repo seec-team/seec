@@ -73,33 +73,18 @@ static std::string FindDotExecutable()
 {
   auto const DotName = "dot";
 
-  auto const LLVMSearch = llvm::sys::FindProgramByName(DotName);
-  if (!LLVMSearch.empty())
-    return LLVMSearch;
+  auto SearchEnvPath = llvm::sys::findProgramByName(DotName);
+  if (SearchEnvPath)
+    return std::move(*SearchEnvPath);
   
-  char const *SearchPaths[] = {
+  llvm::StringRef SearchPaths[] = {
     "/usr/bin",
     "/usr/local/bin"
   };
   
-  llvm::SmallString<256> DotPath;
-  
-  for (auto const SearchPath : seec::range(SearchPaths)) {
-    DotPath = SearchPath;
-    llvm::sys::path::append(DotPath, DotName);
-    
-    if (!llvm::sys::fs::exists(DotPath.str())) {
-      wxLogDebug("dot does not exist at %s", wxString(DotPath.str()));
-      continue;
-    }
-    
-    if (!llvm::sys::fs::can_execute(DotPath.str())) {
-      wxLogDebug("dot not executable at %s", wxString(DotPath.str()));
-      continue;
-    }
-    
-    return DotPath.str().str();
-  }
+  auto SearchManual = llvm::sys::findProgramByName(DotName, SearchPaths);
+  if (SearchManual)
+    return std::move(*SearchManual);
   
   return std::string{};
 }

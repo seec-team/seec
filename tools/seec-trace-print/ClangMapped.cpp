@@ -96,12 +96,11 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
 {
   assert(Filename && "NULL Filename.");
 
-  std::string StreamError;
-  llvm::raw_fd_ostream Stream {Filename, StreamError,
-                               llvm::sys::fs::OpenFlags::F_Text};
+  std::error_code EC;
+  llvm::raw_fd_ostream Stream {Filename, EC, llvm::sys::fs::OpenFlags::F_Text};
 
-  if (!StreamError.empty()) {
-    llvm::errs() << "Error opening dot file: " << StreamError << "\n";
+  if (EC) {
+    llvm::errs() << "Error opening dot file: " << EC.message() << "\n";
     return;
   }
 

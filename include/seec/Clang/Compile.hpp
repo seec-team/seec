@@ -60,8 +60,8 @@ namespace seec {
 namespace seec_clang {
 
 class SeeCCodeGenAction : public clang::CodeGenAction {
-  char const **ArgBegin;
-  char const **ArgEnd;
+  char const * const *ArgBegin;
+  char const * const *ArgEnd;
   
   clang::CompilerInstance *Compiler;
   std::string File;
@@ -73,8 +73,8 @@ class SeeCCodeGenAction : public clang::CodeGenAction {
   llvm::DenseMap<clang::Stmt const *, uint64_t> StmtMap;
 
 public:
-  SeeCCodeGenAction(const char **WithArgBegin,
-                    const char **WithArgEnd,
+  SeeCCodeGenAction(const char * const *WithArgBegin,
+                    const char * const *WithArgEnd,
                     unsigned _Action,
                     llvm::LLVMContext *_VMContext = 0)
   : CodeGenAction(_Action, _VMContext),
@@ -88,7 +88,7 @@ public:
   {}
 
   virtual
-  clang::ASTConsumer *
+  std::unique_ptr<clang::ASTConsumer>
   CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile);
   
   virtual void ModuleComplete(llvm::Module *Mod);
@@ -111,48 +111,48 @@ public:
 class SeeCEmitAssemblyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitAssemblyAction(const char **ArgBegin,
-                         const char **ArgEnd,
+  SeeCEmitAssemblyAction(const char * const *ArgBegin,
+                         const char * const *ArgEnd,
                          llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitBCAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitBCAction(const char **ArgBegin,
-                   const char **ArgEnd,
+  SeeCEmitBCAction(const char * const *ArgBegin,
+                   const char * const *ArgEnd,
                    llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMAction(const char **ArgBegin,
-                     const char **ArgEnd,
+  SeeCEmitLLVMAction(const char * const *ArgBegin,
+                     const char * const *ArgEnd,
                      llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMOnlyAction(const char **ArgBegin,
-                         const char **ArgEnd,
+  SeeCEmitLLVMOnlyAction(const char * const *ArgBegin,
+                         const char * const *ArgEnd,
                          llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitCodeGenOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitCodeGenOnlyAction(const char **ArgBegin,
-                            const char **ArgEnd,
+  SeeCEmitCodeGenOnlyAction(const char * const *ArgBegin,
+                            const char * const *ArgEnd,
                             llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitObjAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitObjAction(const char **ArgBegin,
-                    const char **ArgEnd,
+  SeeCEmitObjAction(const char * const *ArgBegin,
+                    const char * const *ArgEnd,
                     llvm::LLVMContext *_VMContext = 0);
 };
 
@@ -168,9 +168,9 @@ class SeeCASTConsumer
 
 public:
   SeeCASTConsumer(SeeCCodeGenAction &Action,
-                  clang::ASTConsumer *Child)
+                  std::unique_ptr<clang::ASTConsumer> Child)
   : Action(Action),
-    Child(Child),
+    Child(std::move(Child)),
     VATypes()
   {}
 
@@ -255,8 +255,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 ///
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      clang::CompilerInstance &Compiler,
-                                     const char **ArgBegin,
-                                     const char **ArgEnd);
+                                     const char * const *ArgBegin,
+                                     const char * const *ArgEnd);
 
 } // namespace clang (in seec)
 
