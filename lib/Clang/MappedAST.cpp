@@ -52,6 +52,12 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   
   /// All Stmts in visitation order.
   std::vector<Stmt const *> Stmts;
+
+  /// All Decls seen.
+  llvm::DenseSet<Decl const *> DeclsSeen;
+
+  /// All Stmts seen.
+  llvm::DenseSet<Stmt const *> StmtsSeen;
   
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> DeclsReferenced;
@@ -67,6 +73,8 @@ public:
     SourceManager(ForAST.getSourceManager()),
     Decls(),
     Stmts(),
+    DeclsSeen(),
+    StmtsSeen(),
     DeclsReferenced(),
     VATypes()
   {}
@@ -112,14 +120,16 @@ public:
   /// \brief Visit a Decl.
   ///
   bool VisitDecl(::clang::Decl *D) {
-    Decls.push_back(D);
+    if (DeclsSeen.insert(D).second)
+      Decls.push_back(D);
     return true;
   }
   
   /// \brief Visit a Stmt.
   ///
   bool VisitStmt(::clang::Stmt *S) {
-    Stmts.push_back(S);
+    if (StmtsSeen.insert(S).second)
+      Stmts.push_back(S);
     return true;
   }
   
@@ -143,6 +153,19 @@ public:
     return true;
   }
   
+  /// \brief Print Decl kinds and Stmt classes in visitation order.
+  ///
+  void printInVisitationOrder() const
+  {
+    llvm::errs() << "decls:\n";
+    for (auto const D : Decls)
+      llvm::errs() << "  " << D->getDeclKindName() << "\n";
+
+    llvm::errs() << "stmts:\n";
+    for (auto const S : Stmts)
+      llvm::errs() << "  " << S->getStmtClassName() << "\n";
+  }
+
   /// @}
 };
 
@@ -175,6 +198,10 @@ MappedAST::FromASTUnit(MappedCompileInfo const &FromCompileInfo,
 
   Mapper.TraverseDecl(AST->getASTContext().getTranslationUnitDecl());
   Mapper.revisitVariableArrayTypeSizeExprs();
+
+#if defined(SEEC_DEBUG_NODE_MAPPING)
+  Mapper.printInVisitationOrder();
+#endif
 
   auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(FromCompileInfo,
                                                          AST,

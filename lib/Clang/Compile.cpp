@@ -476,6 +476,28 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto &DeclMap = Action.getDeclMap();
   auto &StmtMap = Action.getStmtMap();
 
+#if defined(SEEC_DEBUG_NODE_MAPPING)
+  {
+    std::vector< ::clang::Decl const *> Decls;
+    Decls.resize(DeclMap.size());
+    for (auto const &Pair : DeclMap)
+      Decls[Pair.second] = Pair.first;
+
+    std::vector< ::clang::Stmt const *> Stmts;
+    Stmts.resize(StmtMap.size());
+    for (auto const &Pair : StmtMap)
+      Stmts[Pair.second] = Pair.first;
+
+    llvm::errs() << "decls:\n";
+    for (auto const D : Decls)
+      llvm::errs() << "  " << D->getDeclKindName() << "\n";
+
+    llvm::errs() << "stmts:\n";
+    for (auto const S : Stmts)
+      llvm::errs() << "  " << S->getStmtClassName() << "\n";
+  }
+#endif
+
   llvm::SmallString<256> CurrentDirectory;
   auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
   assert(!Err);
