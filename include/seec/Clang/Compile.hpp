@@ -89,9 +89,10 @@ public:
 
   virtual
   std::unique_ptr<clang::ASTConsumer>
-  CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile);
+  CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile)
+  override;
   
-  virtual void ModuleComplete(llvm::Module *Mod);
+  virtual void ModuleComplete(llvm::Module *Mod) override;
 
   void addDeclMap(clang::Decl const *D) {
     if (!DeclMap.count(D))
@@ -174,52 +175,92 @@ public:
     VATypes()
   {}
 
-  virtual ~SeeCASTConsumer();
+  virtual ~SeeCASTConsumer() override;
 
   /// \name ASTConsumer Methods
   /// \{
-  virtual void Initialize(clang::ASTContext &Context) {
+  virtual void Initialize(clang::ASTContext &Context) override {
     Child->Initialize(Context);
   }
 
-  virtual bool HandleTopLevelDecl(clang::DeclGroupRef D);
+  virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override;
 
-  virtual void HandleInterestingDecl(clang::DeclGroupRef D) {
+  virtual void HandleInlineMethodDefinition(clang::CXXMethodDecl *D) override {
+    Child->HandleInlineMethodDefinition(D);
+  }
+
+  virtual void HandleInterestingDecl(clang::DeclGroupRef D) override {
     HandleTopLevelDecl(D);
   }
 
-  virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
+  virtual void HandleTranslationUnit(clang::ASTContext &Ctx) override;
 
-  virtual void HandleTagDeclDefinition(clang::TagDecl *D) {
+  virtual void HandleTagDeclDefinition(clang::TagDecl *D) override {
     Child->HandleTagDeclDefinition(D);
   }
 
-  virtual void HandleCXXImplicitFunctionInstantiation(clang::FunctionDecl *D){
+  virtual void HandleTagDeclRequiredDefinition(clang::TagDecl const *D) override
+  {
+    Child->HandleTagDeclRequiredDefinition(D);
+  }
+
+  virtual void HandleCXXImplicitFunctionInstantiation(clang::FunctionDecl *D)
+  override
+  {
     Child->HandleCXXImplicitFunctionInstantiation(D);
   }
 
-  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef D) {
+  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef D) override
+  {
     Child->HandleTopLevelDeclInObjCContainer(D);
+  }
+
+  virtual void HandleImplicitImportDecl(clang::ImportDecl *D) override {
+    Child->HandleImplicitImportDecl(D);
+  }
+
+  virtual void HandleLinkerOptionPragma(llvm::StringRef Opts) override {
+    Child->HandleLinkerOptionPragma(Opts);
+  }
+
+  virtual void HandleDetectMismatch(llvm::StringRef Name,
+                                    llvm::StringRef Value) override {
+    Child->HandleDetectMismatch(Name, Value);
+  }
+
+  virtual void HandleDependentLibrary(llvm::StringRef Lib) override {
+    Child->HandleDependentLibrary(Lib);
   }
 
   virtual void CompleteTentativeDefinition(clang::VarDecl *D) {
     Child->CompleteTentativeDefinition(D);
   }
 
+  virtual void HandleCXXStaticMemberVarInstantiation(clang::VarDecl *D) override
+  {
+    Child->HandleCXXStaticMemberVarInstantiation(D);
+  }
+
   virtual void HandleVTable(clang::CXXRecordDecl *D, bool DefinitionRequired){
     Child->HandleVTable(D, DefinitionRequired);
   }
 
-  virtual clang::ASTMutationListener *GetASTMutationListener() {
+  virtual clang::ASTMutationListener *GetASTMutationListener() override {
     return Child->GetASTMutationListener();
   }
 
-  virtual clang::ASTDeserializationListener *GetASTDeserializationListener() {
+  virtual clang::ASTDeserializationListener *GetASTDeserializationListener()
+  override
+  {
     return Child->GetASTDeserializationListener();
   }
 
-  virtual void PrintStats() {
+  virtual void PrintStats() override {
     Child->PrintStats();
+  }
+
+  virtual bool shouldSkipFunctionBody(clang::Decl *D) override {
+    return Child->shouldSkipFunctionBody(D);
   }
 
   /// \}
