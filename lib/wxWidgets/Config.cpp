@@ -66,7 +66,27 @@ bool setupCommonConfig()
   // don't do this ourselves then the default places the config file in the same
   // path as the directory would take, causing an unfortunate collision.
   wxFileName ConfigPath;
+  
+#if defined(SEEC_CSSE_LAB_OSX)
+  // Special override for the CSSE lab machines.
+  ConfigPath.AssignDir("/Users");
+  ConfigPath.AppendDir(wxGetUserId());
+  ConfigPath.AppendDir("linuxNetworkHome");
+  ConfigPath.AppendDir("linuxHome");
+
+  if (ConfigPath.DirExists()) {
+    ConfigPath.AppendDir(".seec-view");
+    if (!ConfigPath.DirExists()) {
+      ConfigPath.Mkdir();
+    }
+  }
+  
+  if (!ConfigPath.DirExists()) {
+    ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
+  }
+#else
   ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
+#endif
 
   if (!wxDirExists(ConfigPath.GetFullPath())) {
     if (!wxMkdir(ConfigPath.GetFullPath())) {
