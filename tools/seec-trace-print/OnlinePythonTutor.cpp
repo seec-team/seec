@@ -107,7 +107,7 @@ class OPTPrinter {
   void printHeapValue(std::shared_ptr<Value const> const &V,
                       ValuePrintLocation Location);
 
-  void printGlobal(GlobalVariable const &GV, std::string &NameOut);
+  std::string printGlobal(GlobalVariable const &GV);
 
   void printGlobals();
 
@@ -351,9 +351,9 @@ void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V,
   }
 }
 
-void OPTPrinter::printGlobal(GlobalVariable const &GV, std::string &NameOut)
+std::string OPTPrinter::printGlobal(GlobalVariable const &GV)
 {
-  NameOut = GV.getClangValueDecl()->getNameAsString();
+  std::string NameOut = GV.getClangValueDecl()->getNameAsString();
 
   Out << Indent.getString();
   writeJSONStringLiteral(NameOut, Out);
@@ -363,6 +363,8 @@ void OPTPrinter::printGlobal(GlobalVariable const &GV, std::string &NameOut)
     printValue(*V);
   else
     Out << "\"<no value>\"";
+
+  return NameOut;
 }
 
 void OPTPrinter::printGlobals()
@@ -384,8 +386,7 @@ void OPTPrinter::printGlobals()
     else
       PreviousPrinted = true;
 
-    OrderedNames.emplace_back();
-    printGlobal(*GV, OrderedNames.back());
+    OrderedNames.emplace_back(printGlobal(*GV));
   }
 
   Indent.unindent();
@@ -630,15 +631,15 @@ void OPTPrinter::printHeap()
   for (auto const &Area : Process.getUnmappedStaticAreas()) {
     if (Printed)
       Out << ",\n";
-    if (printArea(Area, Expansion))
-      Printed = true;
+    Printed = printArea(Area, Expansion);
   }
 
   for (auto const &Malloc : Process.getDynamicMemoryAllocations()) {
     if (Printed)
       Out << ",\n";
-    if (printArea(MemoryArea(Malloc.getAddress(), Malloc.getSize()), Expansion))
-      Printed = true;
+    Printed = printArea(MemoryArea(Malloc.getAddress(),
+                                   Malloc.getSize()),
+                                   Expansion);
   }
 
   for (auto const &Known : Process.getUnmappedProcessState().getKnownMemory()) {
@@ -647,8 +648,7 @@ void OPTPrinter::printHeap()
 
     auto const Size = (Known.End - Known.Begin) + 1;
 
-    if (printArea(MemoryArea(Known.Begin, Size), Expansion))
-      Printed = true;
+    Printed = printArea(MemoryArea(Known.Begin, Size), Expansion);
   }
 
   Out << "\n";
