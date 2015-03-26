@@ -446,6 +446,9 @@ class SourceFilePanel : public wxPanel {
   
   /// Temporary indicator for the node that the mouse is hovering over.
   decltype(TemporaryIndicators)::iterator HoverIndicator;
+
+  /// Temporary indicator for the node that the replay is hovering over.
+  decltype(TemporaryIndicators)::iterator ReplayIndicator;
   
   /// Timer to determine how long the mouse has hovered over the current node.
   wxTimer HoverTimer;
@@ -768,6 +771,7 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
+    ReplayIndicator(TemporaryIndicators.end()),
     HoverTimer(),
     ClickUnmoved(false)
   {}
@@ -998,6 +1002,7 @@ public:
     
     Text->SetIndicatorCurrent(IndicatorInt);
     Text->IndicatorFillRange(Token->Start, Token->Length);
+    Text->Refresh();
     
     return Token;
   }
@@ -1006,9 +1011,17 @@ public:
   ///
   void temporaryIndicatorRemove(temporary_indicator_token Token)
   {
+    if (Token == end(TemporaryIndicators))
+      return;
+
     Text->SetIndicatorCurrent(Token->Indicator);
     Text->IndicatorClearRange(Token->Start, Token->Length);
     
+    if (HoverIndicator == Token)
+      HoverIndicator = end(TemporaryIndicators);
+    if (ReplayIndicator == Token)
+      ReplayIndicator = end(TemporaryIndicators);
+
     TemporaryIndicators.erase(Token);
   }
   
@@ -1053,6 +1066,17 @@ public:
   }
   
   /// @} (Display control)
+
+  /// \brief Replay a hover indicator over the given range.
+  ///
+  void replayHover(SourceFileRange const &Range)
+  {
+    if (ReplayIndicator != end(TemporaryIndicators))
+      temporaryIndicatorRemove(ReplayIndicator);
+    ReplayIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                            Range.Start, Range.End);
+    scrollToRange(Range);
+  }
 };
 
 void SourceFilePanel::clearHoverNode() {
@@ -1214,10 +1238,7 @@ void SourceViewerPanel::ReplayMouseOverDecl(clang::Decl const *D)
   if (PageIt == Pages.end())
     return;
 
-  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
-                                        Range.Start,
-                                        Range.End);
-  PageIt->second->scrollToRange(Range);
+  PageIt->second->replayHover(Range);
 }
 
 void SourceViewerPanel::ReplayMouseOverStmt(clang::Stmt const *S)
@@ -1243,10 +1264,7 @@ void SourceViewerPanel::ReplayMouseOverStmt(clang::Stmt const *S)
   if (PageIt == Pages.end())
     return;
 
-  PageIt->second->temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
-                                        Range.Start,
-                                        Range.End);
-  PageIt->second->scrollToRange(Range);
+  PageIt->second->replayHover(Range);
 }
 
 void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
