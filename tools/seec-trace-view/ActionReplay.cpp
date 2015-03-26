@@ -80,6 +80,7 @@ public:
     
     AppendColumn("Time",    wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
     AppendColumn("Handler", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
+    AppendColumn("Attributes", wxLIST_FORMAT_LEFT, wxLIST_AUTOSIZE_USEHEADER);
     
     return true;
   }
@@ -94,6 +95,16 @@ public:
     switch (Column) {
       case 0:  return EventIt->GetAttribute("time");
       case 1:  return EventIt->GetAttribute("handler");
+      case 2:
+      {
+        wxString RetVal;
+        for (auto Att = EventIt->GetAttributes(); Att; Att = Att->GetNext()) {
+          auto const &Name = Att->GetName();
+          if (Name != "time" && Name != "handler")
+            RetVal << Name << "=" << Att->GetValue() << ", ";
+        }
+        return RetVal;
+      }
       default: return wxEmptyString;
     }
   }
