@@ -370,7 +370,11 @@ StateEvaluationTreePanel::
 ReplayNodeMouseOver(decltype(Nodes)::difference_type const NodeIndex,
                     clang::Stmt const *Stmt)
 {
-  ReplayHoverNodeIt = std::next(Nodes.cbegin(), NodeIndex);
+  ReplayHoverNodeIt = std::find_if(Nodes.cbegin(), Nodes.cend(),
+                                   [Stmt] (NodeInfo const &N) -> bool {
+                                     return N.Statement == Stmt;
+                                   });
+
   if (ReplayHoverNodeIt != Nodes.end())
     centreOnNode(*ReplayHoverNodeIt);
   redraw();
@@ -390,7 +394,11 @@ StateEvaluationTreePanel::
 ReplayNodeHover(decltype(Nodes)::difference_type const NodeIndex,
                 clang::Stmt const *Stmt)
 {
-  auto const NodeIt = std::next(Nodes.cbegin(), NodeIndex);
+  auto const NodeIt = std::find_if(Nodes.cbegin(), Nodes.cend(),
+                                   [Stmt] (NodeInfo const &N) -> bool {
+                                     return N.Statement == Stmt;
+                                   });
+
   if (NodeIt != Nodes.end()) {
     centreOnNode(*NodeIt);
     showHoverTooltip(*NodeIt);
