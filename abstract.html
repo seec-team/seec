@@ -48,8 +48,10 @@ consuming inordinate amounts of time and preventing students' progress on course
 Program visualization and debugging tools designed specifically for novice programmers have been shown to effectively assist students with both debugging and constructing knowledge of programming language semantics.
 Few such tools support the C programming language,
 despite it being widely considered a difficult language for novices.
-Many of the tools supporting C are unavailable,
-or have been unmaintained for so long that they are unusable.
+Of the tools supporting C described in the literature,
+most were either never released,
+are no longer available,
+or have been unmaintained for so long that they are now unusable.
 </p>
 
 <p class="abstract">
@@ -64,14 +66,14 @@ and that SeeC's implementation is sustainable.
 </p>
 
 <p class="abstract">
-SeeC's design follows the literature on both programming language tools and Computer Science education.
+SeeC's design draws upon the literature on both programming language tools and Computer Science education.
 It combines advanced debugging techniques,
 such as trace-based debugging and runtime error detection,
 with program visualization features which have been shown to effectively assist novice programmers with program comprehension and debugging tasks.
 As far as we are aware,
 SeeC contains the first implementation of a dynamic evaluation tree visualization,
 and the first execution tracing system targeting LLVM's Intermediate Representation.
-The overall system can be used as an error detector,
+SeeC can be used as a traditional error detector,
 a generic program visualization system,
 a trace-based debugger,
 a tutorial environment,
