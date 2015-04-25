@@ -157,6 +157,14 @@ SEEC_FUNCTION_HANDLED_FL(casinh)
 SEEC_FUNCTION_HANDLED_FL(cacosh)
 SEEC_FUNCTION_HANDLED_FL(catanh)
 
+// stdlib.h
+SEEC_FUNCTION_HANDLED(abs)
+SEEC_FUNCTION_HANDLED(labs)
+SEEC_FUNCTION_HANDLED(llabs)
+SEEC_FUNCTION_HANDLED(div)
+SEEC_FUNCTION_HANDLED(ldiv)
+SEEC_FUNCTION_HANDLED(lldiv)
+
 #undef SEEC_FUNCTION_HANDLED_FL
 //===----------------------------------------------------------------------===//
 
