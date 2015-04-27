@@ -370,7 +370,7 @@ root:table {
       "Superfluous arguments passed to function. Expected "
         "{expected, plural, =0 {no variadic arguments} =1 {one variadic argument} other {{expected} variadic arguments}}"
         ", but received "
-        "{received, plural, =0 {none.} =1 {only one.} other {only {received}.}}"
+        "{received, plural, =0 {none.} =1 {one.} other {{received}.}}"
       "\n$[runerr:VarArgsSuperfluous]"
     }
 
