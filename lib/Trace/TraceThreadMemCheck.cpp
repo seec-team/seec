@@ -509,9 +509,6 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   bool IsNullTerminated = false;
   unsigned Element;
   
-  // This should be guaranteed by the success of memoryExitsForParameter().
-  assert(MaxElements > 0);
-  
   for (Element = 0; Element < MaxElements; ++Element) {
     // TODO: Add temporary note for InfoElementOfArray!
     auto const ElementAddress = ArrayAddress + (Element * sizeof(char *));
