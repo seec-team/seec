@@ -146,6 +146,7 @@ SEEC_INTERCEPTED_FUNCTION(strtok)
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(time)
+SEEC_INTERCEPTED_FUNCTION(timespec_get)
 SEEC_INTERCEPTED_FUNCTION(asctime)
 SEEC_INTERCEPTED_FUNCTION(ctime)
 SEEC_INTERCEPTED_FUNCTION(strftime)

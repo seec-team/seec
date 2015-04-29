@@ -165,6 +165,10 @@ SEEC_FUNCTION_HANDLED(div)
 SEEC_FUNCTION_HANDLED(ldiv)
 SEEC_FUNCTION_HANDLED(lldiv)
 
+// time.h
+SEEC_FUNCTION_HANDLED(clock)
+SEEC_FUNCTION_HANDLED(difftime)
+
 #undef SEEC_FUNCTION_HANDLED_FL
 //===----------------------------------------------------------------------===//
 
