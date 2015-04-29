@@ -990,6 +990,28 @@ public:
   }
 };
 
+class ResultStateRecorderForFputc {
+  char Character;
+
+  FILE * const Stream;
+
+public:
+  ResultStateRecorderForFputc(char WithCharacter, FILE *WithStream)
+  : Character(WithCharacter),
+    Stream(WithStream)
+  {}
+
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              int const Result)
+  {
+    if (Result == EOF)
+      return;
+
+    ThreadListener.recordStreamWrite(Stream, llvm::ArrayRef<char>(Character));
+  }
+};
+
 
 extern "C" {
 
@@ -1038,6 +1060,47 @@ SEEC_MANGLE_FUNCTION(fwrite)
                                          .setForCopy(true),
        size,
        count,
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// getc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(getc)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getc}
+      (fgetc,
+       [](int Result){ return Result != EOF; },
+       seec::ResultStateRecorderForNoOp{},
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// putc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(putc)
+(int ch, FILE *stream)
+{
+  char buffer[1] = {(char)ch};
+
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::putc}
+      (fputc,
+       [](int Result){ return Result != EOF; },
+       ResultStateRecorderForFputc{ch, stream},
+       ch,
        seec::wrapInputFILE(stream));
 }
 
