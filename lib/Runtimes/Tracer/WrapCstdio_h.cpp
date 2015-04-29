@@ -1090,8 +1090,6 @@ int
 SEEC_MANGLE_FUNCTION(putc)
 (int ch, FILE *stream)
 {
-  char buffer[1] = {(char)ch};
-
   // Use the SimpleWrapper mechanism.
   return
     seec::SimpleWrapper
@@ -1099,7 +1097,7 @@ SEEC_MANGLE_FUNCTION(putc)
       {seec::runtime_errors::format_selects::CStdFunction::putc}
       (fputc,
        [](int Result){ return Result != EOF; },
-       ResultStateRecorderForFputc{ch, stream},
+       ResultStateRecorderForFputc{(char)ch, stream},
        ch,
        seec::wrapInputFILE(stream));
 }
@@ -1962,6 +1960,54 @@ SEEC_MANGLE_FUNCTION(sprintf)
   Listener.recordUntypedState(Buffer, NumWritten + 1);
   
   return NumWritten;
+}
+
+
+//===----------------------------------------------------------------------===//
+// tmpfile
+//===----------------------------------------------------------------------===//
+
+FILE *
+SEEC_MANGLE_FUNCTION(tmpfile)
+()
+{
+  using namespace seec::trace;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Lock global memory.
+  Listener.acquireGlobalMemoryWriteLock();
+  Listener.acquireStreamsLock();
+
+  auto Result = tmpfile();
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
+
+  // Record the result.
+  Listener.notifyValue(InstructionIndex, Instruction, Result);
+
+  if (Result) {
+    // TODO: internationalize?
+    std::string FakeFilename = "(temporary file)";
+    Listener.recordStreamOpen(Result, FakeFilename.c_str(), "w+b");
+    Listener.getProcessListener().incrementRegionTemporalID(ResultInt);
+  }
+  else{
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
+  }
+
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultInt));
+
+  return Result;
 }
 
 
