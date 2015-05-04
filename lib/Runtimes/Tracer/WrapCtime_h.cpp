@@ -55,6 +55,9 @@ int
 SEEC_MANGLE_FUNCTION(timespec_get)
 (struct timespec *ts, int base)
 {
+  extern int timespec_get(struct timespec *ts, int base) __attribute__((weak));
+  assert(timespec_get);
+
   // Use the SimpleWrapper mechanism.
   return
     seec::SimpleWrapper
