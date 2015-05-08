@@ -17,6 +17,7 @@
 #include <wx/config.h>
 #include <wx/dialog.h>
 #include <wx/dir.h>
+#include <wx/filename.h>
 #include <wx/stattext.h>
 #include <wx/stdpaths.h>
 
