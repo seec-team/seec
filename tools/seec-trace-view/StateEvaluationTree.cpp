@@ -22,20 +22,20 @@
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
-// For compilers that support precompilation, includes "wx/wx.h".
-#include <wx/wxprec.h>
-#ifndef WX_PRECOMP
-  #include <wx/wx.h>
-#endif
-#include <wx/bitmap.h>
-#include <wx/dcbuffer.h>
-#include <wx/dcmemory.h>
-
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
 #include "llvm/Support/raw_ostream.h"
+
+// For compilers that support precompilation, includes "wx/wx.h".
+#include <wx/wxprec.h>
+#ifndef WX_PRECOMP
+#include <wx/wx.h>
+#endif
+#include <wx/bitmap.h>
+#include <wx/dcbuffer.h>
+#include <wx/dcmemory.h>
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"

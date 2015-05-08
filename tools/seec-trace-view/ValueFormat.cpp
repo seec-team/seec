@@ -20,8 +20,11 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 
-#include "LocaleSettings.hpp"
+// #include "LocaleSettings.hpp"
 #include "ValueFormat.hpp"
+
+
+extern icu::Locale getLocale();
 
 
 static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)

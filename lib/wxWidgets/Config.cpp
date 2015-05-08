@@ -16,6 +16,7 @@
 
 #include <wx/app.h>
 #include <wx/config.h>
+#include <wx/fileconf.h>
 #include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/stdpaths.h>

@@ -51,6 +51,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <cctype>
 #include <chrono>
 #include <memory>
 #include <string>

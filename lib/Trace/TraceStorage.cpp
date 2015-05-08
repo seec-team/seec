@@ -32,6 +32,8 @@
 
 #ifdef __unix__
 #include <unistd.h>
+#elif defined(_WIN32)
+#include <process.h>
 #endif
 
 
@@ -190,7 +192,11 @@ OutputStreamAllocator::createOutputStreamAllocator()
   // Generate a name for the trace directory if the user didn't supply one.
   if (TraceDirectoryName.empty()) {
     TraceDirectoryName.append("p.");
+#if defined(__unix__)
     TraceDirectoryName.append(std::to_string(getpid()));
+#elif defined(_WIN32)
+	TraceDirectoryName.append(std::to_string(_getpid()));
+#endif
     TraceDirectoryName.push_back('.');
     TraceDirectoryName.append(getTraceDirectoryExtension());
   }

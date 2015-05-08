@@ -17,9 +17,8 @@
 
 #include "seec/Util/Maybe.hpp"
 
-#include "clang/Frontend/ASTUnit.h"
-
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -30,6 +29,7 @@
 
 
 namespace clang {
+  class ASTUnit;
   class Decl;
   class DiagnosticsEngine;
   class FileSystemOptions;

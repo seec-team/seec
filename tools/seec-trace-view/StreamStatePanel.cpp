@@ -29,6 +29,7 @@
 #include "SourceViewerSettings.hpp"
 
 #include <cassert>
+#include <cctype>
 
 
 //===----------------------------------------------------------------------===//

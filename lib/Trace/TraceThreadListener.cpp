@@ -53,8 +53,13 @@ void TraceThreadListener::synchronizeProcessTime() {
 
 void TraceThreadListener::checkSignals() {
   // This function polls for blocked signals.
-  
+
+#if defined(SEEC_SIGNAL_POLLED)
+#undef SEEC_SIGNAL_POLLED
+#endif
+
 #if defined(__APPLE__)
+#define SEEC_SIGNAL_POLLED
   // Apple don't have sigtimedwait(), so we have to use a messy workaround.
   
   static std::mutex CheckSignalsMutex;
@@ -82,6 +87,7 @@ void TraceThreadListener::checkSignals() {
   }
 
 #elif defined(_POSIX_VERSION) && _POSIX_VERSION >= 199309L
+#define SEEC_SIGNAL_POLLED
   // Use sigtimedwait() if we possibly can.
   
   sigset_t FullSet;
@@ -95,13 +101,10 @@ void TraceThreadListener::checkSignals() {
   // If no signal is found then sigtimedwait() returns an error (-1).
   if (Caught == -1)
     return;
-
-#else
-  // All other platforms - no implementation currently.
-  return;
-
 #endif
 
+#if defined(SEEC_SIGNAL_POLLED)
+#undef SEEC_SIGNAL_POLLED
   // Caught > 0 indicates the signal number of the caught signal.
   switch (Caught) {
     // The default disposition for these signals is to ignore them, so we will
@@ -119,6 +122,7 @@ void TraceThreadListener::checkSignals() {
   
   // Perform a coordinated exit (traces will be finalized during destruction).
   getSupportSynchronizedExit().getSynchronizedExit().exit(EXIT_FAILURE);
+#endif
 }
 
 std::uintptr_t TraceThreadListener::getRemainingStack() const
