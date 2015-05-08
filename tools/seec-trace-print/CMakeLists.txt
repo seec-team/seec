@@ -13,19 +13,20 @@ llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} code
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
+message("seec-print icu libs: ${REQ_ICU_LIBRARIES}")
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml"
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
@@ -63,6 +64,8 @@ target_link_libraries(seec-print
  ${REQ_ICU_LIBRARIES}
 
  ${LLVM_LIB_DEPS}
+
+ ${REQ_ICU_LIBRARIES}
 )
 
 INSTALL(TARGETS seec-print

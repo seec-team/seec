@@ -37,7 +37,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   RuntimeValueLookup.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
-  SourceViewerSettingsTypes.def
+#  SourceViewerSettingsTypes.def
   StateAccessToken.hpp
   StateEvaluationTree.hpp
   StateGraphViewer.hpp
@@ -100,8 +100,8 @@ llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} code
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
@@ -111,8 +111,8 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs html stc core base aui adv webview xml net
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs html stc core base aui adv webview xml net"
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
@@ -123,9 +123,6 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 # Link.
 #--------------------------------------------------------------------------------
 target_link_libraries(seec-view
- # wxWidgets libraries
- ${REQ_WX_LIBRARIES}
- 
  # SeeC libraries
  SeeCClangEPV
  SeeCClangMappedTrace
@@ -137,6 +134,9 @@ target_link_libraries(seec-view
  SeeCUtil
  SeeCwxWidgets
  SeeCwxWidgetsGUI
+
+ # wxWidgets libraries
+ ${REQ_WX_LIBRARIES}
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangFrontend.a

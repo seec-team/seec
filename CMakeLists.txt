@@ -16,6 +16,7 @@ endif()
 # Cached variables.
 #--------------------------------------------------------------------------------
 set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundles (Mac OS X).")
+set(LLVM_INSTALL_OVERRIDE "" CACHE PATH "Override LLVM install location.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
 set(WX_TOOLCHAIN "" CACHE STRING "Build of wxWidgets to use.")
@@ -42,11 +43,18 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 set(LLVM_INSTALL "${LLVM_DIR}/../../../")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+if(NOT "${LLVM_INSTALL_OVERRIDE}" STREQUAL "")
+  message(STATUS "Using LLVM_INSTALL_OVERRIDE ${LLVM_INSTALL_OVERRIDE}")
+  set(LLVM_INSTALL "${LLVM_INSTALL_OVERRIDE}")
+	include_directories("${LLVM_INSTALL}/include")
+else()
+  include_directories(${LLVM_INCLUDE_DIRS})
+endif()
+
 add_definitions(${LLVM_DEFINITIONS})
 
 # Copy Clang resources into our resources build directory:
-file(COPY ${LLVM_DIR}/../../../lib/clang DESTINATION ${CMAKE_BINARY_DIR}/resources/)
+file(COPY ${LLVM_INSTALL}/lib/clang DESTINATION ${CMAKE_BINARY_DIR}/resources/)
 
 INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION lib/seec/resources)
 
@@ -69,9 +77,19 @@ else()
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${ICU_INSTALL}/lib/${MULTIARCH}")
 endif()
 
+if(EXISTS ${ICU_INSTALL}/bin64)
+  set(ICU_GENRB "${ICU_INSTALL}/bin64/genrb")
+  set(ICU_ICUPKG "${ICU_INSTALL}/bin64/icupkg")
+else()
+  set(ICU_GENRB "${ICU_INSTALL}/bin/genrb")
+  set(ICU_ICUPKG "${ICU_INSTALL}/sbin/icupkg")
+endif(EXISTS ${ICU_INSTALL}/bin64)
+
 #--------------------------------------------------------------------------------
 # find wxWidgets
 #--------------------------------------------------------------------------------
+message("WX_INSTALL=${WX_INSTALL}")
+
 if( (NOT "${WX_TOOLCHAIN}" STREQUAL "") AND (EXISTS ${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}) )
   set(WX_CONFIG_BIN "${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}")
 else()
@@ -81,20 +99,25 @@ else()
 endif()
 
 if( NOT EXISTS ${WX_CONFIG_BIN} )
+  message("WX_CONFIG_BIN: ${WX_CONFIG_BIN} not found!")
   message(FATAL_ERROR "WX_INSTALL (${WX_INSTALL}) is not a valid wxWidgets installation.")
 endif()
 
-execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cflags
+message("using WX_CONFIG_BIN at ${WX_CONFIG_BIN}")
+
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cflags"
  OUTPUT_VARIABLE WX_C_FLAGS
 )
 string(STRIP ${WX_C_FLAGS} WX_C_FLAGS)
+message("WX_C_FLAGS: ${WX_C_FLAGS}")
 
-execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cxxflags
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cxxflags"
  OUTPUT_VARIABLE WX_CXX_FLAGS
 )
 string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
+message("WX_CXX_FLAGS: ${WX_CXX_FLAGS}")
 
 
 #--------------------------------------------------------------------------------
@@ -102,12 +125,20 @@ string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
 #--------------------------------------------------------------------------------
 
 if (SEEC_USER_ACTION_RECORDING)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSEEC_USER_ACTION_RECORDING")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSEEC_USER_ACTION_RECORDING")
+  add_definitions(-DSEEC_USER_ACTION_RECORDING)
 endif (SEEC_USER_ACTION_RECORDING)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99 -fPIC -DWXINTL_NO_GETTEXT_MACRO")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=c++11 -fPIC -fvisibility-inlines-hidden -DWXINTL_NO_GETTEXT_MACRO")
+add_definitions(-DWXINTL_NO_GETTEXT_MACRO)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS}")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=gnu++11 -fvisibility-inlines-hidden")
+
+# IF NOT WIN32
+#  -fPIC
+#  -std=c++11 -fPIC 
 
 if (NOT ${LLVM_ENABLE_RTTI})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
@@ -124,7 +155,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g")
-set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g")
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g -O0")
 
 set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3")
@@ -140,6 +171,8 @@ set_property(GLOBAL PROPERTY SEEC_RESOURCE_FILES "")
 # note that, for icupkg to work correctly, resources must be specified BEFORE
 # any other resource that they depend upon. e.g. en_AU en root.
 #--------------------------------------------------------------------------------
+
+
 macro(icu_resources package)
   # build directory for this package's resources
   set(${package}_res_dir ${CMAKE_BINARY_DIR}/resources/${package})
@@ -149,7 +182,7 @@ macro(icu_resources package)
 
   # create empty package if necessary
   add_custom_command(OUTPUT ${${package}_icu_dat}
-                     COMMAND ${ICU_INSTALL}/sbin/icupkg
+                     COMMAND ${ICU_ICUPKG}
                      ARGS -d ${${package}_res_dir} new ${package}.dat
                      COMMENT "icupkg ${package}.dat"
                      )
@@ -161,10 +194,10 @@ macro(icu_resources package)
 
     # genrb command to build the resource
     add_custom_command(OUTPUT ${${package}_icu_${resource}_res}
-                       COMMAND ${ICU_INSTALL}/bin/genrb
-                       ARGS -e UTF-8 -d ${${package}_res_dir} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
+                       COMMAND ${ICU_GENRB}
+                       ARGS -e UTF-8 -d ${${package}_res_dir} -s ${CMAKE_SOURCE_DIR}/resources/${package} ${resource}.txt
                        DEPENDS ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
-                       COMMENT "genrb ${resource}"
+                       COMMENT "genrb ${resource} : -e UTF-8 -d ${${package}_res_dir} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt"
                        )
 
     # resource stamp file (fake output for icupkg for dependencies)
@@ -172,7 +205,7 @@ macro(icu_resources package)
 
     # icupkg command to add resource to package
     add_custom_command(OUTPUT ${${package}_icu_${resource}_stamp}
-                       COMMAND ${ICU_INSTALL}/sbin/icupkg
+                       COMMAND ${ICU_ICUPKG}
                        ARGS -d ${${package}_res_dir} -a ${resource}.res ${package}.dat ${package}.dat
                        COMMAND "${CMAKE_COMMAND}" -E touch "${${package}_icu_${resource}_stamp}"
                        DEPENDS ${${package}_icu_${resource}_res} ${${package}_icu_dat}
