@@ -98,7 +98,7 @@ public:
 
   virtual ~ArgAddress();
 
-  virtual uint64_t data() const { return Address; }
+  virtual uint64_t data() const override { return Address; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -135,7 +135,7 @@ public:
 
   virtual ~ArgObject();
 
-  virtual uint64_t data() const { return 0; }
+  virtual uint64_t data() const override { return 0; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -265,7 +265,7 @@ public:
 
   virtual ~ArgSize();
 
-  virtual uint64_t data() const { return Size; }
+  virtual uint64_t data() const override { return Size; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -304,7 +304,7 @@ public:
 
   virtual ~ArgOperand();
 
-  virtual uint64_t data() const { return Index; }
+  virtual uint64_t data() const override { return Index; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -343,7 +343,7 @@ public:
 
   virtual ~ArgParameter();
 
-  virtual uint64_t data() const { return Index; }
+  virtual uint64_t data() const override { return Index; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -382,7 +382,7 @@ public:
 
   virtual ~ArgCharacter();
 
-  virtual uint64_t data() const { return Character; }
+  virtual uint64_t data() const override { return Character; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
