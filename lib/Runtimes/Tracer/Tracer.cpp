@@ -48,6 +48,8 @@
 
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <dlfcn.h>
+#elif defined(_WIN32)
+#include <Windows.h>
 #endif
 
 #include "seec/Transforms/RecordExternal/RecordInfo.h" // needs <cstdint>
@@ -238,8 +240,8 @@ ProcessEnvironment::ProcessEnvironment()
   ModIndex(),
   StreamAllocator(),
   SyncExit(),
-  ICUResourceLoader(new ResourceLoader(__SeeC_ResourcePath__)),
-  Augmentations(new AugmentationCollection()),
+  ICUResourceLoader(),
+  Augmentations(),
   ProcessTracer(),
   ThreadLookup(),
   ThreadLookupMutex(),
@@ -248,6 +250,38 @@ ProcessEnvironment::ProcessEnvironment()
   ArchiveSizeLimit(0), // set after wxConfig is available.
   ProgramName()
 {
+  // On windows, lookup the module's globals.
+#if defined(_WIN32)
+  auto const ExeHdl = GetModuleHandle(nullptr);
+  assert(ExeHdl && "module handle for executable");
+
+  // TODO: split this and check that the pointer is non-NULL.
+#define SEEC_GET_INFO_VAR(TYPE, NAME)                                          \
+  TYPE const *NAME##Ptr =                                                      \
+    reinterpret_cast<TYPE const *>(GetProcAddress(ExeHdl, #NAME));             \
+  assert(NAME##Ptr && "info not found!");                                      \
+  TYPE const NAME = *NAME##Ptr;
+
+#define SEEC_GET_INFO_PTR(TYPE, NAME)                                          \
+  TYPE const NAME = reinterpret_cast<TYPE>(GetProcAddress(ExeHdl, #NAME));     \
+  assert(NAME && "info not found!");
+
+  SEEC_GET_INFO_PTR(char const *, SeeCInfoModuleIdentifier)
+  SEEC_GET_INFO_PTR(char const *, SeeCInfoModuleBitcode)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoModuleBitcodeLength)
+  SEEC_GET_INFO_PTR(void **,      SeeCInfoFunctions)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoFunctionsLength)
+  SEEC_GET_INFO_PTR(void **,      SeeCInfoGlobals)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoGlobalsLength)
+  SEEC_GET_INFO_PTR(char const *, __SeeC_ResourcePath__)
+
+#undef SEEC_GET_INFO_VAR
+#undef SEEC_GET_INFO_PTR
+#endif
+  
+  ICUResourceLoader.reset(new ResourceLoader(__SeeC_ResourcePath__));
+  Augmentations.reset(new AugmentationCollection());
+
   // Parse the Module bitcode, which is stored in a global variable.
   llvm::StringRef BitcodeRef {
     SeeCInfoModuleBitcode,
@@ -339,22 +373,31 @@ ProcessEnvironment::ProcessEnvironment()
   }
 
   ProcessTracer->notifyGlobalVariablesComplete();
+
+#define SEEC__STR2(NAME) #NAME
+#define SEEC__STR(NAME) SEEC__STR2(NAME)
   
   // Find the location of all intercepted functions.
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
-#define SEEC__STR2(NAME) #NAME
-#define SEEC__STR(NAME) SEEC__STR2(NAME)
-
 #define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
   if (auto Ptr = dlsym(RTLD_DEFAULT, SEEC__STR(SEEC_MANGLE_FUNCTION(NAME))))   \
     InterceptorAddresses.insert(reinterpret_cast<uintptr_t>(Ptr));
 #include "seec/Runtimes/Tracer/InterceptedFunctions.def"
 
-#undef SEEC__STR2
-#undef SEEC__STR
+#elif defined(_WIN32)
+  auto const RTHdl = GetModuleHandle("seecRuntimeTracer");
+
+#define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
+  if (auto Ptr = GetProcAddress(RTHdl, SEEC__STR(SEEC_MANGLE_FUNCTION(NAME)))) \
+    InterceptorAddresses.insert(reinterpret_cast<uintptr_t>(Ptr));
+#include "seec/Runtimes/Tracer/InterceptedFunctions.def"
+
 #else
 #error "Intercepted function locating not implemented for this platform."
 #endif
+
+#undef SEEC__STR2
+#undef SEEC__STR
 }
 
 ProcessEnvironment::~ProcessEnvironment()

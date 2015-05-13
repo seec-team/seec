@@ -19,6 +19,7 @@
 
 extern "C" {
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 int *
 SEEC_MANGLE_FUNCTION(__errno_location)
 ()
@@ -54,5 +55,6 @@ SEEC_MANGLE_FUNCTION(__error)
              seec::MemoryPermission::ReadWrite
            });
 }
+#endif
 
 } // extern "C"

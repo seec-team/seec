@@ -220,11 +220,15 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
   // The runtime library location should be fixed relative to our executable
   // path.
   
+  // For Windows the runtime is in the same directory.
   // For Bundles find: ???
   // Otherwise find:   ../lib
   
   llvm::SmallString<256> ResourcePath {ExecutablePath};
   llvm::sys::path::remove_filename(ResourcePath); // remove executable name
+
+  // TODO: this should perhaps depend on the target.
+#if !defined(_WIN32)
   llvm::sys::path::remove_filename(ResourcePath); // remove "bin" or "MacOS"
   
   if (ResourcePath.str().endswith("Contents")) { // Bundle
@@ -233,6 +237,7 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
   else {
     llvm::sys::path::append(ResourcePath, "lib", "seec");
   }
+#endif
   
   return ResourcePath.str().str();
 }

@@ -226,18 +226,22 @@ static void AddLookupArray(Module &M,
     Existing->eraseFromParent();
   }
 
-  new GlobalVariable(M, ArrayTy, true, GlobalValue::ExternalLinkage,
-                     ConstantArray::get(ArrayTy, Contents),
-                     LookupName);
+  auto GVArray = new GlobalVariable(M, ArrayTy, true,
+                                    GlobalValue::ExternalLinkage,
+                                    ConstantArray::get(ArrayTy, Contents),
+                                    LookupName);
+  GVArray->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
   // Add a constant with the size of the array.
   if (auto Existing = M.getNamedGlobal(LookupLengthName)) {
     Existing->eraseFromParent();
   }
 
-  new GlobalVariable(M, Int64Ty, true, GlobalValue::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, Contents.size()),
-                     LookupLengthName);
+  auto GVLength = new GlobalVariable(M, Int64Ty, true,
+                                     GlobalValue::ExternalLinkage,
+                                     ConstantInt::get(Int64Ty, Contents.size()),
+                                     LookupLengthName);
+  GVLength->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 }
 
 /// \brief Add information about the Module M to itself.
@@ -254,25 +258,31 @@ static void AddModuleInfo(Module &M,
   }
   
   auto BitcodeConst = ConstantDataArray::getString(Context, ModuleBitcode);
-  new GlobalVariable(M, BitcodeConst->getType(), true,
-                     GlobalValue::ExternalLinkage, BitcodeConst,
-                     StringRef("SeeCInfoModuleBitcode"));
+  auto GVBitcode = new GlobalVariable(M, BitcodeConst->getType(), true,
+                                      GlobalValue::ExternalLinkage,
+                                      BitcodeConst,
+                                      StringRef("SeeCInfoModuleBitcode"));
+  GVBitcode->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
   
   // Add the size of the module's bitcode as a global.
   if (auto Existing = M.getNamedGlobal("SeeCInfoModuleBitcodeLength")) {
     Existing->eraseFromParent();
   }
   
-  new GlobalVariable(M, Int64Ty, true, GlobalVariable::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, ModuleBitcode.size()),
-                     StringRef("SeeCInfoModuleBitcodeLength"));
+  auto GVBitcodeLength =
+    new GlobalVariable(M, Int64Ty, true, GlobalVariable::ExternalLinkage,
+                       ConstantInt::get(Int64Ty, ModuleBitcode.size()),
+                       StringRef("SeeCInfoModuleBitcodeLength"));
+  GVBitcodeLength->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
   // Add the module's identifier as a global string
-  Constant *IdentifierStrConst
-    = ConstantDataArray::getString(Context, M.getModuleIdentifier());
-  new GlobalVariable(M, IdentifierStrConst->getType(), true,
-                     GlobalValue::ExternalLinkage, IdentifierStrConst,
-                     StringRef("SeeCInfoModuleIdentifier"));
+  Constant *IdentifierStrConst =
+    ConstantDataArray::getString(Context, M.getModuleIdentifier());
+  auto GVIdentifier =
+    new GlobalVariable(M, IdentifierStrConst->getType(), true,
+                       GlobalValue::ExternalLinkage, IdentifierStrConst,
+                       StringRef("SeeCInfoModuleIdentifier"));
+  GVIdentifier->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 }
 
 ///
@@ -337,9 +347,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
   auto const PathConst = llvm::ConstantDataArray::getString(Context,
                                                             ResourcePath);
-  new llvm::GlobalVariable(M, PathConst->getType(), true,
-                           llvm::GlobalValue::ExternalLinkage, PathConst,
-                           llvm::StringRef("__SeeC_ResourcePath__"));
+  auto GVResourcePath =
+    new llvm::GlobalVariable(M, PathConst->getType(), true,
+                             llvm::GlobalValue::ExternalLinkage, PathConst,
+                             llvm::StringRef("__SeeC_ResourcePath__"));
+  GVResourcePath->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
   // Check for unhandled external functions.
   for (auto &F : M) {

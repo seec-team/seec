@@ -639,6 +639,7 @@ SEEC_MANGLE_FUNCTION(mkstemp)
            seec::wrapInputCString(Template));
 }
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 int
 SEEC_MANGLE_FUNCTION(mkostemp)
 (char * const Template, int const Flags)
@@ -690,6 +691,7 @@ SEEC_MANGLE_FUNCTION(mkostemps)
            SuffixLen,
            Flags);
 }
+#endif
 
 
 } // extern "C"

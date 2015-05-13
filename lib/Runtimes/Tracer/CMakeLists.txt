@@ -8,7 +8,7 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(HEADERS
   ../../../include/seec/Runtimes/MangleFunction.h
-  ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
+#  ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
   PrintRunError.hpp
   SimpleWrapper.hpp
   Tracer.hpp
@@ -25,13 +25,18 @@ set(SOURCES
   WrapCstdlib_h.cpp
   WrapCstring_h.cpp
   WrapCtime_h.cpp
-  WrapPOSIXdirent_h.cpp
-  WrapPOSIXpthread_h.cpp
-  WrapPOSIXsys_stat_h.cpp
-  WrapPOSIXsys_time_h.cpp
-  WrapPOSIXsys_wait_h.cpp
-  WrapPOSIXunistd_h.cpp
   )
+
+if (NOT WIN32)
+  set(SOURCES ${SOURCES}
+    WrapPOSIXdirent_h.cpp
+    WrapPOSIXpthread_h.cpp
+    WrapPOSIXsys_stat_h.cpp
+    WrapPOSIXsys_time_h.cpp
+    WrapPOSIXsys_wait_h.cpp
+    WrapPOSIXunistd_h.cpp
+    )
+endif (NOT WIN32)
 
 add_library(seecRuntimeTracer SHARED ${HEADERS} ${SOURCES})
 
@@ -43,8 +48,8 @@ llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES bitreader asmparser target mc
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
@@ -54,8 +59,8 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml"
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)

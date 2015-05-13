@@ -330,6 +330,7 @@ int main(int argc, char **argv)
   
   // Call the real ld with the unused original arguments and the new temporary
   // object file.
+  ForwardArgs[0] = LDPath.c_str();
   ForwardArgs.push_back(nullptr);
   
   return llvm::sys::ExecuteAndWait(LDPath, ForwardArgs.data());

@@ -7,8 +7,8 @@ add_executable(seec-cc
 llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} analysis codegen core ipa ipo instcombine instrumentation mc mcparser objcarcopts option scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata)
 
 # Determine ICU libraries that we need
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)

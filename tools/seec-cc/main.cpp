@@ -20,6 +20,7 @@
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
+#include "clang/Driver/ToolChain.h" // SeeC
 #include "clang/Frontend/ChainedDiagnosticConsumer.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/SerializedDiagnosticPrinter.h"
@@ -165,6 +166,7 @@ static void ParseProgName(SmallVectorImpl<const char *> &ArgVector,
 }
 
 Command *MakeReplacementCommand(Command *C,
+                                ToolChain const &TC,
                                 char const *InstalledDir,
                                 std::set<std::string> &SavedStrings)
 {
@@ -172,11 +174,16 @@ Command *MakeReplacementCommand(Command *C,
     // If this is a linking command then replace it with seec-ld.
     case Action::LinkJobClass:
     {
+      auto const &TCTriple = TC.getTriple();
       auto Args = C->getArguments();
       
       // Get the path to seec-ld.
       llvm::SmallString<256> LDPath (InstalledDir);
+#if defined(_WIN32)
+      llvm::sys::path::append(LDPath, "seec-ld.exe");
+#else
       llvm::sys::path::append(LDPath, "seec-ld");
+#endif
       
       // SeeC requires that we link additional libraries, including the runtime
       // library containing the tracing/error detection implementation.
@@ -187,11 +194,19 @@ Command *MakeReplacementCommand(Command *C,
       
       Args.push_back("-L");
       Args.push_back(RTPath);
-      Args.push_back("-rpath");
-      Args.push_back(RTPath);
+
+      if (!TCTriple.isOSWindows()) {
+        Args.push_back("-rpath");
+        Args.push_back(RTPath);
+      }
+
+      // TODO: this should perhaps depend on the target.
       Args.push_back("-lseecRuntimeTracer");
-      Args.push_back("-lpthread");
-      Args.push_back("-ldl");
+
+      if (!TCTriple.isOSWindows()) {
+        Args.push_back("-lpthread");
+        Args.push_back("-ldl");
+      }
       
       // Inform seec-ld of the real linker.
       Args.push_back("--seec");
@@ -210,17 +225,18 @@ Command *MakeReplacementCommand(Command *C,
 }
 
 void ReplaceCommandsForSeeC(JobList &Jobs,
+                            ToolChain const &TC,
                             char const *InstalledDir,
                             std::set<std::string> &SavedStrings)
 {
   for (auto &JobPtr : Jobs.getJobsMutable()) {
     if (auto C = llvm::dyn_cast<Command>(JobPtr.get())) {
-      if (auto R = MakeReplacementCommand(C, InstalledDir, SavedStrings)) {
+      if (auto R = MakeReplacementCommand(C, TC, InstalledDir, SavedStrings)) {
         JobPtr.reset(R);
       }
     }
     else if (auto JL = llvm::dyn_cast<JobList>(JobPtr.get())) {
-      ReplaceCommandsForSeeC(*JL, InstalledDir, SavedStrings);
+      ReplaceCommandsForSeeC(*JL, TC, InstalledDir, SavedStrings);
     }
   }
 }
@@ -229,7 +245,10 @@ void ReplaceCommandsForSeeC(Compilation &C,
                             char const *InstalledDir,
                             std::set<std::string> &SavedStrings)
 {
-  ReplaceCommandsForSeeC(C.getJobs(), InstalledDir, SavedStrings);
+  ReplaceCommandsForSeeC(C.getJobs(),
+                         C.getDefaultToolChain(),
+                         InstalledDir,
+                         SavedStrings);
 }
 
 namespace {

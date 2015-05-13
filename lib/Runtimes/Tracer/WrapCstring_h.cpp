@@ -72,6 +72,7 @@ SEEC_MANGLE_FUNCTION(strncasecmp)
 // strcasestr
 //===----------------------------------------------------------------------===//
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 char *
 SEEC_MANGLE_FUNCTION(strcasestr)
 (char const * const haystack, char const * const needle)
@@ -88,6 +89,7 @@ SEEC_MANGLE_FUNCTION(strcasestr)
            seec::wrapInputCString(haystack),
            seec::wrapInputCString(needle));
 }
+#endif
 
 
 //===----------------------------------------------------------------------===//
@@ -152,6 +154,7 @@ SEEC_MANGLE_FUNCTION(strdup)
 // strndup
 //===----------------------------------------------------------------------===//
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 char *
 SEEC_MANGLE_FUNCTION(strndup)
 (char const * const String, size_t const Length)
@@ -182,6 +185,7 @@ SEEC_MANGLE_FUNCTION(strndup)
            seec::wrapInputCString(String).setLimited(Length),
            Length);
 }
+#endif
 
 
 //===----------------------------------------------------------------------===//
