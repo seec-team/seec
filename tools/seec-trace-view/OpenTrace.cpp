@@ -116,6 +116,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
       continue;
     
     auto const &Name = Entry->GetName();
+    wxFileName Path{Name};
     
     if (Name == "record.xml") {
       Record.reset(new wxXmlDocument(Input));
@@ -139,8 +140,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
 
       Annotations = MaybeAnnotations.move<AnnotationCollection>();
     }
-    else if (Name.StartsWith("trace/")) {
-      wxFileName Path{Name};
+    else if (Path.GetDirCount() == 1 && Path.GetDirs()[0] == "trace") {
       Path.RemoveDir(0);
       
       auto const FullPath = TempPath

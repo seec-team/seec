@@ -523,9 +523,9 @@ InputBufferAllocator::createForArchive(llvm::StringRef ArchivePath)
       continue;
 
     auto const &Name = Entry->GetName();
+    wxFileName Path{Name};
 
-    if (Name.StartsWith("trace/")) {
-      wxFileName Path{Name};
+    if (Path.GetDirCount() == 1 && Path.GetDirs()[0] == "trace") {
       Path.RemoveDir(0);
 
       auto const FullPath = TempPath
