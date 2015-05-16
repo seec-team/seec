@@ -72,15 +72,21 @@
 
 static std::string FindDotExecutable()
 {
+#if defined(_WIN32)
+  auto const DotName = "dot.exe";
+#else
   auto const DotName = "dot";
+#endif
 
   auto SearchEnvPath = llvm::sys::findProgramByName(DotName);
   if (SearchEnvPath)
     return std::move(*SearchEnvPath);
   
+  // TODO: give the user control over where dot is found. 
   llvm::StringRef SearchPaths[] = {
     "/usr/bin",
-    "/usr/local/bin"
+    "/usr/local/bin",
+    "C:\\graphviz\\bin"
   };
   
   auto SearchManual = llvm::sys::findProgramByName(DotName, SearchPaths);
@@ -294,11 +300,16 @@ void StateGraphViewerPanel::workerTaskLoop()
       nullptr
     };
 
-    char const *Environment[] = {
-      PathToGraphvizLibraries.c_str(),
-      PathToGraphvizPlugins.c_str(),
-      nullptr
-    };
+    std::vector<char const *> Environment;
+
+#if !defined(_WIN32)
+    Environment.emplace_back(PathToGraphvizLibraries.c_str());
+    Environment.emplace_back(PathToGraphvizPlugins.c_str());
+#endif
+
+    Environment.emplace_back(nullptr);
+    char const **EnvPtr = Environment.size() > 1 ? Environment.data()
+                                                 : nullptr;
 
     std::string ErrorMsg;
 
@@ -306,7 +317,7 @@ void StateGraphViewerPanel::workerTaskLoop()
 
     auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
                                                   Args,
-                                                  Environment,
+                                                  EnvPtr,
                                                   /* redirects */ nullptr,
                                                   /* wait */ 0,
                                                   /* mem */ 0,
@@ -587,7 +598,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   else {
     // If the user navigates to a link, open it in the default browser.
     WebView->Bind(wxEVT_WEBVIEW_NAVIGATING,
-      std::function<void (wxWebViewEvent &Event)>{
+      std::function<void (wxWebViewEvent &)>{
         [] (wxWebViewEvent &Event) -> void {
           if (Event.GetURL().StartsWith("http")) {
             wxLaunchDefaultBrowser(Event.GetURL());

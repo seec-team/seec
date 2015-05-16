@@ -33,6 +33,9 @@
 #include <wx/ipc.h>
 #include <wx/snglinst.h>
 #include <wx/stdpaths.h>
+#if defined(_WIN32)
+#include <wx/msw/registry.h>
+#endif
 
 #include <curl/curl.h>
 
@@ -230,6 +233,50 @@ void SingleInstanceClient::Disconnect()
 
 
 //------------------------------------------------------------------------------
+// setupWebControl
+//------------------------------------------------------------------------------
+
+#if defined(_WIN32)
+int getIEVersion()
+{
+  wxRegKey IEKey(wxRegKey::HKLM, "Software\\Microsoft\\Internet Explorer");
+  wxString Value;
+
+  if (IEKey.QueryValue("svcVersion", Value, /* raw */ true)) {
+    auto const StdValue = Value.ToStdString();
+    return std::stoi(StdValue);
+  }
+
+  return 0;
+}
+
+int convertIEVersionToEmulationValue(int IEVersion)
+{
+  if (IEVersion >= 11) return 11000;
+  switch (IEVersion) {
+    case 10: return 10000;
+    case 9:  return 9000;
+    case 8:  return 8000;
+    default: return 7000;
+  }
+}
+
+void setWebBrowserEmulationMode()
+{
+  wxRegKey EmulationKey(wxRegKey::HKCU,
+    "Software\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\"
+    "FEATURE_BROWSER_EMULATION");
+
+  auto const IEVersion = getIEVersion();
+  auto const EmulationValue = convertIEVersionToEmulationValue(IEVersion);
+  llvm::errs() << "ie version " << IEVersion
+               << "; emulation mode " << EmulationValue << "\n";
+  EmulationKey.SetValue("seec-view.exe", EmulationValue);
+}
+#endif
+
+
+//------------------------------------------------------------------------------
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
@@ -408,6 +455,11 @@ bool TraceViewerApp::OnInit() {
   // Load resource augmentations from the resource directory.
   Augmentations->loadFromResources(ResourcePath);
   Augmentations->loadFromUserLocalDataDir();
+
+  // Setup WebBrowser emulation version for windows.
+#if defined(_WIN32)
+  setWebBrowserEmulationMode();
+#endif
 
 #ifdef SEEC_SHOW_DEBUG
   // Setup the debugging log window.
