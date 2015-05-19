@@ -124,21 +124,25 @@ message("WX_CXX_FLAGS: ${WX_CXX_FLAGS}")
 # setup compiler options
 #--------------------------------------------------------------------------------
 
+set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
+
 if (SEEC_USER_ACTION_RECORDING)
   add_definitions(-DSEEC_USER_ACTION_RECORDING)
 endif (SEEC_USER_ACTION_RECORDING)
 
 add_definitions(-DWXINTL_NO_GETTEXT_MACRO)
 
+# needed when compiling with mingw-w64 under msys2
+set(SEEC_CXX_STD "-std=c++11")
+if (WIN32)
+  set(SEEC_CXX_STD "-std=gnu++11")
+endif (WIN32)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-strict-aliasing -std=c99")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-strict-aliasing -std=gnu++11 -fvisibility-inlines-hidden")
-
-# IF NOT WIN32
-#  -fPIC
-#  -std=c++11 -fPIC 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-strict-aliasing ${SEEC_CXX_STD} -fvisibility-inlines-hidden")
 
 if (NOT ${LLVM_ENABLE_RTTI})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
