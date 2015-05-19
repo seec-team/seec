@@ -990,6 +990,28 @@ public:
   }
 };
 
+class ResultStateRecorderForFputc {
+  char Character;
+
+  FILE * const Stream;
+
+public:
+  ResultStateRecorderForFputc(char WithCharacter, FILE *WithStream)
+  : Character(WithCharacter),
+    Stream(WithStream)
+  {}
+
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              int const Result)
+  {
+    if (Result == EOF)
+      return;
+
+    ThreadListener.recordStreamWrite(Stream, llvm::ArrayRef<char>(Character));
+  }
+};
+
 
 extern "C" {
 
@@ -1038,6 +1060,45 @@ SEEC_MANGLE_FUNCTION(fwrite)
                                          .setForCopy(true),
        size,
        count,
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// getc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(getc)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getc}
+      (fgetc,
+       [](int Result){ return Result != EOF; },
+       seec::ResultStateRecorderForNoOp{},
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// putc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(putc)
+(int ch, FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::putc}
+      (fputc,
+       [](int Result){ return Result != EOF; },
+       ResultStateRecorderForFputc{(char)ch, stream},
+       ch,
        seec::wrapInputFILE(stream));
 }
 
@@ -1899,6 +1960,54 @@ SEEC_MANGLE_FUNCTION(sprintf)
   Listener.recordUntypedState(Buffer, NumWritten + 1);
   
   return NumWritten;
+}
+
+
+//===----------------------------------------------------------------------===//
+// tmpfile
+//===----------------------------------------------------------------------===//
+
+FILE *
+SEEC_MANGLE_FUNCTION(tmpfile)
+()
+{
+  using namespace seec::trace;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Lock global memory.
+  Listener.acquireGlobalMemoryWriteLock();
+  Listener.acquireStreamsLock();
+
+  auto Result = tmpfile();
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
+
+  // Record the result.
+  Listener.notifyValue(InstructionIndex, Instruction, Result);
+
+  if (Result) {
+    // TODO: internationalize?
+    std::string FakeFilename = "(temporary file)";
+    Listener.recordStreamOpen(Result, FakeFilename.c_str(), "w+b");
+    Listener.getProcessListener().incrementRegionTemporalID(ResultInt);
+  }
+  else{
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
+  }
+
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultInt));
+
+  return Result;
 }
 
 

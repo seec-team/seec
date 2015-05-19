@@ -1558,6 +1558,10 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
                                                      DestAddr,
                                                      SrcLength,
                                                      MemoryAccess::Write);
+
+  auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  Checker.checkMemoryDoesNotOverlap(MemoryArea(DestAddr, SrcLength),
+                                    MemoryArea(SrcAddr,  SrcLength));
 }
 
 void TraceThreadListener::postCstrcpy(llvm::CallInst const *Call,

@@ -597,11 +597,15 @@ SEEC_MANGLE_FUNCTION(execle)
   }
   
   auto const MaybeEnvP = VarArgs.getAs<char * const *>(i);
+
   if (MaybeEnvP.assigned<char * const *>()) {
     EnvP = MaybeEnvP.get<char * const *>();
     Checker.checkCStringArray(VarArgs.offset() + i, EnvP);
   }
-  else {
+
+  if (!MaybeEnvP.assigned<char * const *>()
+      || Checker.checkCStringArray(VarArgs.offset() + i, EnvP) == 0)
+  {
     // Raise an error because the argument has an incorrect type.
     Listener.handleRunError(
       createRunError<RunErrorType::VarArgsExpectedCStringArray>(FSFunction)

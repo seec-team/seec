@@ -161,7 +161,7 @@ public:
 
   virtual ~ArgSelectBase();
 
-  virtual uint64_t data() const {
+  virtual uint64_t data() const override {
     uint64_t Data = static_cast<uint32_t>(getSelectID());
     Data <<= 32;
     Data |= static_cast<uint32_t>(getRawItemValue());
@@ -207,7 +207,7 @@ protected:
     return (uintptr_t) func;
   }
 
-  virtual uintptr_t getCStringAddress() const {
+  virtual uintptr_t getCStringAddress() const override {
     return getCStringAddressImpl();
   }
 
@@ -231,11 +231,11 @@ public:
     return Base->getCStringAddress() == getCStringAddressImpl();
   }
 
-  virtual format_selects::SelectID getSelectID() const {
+  virtual format_selects::SelectID getSelectID() const override {
     return format_selects::GetSelectID<SelectType>::value();
   }
 
-  virtual uint32_t getRawItemValue() const {
+  virtual uint32_t getRawItemValue() const override {
     return static_cast<uint32_t>(Item);
   }
 };

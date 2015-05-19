@@ -495,8 +495,9 @@ ThreadEnvironment &getThreadEnvironment() {
     getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
 #else
   // Keep a thread-local pointer to this thread's environment.
-  static __thread ThreadEnvironment *TE =
-    getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
+  static __thread ThreadEnvironment *TE = nullptr;
+  if (!TE)
+    TE = getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
 #endif
 
   assert(TE && "ThreadEnvironment not found!");

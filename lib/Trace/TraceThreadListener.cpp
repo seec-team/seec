@@ -308,6 +308,7 @@ void TraceThreadListener::recordRealloc(uintptr_t const Address,
   EventsOut.write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
 
   Alloc->update(Alloc->thread(), Alloc->offset(), NewSize);
+  ProcessListener.incrementRegionTemporalID(Address);
 
   if (NewSize < OldSize) {
     auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();

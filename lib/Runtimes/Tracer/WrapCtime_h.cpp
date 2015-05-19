@@ -48,6 +48,30 @@ SEEC_MANGLE_FUNCTION(time)
 
 
 //===----------------------------------------------------------------------===//
+// timespec_get
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(timespec_get)
+(struct timespec *ts, int base)
+{
+  extern int timespec_get(struct timespec *ts, int base) __attribute__((weak));
+  assert(timespec_get);
+
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::timespec_get}
+      (timespec_get,
+       [](int Result){ return Result != 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(ts).setIgnoreNull(false),
+       base);
+}
+
+
+//===----------------------------------------------------------------------===//
 // asctime
 //===----------------------------------------------------------------------===//
 

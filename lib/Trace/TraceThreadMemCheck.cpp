@@ -488,6 +488,10 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
 
   auto const PtrVal = Call->getArgOperand(Parameter);
+  if (!PtrVal->getType()->isPointerTy()) {
+    return 0;
+  }
+
   auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
 
   // Check if Array points to owned memory.
@@ -508,9 +512,6 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
   auto const MaxElements = Size / sizeof(char *);
   bool IsNullTerminated = false;
   unsigned Element;
-  
-  // This should be guaranteed by the success of memoryExitsForParameter().
-  assert(MaxElements > 0);
   
   for (Element = 0; Element < MaxElements; ++Element) {
     // TODO: Add temporary note for InfoElementOfArray!

@@ -457,6 +457,7 @@ void TraceProcessListener::setCurrentDynamicMemoryAllocation(uintptr_t Address,
   auto It = DynamicMemoryAllocations.find(Address);
   if (It != DynamicMemoryAllocations.end()) {
     It->second.update(Thread, Offset, Size);
+    incrementRegionTemporalID(Address);
   }
   else {
     DynamicMemoryAllocations.insert(

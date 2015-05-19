@@ -47,10 +47,6 @@ DETECT_CALL(C, system, SEEC_PP_QUOTE(char const *))
 
 
 // Math functions
-DETECT_CALL(C, abs, SEEC_PP_QUOTE(int))
-DETECT_CALL(C, div, SEEC_PP_QUOTE(int, int))
-DETECT_CALL(C, labs, SEEC_PP_QUOTE(long int))
-DETECT_CALL(C, ldiv, SEEC_PP_QUOTE(long int, long int))
 DETECT_CALL(C, rand, )
 DETECT_CALL(C, srand, SEEC_PP_QUOTE(unsigned int))
 
