@@ -8,11 +8,17 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(HEADERS
   ../../../include/seec/Runtimes/MangleFunction.h
-#  ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
   PrintRunError.hpp
   SimpleWrapper.hpp
   Tracer.hpp
   )
+
+# On WIN32 the build mistakenly attempts to link in .def files, so don't include them.
+if (NOT WIN32)
+  set(HEADERS ${HEADERS}
+    ../../../include/seec/Runtimes/Tracer/InterceptedFunctions.def
+    )
+endif (NOT WIN32)
 
 set(SOURCES
   PrintRunError.cpp

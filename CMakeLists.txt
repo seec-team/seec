@@ -88,8 +88,6 @@ endif(EXISTS ${ICU_INSTALL}/bin64)
 #--------------------------------------------------------------------------------
 # find wxWidgets
 #--------------------------------------------------------------------------------
-message("WX_INSTALL=${WX_INSTALL}")
-
 if( (NOT "${WX_TOOLCHAIN}" STREQUAL "") AND (EXISTS ${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}) )
   set(WX_CONFIG_BIN "${WX_INSTALL}/lib/wx/config/${WX_TOOLCHAIN}")
 else()
@@ -99,7 +97,6 @@ else()
 endif()
 
 if( NOT EXISTS ${WX_CONFIG_BIN} )
-  message("WX_CONFIG_BIN: ${WX_CONFIG_BIN} not found!")
   message(FATAL_ERROR "WX_INSTALL (${WX_INSTALL}) is not a valid wxWidgets installation.")
 endif()
 
@@ -110,14 +107,12 @@ EXEC_PROGRAM(sh
  OUTPUT_VARIABLE WX_C_FLAGS
 )
 string(STRIP ${WX_C_FLAGS} WX_C_FLAGS)
-message("WX_C_FLAGS: ${WX_C_FLAGS}")
 
 EXEC_PROGRAM(sh
  ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --cxxflags"
  OUTPUT_VARIABLE WX_CXX_FLAGS
 )
 string(STRIP ${WX_CXX_FLAGS} WX_CXX_FLAGS)
-message("WX_CXX_FLAGS: ${WX_CXX_FLAGS}")
 
 
 #--------------------------------------------------------------------------------

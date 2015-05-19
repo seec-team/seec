@@ -20,7 +20,6 @@ EXEC_PROGRAM(sh
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
-message("seec-print icu libs: ${REQ_ICU_LIBRARIES}")
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (WX)

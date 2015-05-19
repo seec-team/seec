@@ -37,7 +37,6 @@ set(SEEC_TRACE_VIEW_HEADERS
   RuntimeValueLookup.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
-#  SourceViewerSettingsTypes.def
   StateAccessToken.hpp
   StateEvaluationTree.hpp
   StateGraphViewer.hpp
@@ -52,6 +51,13 @@ set(SEEC_TRACE_VIEW_HEADERS
   ValueFormat.hpp
   WelcomeFrame.hpp
   )
+
+# On WIN32 the build mistakenly attempts to link in .def files, so don't include them.
+if (NOT WIN32)
+  set(SEEC_TRACE_VIEW_HEADERS ${SEEC_TRACE_VIEW_HEADERS}
+    SourceViewerSettingsTypes.def
+    )
+endif (NOT WIN32)
 
 set(SEEC_TRACE_VIEW_SRCS
   ActionRecord.cpp
