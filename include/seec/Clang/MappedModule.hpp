@@ -18,6 +18,7 @@
 #include "seec/Clang/MappedParam.hpp"
 
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Lex/DirectoryLookup.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
@@ -266,6 +267,45 @@ public:
     llvm::MemoryBuffer const &getContents() const { return *Contents; }
   };
   
+  /// \brief Info for one header search entry used during compilation.
+  class HeaderSearchEntry {
+    /// Type of entry.
+    ::clang::DirectoryLookup::LookupType_t const LookupType;
+
+    /// Path of the file/directory.
+    std::string const Path;
+
+    /// Kind of files in directory.
+    ::clang::SrcMgr::CharacteristicKind const CharacteristicKind;
+
+    /// Is this an index header map
+    bool const IndexHeaderMap;
+
+  public:
+    /// \brief Constructor.
+    HeaderSearchEntry(::clang::DirectoryLookup::LookupType_t WithLookupType,
+                      llvm::StringRef WithPath,
+                      ::clang::SrcMgr::CharacteristicKind WithKind,
+                      bool IsIndexHeaderMap)
+    : LookupType(WithLookupType),
+      Path(WithPath.str()),
+      CharacteristicKind(WithKind),
+      IndexHeaderMap(IsIndexHeaderMap)
+    {}
+
+    ::clang::DirectoryLookup::LookupType_t getLookupType() const {
+      return LookupType;
+    }
+
+    std::string const &getPath() const { return Path; }
+
+    ::clang::SrcMgr::CharacteristicKind getCharacteristicKind() const {
+      return CharacteristicKind;
+    }
+
+    bool isIndexHeaderMap() const { return IndexHeaderMap; }
+  };
+
 private:
   /// Working directory of the compilation.
   std::string MainDirectory;
@@ -278,17 +318,32 @@ private:
   
   /// Arguments for the invocation of this compilation.
   std::vector<std::string> InvocationArguments;
+
+  /// Header search entries used in this compilation.
+  std::vector<HeaderSearchEntry> HeaderSearchEntries;
+
+  /// Index of the first angle bracket directory in \c HeaderSearchEntries.
+  unsigned HeaderAngledDirIdx;
+
+  /// Index of the first system directory in \c HeaderSearchEntries.
+  unsigned HeaderSystemDirIdx;
   
   /// \brief Constructor.
   ///
   MappedCompileInfo(std::string TheDirectory,
                     std::string TheMainFileName,
                     std::vector<FileInfo> TheSourceFiles,
-                    std::vector<std::string> TheInvocationArguments)
+                    std::vector<std::string> TheInvocationArguments,
+                    std::vector<HeaderSearchEntry> TheHeaderSearchEntries,
+                    unsigned TheHeaderAngledDirIdx,
+                    unsigned TheHeaderSystemDirIdx)
   : MainDirectory(std::move(TheDirectory)),
     MainFileName(std::move(TheMainFileName)),
     SourceFiles(std::move(TheSourceFiles)),
-    InvocationArguments(std::move(TheInvocationArguments))
+    InvocationArguments(std::move(TheInvocationArguments)),
+    HeaderSearchEntries(std::move(TheHeaderSearchEntries)),
+    HeaderAngledDirIdx(TheHeaderAngledDirIdx),
+    HeaderSystemDirIdx(TheHeaderSystemDirIdx)
   {}
 
 public:

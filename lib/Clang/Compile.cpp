@@ -26,6 +26,9 @@
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Lex/DirectoryLookup.h"
+#include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Serialization/ASTWriter.h"
 
 #include "llvm/PassManager.h"
@@ -716,6 +719,38 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   }
 }
 
+Metadata *getMDForLookupType(LLVMContext &Context,
+                             ::clang::DirectoryLookup::LookupType_t const LT)
+{
+  switch (LT)
+  {
+    case ::clang::DirectoryLookup::LT_NormalDir:
+      return llvm::MDString::get(Context, "LT_NormalDir");
+    case ::clang::DirectoryLookup::LT_Framework:
+      return llvm::MDString::get(Context, "LT_Framework");
+    case ::clang::DirectoryLookup::LT_HeaderMap:
+      return llvm::MDString::get(Context, "LT_HeaderMap");
+  }
+
+  return nullptr;
+}
+
+Metadata *getMDForCharacteristicKind(LLVMContext &Context,
+                                     ::clang::SrcMgr::CharacteristicKind CK)
+{
+  switch(CK)
+  {
+    case ::clang::SrcMgr::CharacteristicKind::C_User:
+      return llvm::MDString::get(Context, "C_User");
+    case ::clang::SrcMgr::CharacteristicKind::C_System:
+      return llvm::MDString::get(Context, "C_System");
+    case ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem:
+      return llvm::MDString::get(Context, "C_ExternCSystem");
+  }
+
+  return nullptr;
+}
+
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      ::clang::CompilerInstance &Compiler,
                                      const char * const *ArgBegin,
@@ -777,11 +812,42 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
     if (*ArgIt)
       ArgNodes.push_back(llvm::MDString::get(LLVMContext, *ArgIt));
   
+  // Save information about header lookups used.
+  std::vector<llvm::Metadata *> HeaderSearchDirNodes;
+  auto const &HeaderSearch = Compiler.getPreprocessor().getHeaderSearchInfo();
+  for (auto It = HeaderSearch.search_dir_begin(),
+            End = HeaderSearch.search_dir_end();
+       It != End; ++It)
+  {
+    llvm::Metadata *Args[] = {
+      getMDForLookupType(LLVMContext, It->getLookupType()),
+      llvm::MDString::get(LLVMContext, It->getName()),
+      getMDForCharacteristicKind(LLVMContext, It->getDirCharacteristic()),
+      It->isIndexHeaderMap()
+        ? ConstantAsMetadata::get(ConstantInt::getTrue(LLVMContext))
+        : ConstantAsMetadata::get(ConstantInt::getFalse(LLVMContext))
+    };
+
+    HeaderSearchDirNodes.emplace_back(llvm::MDNode::get(LLVMContext, Args));
+  }
+
+  auto const Int64Ty = llvm::Type::getInt64Ty(LLVMContext);
+  llvm::Metadata *HeaderSearchInfoNodes[] = {
+    llvm::MDNode::get(LLVMContext, HeaderSearchDirNodes),
+    ConstantAsMetadata::get(ConstantInt::get(Int64Ty,
+      std::distance(HeaderSearch.search_dir_begin(),
+                    HeaderSearch.angled_dir_begin()))),
+    ConstantAsMetadata::get(ConstantInt::get(Int64Ty,
+      std::distance(HeaderSearch.search_dir_begin(),
+                    HeaderSearch.system_dir_begin()))),
+  };
+
   // Create the compile info node for this unit.
   llvm::Metadata *CompileInfoOperands[] = {
     MainFileNode,
     llvm::MDNode::get(LLVMContext, FileInfoNodes),
-    llvm::MDNode::get(LLVMContext, ArgNodes)
+    llvm::MDNode::get(LLVMContext, ArgNodes),
+    llvm::MDNode::get(LLVMContext, HeaderSearchInfoNodes)
   };
   
   auto CompileInfoNode = llvm::MDNode::get(LLVMContext, CompileInfoOperands);

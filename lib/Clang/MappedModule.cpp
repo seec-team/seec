@@ -23,6 +23,8 @@
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/Preprocessor.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
@@ -37,6 +39,16 @@ namespace seec {
 
 namespace seec_clang {
 
+
+template<typename T>
+T const *getConstantFrom(llvm::Metadata const *Node)
+{
+  auto const C = llvm::dyn_cast_or_null<llvm::ConstantAsMetadata>(Node);
+  if (!C)
+    return nullptr;
+
+  return llvm::dyn_cast_or_null<T>(C->getValue());
+}
 
 //===----------------------------------------------------------------------===//
 // MappedFunctionDecl
@@ -87,7 +99,7 @@ MappedCompileInfo::FileInfo const *MappedCompileInfo::getMainFileInfo() const
 
 std::unique_ptr<MappedCompileInfo>
 MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
-  if (!CompileInfo || CompileInfo->getNumOperands() != 3)
+  if (!CompileInfo || CompileInfo->getNumOperands() != 4)
     return nullptr;
   
   // Get the main file info.
@@ -147,12 +159,100 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
     
     InvocationArguments.push_back(Str->getString().str());
   }
-  
+
+  // Extract header search information.
+  auto const HeaderSearch =
+    llvm::dyn_cast<llvm::MDNode>(CompileInfo->getOperand(3u));
+  if (!HeaderSearch) {
+    llvm::errs() << "no header search node.\n";
+    return nullptr;
+  }
+
+  auto const HeaderSearchList =
+    llvm::dyn_cast<llvm::MDNode>(HeaderSearch->getOperand(0u));
+  if (!HeaderSearchList) {
+    llvm::errs() << "no header search list node.\n";
+    return nullptr;
+  }
+
+  std::vector<HeaderSearchEntry> HeaderSearchEntries;
+  for (auto const &Op : HeaderSearchList->operands()) {
+    auto const OpNode = llvm::dyn_cast<llvm::MDNode>(&*Op);
+    if (!OpNode) {
+      llvm::errs() << "header search list entry is not an MDNode\n";
+      return nullptr;
+    }
+
+    auto const Type = llvm::dyn_cast<llvm::MDString>(OpNode->getOperand(0));
+    auto const Path = llvm::dyn_cast<llvm::MDString>(OpNode->getOperand(1));
+    auto const Kind = llvm::dyn_cast<llvm::MDString>(OpNode->getOperand(2));
+    bool IsIndexHeaderMap = false;
+    if (!Type || !Path || !Kind) {
+      llvm::errs() << "list entry is invalid\n";
+      return nullptr;
+    }
+
+    ::clang::DirectoryLookup::LookupType_t TypeValue;
+    if (Type->getString() == "LT_NormalDir")
+      TypeValue = ::clang::DirectoryLookup::LookupType_t::LT_NormalDir;
+    else if (Type->getString() == "LT_Framework")
+      TypeValue = ::clang::DirectoryLookup::LookupType_t::LT_Framework;
+    else if (Type->getString() == "LT_HeaderMap") {
+      TypeValue = ::clang::DirectoryLookup::LookupType_t::LT_HeaderMap;
+
+      auto const IdxHeader =
+        getConstantFrom<llvm::ConstantInt>(&*OpNode->getOperand(3));
+
+      if (!IdxHeader) {
+        llvm::errs() << "HeaderMap with no IsIdxHeader entry\n";
+        return nullptr;
+      }
+
+      if (IdxHeader->getZExtValue()) {
+        IsIndexHeaderMap = true;
+      }
+    }
+    else {
+      llvm::errs() << "unknown header type: " << Type->getString() << "\n";
+      return nullptr;
+    }
+
+    ::clang::SrcMgr::CharacteristicKind KindValue;
+    if (Kind->getString() == "C_User")
+      KindValue = ::clang::SrcMgr::CharacteristicKind::C_User;
+    else if (Kind->getString() == "C_System")
+      KindValue = ::clang::SrcMgr::CharacteristicKind::C_System;
+    else if (Kind->getString() == "C_ExternCSystem")
+      KindValue = ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem;
+    else {
+      llvm::errs() << "unknown CharacteristicKind: " << Kind->getString()<<"\n";
+      return nullptr;
+    }
+
+    HeaderSearchEntries.emplace_back(TypeValue,
+                                     Path->getString(),
+                                     KindValue,
+                                     IsIndexHeaderMap);
+  }
+
+  // Get index of angle bracket and system header start points.
+  auto const AngledIdx =
+    getConstantFrom<llvm::ConstantInt>(&*HeaderSearch->getOperand(1u));
+  auto const SystemIdx =
+    getConstantFrom<llvm::ConstantInt>(&*HeaderSearch->getOperand(2u));
+  if (!AngledIdx || !SystemIdx) {
+    llvm::errs() << "malformed header search info\n";
+    return nullptr;
+  }
+
   return std::unique_ptr<MappedCompileInfo>(
             new MappedCompileInfo(MainDirectory->getString().str(),
                                   MainFileName->getString().str(),
                                   std::move(SourceFiles),
-                                  std::move(InvocationArguments)));
+                                  std::move(InvocationArguments),
+                                  std::move(HeaderSearchEntries),
+                                  AngledIdx->getZExtValue(),
+                                  SystemIdx->getZExtValue()));
 }
 
 std::unique_ptr<CompilerInvocation>
