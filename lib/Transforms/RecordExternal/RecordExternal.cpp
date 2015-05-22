@@ -13,6 +13,7 @@
 
 #define DEBUG_TYPE "seec"
 
+#include "seec/Clang/MDNames.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -38,13 +39,15 @@
 
 namespace llvm {
 
-static bool IsMangledInterceptor(Function &F)
+namespace {
+
+bool IsMangledInterceptor(Function &F)
 {
   return F.getName().startswith("__SeeC_")
       && F.getName().endswith("__");
 }
 
-static llvm::Function *GetInterceptorFor(Function &F, Module &M)
+llvm::Function *GetInterceptorFor(Function &F, Module &M)
 {
   llvm::SmallString<128> InterceptorName;
   InterceptorName += "__SeeC_";
@@ -53,6 +56,24 @@ static llvm::Function *GetInterceptorFor(Function &F, Module &M)
   
   return M.getFunction(InterceptorName);
 }
+
+bool isSystemHeaderDecl(Function &F, Module &M)
+{
+  auto const GlobalSystemDeclsMD
+    = M.getOrInsertNamedMetadata(seec::seec_clang::MDGlobalSystemDeclsStr);
+
+  for (auto const Node : GlobalSystemDeclsMD->operands()) {
+    assert(Node->getNumOperands() == 1);
+    auto const MD = dyn_cast<ConstantAsMetadata>(Node->getOperand(0).get());
+    assert(MD);
+    if (MD->getValue() == &F)
+      return true;
+  }
+
+  return false;
+}
+
+} // anonymous namespace (in llvm)
 
 char InsertExternalRecording::ID = 0;
 
@@ -353,9 +374,11 @@ bool InsertExternalRecording::doInitialization(Module &M) {
                              llvm::StringRef("__SeeC_ResourcePath__"));
   GVResourcePath->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
-  // Check for unhandled external functions.
+  // Check for unhandled functions that are either externally defined or were
+  // defined by a system header which was included into the program.
   for (auto &F : M) {
-    if (F.empty() && !F.isIntrinsic()) {
+    if ((F.empty() || isSystemHeaderDecl(F,M)) && !F.isIntrinsic())
+    {
       auto Name = F.getName();
       
       // Don't consider the "\01_" prefix when matching names.
@@ -389,8 +412,9 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   for (auto &F : M) {
     // If the function is defined by the user's program, and they haven't
     // provided a custom interceptor, then don't intercept it.
-    if (!F.empty() && !GetInterceptorFor(F, M))
+    if (!F.empty() && !isSystemHeaderDecl(F,M) && !GetInterceptorFor(F,M)) {
       continue;
+    }
     
     auto Name = F.getName();
     

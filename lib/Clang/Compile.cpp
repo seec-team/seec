@@ -536,6 +536,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   if (GlobalPtrMD) {
     llvm::NamedMDNode *GlobalIdxMD
       = Mod->getOrInsertNamedMetadata(MDGlobalDeclIdxsStr);
+    llvm::NamedMDNode *GlobalSystemDeclsMD
+      = Mod->getOrInsertNamedMetadata(MDGlobalSystemDeclsStr);
 
     unsigned NumOperands = GlobalPtrMD->getNumOperands();
     for (unsigned i = 0; i < NumOperands; ++i) {
@@ -556,6 +558,11 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       };
 
       GlobalIdxMD->addOperand(llvm::MDNode::get(ModContext, Ops));
+      
+      if (SM.isInSystemHeader(D->getLocation())) {
+        llvm::Metadata *DeclOp[] = { PtrNode->getOperand(0).get() };
+        GlobalSystemDeclsMD->addOperand(llvm::MDNode::get(ModContext, DeclOp));
+      }
     }
     
     GlobalPtrMD->eraseFromParent();
