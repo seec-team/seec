@@ -23,6 +23,8 @@ char const * const MDDeclCompletionIdxsStr = "seec.clang.decl.completion.idxs";
 char const * const MDGlobalDeclPtrsStr = "clang.global.decl.ptrs";
 char const * const MDGlobalDeclIdxsStr = "seec.clang.global.decl.idxs";
 
+char const * const MDGlobalSystemDeclsStr = "seec.clang.global.system.decls";
+
 char const * const MDGlobalValueMapStr = "seec.clang.map.stmt.idxs";
 char const * const MDGlobalParamMapStr = "seec.clang.map.param.idxs";
 char const * const MDGlobalLocalMapStr = "seec.clang.map.local.idxs";
