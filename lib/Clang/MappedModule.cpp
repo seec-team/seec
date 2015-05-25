@@ -288,14 +288,63 @@ void MappedCompileInfo::createVirtualFiles(clang::FileManager &FM,
   FM.setDisableNonVirtualFiles(true);
 
   for (auto const &FileInfo : SourceFiles) {
+    llvm::SmallString<256> Name {FileInfo.getName()};
+    llvm::sys::path::native(Name);
+
     auto &Contents = FileInfo.getContents();
-    auto const Entry = FM.getVirtualFile(FileInfo.getName(),
+    auto const Entry = FM.getVirtualFile(Name,
                                          Contents.getBufferSize(),
                                          0 /* ModificationTime */);
 
     SM.overrideFileContents(Entry,
       llvm::MemoryBuffer::getMemBuffer(Contents.getBuffer(),
                                        Contents.getBufferIdentifier()));
+  }
+}
+
+void MappedCompileInfo::setHeaderSearchOpts(clang::HeaderSearchOptions &HSOpts)
+const
+{
+  for (unsigned i = 0; i < HeaderSearchEntries.size(); ++i) {
+    auto &HS = HeaderSearchEntries[i];
+
+    SmallString<256> Path {HS.getPath()};
+    llvm::sys::path::native(Path);
+
+    clang::frontend::IncludeDirGroup Group;
+
+    if (i < HeaderAngledDirIdx) {
+      // This is a quoted include path (e.g. "foo.h")
+      Group = clang::frontend::IncludeDirGroup::Quoted;
+    }
+    else if (i < HeaderSystemDirIdx) {
+      // Some kind of angled include path (e.g. <foo.h>)
+      if (HS.isIndexHeaderMap())
+        Group = clang::frontend::IncludeDirGroup::IndexHeaderMap;
+      else
+        Group = clang::frontend::IncludeDirGroup::Angled;
+    }
+    else {
+      // Some kind of system include path.
+      switch (HS.getCharacteristicKind()) {
+        case ::clang::SrcMgr::CharacteristicKind::C_User:
+          llvm::errs() << "system include path with C_User.\n";
+          Group = clang::frontend::IncludeDirGroup::System;
+          break;
+        case ::clang::SrcMgr::CharacteristicKind::C_System:
+          Group = clang::frontend::IncludeDirGroup::System;
+          break;
+        case ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem:
+          Group = clang::frontend::IncludeDirGroup::ExternCSystem;
+          break;
+      }
+    }
+
+    bool const isFramework =
+      HS.getLookupType() == DirectoryLookup::LookupType_t::LT_Framework;
+
+    HSOpts.AddPath(Path, Group, isFramework,
+                   /* IgnoreSysRoot */ true);
   }
 }
 
@@ -344,6 +393,10 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
     return nullptr;
   }
   
+  // Add header search options.
+  auto &HSOpts = CI->getHeaderSearchOpts();
+  FileCompileInfo->setHeaderSearchOpts(HSOpts);
+
   auto const Invocation = CI.release();
   
   // Create a new ASTUnit.

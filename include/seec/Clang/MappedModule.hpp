@@ -386,6 +386,10 @@ public:
   ///
   void createVirtualFiles(clang::FileManager &FM,
                           clang::SourceManager &SM) const;
+
+  /// \brief Setup header search options from those used in this compilation.
+  ///
+  void setHeaderSearchOpts(clang::HeaderSearchOptions &HS) const;
 };
 
 
