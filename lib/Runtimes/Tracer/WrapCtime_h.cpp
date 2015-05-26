@@ -51,6 +51,7 @@ SEEC_MANGLE_FUNCTION(time)
 // timespec_get
 //===----------------------------------------------------------------------===//
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 int
 SEEC_MANGLE_FUNCTION(timespec_get)
 (struct timespec *ts, int base)
@@ -69,6 +70,7 @@ SEEC_MANGLE_FUNCTION(timespec_get)
        seec::wrapOutputPointer(ts).setIgnoreNull(false),
        base);
 }
+#endif
 
 
 //===----------------------------------------------------------------------===//
