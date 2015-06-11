@@ -45,7 +45,8 @@ root:table {
     //   [Stmt] stmt
     //
     Label:string {
-      "This is a label named “{name}”. If execution reaches this label, or jumps to this label from another location, then the next evaluated statement will be @[stmt]the statement immediately following this label@[]."
+      "This is a label named “{name}”."
+      " If execution reaches this label, or jumps to this label from another location, then the next evaluated statement will be @[stmt]the statement immediately following this label@[]."
       "\n$[concept:label]"
     }
 
@@ -282,12 +283,16 @@ root:table {
     //   [Expr] init
     //
     Var:string {
-      "This declares a variable named “{name}”, with type “{type}”."
-      "\n$[concept:variable declaration]"
-
       "{is_static_local, select,"
-      " true {\n\nThis is a local static variable. $[concept:local static]}"
-      " false {}"
+      " true {"
+        "This declares a local static variable named “{name}”, with type “{type}”."
+        "\n$[concept:variable declaration]"
+        "\n$[concept:local static]"
+      "}"
+      " false {"
+        "This declares a variable named “{name}”, with type “{type}”."
+        "\n$[concept:variable declaration]"
+      "}"
       " other {}}"
     }
 
@@ -379,13 +384,15 @@ root:table {
         " It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer."
         " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
-        "\n\n$[concept:pointers]}"
+        "\n$[concept:pointers]"
+       "}"
+
        " other {"
         "This is an array subscript expression."
         " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
         " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
-        "\n\n$[concept:arrays]}}}"
+        "\n$[concept:arrays]}}}"
 
       " false {{base_type_general, select,"
        " Pointer {"
@@ -394,14 +401,15 @@ root:table {
         " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
         " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
-        "\n\n$[concept:pointers]}"
+        "\n$[concept:pointers]}"
+
        " other {"
         "This is an array subscript expression."
         " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
         " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
         " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
         " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
-        "\n\n$[concept:arrays]}}}"
+        "\n$[concept:arrays]}}}"
 
       " other {}}"
     }
@@ -413,7 +421,7 @@ root:table {
     BreakStmt:string {
       "This is a break statement."
       " It ends the execution of the first loop (“do”, “for”, or “while”) or “switch” statement that encloses it."
-      "\n\n$[concept:break loop]"
+      "\n$[concept:break loop]"
     }
 
     // BinaryOperator
@@ -440,11 +448,11 @@ root:table {
                " other {This is the multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}}}"
 
       " BO_Div {{type_general, select,"
-               " Integer {This is the division operator. In this case the division operator is being used to divide integers, so the result of the expression will be the result of dividing the value of @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], with any fractional part discarded. If you wish to find the value including the fractional part, then one or both of the values must be a floating point type.}"
+               " Integer {This is the division operator. In this case the division operator is being used to divide integers, so the result of the expression will be the result of dividing the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], with any fractional part discarded. If you wish to find the value including the fractional part, then one or both of the values must be a floating point type.\n$[concept:integer division]}"
                " Floating {This is the division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}"
                " other {This is the division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}}}"
 
-      " BO_Rem {This is the remainder operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.}"
+      " BO_Rem {This is the remainder operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.\n$[concept:remainder operator]}"
 
       // N1570 6.5.6
       " BO_Add {{type_general, select,"
@@ -454,11 +462,13 @@ root:table {
               "This is the addition operator."
               " In this case it is being used to perform pointer arithmetic, because the @[lhs]left hand side@[] is a pointer."
               " If the @[lhs]left hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i+N)-th element, where N is the value of the @[rhs]right hand side@[] expression."
+              "\n$[concept:pointer arithmetic]"
             "}"
             " other {"
               "This is the addition operator."
               " In this case it is being used to perform pointer arithmetic, because the @[rhs]right hand side@[] is a pointer."
               " If the @[rhs]right hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i+N)-th element, where N is the value of the @[lhs]left hand side@[] expression."
+              "\n$[concept:pointer arithmetic]"
             "}}"
         "}"
         " other {"
@@ -475,11 +485,13 @@ root:table {
               "This is the subtraction operator."
               " In this case it is being used to perform pointer arithmetic, because the @[lhs]left hand side@[] is a pointer."
               " If the @[lhs]left hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i-N)-th element, where N is the value of the @[rhs]right hand side@[] expression."
+              "\n$[concept:pointer arithmetic]"
             "}"
             " other {"
               "This is the subtraction operator."
               " In this case it is being used to perform pointer arithmetic, because the @[rhs]right hand side@[] is a pointer."
               " If the @[rhs]right hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i-N)-th element, where N is the value of the @[lhs]left hand side@[] expression."
+              "\n$[concept:pointer arithmetic]"
             "}}"
         "}"
         " other {"
@@ -488,6 +500,7 @@ root:table {
               "This is the subtraction operator."
               " In this case it is being used to find the difference between two pointer operands, both of which must point to elements of the same array."
               " If the @[lhs]left hand side@[] and @[rhs]right hand side@[] expressions point to, respectively, the i-th and j-th elements of the array, then the result of this operation is the value (i-j)."
+              "\n$[concept:pointer arithmetic]"
             "}"
             " other {"
               "This is the subtraction operator."
@@ -497,48 +510,50 @@ root:table {
         "}"
       "}}"
 
-      " BO_Shl {This is the “bitwise left shift” operator.}"
+      " BO_Shl {This is the “bitwise left shift” operator.\n$[concept:bitwise left shift]}"
 
-      " BO_Shr {This is the “bitwise right shift” operator.}"
+      " BO_Shr {This is the “bitwise right shift” operator.\n$[concept:bitwise right shift]}"
 
-      " BO_LT {This is the “less than” operator. If the value of the @[lhs]left hand side@[] is less than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_LT {This is the “less than” operator. If the value of the @[lhs]left hand side@[] is less than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_GT {This is the “greater than” operator. If the value of the @[lhs]left hand side@[] is greater than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_GT {This is the “greater than” operator. If the value of the @[lhs]left hand side@[] is greater than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_LE {This is the “less than or equal to” operator. If the value of the @[lhs]left hand side@[] is less than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_LE {This is the “less than or equal to” operator. If the value of the @[lhs]left hand side@[] is less than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_GE {This is the “greater than or equal to” operator. If the value of the @[lhs]left hand side@[] is greater than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_GE {This is the “greater than or equal to” operator. If the value of the @[lhs]left hand side@[] is greater than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_EQ {This is the “equal to” operator. If the value of the @[lhs]left hand side@[] is equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_EQ {This is the “equal to” operator. If the value of the @[lhs]left hand side@[] is equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_NE {This is the “not equal to” operator. If the value of the @[lhs]left hand side@[] is not equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_NE {This is the “not equal to” operator. If the value of the @[lhs]left hand side@[] is not equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.\n$[concept:comparison operators]}"
 
-      " BO_And {This is the “bitwise AND” operator. If you wish to use the “logical AND” operator, it is &&.}"
+      " BO_And {This is the “bitwise AND” operator. If you wish to use the “logical AND” operator, it is &&.\n$[concept:bitwise and]}"
 
-      " BO_Xor {This is the “bitwise exclusive OR” operator. If you wish to perform exponentiation use the function “pow”.}"
+      " BO_Xor {This is the “bitwise exclusive OR” operator. If you wish to perform exponentiation use the function “pow”.\n$[concept:bitwise xor]}"
 
-      " BO_Or {This is the “bitwise inclusive OR” operator. If you wish to use the “logical inclusive OR” operator, it is ||.}"
+      " BO_Or {This is the “bitwise inclusive OR” operator. If you wish to use the “logical inclusive OR” operator, it is ||.\n$[concept:bitwise or]}"
 
       " BO_LAnd {"
         "This is the “logical AND” operator."
         " If both the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0."
-        " The logical AND operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 0.}"
+        " The logical AND operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 0.\n$[concept:logical and]}"
 
       " BO_LOr {"
         "This is the “logical OR” operator."
         " If either the value of the @[lhs]left hand side@[] or the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0."
-        " The Logical OR operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a non-zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 1.}"
+        " The Logical OR operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a non-zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 1.\n$[concept:logical or]}"
 
       " BO_Assign {"
         "This is the assignment operator."
         " It stores the value of the @[rhs]right hand side@[] into the object designated by the @[lhs]left hand side@[]."
         " The result of the assignment operator is the new value of the object designated by the @[lhs]left hand side@[]."
+        "\n$[concept:assignment]"
       "}"
 
       " BO_Comma {"
         "This is the comma operator."
         " The comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression."
         " The value of the comma operator is the value of the @[rhs]right hand side@[] expression.}"
+        "\n$[concept:comma operator]"
 
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
     }
@@ -581,28 +596,46 @@ root:table {
     //
     CallExpr:string {
       "{has_direct_callee, select,"
-      " true {This is a function call."
-             " It is formed by the @[callee_expr]name of a function@[],"
-             " followed by a parenthesised list of argument expressions.}"
-      " false {This is an indirect function call."
-              " It is formed by @[callee_expr]an expression with a function pointer type@[],"
-              " followed by a parenthesised list of argument expressions.}"
-      " other {}}"
+       "true {"
+        "{general_type, select,"
+         "Void {"
+          "{num_args, plural,"
+           "=0 {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parentheses are empty. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+           "=1 {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is one argument. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+           "other {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+          "}"
+         "}"
+         "other {"
+          "{num_args, plural,"
+           "=0 {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parentheses are empty. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+           "=1 {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is one argument. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+           "other {This is a function call. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+          "}"
+         "}"
+        "}"
+       "}"
 
-      "{num_args, plural,"
-      " =0 { In this case there are no arguments, so the parentheses are empty.}"
-      " =1 { In this case there is only one argument.}"
-      " other { In this case there are {num_args} arguments.}"
+       "false {"
+        "{general_type, select,"
+         "Void {"
+          "{num_args, plural,"
+           "=0 {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parentheses are empty. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+           "=1 {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there is one argument. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+           "other {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. The called function has a void return type, so no value is produced by this call expression.\n$[concept:function call]}"
+          "}"
+         "}"
+         "other {"
+          "{num_args, plural,"
+           "=0 {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parentheses are empty. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+           "=1 {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there is one argument. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+           "other {This is an indirect function call. It is formed by @[callee_expr]an expression with a function pointer type@[], followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. The value provided to the called function's return statement will be passed back from the function, and become the value produced by this call expression.\n$[concept:function call]}"
+          "}"
+         "}"
+        "}"
+       "}"
+
+       "other {}"
       "}"
-
-      "{general_type, select,"
-      " Void { The called function has a void return type,"
-             " so no value is produced by this call expression.}"
-      " other { The value provided to the called function's return statement will be passed back from the function,"
-              " and become the value produced by this call expression.}"
-      "}"
-
-      "\n\n$[concept:function call]"
     }
 
     // CharacterLiteral
@@ -614,8 +647,10 @@ root:table {
     // Outputs:
     //
     CharacterLiteral:string {
-      "This is a character literal. It is a constant value of type “{type}”."
-      "{has_rtv_of_this, select, true { The value is “{rtv_of_this}”.} false {} other {}}"
+      "{has_rtv_of_this, select,"
+      " true {This is a character literal. It is a constant value of type “{type}”. The value is “{rtv_of_this}”.\n$[concept:character literal]}"
+      " false {This is a character literal. It is a constant value of type “{type}”.\n$[concept:character literal]}"
+      " other {}}"
     }
 
     // CompoundAssignOperator
@@ -633,21 +668,30 @@ root:table {
     CompoundAssignOperator:string {
       "{opcode, select,"
 
-      " BO_MulAssign {This is the multiplication compound assignment operator."
-                     " It multiplies the value of the @[lhs]left hand side@[]"
-                     " with the value of the @[rhs]right hand side@[],"
-                     " then assigns the resulting value to the @[lhs]left hand side@[].}"
+      " BO_MulAssign {"
+        "This is the multiplication compound assignment operator."
+        " It multiplies the value of the @[lhs]left hand side@[]"
+        " with the value of the @[rhs]right hand side@[],"
+        " then assigns the resulting value to the @[lhs]left hand side@[]."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_DivAssign {This is the division compound assignment operator."
-                     " It divides the value of the @[lhs]left hand side@[] by"
-                     " the value of the @[rhs]right hand side@[], then assigns"
-                     " the resulting value to the @[lhs]left hand side@[].}"
+      " BO_DivAssign {"
+        "This is the division compound assignment operator."
+        " It divides the value of the @[lhs]left hand side@[] by"
+        " the value of the @[rhs]right hand side@[], then assigns"
+        " the resulting value to the @[lhs]left hand side@[]."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_RemAssign {This is the remainder compound  assignment operator."
-                     " It calculates the remainder of dividing the value of the"
-                     " @[lhs]left hand side@[] by the value of the"
-                     " @[rhs]right hand side@[], then assigns the value of the"
-                     " remainder to the @[lhs]left hand side@[].}"
+      " BO_RemAssign {"
+        "This is the remainder compound assignment operator."
+        " It calculates the remainder of dividing the value of the"
+        " @[lhs]left hand side@[] by the value of the"
+        " @[rhs]right hand side@[], then assigns the value of the"
+        " remainder to the @[lhs]left hand side@[]."
+        "\n$[concept:compound assignment]"
+       "}"
 
       " BO_AddAssign {"
         "{type_general, select,"
@@ -657,12 +701,15 @@ root:table {
             " performs pointer arithmetic addition on the value of the @[lhs]left operand@[]"
             " and the value of the @[rhs]right operand@[], then stores the result"
             " in the object designated by the @[lhs]left operand@[]."
+            "\n$[concept:compound assignment]"
+            "\n$[concept:pointer arithmetic]"
           "}"
           " other {"
             "This is the addition compound assignment operator."
             " It adds the value of the @[lhs]left hand side@[] and the"
             " value of the @[rhs]right hand side@[], then assigns the"
             " resulting value to the @[lhs]left hand side@[]."
+            "\n$[concept:compound assignment]"
           "}"
         "}"
       "}"
@@ -675,30 +722,46 @@ root:table {
             " performs pointer arithmetic subtraction on the value of the @[lhs]left operand@[]"
             " and the value of the @[rhs]right operand@[], then stores the result"
             " in the object designated by the @[lhs]left operand@[]."
+            "\n$[concept:compound assignment]"
+            "\n$[concept:pointer arithmetic]"
           "}"
           " other {"
             "This is the subtraction compound assignment operator."
             " It subtracts the value of the @[rhs]right hand side@[]"
             " from the value of the @[lhs]left hand side@[], then"
             " assigns the resulting value to the @[lhs]left hand side@[]."
+            "\n$[concept:compound assignment]"
           "}"
         "}"
       "}"
 
-      " BO_ShlAssign {This is the left-shift compound assignment operator.}"
+      " BO_ShlAssign {"
+        "This is the left-shift compound assignment operator."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_ShrAssign {This is the right-shift compound assignment operator.}"
+      " BO_ShrAssign {"
+        "This is the right-shift compound assignment operator."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_AndAssign {This is the bitwise AND compound assignment operator.}"
+      " BO_AndAssign {"
+        "This is the bitwise AND compound assignment operator."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_XorAssign {This is the bitwise exclusive OR compound assignment operator.}"
+      " BO_XorAssign {"
+        "This is the bitwise exclusive OR compound assignment operator."
+        "\n$[concept:compound assignment]"
+       "}"
 
-      " BO_OrAssign {This is the bitwise inclusive OR compound assignment operator.}"
+      " BO_OrAssign {"
+        "This is the bitwise inclusive OR compound assignment operator."
+        "\n$[concept:compound assignment]"
+       "}"
 
       " other {Unknown CompoundAssignOperator: {opcode}.}"
       "}"
-
-      "\n$[concept:compound assignment]"
     }
 
     // CompoundLiteralExpr
@@ -711,13 +774,10 @@ root:table {
     //   [Expr] init
     //
     CompoundLiteralExpr:string {
-      "This is a compound literal."
-      " It provides an unnamed object of type “{type}”, whose value is given by"
-      " the @[init]initializer list@[]."
-
       "{has_rtv_of_this, select,"
-      " true  { In this case the value is “{rtv_of_this}”.}"
-      " other {}}"
+      " true  {This is a compound literal. It provides an unnamed object of type “{type}”, whose value is given by the @[init]initializer list@[]. In this case the value is “{rtv_of_this}”.\n$[concept:compound literal]}"
+      " other {This is a compound literal. It provides an unnamed object of type “{type}”, whose value is given by the @[init]initializer list@[].\n$[concept:compound literal]}"
+      "}"
     }
 
     // CompoundStmt
@@ -727,12 +787,11 @@ root:table {
     // Outputs:
     //
     CompoundStmt:string {
-      "This is a compound statement."
-      " It consists of a group of statements, each of which will be evaluated in order."
-      " {size, plural,"
-      " =0 {This compound statement is empty (it contains no statements).}"
-      " =1 {This compound statement contains one statement.}"
-      " other {This compound statement contains {size} statements.}}"
+      "{size, plural,"
+      " =0 {This is a compound statement containing no statements. Each statement contained within a compound statement is evaluated in order.}"
+      " =1 {This is a compound statement containing one statement. Each statement contained within a compound statement is evaluated in order.}"
+      " other {This is a compound statement containing {size} statements. Each of these statements will be evaluated in order.}"
+      "}"
     }
 
     // ConditionalOperator
@@ -761,10 +820,10 @@ root:table {
     //
     ContinueStmt:string {
       "This is a continue statement."
-      " It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it."
+      " It ends the execution of the current iteration of the closest enclosing loop (“do”, “for”, or “while”)."
       " If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop."
       " If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression."
-      "\n\n$[concept:continue]"
+      "\n$[concept:continue]"
     }
 
     // CStyleCastExpr
@@ -802,9 +861,9 @@ root:table {
     //
     DeclRefExpr:string {
       "{kind_general, select,"
-      " Var {This refers to the variable @[decl]“{name}”@[].}"
-      " Function {This refers to the function @[decl]“{name}”@[].}"
-      " EnumConstant {This refers to the enum constant @[decl]“{name}”@[].}"
+      " Var {This is a reference to the variable @[decl]“{name}”@[].}"
+      " Function {This is a reference to the function @[decl]“{name}”@[].}"
+      " EnumConstant {This is a reference to the enum constant @[decl]“{name}”@[].}"
       " other {This is a reference to the declaration @[decl]“{name}”@[].}}"
     }
 
@@ -871,7 +930,7 @@ root:table {
     // Outputs:
     //
     FloatingLiteral:string {
-      "This is a floating point literal."
+      "This is a floating point literal.\n$[concept:floating literal]"
     }
 
     // ForStmt
@@ -957,44 +1016,40 @@ root:table {
     //   [Stmt] else
     //
     IfStmt:string {
-      "This is an if statement. "
-
-      "{has_else, select, "
-       "true {It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. }"
-       "false {It consists of a @[cond]condition@[] and a @[then]body@[]. }"
-       "other {}}"
-
       "{has_bool_rtv_of_cond, select, "
        "true {"
         "{bool_rtv_of_cond, select, "
          "true {"
           "{has_else, select, "
-           "true {The @[cond]condition@[]'s result is not equal to zero,"
-                 " so the @[then]body@[] is executed,"
-                 " but the @[else]else section@[] is not executed.}"
-           "false {The @[cond]condition@[]'s result is not equal to zero,"
-                  " so the @[then]body@[] is executed.}"
+           "true {"
+            "This is an if statement. It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. In this case the @[cond]condition@[]'s result is not equal to zero, so the @[then]body@[] is executed, and the @[else]else section@[] is not executed.\n$[concept:if]"
+           "}"
+           "false {"
+            "This is an if statement. It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. In this case the @[cond]condition@[]'s result is not equal to zero, so the @[then]body@[] is executed.\n$[concept:if]"
+           "}"
            "other {}}}"
+
          "false {"
           "{has_else, select, "
-           "true {The @[cond]condition@[]'s result is equal to zero,"
-                 " so the @[then]body@[] is not executed,"
-                 " but the @[else]else section@[] is executed.}"
-           "false {The @[cond]condition@[]'s result is equal to zero,"
-                  " so the @[then]body@[] is not executed.}"
+           "true {"
+            "This is an if statement. It consists of a @[cond]condition@[] and a @[then]body@[]. In this case the @[cond]condition@[]'s result is equal to zero, so the @[then]body@[] is not executed, and the @[else]else section@[] is executed.\n$[concept:if]"
+           "}"
+           "false {"
+            "This is an if statement. It consists of a @[cond]condition@[] and a @[then]body@[]. In this case the @[cond]condition@[]'s result is equal to zero, so the @[then]body@[] is not executed.\n$[concept:if]"
+           "}"
            "other {}}}"
          "other {}}}"
+
        "false {"
         "{has_else, select, "
-         "true {If the @[cond]condition@[]'s result does not equal zero,"
-               " then the @[then]body@[] will be executed,"
-               " otherwise the @[else]else section@[] will be executed.}"
-         "false {If the @[cond]condition@[]'s result does not equal zero,"
-                " then the @[then]body@[] will be executed.}"
+         "true {"
+          "This is an if statement. It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. If the @[cond]condition@[]'s result does not equal zero, then the @[then]body@[] will be executed, otherwise the @[else]else section@[] will be executed.\n$[concept:if]"
+         "}"
+         "false {"
+          "This is an if statement. It consists of a @[cond]condition@[] and a @[then]body@[]. If the @[cond]condition@[]'s result does not equal zero, then the @[then]body@[] will be executed.\n$[concept:if]"
+         "}"
          "other {}}}"
        "other {}}"
-
-       "\n$[concept:if]"
     }
 
     // ImaginaryLiteral
@@ -1005,7 +1060,7 @@ root:table {
     //   [Expr] sub_expr
     //
     ImaginaryLiteral:string {
-      "This is an imaginary {sub_expr_type_general} literal."
+      "This is an imaginary {sub_expr_type_general} literal.\n$[concept:imaginary literal]"
     }
 
     // ImplicitCastExpr
@@ -1061,6 +1116,7 @@ root:table {
         " “casting” it into an appropriate type, so that it can be stored in a"
         " variable, passed to a function, or used with an operator. In this"
         " case the new type is “{type}”."
+        "\n$[concept:implicit cast]"
        "}"
       "}"
     }
@@ -1071,7 +1127,7 @@ root:table {
     // Outputs:
     //
     IntegerLiteral:string {
-      "This is an integer literal."
+      "This is an integer literal.\n$[concept:integer literal]"
     }
 
     // LabelStmt
@@ -1088,6 +1144,7 @@ root:table {
       "This is a label statement."
       " It declares a label with the name “{name}”, which is followed by a"
       " @[sub_stmt]sub-statement@[]."
+      "\n$[concept:label]"
     }
 
     // MemberExpr
@@ -1103,9 +1160,9 @@ root:table {
       "{is_arrow, select,"
       " true {This expression returns the member object named “{member_decl_name}”"
              " in the object that is pointed to by the @[base]pointer that"
-             " precedes the arrow@[].}"
+             " precedes the arrow@[].\n$[concept:arrow operator]}"
       " false {This expression returns the member object named “{member_decl_name}”"
-              " in the @[base]object@[] that precedes the dot.}"
+              " in the @[base]object@[] that precedes the dot.\n$[concept:dot operator]}"
       " other {}}"
     }
 
@@ -1167,23 +1224,21 @@ root:table {
     //   [Expr] return_value
     //
     ReturnStmt:string {
-      "This is a return statement."
-      " It terminates execution of the enclosing function, returning control to"
-      " the caller of this function."
-      " If a value is returned, then it will be received at the site where this"
-      " function was called."
-      " If this is the main function, then the program will end."
-
       "{has_return_value, select,"
-      " true  { This return statement @[return_value]returns a value@[].}"
-      " false { This return statement does not return a value.}"
+      " true  {"
+        "{has_rtv_of_return_value, select,"
+        " true  {"
+          "This is a return statement. It terminates execution of the enclosing function, returning control to the caller of this function. If this is the main function, then the program will end. This return statement @[return_value]returns a value@[], which will be received at the site where this function was called. In this case the value is “{rtv_of_return_value}”.\n$[concept:return]"
+         "}"
+        " other {"
+          "This is a return statement. It terminates execution of the enclosing function, returning control to the caller of this function. If this is the main function, then the program will end. This return statement @[return_value]returns a value@[], which will be received at the site where this function was called.\n$[concept:return]"
+         "}"
+        "}"
+       "}"
+      " false {"
+        "This is a return statement. It terminates execution of the enclosing function, returning control to the caller of this function. If this is the main function, then the program will end. This return statement does not return a value.\n$[concept:return]"
+       "}"
       " other {}}"
-
-      "{has_rtv_of_return_value, select,"
-      " true  { This return statement is returning the value “{rtv_of_return_value}”.}"
-      " other {}}"
-
-      "\n$[concept:return]"
     }
 
     // StringLiteral
@@ -1199,18 +1254,12 @@ root:table {
     //
     StringLiteral:string {
       "{string_kind, select,"
-       " ASCII {This is an ASCII string literal.}"
-       " Wide {This is a wide string literal.}"
-       " UTF8 {This is a UTF-8 (Unicode) string literal.}"
-       " UTF16 {This is a UTF-16 (Unicode) string literal.}"
-       " UTF32 {This is a UTF-32 (Unicode) string literal.}"
+       " ASCII {This is an ASCII string literal.\n$[concept:string literal]}"
+       " Wide {This is a wide string literal.\n$[concept:string literal]}"
+       " UTF8 {This is a UTF-8 (Unicode) string literal.\n$[concept:string literal]}"
+       " UTF16 {This is a UTF-16 (Unicode) string literal.\n$[concept:string literal]}"
+       " UTF32 {This is a UTF-32 (Unicode) string literal.\n$[concept:string literal]}"
        " other {}}"
-
-       "{num_concatenated, plural,"
-       " =0    {}"
-       " =1    {}"
-       " other { This string literal was concatenated from {num_concatenated}"
-               " individual string literals.}}"
     }
 
     // SwitchStmt
@@ -1298,32 +1347,32 @@ root:table {
       " UO_PostInc {"
         "This is a post-increment operation. It returns the current value of"
         " the object referenced by the @[sub_expr]sub-expression@[], and"
-        " increments (adds 1 to) the value that is stored in that object.}"
+        " increments (adds 1 to) the value that is stored in that object.\n$[concept:post increment]}"
 
       " UO_PostDec {"
         "This is a post-decrement operation. It returns the current value of"
         " the object referenced by the @[sub_expr]sub-expression@[], and"
-        " decrements (subtracts 1 from) the value that is stored in that object.}"
+        " decrements (subtracts 1 from) the value that is stored in that object.\n$[concept:post decrement]}"
 
       " UO_PreInc {"
         "This is a pre-increment operation. It increments (adds 1 to) the value"
         " that is stored in the object referenced by the"
-        " @[sub_expr]sub-expression@[], and returns the new value.}"
+        " @[sub_expr]sub-expression@[], and returns the new value.\n$[concept:pre increment]}"
 
       " UO_PreDec {"
         "This is a pre-decrement operation. It decrements (subtracts 1 from)"
         " the value that is stored in the object referenced by the"
-        " @[sub_expr]sub-expression@[], and returns the new value.}"
+        " @[sub_expr]sub-expression@[], and returns the new value.\n$[concept:pre decrement]}"
 
       " UO_AddrOf {"
         "This is an address-of operation. It takes the address of the object"
         " that is referenced by the @[sub_expr]sub-expression@[], producing a"
-        " pointer to that object.}"
+        " pointer to that object.\n$[concept:address-of operator]}"
 
       " UO_Deref {"
         "This is a dereference operation. It returns the object that is at the"
         " address that is referenced by the pointer type"
-        " @[sub_expr]sub-expression@[].}"
+        " @[sub_expr]sub-expression@[].\n$[concept:dereference operator]}"
 
       " UO_Plus {This is a unary plus operation.}"
 
@@ -1335,14 +1384,14 @@ root:table {
       " UO_Not {"
         "This is a bitwise NOT, or complement, operation. It inverts the value"
         " of each individual bit in the value produced by the"
-        " @[sub_expr]sub-expression@[].}"
+        " @[sub_expr]sub-expression@[].\n$[concept:bitwise complement]}"
 
       " UO_LNot {"
         "This is a logical negation (NOT) operation. If the value of the"
         " @[sub_expr]sub-expression@[] is true (non-zero), then this operation"
         " returns a false (zero) value. If the value of the"
         " @[sub_expr]sub-expression@[] is false (zero), then this operation"
-        " returns a true (non-zero) value.}"
+        " returns a true (non-zero) value.\n$[concept:logical not]}"
 
       " UO_Real {This operation returns the real part of a complex number.}"
 
@@ -1366,24 +1415,21 @@ root:table {
     //   [Stmt]     body
     //
     WhileStmt:string {
-      "This is a while loop. It has a @[cond]condition expression@[] and a"
-      " @[body]body@[]. At the beginning of the loop, the"
-      " @[cond]condition expression@[] is evaluated."
-
-      "{has_rtv_of_cond, select,"
-      " true  { In this case it has evaluated to {rtv_of_cond}.}"
-      " other {}}"
-
-      " If this value is true (non-zero), then the loop's @[body]body@[] is"
-      " executed. If the end of the @[body]body@[] is reached, or a continue"
-      " statement is evaluated, then the iteration is complete and execution"
-      " returns to the beginning of the loop (i.e. the"
-      " @[cond]condition expression@[] is evaluated again). If the value"
-      " produced by the @[cond]condition expression@[] is false (zero), then"
-      " the loop is terminated and execution proceeds to the first statement"
-      " following the end of the @[body]body@[]."
-
-      "\n$[concept:while]"
+      "{has_bool_rtv_of_cond, select,"
+      " true {"
+        "{bool_rtv_of_cond, select,"
+        " true {"
+          "This is a while loop. It has a @[cond]condition expression@[] and a @[body]body@[]. At the beginning of the loop, the @[cond]condition expression@[] is evaluated. In this case the result was true (non-zero), therefore the loop's @[body]body@[] is executed. If the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is completed and execution returns to the beginning of the loop (the @[cond]condition expression@[]). When the result of the @[cond]condition expression@[] is false (zero), then the loop is terminated and execution proceeds to the first statement following the end of the @[body]body@[].\n$[concept:while]"
+         "}"
+        " other {"
+          "This is a while loop. It has a @[cond]condition expression@[] and a @[body]body@[]. At the beginning of the loop, the @[cond]condition expression@[] is evaluated. In this case the result was false (zero), therefore the loop is terminated and execution proceeds to the first statement following the end of the @[body]body@[]. If the result was true (non-zero), then the loop's @[body]body@[] would be executed. When the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is completed and execution returns to the beginning of the loop (the @[cond]condition expression@[]).\n$[concept:while]"
+         "}"
+        "}"
+       "}"
+      " other {"
+        "This is a while loop. It has a @[cond]condition expression@[] and a @[body]body@[]. At the beginning of the loop, the @[cond]condition expression@[] is evaluated. If the result is true (non-zero), then the loop's @[body]body@[] is executed. If the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is completed and execution returns to the beginning of the loop (the @[cond]condition expression@[]). When the result of the @[cond]condition expression@[] is false (zero), then the loop is terminated and execution proceeds to the first statement following the end of the @[body]body@[].\n$[concept:while]"
+       "}"
+      "}"
     }
 
     // InitListExpr
