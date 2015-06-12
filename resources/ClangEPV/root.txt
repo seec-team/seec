@@ -552,8 +552,9 @@ root:table {
       " BO_Comma {"
         "This is the comma operator."
         " The comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression."
-        " The value of the comma operator is the value of the @[rhs]right hand side@[] expression.}"
+        " The value of the comma operator is the value of the @[rhs]right hand side@[] expression."
         "\n$[concept:comma operator]"
+      "}"
 
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
     }
