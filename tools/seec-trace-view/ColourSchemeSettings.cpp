@@ -491,6 +491,9 @@ void ColourSchemeSettings::loadUserScheme()
   wxFileName ThePath (getUserLocalDataPath());
   ThePath.SetFullName("scheme.xml");
 
+  if (!ThePath.FileExists())
+    return;
+
   auto MaybeScheme = ColourSchemeFromXML(ThePath.GetFullPath());
   if (MaybeScheme.assigned<Error>()) {
     auto const ErrStr = getOrDescribe(MaybeScheme.get<Error>());
