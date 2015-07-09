@@ -20,8 +20,10 @@
 #include <wx/stc/stc.h>
 
 #include "AnnotationEditor.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "OpenTrace.hpp"
 #include "SourceViewerSettings.hpp"
+#include "TraceViewerApp.hpp"
 
 class AnnotationEditorDialog final : public wxDialog
 {
@@ -78,9 +80,8 @@ AnnotationEditorDialog::AnnotationEditorDialog(wxWindow *Parent,
   // Setup text editor.
   m_Text = new wxStyledTextCtrl(this, wxID_ANY);
 
-  setupAllSciCommonTypes(*m_Text);
-  setupAllSciLexerTypes(*m_Text);
-  setupAllSciIndicatorTypes(*m_Text);
+  setupStylesFromColourScheme(*m_Text,
+    *(wxGetApp().getColourSchemeSettings().getColourScheme()));
 
   m_Text->SetWrapMode(wxSTC_WRAP_WORD);
   m_Text->SetValue(m_Point.getText());
