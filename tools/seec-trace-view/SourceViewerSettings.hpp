@@ -28,47 +28,6 @@ class ColourScheme;
 
 
 //===----------------------------------------------------------------------===//
-// SciStyle
-//===----------------------------------------------------------------------===//
-
-/// \brief Holds the details of a particular style.
-///
-struct SciStyle {
-  /// \brief The name of this style.
-  wxString const Name;
-  
-  /// \brief The foreground colour for this style (i.e. text colour).
-  wxColour const Foreground;
-  
-  /// \brief The background colour for this style.
-  wxColour const Background;
-  
-  /// \brief The font for this style.
-  wxFont const Font;
-  
-  /// \brief Sets whether the font is mixed case, or forces uppercase or 
-  ///        lowercase.
-  int const CaseForce;
-  
-  /// \brief Constructor
-  SciStyle(wxString const &Name,
-           wxColour const &Foreground,
-           wxColour const &Background,
-           wxFont const &Font,
-           int const CaseForce)
-  : Name(Name),
-    Foreground(Foreground),
-    Background(Background),
-    Font(Font),
-    CaseForce(CaseForce)
-  {}
-  
-  /// \brief Copy-constructor.
-  SciStyle(SciStyle const &) = default;
-};
-
-
-//===----------------------------------------------------------------------===//
 // SciCommonType
 //===----------------------------------------------------------------------===//
 
@@ -94,17 +53,6 @@ char const *getSciTypeName(SciCommonType Type);
 ///         with name equal to Name, or is unassigned if no such SciCommonType
 ///         exists.
 seec::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name);
-
-/// \brief Get an array containing all valid SciCommonType values.
-llvm::ArrayRef<SciCommonType> getAllSciCommonTypes();
-
-/// \brief Get the default style settings for a given SciCommonType.
-///
-seec::Maybe<SciStyle> getDefaultStyle(SciCommonType Type);
-
-/// \brief Setup default style settings for all common types.
-///
-void setupAllSciCommonTypes(wxStyledTextCtrl &Text);
 
 
 //===----------------------------------------------------------------------===//
@@ -132,17 +80,6 @@ char const *getSciTypeName(SciLexerType Type);
 /// \return a seec::Maybe<SciType> which contains the SciType with name
 ///         equal to Name, or is unassigned if no such SciType exists.
 seec::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name);
-
-/// \brief Get an array containing all valid SciType values.
-llvm::ArrayRef<SciLexerType> getAllSciLexerTypes();
-
-/// \brief Get the default style settings for a given SciType.
-///
-seec::Maybe<SciStyle> getDefaultStyle(SciLexerType Type);
-
-/// \brief Setup default style settings for all lexer types.
-///
-void setupAllSciLexerTypes(wxStyledTextCtrl &Text);
 
 
 //===----------------------------------------------------------------------===//
