@@ -61,33 +61,10 @@ bool setupCommonConfig()
 {
   assert(wxAppConsole::GetInstance());
 
-  auto &StdPaths = wxStandardPaths::Get();
-
   // Setup the configuration to use a file in the user's data directory. If we
   // don't do this ourselves then the default places the config file in the same
   // path as the directory would take, causing an unfortunate collision.
-  wxFileName ConfigPath;
-  
-#if defined(SEEC_CSSE_LAB_OSX)
-  // Special override for the CSSE lab machines.
-  ConfigPath.AssignDir("/Users");
-  ConfigPath.AppendDir(wxGetUserId());
-  ConfigPath.AppendDir("linuxNetworkHome");
-  ConfigPath.AppendDir("linuxHome");
-
-  if (ConfigPath.DirExists()) {
-    ConfigPath.AppendDir(".seec-view");
-    if (!ConfigPath.DirExists()) {
-      ConfigPath.Mkdir();
-    }
-  }
-  
-  if (!ConfigPath.DirExists()) {
-    ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
-  }
-#else
-  ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
-#endif
+  wxFileName ConfigPath (getUserLocalDataPath());
 
   if (!wxDirExists(ConfigPath.GetFullPath())) {
     if (!wxMkdir(ConfigPath.GetFullPath())) {
@@ -111,6 +88,34 @@ bool setupCommonConfig()
   Previous.reset(wxConfigBase::Set(Config));
 
   return true;
+}
+
+std::string getUserLocalDataPath()
+{
+  wxFileName ConfigPath;
+
+#if defined(SEEC_CSSE_LAB_OSX)
+  // Special override for the CSSE lab machines.
+  ConfigPath.AssignDir("/Users");
+  ConfigPath.AppendDir(wxGetUserId());
+  ConfigPath.AppendDir("linuxNetworkHome");
+  ConfigPath.AppendDir("linuxHome");
+
+  if (ConfigPath.DirExists()) {
+    ConfigPath.AppendDir(".seec-view");
+    if (!ConfigPath.DirExists()) {
+      ConfigPath.Mkdir();
+    }
+  }
+
+  if (!ConfigPath.DirExists()) {
+    ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
+  }
+#else
+  ConfigPath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());
+#endif
+
+  return ConfigPath.GetFullPath().ToStdString();
 }
 
 }
