@@ -696,6 +696,42 @@ root:table {
     }
   }
 
+  ColourSchemes:table {
+    FontPointSizeIncorrect:string {"Font point size is invalid: '{value}'."}
+    FontInfoNodeMissing:string {"FontInfo node is missing from TextStyle definition for '{value}'."}
+    XMLLoadError:string {"Failed to read colour scheme XML document '{filename}'."}
+    TextStylesMissing:string {"Text styles node is missing from colour scheme."}
+    SchemeInvalidError:string {"Colour scheme definition is invalid."}
+    ReadErrorTitle:string {"Error reading colour scheme"}
+
+    TextStyleNames:table {
+      Default:string            {"Default"}
+      LineNumber:string         {"Line numbers"}
+
+      RuntimeError:string       {"Runtime errors"}
+      RuntimeValue:string       {"Runtime values"}
+      RuntimeInformation:string {"Runtime information"}
+
+      Comment:string            {"Comments (block-style)"}
+      CommentLine:string        {"Comments (line-style)"}
+      Number:string             {"Numbers"}
+      Keyword1:string           {"Keywords (1)"}
+      String:string             {"String literals"}
+      Character:string          {"Character literals"}
+      Preprocessor:string       {"Preprocessor"}
+      Operator:string           {"Operators"}
+      Identifier:string         {"Identifiers"}
+      StringEOL:string          {"String (EOL)"}
+      Keyword2:string           {"Keywords (2)"}
+    }
+
+    SettingsPanel:table {
+      Title:string {"Colour Scheme"}
+      SaveErrorTitle:string {"Error saving colour scheme"}
+      SaveErrorMessage:string {"Error saving colour scheme"}
+    }
+  }
+
   //
   // Default style settings for Scintilla
   //

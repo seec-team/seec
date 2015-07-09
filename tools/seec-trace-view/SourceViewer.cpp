@@ -44,6 +44,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
@@ -455,22 +456,21 @@ class SourceFilePanel : public wxPanel {
 
   /// Used to determine if the mouse remains stationary during a click.
   bool ClickUnmoved;
-  
-  
+
+
+  /// \brief Setup the Scintilla styles.
+  ///
+  void setSTCStyles(ColourScheme const &Scheme) {
+    setupStylesFromColourScheme(*Text, Scheme);
+  }
+
   /// \brief Setup the Scintilla preferences.
   ///
   void setSTCPreferences() {
     // Set the lexer to C++.
     Text->SetLexer(wxSTC_LEX_CPP);
-        
-    // Setup the default common style settings.
-    setupAllSciCommonTypes(*Text);
-    
-    // Setup the default style settings for the lexer.
-    setupAllSciLexerTypes(*Text);
-    
-    // Setup the style settings for our indicators.
-    setupAllSciIndicatorTypes(*Text);
+
+    setSTCStyles(*wxGetApp().getColourSchemeSettings().getColourScheme());
     
     //
     UErrorCode Status = U_ZERO_ERROR;
@@ -507,7 +507,24 @@ class SourceFilePanel : public wxPanel {
     
     Text->SetExtraDescent(2);
   }
-  
+
+  /// \brief Set the margin size based on the length of the current text.
+  ///
+  void setSTCMarginWidth() {
+    // Set the width of the line numbers margin.
+    auto LineCount = Text->GetLineCount();
+
+    unsigned Digits = 1;
+    while (LineCount /= 10)
+      ++Digits;
+
+    auto CharWidth = Text->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("0"));
+
+    auto MarginWidth = (Digits + 1) * CharWidth;
+
+    Text->SetMarginWidth(static_cast<int>(SciMargin::LineNumber), MarginWidth);
+  }
+
   /// \brief Handle file loading.
   ///
   void setFileSpecificOptions() {
@@ -515,18 +532,7 @@ class SourceFilePanel : public wxPanel {
     // mapping information.
     Text->SetReadOnly(true);
     
-    // Set the width of the line numbers margin.
-    auto LineCount = Text->GetLineCount();
-
-    unsigned Digits = 1;
-    while (LineCount /= 10)
-      ++Digits;
-    
-    auto CharWidth = Text->TextWidth(wxSTC_STYLE_LINENUMBER, wxT("0"));
-    
-    auto MarginWidth = (Digits + 1) * CharWidth;
-    
-    Text->SetMarginWidth(static_cast<int>(SciMargin::LineNumber), MarginWidth);
+    setSTCMarginWidth();
     
     // Clear the selection.
     Text->Clear();
@@ -881,8 +887,16 @@ public:
 
     return true;
   }
-  
-  
+
+
+  /// \brief Update the \c ColourSchemeSettings.
+  ///
+  void OnColourSchemeSettingsChanged(ColourSchemeSettings const &Settings)
+  {
+    setSTCStyles(*Settings.getColourScheme());
+    setSTCMarginWidth();
+  }
+
   /// \name Accessors.
   /// @{
 
@@ -1424,6 +1438,13 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
   SetSizerAndFit(TopSizer);
+
+  // Handle ColourSchemeSettings changes.
+  wxGetApp().getColourSchemeSettings().addListener(
+    [this] (ColourSchemeSettings const &Settings) {
+      OnColourSchemeSettingsChanged(Settings);
+    }
+  );
   
   // Setup notebook event recording.
   Notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,
@@ -1539,6 +1560,14 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   // Show all active runtime errors.
   for (auto const &RuntimeError : Function.getRuntimeErrorsActive())
     showRuntimeError(RuntimeError, Function);
+}
+
+void
+SourceViewerPanel
+::OnColourSchemeSettingsChanged(ColourSchemeSettings const &Settings)
+{
+  for (auto &FileAndPanel : Pages)
+    FileAndPanel.second->OnColourSchemeSettingsChanged(Settings);
 }
 
 void

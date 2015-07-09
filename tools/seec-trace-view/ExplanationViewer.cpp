@@ -27,6 +27,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "ExplanationViewer.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
@@ -191,6 +192,11 @@ void ExplanationViewer::clearCurrent()
   URLHover = false;
 }
 
+void ExplanationViewer::updateColourScheme(ColourScheme const &Scheme)
+{
+  setupStylesFromColourScheme(*this, Scheme);
+}
+
 ExplanationViewer::~ExplanationViewer() {}
 
 bool ExplanationViewer::Create(wxWindow *Parent,
@@ -214,10 +220,14 @@ bool ExplanationViewer::Create(wxWindow *Parent,
   Bind(wxEVT_LEAVE_WINDOW, &ExplanationViewer::OnLeaveWindow, this);
   Bind(wxEVT_LEFT_DOWN, &ExplanationViewer::OnLeftDown, this);
   Bind(wxEVT_LEFT_UP, &ExplanationViewer::OnLeftUp, this);
-  
-  setupAllSciCommonTypes(*this);
-  setupAllSciLexerTypes(*this);
-  setupAllSciIndicatorTypes(*this);
+
+  updateColourScheme(*(wxGetApp().getColourSchemeSettings().getColourScheme()));
+
+  // Handle ColourSchemeSettings changes.
+  wxGetApp().getColourSchemeSettings().addListener(
+    [this] (ColourSchemeSettings const &Settings) {
+      updateColourScheme(*Settings.getColourScheme());
+    });
   
   SetEditable(false);
   SetWrapMode(wxSTC_WRAP_WORD);

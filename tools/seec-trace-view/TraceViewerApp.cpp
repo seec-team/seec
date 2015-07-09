@@ -46,6 +46,7 @@
 
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "OpenTrace.hpp"
@@ -455,6 +456,11 @@ bool TraceViewerApp::OnInit() {
   // Load resource augmentations from the resource directory.
   Augmentations->loadFromResources(ResourcePath);
   Augmentations->loadFromUserLocalDataDir();
+
+  // Setup the colour scheme.
+  ColourScheme = seec::makeUnique<ColourSchemeSettings>();
+  ColourScheme->loadUserScheme();
+
 
   // Setup WebBrowser emulation version for windows.
 #if defined(_WIN32)

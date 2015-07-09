@@ -17,6 +17,7 @@
 #include <wx/log.h>
 #include <wx/tokenzr.h>
 
+#include "ColourSchemeSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "SourceViewerSettings.hpp"
 
@@ -355,4 +356,76 @@ void setupAllSciIndicatorTypes(wxStyledTextCtrl &Text) {
     Text.IndicatorSetOutlineAlpha(Indicator, IndicatorStyle.OutlineAlpha);
     Text.IndicatorSetUnder(Indicator, IndicatorStyle.Under);
   }
+}
+
+
+//===----------------------------------------------------------------------===//
+// ColourScheme support
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/// \brief Setup a Scintilla style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 int const StyleNum,
+                 TextStyle const &Style)
+{
+  Text.StyleSetForeground(StyleNum, Style.GetForeground());
+  Text.StyleSetBackground(StyleNum, Style.GetBackground());
+
+  // StyleSetFont requires a non-const lvalue.
+  auto Font = Style.GetFont();
+  Text.StyleSetFont(StyleNum, Font);
+}
+
+/// \brief Setup a SciCommonType style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 SciCommonType const Type,
+                 TextStyle const &Style)
+{
+  setSTCStyle(Text, static_cast<int>(Type), Style);
+}
+
+/// \brief Setup a SciLexerType style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 SciLexerType const Type,
+                 TextStyle const &Style)
+{
+  setSTCStyle(Text, static_cast<int>(Type), Style);
+}
+
+} // anonymous namespace
+
+void setupStylesFromColourScheme(wxStyledTextCtrl &Text,
+                                 ColourScheme const &Scheme)
+{
+  // Setup the common styles.
+  setSTCStyle(Text, SciCommonType::Default,    Scheme.getDefault());
+  setSTCStyle(Text, SciCommonType::LineNumber, Scheme.getLineNumber());
+
+  // Setup the styles for the C/C++ lexer.
+  setSTCStyle(Text, SciLexerType::Default,      Scheme.getDefault());
+  setSTCStyle(Text, SciLexerType::Comment,      Scheme.getComment());
+  setSTCStyle(Text, SciLexerType::CommentLine,  Scheme.getCommentLine());
+  setSTCStyle(Text, SciLexerType::Number,       Scheme.getNumber());
+  setSTCStyle(Text, SciLexerType::Keyword1,     Scheme.getKeyword1());
+  setSTCStyle(Text, SciLexerType::String,       Scheme.getString());
+  setSTCStyle(Text, SciLexerType::Character,    Scheme.getCharacter());
+  setSTCStyle(Text, SciLexerType::Preprocessor, Scheme.getPreprocessor());
+  setSTCStyle(Text, SciLexerType::Operator,     Scheme.getOperator());
+  setSTCStyle(Text, SciLexerType::Identifier,   Scheme.getIdentifier());
+  setSTCStyle(Text, SciLexerType::StringEOL,    Scheme.getStringEOL());
+  setSTCStyle(Text, SciLexerType::Keyword2,     Scheme.getKeyword2());
+
+  // Setup the SeeC-specific styles.
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeError, Scheme.getRuntimeError());
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeValue, Scheme.getRuntimeValue());
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeInformation,
+              Scheme.getRuntimeInformation());
+
+  // Setup the style settings for our indicators.
+  setupAllSciIndicatorTypes(Text);
 }

@@ -23,8 +23,10 @@
 #include <vector>
 
 #include "AugmentationSettings.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "Preferences.hpp"
+#include "TraceViewerApp.hpp"
 #include "TracingPreferences.hpp"
 
 class PreferenceDialog final : public wxDialog
@@ -63,6 +65,8 @@ public:
 
     // Create individual pages of the book.
     AddPage(new LocaleSettingsWindow(this));
+    AddPage(new ColourSchemeSettingsWindow(this, wxGetApp()
+                                                   .getColourSchemeSettings()));
     AddPage(new AugmentationSettingsWindow(this));
     AddPage(new TracingPreferencesWindow(this));
 
@@ -104,6 +108,13 @@ public:
 
     return true;
   }
+
+  void CancelChanges()
+  {
+    for (auto const Page : m_Pages) {
+      Page->CancelChanges();
+    }
+  }
 };
 
 void showPreferenceDialog()
@@ -113,7 +124,13 @@ void showPreferenceDialog()
   while (true) {
     auto const Result = Dlg.ShowModal();
 
-    if (Result != wxID_OK || Dlg.SaveValues())
+    if (Result == wxID_OK) {
+      if (Dlg.SaveValues())
+        break;
+    }
+    else {
+      Dlg.CancelChanges();
       break;
+    }
   }
 }

@@ -43,6 +43,7 @@ namespace seec {
 
 class ActionRecord;
 class ActionReplayFrame;
+class ColourScheme;
 class ContextNotifier;
 class IndexedAnnotationText;
 class OpenTrace;
@@ -125,6 +126,10 @@ class ExplanationViewer final : public wxStyledTextCtrl
   /// \brief Clear the current information.
   ///
   void clearCurrent();
+
+  /// \brief Update this viewer to the given \c ColourScheme.
+  ///
+  void updateColourScheme(ColourScheme const &Scheme);
   
 public:
   /// \brief Construct without creating.

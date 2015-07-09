@@ -37,6 +37,10 @@ protected:
   ///
   virtual bool SaveValuesImpl() override;
 
+  /// \brief Cancel any changes made to the user's settings.
+  ///
+  virtual void CancelChangesImpl() override;
+
   /// \bried Get a string to describe this window.
   ///
   virtual wxString GetDisplayNameImpl() override;

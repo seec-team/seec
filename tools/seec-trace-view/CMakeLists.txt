@@ -24,6 +24,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   AnnotationEditor.hpp
   Annotations.hpp
   AugmentationSettings.hpp
+  ColourSchemeSettings.hpp
   CommonMenus.hpp
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
@@ -66,6 +67,7 @@ set(SEEC_TRACE_VIEW_SRCS
   AnnotationEditor.cpp
   Annotations.cpp
   AugmentationSettings.cpp
+  ColourSchemeSettings.cpp
   CommonMenus.cpp
   ExplanationViewer.cpp
   FunctionStateViewer.cpp

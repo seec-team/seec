@@ -24,6 +24,9 @@
 #include <wx/stc/stc.h>
 
 
+class ColourScheme;
+
+
 //===----------------------------------------------------------------------===//
 // SciStyle
 //===----------------------------------------------------------------------===//
@@ -227,6 +230,14 @@ void setupAllSciIndicatorTypes(wxStyledTextCtrl &Text);
 enum class SciMargin : int {
   LineNumber = 1
 };
+
+
+//===----------------------------------------------------------------------===//
+// ColourScheme support
+//===----------------------------------------------------------------------===//
+
+void setupStylesFromColourScheme(wxStyledTextCtrl &Text,
+                                 ColourScheme const &Scheme);
 
 
 #endif // SEEC_TRACE_VIEW_SOURCEVIEWERSETTINGS_HPP
