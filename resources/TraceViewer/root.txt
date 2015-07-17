@@ -631,8 +631,6 @@ root:table {
 
     "jquery-1.8.2.min.js":import {"HTML/jquery-1.8.2.min.js"}
 
-    "Styles.css":import {"HTML/Styles.css"}
-
     CMValueDisplayAs:string {"Display as"}
 
     CMDereferenceUse:string {"Layout using this reference"}
