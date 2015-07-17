@@ -1,10 +1,29 @@
 <html>
  <head>
   <script src="icurb://TraceViewer/StateGraphViewer/jquery-1.8.2.min.js" type="text/javascript"></script>
-  <link href="icurb://TraceViewer/StateGraphViewer/Styles.css" rel="stylesheet" type="text/css" />
+  <style id="theStyle" type="text/css"></style>
+  <style id="baseStyle" type="text/css">
+    .activestmtvalue > path { z-index:8; }
+    .activestmtvalue > polygon { z-index:9; }
+    .activestmtvalue > text { z-index:10; }
+
+    .valuehighlight > path { z-index:9; }
+    .valuehighlight > polygon { z-index:8; }
+    .valuehighlight > text { z-index:10; }
+
+    a { pointer-events: visible; cursor: default; }
+
+    a:hover { cursor: context-menu; z-index:100; }
+    a:hover > path { z-index:105; }
+    a:hover > polygon { fill-opacity:1; z-index:100; }
+    a:hover > text { z-index:110; }
+
+    polygon.uninitialized ~ polygon { fill: none; }
+  </style>
 
   <script type="text/javascript">
     var SeeCProto = "";
+    var ColourScheme = {};
     var StateExists = false;
     var HighlightedValues = [];
     var ActiveStmtValues = [];
@@ -194,25 +213,15 @@
       refs.hover(NodeMouseEnter, NodeMouseLeave);
       refs.click(function(){return false;});
 
-      $('polygon').each(function() {
+      $('polygon').each(function(index, element) {
         var $this = $(this);
 
         var fill = $this.attr('fill');
-        if (fill == 'white')
-          $this.attr('fill', '#fdf6e3');
-        else if (fill == 'black')
+        if (fill == 'black')
           $this.removeAttr('fill');
-
-        var stroke = $this.attr('stroke');
-        if (stroke == 'black')
-          $this.attr('stroke', '#93a1a1');
-      });
-
-      $('path').each(function() {
-        var $this = $(this);
-        var stroke = $this.attr('stroke');
-        if (stroke == 'black')
-          $this.attr('stroke', '#586e75');
+        else if (fill == "#aaaaaa") {
+          element.className.baseVal = "uninitialized";
+        }
       });
 
       StateExists = true;
@@ -288,8 +297,54 @@
       }
     }
 
-    // Initial page setup.
+    // Called from seec-view to set the ColourScheme.
     //
+    function SetColourScheme(Scheme) {
+      ColourScheme = Scheme;
+      var CSSTemplate = 
+        "body { background-color:$BODY_BG; }\n"
+      + "text { fill:$TEXT_FILL; }\n"
+      + "g.graph > polygon { stroke:none; fill:$GRAPH_POLY_FILL; }\n"
+      + "polygon { stroke:$POLY_STROKE; fill:$POLY_FILL; }\n"
+      + "path { stroke:$PATH_STROKE; }\n"
+      + "polygon.uninitialized { fill:$UNINITIALIZED_POLY_FILL; }\n"
+      + ".activestmtvalue > path { stroke:$ACTIVESTMTVALUE_PATH_STROKE; }\n"
+      + ".activestmtvalue > polygon { stroke:$ACTIVESTMTVALUE_POLY_STROKE; fill:$ACTIVESTMTVALUE_POLY_FILL; }\n"
+      + ".activestmtvalue > text { fill:$ACTIVESTMTVALUE_TEXT_FILL; }\n"
+      + ".valuehighlight > path { stroke:$VALUEHIGHLIGHT_PATH_STROKE; }\n"
+      + ".valuehighlight > polygon { stroke:$VALUEHIGHLIGHT_POLY_STROKE; fill:$VALUEHIGHLIGHT_POLY_FILL; }\n"
+      + ".valuehighlight > text { fill:$VALUEHIGHLIGHT_TEXT_FILL; }\n"
+      + "a:hover > path { stroke:$ANCHORHOVER_PATH_STROKE; }\n"
+      + "a:hover > polygon { stroke:$ANCHORHOVER_POLY_STROKE; fill:$ANCHORHOVER_POLY_FILL; }\n"
+      + "a:hover > text { fill:$ANCHORHOVER_TEXT_FILL; }\n";
+
+      // Transform the CSSTemplate according to the ColourScheme.
+      var SchemedCSS = CSSTemplate
+        .replace("$GRAPH_POLY_FILL", ColourScheme.Default.Background)
+        .replace("$POLY_STROKE", ColourScheme.Default.Foreground)
+        .replace("$POLY_FILL",   ColourScheme.Default.Background)
+        .replace("$PATH_STROKE", ColourScheme.Default.Foreground)
+        .replace("$BODY_BG",     ColourScheme.Default.Background)
+        .replace("$TEXT_FILL",   ColourScheme.Default.Foreground)
+        .replace("$UNINITIALIZED_POLY_FILL", "#aaaaaa")
+        .replace("$ACTIVESTMTVALUE_PATH_STROKE", ColourScheme.RuntimeValue.Foreground)
+        .replace("$ACTIVESTMTVALUE_POLY_STROKE", ColourScheme.RuntimeValue.Foreground)
+        .replace("$ACTIVESTMTVALUE_POLY_FILL",   ColourScheme.RuntimeValue.Background)
+        .replace("$ACTIVESTMTVALUE_TEXT_FILL",   ColourScheme.RuntimeValue.Foreground)
+        .replace("$VALUEHIGHLIGHT_PATH_STROKE", ColourScheme.RuntimeInformation.Foreground)
+        .replace("$VALUEHIGHLIGHT_POLY_STROKE", ColourScheme.RuntimeInformation.Foreground)
+        .replace("$VALUEHIGHLIGHT_POLY_FILL",   ColourScheme.RuntimeInformation.Background)
+        .replace("$VALUEHIGHLIGHT_TEXT_FILL",   ColourScheme.RuntimeInformation.Foreground)
+        .replace("$ANCHORHOVER_PATH_STROKE", ColourScheme.RuntimeInformation.Foreground)
+        .replace("$ANCHORHOVER_POLY_STROKE", ColourScheme.RuntimeInformation.Foreground)
+        .replace("$ANCHORHOVER_POLY_FILL",   ColourScheme.RuntimeInformation.Background)
+        .replace("$ANCHORHOVER_TEXT_FILL",   ColourScheme.RuntimeInformation.Foreground);
+
+      var theStyle = document.getElementById('theStyle');
+      theStyle.innerHTML = SchemedCSS;
+    }
+
+    // Initial page setup.
     function DoSetup() {
       if (window.location.hash.length)
         SeeCProto = window.location.hash.substring(1);
