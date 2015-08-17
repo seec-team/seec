@@ -103,7 +103,8 @@ convertGEP (ConstantExpr * CE, Instruction * InsertPt) {
   //
   // Make the new GEP instruction.
   //
-  return (GetElementPtrInst::Create (CE->getOperand(0),
+  return (GetElementPtrInst::Create (nullptr,
+                                     CE->getOperand(0),
                                      Indices,
                                      CE->getName(),
                                      InsertPt));

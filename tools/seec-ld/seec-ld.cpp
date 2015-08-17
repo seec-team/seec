@@ -16,16 +16,17 @@
 #include "seec/Util/Resources.hpp"
 
 #include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
-#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -39,7 +40,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include <memory>
@@ -94,13 +94,15 @@ static std::unique_ptr<llvm::Module> LoadFile(char const *ProgramName,
 ///
 static bool Instrument(char const *ProgramName, llvm::Module &Module)
 {
-  llvm::PassManager Passes;
+  llvm::legacy::PassManager Passes;
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
   auto Triple = llvm::Triple(Module.getTargetTriple());
   if (Triple.getTriple().empty())
     Triple.setTriple(llvm::sys::getDefaultTargetTriple());
-  Passes.add(new llvm::TargetLibraryInfo(Triple));
+
+  llvm::TargetLibraryInfoImpl TLII(Triple);
+  Passes.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
 
   // Determine the path to SeeC's resource directory:
 
@@ -201,16 +203,15 @@ Compile(char const *ProgramName,
   auto Out = GetTemporaryObjectStream(ProgramName, TempObjPath);
   
   // Setup all of the passes for the codegen.
-  llvm::PassManager Passes;
+  llvm::legacy::PassManager Passes;
   
-  Passes.add(new llvm::TargetLibraryInfo(Triple));
+  llvm::TargetLibraryInfoImpl TLII(Triple);
+  Passes.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
   
-  Machine->addAnalysisPasses(Passes);
-  
-  llvm::formatted_raw_ostream FOS(Out->os());
+  llvm::raw_pwrite_stream *FOS(&Out->os());
   
   if (Machine->addPassesToEmitFile(Passes,
-                                   FOS,
+                                   *FOS,
                                    llvm::TargetMachine::CGFT_ObjectFile)) {
     llvm::errs() << ProgramName << ": can't generate object file!\n";
     exit(EXIT_FAILURE);

@@ -241,8 +241,8 @@ public:
     Child->HandleCXXStaticMemberVarInstantiation(D);
   }
 
-  virtual void HandleVTable(clang::CXXRecordDecl *D, bool DefinitionRequired){
-    Child->HandleVTable(D, DefinitionRequired);
+  virtual void HandleVTable(clang::CXXRecordDecl *D){
+    Child->HandleVTable(D);
   }
 
   virtual clang::ASTMutationListener *GetASTMutationListener() override {

@@ -270,7 +270,7 @@ public:
 
   /// \brief Get the original, uninstrumented Module.
   ///
-  seec::Maybe<llvm::Module *, seec::Error>
+  seec::Maybe<std::unique_ptr<llvm::Module>, seec::Error>
   getModule(llvm::LLVMContext &Context) const;
 
   /// \brief Get the original, uninstrumented Module's file.
