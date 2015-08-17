@@ -46,10 +46,10 @@ set(LLVM_INSTALL "${LLVM_DIR}/../../../")
 if(NOT "${LLVM_INSTALL_OVERRIDE}" STREQUAL "")
   message(STATUS "Using LLVM_INSTALL_OVERRIDE ${LLVM_INSTALL_OVERRIDE}")
   set(LLVM_INSTALL "${LLVM_INSTALL_OVERRIDE}")
-	include_directories("${LLVM_INSTALL}/include")
-else()
-  include_directories(${LLVM_INCLUDE_DIRS})
 endif()
+
+include_directories("${LLVM_INSTALL}/include")
+message(STATUS "LLVM include ${LLVM_INSTALL}/include")
 
 add_definitions(${LLVM_DEFINITIONS})
 

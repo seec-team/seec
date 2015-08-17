@@ -31,12 +31,12 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Serialization/ASTWriter.h"
 
-#include "llvm/PassManager.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -62,7 +62,7 @@ namespace seec_clang {
 ///
 static void PrepareForInstrumentation(llvm::Module &Module)
 {
-  llvm::PassManager Passes;
+  llvm::legacy::PassManager Passes;
 
   // Add SAFEcode's BreakConstantGEPs pass
   auto const BreakConstantGEPsPass = new llvm::BreakConstantGEPs();
