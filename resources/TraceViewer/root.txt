@@ -631,8 +631,6 @@ root:table {
 
     "jquery-1.8.2.min.js":import {"HTML/jquery-1.8.2.min.js"}
 
-    "Styles.css":import {"HTML/Styles.css"}
-
     CMValueDisplayAs:string {"Display as"}
 
     CMDereferenceUse:string {"Layout using this reference"}
@@ -693,6 +691,42 @@ root:table {
       {"asm auto bool break case catch char class const const_cast continue default delete do double dynamic_cast else enum explicit export extern false float for friend goto if inline int long mutable namespace new operator private protected public register reinterpret_cast return short signed sizeof static static_cast struct switch template this throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while"}
       {"file"}
       {"a addindex addtogroup anchor arg attention author b brief bug c class code date def defgroup deprecated dontinclude e em endcode endhtmlonly endif endlatexonly endlink endverbatim enum example exception f$ f[ f] file fn hideinitializer htmlinclude htmlonly if image include ingroup internal invariant interface latexonly li line link mainpage name namespace nosubgrouping note overload p page par param post pre ref relates remarks return retval sa section see showinitializer since skip skipline struct subsection test throw todo typedef union until var verbatim verbinclude version warning weakgroup $ @ \"\" & < > # { }"}
+    }
+  }
+
+  ColourSchemes:table {
+    FontPointSizeIncorrect:string {"Font point size is invalid: '{value}'."}
+    FontInfoNodeMissing:string {"FontInfo node is missing from TextStyle definition for '{value}'."}
+    XMLLoadError:string {"Failed to read colour scheme XML document '{filename}'."}
+    TextStylesMissing:string {"Text styles node is missing from colour scheme."}
+    SchemeInvalidError:string {"Colour scheme definition is invalid."}
+    ReadErrorTitle:string {"Error reading colour scheme"}
+
+    TextStyleNames:table {
+      Default:string            {"Default"}
+      LineNumber:string         {"Line numbers"}
+
+      RuntimeError:string       {"Runtime errors"}
+      RuntimeValue:string       {"Runtime values"}
+      RuntimeInformation:string {"Runtime information"}
+
+      Comment:string            {"Comments (block-style)"}
+      CommentLine:string        {"Comments (line-style)"}
+      Number:string             {"Numbers"}
+      Keyword1:string           {"Keywords (1)"}
+      String:string             {"String literals"}
+      Character:string          {"Character literals"}
+      Preprocessor:string       {"Preprocessor"}
+      Operator:string           {"Operators"}
+      Identifier:string         {"Identifiers"}
+      StringEOL:string          {"String (EOL)"}
+      Keyword2:string           {"Keywords (2)"}
+    }
+
+    SettingsPanel:table {
+      Title:string {"Colour Scheme"}
+      SaveErrorTitle:string {"Error saving colour scheme"}
+      SaveErrorMessage:string {"Error saving colour scheme"}
     }
   }
 

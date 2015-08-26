@@ -29,7 +29,11 @@ protected:
   ///
   virtual bool SaveValuesImpl() override;
 
-  /// \bried Get a string to describe this window.
+  /// \brief Cancel any changes made to the user's settings.
+  ///
+  virtual void CancelChangesImpl() override;
+
+  /// \brief Get a string to describe this window.
   ///
   virtual wxString GetDisplayNameImpl() override;
 

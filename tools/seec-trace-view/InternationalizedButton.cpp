@@ -36,7 +36,9 @@ wxButton *makeInternationalizedButton(wxWindow *Parent,
                   ImageSize.GetHeight(),
                   wxIMAGE_QUALITY_HIGH);
     
-    return new wxBitmapButton(Parent, ID, Image);
+    auto const Button = new wxBitmapButton(Parent, ID, Image);
+    Button->SetToolTip(Text);
+    return Button;
   }
   else {
     return new wxButton(Parent, ID, Text);

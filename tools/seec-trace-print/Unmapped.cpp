@@ -134,7 +134,7 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
     exit(EXIT_FAILURE);
   }
 
-  auto const Mod = MaybeMod.get<llvm::Module *>();
+  auto Mod = MaybeMod.move<std::unique_ptr<llvm::Module>>();
   auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);
 
   // Attempt to read the trace (this consumes the IBA).

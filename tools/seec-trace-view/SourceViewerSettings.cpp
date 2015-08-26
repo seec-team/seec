@@ -17,72 +17,9 @@
 #include <wx/log.h>
 #include <wx/tokenzr.h>
 
+#include "ColourSchemeSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "SourceViewerSettings.hpp"
-
-
-seec::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
-  // Find the default setting for this style in our ICU resources.
-  UErrorCode Status = U_ZERO_ERROR;
-  auto Table = seec::getResource("TraceViewer",
-                                 getLocale(),
-                                 Status,
-                                 "ScintillaStyles",
-                                 StyleName);
-  if (U_FAILURE(Status))
-    return seec::Maybe<SciStyle>();
-  
-  // Get the individual values from the default setting table.
-  auto Name = seec::getwxStringExOrEmpty(Table, "Name");
-  auto ForegroundStr = seec::getwxStringExOrEmpty(Table, "Foreground");
-  auto BackgroundStr = seec::getwxStringExOrEmpty(Table, "Background");
-  auto FontNameStr = seec::getwxStringExOrEmpty(Table, "FontName");
-  auto FontSize = seec::getIntEx(Table, "FontSize", Status);
-  auto FontStyleStr = seec::getwxStringExOrEmpty(Table, "FontStyle");
-  auto LetterCase = seec::getIntEx(Table, "LetterCase", Status);
-  
-  if (U_FAILURE(Status))
-    return seec::Maybe<SciStyle>();
-  
-  auto FontStyle = wxFONTSTYLE_NORMAL;
-  auto FontWeight = wxFONTWEIGHT_NORMAL;
-  bool FontUnderline = false;
-  
-  wxStringTokenizer StyleTokenizer(FontStyleStr, " ");
-  while (StyleTokenizer.HasMoreTokens()) {
-    wxString Token = StyleTokenizer.GetNextToken();
-    
-    // Check against known tokens case-insensitively.
-    if (Token.IsSameAs(wxString("Italic"), false))
-      FontStyle = wxFONTSTYLE_ITALIC;
-    else if (Token.IsSameAs(wxString("Slant"), false))
-      FontStyle = wxFONTSTYLE_SLANT;
-    else if (Token.IsSameAs(wxString("Light"), false))
-      FontWeight = wxFONTWEIGHT_LIGHT;
-    else if (Token.IsSameAs(wxString("Bold"), false))
-      FontWeight = wxFONTWEIGHT_BOLD;
-    else if (Token.IsSameAs(wxString("Max"), false))
-      FontWeight = wxFONTWEIGHT_MAX;
-    else if (Token.IsSameAs(wxString("Underline"), false))
-      FontUnderline = true;
-    else {
-      wxLogError("While reading the default style for \"%s\", the style token "
-                 "\"%s\" was encountered, but not recognized.",
-                 StyleName,
-                 Token.c_str());
-    }
-  }
-  
-  return SciStyle(std::move(Name),
-                  wxColour(ForegroundStr),
-                  wxColour(BackgroundStr),
-                  wxFont(FontSize,
-                         wxFONTFAMILY_MODERN,
-                         FontStyle,
-                         FontWeight,
-                         FontUnderline),
-                  LetterCase);
-}
 
 
 //===----------------------------------------------------------------------===//
@@ -109,49 +46,6 @@ seec::Maybe<SciCommonType> getSciCommonTypeFromName(llvm::StringRef Name){
   return seec::Maybe<SciCommonType>();
 }
 
-llvm::ArrayRef<SciCommonType> getAllSciCommonTypes() {
-  static SciCommonType Types[] = {
-#define SEEC_SCI_COMMON_TYPE(TYPE, ID) \
-    SciCommonType::TYPE,
-#include "SourceViewerSettingsTypes.def"
-  };
-  
-  return llvm::ArrayRef<SciCommonType>(Types);
-}
-
-seec::Maybe<SciStyle> getDefaultStyle(SciCommonType Type) {
-  // First get the name of this style type.
-  auto StyleName = getSciTypeName(Type);
-  if (!StyleName)
-    return seec::Maybe<SciStyle>();
-  
-  return getDefaultStyle(StyleName);
-}
-
-void setupAllSciCommonTypes(wxStyledTextCtrl &Text) {
-  for (auto const Type : getAllSciCommonTypes()) {
-    auto const MaybeStyle = getDefaultStyle(Type);
-    
-    if (!MaybeStyle.assigned()) {
-      wxLogDebug("Couldn't get default style for style %s",
-                 getSciTypeName(Type));
-      
-      continue;
-    }
-    
-    auto const StyleNum = static_cast<int>(Type);
-    auto const &Style = MaybeStyle.get<0>();
-    
-    auto Font = Style.Font;
-    
-    Text.StyleSetForeground(StyleNum, Style.Foreground);
-    Text.StyleSetBackground(StyleNum, Style.Background);
-    Text.StyleSetFont(StyleNum, Font);
-    Text.StyleSetVisible(StyleNum, true);
-    Text.StyleSetCase(StyleNum, Style.CaseForce);
-  }
-}
-
 
 //===----------------------------------------------------------------------===//
 // SciLexerType
@@ -175,49 +69,6 @@ seec::Maybe<SciLexerType> getSciLexerTypeFromName(llvm::StringRef Name) {
 #include "SourceViewerSettingsTypes.def"
 
   return seec::Maybe<SciLexerType>();
-}
-
-llvm::ArrayRef<SciLexerType> getAllSciLexerTypes() {
-  static SciLexerType Types[] = {
-#define SEEC_SCI_TYPE(TYPE, ID) \
-    SciLexerType::TYPE,
-#include "SourceViewerSettingsTypes.def"
-  };
-  
-  return llvm::ArrayRef<SciLexerType>(Types);
-}
-
-seec::Maybe<SciStyle> getDefaultStyle(SciLexerType Type) {
-  // First get the name of this style type.
-  auto StyleName = getSciTypeName(Type);
-  if (!StyleName)
-    return seec::Maybe<SciStyle>();
-  
-  return getDefaultStyle(StyleName);
-}
-
-void setupAllSciLexerTypes(wxStyledTextCtrl &Text) {
-  for (auto const Type : getAllSciLexerTypes()) {
-    auto const MaybeStyle = getDefaultStyle(Type);
-    
-    if (!MaybeStyle.assigned()) {
-      wxLogDebug("Couldn't get default style for lexer style %s",
-                 getSciTypeName(Type));
-      
-      continue;
-    }
-    
-    auto const StyleNum = static_cast<int>(Type);
-    auto const &Style = MaybeStyle.get<0>();
-    
-    auto Font = Style.Font;
-    
-    Text.StyleSetForeground(StyleNum, Style.Foreground);
-    Text.StyleSetBackground(StyleNum, Style.Background);
-    Text.StyleSetFont(StyleNum, Font);
-    Text.StyleSetVisible(StyleNum, true);
-    Text.StyleSetCase(StyleNum, Style.CaseForce);
-  }
 }
 
 
@@ -355,4 +206,76 @@ void setupAllSciIndicatorTypes(wxStyledTextCtrl &Text) {
     Text.IndicatorSetOutlineAlpha(Indicator, IndicatorStyle.OutlineAlpha);
     Text.IndicatorSetUnder(Indicator, IndicatorStyle.Under);
   }
+}
+
+
+//===----------------------------------------------------------------------===//
+// ColourScheme support
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/// \brief Setup a Scintilla style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 int const StyleNum,
+                 TextStyle const &Style)
+{
+  Text.StyleSetForeground(StyleNum, Style.GetForeground());
+  Text.StyleSetBackground(StyleNum, Style.GetBackground());
+
+  // StyleSetFont requires a non-const lvalue.
+  auto Font = Style.GetFont();
+  Text.StyleSetFont(StyleNum, Font);
+}
+
+/// \brief Setup a SciCommonType style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 SciCommonType const Type,
+                 TextStyle const &Style)
+{
+  setSTCStyle(Text, static_cast<int>(Type), Style);
+}
+
+/// \brief Setup a SciLexerType style from a \c TextStyle.
+///
+void setSTCStyle(wxStyledTextCtrl &Text,
+                 SciLexerType const Type,
+                 TextStyle const &Style)
+{
+  setSTCStyle(Text, static_cast<int>(Type), Style);
+}
+
+} // anonymous namespace
+
+void setupStylesFromColourScheme(wxStyledTextCtrl &Text,
+                                 ColourScheme const &Scheme)
+{
+  // Setup the common styles.
+  setSTCStyle(Text, SciCommonType::Default,    Scheme.getDefault());
+  setSTCStyle(Text, SciCommonType::LineNumber, Scheme.getLineNumber());
+
+  // Setup the styles for the C/C++ lexer.
+  setSTCStyle(Text, SciLexerType::Default,      Scheme.getDefault());
+  setSTCStyle(Text, SciLexerType::Comment,      Scheme.getComment());
+  setSTCStyle(Text, SciLexerType::CommentLine,  Scheme.getCommentLine());
+  setSTCStyle(Text, SciLexerType::Number,       Scheme.getNumber());
+  setSTCStyle(Text, SciLexerType::Keyword1,     Scheme.getKeyword1());
+  setSTCStyle(Text, SciLexerType::String,       Scheme.getString());
+  setSTCStyle(Text, SciLexerType::Character,    Scheme.getCharacter());
+  setSTCStyle(Text, SciLexerType::Preprocessor, Scheme.getPreprocessor());
+  setSTCStyle(Text, SciLexerType::Operator,     Scheme.getOperator());
+  setSTCStyle(Text, SciLexerType::Identifier,   Scheme.getIdentifier());
+  setSTCStyle(Text, SciLexerType::StringEOL,    Scheme.getStringEOL());
+  setSTCStyle(Text, SciLexerType::Keyword2,     Scheme.getKeyword2());
+
+  // Setup the SeeC-specific styles.
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeError, Scheme.getRuntimeError());
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeValue, Scheme.getRuntimeValue());
+  setSTCStyle(Text, SciLexerType::SeeCRuntimeInformation,
+              Scheme.getRuntimeInformation());
+
+  // Setup the style settings for our indicators.
+  setupAllSciIndicatorTypes(Text);
 }

@@ -58,12 +58,14 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
 #include "StateGraphViewer.hpp"
+#include "TraceViewerApp.hpp"
 
 
 //------------------------------------------------------------------------------
@@ -94,6 +96,57 @@ static std::string FindDotExecutable()
     return std::move(*SearchManual);
   
   return std::string{};
+}
+
+void convertTextStyleToJSON(llvm::raw_string_ostream &Stream,
+                            llvm::StringRef StyleName,
+                            TextStyle const &Style)
+{
+  Stream
+    << '"' << StyleName << '"'
+    << ": {"
+    << "\"Foreground\": \""
+    << Style.GetForeground().GetAsString().ToStdString() << "\","
+    << "\"Background\": \""
+    << Style.GetBackground().GetAsString().ToStdString() << "\""
+    << "}";
+};
+
+std::string convertColourSchemeToJSON(ColourScheme const &Scheme)
+{
+  std::string JSON;
+  llvm::raw_string_ostream Stream(JSON);
+
+  Stream << "{";
+
+#define SEEC_CONVERT_TEXTSTYLE(NAME)                                           \
+  convertTextStyleToJSON(Stream, #NAME, Scheme.get##NAME());
+
+  SEEC_CONVERT_TEXTSTYLE(Default)    Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(LineNumber) Stream << ',';
+
+  SEEC_CONVERT_TEXTSTYLE(RuntimeError)       Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(RuntimeValue)       Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(RuntimeInformation) Stream << ',';
+
+  SEEC_CONVERT_TEXTSTYLE(Comment)      Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(CommentLine)  Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Number)       Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Keyword1)     Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(String)       Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Character)    Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Preprocessor) Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Operator)     Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Identifier)   Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(StringEOL)    Stream << ',';
+  SEEC_CONVERT_TEXTSTYLE(Keyword2)
+
+#undef SEEC_CONVERT_TEXTSTYLE
+
+  Stream << "}";
+
+  Stream.flush();
+  return JSON;
 }
 
 
@@ -377,6 +430,16 @@ void StateGraphViewerPanel::workerTaskLoop()
   }
 }
 
+void StateGraphViewerPanel::setupColourScheme(ColourScheme const &Scheme)
+{
+  wxString Script;
+  Script << "SetColourScheme("
+    << convertColourSchemeToJSON(Scheme)
+    << ");";
+
+  WebView->RunScript(Script);
+}
+
 void StateGraphViewerPanel::highlightValue(seec::cm::Value const *Value)
 {
   wxString Script("HighlightValue(");
@@ -576,7 +639,16 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
       LayoutHandler->addBuiltinLayoutEngines();
     }
-    
+
+    // After the webpage is loaded, setup the initial ColourScheme.
+    WebView->Bind(wxEVT_WEBVIEW_LOADED,
+      std::function<void (wxWebViewEvent &)>{
+        [this] (wxWebViewEvent &Event) -> void {
+          setupColourScheme(
+            *wxGetApp().getColourSchemeSettings().getColourScheme());
+          Event.Skip();
+        }});
+
     // Load the webpage.
     auto const WebViewURL =
       std::string{"icurb://TraceViewer/StateGraphViewer/WebViewHTML#"}
@@ -591,6 +663,13 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
       this->handleContextEvent(Ev); });
 
+    // Handle future changes to the ColourScheme.
+    wxGetApp().getColourSchemeSettings().addListener(
+      [this] (ColourSchemeSettings const &Settings) {
+        setupColourScheme(*Settings.getColourScheme());
+      });
+
+    // Handle UAR replay.
     WithReplay.RegisterHandler("StateGraphViewer.MouseOverValue",
                                {{"address", "type"}},
       seec::make_function(this, &StateGraphViewerPanel::replayMouseOverValue));

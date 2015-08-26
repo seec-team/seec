@@ -37,7 +37,8 @@ ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
   if (MaybeMod.assigned<Error>())
     return MaybeMod.move<Error>();
   
-  auto const Mod = MaybeMod.get<llvm::Module *>();
+  auto Mod = MaybeMod.move<std::unique_ptr<llvm::Module>>();
+  auto const ModRawPtr = Mod.get();
   
   // Read the process trace using the InputBufferAllocator.
   auto MaybeProcTrace = trace::ProcessTrace::readFrom(std::move(Allocator));
@@ -49,9 +50,10 @@ ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
   assert(ProcTrace);
   
   return std::unique_ptr<ProcessTrace>
-                        (new ProcessTrace(std::move(ProcTrace),
+                        (new ProcessTrace(std::move(Mod),
+                                          std::move(ProcTrace),
                                           std::make_shared<seec::ModuleIndex>
-                                                          (*Mod, true)));
+                                                          (*ModRawPtr, true)));
 }
 
 seec::seec_clang::MappedFunctionDecl const *

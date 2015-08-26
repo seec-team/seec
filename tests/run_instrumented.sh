@@ -26,8 +26,7 @@ fi
 
 if [ -z "$SEEC_TEST_SILENCE_STDOUT" ]
 then
-  $program $* 1>/dev/null
+  "$program" $* 1>/dev/null
 else
-  $program $*
+  "$program" $*
 fi
-

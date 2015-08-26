@@ -23,6 +23,7 @@
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Preprocessor.h"
 
@@ -398,6 +399,9 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   FileCompileInfo->setHeaderSearchOpts(HSOpts);
 
   auto const Invocation = CI.release();
+
+  // Create PCHContainerOperations for the ASTUnit load.
+  auto PCHContainerOps = std::make_shared<PCHContainerOperations>();
   
   // Create a new ASTUnit.
   std::unique_ptr<ASTUnit> ASTUnit {
@@ -418,6 +422,7 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   // Load the ASTUnit.
   auto const LoadedASTUnit =
     ::clang::ASTUnit::LoadFromCompilerInvocationAction(Invocation,
+                                                       PCHContainerOps,
                                                        Diags,
                                                        nullptr /* Action */,
                                                        ASTUnit.get(),

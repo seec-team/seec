@@ -47,6 +47,7 @@ namespace seec {
 
 class ActionRecord;
 class ActionReplayFrame;
+class ColourScheme;
 class ContextNotifier;
 class GraphRenderedEvent;
 class MouseOverDisplayableEvent;
@@ -312,6 +313,10 @@ class StateGraphViewerPanel final : public wxPanel
   /// \brief Implements the worker thread's task loop.
   ///
   void workerTaskLoop();
+
+  /// \brief Setup the given colour scheme.
+  ///
+  void setupColourScheme(ColourScheme const &Scheme);
 
   /// \brief Highlight a \c Value.
   ///

@@ -39,12 +39,14 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
 #include "NotifyContext.hpp"
 #include "RuntimeValueLookup.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
 #include "StmtTooltip.hpp"
+#include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
 #include <stack>
@@ -86,7 +88,6 @@ BEGIN_EVENT_TABLE(StateEvaluationTreePanel, wxScrolled<wxPanel>)
   EVT_LEAVE_WINDOW(StateEvaluationTreePanel::OnMouseLeftWindow)
   EVT_RIGHT_DOWN(StateEvaluationTreePanel::OnMouseRightDown)
   EVT_RIGHT_UP(StateEvaluationTreePanel::OnMouseRightUp)
-  EVT_MOUSEWHEEL(StateEvaluationTreePanel::OnMouseWheel)
 END_EVENT_TABLE()
 
 
@@ -109,6 +110,32 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   NodeHighlightedText(88, 110, 117), // base01
   NodeErrorBorder(220, 50, 47) // red
 {}
+
+void StateEvaluationTreePanel::setupColourScheme(ColourScheme const &Scheme)
+{
+  CodeFont = Scheme.getDefault().GetFont();
+
+  Settings.CodeFontSize = Scheme.getDefault().GetFont().GetPointSize();
+
+  Settings.Background = Scheme.getDefault().GetBackground();
+  Settings.Text = Scheme.getDefault().GetForeground();
+
+  Settings.NodeBackground = Scheme.getDefault().GetBackground();
+  Settings.NodeBorder = Scheme.getDefault().GetForeground();
+  Settings.NodeText = Scheme.getDefault().GetForeground();
+
+  Settings.NodeActiveBackground = Scheme.getRuntimeValue().GetBackground();
+  Settings.NodeActiveBorder = Scheme.getRuntimeValue().GetForeground();
+  Settings.NodeActiveText = Scheme.getRuntimeValue().GetForeground();
+
+  Settings.NodeHighlightedBackground =
+    Scheme.getRuntimeInformation().GetBackground();
+  Settings.NodeHighlightedBorder =
+    Scheme.getRuntimeInformation().GetForeground();
+  Settings.NodeHighlightedText = Scheme.getRuntimeInformation().GetForeground();
+
+  Settings.NodeErrorBorder = Scheme.getRuntimeError().GetForeground();
+}
 
 void StateEvaluationTreePanel::drawNode(wxDC &DC,
                                         NodeInfo const &Node,
@@ -221,6 +248,53 @@ void StateEvaluationTreePanel::render(wxDC &dc)
   wxCoord const PageBorderH = dc.GetCharWidth() * Settings.PageBorderHorizontal;
   wxCoord const PageBorderV = dc.GetCharHeight() * Settings.PageBorderVertical;
   dc.DrawText(Statement, PageBorderH, PageBorderV);
+}
+
+void StateEvaluationTreePanel::recalculateNodePositions()
+{
+  wxClientDC dc(this);
+
+  // Calculate the new size of the display.
+  dc.SetFont(CodeFont);
+  auto const StatementExtent = dc.GetTextExtent(Statement);
+  auto const CharWidth = dc.GetCharWidth();
+  auto const CharHeight = dc.GetCharHeight();
+
+  wxCoord const PageBorderH = CharWidth * Settings.PageBorderHorizontal;
+  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
+  wxCoord const NodeBorderV = CharHeight * Settings.NodeBorderVertical;
+
+  auto const TotalWidth = StatementExtent.GetWidth() + (2 * PageBorderH);
+
+  // Depth is zero-based, so there are (MaxDepth+1) lines for sub-nodes, plus
+  // one line for the pretty-printed top-level node.
+  auto const TotalHeight = ((MaxDepth + 2) * CharHeight)
+                           + ((MaxDepth + 1) * NodeBorderV)
+                           + (2 * PageBorderV);
+
+  CurrentSize.Set(TotalWidth, TotalHeight);
+  SetVirtualSize(TotalWidth, TotalHeight);
+
+  // Calculate the position of each node in the display.
+  for (auto &Node : Nodes) {
+    auto const WidthPrior =
+      dc.GetTextExtent(Statement.substr(0, Node.RangeStart))
+        .GetWidth();
+
+    auto const Width =
+      dc.GetTextExtent(Statement.substr(Node.RangeStart, Node.RangeLength))
+        .GetWidth();
+
+    auto const XStart = PageBorderH + WidthPrior;
+    auto const XEnd   = XStart + Width;
+    auto const YStart = TotalHeight - PageBorderV - CharHeight
+                        - (Node.Depth * (CharHeight + NodeBorderV));
+
+    Node.XStart = XStart;
+    Node.XEnd   = XEnd;
+    Node.YStart = YStart;
+    Node.YEnd   = YStart + CharHeight;
+  }
 }
 
 void StateEvaluationTreePanel::redraw()
@@ -416,6 +490,7 @@ StateEvaluationTreePanel::StateEvaluationTreePanel()
   CurrentSize(1,1),
   CodeFont(),
   Statement(),
+  MaxDepth(0),
   Nodes(),
   HoverNodeIt(Nodes.end()),
   ReplayHoverNodeIt(Nodes.end()),
@@ -458,11 +533,20 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   Recording = &WithRecording;
   
   SetBackgroundStyle(wxBG_STYLE_PAINT);
-  CodeFont = wxFont{wxFontInfo(Settings.CodeFontSize)
-                    .Family(wxFONTFAMILY_MODERN)
-                    .AntiAliased(true)};
   SetScrollRate(10, 10);
-  
+
+  // Setup the current ColourScheme.
+  auto &SchemeSettings = wxGetApp().getColourSchemeSettings();
+  setupColourScheme(*SchemeSettings.getColourScheme());
+
+  // Handle ColourScheme updates.
+  SchemeSettings.addListener(
+    [this] (ColourSchemeSettings const &Settings) {
+      setupColourScheme(*Settings.getColourScheme());
+      recalculateNodePositions();
+      redraw();
+    });
+
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   
   // Receive notifications of context events.
@@ -674,17 +758,17 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   Nodes.clear();
   HoverNodeIt = Nodes.end();
   ReplayHoverNodeIt = Nodes.end();
-  
-  wxClientDC dc(this);
-  
+
   // Recalculate the data here.
   if (!CurrentThread) {
+    wxClientDC dc(this);
     render(dc);
     return;
   }
   
   auto &Stack = CurrentThread->getCallStack();
   if (Stack.empty()) {
+    wxClientDC dc(this);
     render(dc);
     return;
   }
@@ -694,12 +778,14 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   auto const &RunErrors = ActiveFn->getRuntimeErrors();
   auto const ActiveStmt = ActiveFn->getActiveStmt();
   if (!ActiveStmt) {
+    wxClientDC dc(this);
     render(dc);
     return;
   }
   
   auto const TopStmt = getEvaluationRoot(ActiveStmt, *MappedAST);
   if (!TopStmt) {
+    wxClientDC dc(this);
     render(dc);
     return;
   }
@@ -711,53 +797,20 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   DepthRecorder DepthRecord(Formatted);
   DepthRecord.TraverseStmt(const_cast<clang::Stmt *>(TopStmt));
   auto const &Depths = DepthRecord.getDepths();
-  auto const MaxDepth = DepthRecord.getMaxDepth();
+  MaxDepth = DepthRecord.getMaxDepth();
   
   // Now save all of the calculated information for the render method.
   Statement = Formatted.getCode();
   
-  // Calculate the new size of the display.
-  dc.SetFont(CodeFont);
-  auto const StatementExtent = dc.GetTextExtent(Statement);
-  auto const CharWidth = dc.GetCharWidth();
-  auto const CharHeight = dc.GetCharHeight();
-  
-  wxCoord const PageBorderH = CharWidth * Settings.PageBorderHorizontal;
-  wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
-  wxCoord const NodeBorderV = CharHeight * Settings.NodeBorderVertical;
-  
-  auto const TotalWidth = StatementExtent.GetWidth() + (2 * PageBorderH);
-  
-  // Depth is zero-based, so there are (MaxDepth+1) lines for sub-nodes, plus
-  // one line for the pretty-printed top-level node.
-  auto const TotalHeight = ((MaxDepth + 2) * CharHeight)
-                           + ((MaxDepth + 1) * NodeBorderV)
-                           + (2 * PageBorderV);
-  
-  CurrentSize.Set(TotalWidth, TotalHeight);
-  SetVirtualSize(TotalWidth, TotalHeight);
-  
-  // Calculate the position of each node in the display.
+  // Setup each node in the display.
   for (auto const &StmtRange : Formatted.getStmtRanges()) {
     // If the node has been hidden (because it is in an unexpanded macro) then
     // it will have no depth entry - we should simply skip it.
     auto const DepthIt = Depths.find(StmtRange.first);
     if (DepthIt == Depths.end())
       continue;
-    
-    auto const WidthPrior =
-      dc.GetTextExtent(Statement.substr(0, StmtRange.second.getStart()))
-        .GetWidth();
-    auto const Width =
-      dc.GetTextExtent(Statement.substr(StmtRange.second.getStart(),
-                                        StmtRange.second.getLength()))
-        .GetWidth();
 
     auto const Depth  = DepthIt->second;
-    auto const XStart = PageBorderH + WidthPrior;
-    auto const XEnd   = XStart + Width;
-    auto const YStart = TotalHeight - PageBorderV - CharHeight
-                        - (Depth * (CharHeight + NodeBorderV));
     
     auto Value = ActiveFn->getStmtValue(StmtRange.first);
     auto const ValueString = Value ? getPrettyStringForInline(*Value,
@@ -780,17 +833,20 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
                        StmtRange.second.getStart(),
                        StmtRange.second.getLength(),
                        Depth,
-                       XStart,
-                       XEnd,
-                       YStart,
-                       YStart + CharHeight,
+                       0,
+                       0,
+                       0,
+                       0,
                        HasError ? NodeError::Error : NodeError::None);
   }
   
   HoverNodeIt = Nodes.end();
   ReplayHoverNodeIt = Nodes.end();
+
+  // Calculate the positions of the nodes.
+  recalculateNodePositions();
   
-  // Create a new DC because we've changed the virtual size.
+  // Draw onto a new DC because we've changed the virtual size.
   redraw();
 }
 
@@ -878,27 +934,6 @@ void StateEvaluationTreePanel::OnMouseRightUp(wxMouseEvent &Ev)
     CM.AppendSeparator();
     addStmtAnnotationEdit(CM, this, *Trace, Stmt);
     PopupMenu(&CM);
-  }
-}
-
-void StateEvaluationTreePanel::OnMouseWheel(wxMouseEvent &Ev)
-{
-  if (!Ev.ControlDown()) {
-    Ev.Skip();
-    return;
-  }
-
-  auto const FontSize = CodeFont.GetPointSize() +
-                        (Ev.GetWheelRotation() > 0 ? 1 : -1);
-
-  if (FontSize < 1)
-    return;
-
-  CodeFont.SetPointSize(FontSize);
-  Settings.PenWidth = (FontSize / 13) + 1;
-
-  if (CurrentAccess->getAccess() && CurrentProcess && CurrentThread) {
-    show(CurrentAccess, *CurrentProcess, *CurrentThread);
   }
 }
 

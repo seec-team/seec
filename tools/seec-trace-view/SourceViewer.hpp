@@ -29,6 +29,7 @@
 
 class ActionRecord;
 class ActionReplayFrame;
+class ColourSchemeSettings;
 class ContextNotifier;
 class OpenTrace;
 class SourceFilePanel;
@@ -165,7 +166,11 @@ public:
   void show(std::shared_ptr<StateAccessToken> Access,
             seec::cm::ProcessState const &Process,
             seec::cm::ThreadState const &Thread);
-  
+
+  /// \brief Update the \c ColourSchemeSettings.
+  ///
+  void OnColourSchemeSettingsChanged(ColourSchemeSettings const &);
+
   /// @} (Mutators).
 
 private:

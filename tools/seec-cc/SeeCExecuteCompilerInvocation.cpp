@@ -241,6 +241,6 @@ bool DoCompilerInvocation(CompilerInstance *Clang,
     return false;
   bool Success = Clang->ExecuteAction(*Act);
   if (Clang->getFrontendOpts().DisableFree)
-    BuryPointer(Act.release());
+    BuryPointer(std::move(Act));
   return Success;
 }
