@@ -85,6 +85,8 @@ public:
 };
 
 
+UnicodeString getOrDescribe(Error const &Err);
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, Error const &Err);
 
 

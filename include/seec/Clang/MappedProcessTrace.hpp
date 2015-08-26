@@ -42,6 +42,9 @@ namespace cm {
 /// \brief A SeeC-Clang-mapped process trace.
 ///
 class ProcessTrace {
+  /// The \c Module for this process trace.
+  std::unique_ptr<llvm::Module> TheModule;
+
   /// The base (unmapped) process trace.
   std::shared_ptr<seec::trace::ProcessTrace> UnmappedTrace;
   
@@ -62,9 +65,11 @@ class ProcessTrace {
   
   /// \brief Constructor.
   ///
-  ProcessTrace(std::shared_ptr<seec::trace::ProcessTrace> Trace,
+  ProcessTrace(std::unique_ptr<llvm::Module> WithModule,
+               std::shared_ptr<seec::trace::ProcessTrace> Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
-  : UnmappedTrace(std::move(Trace)),
+  : TheModule(std::move(WithModule)),
+    UnmappedTrace(std::move(Trace)),
     ModuleIndex(std::move(Index)),
     DiagOpts(new clang::DiagnosticOptions()),
     DiagConsumer(),

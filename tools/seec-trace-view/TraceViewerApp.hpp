@@ -31,6 +31,7 @@ namespace seec {
 }
 
 class ActionRecordingSubmitter;
+class ColourSchemeSettings;
 class SingleInstanceServer;
 class WelcomeFrame;
 class wxSingleInstanceChecker;
@@ -68,6 +69,9 @@ class TraceViewerApp : public wxApp
 
   /// Handles submission of user action recordings.
   std::unique_ptr<ActionRecordingSubmitter> RecordingSubmitter;
+
+  /// Holds colour scheme settings for the application.
+  std::unique_ptr<ColourSchemeSettings> ColourScheme;
 
   /// \brief Send any "files to open" to the existing trace viewer instance.
   ///
@@ -172,6 +176,18 @@ public:
   ///
   seec::AugmentationCollection &getAugmentations() const {
     return *Augmentations;
+  }
+
+  /// \brief Get the \c ColourSchemeSettings.
+  ///
+  ColourSchemeSettings &getColourSchemeSettings() {
+    return *ColourScheme;
+  }
+
+  /// \brief Get the \c ColourSchemeSettings.
+  ///
+  ColourSchemeSettings const &getColourSchemeSettings() const {
+    return *ColourScheme;
   }
 
   /// @}

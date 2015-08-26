@@ -597,7 +597,7 @@ InputBufferAllocator::createFor(llvm::StringRef Path)
   return createForDirectory(Path);
 }
 
-seec::Maybe<llvm::Module *, seec::Error>
+seec::Maybe<std::unique_ptr<llvm::Module>, seec::Error>
 InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
 {
   // Get the path to the bitcode file.
@@ -622,7 +622,7 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
                                                          ParseError.c_str())));
   }
   
-  return *MaybeMod;
+  return std::move(*MaybeMod);
 }
 
 seec::Maybe<TraceFile, seec::Error>

@@ -40,6 +40,7 @@ namespace clang {
 
 class ActionRecord;
 class ActionReplayFrame;
+class ColourScheme;
 class ContextEvent;
 class ContextNotifier;
 class OpenTrace;
@@ -217,6 +218,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   
   /// The pretty-printed Stmt.
   std::string Statement;
+
+  /// The maximum depth of a node in this Stmt.
+  unsigned MaxDepth;
   
   /// Information for all sub-nodes in the Stmt.
   std::vector<NodeInfo> Nodes;
@@ -239,6 +243,10 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// Highlighted Value.
   seec::cm::Value const *HighlightedValue;
 
+  /// \brief Set display settings based on a \c ColourScheme.
+  ///
+  void setupColourScheme(ColourScheme const &Scheme);
+
   /// \brief Draw a single node using the given \c wxDC.
   ///
   void drawNode(wxDC &DC,
@@ -248,7 +256,11 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// \brief Render this panel using the given \c wxDC.
   ///
   void render(wxDC &dc);
-  
+
+  /// \brief Calculate node positions using the current display settings.
+  ///
+  void recalculateNodePositions();
+
   /// \brief Redraw this panel.
   ///
   void redraw();
@@ -342,7 +354,6 @@ public:
   void OnMouseLeftWindow(wxMouseEvent &);
   void OnMouseRightDown(wxMouseEvent &);
   void OnMouseRightUp(wxMouseEvent &);
-  void OnMouseWheel(wxMouseEvent &);
   void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)

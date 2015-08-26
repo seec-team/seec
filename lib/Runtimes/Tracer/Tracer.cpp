@@ -298,7 +298,7 @@ ProcessEnvironment::ProcessEnvironment()
     exit(EXIT_FAILURE);
   }
 
-  Mod.reset(MaybeMod.get());
+  Mod = std::move(*MaybeMod);
   
   // Create the output stream allocator.
   auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();

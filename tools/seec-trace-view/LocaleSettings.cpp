@@ -44,6 +44,8 @@ bool LocaleSettingsWindow::SaveValuesImpl()
   return true;
 }
 
+void LocaleSettingsWindow::CancelChangesImpl() {}
+
 wxString LocaleSettingsWindow::GetDisplayNameImpl()
 {
   auto const CurrentLocale = getLocale();

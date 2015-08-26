@@ -14,6 +14,8 @@
 #ifndef SEEC_WXWIDGETS_CONFIG_HPP
 #define SEEC_WXWIDGETS_CONFIG_HPP
 
+#include <string>
+
 namespace seec {
 
 /// \brief Setup a dummy wxAppConsole named "seec".
@@ -25,6 +27,8 @@ namespace seec {
 void setupDummyAppConsole();
 
 bool setupCommonConfig();
+
+std::string getUserLocalDataPath();
 
 } // namespace seec
 

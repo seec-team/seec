@@ -288,6 +288,8 @@ bool AugmentationSettingsWindow::SaveValuesImpl()
   return true;
 }
 
+void AugmentationSettingsWindow::CancelChangesImpl() {}
+
 wxString AugmentationSettingsWindow::GetDisplayNameImpl()
 {
   auto const ResTraceViewer = Resource("TraceViewer");

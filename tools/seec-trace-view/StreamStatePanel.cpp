@@ -22,11 +22,13 @@
 
 #include "ActionRecord.hpp"
 #include "ActionReplay.hpp"
+#include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
 #include "StreamStatePanel.hpp"
 #include "SourceViewerSettings.hpp"
+#include "TraceViewerApp.hpp"
 
 #include <cassert>
 #include <cctype>
@@ -314,6 +316,13 @@ class StreamPanel final : public wxPanel
   }
 
 public:
+  /// \brief Apply the \c ColourScheme to this \c StreamPanel.
+  ///
+  void updateColourScheme(ColourScheme const &Scheme)
+  {
+    setupStylesFromColourScheme(*Text, Scheme);
+  }
+
   /// \brief Construct a new \c StreamPanel for a given \c StreamState.
   ///
   StreamPanel(wxWindow * const Parent,
@@ -334,11 +343,10 @@ public:
     Text = new wxStyledTextCtrl(this, wxID_ANY);
     Text->SetReadOnly(true);
 
-    setupAllSciCommonTypes(*Text);
-    setupAllSciLexerTypes(*Text);
+    updateColourScheme(
+      *(wxGetApp().getColourSchemeSettings().getColourScheme()));
 
     // We only use one indicator (highlight), so set it here.
-    setupAllSciIndicatorTypes(*Text);
     auto const Indicator = static_cast<int>(SciIndicatorType::CodeHighlight);
     Text->SetIndicatorCurrent(Indicator);
 
@@ -409,6 +417,14 @@ bool StreamStatePanel::Create(wxWindow *Parent,
   auto const Sizer = new wxBoxSizer(wxHORIZONTAL);
   Sizer->Add(Book, wxSizerFlags().Proportion(1).Expand());
   SetSizerAndFit(Sizer);
+
+  // Handle ColourSchemeSettings changes.
+  wxGetApp().getColourSchemeSettings().addListener(
+    [this] (ColourSchemeSettings const &Settings) {
+      for (auto &Entry : Pages) {
+        Entry.second->updateColourScheme(*Settings.getColourScheme());
+      }
+    });
 
   return true;
 }

@@ -57,12 +57,12 @@ public:
 
 } // namespace seec
 
-inline seec::wxXmlNodeIterator begin(wxXmlNode &Node)
+inline seec::wxXmlNodeIterator begin(wxXmlNode const &Node)
 {
   return seec::wxXmlNodeIterator(Node.GetChildren());
 }
 
-inline seec::wxXmlNodeIterator end(wxXmlNode &Node)
+inline seec::wxXmlNodeIterator end(wxXmlNode const &Node)
 {
   return seec::wxXmlNodeIterator();
 }

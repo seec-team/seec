@@ -31,6 +31,8 @@ bool TracingPreferencesWindow::SaveValuesImpl()
       && setArchiveLimit(m_ArchiveLimit->GetValue());
 }
 
+void TracingPreferencesWindow::CancelChangesImpl() {}
+
 wxString TracingPreferencesWindow::GetDisplayNameImpl()
 {
   return towxString(Resource("TraceViewer")
