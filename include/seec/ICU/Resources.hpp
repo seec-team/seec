@@ -17,10 +17,9 @@
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/PathV1.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/system_error.h"
 
 #include "unicode/resbund.h"
 #include "unicode/udata.h"
@@ -32,6 +31,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <system_error>
 
 namespace seec {
 
@@ -61,11 +61,11 @@ inline ResourceBundle getResource(ResourceBundle const &Bundle,
 /// \param Keys
 /// \return
 template<typename KeyT, typename... KeyTs>
-ResourceBundle getResource(ResourceBundle const &Bundle,
+ResourceBundle getResource(ResourceBundle Bundle,
                            UErrorCode &Status,
                            KeyT Key,
                            KeyTs... Keys) {
-  return getResource(Bundle.get(Key, Status),
+  return getResource(Bundle.getWithFallback(Key, Status),
                      Status,
                      std::forward<KeyTs>(Keys)...);
 }
@@ -90,15 +90,29 @@ ResourceBundle getResource(char const *Package,
                      std::forward<KeyTs>(Keys)...);
 }
 
-/// \brief Get the ICU ResourceBundle at a given position in the heirarchy.
+/// \brief Get the ICU ResourceBundle at a given position in the heirarchy of
+/// the named Package.
 ///
 seec::Maybe<ResourceBundle, UErrorCode>
 getResource(char const *Package, llvm::ArrayRef<char const *> const &Keys);
 
-/// \brief Get the ICU UnicodeString at a given position in the heirarchy.
+/// \brief Get the ICU ResourceBundle at a given position in the heirarchy
+/// relative to the supplied ResourceBundle.
+///
+seec::Maybe<ResourceBundle, UErrorCode>
+getResource(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys);
+
+/// \brief Get the ICU UnicodeString at a given position in the heirarchy of
+/// the named Package.
 ///
 seec::Maybe<UnicodeString, UErrorCode>
 getString(char const *Package, llvm::ArrayRef<char const *> const &Keys);
+
+/// \brief Get the ICU UnicodeString at a given position in the heirarchy
+/// relative to the supplied ResourceBundle.
+///
+seec::Maybe<UnicodeString, UErrorCode>
+getString(ResourceBundle const &RB, llvm::ArrayRef<char const *> const &Keys);
 
 /// \brief Returns a signed integer in a resource that has a given key.
 ///
@@ -107,29 +121,26 @@ getString(char const *Package, llvm::ArrayRef<char const *> const &Keys);
 /// \param Bundle The resource bundle to extract from.
 /// \param Key The key of the integer that will be extracted.
 /// \param Status Fills in the outgoing error code.
-inline int32_t getIntEx(ResourceBundle const &Bundle,
+inline int32_t getIntEx(ResourceBundle Bundle,
                         char const *Key,
                         UErrorCode &Status) {
   if (U_FAILURE(Status))
     return int32_t{};
 
-  auto Resource = Bundle.get(Key, Status);
+  auto Resource = Bundle.getWithFallback(Key, Status);
   if (U_FAILURE(Status))
     return int32_t{};
 
   return Resource.getInt(Status);
 }
 
-/// \brief Returns the binary data in a resource that has a given key.
+/// \brief Returns the binary data in a resource.
 ///
 /// \param Bundle The resource bundle to extract from.
-/// \param Key The key of the binary data that will be extracted.
 /// \param Status Fills in the outgoing error code.
-inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
-                                           char const *Key,
-                                           UErrorCode  &Status) {
-  auto Resource = Bundle.get(Key, Status);
-
+inline llvm::ArrayRef<uint8_t> getBinary(ResourceBundle const &Resource,
+                                         UErrorCode  &Status)
+{
   int32_t Length = -1;
   auto Data = Resource.getBinary(Length, Status);
   if (U_FAILURE(Status) || Length < 0)
@@ -138,19 +149,126 @@ inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle const &Bundle,
   return llvm::ArrayRef<uint8_t>(Data, static_cast<std::size_t>(Length));
 }
 
+/// \brief Returns the binary data in a resource that has a given key.
+///
+/// \param Bundle The resource bundle to extract from.
+/// \param Key The key of the binary data that will be extracted.
+/// \param Status Fills in the outgoing error code.
+inline llvm::ArrayRef<uint8_t> getBinaryEx(ResourceBundle Bundle,
+                                           char const *Key,
+                                           UErrorCode  &Status)
+{
+  return getBinary(Bundle.getWithFallback(Key, Status), Status);
+}
+
+
+/// \brief Convenience class for retrieving resources.
+///
+class Resource final {
+  /// Current status for this \c Resource.
+  UErrorCode m_Status;
+
+  /// The \c ResourceBundle wrapped by this \c Resource.
+  ResourceBundle m_Bundle;
+
+  Resource(UErrorCode const Status, ResourceBundle &&Bundle)
+  : m_Status(Status),
+    m_Bundle(std::move(Bundle))
+  {}
+
+  Resource(UErrorCode const Status, ResourceBundle const &Bundle)
+  : m_Status(Status),
+    m_Bundle(Bundle)
+  {}
+
+public:
+  /// \brief Construct a new \c Resource representing an entire package in the
+  ///        default locale.
+  ///
+  Resource(char const * const Package)
+  : m_Status(U_ZERO_ERROR),
+    m_Bundle(Package, ::icu::Locale::getDefault(), m_Status)
+  {}
+
+  /// \brief Construct a new \c Resource representing an entire package in a
+  ///        given locale.
+  ///
+  Resource(char const * const Package, ::icu::Locale const Locale)
+  : m_Status(U_ZERO_ERROR),
+    m_Bundle(Package, Locale, m_Status)
+  {}
+
+  /// \brief Get the status of this \c Resource.
+  ///
+  UErrorCode status() const { return m_Status; }
+
+  /// \brief Get the \c ResourceBundle wrapped by this \c Resource.
+  ///
+  ResourceBundle const &bundle() const { return m_Bundle; }
+
+  /// \brief Get a \c ResourceBundle contained in this \c Resource.
+  ///
+  Resource operator[] (char const * const Key) const &;
+
+  /// \brief Get a \c ResourceBundle contained in this \c Resource.
+  ///
+  Resource get(llvm::ArrayRef<char const *> Keys) const &;
+
+  /// \brief Get this \c Resource as binary data.
+  ///
+  std::pair<llvm::ArrayRef<uint8_t>, UErrorCode> getBinary() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  std::pair<UnicodeString, UErrorCode> getString() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  std::pair<UnicodeString, UErrorCode>
+  getStringOrDefault(UnicodeString const &Default) const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  std::pair<int32_t, UErrorCode> getInt() const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  std::pair<int32_t, UErrorCode> getIntOrDefault(int32_t const Default) const &;
+
+  /// \brief Get this \c Resource as binary data.
+  ///
+  llvm::ArrayRef<uint8_t> asBinary() const;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  UnicodeString asString() const &;
+
+  /// \brief Get this \c Resource as a \c UnicodeString.
+  ///
+  UnicodeString asStringOrDefault(UnicodeString const &Default) const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  int32_t asInt() const &;
+
+  /// \brief Get this \c Resource as an \c int32_t.
+  ///
+  int32_t asIntOrDefault(int32_t const Default) const &;
+};
+
 
 /// \brief Handle loading and registering resources for ICU.
 ///
 class ResourceLoader {
-  llvm::sys::Path ResourcesDirectory;
+  llvm::SmallString<256> ResourcesDirectory;
 
   std::map<std::string, std::unique_ptr<llvm::MemoryBuffer>> Resources;
 
 public:
-  ResourceLoader(llvm::sys::Path const &ExecutablePath);
+  ResourceLoader(llvm::StringRef ResourceDirectory);
   
-  llvm::sys::Path const &getResourcesDirectory() const {
-    return ResourcesDirectory;
+  llvm::StringRef getResourcesDirectory() const {
+    return ResourcesDirectory.str();
   }
 
   bool loadResource(char const *Package);

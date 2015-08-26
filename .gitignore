@@ -1,5 +1,8 @@
 # Backup files
 *~
 
+# KDevelop
+*.kdev4
+
 # OS X
 .DS_Store

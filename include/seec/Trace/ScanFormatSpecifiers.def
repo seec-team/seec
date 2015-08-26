@@ -90,6 +90,16 @@ SEEC_SCAN_FORMAT_SPECIFIER(x, 'x', true, true,
                                          (   z, std::size_t *     ),
                                          (   t, std::ptrdiff_t *  )))
 
+SEEC_SCAN_FORMAT_SPECIFIER(X, 'X', true, true,
+                           SEEC_PP_QUOTE((  hh, signed char *     ),
+                                         (   h, signed short *    ),
+                                         (none, signed int *      ),
+                                         (   l, signed long *     ),
+                                         (  ll, signed long long *),
+                                         (   j, std::intmax_t *   ),
+                                         (   z, std::size_t *     ),
+                                         (   t, std::ptrdiff_t *  )))
+
 SEEC_SCAN_FORMAT_SPECIFIER(n, 'n', false, false,
                            SEEC_PP_QUOTE((  hh, signed char *     ),
                                          (   h, signed short *    ),

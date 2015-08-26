@@ -23,7 +23,8 @@
 namespace seec {
 
 
-/// Stores a view of a contiguous block of memory.
+/// \brief Stores a view of a contiguous block of memory.
+///
 class MappedMemoryBlock : public MemoryArea {
 private:
   /// The data referenced by this MappedMemoryBlock.
@@ -37,7 +38,7 @@ public:
   {}
 
   /// Initializing constructor.
-  MappedMemoryBlock(uintptr_t Start, std::size_t Length, char const *Data)
+  MappedMemoryBlock(uint64_t Start, std::size_t Length, char const *Data)
   : MemoryArea(Start, Length),
     Data(Data)
   {}
@@ -78,32 +79,6 @@ public:
   MemoryArea const &area() const { return *this; }
   
   /// @} (Accessors)
-  
-  
-  /// \name Mutators
-  /// @{
-  
-  /// \brief Move the left hand side to a new, higher, start address.
-  ///
-  void trimLeftSide(uintptr_t NewStartAddress) {
-    assert(NewStartAddress >= start());
-    
-    auto const MoveSize = NewStartAddress - start();
-    setStart(NewStartAddress);
-    Data += MoveSize;
-  }
-  
-  /// \brief Move the left hand side to a new, lower, start address.
-  ///
-  void untrimLeftSide(uintptr_t NewStartAddress) {
-    assert(NewStartAddress <= start());
-    
-    auto const MoveSize = NewStartAddress - start();
-    setStart(NewStartAddress);
-    Data += MoveSize;
-  }
-  
-  /// @}
 };
 
 

@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDGLOBALVARIABLE_HPP
 #define SEEC_CLANG_MAPPEDGLOBALVARIABLE_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedValue.hpp"
 
 #include <cstdint>
@@ -54,14 +55,14 @@ class GlobalVariable {
   seec_clang::MappedGlobalVariableDecl const &Mapping;
   
   /// The run-time address.
-  uintptr_t Address;
+  stateptr_ty Address;
   
 public:
   /// \brief Constructor.
   ///
   GlobalVariable(ProcessState const &ForState,
                  seec_clang::MappedGlobalVariableDecl const &WithMapping,
-                 uintptr_t WithAddress)
+                 stateptr_ty WithAddress)
   : State(ForState),
     Mapping(WithMapping),
     Address(WithAddress)
@@ -81,7 +82,7 @@ public:
   
   /// \brief Get the run-time address of this global.
   ///
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
   
   /// @} (Accessors)
   

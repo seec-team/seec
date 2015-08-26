@@ -16,11 +16,13 @@
 
 #include "seec/DSA/IntervalMapVector.hpp"
 #include "seec/Trace/MemoryState.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -45,40 +47,57 @@ namespace trace {
 ///
 class MallocState {
   /// Address of the allocated memory.
-  uintptr_t Address;
+  stateptr_ty Address;
 
   /// Size of the allocated memory.
   std::size_t Size;
 
-  /// Location of the Malloc event.
-  EventLocation Malloc;
-  
-  /// Instruction that caused this allocation.
-  llvm::Instruction const *Allocator;
+  /// Allocator \c llvm::Instruction pointers. The most recent is the "current"
+  /// allocator (responsible for the most recent allocation).
+  llvm::SmallVector<llvm::Instruction const *, 1> Allocators;
 
 public:
-  /// Construct a new MallocState with the given values.
-  MallocState(uintptr_t Address,
+  /// \brief Construct a new \c MallocState with the given values.
+  ///
+  MallocState(stateptr_ty Address,
               std::size_t Size,
-              EventLocation MallocLocation,
               llvm::Instruction const *WithAllocator)
   : Address(Address),
     Size(Size),
-    Malloc(MallocLocation),
-    Allocator(WithAllocator)
+    Allocators(1, WithAllocator)
   {}
 
-  /// Get the address of the allocated memory.
-  uintptr_t getAddress() const { return Address; }
+  /// \brief Get the address of the allocated memory.
+  ///
+  stateptr_ty getAddress() const { return Address; }
 
-  /// Get the size of the allocated memory.
+  /// \brief Get the size of the allocated memory.
+  ///
   std::size_t getSize() const { return Size; }
 
-  /// Get the location of the Malloc event.
-  EventLocation getMallocLocation() const { return Malloc; }
-  
-  /// Get the Instruction that caused this allocation.
-  llvm::Instruction const *getAllocator() const { return Allocator; }
+  /// \brief Get the \c llvm::Instruction that caused this allocation.
+  ///
+  llvm::Instruction const *getAllocator() const {
+    return Allocators.back();
+  }
+
+  /// \brief Add a new allocator \c llvm::Instruction (for realloc).
+  ///
+  void pushAllocator(llvm::Instruction const *I) {
+    Allocators.push_back(I);
+  }
+
+  /// \brief Rewind to the previous allocator \c llvm::Instruction
+  ///        (for realloc).
+  ///
+  void popAllocator() {
+    Allocators.pop_back();
+    assert(!Allocators.empty());
+  }
+
+  /// \brief Set the size of the allocated memory (for realloc).
+  ///
+  void setSize(std::size_t const Value) { Size = Value; }
 };
 
 
@@ -102,85 +121,6 @@ class ProcessState {
   /// @} (Constants.)
 
 
-  /// \name Update access control.
-  /// @{
-
-  /// Controls access to mutable areas of the process state during updates.
-  std::mutex UpdateMutex;
-
-  /// Used to wait for an appropriate update time (i.e. correct ProcessTime).
-  std::condition_variable UpdateCV;
-
-public:
-  /// \brief Managed update access during its lifetime.
-  /// On construction, lock UpdateMutex and ensure that ProcessTime matches
-  /// the required time (or wait until it does). On destruction, unlock the
-  /// UpdateMutex and notify UpdateCV.
-  class ScopedUpdate {
-    ProcessState &State;
-
-    std::unique_lock<std::mutex> UpdateLock;
-
-    void unlock() {
-      if (UpdateLock) {
-        UpdateLock.unlock();
-        State.UpdateCV.notify_all();
-      }
-    }
-
-    // Don't allow copying.
-    ScopedUpdate(ScopedUpdate const &Other) = delete;
-    ScopedUpdate &operator=(ScopedUpdate const &RHS) = delete;
-
-  public:
-    /// \brief Acquire shared update permissions from the given State, when its
-    /// ProcessTime is equal to the RequiredProcessTime.
-    /// \param State the ProcessState to acquire shared update permissions for.
-    /// \param RequiredProcessTime this constructor will block until it has
-    ///        update permissions and State.ProcessTime == RequiredProcessTime.
-    ScopedUpdate(ProcessState &State, uint64_t RequiredProcessTime)
-    : State(State),
-      UpdateLock(State.UpdateMutex)
-    {
-      State.UpdateCV.wait(UpdateLock,
-                          [=,&State](){
-                            return State.ProcessTime == RequiredProcessTime;
-                          });
-    }
-
-    /// Move constructor.
-    ScopedUpdate(ScopedUpdate &&Other) = default;
-
-    /// Move update permissions from another ScopedUpdate object to this one.
-    /// Both ScopedUpdated objects must have been created from the same
-    /// ProcessState.
-    ScopedUpdate &operator=(ScopedUpdate &&RHS) {
-      assert(&State == &(RHS.State)
-             && "Can't move update from different ProcessState");
-      unlock();
-      UpdateLock = std::move(RHS.UpdateLock);
-      return *this;
-    }
-
-    /// If this ScopedUpdate has a lock on the UpdateMutex, then the destructor
-    /// will unlock the UpdateMutex and wake up all ScopedUpdate objects that
-    /// are waiting for the UpdateCV.
-    ~ScopedUpdate() {
-      unlock();
-    }
-  };
-
-  /// \brief Acquires permission to update the shared state.
-  /// The returned object holds permission to update the shared state of this
-  /// ProcessState, and releases that permission when it is destructed. The
-  /// creation of this object will block until this ProcessState's ProcessTime
-  /// is equal to RequiredProcessTime.
-  ScopedUpdate getScopedUpdate(uint64_t RequiredProcessTime) {
-    return ScopedUpdate(*this, RequiredProcessTime);
-  }
-
-  /// @} (Update access control.)
-
 private:
   /// \name Variable data
   /// @{
@@ -192,19 +132,25 @@ private:
   std::vector<std::unique_ptr<ThreadState>> ThreadStates;
 
   /// All current dynamic memory allocations, indexed by address.
-  std::map<uintptr_t, MallocState> Mallocs;
+  std::map<stateptr_ty, MallocState> Mallocs;
+
+  /// Previous dynamic memory allocations, from oldest to youngest.
+  std::vector<MallocState> PreviousMallocs;
 
   /// Current state of memory.
   MemoryState Memory;
   
   /// Known, but unowned, regions of memory.
-  IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
+  IntervalMapVector<stateptr_ty, MemoryPermission> KnownMemory;
   
   /// Currently open streams.
-  llvm::DenseMap<uintptr_t, StreamState> Streams;
+  llvm::DenseMap<stateptr_ty, StreamState> Streams;
+
+  /// Previously closed streams (in order of closing).
+  std::vector<StreamState> StreamsClosed;
   
   /// Currently open DIRs.
-  llvm::DenseMap<uintptr_t, DIRState> Dirs;
+  llvm::DenseMap<stateptr_ty, DIRState> Dirs;
 
   /// @} (Variable data.)
 
@@ -270,11 +216,25 @@ public:
   
   /// \name Memory.
   /// @{
-  
-  /// \brief Get the map of dynamic memory allocations.
+
+  /// \brief Add a dynamic memory allocation (moving forwards).
   ///
-  decltype(Mallocs) &getMallocs() { return Mallocs; }
-  
+  void addMalloc(stateptr_ty const Address,
+                 std::size_t const Size,
+                 llvm::Instruction const *Allocator);
+
+  /// \brief Unadd a dynamic memory allocation (moving backwards).
+  ///
+  void unaddMalloc(stateptr_ty const Address);
+
+  /// \brief Remove a dynamic memory allocation (moving forwards).
+  ///
+  void removeMalloc(stateptr_ty const Address);
+
+  /// \brief Unremove a dynamic memory allocation (moving backwards).
+  ///
+  void unremoveMalloc(stateptr_ty const Address);
+
   /// \brief Get the map of dynamic memory allocations.
   ///
   decltype(Mallocs) const &getMallocs() const { return Mallocs; }
@@ -289,7 +249,7 @@ public:
   
   /// \brief Add a region of known memory.
   ///
-  void addKnownMemory(uintptr_t Address,
+  void addKnownMemory(stateptr_ty Address,
                       std::size_t Length,
                       MemoryPermission Access)
   {
@@ -298,7 +258,7 @@ public:
   
   /// \brief Remove the region of known memory at the given address.
   ///
-  bool removeKnownMemory(uintptr_t Address) {
+  bool removeKnownMemory(stateptr_ty Address) {
     return (KnownMemory.erase(Address) != 0);
   }
   
@@ -306,6 +266,10 @@ public:
   ///
   decltype(KnownMemory) const &getKnownMemory() const { return KnownMemory; }
   
+  /// \brief Check if an address is contained in a global variable.
+  ///
+  bool isContainedByGlobalVariable(stateptr_ty const Address) const;
+
   /// \brief Find the allocated range that owns an address.
   ///
   /// This method will search in the following order:
@@ -315,7 +279,7 @@ public:
   ///  - Thread stacks.
   ///
   seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const;
+  getContainingMemoryArea(stateptr_ty Address) const;
   
   /// @} (Memory.)
   
@@ -331,15 +295,34 @@ public:
   /// \return true iff the stream was added (did not already exist).
   ///
   bool addStream(StreamState Stream);
-  
+
   /// \brief Remove a stream from the currently open streams.
   /// \return true iff the stream was removed (existed).
   ///
-  bool removeStream(uintptr_t Address);
+  bool removeStream(stateptr_ty Address);
+
+  /// \brief Close a currently open stream.
+  /// \return true iff the stream was closed (existed).
+  ///
+  bool closeStream(stateptr_ty const Address);
+
+  /// \brief Restore the most recently closed stream.
+  /// \param Address used to ensure that the correct stream is restored.
+  /// \return true iff the stream was restored.
+  ///
+  bool restoreStream(stateptr_ty const Address);
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
-  StreamState const *getStream(uintptr_t Address) const;
+  StreamState *getStream(stateptr_ty Address);
+  
+  /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
+  ///
+  StreamState const *getStream(stateptr_ty Address) const;
+  
+  /// \brief Get a pointer to the stdout stream, if it is open.
+  ///
+  StreamState const *getStreamStdout() const;
   
   /// @} (Streams.)
   
@@ -359,11 +342,11 @@ public:
   /// \brief Remove a DIR from the currently open DIRs.
   /// \return true iff the DIR was removed (existed).
   ///
-  bool removeDir(uintptr_t Address);
+  bool removeDir(stateptr_ty Address);
   
   /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
   ///
-  DIRState const *getDir(uintptr_t Address) const;
+  DIRState const *getDir(stateptr_ty Address) const;
   
   /// @} (Dirs.)
   
@@ -373,14 +356,18 @@ public:
   
   /// \brief Get the run-time address of a Function.
   ///
-  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
+  stateptr_ty getRuntimeAddress(llvm::Function const *F) const;
   
   /// \brief Get the run-time address of a GlobalVariable.
   ///
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
+  stateptr_ty getRuntimeAddress(llvm::GlobalVariable const *GV) const;
   
   /// @} (Get run-time addresses.)
 };
+
+/// \brief Print a comparable textual description of a \c ProcessState.
+///
+void printComparable(llvm::raw_ostream &Out, ProcessState const &State);
 
 /// Print a textual description of a ProcessState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,

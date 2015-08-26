@@ -20,7 +20,7 @@ namespace seec {
 
 namespace seec_clang {
 
-seec::Maybe<MappedFile> MappedFile::fromMetadata(llvm::Value *Root) {
+seec::Maybe<MappedFile> MappedFile::fromMetadata(llvm::Metadata *Root) {
   auto MDRoot = llvm::dyn_cast<llvm::MDNode>(Root);
   if (!MDRoot || MDRoot->getNumOperands() != 2u)
     return seec::Maybe<MappedFile>();

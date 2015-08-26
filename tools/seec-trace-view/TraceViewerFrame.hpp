@@ -16,9 +16,10 @@
 
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
-#include <wx/aui/aui.h>
-#include <wx/aui/auibook.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include "llvm/ADT/DenseMap.h"
+
+#include <unicode/resbund.h>
 
 #include <memory>
 #include <mutex>
@@ -28,16 +29,26 @@ namespace seec {
   namespace cm {
     class ProcessState;
   }
+
+  class Resource;
 }
 
+class ActionRecord;
+class ActionRecordingControl;
+class ActionReplayFrame;
 class ContextNotifier;
+class ExplanationViewer;
 class OpenTrace;
 class ProcessMoveEvent;
 class SourceViewerPanel;
 class StateAccessToken;
-class StateViewerPanel;
+class StateEvaluationTreePanel;
+class StateGraphViewerPanel;
+class StreamStatePanel;
 class ThreadMoveEvent;
 class ThreadTimeControl;
+class wxAuiManager;
+class wxXmlDocument;
 
 
 /// \brief Displays a SeeC-Clang Mapped process trace.
@@ -56,11 +67,35 @@ class TraceViewerFrame : public wxFrame
   /// Central handler for context notifications.
   std::unique_ptr<ContextNotifier> Notifier;
 
+  /// Manages the layout of the individual panels.
+  wxAuiManager *Manager;
+  
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
+  
+  /// Shows an explanation of the active Stmt.
+  ExplanationViewer *ExplanationCtrl;
+  
+  /// Shows a graph of the state.
+  StateGraphViewerPanel *GraphViewer;
+  
+  /// Shows an evaluation tree.
+  StateEvaluationTreePanel *EvaluationTree;
+  
+  /// Shows data written to open FILE streams.
+  StreamStatePanel *StreamState;
 
-  /// Shows the current state.
-  StateViewerPanel *StateViewer;
+  /// Allows the user to enable/disable action recording.
+  ActionRecordingControl *RecordingControl;
+  
+  /// Used to record user interactions.
+  std::unique_ptr<ActionRecord> Recording;
+  
+  /// Used to replay user interactions.
+  ActionReplayFrame *Replay;
+
+  /// Map from windows to their associated menu item in the view menu.
+  llvm::DenseMap<wxWindow const *, wxMenuItem *> ViewMenuLookup;
   
   
   /// \name Multi-threaded traces
@@ -78,6 +113,22 @@ class TraceViewerFrame : public wxFrame
   ThreadTimeControl *ThreadTime;
   
   /// @} (Single-threaded traces)
+  
+  
+  /// \brief Create a single button in the view control menu.
+  ///
+  void createViewButton(wxMenu &Menu,
+                        wxWindow *Window,
+                        seec::Resource const &Table,
+                        char const * const Key);
+
+  /// \brief Create a view control menu.
+  ///
+  std::pair<std::unique_ptr<wxMenu>, wxString> createViewMenu();
+
+  /// \brief Create the tools menu.
+  ///
+  std::pair<std::unique_ptr<wxMenu>, wxString> createToolsMenu();
 
 public:
   /// \brief Constructor (without creation).
@@ -109,6 +160,10 @@ public:
   /// \brief Close the current file.
   ///
   void OnClose(wxCommandEvent &Event);
+
+  /// \brief Request to save the current trace.
+  ///
+  void OnSaveAs(wxCommandEvent &Event);
   
   /// \brief Handle a request to move the process.
   ///
@@ -117,6 +172,20 @@ public:
   /// \brief Handle a request to move a thread.
   ///
   void OnThreadMove(ThreadMoveEvent &Event);
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  ActionRecord &getRecording() { return *Recording; }
+  
+  ActionReplayFrame *getReplay() { return Replay; }
+
+  OpenTrace &getTrace() { return *Trace; }
+
+  void editThreadTimeAnnotation();
+  
+  /// @} (Accessors.)
 };
 
 #endif // SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP

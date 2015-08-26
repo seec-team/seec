@@ -3,10 +3,10 @@ Encoding=UTF-8
 Version=1.0
 Type=Application
 Terminal=false
-Exec=seec-trace-view %f
+Exec=seec-view %f
 Name=SeeC
 GenericName=Novice Debugger for C
 Icon=seec
 Categories=Development;
-MimeType=application/x-seec-trace;x-content/x-seec-trace;
+MimeType=application/x-seec-record;application/x-seec-trace;x-content/x-seec-trace;
 

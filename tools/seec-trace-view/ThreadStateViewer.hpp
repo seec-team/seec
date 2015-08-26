@@ -16,7 +16,6 @@
 
 #include <wx/wx.h>
 #include <wx/scrolwin.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <vector>
 

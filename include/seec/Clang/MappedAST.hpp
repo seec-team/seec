@@ -17,9 +17,8 @@
 
 #include "seec/Util/Maybe.hpp"
 
-#include "clang/Frontend/ASTUnit.h"
-
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -30,6 +29,7 @@
 
 
 namespace clang {
+  class ASTUnit;
   class Decl;
   class DiagnosticsEngine;
   class FileSystemOptions;
@@ -42,6 +42,7 @@ namespace seec {
 namespace seec_clang {
 
 
+class MappedCompileInfo;
 class MappingASTVisitor;
 
 
@@ -52,6 +53,9 @@ public:
   typedef seec::Maybe<clang::Decl const *, clang::Stmt const *> ASTNodeTy;
   
 private:
+  /// The compile information used to recreate this AST.
+  MappedCompileInfo const &CompileInfo;
+
   /// The ASTUnit that is mapped.
   clang::ASTUnit * const AST;
 
@@ -61,17 +65,12 @@ private:
   /// All known Stmt pointers in visitation order.
   std::vector<clang::Stmt const *> const Stmts;
   
-  /// Parents of Decls.
-  llvm::DenseMap<clang::Decl const *, ASTNodeTy> const DeclParents;
-  
-  /// Parents of Stmts.
-  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> const StmtParents;
-  
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> const DeclsReferenced;
   
   /// \brief Constructor.
-  MappedAST(clang::ASTUnit *ForAST,
+  MappedAST(MappedCompileInfo const &FromCompileInfo,
+            clang::ASTUnit *ForAST,
             MappingASTVisitor WithMapping);
 
   // Don't allow copying.
@@ -86,26 +85,17 @@ public:
   /// \brief Factory.
   ///
   static std::unique_ptr<MappedAST>
-  FromASTUnit(clang::ASTUnit *AST);
-
-  /// \brief Factory.
-  ///
-  static std::unique_ptr<MappedAST>
-  LoadFromASTFile(llvm::StringRef Filename,
-                  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags,
-                  clang::FileSystemOptions const &FileSystemOpts);
-
-  /// \brief Factory.
-  ///
-  static std::unique_ptr<MappedAST>
-  LoadFromCompilerInvocation(
-    std::unique_ptr<clang::CompilerInvocation> Invocation,
-    llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
+  FromASTUnit(MappedCompileInfo const &FromCompileInfo,
+              clang::ASTUnit *AST);
   
   
   /// \name Accessors
   /// @{
 
+  /// \brief Get the compilation information used for this AST.
+  ///
+  MappedCompileInfo const &getCompileInfo() const { return CompileInfo; }
+  
   /// \brief Get the underlying ASTUnit.
   ///
   clang::ASTUnit &getASTUnit() const { return *AST; }
@@ -134,41 +124,29 @@ public:
     return nullptr;
   }
   
+  /// \brief Find the index for the given clang::Decl (if it exists).
+  ///
+  seec::Maybe<uint64_t> getIdxForDecl(clang::Decl const *Decl) const;
+  
+  /// \brief Find the index for the given clang::Stmt (if it exists).
+  ///
+  seec::Maybe<uint64_t> getIdxForStmt(clang::Stmt const *Stmt) const;
+  
   /// \brief Check if this AST contains the given Decl.
   ///
-  bool contains(::clang::Decl const *Decl) const {
-    for (auto const D : Decls)
-      if (D == Decl)
-        return true;
-    return false;
-  }
+  bool contains(::clang::Decl const *Decl) const;
   
   /// \brief Check if this AST contains the given Stmt.
   ///
-  bool contains(::clang::Stmt const *Stmt) const {
-    for (auto const S : Stmts)
-      if (S == Stmt)
-        return true;
-    return false;
-  }
+  bool contains(::clang::Stmt const *Stmt) const;
   
   /// \brief Get the parent of a Decl, if it has one.
   ///
-  ASTNodeTy getParent(::clang::Decl const *Decl) const {
-    auto const It = DeclParents.find(Decl);
-    if (It == DeclParents.end())
-      return ASTNodeTy{};
-    return It->second;
-  }
+  ASTNodeTy getParent(::clang::Decl const *Decl) const;
   
   /// \brief Get the parent of a Stmt, if it has one.
   ///
-  ASTNodeTy getParent(::clang::Stmt const *Stmt) const {
-    auto const It = StmtParents.find(Stmt);
-    if (It == StmtParents.end())
-      return ASTNodeTy{};
-    return It->second;
-  }
+  ASTNodeTy getParent(::clang::Stmt const *Stmt) const;
   
   /// \brief Check if a Decl is a parent of a Decl.
   ///

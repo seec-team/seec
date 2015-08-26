@@ -18,21 +18,27 @@
 #include "seec/Clang/MappedParam.hpp"
 
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Lex/DirectoryLookup.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 namespace clang {
+  class CompilerInvocation;
   class Decl;
   class DiagnosticsEngine;
+  class FileManager;
   class FileSystemOptions;
+  class SourceManager;
   class Stmt;
 }
 
@@ -50,7 +56,7 @@ class MappedStmt;
 /// \brief Represents a mapping from an llvm::Function to a clang::Decl.
 ///
 class MappedFunctionDecl {
-  llvm::sys::Path FilePath;
+  std::string FilePath;
   
   MappedAST const &AST;
 
@@ -65,18 +71,18 @@ class MappedFunctionDecl {
 public:
   /// \brief Constructor.
   ///
-  MappedFunctionDecl(llvm::sys::Path WithFilePath,
+  MappedFunctionDecl(std::string WithFilePath,
                      MappedAST const &WithAST,
                      clang::Decl const *WithDecl,
                      llvm::Function const *WithFunction,
                      std::vector<seec::cm::MappedParam> WithMappedParameters,
                      std::vector<seec::cm::MappedLocal> WithMappedLocals)
-  : FilePath(WithFilePath),
+  : FilePath(std::move(WithFilePath)),
     AST(WithAST),
     Decl(WithDecl),
     Function(WithFunction),
-    MappedParameters(WithMappedParameters),
-    MappedLocals(WithMappedLocals)
+    MappedParameters(std::move(WithMappedParameters)),
+    MappedLocals(std::move(WithMappedLocals))
   {}
 
   /// \brief Copy constructor.
@@ -89,7 +95,7 @@ public:
 
   /// \brief Get the path to the source file that this mapping refers to.
   ///
-  llvm::sys::Path const &getFilePath() const { return FilePath; }
+  std::string const &getFilePath() const { return FilePath; }
 
   /// \brief Get the AST that this clang::Decl belongs to.
   ///
@@ -187,7 +193,7 @@ public:
 class MappedInstruction {
   llvm::Instruction const *Instruction;
   
-  llvm::sys::Path FilePath;
+  std::string FilePath;
   
   MappedAST const *AST;
   
@@ -198,12 +204,12 @@ class MappedInstruction {
 public:
   /// \brief Constructor.
   MappedInstruction(llvm::Instruction const *Instruction,
-                    llvm::sys::Path SourceFilePath,
+                    std::string SourceFilePath,
                     MappedAST const *AST,
                     clang::Decl const *Decl,
                     clang::Stmt const *Stmt)
   : Instruction(Instruction),
-    FilePath(SourceFilePath),
+    FilePath(std::move(SourceFilePath)),
     AST(AST),
     Decl(Decl),
     Stmt(Stmt)
@@ -219,7 +225,7 @@ public:
   llvm::Instruction const *getInstruction() const { return Instruction; }
   
   /// \brief Get the path to the source code file.
-  llvm::sys::Path getFilePath() const { return FilePath; }
+  std::string const &getFilePath() const { return FilePath; }
   
   /// \brief Get the AST for the mapping (if one exists).
   MappedAST const *getAST() const { return AST; }
@@ -241,7 +247,7 @@ public:
     /// Name of the source file.
     std::string Name;
     
-    // Contents of the source file.
+    /// Contents of the source file.
     std::unique_ptr<llvm::MemoryBuffer> Contents;
   
   public:
@@ -261,6 +267,45 @@ public:
     llvm::MemoryBuffer const &getContents() const { return *Contents; }
   };
   
+  /// \brief Info for one header search entry used during compilation.
+  class HeaderSearchEntry {
+    /// Type of entry.
+    ::clang::DirectoryLookup::LookupType_t const LookupType;
+
+    /// Path of the file/directory.
+    std::string const Path;
+
+    /// Kind of files in directory.
+    ::clang::SrcMgr::CharacteristicKind const CharacteristicKind;
+
+    /// Is this an index header map
+    bool const IndexHeaderMap;
+
+  public:
+    /// \brief Constructor.
+    HeaderSearchEntry(::clang::DirectoryLookup::LookupType_t WithLookupType,
+                      llvm::StringRef WithPath,
+                      ::clang::SrcMgr::CharacteristicKind WithKind,
+                      bool IsIndexHeaderMap)
+    : LookupType(WithLookupType),
+      Path(WithPath.str()),
+      CharacteristicKind(WithKind),
+      IndexHeaderMap(IsIndexHeaderMap)
+    {}
+
+    ::clang::DirectoryLookup::LookupType_t getLookupType() const {
+      return LookupType;
+    }
+
+    std::string const &getPath() const { return Path; }
+
+    ::clang::SrcMgr::CharacteristicKind getCharacteristicKind() const {
+      return CharacteristicKind;
+    }
+
+    bool isIndexHeaderMap() const { return IndexHeaderMap; }
+  };
+
 private:
   /// Working directory of the compilation.
   std::string MainDirectory;
@@ -273,17 +318,32 @@ private:
   
   /// Arguments for the invocation of this compilation.
   std::vector<std::string> InvocationArguments;
+
+  /// Header search entries used in this compilation.
+  std::vector<HeaderSearchEntry> HeaderSearchEntries;
+
+  /// Index of the first angle bracket directory in \c HeaderSearchEntries.
+  unsigned HeaderAngledDirIdx;
+
+  /// Index of the first system directory in \c HeaderSearchEntries.
+  unsigned HeaderSystemDirIdx;
   
   /// \brief Constructor.
   ///
   MappedCompileInfo(std::string TheDirectory,
                     std::string TheMainFileName,
                     std::vector<FileInfo> TheSourceFiles,
-                    std::vector<std::string> TheInvocationArguments)
+                    std::vector<std::string> TheInvocationArguments,
+                    std::vector<HeaderSearchEntry> TheHeaderSearchEntries,
+                    unsigned TheHeaderAngledDirIdx,
+                    unsigned TheHeaderSystemDirIdx)
   : MainDirectory(std::move(TheDirectory)),
     MainFileName(std::move(TheMainFileName)),
     SourceFiles(std::move(TheSourceFiles)),
-    InvocationArguments(std::move(TheInvocationArguments))
+    InvocationArguments(std::move(TheInvocationArguments)),
+    HeaderSearchEntries(std::move(TheHeaderSearchEntries)),
+    HeaderAngledDirIdx(TheHeaderAngledDirIdx),
+    HeaderSystemDirIdx(TheHeaderSystemDirIdx)
   {}
 
 public:
@@ -301,6 +361,10 @@ public:
   ///
   std::string const &getMainFileName() const { return MainFileName; }
   
+  /// \brief Get information about the main file for this compilation.
+  ///
+  FileInfo const *getMainFileInfo() const;
+  
   /// \brief Get information about all source files used in this compilation.
   ///
   decltype(SourceFiles) const &getSourceFiles() const {
@@ -312,6 +376,20 @@ public:
   decltype(InvocationArguments) const &getInvocationArguments() const {
     return InvocationArguments;
   }
+
+  /// \brief Create a \c CompilerInvocation for this compilation.
+  ///
+  std::unique_ptr<clang::CompilerInvocation>
+  createCompilerInvocation(clang::DiagnosticsEngine &Diags) const;
+
+  /// \brief Create virtual files for all source files in this compilation.
+  ///
+  void createVirtualFiles(clang::FileManager &FM,
+                          clang::SourceManager &SM) const;
+
+  /// \brief Setup header search options from those used in this compilation.
+  ///
+  void setHeaderSearchOpts(clang::HeaderSearchOptions &HS) const;
 };
 
 
@@ -320,24 +398,27 @@ public:
 class MappedModule {
   /// Indexed view of the llvm::Module.
   seec::ModuleIndex const &ModIndex;
-  
-  /// Path of the currently-running executable.
-  llvm::StringRef ExecutablePath;
 
   /// DiagnosticsEngine used during parsing.
   llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags;
 
   /// Map file descriptor MDNode pointers to MappedAST objects.
-  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> mutable ASTLookup;
+  llvm::DenseMap<llvm::MDNode const *, MappedAST const *> ASTLookup;
 
   /// Hold the MappedAST objects.
-  std::vector<std::unique_ptr<MappedAST>> mutable ASTList;
+  std::vector<std::unique_ptr<MappedAST>> ASTList;
 
   /// Kind of clang::Stmt mapping metadata.
   unsigned MDStmtIdxKind;
 
   /// Kind of clang::Decl mapping metadata.
   unsigned MDDeclIdxKind;
+
+  /// Kind of clang::Stmt completion mapping metadata.
+  unsigned MDStmtCompletionIdxsKind;
+
+  /// Kind of clang::Decl completion mapping metadata.
+  unsigned MDDeclCompletionIdxsKind;
 
   /// Map llvm::Function pointers to MappedFunctionDecl objects.
   llvm::DenseMap<llvm::Function const *, MappedFunctionDecl> FunctionLookup;
@@ -361,14 +442,16 @@ class MappedModule {
   MappedModule(MappedModule const &Other) = delete;
   MappedModule &operator=(MappedModule const &RHS) = delete;
 
+  /// \brief Get or create the AST for the given file.
+  ///
+  MappedAST const *createASTForFile(llvm::MDNode const *FileNode);
+
 public:
   /// \brief Constructor.
   /// \param ModIndex Indexed view of the llvm::Module to map.
-  /// \param ExecutablePath Used by the Clang driver to find resources.
   /// \param Diags The diagnostics engine to use during compilation.
   ///
   MappedModule(seec::ModuleIndex const &ModIndex,
-               llvm::StringRef ExecutablePath,
                llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags);
 
   /// \brief Destructor.
@@ -383,9 +466,34 @@ public:
   ///
   seec::ModuleIndex const &getModuleIndex() const { return ModIndex; }
   
+  /// \brief Get the FunctionLookup.
+  ///
+  decltype(FunctionLookup) const &getFunctionLookup() const {
+    return FunctionLookup;
+  }
+  
+  /// @}
+  
+  
+  /// \name Access ASTs.
+  /// @{
+  
   /// \brief Get the AST for the given file.
   ///
   MappedAST const *getASTForFile(llvm::MDNode const *FileNode) const;
+  
+  /// \brief Get all loaded ASTs.
+  ///
+  std::vector<MappedAST const *> getASTs() const;
+  
+  /// \brief Get the index of an AST.
+  ///
+  seec::Maybe<decltype(ASTList)::size_type>
+  getASTIndex(MappedAST const *) const;
+  
+  /// \brief Get the AST at the given index.
+  ///
+  MappedAST const *getASTAtIndex(decltype(ASTList)::size_type const) const;
   
   /// \brief Get the AST and clang::Decl for the given Declaration Identifier.
   ///
@@ -396,12 +504,6 @@ public:
   ///
   std::pair<MappedAST const *, clang::Stmt const *>
   getASTAndStmt(llvm::MDNode const *StmtIdentifier) const;
-  
-  /// \brief Get the FunctionLookup.
-  ///
-  decltype(FunctionLookup) const &getFunctionLookup() const {
-    return FunctionLookup;
-  }
   
   /// @}
   
@@ -493,11 +595,33 @@ public:
   bool areMappedToSameStmt(llvm::Instruction const &A,
                            llvm::Instruction const &B) const;
   
+  /// \brief Check if an Instruction completes a Stmt or Decl.
+  ///
+  bool hasCompletionMapping(llvm::Instruction const &I) const;
+  
+  /// \brief Get all Stmt completion mappings for an Instruction.
+  ///
+  bool getStmtCompletions(llvm::Instruction const &I,
+                          MappedAST const &MappedAST,
+                          llvm::SmallVectorImpl<clang::Stmt const *> &Out
+                          ) const;
+  
+  /// \brief Get all Decl completion mappings for an Instruction.
+  ///
+  bool getDeclCompletions(llvm::Instruction const &I,
+                          MappedAST const &MappedAST,
+                          llvm::SmallVectorImpl<clang::Decl const *> &Out
+                          ) const;
+  
   /// @}
   
   
   /// \name Mapped compilation info.
   /// @{
+  
+  /// \name Get all mapped compile info.
+  ///
+  decltype(CompileInfo) const &getCompileInfoMap() const { return CompileInfo; }
   
   /// \name Get mapped compile info for a main file, if it exists.
   ///

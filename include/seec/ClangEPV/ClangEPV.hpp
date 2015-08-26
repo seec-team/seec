@@ -15,6 +15,7 @@
 #define SEEC_CLANGEPV_CLANGEPV_HPP
 
 
+#include "seec/ICU/Augmenter.hpp"
 #include "seec/ICU/Indexing.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -337,6 +338,11 @@ public:
   
   /// \brief Get a textual description of the node.
   UnicodeString const &getString() const { return Description.getString(); }
+
+  /// \brief Get the underlying \c IndexedString.
+  seec::icu::IndexedString const &getIndexedString() const {
+    return Description;
+  }
   
   /// \brief Get linking information for a single character.
   CharacterLinks getCharacterLinksAt(int32_t Position) const {
@@ -362,22 +368,48 @@ public:
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node);
 
+/// \brief Get an \c Explanation for a \c clang::Decl, with augmentation.
+///
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node, AugmentationCallbackFn Augmenter);
+
 /// \brief Get an Explanation for a clang::Decl, with runtime values.
 ///
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Decl const *Node,
         RuntimeValueLookup const &ValueLookup);
 
+/// \brief Get an \c Explanation for a \c clang::Decl, with runtime values and
+///        augmentation.
+///
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Decl const *Node,
+        RuntimeValueLookup const &ValueLookup,
+        AugmentationCallbackFn Augmenter);
+
 /// \brief Get an Explanation for a clang::Stmt.
 ///
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node);
+
+/// \brief Get an \c Explanation for a \c clang::Stmt, with augmentation.
+///
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node, AugmentationCallbackFn Augmenter);
 
 /// \brief Get an Explanation for a clang::Stmt, with runtime values.
 ///
 seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
 explain(::clang::Stmt const *Node,
         RuntimeValueLookup const &ValueLookup);
+
+/// \brief Get an \c Explanation for a \c clang::Stmt, with runtime values and
+///        augmentation.
+///
+seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
+explain(::clang::Stmt const *Node,
+        RuntimeValueLookup const &ValueLookup,
+        AugmentationCallbackFn Augmenter);
 
 
 /// \brief A textual explanation of a clang::Decl.
@@ -411,7 +443,9 @@ public:
   /// \brief Attempt to create an explanation for a \c clang::Decl.
   ///
   static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
-  create(::clang::Decl const *Node, RuntimeValueLookup const *ValueLookup);
+  create(::clang::Decl const *Node,
+         RuntimeValueLookup const *ValueLookup,
+         AugmentationCallbackFn Augmenter);
 };
 
 
@@ -446,7 +480,9 @@ public:
   /// \brief Attempt to create an explanation for a \c clang::Stmt.
   ///
   static seec::Maybe<std::unique_ptr<Explanation>, seec::Error>
-  create(::clang::Stmt const *Node, RuntimeValueLookup const *ValueLookup);
+  create(::clang::Stmt const *Node,
+         RuntimeValueLookup const *ValueLookup,
+         AugmentationCallbackFn Augmenter);
 };
 
 

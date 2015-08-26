@@ -7,11 +7,7 @@ set(SOURCES
   ReplaceCStdLibIntrinsics.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCReplaceCStdLibIntrinsics ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCReplaceCStdLibIntrinsics ${SOURCES})
-endif()
+add_library(SeeCReplaceCStdLibIntrinsics ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCReplaceCStdLibIntrinsics
   RUNTIME DESTINATION bin

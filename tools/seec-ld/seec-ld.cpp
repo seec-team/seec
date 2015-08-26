@@ -13,23 +13,25 @@
 
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/MakeUnique.hpp"
+#include "seec/Util/Resources.hpp"
 
-#include "llvm/Linker.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
@@ -42,6 +44,7 @@
 
 #include <memory>
 
+#include <cstdlib>
 #include <unistd.h>
 
 
@@ -80,7 +83,7 @@ static std::unique_ptr<llvm::Module> LoadFile(char const *ProgramName,
 {
   llvm::SMDiagnostic Err;
   auto Result = std::unique_ptr<llvm::Module>
-                               (llvm::ParseIRFile(Filename, Err, Context));
+                               (llvm::parseIRFile(Filename, Err, Context));
   if (!Result)
     Err.print(ProgramName, llvm::errs());
   return Result;
@@ -99,13 +102,16 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
     Triple.setTriple(llvm::sys::getDefaultTargetTriple());
   Passes.add(new llvm::TargetLibraryInfo(Triple));
 
-  // Add an appropriate DataLayout instance for this module.
-  auto const &ModuleDataLayout = Module.getDataLayout();
-  if (!ModuleDataLayout.empty())
-    Passes.add(new llvm::DataLayout(ModuleDataLayout));
+  // Determine the path to SeeC's resource directory:
+
+  // This just needs to be some symbol in the binary; C++ doesn't
+  // allow taking the address of ::main however.
+  void *P = (void*) (intptr_t) Instrument;
+  auto const Path = llvm::sys::fs::getMainExecutable(ProgramName, P);
+  auto const ResourcePath = seec::getResourceDirectory(Path);
 
   // Add SeeC's recording instrumentation pass
-  auto const Pass = new llvm::InsertExternalRecording();
+  auto const Pass = new llvm::InsertExternalRecording(ResourcePath);
   Passes.add(Pass);
 
   // Verify the final module
@@ -121,6 +127,17 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
                  << "\" is not handled. If this function modifies memory state,"
                     " then SeeC will not be aware of it.\n";
   }
+
+  if (auto const Path = std::getenv("SEEC_WRITE_INSTRUMENTED")) {
+    std::error_code EC;
+    raw_fd_ostream Out(Path, EC, llvm::sys::fs::OpenFlags::F_Excl);
+
+    if (!EC)
+      Out << Module;
+    else
+      llvm::errs() << ProgramName << ": couldn't write to " << Path << ": "
+                   << EC.message() << "\n";
+  }
   
   return true;
 }
@@ -131,23 +148,15 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
   // TODO: If we ever support Win32 then extension should be ".obj".
   int FD;
   auto const Err =
-    llvm::sys::fs::unique_file("seec-instr-%%%%%%%%%%.o", FD, Path);
+    llvm::sys::fs::createUniqueFile("seec-instr-%%%%%%%%%%.o", FD, Path);
   
-  if (Err != llvm::errc::success) {
-    llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
+  if (Err) {
+    llvm::errs() << ProgramName << ": couldn't create temporary file.\n"
+                 << Err.message() << "\n";
     exit(EXIT_FAILURE);
   }
   
-  // TODO: When we update to a more recent LLVM, we should be able to use this
-  // file descript when creating the tool_output_file below.
-  close(FD);
-  
-  std::string ErrorMessage;
-  
-  auto Out = seec::makeUnique<llvm::tool_output_file>
-                             (Path.c_str(),
-                              ErrorMessage,
-                              llvm::raw_fd_ostream::F_Binary);
+  auto Out = seec::makeUnique<llvm::tool_output_file>(Path.c_str(), FD);
   if (!Out) {
     llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
     exit(EXIT_FAILURE);
@@ -198,11 +207,6 @@ Compile(char const *ProgramName,
   
   Machine->addAnalysisPasses(Passes);
   
-  if (auto const *DL = Machine->getDataLayout())
-    Passes.add(new llvm::DataLayout(*DL));
-  else
-    Passes.add(new llvm::DataLayout(&Module));
-  
   llvm::formatted_raw_ostream FOS(Out->os());
   
   if (Machine->addPassesToEmitFile(Passes,
@@ -223,7 +227,7 @@ static bool MaybeModule(char const *File)
     return false;
   
   llvm::sys::fs::file_status Status;
-  if (llvm::sys::fs::status(File, Status) != llvm::errc::success)
+  if (llvm::sys::fs::status(File, Status))
     return false;
   
   if (!llvm::sys::fs::exists(Status))
@@ -234,7 +238,7 @@ static bool MaybeModule(char const *File)
     return false;
   
   llvm::sys::fs::file_magic Magic;
-  if (llvm::sys::fs::identify_magic(File, Magic) != llvm::errc::success)
+  if (llvm::sys::fs::identify_magic(File, Magic))
     return false;
   
   switch (Magic) {
@@ -285,9 +289,8 @@ int main(int argc, char **argv)
       if (Module) {
         if (Linker) {
           // Attempt to link this new Module to the existing Module.
-          if (Linker->linkInModule(Module.get(), &ErrorMessage)) {
-            llvm::errs() << argv[0] << ": error linking '" << argv[i] << "': "
-                         << ErrorMessage << "\n";
+          if (Linker->linkInModule(Module.get())) {
+            llvm::errs() << argv[0] << ": error linking '" << argv[i] << "'\n";
             exit(EXIT_FAILURE);
           }
         }
@@ -327,11 +330,8 @@ int main(int argc, char **argv)
   
   // Call the real ld with the unused original arguments and the new temporary
   // object file.
+  ForwardArgs[0] = LDPath.c_str();
   ForwardArgs.push_back(nullptr);
   
-  auto const Result =
-    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(LDPath),
-                                       ForwardArgs.data());
-  
-  return Result;
+  return llvm::sys::ExecuteAndWait(LDPath, ForwardArgs.data());
 }

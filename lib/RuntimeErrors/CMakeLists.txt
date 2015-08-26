@@ -15,11 +15,7 @@ set(SOURCES
   UnicodeFormatter.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCRuntimeErrors ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCRuntimeErrors ${SOURCES})
-endif()
+add_library(SeeCRuntimeErrors ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCRuntimeErrors
   RUNTIME DESTINATION bin

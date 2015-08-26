@@ -14,17 +14,24 @@
 #ifndef SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 #define SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
+
 #include <wx/wx.h>
 #include <wx/panel.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 
 namespace seec {
   namespace cm {
     class FunctionState;
+    class GlobalVariable;
+    class LocalState;
+    class ParamState;
     class ProcessState;
     class ThreadState;
     class Value;
@@ -38,6 +45,8 @@ namespace seec {
   class CallbackFSHandler;
 }
 
+class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
 class GraphRenderedEvent;
 class MouseOverDisplayableEvent;
@@ -55,6 +64,9 @@ public:
     Value,
     Dereference,
     FunctionState,
+    LocalState,
+    ParamState,
+    GlobalVariable,
     ReferencedArea
   };
   
@@ -134,6 +146,72 @@ public:
 };
 
 
+/// \brief A displayed LocalState that the user may interact with.
+///
+class DisplayableLocalState final : public Displayable
+{
+  seec::cm::LocalState const &TheLocalState;
+
+public:
+  DisplayableLocalState(seec::cm::LocalState const &ForLocalState)
+  : Displayable(Displayable::Kind::LocalState),
+    TheLocalState(ForLocalState)
+  {}
+
+  seec::cm::LocalState const &getLocalState() const {
+    return TheLocalState;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::LocalState;
+  }
+};
+
+
+/// \brief A displayed ParamState that the user may interact with.
+///
+class DisplayableParamState final : public Displayable
+{
+  seec::cm::ParamState const &TheParamState;
+
+public:
+  DisplayableParamState(seec::cm::ParamState const &ForParamState)
+  : Displayable(Displayable::Kind::ParamState),
+    TheParamState(ForParamState)
+  {}
+
+  seec::cm::ParamState const &getParamState() const {
+    return TheParamState;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::ParamState;
+  }
+};
+
+
+/// \brief A displayed GlobalVariable that the user may interact with.
+///
+class DisplayableGlobalVariable final : public Displayable
+{
+  seec::cm::GlobalVariable const &TheGlobalVariable;
+
+public:
+  DisplayableGlobalVariable(seec::cm::GlobalVariable const &ForGlobalVariable)
+  : Displayable(Displayable::Kind::GlobalVariable),
+    TheGlobalVariable(ForGlobalVariable)
+  {}
+
+  seec::cm::GlobalVariable const &getGlobalVariable() const {
+    return TheGlobalVariable;
+  }
+
+  static bool classof(Displayable const *D) {
+    return D && D->getKind() == Displayable::Kind::GlobalVariable;
+  }
+};
+
+
 /// \brief A displayed area interpreted from a given pointer.
 ///
 class DisplayableReferencedArea final : public Displayable
@@ -173,6 +251,9 @@ class StateGraphViewerPanel final : public wxPanel
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
   
+  /// Used to record user interactions.
+  ActionRecord *Recording;
+
   /// The location of the dot executable.
   std::string PathToDot;
   
@@ -181,13 +262,34 @@ class StateGraphViewerPanel final : public wxPanel
   
   /// The location of the graphviz plugins.
   std::string PathToGraphvizPlugins;
-  
+
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
   /// The current process state.
   seec::cm::ProcessState const *CurrentProcess;
-  
+
+  /// The SVG of the currently displayed graph.
+  std::shared_ptr<std::string const> CurrentGraphSVG;
+
+  /// A worker thread that generates the graphs.
+  std::thread WorkerThread;
+
+  /// Controls access to the worker's information.
+  std::mutex TaskMutex;
+
+  /// Used to notify the worker that a new task is available.
+  std::condition_variable TaskCV;
+
+  /// Access token for the worker's process state.
+  std::shared_ptr<StateAccessToken> TaskAccess;
+
+  /// Worker's process state.
+  seec::cm::ProcessState const *TaskProcess;
+
+  /// Used to indicate that graph generation should be terminated.
+  std::atomic_bool ContinueGraphGeneration;
+
   /// The WebView used to display the rendered state graphs.
   wxWebView *WebView;
   
@@ -203,6 +305,27 @@ class StateGraphViewerPanel final : public wxPanel
   /// What the user's mouse is currently over.
   std::shared_ptr<Displayable const> MouseOver;
 
+  /// \brief Generate the dot graph for \c TaskProcess.
+  ///
+  std::string workerGenerateDot();
+
+  /// \brief Implements the worker thread's task loop.
+  ///
+  void workerTaskLoop();
+
+  /// \brief Highlight a \c Value.
+  ///
+  void highlightValue(seec::cm::Value const *V);
+
+  /// \brief Handle contextual events.
+  ///
+  void handleContextEvent(ContextEvent const &Ev);
+
+  /// \brief Replay MouseOverValue events.
+  ///
+  void replayMouseOverValue(seec::cm::stateptr_ty Address,
+                            std::string &TypeString);
+
 public:
   /// \brief Construct.
   ///
@@ -212,6 +335,8 @@ public:
   ///
   StateGraphViewerPanel(wxWindow *Parent,
                         ContextNotifier &WithNotifier,
+                        ActionRecord &WithRecording,
+                        ActionReplayFrame &WithReplay,
                         wxWindowID ID = wxID_ANY,
                         wxPoint const &Position = wxDefaultPosition,
                         wxSize const &Size = wxDefaultSize);
@@ -224,6 +349,8 @@ public:
   ///
   bool Create(wxWindow *Parent,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
@@ -253,6 +380,17 @@ public:
   /// \brief Clear the display of this panel.
   ///
   void clear();
+
+  /// \name Render to SVG.
+  /// @{
+
+  /// \brief Write the current graph as SVG to the given file.
+  /// This will overwrite any existing file at the given location.
+  /// \return true iff the file was written successfully.
+  ///
+  void renderToSVG(wxString const &Filename);
+
+  /// @}
 
 private:
   /// \brief Notify that the mouse is over a node.

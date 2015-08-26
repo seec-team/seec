@@ -12,10 +12,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/GraphLayout.hpp"
+#include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
@@ -33,14 +37,13 @@
   #error "wxWebView backend required!"
 #endif
 
+#include <wx/stdpaths.h>
 #include <wx/uri.h>
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
 #include <wx/wfstream.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -48,9 +51,15 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <cctype>
+#include <chrono>
 #include <memory>
 #include <string>
 
+#include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
+#include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
@@ -63,43 +72,26 @@
 
 static std::string FindDotExecutable()
 {
+#if defined(_WIN32)
+  auto const DotName = "dot.exe";
+#else
   auto const DotName = "dot";
+#endif
 
-  auto const LLVMSearch = llvm::sys::Program::FindProgramByName(DotName);
-  if (LLVMSearch.isValid())
-    return LLVMSearch.str();
+  auto SearchEnvPath = llvm::sys::findProgramByName(DotName);
+  if (SearchEnvPath)
+    return std::move(*SearchEnvPath);
   
-  char const *SearchPaths[] = {
+  // TODO: give the user control over where dot is found. 
+  llvm::StringRef SearchPaths[] = {
     "/usr/bin",
     "/usr/local/bin",
-    // TODO: This is a temporary setting for the lab machines. Make a setting
-    //       that can be overriden at compile time.
-#if defined(__APPLE__)
-    "/cslinux/adhoc/seec/bin"
-#else
-    "/cslinux/adhoc/seec/linux/bin"
-#endif
+    "C:\\graphviz\\bin"
   };
   
-  llvm::SmallString<256> DotPath;
-  
-  for (auto const SearchPath : seec::range(SearchPaths)) {
-    DotPath = SearchPath;
-    llvm::sys::path::append(DotPath, DotName);
-    
-    llvm::sys::fs::file_status Status;
-    auto const Err = llvm::sys::fs::status(DotPath.str(), Status);
-    if (Err != llvm::errc::success)
-      continue;
-    
-    if (!llvm::sys::fs::exists(Status))
-      continue;
-    
-    if (!llvm::sys::Path(DotPath.str()).canExecute())
-      continue;
-    
-    return DotPath.str().str();
-  }
+  auto SearchManual = llvm::sys::findProgramByName(DotName, SearchPaths);
+  if (SearchManual)
+    return std::move(*SearchManual);
   
   return std::string{};
 }
@@ -120,6 +112,8 @@ Displayable::~Displayable() = default;
 ///
 class GraphRenderedEvent : public wxEvent
 {
+  std::shared_ptr<std::string const> RawSVG;
+
   std::shared_ptr<wxString const> SetStateScript;
   
 public:
@@ -129,8 +123,10 @@ public:
   ///
   GraphRenderedEvent(wxEventType EventType,
                      int WinID,
+                     std::shared_ptr<std::string const> WithRawSVG,
                      std::shared_ptr<wxString const> WithSetStateScript)
   : wxEvent(WinID, EventType),
+    RawSVG(std::move(WithRawSVG)),
     SetStateScript(std::move(WithSetStateScript))
   {}
   
@@ -143,6 +139,10 @@ public:
   /// \name Accessors.
   /// @{
   
+  /// \brief Get the raw SVG.
+  ///
+  std::shared_ptr<std::string const> const &getRawSVG() const { return RawSVG; }
+
   /// \brief Get the SetState() script.
   ///
   wxString const &getSetStateScript() const { return *SetStateScript; }
@@ -204,13 +204,244 @@ wxDEFINE_EVENT(SEEC_EV_MOUSE_OVER_DISPLAYABLE, MouseOverDisplayableEvent);
 // StateGraphViewerPanel
 //------------------------------------------------------------------------------
 
+std::string StateGraphViewerPanel::workerGenerateDot()
+{
+  // Lock the current state while we read from it.
+  auto Lock = TaskAccess->getAccess();
+  if (!Lock || !TaskProcess || !ContinueGraphGeneration)
+    return std::string();
+
+  std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
+  auto const Layout = LayoutHandler->doLayout(*TaskProcess,
+                                              ContinueGraphGeneration);
+  auto const GraphString = Layout.getDotString();
+
+  return GraphString;
+}
+
+void StateGraphViewerPanel::workerTaskLoop()
+{
+  while (true)
+  {
+    std::unique_lock<std::mutex> Lock{TaskMutex};
+
+    // Wait until the main thread gives us a task.
+    TaskCV.wait(Lock);
+
+    // This indicates that we should end the worker thread because the panel is
+    // being destroyed.
+    if (!TaskAccess && !TaskProcess)
+      return;
+
+    // Create a graph of the process state in dot format.
+    auto const GraphString = workerGenerateDot();
+    if (GraphString.empty()) {
+      wxLogDebug("GraphString.empty()");
+      continue;
+    }
+
+    // The remainder of the graph generation does not use the state, so we can
+    // release access to the task information.
+    Lock.unlock();
+
+    // Write the graph to a temporary file.
+    llvm::SmallString<256> GraphPath;
+
+    {
+      int GraphFD;
+      auto const GraphErr =
+        llvm::sys::fs::createTemporaryFile("seecgraph", "dot",
+                                           GraphFD,
+                                           GraphPath);
+
+      if (GraphErr) {
+        wxLogDebug("Couldn't create temporary dot file: %s",
+                   wxString(GraphErr.message()));
+        continue;
+      }
+
+      llvm::raw_fd_ostream GraphStream(GraphFD, true);
+      GraphStream << GraphString;
+    }
+
+    // Remove the temporary file when we exit this function.
+    auto const RemoveGraph = seec::scopeExit([&] () {
+                                bool Existed = false;
+                                llvm::sys::fs::remove(GraphPath.str(), Existed);
+                              });
+
+    // Create a temporary filename for the dot result.
+    llvm::SmallString<256> SVGPath;
+    auto const SVGErr =
+      llvm::sys::fs::createTemporaryFile("seecgraph", "svg", SVGPath);
+
+    if (SVGErr) {
+      wxLogDebug("Couldn't create temporary svg file: %s",
+                 wxString(SVGErr.message()));
+      continue;
+    }
+
+    auto const RemoveSVG = seec::scopeExit([&] () {
+                              bool Existed = false;
+                              llvm::sys::fs::remove(SVGPath.str(), Existed);
+                            });
+
+    // Run dot using the temporary input/output files.
+    char const *Args[] = {
+      "dot",
+      "-Gfontnames=svg",
+#if defined(__APPLE__)
+      "-Nfontname=\"Times-Roman\"",
+#endif
+      "-o",
+      SVGPath.c_str(),
+      "-Tsvg",
+      GraphPath.c_str(),
+      nullptr
+    };
+
+    std::vector<char const *> Environment;
+
+#if !defined(_WIN32)
+    Environment.emplace_back(PathToGraphvizLibraries.c_str());
+    Environment.emplace_back(PathToGraphvizPlugins.c_str());
+#endif
+
+    Environment.emplace_back(nullptr);
+    char const **EnvPtr = Environment.size() > 1 ? Environment.data()
+                                                 : nullptr;
+
+    std::string ErrorMsg;
+
+    bool ExecFailed = false;
+
+    auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
+                                                  Args,
+                                                  EnvPtr,
+                                                  /* redirects */ nullptr,
+                                                  /* wait */ 0,
+                                                  /* mem */ 0,
+                                                  &ErrorMsg,
+                                                  &ExecFailed);
+
+    if (!ErrorMsg.empty()) {
+      wxLogDebug("Dot failed: %s", ErrorMsg);
+      continue;
+    }
+
+    if (Result) {
+      wxLogDebug("Dot returned non-zero.");
+      continue;
+    }
+
+    // Read the dot-generated SVG from the temporary file.
+    auto ErrorOrSVGData = llvm::MemoryBuffer::getFile(SVGPath.str());
+    if (!ErrorOrSVGData) {
+      wxLogDebug("Couldn't read temporary svg file: %s",
+                 wxString(ErrorOrSVGData.getError().message()));
+      continue;
+    }
+
+    auto &SVGData = *ErrorOrSVGData;
+    auto SharedSVG = std::make_shared<std::string>(SVGData->getBufferStart(),
+                                                   SVGData->getBufferEnd());
+
+    // Remove all non-print characters from the SVG and prepare it to be sent to
+    // the WebView via javascript.
+    auto SharedScript = std::make_shared<wxString>();
+    auto &Script = *SharedScript;
+
+    Script.reserve(SVGData->getBufferSize() + 256);
+    Script << "SetState(\"";
+
+    for (auto const Ch : *SharedSVG)
+    {
+      if (std::isprint(Ch)) {
+        if (Ch == '\\' || Ch == '"')
+          Script << '\\';
+        Script << Ch;
+      }
+    }
+
+    Script << "\");";
+
+    auto EvPtr = seec::makeUnique<GraphRenderedEvent>
+                                 (SEEC_EV_GRAPH_RENDERED,
+                                  this->GetId(),
+                                  std::move(SharedSVG),
+                                  std::move(SharedScript));
+
+    EvPtr->SetEventObject(this);
+
+    wxQueueEvent(this->GetEventHandler(), EvPtr.release());
+  }
+}
+
+void StateGraphViewerPanel::highlightValue(seec::cm::Value const *Value)
+{
+  wxString Script("HighlightValue(");
+  Script << reinterpret_cast<uintptr_t>(Value);
+
+  if (Value) {
+    if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>(Value)) {
+      if (Ptr->getDereferenceIndexLimit()) {
+        auto const Pointee = Ptr->getDereferenced(0);
+        Script << ", " << reinterpret_cast<uintptr_t>(Pointee.get());
+      }
+    }
+  }
+
+  Script << ");";
+
+  WebView->RunScript(Script);
+}
+
+void StateGraphViewerPanel::handleContextEvent(ContextEvent const &Ev)
+{
+  if (auto const HighlightEv = llvm::dyn_cast<ConEvHighlightValue>(&Ev)) {
+    // We don't need to lock the highlight's access, as it must already
+    // be locked by whoever raised the highlight event.
+    if (CurrentAccess && CurrentAccess != HighlightEv->getAccess())
+      return;
+
+    highlightValue(HighlightEv->getValue());
+  }
+}
+
+void StateGraphViewerPanel::replayMouseOverValue(seec::cm::stateptr_ty Address,
+                                                 std::string &TypeString)
+{
+  // Remove previous highlight. TODO: This is temporary because the recordings
+  // don't receive "MouseOverNone" events correctly on OS X.
+  highlightValue(nullptr);
+
+  // Access the current state so that we can find the Value.
+  auto Lock = CurrentAccess->getAccess();
+  if (!Lock || !CurrentProcess)
+    return;
+
+  auto const Store = CurrentProcess->getCurrentValueStore();
+  if (auto const V = Store->findFromAddressAndType(Address, TypeString)) {
+    highlightValue(V.get());
+  }
+}
+
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
+  Recording(nullptr),
   PathToDot(),
   PathToGraphvizLibraries(),
   PathToGraphvizPlugins(),
   CurrentAccess(),
+  CurrentProcess(nullptr),
+  CurrentGraphSVG(),
+  WorkerThread(),
+  TaskMutex(),
+  TaskCV(),
+  TaskAccess(),
+  TaskProcess(nullptr),
+  ContinueGraphGeneration(false),
   WebView(nullptr),
   LayoutHandler(),
   LayoutHandlerMutex(),
@@ -220,31 +451,34 @@ StateGraphViewerPanel::StateGraphViewerPanel()
 
 StateGraphViewerPanel::StateGraphViewerPanel(wxWindow *Parent,
                                              ContextNotifier &WithNotifier,
+                                             ActionRecord &WithRecording,
+                                             ActionReplayFrame &WithReplay,
                                              wxWindowID ID,
                                              wxPoint const &Position,
                                              wxSize const &Size)
-: wxPanel(),
-  Notifier(nullptr),
-  PathToDot(),
-  PathToGraphvizLibraries(),
-  PathToGraphvizPlugins(),
-  CurrentAccess(),
-  WebView(nullptr),
-  LayoutHandler(),
-  LayoutHandlerMutex(),
-  CallbackFS(nullptr),
-  MouseOver()
+: StateGraphViewerPanel()
 {
-  Create(Parent, WithNotifier, ID, Position, Size);
+  Create(Parent, WithNotifier, WithRecording, WithReplay, ID, Position, Size);
 }
 
 StateGraphViewerPanel::~StateGraphViewerPanel()
 {
+  // Shutdown our worker thread (it will terminate when it receives the
+  // notification and there is no corresponding task).
+  std::unique_lock<std::mutex> Lock{TaskMutex};
+  TaskAccess.reset();
+  TaskProcess = nullptr;
+  Lock.unlock();
+  TaskCV.notify_one();
+  WorkerThread.join();
+
   wxFileSystem::RemoveHandler(CallbackFS);
 }
 
 bool StateGraphViewerPanel::Create(wxWindow *Parent,
                                    ContextNotifier &WithNotifier,
+                                   ActionRecord &WithRecording,
+                                   ActionReplayFrame &WithReplay,
                                    wxWindowID ID,
                                    wxPoint const &Position,
                                    wxSize const &Size)
@@ -253,6 +487,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     return false;
   
   Notifier = &WithNotifier;
+  Recording = &WithRecording;
   
   // Enable vfs access to request information about the state.
   auto const ThisAddr = reinterpret_cast<uintptr_t>(this);
@@ -274,6 +509,13 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       }
     });
   
+  CallbackFS->addCallback("log_debug",
+    std::function<void (std::string const &)>{
+      [] (std::string const &Message) -> void {
+        wxLogDebug("%s", wxString{Message});
+      }
+    });
+
   Bind(wxEVT_CONTEXT_MENU,
        &StateGraphViewerPanel::OnContextMenu, this);
   Bind(SEEC_EV_MOUSE_OVER_DISPLAYABLE,
@@ -284,7 +526,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   // Get our resources from ICU.
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "StateGraphViewer");
   
@@ -347,34 +589,16 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     
     // Register for context notifications.
     Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
-      switch (Ev.getKind()) {
-        case ContextEventKind::HighlightValue:
-        {
-          // Send this value to the webpage.
-          auto const &HighlightEv = llvm::cast<ConEvHighlightValue>(Ev);
-          
-          // We don't need to lock the highlight's access, as it must already
-          // be locked by whoever raised the highlight event.
-          if (CurrentAccess && CurrentAccess != HighlightEv.getAccess()) {
-            wxLogDebug("Highlight state does not match graph's state.");
-          }
-          
-          wxString Script("HighlightValue(");
-          Script << reinterpret_cast<uintptr_t>(HighlightEv.getValue())
-                 << ");";
-          WebView->RunScript(Script);
-          
-          break;
-        }
-        default:
-          break;
-      }
-    });
+      this->handleContextEvent(Ev); });
+
+    WithReplay.RegisterHandler("StateGraphViewer.MouseOverValue",
+                               {{"address", "type"}},
+      seec::make_function(this, &StateGraphViewerPanel::replayMouseOverValue));
   }
   else {
     // If the user navigates to a link, open it in the default browser.
     WebView->Bind(wxEVT_WEBVIEW_NAVIGATING,
-      std::function<void (wxWebViewEvent &Event)>{
+      std::function<void (wxWebViewEvent &)>{
         [] (wxWebViewEvent &Event) -> void {
           if (Event.GetURL().StartsWith("http")) {
             wxLaunchDefaultBrowser(Event.GetURL());
@@ -391,11 +615,16 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     WebView->LoadURL(WebViewURL);
   }
   
+  // Create the worker thread that will perform our graph generation.
+  WorkerThread = std::thread{
+    [this] () { this->workerTaskLoop(); }};
+
   return true;
 }
 
 void StateGraphViewerPanel::OnGraphRendered(GraphRenderedEvent const &Ev)
 {
+  CurrentGraphSVG = Ev.getRawSVG();
   WebView->RunScript(Ev.getSetStateScript());
 }
 
@@ -403,20 +632,131 @@ void
 StateGraphViewerPanel::
 OnMouseOverDisplayable(MouseOverDisplayableEvent const &Ev)
 {
-  MouseOver = Ev.getDisplayableShared();
-}
+  // Remove highlighting from the existing value (if any).
+  if (auto const Prev = MouseOver.get()) {
+    if (llvm::isa<DisplayableValue>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess())
+        Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
+    }
+    else if (llvm::isa<DisplayableDereference>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess())
+        Notifier->createNotify<ConEvHighlightValue>(nullptr, CurrentAccess);
+    }
+    else if (llvm::isa<DisplayableFunctionState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
+    else if (llvm::isa<DisplayableLocalState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
+    else if (llvm::isa<DisplayableParamState>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
+    else if (llvm::isa<DisplayableGlobalVariable>(Prev)) {
+      Notifier->createNotify<ConEvHighlightDecl>(nullptr);
+    }
+    else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Prev)) {
+      if (auto Access = CurrentAccess->getAccess()) {
+        auto const Start = DA->getAreaStart();
+        auto const MMalloc = CurrentProcess->getDynamicMemoryAllocation(Start);
+        if (MMalloc.assigned<seec::cm::MallocState>()) {
+          auto const &Malloc = MMalloc.get<seec::cm::MallocState>();
+          if (Malloc.getAllocatorStmt())
+            Notifier->createNotify<ConEvHighlightStmt>(nullptr);
+        }
+      }
+    }
+  }
 
-static void BindMenuItem(wxMenuItem *Item,
-                         std::function<void (wxEvent &)> Handler)
-{
-  if (!Item)
-    return;
-  
-  auto const Menu = Item->GetMenu();
-  if (!Menu)
-    return;
-  
-  Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
+  MouseOver = Ev.getDisplayableShared();
+
+  auto const Node = MouseOver.get();
+
+  if (!Node) {
+    if (Recording)
+      Recording->recordEventL("StateGraphViewer.MouseOverNone");
+  }
+  else if (auto const DV = llvm::dyn_cast<DisplayableValue>(Node)) {
+    if (auto Access = CurrentAccess->getAccess()) {
+      Notifier->createNotify<ConEvHighlightValue>(&(DV->getValue()),
+                                                  CurrentAccess);
+    }
+
+    if (Recording) {
+      std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+      addAttributesForValue(Attrs, DV->getValue());
+      Recording->recordEventV("StateGraphViewer.MouseOverValue", Attrs);
+    }
+  }
+  else if (auto const DD = llvm::dyn_cast<DisplayableDereference>(Node)) {
+    if (auto Access = CurrentAccess->getAccess()) {
+      Notifier->createNotify<ConEvHighlightValue>(&(DD->getPointer()),
+                                                  CurrentAccess);
+    }
+
+    if (Recording) {
+      std::vector<std::unique_ptr<IAttributeReadOnly>> Attrs;
+      addAttributesForValue(Attrs, DD->getPointer());
+      Recording->recordEventV("StateGraphViewer.MouseOverDereference", Attrs);
+    }
+  }
+  else if (auto const DF = llvm::dyn_cast<DisplayableFunctionState>(Node)) {
+    auto const Decl = DF->getFunctionState().getFunctionDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      auto const &FS = DF->getFunctionState();
+      Recording->recordEventL("StateGraphViewer.MouseOverFunctionState",
+                              make_attribute("function", FS.getNameAsString()));
+    }
+  }
+  else if (auto const DL = llvm::dyn_cast<DisplayableLocalState>(Node)) {
+    auto const Decl = DL->getLocalState().getDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
+    }
+  }
+  else if (auto const DP = llvm::dyn_cast<DisplayableParamState>(Node)) {
+    auto const Decl = DP->getParamState().getDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
+    }
+  }
+  else if (auto const DG = llvm::dyn_cast<DisplayableGlobalVariable>(Node)) {
+    auto const Decl = DG->getGlobalVariable().getClangValueDecl();
+    Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+    if (Recording) {
+      // TODO
+    }
+  }
+  else if (auto const DA = llvm::dyn_cast<DisplayableReferencedArea>(Node)) {
+    if (auto Access = CurrentAccess->getAccess()) {
+      auto const Start = DA->getAreaStart();
+      auto const MayMalloc = CurrentProcess->getDynamicMemoryAllocation(Start);
+      if (MayMalloc.assigned<seec::cm::MallocState>()) {
+        auto const &Malloc = MayMalloc.get<seec::cm::MallocState>();
+        if (auto const S = Malloc.getAllocatorStmt())
+          Notifier->createNotify<ConEvHighlightStmt>(S);
+      }
+    }
+
+    if (Recording) {
+      Recording->recordEventL("StateGraphViewer.MouseOverReferencedArea",
+                              make_attribute("start", DA->getAreaStart()),
+                              make_attribute("end", DA->getAreaEnd()));
+    }
+  }
+  else {
+    wxLogDebug("Mouse over unknown Displayable.");
+
+    if (Recording) {
+      Recording->recordEventL("StateGraphViewer.MouseOverUnknown");
+    }
+  }
 }
 
 void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
@@ -426,7 +766,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
   
   UErrorCode Status = U_ZERO_ERROR;
   auto const TextTable = seec::getResource("TraceViewer",
-                                           Locale::getDefault(),
+                                           getLocale(),
                                            Status,
                                            "StateGraphViewer");
   if (U_FAILURE(Status)) {
@@ -441,55 +781,8 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     
     wxMenu CM{};
     
-    // Contextual movement based on the Value's memory.
-    if (ValuePtr->isInMemory()) {
-      auto const Size = ValuePtr->getTypeSizeInChars().getQuantity();
-      auto const Area = seec::MemoryArea(ValuePtr->getAddress(), Size);
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueRewindAllocation")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveToAllocation(State, *ValuePtr);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueRewindModification")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveBackwardUntilMemoryChanges(State, Area);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueForwardModification")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveForwardUntilMemoryChanges(State, Area);
-            });
-        });
-      
-      BindMenuItem(
-        CM.Append(wxID_ANY,
-                  seec::getwxStringExOrEmpty(TextTable,
-                                             "CMValueForwardDeallocation")),
-        [=] (wxEvent &Ev) -> void {
-          raiseMovementEvent(*this, this->CurrentAccess,
-            [=] (seec::cm::ProcessState &State) -> bool {
-              return seec::cm::moveToDeallocation(State, *ValuePtr);
-            });
-        });
-    }
+    addValueNavigation(*this, CurrentAccess, CM, *ValuePtr, *CurrentProcess,
+                       Recording);
     
     // Allow the user to select the Value's layout engine.
     std::unique_lock<std::mutex> LockLayoutHandler(LayoutHandlerMutex);
@@ -505,7 +798,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
           continue;
         
         UErrorCode Status = U_ZERO_ERROR;
-        auto const Name = LazyName->get(Status, Locale());
+        auto const Name = LazyName->get(Status, getLocale());
         if (U_FAILURE(Status))
           continue;
         
@@ -561,7 +854,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
                                            "CMFunctionRewindEntry")),
       [=] (wxEvent &Ev) -> void {
         raiseMovementEvent(*this, this->CurrentAccess,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) {
             return seec::cm::moveToFunctionEntry(*FnPtr);
           });
       });
@@ -572,7 +865,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
                                            "CMFunctionForwardExit")),
       [=] (wxEvent &Ev) -> void {
         raiseMovementEvent(*this, this->CurrentAccess,
-          [=] (seec::cm::ProcessState &State) -> bool {
+          [=] (seec::cm::ProcessState &State) {
             return seec::cm::moveToFunctionFinished(*FnPtr);
           });
       });
@@ -600,7 +893,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
           continue;
         
         UErrorCode Status = U_ZERO_ERROR;
-        auto const Name = LazyName->get(Status, Locale());
+        auto const Name = LazyName->get(Status, getLocale());
         if (U_FAILURE(Status))
           continue;
         
@@ -636,161 +929,17 @@ void StateGraphViewerPanel::renderGraph()
 {
   if (!WebView || PathToDot.empty())
     return;
-  
-  // Create a graph of the process state in dot format.
-  std::string GraphString;
-  
-  {
-    // Lock the current state while we read from it.
-    auto Lock = CurrentAccess->getAccess();
-    if (!Lock || !CurrentProcess)
-      return;
-      
-    std::lock_guard<std::mutex> LockLayoutHandler (LayoutHandlerMutex);
-    auto const Layout = LayoutHandler->doLayout(*CurrentProcess);
-    GraphString = Layout.getDotString();
-    
-    auto const TimeMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                                  (Layout.getTimeTaken());
-    
-    wxLogDebug("State graph generated in %" PRIu64 " ms.",
-               static_cast<uint64_t>(TimeMS.count()));
-  }
-  
-  auto const GVStart = std::chrono::steady_clock::now();
-  
-  // Write the graph to a temporary file.
-  llvm::SmallString<256> GraphPath;
-  
-  {
-    int GraphFD;
-    auto const GraphErr =
-      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.dot", GraphFD, GraphPath);
-    
-    if (GraphErr != llvm::errc::success) {
-      wxLogDebug("Couldn't create temporary dot file.");
-      return;
-    }
-    
-    llvm::raw_fd_ostream GraphStream(GraphFD, true);
-    GraphStream << GraphString;
-  }
-  
-  // Remove the temporary file when we exit this function.
-  auto const RemoveGraph = seec::scopeExit([&] () {
-                              bool Existed = false;
-                              llvm::sys::fs::remove(GraphPath.str(), Existed);
-                            });
-  
-  // Create a temporary filename for the dot result.
-  llvm::SmallString<256> SVGPath;
-  
-  {
-    int SVGFD;
-    auto const SVGErr =
-      llvm::sys::fs::unique_file("seecgraph-%%%%%%%%.svg", SVGFD, SVGPath);
-    
-    if (SVGErr != llvm::errc::success) {
-      wxLogDebug("Couldn't create temporary svg file.");
-      return;
-    }
-    
-    // We don't want to write to this file, we just want to reserve it for dot.
-    close(SVGFD);
-  }
-  
-  auto const RemoveSVG = seec::scopeExit([&] () {
-                            bool Existed = false;
-                            llvm::sys::fs::remove(SVGPath.str(), Existed);
-                          });
-  
-  // Run dot using the temporary input/output files.
-  char const *Args[] = {
-    "dot",
-    "-o",
-    SVGPath.c_str(),
-    "-Tsvg",
-    GraphPath.c_str(),
-    nullptr
-  };
-  
-  char const *Environment[] = {
-    PathToGraphvizLibraries.c_str(),
-    PathToGraphvizPlugins.c_str(),
-    nullptr
-  };
-  
-  std::string ErrorMsg;
-  
-  bool ExecFailed = false;
-  
-  auto const Result =
-    llvm::sys::Program::ExecuteAndWait(llvm::sys::Path(PathToDot),
-                                       Args,
-                                       Environment,
-                                       /* redirects */ nullptr,
-                                       /* wait */ 0,
-                                       /* mem */ 0,
-                                       &ErrorMsg,
-                                       &ExecFailed);
-  
-  if (!ErrorMsg.empty()) {
-    wxLogDebug("Dot failed: %s", ErrorMsg);
-    return;
-  }
-  
-  if (Result) {
-    wxLogDebug("Dot returned non-zero.");
-    return;
-  }
-  
-  // Read the dot-generated SVG from the temporary file.
-  llvm::OwningPtr<llvm::MemoryBuffer> SVGData;
-  
-  auto const ReadErr = llvm::MemoryBuffer::getFile(SVGPath, SVGData);
-  if (ReadErr != llvm::errc::success) {
-    wxLogDebug("Couldn't read temporary svg file.");
-    return;
-  }
-  
-  auto const GVEnd = std::chrono::steady_clock::now();
-  auto const GVMS = std::chrono::duration_cast<std::chrono::milliseconds>
-                                              (GVEnd - GVStart);
-  wxLogDebug("Graphviz completed in %" PRIu64 " ms",
-             static_cast<uint64_t>(GVMS.count()));
-  
-  // Remove all non-print characters from the SVG and prepare it to be sent to
-  // the WebView via javascript.
-  auto SharedScript = std::make_shared<wxString>();
-  auto &Script = *SharedScript;
-  
-  Script.reserve(SVGData->getBufferSize() + 256);
-  Script << "SetState(\"";
-  
-  for (auto It = SVGData->getBufferStart(), End = SVGData->getBufferEnd();
-       It != End;
-       ++It)
-  {
-    auto const Ch = *It;
-    
-    if (std::isprint(Ch)) {
-      if (Ch == '\\' || Ch == '"')
-        Script << '\\';
-      Script << Ch;
-    }
-  }
-  
-  Script << "\");";
-  
-  GraphRenderedEvent Ev {
-    SEEC_EV_GRAPH_RENDERED,
-    this->GetId(),
-    std::move(SharedScript)
-  };
-  
-  Ev.SetEventObject(this);
-  
-  this->GetEventHandler()->AddPendingEvent(Ev);
+
+  WebView->RunScript(wxString{"ClearState();"});
+  CurrentGraphSVG.reset();
+
+  // Send the rendering task to the worker thread.
+  std::unique_lock<std::mutex> Lock{TaskMutex};
+  TaskAccess = CurrentAccess;
+  TaskProcess = CurrentProcess;
+  ContinueGraphGeneration = true;
+  Lock.unlock();
+  TaskCV.notify_one();
 }
 
 void
@@ -808,13 +957,73 @@ StateGraphViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
     return;
   
   renderGraph();
+
+  // Add special highlighting for values associated with the active Stmt.
+  //
+  if (!Thread.getCallStack().empty()) {
+    seec::cm::FunctionState const &Fn = Thread.getCallStack().back();
+    if (auto const Stmt = Fn.getActiveStmt()) {
+      if (auto const Value = Fn.getStmtValue(Stmt)) {
+        wxString Script("MarkActiveStmtValue(");
+        Script << reinterpret_cast<uintptr_t>(Value.get()) << ");";
+
+        if (auto const Ptr = llvm::dyn_cast<seec::cm::ValueOfPointer>
+                                           (Value.get()))
+        {
+          if (Ptr->getDereferenceIndexLimit()) {
+            if (auto const Pointee = Ptr->getDereferenced(0)) {
+              Script << "MarkActiveStmtValue("
+                     << reinterpret_cast<uintptr_t>(Pointee.get()) << ");";
+            }
+          }
+        }
+
+        WebView->RunScript(Script);
+      }
+    }
+  }
 }
 
 void StateGraphViewerPanel::clear()
 {
+  // If the graph generation is still running, then terminate it now.
+  ContinueGraphGeneration = false;
+
+  // Clear any existing graph from the WebView.
   if (WebView && !PathToDot.empty())
     WebView->RunScript(wxString{"ClearState();"});
+
+  CurrentGraphSVG.reset();
+
   MouseOver.reset();
+}
+
+void StateGraphViewerPanel::renderToSVG(const wxString &Filename)
+{
+  auto const Res = seec::Resource("TraceViewer")
+                    ["GUIText"]["Graph"]["RenderToSVG"];
+
+  if (!CurrentGraphSVG || CurrentGraphSVG->empty()) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["NoGraphMessage"]),
+                        towxString(Res["NoGraphTitle"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  wxTempFile Out(Filename);
+  if (!Out.Write(*CurrentGraphSVG)) {
+    wxMessageDialog Dlg(this,
+                        towxString(Res["GraphWriteFailedMessage"]),
+                        towxString(Res["GraphWriteFailedTitle"]));
+    Dlg.ShowModal();
+    return;
+  }
+
+  if (!Out.Commit()) {
+    Out.Discard();
+    return;
+  }
 }
 
 void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
@@ -842,6 +1051,24 @@ void StateGraphViewerPanel::OnMouseOver(std::string const &NodeID)
     auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
     auto &Fn = *reinterpret_cast<seec::cm::FunctionState *>(ID);
     NodeDisplayable = std::make_shared<DisplayableFunctionState>(Fn);
+  }
+  else if (NodeType == "local") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Local = *reinterpret_cast<seec::cm::LocalState const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableLocalState>(Local);
+  }
+  else if (NodeType == "param") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &Param = *reinterpret_cast<seec::cm::ParamState const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableParamState>(Param);
+  }
+  else if (NodeType == "global") {
+    auto const NodeData = Unescaped.substr(SpacePos + 1);
+    auto const ID = seec::callbackfs::ParseImpl<uintptr_t>::impl(NodeData);
+    auto const &GV = *reinterpret_cast<seec::cm::GlobalVariable const *>(ID);
+    NodeDisplayable = std::make_shared<DisplayableGlobalVariable>(GV);
   }
   else if (NodeType == "area") {
     auto const NodeData = Unescaped.substr(SpacePos + 1);

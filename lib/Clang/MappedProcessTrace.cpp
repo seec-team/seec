@@ -27,40 +27,35 @@ namespace cm {
 // ProcessTrace
 //===----------------------------------------------------------------------===//
 
-seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
-ProcessTrace::
-load(llvm::StringRef ExecutablePath,
-     std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator) {
-  // Read the process trace using the InputBufferAllocator.
-  auto MaybeProcTrace = seec::trace::ProcessTrace::readFrom(*Allocator);
-  if (!MaybeProcTrace.assigned(0)) {
-    return std::move(MaybeProcTrace.get<1>());
-  }
-
-  auto ProcTrace = std::move(MaybeProcTrace.get<0>());
-  assert(ProcTrace);
-
+Maybe<std::unique_ptr<ProcessTrace>, Error>
+ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
+{
   // Load the bitcode.
   auto &Context = llvm::getGlobalContext();
   
   auto MaybeMod = Allocator->getModule(Context);
-  if (MaybeMod.assigned<seec::Error>()) {
-    return std::move(MaybeMod.get<seec::Error>());
-  }
+  if (MaybeMod.assigned<Error>())
+    return MaybeMod.move<Error>();
   
-  assert(MaybeMod.assigned<llvm::Module *>());
-  auto Mod = MaybeMod.get<llvm::Module *>();
+  auto const Mod = MaybeMod.get<llvm::Module *>();
+  
+  // Read the process trace using the InputBufferAllocator.
+  auto MaybeProcTrace = trace::ProcessTrace::readFrom(std::move(Allocator));
+  if (MaybeProcTrace.assigned<Error>())
+    return MaybeProcTrace.move<Error>();
+
+  auto ProcTrace =
+    MaybeProcTrace.move<std::unique_ptr<seec::trace::ProcessTrace>>();
+  assert(ProcTrace);
   
   return std::unique_ptr<ProcessTrace>
-                        (new ProcessTrace(ExecutablePath,
-                                          std::move(Allocator),
-                                          std::move(ProcTrace),
+                        (new ProcessTrace(std::move(ProcTrace),
                                           std::make_shared<seec::ModuleIndex>
                                                           (*Mod, true)));
 }
 
 seec::seec_clang::MappedFunctionDecl const *
-ProcessTrace::getMappedFunctionAt(uintptr_t const Address) const
+ProcessTrace::getMappedFunctionAt(stateptr_ty const Address) const
 {
   auto const MaybeIndex = UnmappedTrace->getIndexOfFunctionAt(Address);
   if (!MaybeIndex.assigned<uint32_t>())

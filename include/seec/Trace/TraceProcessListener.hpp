@@ -19,6 +19,7 @@
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceMemory.hpp"
+#include "seec/Trace/TracePointer.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Trace/TraceStreams.hpp"
 #include "seec/Util/LockedObjectAccessor.hpp"
@@ -44,6 +45,10 @@ namespace llvm {
 } // namespace llvm
 
 namespace seec {
+
+namespace runtime_errors {
+  class RunError;
+}
 
 class SynchronizedExit;
 
@@ -138,6 +143,12 @@ class TraceProcessListener {
   /// Lookup for detecting calls to C standard library functions.
   seec::trace::detect_calls::Lookup DetectCallsLookup;
 
+  typedef void RunErrorCallbackTy(seec::runtime_errors::RunError const &,
+                                  llvm::Instruction const *);
+
+  /// Callback when runtime errors are detected.
+  std::function<RunErrorCallbackTy> RunErrorCallback;
+
 
   /// Lookup GlobalVariable's run-time addresses by index.
   std::vector<uintptr_t> GlobalVariableAddresses;
@@ -192,6 +203,16 @@ class TraceProcessListener {
   
   /// Keeps information about known, but unowned, areas of memory.
   IntervalMapVector<uintptr_t, MemoryPermission> KnownMemory;
+
+
+  /// Temporal identifiers for pointer regions.
+  llvm::DenseMap<uintptr_t, uint64_t> RegionTemporalIDs;
+
+  /// Control access to \c RegionTemporalIDs.
+  mutable std::mutex RegionTemporalIDsMutex;
+
+  /// Pointer objects.
+  std::map<uintptr_t, PointerTarget> InMemoryPointerObjects;
 
 
   /// Dynamic memory mutex.
@@ -263,21 +284,21 @@ public:
   /// @{
   
   /// \brief Get the shared SynchronizedExit object.
-  SynchronizedExit &syncExit() { return SyncExit; }
+  SynchronizedExit &syncExit() const { return SyncExit; }
 
   /// \brief Get the uninstrumented Module.
-  llvm::Module &module() { return Module; }
+  llvm::Module &module() const { return Module; }
 
   /// \brief Get the DataLayout for this Module.
-  llvm::DataLayout &dataLayout() { return DL; }
+  llvm::DataLayout const &getDataLayout() const { return DL; }
 
   /// \brief Get the shared module index.
-  ModuleIndex &moduleIndex() { return MIndex; }
+  ModuleIndex const &moduleIndex() const { return MIndex; }
 
   /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
   /// \return the run-time address of GV, or 0 if it is not known.
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) {
+  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
     auto MaybeIndex = MIndex.getIndexOfGlobal(GV);
     if (!MaybeIndex.assigned())
       return 0;
@@ -292,7 +313,7 @@ public:
   /// \brief Get the run-time address of a Function.
   /// \param F the Function.
   /// \return the run-time address of F, or 0 if it is not known.
-  uintptr_t getRuntimeAddress(llvm::Function const *F) {
+  uintptr_t getRuntimeAddress(llvm::Function const *F) const {
     auto MaybeIndex = MIndex.getIndexOfFunction(F);
     if (!MaybeIndex.assigned())
       return 0;
@@ -303,6 +324,12 @@ public:
 
     return FunctionAddresses[Index];
   }
+
+  /// \brief Find the \c llvm::Function at the given address.
+  /// \param Address the runtime address.
+  /// \return the \c llvm::Function at \c Address, or \c nullptr if none known.
+  ///
+  llvm::Function const *getFunctionAt(uintptr_t const Address) const;
   
   /// \brief Find the allocated range that owns an address.
   ///
@@ -322,6 +349,16 @@ public:
   }
 
   /// @} (Accessors)
+
+
+  /// \name Callback when runtime errors are detected.
+  /// @{
+
+  void setRunErrorCallback(std::function<RunErrorCallbackTy> Callback);
+
+  decltype(RunErrorCallback) const &getRunErrorCallback() const;
+
+  /// @}
   
   
   /// \name Synthetic process time
@@ -364,6 +401,11 @@ public:
   
   /// \brief Get a list of active TraceThreadListener objects.
   ///
+  /// TODO: Deprecate this. Any of the listeners could become inactive as soon
+  /// as the list is retrieved and the Lock is released. Note: this is only
+  /// used by the runtime library after stopping all threads using the
+  /// SynchronizedExit, so its current use is safe.
+  ///
   std::vector<TraceThreadListener *> getThreadListeners() {
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
@@ -375,7 +417,51 @@ public:
     return List;
   }
   
+  /// \brief Get the number of active TraceThreadListener objects.
+  ///
+  std::size_t countThreadListeners() const {
+    std::lock_guard<std::mutex> Lock{TraceThreadListenerMutex};
+    return ActiveThreadListeners.size();
+  }
+  
   /// @}
+
+
+  /// \name Pointer object tracking
+  /// @{
+
+  /// \brief Increment the temporal ID for the region starting at \c Address.
+  ///
+  uint64_t incrementRegionTemporalID(uintptr_t const Address);
+
+  /// \brief Get the temporal ID for the region starting at \c Address.
+  ///
+  uint64_t getRegionTemporalID(uintptr_t const Address) const;
+
+  /// \brief Get a current \c PointerTarget for the region starting at
+  ///        \c Address.
+  ///
+  PointerTarget makePointerObject(uintptr_t const ForAddress) const;
+
+  /// \brief Get the \c PointerTarget for the given \c llvm::Value.
+  ///
+  PointerTarget getPointerObject(llvm::Value const *V) const;
+
+  /// \brief Get the \c PointerTarget for the pointer that is in-memory
+  ///        starting at address \c PtrLocation.
+  ///
+  PointerTarget getInMemoryPointerObject(uintptr_t const PtrLocation) const;
+
+  void setInMemoryPointerObject(uintptr_t const PtrLocation,
+                                PointerTarget const &Object);
+
+  void clearInMemoryPointerObjects(MemoryArea const Area);
+
+  void copyInMemoryPointerObjects(uintptr_t const From,
+                                  uintptr_t const To,
+                                  std::size_t const Length);
+
+  /// @} (Pointer object tracking)
 
 
   /// \name Memory state tracking
@@ -404,14 +490,10 @@ public:
   /// \brief Add a region of known, but unowned, memory.
   void addKnownMemoryRegion(uintptr_t Address,
                             std::size_t Length,
-                            MemoryPermission Access) {
-    KnownMemory.insert(Address, Address + (Length - 1), Access);
-  }
+                            MemoryPermission Access);
   
   /// \brief Remove the region of known memory starting at Address.
-  bool removeKnownMemoryRegion(uintptr_t Address) {
-    return KnownMemory.erase(Address) != 0;
-  }
+  bool removeKnownMemoryRegion(uintptr_t Address);
   
   /// \brief Get const access to the known memory regions.
   ///
@@ -436,19 +518,15 @@ public:
     return DynamicMemoryAllocations.count(Address);
   }
 
-  /// Get information about the Malloc event that allocated an address.
-  seec::Maybe<DynamicAllocation>
-  getCurrentDynamicMemoryAllocation(uintptr_t Address) const {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+  /// \brief Get the \c DynamicAllocation at the given address.
+  ///
+  DynamicAllocation *
+  getCurrentDynamicMemoryAllocation(uintptr_t const Address);
 
-    auto It = DynamicMemoryAllocations.find(Address);
-    if (It != DynamicMemoryAllocations.end()) {
-      // give the client a copy of the DynamicAllocation
-      return It->second;
-    }
-
-    return seec::Maybe<DynamicAllocation>();
-  }
+  /// \brief Get the \c DynamicAllocation at the given address.
+  ///
+  DynamicAllocation const *
+  getCurrentDynamicMemoryAllocation(uintptr_t const Address) const;
 
   /// Set the offset of the Malloc event that allocated an address.
   /// \param Address
@@ -457,20 +535,7 @@ public:
   void setCurrentDynamicMemoryAllocation(uintptr_t Address,
                                          uint32_t Thread,
                                          offset_uint Offset,
-                                         std::size_t Size) {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
-
-    // if the address is already allocated, update its details (realloc)
-    auto It = DynamicMemoryAllocations.find(Address);
-    if (It != DynamicMemoryAllocations.end()) {
-      It->second.update(Thread, Offset, Size);
-    }
-    else {
-      DynamicMemoryAllocations.insert(
-        std::make_pair(Address,
-                       DynamicAllocation(Thread, Offset, Address, Size)));
-    }
-  }
+                                         std::size_t Size);
 
   /// Remove the dynamic memory allocation for an address.
   bool removeCurrentDynamicMemoryAllocation(uintptr_t Address) {
@@ -563,6 +628,14 @@ public:
   void notifyGlobalVariable(uint32_t Index,
                             llvm::GlobalVariable const *GV,
                             void const *Addr);
+
+private:
+  ///
+  void setGVInitialIMPO(llvm::Type *ElemTy, uintptr_t Address);
+
+public:
+  /// \brief Called when all GlobalVariable run-time addresses received.
+  void notifyGlobalVariablesComplete();
 
   /// \brief Receive the run-time address of a Function.
   void notifyFunction(uint32_t Index,

@@ -18,6 +18,7 @@
 
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Error.hpp"
@@ -41,9 +42,6 @@ namespace cm {
 /// \brief A SeeC-Clang-mapped process trace.
 ///
 class ProcessTrace {
-  /// The input buffer allocator for this process trace.
-  std::unique_ptr<seec::trace::InputBufferAllocator> BufferAllocator;
-  
   /// The base (unmapped) process trace.
   std::shared_ptr<seec::trace::ProcessTrace> UnmappedTrace;
   
@@ -64,13 +62,10 @@ class ProcessTrace {
   
   /// \brief Constructor.
   ///
-  ProcessTrace(llvm::StringRef ExecutablePath,
-               std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator,
-               std::shared_ptr<seec::trace::ProcessTrace> &&Trace,
+  ProcessTrace(std::shared_ptr<seec::trace::ProcessTrace> Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
-  : BufferAllocator(std::move(Allocator)),
-    UnmappedTrace(std::move(Trace)),
-    ModuleIndex(Index),
+  : UnmappedTrace(std::move(Trace)),
+    ModuleIndex(std::move(Index)),
     DiagOpts(new clang::DiagnosticOptions()),
     DiagConsumer(),
     Diagnostics(new clang::DiagnosticsEngine(llvm::IntrusiveRefCntPtr
@@ -79,7 +74,7 @@ class ProcessTrace {
                                              &*DiagOpts,
                                              &DiagConsumer,
                                              false)),
-    Mapping(*ModuleIndex, ExecutablePath, Diagnostics)
+    Mapping(*ModuleIndex, Diagnostics)
   {}
   
 public:
@@ -87,8 +82,7 @@ public:
   ///
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
-  load(llvm::StringRef ExecutablePath,
-       std::unique_ptr<seec::trace::InputBufferAllocator> &&Allocator);
+  load(std::unique_ptr<seec::trace::InputBufferAllocator> Allocator);
   
   
   /// \name Access underlying information.
@@ -123,7 +117,7 @@ public:
   ///         available for the function at the given address.
   ///
   seec::seec_clang::MappedFunctionDecl const *
-  getMappedFunctionAt(uintptr_t const Address) const;
+  getMappedFunctionAt(stateptr_ty const Address) const;
 };
 
 

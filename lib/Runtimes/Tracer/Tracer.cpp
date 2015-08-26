@@ -11,14 +11,20 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "PrintRunError.hpp"
 #include "Tracer.hpp"
 
+#include "seec/DSA/MemoryArea.hpp"
+#include "seec/ICU/Resources.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
+#include "seec/wxWidgets/Config.hpp"
+#include "seec/wxWidgets/ConfigTracing.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -28,8 +34,11 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Threading.h"
+
+#include "unicode/locid.h"
 
 #include <cassert>
 #include <cstdint>
@@ -37,7 +46,11 @@
 #include <cstdlib>
 #include <thread>
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <dlfcn.h>
+#elif defined(_WIN32)
+#include <Windows.h>
+#endif
 
 #include "seec/Transforms/RecordExternal/RecordInfo.h" // needs <cstdint>
 
@@ -50,8 +63,8 @@ static constexpr char const *getThreadEventLimitEnvVar() {
   return "SEEC_EVENT_LIMIT";
 }
 
-static constexpr offset_uint getDefaultThreadEventLimit() {
-  return 1024 * 1024 * 1024; // 1 GiB
+static constexpr char const *getArchiveSizeLimitEnvVar() {
+  return "SEEC_ARCHIVE_LIMIT";
 }
 
 
@@ -67,6 +80,41 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
   FunIndex(nullptr),
   Stack()
 {}
+
+ThreadEnvironment::~ThreadEnvironment()
+{}
+
+void ThreadEnvironment::checkOutputSize()
+{
+  if (!ThreadTracer.traceEnabled())
+    return;
+
+  if (ThreadTracer.traceEventSize() > Process.getThreadEventLimit()) {
+    llvm::errs() << "\nSeeC: Thread event limit reached!\n";
+
+    // Shut down the tracing and archive.
+    auto const &SupportSyncExit = ThreadTracer.getSupportSynchronizedExit();
+    auto StopCanceller = SupportSyncExit.getSynchronizedExit().stopAll();
+    if (!StopCanceller.wasStopped())
+      return;
+
+    auto &ProcessListener = Process.getProcessListener();
+
+    for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
+      ThreadListenerPtr->traceWrite();
+      ThreadListenerPtr->traceFlush();
+      ThreadListenerPtr->traceClose();
+    }
+
+    ProcessListener.traceWrite();
+    ProcessListener.traceFlush();
+    ProcessListener.traceClose();
+
+    Process.archive();
+
+    StopCanceller.cancelStop();
+  }
+}
 
 void ThreadEnvironment::pushFunction(llvm::Function *Fun) {
   Stack.push_back(FunctionEnvironment{Fun});
@@ -120,34 +168,28 @@ static uint64_t getMultiplierForBytes(char const *ForUnit)
   return 1;
 }
 
-/// \brief Get the size limit to use for thread event files.
+/// \brief Get the number of bytes represented by a string.
 ///
-/// NOTE: This function uses std::getenv() and thus is not thread-safe.
-///
-static offset_uint getUserThreadEventLimit()
+uint64_t getByteSizeFromEnvVar(char const * const EnvVarName,
+                               char const * const StringValue)
 {
-  auto const EnvVarName = getThreadEventLimitEnvVar();
-  auto const UserLimit = std::getenv(EnvVarName);
-  if (!UserLimit)
-    return getDefaultThreadEventLimit();
-  
   char *Remainder = nullptr;
-  auto const Value = std::strtoull(UserLimit, &Remainder, 10);
-  
-  if (Remainder == UserLimit) {
-    llvm::errs() << "SeeC: Error reading " << EnvVarName << ".\n";
+  auto const Value = std::strtoull(StringValue, &Remainder, 10);
+  if (Remainder == StringValue) {
+    fprintf(stderr, "\nSeeC: Error parsing '%s'.\n", EnvVarName);
     std::exit(EXIT_FAILURE);
   }
   
-  if (Value > std::numeric_limits<offset_uint>::max()) {
-    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
-    llvm::errs() << "\tMaximum = "
-                << std::numeric_limits<offset_uint>::max()
-                << " bytes.\n";
+  // Ensure that the value fits in the given type.
+  auto const MaxValue = std::numeric_limits<uint64_t>::max();
+  if (Value > MaxValue) {
+    fprintf(stderr, "\nSeeC: Value of '%s' is too large.\n", EnvVarName);
+    fprintf(stderr, "\tMaximum = %s bytes.\n",
+            std::to_string(MaxValue).c_str());
     std::exit(EXIT_FAILURE);
   }
   
-  // Consume whitespace.
+  // Consume whitespace to find the units.
   while (*Remainder && std::isblank(*Remainder))
     ++Remainder;
   
@@ -155,15 +197,41 @@ static offset_uint getUserThreadEventLimit()
   if (Multiplier <= 1)
     return Value;
   
-  if (std::numeric_limits<offset_uint>::max() / Multiplier < Value) {
-    llvm::errs() << "SeeC: " << EnvVarName << " is too large.\n";
-    llvm::errs() << "\tMaximum = "
-                << std::numeric_limits<offset_uint>::max()
-                << " bytes.\n";
+  // Ensure that the final value fits in the given type.
+  if (MaxValue / Multiplier < Value) {
+    fprintf(stderr, "\nSeeC: Value of '%s' is too large.\n", EnvVarName);
+    fprintf(stderr, "\tMaximum = %s bytes.\n",
+            std::to_string(MaxValue).c_str());
     std::exit(EXIT_FAILURE);
   }
   
   return Value * Multiplier;
+}
+
+/// \brief Get the size limit to use for thread event files.
+///
+/// NOTE: This function uses std::getenv() and thus is not thread-safe.
+///
+static offset_uint getUserThreadEventLimit()
+{
+  auto const EnvVarName = getThreadEventLimitEnvVar();
+  if (auto const EnvVar = std::getenv(EnvVarName))
+    return getByteSizeFromEnvVar(EnvVarName, EnvVar);
+
+  return seec::getThreadEventLimit() * (1024 * 1024);
+}
+
+/// \brief Get the size limit for archiving traces.
+///
+/// NOTE: This function uses std::getenv() and thus is not thread-safe.
+///
+static uint64_t getUserArchiveSizeLimit()
+{
+  auto const EnvVarName = getArchiveSizeLimitEnvVar();
+  if (auto const EnvVar = std::getenv(EnvVarName))
+    return getByteSizeFromEnvVar(EnvVarName, EnvVar);
+
+  return seec::getArchiveLimit() * (1024 * 1024);
 }
 
 ProcessEnvironment::ProcessEnvironment()
@@ -172,14 +240,48 @@ ProcessEnvironment::ProcessEnvironment()
   ModIndex(),
   StreamAllocator(),
   SyncExit(),
+  ICUResourceLoader(),
+  Augmentations(),
   ProcessTracer(),
   ThreadLookup(),
+  ThreadLookupMutex(),
   InterceptorAddresses(),
-  ThreadEventLimit(getUserThreadEventLimit())
+  ThreadEventLimit(0), // set after wxConfig is available.
+  ArchiveSizeLimit(0), // set after wxConfig is available.
+  ProgramName()
 {
-  // Setup multithreading support for LLVM.
-  llvm::llvm_start_multithreaded();
+  // On windows, lookup the module's globals.
+#if defined(_WIN32)
+  auto const ExeHdl = GetModuleHandle(nullptr);
+  assert(ExeHdl && "module handle for executable");
+
+  // TODO: split this and check that the pointer is non-NULL.
+#define SEEC_GET_INFO_VAR(TYPE, NAME)                                          \
+  TYPE const *NAME##Ptr =                                                      \
+    reinterpret_cast<TYPE const *>(GetProcAddress(ExeHdl, #NAME));             \
+  assert(NAME##Ptr && "info not found!");                                      \
+  TYPE const NAME = *NAME##Ptr;
+
+#define SEEC_GET_INFO_PTR(TYPE, NAME)                                          \
+  TYPE const NAME = reinterpret_cast<TYPE>(GetProcAddress(ExeHdl, #NAME));     \
+  assert(NAME && "info not found!");
+
+  SEEC_GET_INFO_PTR(char const *, SeeCInfoModuleIdentifier)
+  SEEC_GET_INFO_PTR(char const *, SeeCInfoModuleBitcode)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoModuleBitcodeLength)
+  SEEC_GET_INFO_PTR(void **,      SeeCInfoFunctions)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoFunctionsLength)
+  SEEC_GET_INFO_PTR(void **,      SeeCInfoGlobals)
+  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoGlobalsLength)
+  SEEC_GET_INFO_PTR(char const *, __SeeC_ResourcePath__)
+
+#undef SEEC_GET_INFO_VAR
+#undef SEEC_GET_INFO_PTR
+#endif
   
+  ICUResourceLoader.reset(new ResourceLoader(__SeeC_ResourcePath__));
+  Augmentations.reset(new AugmentationCollection());
+
   // Parse the Module bitcode, which is stored in a global variable.
   llvm::StringRef BitcodeRef {
     SeeCInfoModuleBitcode,
@@ -187,30 +289,46 @@ ProcessEnvironment::ProcessEnvironment()
   };
   
   auto BitcodeBuffer = llvm::MemoryBuffer::getMemBuffer(BitcodeRef, "", false);
-  
-  Mod.reset(llvm::ParseBitcodeFile(BitcodeBuffer, Context));
-  
-  if (!Mod) {
-    llvm::errs() << "\nFailed to parse module bitcode.\n";
+  auto MaybeMod = llvm::parseBitcodeFile(BitcodeBuffer->getMemBufferRef(),
+                                         Context);
+
+  if (!MaybeMod) {
+    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n"
+                 << MaybeMod.getError().message() << "\n";
     exit(EXIT_FAILURE);
   }
+
+  Mod.reset(MaybeMod.get());
   
   // Create the output stream allocator.
-  auto MaybeOutput = OutputStreamAllocator::
-                     createOutputStreamAllocator(Mod->getModuleIdentifier());
+  auto MaybeOutput = OutputStreamAllocator::createOutputStreamAllocator();
   
   if (MaybeOutput.assigned(0)) {
     StreamAllocator = std::move(MaybeOutput.get<0>());
   }
-  else if (MaybeOutput.assigned(1)) {
-    llvm::errs() << "\nError returned from createOutputStreamAllocator().\n";
-    exit(EXIT_FAILURE);
-  }
   else {
-    llvm::errs() << "\nNo return from createOutputStreamAllocator().\n";
+    llvm::errs() << "\nSeeC: Failed to create output stream allocator.\n";
+    if (MaybeOutput.assigned<seec::Error>())
+      llvm::errs() << MaybeOutput.get<seec::Error>();
     exit(EXIT_FAILURE);
   }
   
+  // Attempt to load ICU resources.
+  ICUResourceLoader->loadResource("Trace");
+  ICUResourceLoader->loadResource("RuntimeErrors");
+
+  // Setup a dummy wxApp to enable some wxWidgets functionality.
+  seec::setupDummyAppConsole();
+  seec::setupCommonConfig();
+
+  // Setup limits.
+  ThreadEventLimit = getUserThreadEventLimit();
+  ArchiveSizeLimit = getUserArchiveSizeLimit();
+
+  // Attempt to load augmentations.
+  Augmentations->loadFromResources(__SeeC_ResourcePath__);
+  Augmentations->loadFromUserLocalDataDir();
+
   // Write a copy of the Module's bitcode into the trace directory.
   StreamAllocator->writeModule(BitcodeRef);
   
@@ -222,6 +340,14 @@ ProcessEnvironment::ProcessEnvironment()
                                                *ModIndex, 
                                                *StreamAllocator,
                                                SyncExit));
+
+  // Setup runtime error printing.
+  ProcessTracer->setRunErrorCallback(
+    [this] (seec::runtime_errors::RunError const &Error,
+            llvm::Instruction const *Instruction)
+    {
+      return PrintRunError(Error, Instruction, *ModIndex, *Augmentations);
+    });
 
   // Give the listener the run-time locations of functions.
   uint32_t FunIndex = 0;
@@ -245,15 +371,30 @@ ProcessEnvironment::ProcessEnvironment()
                                         SeeCInfoGlobals[GlobalIndex]);
     ++GlobalIndex;
   }
-  
-  // Find the location of all intercepted functions.
+
+  ProcessTracer->notifyGlobalVariablesComplete();
+
 #define SEEC__STR2(NAME) #NAME
 #define SEEC__STR(NAME) SEEC__STR2(NAME)
-
+  
+  // Find the location of all intercepted functions.
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
   if (auto Ptr = dlsym(RTLD_DEFAULT, SEEC__STR(SEEC_MANGLE_FUNCTION(NAME))))   \
     InterceptorAddresses.insert(reinterpret_cast<uintptr_t>(Ptr));
 #include "seec/Runtimes/Tracer/InterceptedFunctions.def"
+
+#elif defined(_WIN32)
+  auto const RTHdl = GetModuleHandle("seecRuntimeTracer");
+
+#define SEEC_INTERCEPTED_FUNCTION(NAME)                                        \
+  if (auto Ptr = GetProcAddress(RTHdl, SEEC__STR(SEEC_MANGLE_FUNCTION(NAME)))) \
+    InterceptorAddresses.insert(reinterpret_cast<uintptr_t>(Ptr));
+#include "seec/Runtimes/Tracer/InterceptedFunctions.def"
+
+#else
+#error "Intercepted function locating not implemented for this platform."
+#endif
 
 #undef SEEC__STR2
 #undef SEEC__STR
@@ -261,8 +402,69 @@ ProcessEnvironment::ProcessEnvironment()
 
 ProcessEnvironment::~ProcessEnvironment()
 {
+  // Finalize the trace.
+  auto const OutputEnabled = ProcessTracer->traceEnabled();
   ThreadLookup.clear();
   ProcessTracer.reset();
+  if (OutputEnabled)
+    archive();
+}
+
+ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
+{
+  std::lock_guard<std::mutex> Lock{ThreadLookupMutex};
+
+  auto &ThreadEnvPtr = ThreadLookup[std::this_thread::get_id()];
+
+  if (!ThreadEnvPtr)
+    ThreadEnvPtr.reset(new ThreadEnvironment(getProcessEnvironment()));
+
+  return ThreadEnvPtr.get();
+}
+
+void ProcessEnvironment::setProgramName(llvm::StringRef Name)
+{
+  ProgramName = llvm::sys::path::filename(Name);
+}
+
+TraceArchiveResult ProcessEnvironment::archive()
+{
+  // Determine the size of the trace.
+  auto const MaybeSize = StreamAllocator->getTotalSize();
+  if (MaybeSize.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, "", "Couldn't read trace file size."};
+
+  if (MaybeSize.get<uint64_t>() > ArchiveSizeLimit)
+    return TraceArchiveResult{false, "", "Trace exceeds archive limit."};
+
+  // Attempt to create the archive. If the ProgramName is empty, a name will
+  // be created based on the trace directory's name.
+  auto MaybeArchived = StreamAllocator->archiveTo(ProgramName);
+  if (MaybeArchived.assigned<std::string>())
+    return TraceArchiveResult{true, MaybeArchived.move<std::string>(), ""};
+  else if (MaybeArchived.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, "", "Failed to archive the trace."};
+  else {
+    llvm_unreachable("No result from archiveTo()!");
+    return TraceArchiveResult{false, "", "Failed to archive the trace."};
+  }
+}
+
+TraceArchiveResult
+ProcessEnvironment::unarchive(TraceArchiveResult const &FromArchive)
+{
+  if (!FromArchive.getSuccess())
+    return TraceArchiveResult{false, FromArchive.getFilename(), ""};
+
+  auto const MaybeErr = StreamAllocator->extractFrom(FromArchive.getFilename());
+  if (MaybeErr.assigned<Error>())
+    // TODO: Attempt to get an informative message from the Error.
+    return TraceArchiveResult{false, FromArchive.getFilename(),
+                              "Couldn't extract trace file."};
+
+  return TraceArchiveResult{true, FromArchive.getFilename(), ""};
 }
 
 
@@ -271,20 +473,13 @@ ProcessEnvironment::~ProcessEnvironment()
 //------------------------------------------------------------------------------
 
 ProcessEnvironment &getProcessEnvironment() {
-  static bool Initialized = false;
-  static std::mutex InitializationMutex {};
-  static std::unique_ptr<ProcessEnvironment> ProcessEnv {};
-  
-  if (Initialized)
-    return *ProcessEnv;
-  
-  std::lock_guard<std::mutex> Lock(InitializationMutex);
-  if (Initialized)
-    return *ProcessEnv;
-  
-  ProcessEnv.reset(new ProcessEnvironment());
-  Initialized = true;
-  
+  static std::once_flag InitFlag;
+  static std::unique_ptr<ProcessEnvironment> ProcessEnv;
+
+  std::call_once(InitFlag, [&](){
+    ProcessEnv.reset(new ProcessEnvironment());
+  });
+
   return *ProcessEnv;
 }
 
@@ -294,19 +489,20 @@ ProcessEnvironment &getProcessEnvironment() {
 //------------------------------------------------------------------------------
 
 ThreadEnvironment &getThreadEnvironment() {
-  // Yes, this is a terrible bottleneck. When thread_local support is available,
-  // we'll be using that instead.
-  static std::mutex AccessMutex {};
-  
-  std::lock_guard<std::mutex> Lock(AccessMutex);
-  
-  auto &Lookup = getProcessEnvironment().getThreadLookup();
-  auto &ThreadEnvPtr = Lookup[std::this_thread::get_id()];
-  
-  if (!ThreadEnvPtr)
-    ThreadEnvPtr.reset(new ThreadEnvironment(getProcessEnvironment()));
-  
-  return *ThreadEnvPtr;
+#if __has_feature(cxx_thread_local)
+  // Keep a thread-local pointer to this thread's environment.
+  thread_local ThreadEnvironment *TE =
+    getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
+#else
+  // Keep a thread-local pointer to this thread's environment.
+  static __thread ThreadEnvironment *TE = nullptr;
+  if (!TE)
+    TE = getProcessEnvironment().getOrCreateCurrentThreadEnvironment();
+#endif
+
+  assert(TE && "ThreadEnvironment not found!");
+
+  return *TE;
 }
 
 
@@ -324,15 +520,22 @@ void SeeCRecordFunctionBegin(uint32_t Index) {
   auto F = ModIndex.getFunction(Index);
   Listener.notifyFunctionBegin(Index, F);
   ThreadEnv.pushFunction(F);
+
+  ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordFunctionEnd(uint32_t Index) {
-  // auto &ModIndex = Environment::getModuleIndex();
+void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const InstructionIndex) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
+
+  auto const &FIndex = ThreadEnv.getFunctionIndex();
   auto F = ThreadEnv.popFunction();
+  auto I = FIndex.getInstruction(InstructionIndex);
+
   // Check F matches Index?
-  Listener.notifyFunctionEnd(Index, F);
+  Listener.notifyFunctionEnd(Index, F, InstructionIndex, I);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
@@ -343,31 +546,45 @@ void SeeCRecordArgumentByVal(uint32_t Index, void *Address) {
   assert(Arg && "Expected Argument");
   
   Listener.notifyArgumentByVal(Index, Arg, Address);
-}
 
-void SeeCRecordSetReadable(void *Address, uint64_t Size) {
-  llvm::errs() << "readable " << Address << ", " << Size << "\n";
-}
-
-void SeeCRecordSetWritable(void *Address, uint64_t Size) {
-  llvm::errs() << "readable " << Address << ", " << Size << "\n";
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordArgs(int64_t ArgC, char **ArgV) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyArgs(ArgC, ArgV);
+  
+  if (ArgC) {
+    auto &ProcessEnv = ThreadEnv.getProcessEnvironment();
+    ProcessEnv.setProgramName(ArgV[0]);
+  }
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordEnv(char **EnvP) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyEnv(EnvP);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordSetInstruction(uint32_t Index) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
+}
+
+void SeeCRecordPreAlloca(uint32_t const Index,
+                         uint64_t const ElemSize,
+                         uint64_t const ElemCount)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  ThreadEnv.setInstructionIndex(Index);
+  auto const Alloca = llvm::cast<llvm::AllocaInst>(ThreadEnv.getInstruction());
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyPreAlloca(Index, *Alloca, ElemSize, ElemCount);
 }
 
 void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
@@ -389,6 +606,8 @@ void SeeCRecordPostLoad(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostLoad(Index, Load, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
@@ -400,6 +619,8 @@ void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPreStore(Index, Store, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
@@ -410,6 +631,8 @@ void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostStore(Index, Store, Address, Size);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreCall(uint32_t Index, void *Address) {
@@ -419,26 +642,27 @@ void SeeCRecordPreCall(uint32_t Index, void *Address) {
   auto &ProcessEnv = seec::trace::getProcessEnvironment();
   if (ProcessEnv.isInterceptedFunction(reinterpret_cast<uintptr_t>(Address))) {
     ThreadEnv.setInstructionIsInterceptedCall();
-    return;
   }
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
-  assert(Call && "Expected CallInst");
+  else {
+    auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
+    assert(Call && "Expected CallInst");
 
-  auto &Listener = ThreadEnv.getThreadListener();
-  Listener.notifyPreCall(Index, Call, Address);
+    auto &Listener = ThreadEnv.getThreadListener();
+    Listener.notifyPreCall(Index, Call, Address);
+  }
 }
 
 void SeeCRecordPostCall(uint32_t Index, void *Address) {
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  if (ThreadEnv.getInstructionIsInterceptedCall())
-    return;
-  
-  auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
-  assert(Call && "Expected CallInst");
+  if (!ThreadEnv.getInstructionIsInterceptedCall()) {
+    auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
+    assert(Call && "Expected CallInst");
 
-  auto &Listener = ThreadEnv.getThreadListener();
-  Listener.notifyPostCall(Index, Call, Address);
+    auto &Listener = ThreadEnv.getThreadListener();
+    Listener.notifyPostCall(Index, Call, Address);
+  }
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreCallIntrinsic(uint32_t Index) {
@@ -460,6 +684,8 @@ void SeeCRecordPostCallIntrinsic(uint32_t Index) {
 
   auto &Listener = ThreadEnv.getThreadListener();
   Listener.notifyPostCallIntrinsic(Index, Call);
+
+  ThreadEnv.checkOutputSize();
 }
 
 void SeeCRecordPreDivide(uint32_t Index) {
@@ -473,6 +699,19 @@ void SeeCRecordPreDivide(uint32_t Index) {
   Listener.notifyPreDivide(Index, BinOp);
 }
 
+void SeeCRecordUpdateVoid(uint32_t Index) {
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  ThreadEnv.setInstructionIndex(Index);
+
+  if (ThreadEnv.getInstructionIsInterceptedCall())
+    return;
+
+  auto &Listener = ThreadEnv.getThreadListener();
+  Listener.notifyValue(Index, ThreadEnv.getInstruction());
+
+  ThreadEnv.checkOutputSize();
+}
+
 #define SEEC_RECORD_TYPED(NAME, TYPE)                                          \
 void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
@@ -481,6 +720,7 @@ void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
     return;                                                                    \
   auto &Listener = ThreadEnv.getThreadListener();                              \
   Listener.notifyValue(Index, ThreadEnv.getInstruction(), Value);              \
+  ThreadEnv.checkOutputSize();                                                 \
 }                                                                              \
 void SeeCRecordSetCurrent##NAME(TYPE Value) {                                  \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
@@ -488,6 +728,7 @@ void SeeCRecordSetCurrent##NAME(TYPE Value) {                                  \
   Listener.notifyValue(ThreadEnv.getInstructionIndex(),                        \
                        ThreadEnv.getInstruction(),                             \
                        Value);                                                 \
+  ThreadEnv.checkOutputSize();                                                 \
 }
 
 SEEC_RECORD_TYPED(Pointer, void *)
@@ -532,6 +773,41 @@ void SEEC_MANGLE_FUNCTION(LockMemoryForReading)() {
   Listener.acquireGlobalMemoryReadLock();
 }
 
+char SEEC_MANGLE_FUNCTION(IsKnownMemoryCovering)(void const * const Start,
+                                                 size_t const Size)
+{
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+
+  return seec::trace::getThreadEnvironment()
+                     .getThreadListener()
+                     .isKnownMemoryRegionCovering(Address, Size);
+}
+
+void SEEC_MANGLE_FUNCTION(RemoveKnownMemory)(void const * const Start) {
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+
+  seec::trace::getThreadEnvironment()
+              .getThreadListener()
+              .removeKnownMemoryRegion(Address);
+}
+
+void SEEC_MANGLE_FUNCTION(AddKnownMemory)(void const * const Start,
+                                          size_t const Size,
+                                          char const Readable,
+                                          char const Writable)
+{
+  auto const Address = reinterpret_cast<uintptr_t>(Start);
+  auto const Permission
+    = Readable ? (Writable ? seec::MemoryPermission::ReadWrite
+                           : seec::MemoryPermission::ReadOnly)
+               : (Writable ? seec::MemoryPermission::WriteOnly
+                           : seec::MemoryPermission::None);
+
+  seec::trace::getThreadEnvironment()
+              .getThreadListener()
+              .addKnownMemoryRegion(Address, Size, Permission);
+}
+
 void
 SEEC_MANGLE_FUNCTION(RecordUntypedState)
 (char const * const Data, size_t const Size)
@@ -545,7 +821,37 @@ void SEEC_MANGLE_FUNCTION(ReleaseLocks)() {
   Listener.exitPostNotification();
 }
 
-void SEEC_MANGLE_FUNCTION(CheckCStringRead)(char const * const CString) {
+void SEEC_MANGLE_FUNCTION(SetPointerTargetNewValid)(void const * const Pointer)
+{
+  auto &Thread = seec::trace::getThreadEnvironment().getThreadListener();
+  auto const Address = reinterpret_cast<uintptr_t>(Pointer);
+  auto const ActiveFn = Thread.getActiveFunction();
+
+  assert(ActiveFn);
+
+  auto const Area = seec::trace::getContainingMemoryArea(Thread, Address);
+  auto const Target = Area.assigned() ? Area.get<seec::MemoryArea>().start()
+                                      : Address;
+
+  ActiveFn->setPointerObject(ActiveFn->getActiveInstruction(),
+                             Thread.getProcessListener()
+                                   .makePointerObject(Target));
+}
+
+void SEEC_MANGLE_FUNCTION(SetPointerTargetFromArgument)(unsigned const ArgNo)
+{
+  auto const ActiveFn = seec::trace::getThreadEnvironment()
+                                    .getThreadListener()
+                                    .getActiveFunction();
+
+  assert(ActiveFn);
+
+  ActiveFn->transferArgPointerObjectToCall(ArgNo);
+}
+
+void SEEC_MANGLE_FUNCTION(CheckCStringRead)(size_t const Parameter,
+                                            char const * const CString)
+{
   using namespace seec::runtime_errors::format_selects;
   
   auto &Env = seec::trace::getThreadEnvironment();
@@ -554,7 +860,7 @@ void SEEC_MANGLE_FUNCTION(CheckCStringRead)(char const * const CString) {
                                        Env.getInstructionIndex(),
                                        CStdFunction::userdefined};
   
-  Checker.checkCStringRead(1, CString);
+  Checker.checkCStringRead(Parameter, CString);
 }
 
 } // extern "C"

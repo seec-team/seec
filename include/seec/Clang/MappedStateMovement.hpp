@@ -14,6 +14,7 @@
 #ifndef SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 #define SEEC_CLANG_MAPPEDSTATEMOVEMENT_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 
 namespace clang {
@@ -28,8 +29,19 @@ namespace cm {
 
 class FunctionState;
 class ProcessState;
+class StreamState;
 class ThreadState;
 class Value;
+
+
+/// \brief Enumerates possible outcomes of requesting state movement.
+///
+enum class MovementResult {
+  Unmoved,
+  PredicateSatisfied,
+  ReachedBeginning,
+  ReachedEnd
+};
 
 
 //===----------------------------------------------------------------------===//
@@ -37,24 +49,30 @@ class Value;
 /// @{
 
 /// \brief Move Thread's state to the next logical thread time.
-/// \return true iff the state was moved.
 ///
-bool moveForward(ThreadState &Thread);
+MovementResult moveForward(ThreadState &Thread);
 
 /// \brief Move Thread's state forward to the end of the trace.
-/// \return true iff the state was moved.
 ///
-bool moveForwardToEnd(ThreadState &Thread);
+MovementResult moveForwardToEnd(ThreadState &Thread);
+
+/// \brief Move Thread's state forward until the next time that a top-level Stmt
+///        is completed.
+///
+MovementResult moveForwardToCompleteTopLevelStmt(ThreadState &Thread);
 
 /// \brief Move Thread's state to the previous logical thread time.
-/// \return true iff the state was moved.
 ///
-bool moveBackward(ThreadState &Thread);
+MovementResult moveBackward(ThreadState &Thread);
 
 /// \brief Move Thread's state backward to the end of the trace.
-/// \return true iff the state was moved.
 ///
-bool moveBackwardToEnd(ThreadState &Thread);
+MovementResult moveBackwardToEnd(ThreadState &Thread);
+
+/// \brief Move Thread's state backward until the most recent preceding time
+///        that a top-level Stmt was completed.
+///
+MovementResult moveBackwardToCompleteTopLevelStmt(ThreadState &Thread);
 
 /// @} (Thread movement.)
 //===----------------------------------------------------------------------===//
@@ -65,34 +83,14 @@ bool moveBackwardToEnd(ThreadState &Thread);
 /// @{
 
 /// \brief Move backwards to the end of the Function's entry.
-/// \return true iff the state was moved.
 ///
-bool moveToFunctionEntry(FunctionState &Function);
+MovementResult moveToFunctionEntry(FunctionState &Function);
 
 /// \brief Move forwards until a Function is finished.
-/// \return true iff the state was moved.
 ///
-bool moveToFunctionFinished(FunctionState &Function);
+MovementResult moveToFunctionFinished(FunctionState &Function);
 
 /// @} (Contextual movement for functions.)
-//===----------------------------------------------------------------------===//
-
-
-//===----------------------------------------------------------------------===//
-/// \name Contextual movement for values.
-/// @{
-
-/// \brief Move backwards to the initial allocation of a Value.
-/// \return true iff the state was moved.
-///
-bool moveToAllocation(ProcessState &Process, Value const &OfValue);
-
-/// \brief Move forwards until a Value is deallocated.
-/// \return true iff the state was moved.
-///
-bool moveToDeallocation(ProcessState &Process, Value const &OfValue);
-
-/// @} (Contextual movement for values.)
 //===----------------------------------------------------------------------===//
 
 
@@ -100,18 +98,49 @@ bool moveToDeallocation(ProcessState &Process, Value const &OfValue);
 /// \name Contextual movement for memory.
 /// @{
 
-/// \brief Move State forward until the memory state in Area changes.
-/// \return true iff the State was moved.
+/// \brief Move backwards to the initial allocation of the memory that owns
+///        \c Address.
 ///
-bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+MovementResult moveToAllocation(ProcessState &Process,
+                                stateptr_ty const Address);
+
+/// \brief Move forwards until the memory that owns \c Address is deallocated.
+///
+MovementResult moveToDeallocation(ProcessState &Process,
+                                  stateptr_ty const Address);
+
+/// \brief Move State forward until the memory state in Area changes.
+///
+MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
+                                             MemoryArea const &Area);
 
 /// \brief Move State backward until the memory state in Area changes.
-/// \return true iff the State was moved.
 ///
-bool
-moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
+                                              MemoryArea const &Area);
+
+/// \brief Move \c State backward until an allocation exists for the given
+///        \c Address.
+///
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address);
 
 /// @} (Contextual movement for memory.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+/// \name Contextual movement for FILE streams.
+/// @{
+
+/// \brief Move \c State to the write to \c Stream that produced the character
+///        at \c Position.
+///
+MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
+                                           StreamState const &Stream,
+                                           std::size_t const Position);
+
+/// @} (Contextual movement for FILE streams.)
 //===----------------------------------------------------------------------===//
 
 
@@ -121,11 +150,13 @@ moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
 
 /// \brief Move State forward until the Stmt is next evaluated.
 ///
-bool moveForwardUntilEvaluated(ThreadState &State, clang::Stmt const *S);
+MovementResult moveForwardUntilEvaluated(ThreadState &State,
+                                         clang::Stmt const *S);
 
 /// \brief Move State backward until the Stmt is last evaluated.
 ///
-bool moveBackwardUntilEvaluated(ThreadState &State, clang::Stmt const *S);
+MovementResult moveBackwardUntilEvaluated(ThreadState &State,
+                                          clang::Stmt const *S);
 
 /// @} (Contextual movement based on AST nodes.)
 //===----------------------------------------------------------------------===//

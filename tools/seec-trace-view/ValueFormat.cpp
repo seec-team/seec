@@ -17,6 +17,10 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 
+#include "clang/AST/Expr.h"
+#include "clang/AST/Stmt.h"
+
+#include "LocaleSettings.hpp"
 #include "ValueFormat.hpp"
 
 
@@ -45,9 +49,9 @@ static char const *getPointerDescriptionKey(seec::cm::ValueOfPointer const &P)
 }
 
 UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
-                                       seec::cm::ProcessState const &State)
+                                       seec::cm::ProcessState const &State,
+                                       clang::Stmt const * const Stmt)
 {
-  auto const InMemory = Value.isInMemory();
   auto const Kind = Value.getKind();
   
   if (Kind == seec::cm::Value::Kind::Pointer) {
@@ -67,10 +71,10 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
         }
       }
     }
-    
+
     UErrorCode Status = U_ZERO_ERROR;
     auto Resources = seec::getResource("SeeCClang",
-                                       Locale::getDefault(),
+                                       getLocale(),
                                        Status,
                                        "Values",
                                        "Descriptive");
@@ -87,8 +91,15 @@ UnicodeString getPrettyStringForInline(seec::cm::Value const &Value,
     return String;
   }
   else {
-    if (InMemory) {
-      return UnicodeString::fromUTF8(Value.getValueAsStringShort());
+    auto const Expr = llvm::dyn_cast<clang::Expr>(Stmt);
+
+    if (Expr && Expr->isLValue()) {
+      auto Result = seec::getString("SeeCClang",
+                                    (char const * []){
+                                      "Values", "Descriptive", "LValue"});
+      if (Result.assigned<UnicodeString>())
+        return Result.move<UnicodeString>();
+      return UnicodeString::fromUTF8("");
     }
     else {
       return UnicodeString::fromUTF8(Value.getValueAsStringFull());
@@ -112,7 +123,7 @@ UnicodeString shortenValueString(UnicodeString ValueString, int32_t Length)
   
   UErrorCode Status = U_ZERO_ERROR;
   auto Resources = seec::getResource("SeeCClang",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "Values",
                                      "Descriptive");

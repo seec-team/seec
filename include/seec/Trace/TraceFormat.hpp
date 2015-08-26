@@ -45,7 +45,7 @@ inline offset_uint noOffset() {
 }
 
 /// Version of the trace storage format.
-constexpr inline uint64_t formatVersion() { return 3; }
+constexpr inline uint64_t formatVersion() { return 5; }
 
 /// ThreadID used to indicate that an event location refers to the initial
 /// state of the process.
@@ -96,10 +96,6 @@ struct modifies_shared_state { static bool const value = false; };
 template<EventType ET>
 struct is_memory_state { static bool const value = false; };
 
-/// Dummy trait for events that define no other traits.
-template<EventType ET>
-struct no_traits { static bool const value = false; };
-
 #define SEEC_PP_TRAIT(EVENT_NAME, TRAIT_NAME)                                  \
 template<>                                                                     \
 struct TRAIT_NAME<EventType::EVENT_NAME> { static bool const value = true; };  \
@@ -115,82 +111,33 @@ SEEC_PP_APPLY(SEEC_PP_TRAIT, TRAITS)
 // FunctionRecord
 //------------------------------------------------------------------------------
 
+/// \brief Record of a single Function execution.
 ///
 struct FunctionRecord {
+  /// Index of the \c llvm::Function in the \c llvm::Module.
   uint32_t Index;
 
+  /// Offset of the FunctionStart event in the thread's event trace.
   offset_uint EventOffsetStart;
 
+  /// Offset of the FunctionEnd event in the thread's event trace, or noOffset()
+  /// if the Function was never completed.
   offset_uint EventOffsetEnd;
 
+  /// Thread time at which the Function began.
   uint64_t ThreadTimeEntered;
 
+  /// Thread time at which the Function completed (if it completed).
   uint64_t ThreadTimeExited;
 
+  /// Offset of the list of FunctionRecords for Functions called during this
+  /// Function execution. This is unused and should be removed.
   offset_uint ChildListOffset;
 
+  /// Offset of the list of non-local memory changes performed during this
+  /// Function's execution. This is unused and should be removed.
   offset_uint NonLocalChangeListOffset;
 };
-
-
-//------------------------------------------------------------------------------
-// RuntimeValueRecord
-//------------------------------------------------------------------------------
-
-union RuntimeValueRecord {
-  uint64_t UInt64;
-  
-  uintptr_t UIntPtr;
-  
-  float Float;
-  
-  double Double;
-  
-  long double LongDouble;
-  
-  /// \brief Default construct.
-  RuntimeValueRecord()
-  {}
-  
-  /// \brief Copy construct.
-  RuntimeValueRecord(RuntimeValueRecord const &Other) = default;
-  
-  /// \brief Construct a new record holding a uint32_t.
-  explicit RuntimeValueRecord(uint32_t Value)
-  : UInt64(Value)
-  {}
-  
-  /// \brief Construct a new record holding a uint64_t.
-  explicit RuntimeValueRecord(uint64_t Value)
-  : UInt64(Value)
-  {}
-  
-  /// \brief Create a new record holding a uintptr_t.
-  explicit RuntimeValueRecord(void const *Value)
-  : UIntPtr(reinterpret_cast<uintptr_t>(Value))
-  {}
-  
-  /// \brief Construct a new record holding a float.
-  explicit RuntimeValueRecord(float Value)
-  : Float(Value)
-  {}
-  
-  /// \brief Construct a new record holding a double.
-  explicit RuntimeValueRecord(double Value)
-  : Double(Value)
-  {}
-  
-  /// \brief Construct a new record holding a long double.
-  explicit RuntimeValueRecord(long double Value)
-  : LongDouble(Value)
-  {}
-  
-  /// \brief Copy assign.
-  RuntimeValueRecord &operator=(RuntimeValueRecord const &RHS) = default;
-};
-
-llvm::raw_ostream & operator<<(llvm::raw_ostream &Out,
-                               RuntimeValueRecord const &Record);
 
 
 //------------------------------------------------------------------------------
@@ -240,9 +187,6 @@ public:
   
   /// Get the value of this event's ProcessTime, if it has one.
   seec::Maybe<uint64_t> getProcessTime() const;
-  
-  /// Get the value of this event's ThreadTime, if it has one.
-  seec::Maybe<uint64_t> getThreadTime() const;
   
   /// Get the value of this event's Index member, if it has one.
   seec::Maybe<uint32_t> getIndex() const;

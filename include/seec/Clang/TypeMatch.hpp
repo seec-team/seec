@@ -71,6 +71,8 @@ public:
   bool operator!=(MatchType const &RHS) const {
     return !operator==(RHS);
   }
+
+  ::clang::Type const *getType() const { return Type; }
 };
 
 } // namespace cm

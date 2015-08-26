@@ -13,431 +13,529 @@
 
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Util/Printing.hpp"
+#include "seec/Util/Range.hpp"
+
+#include <algorithm>
+#include <limits>
 
 namespace seec {
 
 namespace trace {
 
+static constexpr bool debugPrintStateChanges() { return false; }
+
 
 //------------------------------------------------------------------------------
-// MemoryState Mutators
+// MemoryAllocation Mutators
 //------------------------------------------------------------------------------
 
-void MemoryState::add(MappedMemoryBlock const &Block, EventLocation Event) {
-  // Clear space for the new fragment.
-  clear(Block.area());
-  
-  // Add the new fragment.
-  auto const Address = Block.start();
-  
-  // TODO: get an iterator from clear() to hint to insert.
-  FragmentMap.insert(std::make_pair(Address,
-                                    MemoryStateFragment(Block,
-                                                        std::move(Event))));
+llvm::ArrayRef<char>
+MemoryAllocation::getAreaData(MemoryArea const &Area) const
+{
+  assert(MemoryArea(Address, Size).contains(Area));
+
+  auto const Offset = Area.address() - Address;
+  return llvm::ArrayRef<char>(Data.data() + Offset, Area.length());
 }
 
-void MemoryState::add(MappedMemoryBlock &&Block, EventLocation Event) {
-  // Clear space for the new fragment.
-  clear(Block.area());
-  
-  // Add the new fragment.
-  auto const Address = Block.start();
-  
-  // TODO: get an iterator from clear() to hint to insert.
-  FragmentMap.insert(std::make_pair(Address,
-                                    MemoryStateFragment(std::move(Block),
-                                                        std::move(Event))));
+llvm::ArrayRef<unsigned char>
+MemoryAllocation::getAreaInitialization(MemoryArea const &Area) const
+{
+  assert(MemoryArea(Address, Size).contains(Area));
+
+  auto const Offset = Area.address() - Address;
+  return llvm::ArrayRef<unsigned char>(Init.data() + Offset, Area.length());
 }
 
-void MemoryState::memcpy(uintptr_t Source,
-                         uintptr_t Destination,
-                         std::size_t Size,
-                         seec::trace::EventLocation Event) {
-  auto const SourceEnd = Source + Size;
-  
-  // Create the new fragments.
-  decltype(FragmentMap) Moved;
-  auto MovedInsert = Moved.end();
-  
-  // Get the first source fragment starting >= Source.
-  auto It = FragmentMap.lower_bound(Source);
-  
-  // Check if the previous fragment overlaps.
-  if (It != FragmentMap.begin()
-      && (It == FragmentMap.end() || It->first > Source)) {
-    --It;
-    
-    if (It->second.getBlock().area().end() > Source) {
-      // Previous fragment overlaps with our start.
-      
-      // Copy the fragment's block and shift the start to match the start of
-      // the moved region (this will also handle the block's mapped data).
-      auto Block = It->second.getBlock();
-      Block.trimLeftSide(Source);
-      
-      // Change the block's area to the destination.
-      if (Block.area().length() <= Size)
-        Block.setStartEnd(Destination, Destination + Block.area().length());
-      else
-        Block.setStartEnd(Destination, Destination + Size);
-      
-      // Create a new state fragment for this event with the modified block.
-      MovedInsert = Moved.insert(MovedInsert,
-                                 std::make_pair(Destination,
-                                                MemoryStateFragment(Block,
-                                                                    Event)));
+bool MemoryAllocation::isCompletelyInitialized() const
+{
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+  if (Init.empty())
+    return false;
+
+  return std::all_of(Init.cbegin(), Init.cend(),
+                     [=] (unsigned char const Byte) { return Byte == Complete;});
+}
+
+bool MemoryAllocation::isPartiallyInitialized() const
+{
+  if (Init.empty())
+    return false;
+
+  return std::any_of(Init.cbegin(), Init.cend(),
+                     [] (unsigned char const Value) { return Value != 0; });
+}
+
+bool MemoryAllocation::isUninitialized() const
+{
+  return std::all_of(Init.cbegin(), Init.cend(),
+                     [] (unsigned char const C) { return C == 0; });
+}
+
+void MemoryAllocation::addBlock(MappedMemoryBlock const &Block)
+{
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : addBlock @" << Block.address()
+                 << " (" << Block.length() << ")\n";
+  }
+
+  clearArea(Block.area());
+
+  auto const Offset = Block.address() - Address;
+
+  std::memcpy(Data.data() + Offset, Block.data(), Block.length());
+
+  std::memset(Init.data() + Offset,
+              std::numeric_limits<unsigned char>::max(),
+              Block.length());
+}
+
+void MemoryAllocation::addArea(stateptr_ty const AtAddress,
+                               llvm::ArrayRef<char> WithData,
+                               llvm::ArrayRef<unsigned char> WithInitialization)
+{
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : addArea @" << AtAddress
+                 << " (" << WithData.size() << ")\n";
+  }
+
+  assert(WithData.size() == WithInitialization.size());
+
+  clearArea(MemoryArea(AtAddress, WithData.size()));
+
+  auto const Offset = AtAddress - Address;
+
+  std::memcpy(Data.data() + Offset,
+              WithData.data(),
+              WithData.size());
+
+  std::memcpy(Init.data() + Offset,
+              WithInitialization.data(),
+              WithInitialization.size());
+}
+
+void MemoryAllocation::clearArea(MemoryArea const &Area)
+{
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : clearArea @" << Area.address()
+                 << " (" << Area.length() << ")\n";
+  }
+
+  assert(MemoryArea(Address, Size).contains(Area));
+  assert(Area.length() != 0);
+
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+
+  auto const Offset = Area.address() - Address;
+  auto const Length = Area.length();
+
+  auto const InitBegin = Init.begin() + Offset;
+  auto const InitEnd   = InitBegin + Length;
+
+  // Determine this area's initialization.
+  EPreviousAreaType Type = EPreviousAreaType::Partial;
+
+  if (std::all_of(InitBegin, InitEnd,
+                  [] (unsigned char const C) { return C == 0; }))
+  {
+    Type = EPreviousAreaType::Uninitialized;
+  }
+  else if (std::all_of(InitBegin, InitEnd,
+           [=] (unsigned char const C) { return C == Complete; }))
+  {
+    Type = EPreviousAreaType::Complete;
+  }
+
+  PreviousType.push_back(Type);
+
+  // This is the only case in which we need to save the initialization.
+  if (Type == EPreviousAreaType::Partial)
+    PreviousInit.insert(PreviousInit.end(), InitBegin, InitEnd);
+
+  // This is the only case in which we need to save the data. This is also the
+  // only case in which "clearing" the area requires us to do anything (set the
+  // initialization of the bytes to zero).
+  if (Type != EPreviousAreaType::Uninitialized) {
+    PreviousData.insert(PreviousData.end(),
+                        Data.begin() + Offset,
+                        Data.begin() + Offset + Length);
+    std::fill(InitBegin, InitEnd, 0);
+  }
+}
+
+void MemoryAllocation::rewindArea(MemoryArea const &Area)
+{
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : rewindArea @" << Area.address()
+                 << " (" << Area.length() << ")\n";
+  }
+
+  assert(MemoryArea(Address, Size).contains(Area));
+  assert(Area.length() != 0);
+
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+
+  auto const Offset = Area.address() - Address;
+  auto const Length = Area.length();
+
+  auto const InitBegin = Init.begin() + Offset;
+
+  assert(!PreviousType.empty());
+  auto const Type = PreviousType.back();
+  PreviousType.pop_back();
+
+  if (debugPrintStateChanges()) {
+    switch (Type) {
+      case EPreviousAreaType::Uninitialized:
+        llvm::errs() << "  ...to uninitialized.\n"; break;
+      case EPreviousAreaType::Partial:
+        llvm::errs() << "  ...to partially initialized.\n"; break;
+      case EPreviousAreaType::Complete:
+        llvm::errs() << "  ...to completely initialized.\n"; break;
     }
-    
-    ++It;
   }
-  
-  // Find remaining overlapping fragments.
-  while (It != FragmentMap.end() && It->first < SourceEnd) {
-    // Copy the fragment's block.
-    auto Block = It->second.getBlock();
-    
-    // Change the block's area to the destination for this block.
-    auto const NewStart = Destination + (It->first - Source);
-    if (Block.area().end() <= SourceEnd)
-      Block.setStartEnd(NewStart, NewStart + Block.area().length());
-    else
-      Block.setStartEnd(NewStart, NewStart + Size);
-    
-    // Create a new state fragment for this event with the modified block.
-    MovedInsert = Moved.insert(MovedInsert,
-                               std::make_pair(NewStart,
-                                              MemoryStateFragment(Block,
-                                                                  Event)));
-    
-    ++It;
+
+  // Set area as uninitialized.
+  if (Type == EPreviousAreaType::Uninitialized)
+    std::fill_n(InitBegin, Length, 0);
+
+  // Restore initialization of area.
+  if (Type == EPreviousAreaType::Partial) {
+    assert(PreviousInit.size() >= Length);
+    auto const PrevInitIt = PreviousInit.end() - Length;
+    std::copy(PrevInitIt, PreviousInit.end(), InitBegin);
+    PreviousInit.erase(PrevInitIt, PreviousInit.end());
   }
-  
-  // Make room for the fragments.
-  clear(MemoryArea(Destination, Size));
-  
-  // Add the fragments.
-  FragmentMap.insert(Moved.begin(), Moved.end());
+
+  // Set area as completely initialized.
+  if (Type == EPreviousAreaType::Complete)
+    std::fill_n(InitBegin, Length, Complete);
+
+  // Restore data of area.
+  if (Type != EPreviousAreaType::Uninitialized) {
+    assert(PreviousData.size() >= Length);
+    auto const PrevDataIt = PreviousData.end() - Length;
+    std::copy(PrevDataIt, PreviousData.end(), Data.begin() + Offset);
+    PreviousData.erase(PrevDataIt, PreviousData.end());
+  }
 }
 
-void MemoryState::clear(MemoryArea const Area) {
-  // Convenience variables.
-  auto const Address = Area.start();
-  auto const LastAddress = Area.lastAddress();
-  
-  // Get the first fragment starting >= Address.
-  auto It = FragmentMap.lower_bound(Address);
+void MemoryAllocation::resize(std::size_t const NewSize)
+{
+  if (debugPrintStateChanges()) {
+    llvm::errs() << "@" << Address
+                 << " : resize from " << Size << " to " << NewSize << "\n";
+  }
 
-  // Best-case scenario: perfect removal of a previous state.
-  if (It != FragmentMap.end() && It->second.getBlock().area() == Area) {
-    FragmentMap.erase(It);
+  Data.resize(NewSize);
+  Init.resize(NewSize);
+  Size = NewSize;
+}
+
+//------------------------------------------------------------------------------
+// MemoryStateRegion
+//------------------------------------------------------------------------------
+
+bool MemoryStateRegion::isAllocated() const
+{
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return true;
+  return false;
+}
+
+bool MemoryStateRegion::isCompletelyInitialized() const
+{
+  auto const Complete = std::numeric_limits<unsigned char>::max();
+  auto const Initialization = getByteInitialization();
+  if (Initialization.empty())
+    return false;
+
+  return std::all_of(Initialization.begin(), Initialization.end(),
+                     [=] (unsigned char const Byte) { return Byte == Complete;});
+}
+
+bool MemoryStateRegion::isPartiallyInitialized() const
+{
+  auto const Initialization = getByteInitialization();
+  if (Initialization.empty())
+    return false;
+
+  return std::any_of(Initialization.begin(), Initialization.end(),
+                     [] (unsigned char const Value) { return Value != 0; });
+}
+
+bool MemoryStateRegion::isUninitialized() const
+{
+  auto const Init = getByteInitialization();
+  return std::all_of(Init.begin(), Init.end(),
+                     [] (unsigned char const C) { return C == 0; });
+}
+
+llvm::ArrayRef<unsigned char> MemoryStateRegion::getByteInitialization() const
+{
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return Alloc->getAreaInitialization(Area);
+
+  return llvm::ArrayRef<unsigned char>();
+}
+
+llvm::ArrayRef<char> MemoryStateRegion::getByteValues() const
+{
+  if (auto const Alloc = State.findAllocation(Area.start()))
+    if (MemoryArea(Alloc->getAddress(), Alloc->getSize()).contains(Area))
+      return Alloc->getAreaData(Area);
+
+  return llvm::ArrayRef<char>();
+}
+
+//------------------------------------------------------------------------------
+// MemoryState
+//------------------------------------------------------------------------------
+
+MemoryAllocation &MemoryState::getAllocation(MemoryArea const &ForArea)
+{
+  assert(!Allocations.empty() && "No allocations available!");
+
+  auto It = Allocations.upper_bound(ForArea.start());
+  assert(It != Allocations.begin() && "Allocation not found!");
+
+  --It;
+  auto const AllocStart = It->second.getAddress();
+  auto const AllocSize  = It->second.getSize();
+  assert(MemoryArea(AllocStart, AllocSize).contains(ForArea)
+          && "Allocation does not contain block!");
+
+  return It->second;
+}
+
+MemoryAllocation const &
+MemoryState::getAllocation(MemoryArea const &ForArea) const
+{
+  assert(!Allocations.empty() && "No allocations available!");
+
+  auto It = Allocations.upper_bound(ForArea.start());
+  assert(It != Allocations.begin() && "Allocation not found!");
+
+  --It;
+  auto const AllocStart = It->second.getAddress();
+  auto const AllocSize  = It->second.getSize();
+  assert(MemoryArea(AllocStart, AllocSize).contains(ForArea)
+          && "Allocation does not contain block!");
+
+  return It->second;
+}
+
+MemoryAllocation const *
+MemoryState::findAllocation(stateptr_ty const ForAddress) const
+{
+  if (Allocations.empty())
+    return nullptr;
+
+  auto It = Allocations.upper_bound(ForAddress);
+  if (It == Allocations.begin())
+    return nullptr;
+
+  --It;
+  auto const AllocStart = It->second.getAddress();
+  auto const AllocSize  = It->second.getSize();
+  if (!MemoryArea(AllocStart, AllocSize).contains(ForAddress))
+    return nullptr;
+
+  return &(It->second);
+}
+
+void MemoryState::allocationAdd(stateptr_ty const Address,
+                                std::size_t const Size)
+{
+  if (Size == 0)
+    return;
+
+  auto const Result = Allocations.emplace(std::piecewise_construct,
+                                          std::forward_as_tuple(Address),
+                                          std::forward_as_tuple(Address, Size));
+  assert(Result.second && "Allocation already exists!");
+}
+
+void MemoryState::allocationRemove(stateptr_ty const Address,
+                                   std::size_t const Size)
+{
+  if (Size == 0)
+    return;
+
+  auto const It = Allocations.find(Address);
+  assert(It != Allocations.end() && "Allocation does not exist!");
+
+  PreviousAllocations.emplace(std::move(It->second));
+  Allocations.erase(It);
+}
+
+void MemoryState::allocationResize(stateptr_ty const Address,
+                                   std::size_t const CurrentSize,
+                                   std::size_t const NewSize)
+{
+  if (CurrentSize == 0) {
+    allocationAdd(Address, NewSize);
+    return;
+  }
+  else if (NewSize == 0) {
+    allocationRemove(Address, CurrentSize);
     return;
   }
 
-  // Check if the previous fragment overlaps.
-  if (It != FragmentMap.begin()
-      && (It == FragmentMap.end() || It->first > Address)) {
-    if ((--It)->second.getBlock().lastAddress() >= Area.start()) {
-      // Previous fragment overlaps with our start. Check if we are splitting
-      // the fragment or performing a right-trim.
-      if (It->second.getBlock().lastAddress() > LastAddress) { // Split
-        // Create a new fragment for the right-hand side.
-        MappedMemoryBlock RightBlock(It->second.getBlock());
-        RightBlock.trimLeftSide(LastAddress + 1);
-        MemoryStateFragment RightFragment(std::move(RightBlock),
-                                          It->second.getStateRecordLocation());
-        
-        // Resize the previous fragment to remove the right-hand and overlap.
-        It->second.getBlock().setEnd(Address);
-        
-        // Insert the right-hand side fragment.
-        // TODO: Hint this insertion.
-        FragmentMap.insert(std::make_pair(LastAddress + 1,
-                                          std::move(RightFragment)));
-      }
-      else { // Right-trim
-        // Resize the previous fragment to remove the overlapping area.
-        It->second.getBlock().setEnd(Area.start());
-      }
-    }
+  auto &Alloc = getAllocation(MemoryArea(Address, CurrentSize));
+  assert(Alloc.getSize() == CurrentSize);
 
-    ++It;
-  }
+  // If the allocation is shrinking, then "clear" the disappearing area so that
+  // we can rewind it in the Unresize.
+  if (NewSize < CurrentSize)
+    Alloc.clearArea(MemoryArea(Address + NewSize,
+                               CurrentSize - NewSize));
 
-  // Find and remove overlapping fragments.
-  while (It != FragmentMap.end() && It->first <= LastAddress) {
-    if (It->second.getBlock().lastAddress() <= LastAddress) {
-      // Remove completely replaced fragment.
-      FragmentMap.erase(It++);
-    }
-    else {
-      // Reposition right-overlapping fragment.
-      auto Fragment = std::move(It->second);
-      FragmentMap.erase(It++);
-      Fragment.getBlock().trimLeftSide(LastAddress + 1);
-      FragmentMap.insert(It,
-                         std::make_pair(LastAddress + 1, std::move(Fragment)));
-      break;
-    }
-  }
+  Alloc.resize(NewSize);
 }
 
-void MemoryState::unsplit(uintptr_t LeftAddress, uintptr_t RightAddress) {
- auto LeftIt = FragmentMap.find(LeftAddress);
- auto RightIt = FragmentMap.find(RightAddress);
- assert(LeftIt != FragmentMap.end() && RightIt != FragmentMap.end());
- 
- // Set the left fragment to cover the entire (merged) range.
- LeftIt->second.getBlock().setEnd(RightIt->second.getBlock().end());
- 
- // Delete the right fragment.
- FragmentMap.erase(RightIt);
-}
-
-void MemoryState::untrimRightSide(uintptr_t Address, std::size_t TrimSize) {
-  auto It = FragmentMap.find(Address);
-  assert(It != FragmentMap.end() && "Illegal MemoryState::untrimRightSide.");
-  
-  // Increase the size of the fragment.
-  It->second.getBlock().setEnd(It->second.getBlock().end() + TrimSize);
-}
-
-void MemoryState::untrimLeftSide(uintptr_t Address, uintptr_t PriorAddress) {
-  auto It = FragmentMap.find(Address);
-  assert(It != FragmentMap.end() && "Illegal MemoryState::untrimLeftSide.");
-  
-  // Shift the fragment back to its original position.
-  auto Fragment = std::move(It->second);
-  FragmentMap.erase(It++);
-  Fragment.getBlock().untrimLeftSide(PriorAddress);
-  FragmentMap.insert(std::make_pair(PriorAddress, std::move(Fragment)));
-}
-
-
-//------------------------------------------------------------------------------
-// MemoryState::Region
-//------------------------------------------------------------------------------
-
-bool MemoryState::Region::isCompletelyInitialized() const {
-  auto It = State.FragmentMap.lower_bound(Area.start());
-  
-  // Check if the fragment completely covers our area.
-  if (It != State.FragmentMap.end()
-      && It->second.getBlock().area().contains(Area)) {
-      return true;
-  }
-  
-  auto CoveredPriorTo = Area.start();
-  
-  // If this fragment does not line up with the start of our area, then check
-  // the previous fragment to see if it covers the start of our area.
-  if (It == State.FragmentMap.end() || It->first > Area.start()) {
-    // If there's no previous fragment, our start is not covered.
-    if (It == State.FragmentMap.begin())
-      return false;
-    
-    --It;
-    
-    CoveredPriorTo = It->second.getBlock().area().end();
-    if (CoveredPriorTo >= Area.end())
-      return true;
-    
-    ++It;
-  }
-  
-  for (; It != State.FragmentMap.end(); ++It) {
-    // Check if there was a gap between this fragment and the last fragment (if
-    // we didn't check the previous fragment above, then the first time through
-    // the loop this must be false, as It->first will equal Area.start()).
-    if (It->first != CoveredPriorTo)
-      return false;
-    
-    CoveredPriorTo = It->second.getBlock().area().end();
-    
-    // This fragment covers the remainder of our area.
-    if (CoveredPriorTo >= Area.end())
-      return true;
-  }
-  
-  // There were not enough fragments to cover our area.
-  return false;
-}
-
-bool MemoryState::Region::isPartiallyInitialized() const {
-  auto It = State.FragmentMap.lower_bound(Area.start());
-  
-  // Check if this fragment intersects the area (meaning that the intersection
-  // must be initialized).
-  if (It != State.FragmentMap.end()
-      && It->second.getBlock().area().intersects(Area))
-  {
-    return true;
-  }
-  
-  // Check the previous fragment to see if it intersects our area.
-  if (It != State.FragmentMap.begin()
-      && (It == State.FragmentMap.end() || It->first > Area.start()))
-  {
-    --It;
-    
-    if (It->second.getBlock().area().intersects(Area))
-      return true;
-  }
-  
-  // No fragments intersected our area.
-  return false;
-}
-
-std::vector<char> MemoryState::Region::getByteInitialization() const {
-  auto const Start = Area.start();
-  auto const Length = Area.length();
-  
-  // Set all bytes to zero (uninitialized).
-  std::vector<char> Initialization(Length, 0);
-
-  auto It = State.FragmentMap.lower_bound(Start);
-
-  // Best-case scenario: this block's state was set in a single fragment.
-  if (It != State.FragmentMap.end()
-      && It->second.getBlock().area().contains(Area)) {
-    memset(Initialization.data(), 0xFF, Area.length());
-    return Initialization;
-  }
-
-  // Check if the previous fragment overlaps our area.
-  if ((It == State.FragmentMap.end() || It->first > Start)
-      && It != State.FragmentMap.begin()) {
-    --It;
-    
-    auto const FragmentEnd = It->second.getBlock().area().end();
-    if (FragmentEnd > Start) {
-      auto Covered = FragmentEnd - Start;
-      
-      if (Covered > Length)
-        Covered = Length;
-      
-      memset(Initialization.data(), 0xFF, Covered);
-      
-      if (Covered == Length)
-        return Initialization;
-    }
-    
-    ++It;
-  }
-  
-  // Find and set the values for overlapping fragments.
-  for (; It != State.FragmentMap.end() && It->first < Area.end(); ++It) {
-    // Offset of the fragment start in our area.
-    auto const FragmentOffset = It->first - Start;
-    
-    auto const FragmentEnd = It->second.getBlock().area().end();
-    auto const FragmentLength = FragmentEnd - It->first;
-    
-    // Determine how much of the fragment fits into our area.
-    auto const Covered = (FragmentLength <= (Length - FragmentOffset))
-                       ? (FragmentLength)
-                       : (Length - FragmentOffset);
-    
-    memset(Initialization.data() + FragmentOffset, 0xFF, Covered);
-  }
-
-  return Initialization;
-}
-
-std::vector<char> MemoryState::Region::getByteValues() const {
-  auto const Start = Area.start();
-  auto const Length = Area.length();
-  
-  // Set all bytes to zero (uninitialized).
-  std::vector<char> Values(Length, 0);
-
-  auto It = State.FragmentMap.lower_bound(Start);
-
-  // Best-case scenario: this block's state was set in a single fragment.
-  if (It != State.FragmentMap.end()
-      && It->second.getBlock().area().contains(Area)) {
-    // Copy data from the fragment.
-    std::memcpy(Values.data(), It->second.getBlock().data(), Area.length());
-    return Values;
-  }
-
-  // Check if the previous fragment overlaps our area.
-  if ((It == State.FragmentMap.end() || It->first > Start)
-      && It != State.FragmentMap.begin()) {
-    --It;
-    
-    auto const FragmentEnd = It->second.getBlock().area().end();
-    if (FragmentEnd > Start) {
-      // Find the offset of our start position in the fragment.
-      auto const OffsetInFragment = Start - It->first;
-      
-      // Find out how many bytes of the fragment fit into our area.
-      auto const Covered = ((FragmentEnd - Start) <= Length)
-                         ? (FragmentEnd - Start)
-                         : Length;
-      
-      // Copy data from the fragment.
-      std::memcpy(Values.data(),
-                  It->second.getBlock().data() + OffsetInFragment,
-                  Covered);
-      
-      if (Covered == Length)
-        return Values;
-    }
-    
-    ++It;
-  }
-  
-  // Find and set the values for overlapping fragments.
-  for (; It != State.FragmentMap.end() && It->first < Area.end(); ++It) {
-    // Offset of the fragment start in our area.
-    auto const FragmentOffset = It->first - Start;
-    
-    auto const FragmentEnd = It->second.getBlock().area().end();
-    auto const FragmentLength = FragmentEnd - It->first;
-    
-    // Determine how much of the fragment fits into our area.
-    auto const Covered = (FragmentLength <= (Length - FragmentOffset))
-                       ? (FragmentLength)
-                       : (Length - FragmentOffset);
-    
-    std::memcpy(Values.data() + FragmentOffset,
-                It->second.getBlock().data(),
-                Covered);
-  }
-
-  return Values;
-}
-
-std::vector<MemoryStateFragment>
-MemoryState::Region::getContributingFragments() const
+void MemoryState::allocationUnremove(stateptr_ty const Address,
+                                     std::size_t const Size)
 {
-  std::vector<MemoryStateFragment> Contributing;
-  
-  auto const Start = Area.start();
-  
-  auto It = State.FragmentMap.lower_bound(Start);
-  
-  // Best-case scenario: this block's state was set in a single fragment.
-  if (It != State.FragmentMap.end()
-      && It->second.getBlock().area().contains(Area)) {
-    Contributing.emplace_back(It->second);
+  if (Size == 0)
+    return;
+
+  assert(!PreviousAllocations.empty() && "No previous allocations!");
+
+  auto &Top = PreviousAllocations.top();
+  assert(Top.getAddress() == Address && "Previous allocation does not match!");
+
+  auto const Result = Allocations.emplace(Address, std::move(Top));
+  assert(Result.second && "Allocation already exists!");
+
+  PreviousAllocations.pop();
+}
+
+void MemoryState::allocationUnadd(stateptr_ty const Address,
+                                  std::size_t const Size)
+{
+  if (Size == 0)
+    return;
+
+  auto const It = Allocations.find(Address);
+  assert(It != Allocations.end() && "Allocation does not exist!");
+
+  Allocations.erase(It);
+}
+
+void MemoryState::allocationUnresize(stateptr_ty const Address,
+                                     std::size_t const CurrentSize,
+                                     std::size_t const NewSize)
+{
+  if (CurrentSize == 0) {
+    allocationUnremove(Address, NewSize);
+    return;
   }
-  else {
-    // Check if the previous fragment overlaps our area.
-    if ((It == State.FragmentMap.end() || It->first > Start)
-        && It != State.FragmentMap.begin()) {
-      --It;
-      if (It->second.getBlock().area().end() > Start)
-        Contributing.emplace_back(It->second);
-      ++It;
-    }
-    
-    // Find all other overlapping fragments.
-    for (; It != State.FragmentMap.end() && It->first < Area.end(); ++It)
-      Contributing.emplace_back(It->second);
+  else if (NewSize == 0) {
+    allocationUnadd(Address, CurrentSize);
+    return;
   }
-  
-  return Contributing;
+
+  auto &Alloc = getAllocation(MemoryArea(Address, CurrentSize));
+  assert(Alloc.getSize() == CurrentSize);
+
+  Alloc.resize(NewSize);
+
+  // If this resize (originally) shrank the allocation, then rewind the area
+  // that we have just restored.
+  if (NewSize > CurrentSize)
+    Alloc.rewindArea(MemoryArea(Address + CurrentSize,
+                                NewSize - CurrentSize));
+}
+
+void MemoryState::addBlock(MappedMemoryBlock const &Block)
+{
+  getAllocation(Block.area()).addBlock(Block);
+}
+
+void MemoryState::removeBlock(MemoryArea Area)
+{
+  getAllocation(Area).rewindArea(Area);
+}
+
+void MemoryState::addCopy(stateptr_ty const Source,
+                          stateptr_ty const Destination,
+                          std::size_t const Size)
+{
+  auto const SArea = MemoryArea(Source, Size);
+
+  auto &SAlloc = getAllocation(SArea);
+  auto &DAlloc = getAllocation(MemoryArea(Destination, Size));
+
+  DAlloc.addArea(Destination,
+                 SAlloc.getAreaData(SArea),
+                 SAlloc.getAreaInitialization(SArea));
+}
+
+void MemoryState::removeCopy(stateptr_ty const Source,
+                             stateptr_ty const Destination,
+                             std::size_t const Size)
+{
+  auto const DArea = MemoryArea(Destination, Size);
+  getAllocation(DArea).rewindArea(DArea);
+}
+
+void MemoryState::addClear(MemoryArea Area)
+{
+  // TODO: This is temporary until we ensure that clears don't occur on
+  //       unallocated regions.
+  if (Allocations.empty()) {
+    // llvm::errs() << "addClear(): no allocations available.\n";
+    return;
+  }
+
+  auto It = Allocations.upper_bound(Area.start());
+  if (It == Allocations.begin()) {
+    // llvm::errs() << "addClear(): allocation not found.\n";
+    return;
+  }
+
+  --It;
+  auto const AllocStart = It->second.getAddress();
+  auto const AllocSize  = It->second.getSize();
+  if (!MemoryArea(AllocStart, AllocSize).contains(Area)) {
+    // llvm::errs() << "addClear(): allocation does not contain block!\n";
+    return;
+  }
+
+  It->second.clearArea(Area);
+}
+
+void MemoryState::removeClear(MemoryArea Area)
+{
+  // TODO: This is temporary until we ensure that clears don't occur on
+  //       unallocated regions.
+  if (Allocations.empty()) {
+    // llvm::errs() << "addClear(): no allocations available.\n";
+    return;
+  }
+
+  auto It = Allocations.upper_bound(Area.start());
+  if (It == Allocations.begin()) {
+    // llvm::errs() << "addClear(): allocation not found.\n";
+    return;
+  }
+
+  --It;
+  auto const AllocStart = It->second.getAddress();
+  auto const AllocSize  = It->second.getSize();
+  if (!MemoryArea(AllocStart, AllocSize).contains(Area)) {
+    // llvm::errs() << "addClear(): allocation does not contain block!\n";
+    return;
+  }
+
+  It->second.rewindArea(Area);
 }
 
 
@@ -449,16 +547,14 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               MemoryState const &State) {
   Out << " MemoryState:\n";
 
-  for (auto const &Fragment : State.getFragmentMap()) {
-    auto const &Block = Fragment.second.getBlock();
-    Out << "  [" << Block.start() << ", " << Block.end() << ")";
-
-    if (Block.length() <= 8) {
-      Out << ": ";
-      seec::util::write_hex_bytes(Out, Block.data(), Block.length());
-    }
-
-    Out << "\n";
+  for (auto const &Alloc : State.getAllocations()) {
+    Out << "  @" << Alloc.first << " (" << Alloc.second.getSize() << "): ";
+    if (Alloc.second.isCompletelyInitialized())
+      Out << "initialized\n";
+    else if (Alloc.second.isPartiallyInitialized())
+      Out << "partially initialized\n";
+    else
+      Out << "uninitialized\n";
   }
 
   return Out;

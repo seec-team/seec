@@ -15,12 +15,14 @@
 #include "Tracer.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"
+#include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/CallSite.h"
 
 #include <cstdlib>
 #include <stack>
@@ -55,12 +57,10 @@ void stopThreadsAndWriteTrace() {
   if (TraceEnabled) {
     ProcessListener.traceWrite();
     ProcessListener.traceFlush();
-    ProcessListener.traceClose();
     
     for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
       ThreadListenerPtr->traceWrite();
       ThreadListenerPtr->traceFlush();
-      ThreadListenerPtr->traceClose();
     }
   }
 }
@@ -102,6 +102,9 @@ class BinarySearchImpl {
   
   /// Comparison function.
   int (* const Compare)(char const *, char const *);
+
+  /// LLVM representation of comparison function.
+  llvm::Function const * const CompareFn;
   
   /// \brief Acquire memory lock and ensure that memory is accessible.
   ///
@@ -158,6 +161,9 @@ class BinarySearchImpl {
       // Compare the midpoint with the key.
       releaseMemory();
       
+      // Array element is always the left side of comparison, key object is
+      // always the right side of comparison. Our pointer object information
+      // in the shim is set according to this, so do not change.
       auto const Comparison = Compare(getElement(Mid), Key);
       
       if (!acquireMemory())
@@ -195,21 +201,63 @@ public:
     Array(ForArray),
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
-    Compare(WithCompare)
-  {}
+    Compare(WithCompare),
+    CompareFn(ThreadListener.getProcessListener()
+                            .getFunctionAt(reinterpret_cast<uintptr_t>
+                                                           (Compare)))
+  {
+    if (auto const ActiveFn = ThreadListener.getActiveFunction())
+      ActiveFn->setActiveInstruction(WithThread.getInstruction());
+  }
   
   /// \brief Perform the quicksort.
   ///
   void *operator()()
   {
+    // TODO: This should be raised as a run-time error.
+    assert(CompareFn && "Comparison function is unknown!");
+
+    auto const Caller = ThreadListener.getActiveFunction();
+    assert(Caller && !Caller->isShim());
+
+    auto const Call = llvm::ImmutableCallSite(Caller->getActiveInstruction());
+    auto const KeyPtrObj   = Caller->getPointerObject(Call.getArgument(0));
+    auto const ArrayPtrObj = Caller->getPointerObject(Call.getArgument(1));
+
+    ThreadListener.pushShimFunction();
+    auto const Shim = ThreadListener.getActiveFunction();
+
+    // Array element is always the left side of comparison, key object is
+    // always the right side of comparison.
+    auto CompareFnArg = CompareFn->arg_begin();
+    Shim->setPointerObject(  &*CompareFnArg, ArrayPtrObj);
+    Shim->setPointerObject(&*++CompareFnArg, KeyPtrObj  );
+
     acquireMemory();
-    
     auto const Result = bsearch();
-    
     releaseMemory();
-    
+
+    ThreadListener.popShimFunction();
+
+    // The C standard specifies the result is not const.
+    auto const Unqualified = const_cast<char *>(Result);
+
+    // Notify of the returned pointer (and its pointer object).
+    auto const CallInst = Call.getInstruction();
+    auto const Idx = seec::trace::getThreadEnvironment().getInstructionIndex();
+
+    ThreadListener.notifyValue(Idx, CallInst,
+                               reinterpret_cast<void *>(Unqualified));
+
+    // Note that Caller is invalidated when the shim function is pushed, so we
+    // need to retrieve a new pointer to the active function.
+    ThreadListener.getActiveFunction()
+                  ->setPointerObject(CallInst,
+                                     Result ? ArrayPtrObj
+                                            : seec::trace::PointerTarget{});
+
     // const_cast due to the C standard.
-    return const_cast<char *>(Result);
+    return Unqualified;
   }
 };
 
@@ -217,6 +265,9 @@ public:
 /// \brief Implement a recording quicksort.
 ///
 class QuickSortImpl {
+  /// The process.
+  seec::trace::TraceProcessListener &ProcessListener;
+
   /// The thread performing the sort.
   seec::trace::TraceThreadListener &ThreadListener;
   
@@ -234,6 +285,9 @@ class QuickSortImpl {
   
   /// Comparison function.
   int (* const Compare)(char const *, char const *);
+
+  /// LLVM representation of comparison function.
+  llvm::Function const * const CompareFn;
   
   /// \brief Acquire memory lock and ensure that memory is accessible.
   ///
@@ -281,7 +335,18 @@ class QuickSortImpl {
     memcpy(TempValue, ElemA,     ElementSize);
     memcpy(ElemA,     ElemB,     ElementSize);
     memcpy(ElemB,     TempValue, ElementSize);
-    
+
+    // Copy all in-memory pointer object tracking, in case the elements we are
+    // moving are pointers (or contain pointers).
+    auto const AddrOfA = reinterpret_cast<uintptr_t>(ElemA);
+    auto const AddrOfB = reinterpret_cast<uintptr_t>(ElemB);
+    auto const AddrOfT = reinterpret_cast<uintptr_t>(TempValue);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfA, AddrOfT, ElementSize);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfB, AddrOfA, ElementSize);
+    ProcessListener.copyInMemoryPointerObjects(AddrOfT, AddrOfB, ElementSize);
+    ProcessListener.clearInMemoryPointerObjects(MemoryArea(AddrOfT,
+                                                           ElementSize));
+
     // Create a new thread time for this "step" of the sort, and record the
     // updated memory states.
     ThreadListener.incrementThreadTime();
@@ -361,23 +426,47 @@ public:
                 std::size_t const WithElementCount,
                 std::size_t const WithElementSize,
                 int (* const WithCompare)(char const *, char const *))
-  : ThreadListener(WithThread.getThreadListener()),
+  : ProcessListener(WithThread.getProcessEnvironment().getProcessListener()),
+    ThreadListener(WithThread.getThreadListener()),
     Checker(WithThread.getThreadListener(),
             WithThread.getInstructionIndex(),
             seec::runtime_errors::format_selects::CStdFunction::qsort),
     Array(ForArray),
     ElementCount(WithElementCount),
     ElementSize(WithElementSize),
-    Compare(WithCompare)
-  {}
+    Compare(WithCompare),
+    CompareFn(ProcessListener.getFunctionAt(reinterpret_cast<uintptr_t>
+                                                            (Compare)))
+  {
+    if (auto const ActiveFn = ThreadListener.getActiveFunction())
+      ActiveFn->setActiveInstruction(WithThread.getInstruction());
+  }
   
   /// \brief Perform the quicksort.
   ///
   void operator()()
   {
+    // TODO: This should be raised as a run-time error.
+    assert(CompareFn && "Comparison function is unknown!");
+
+    auto const Caller = ThreadListener.getActiveFunction();
+    assert(Caller && !Caller->isShim());
+
+    auto const Call = llvm::ImmutableCallSite(Caller->getActiveInstruction());
+    auto const ArrayPtrObj = Caller->getPointerObject(Call.getArgument(0));
+
+    ThreadListener.pushShimFunction();
+    auto const Shim = ThreadListener.getActiveFunction();
+
+    auto CompareFnArg = CompareFn->arg_begin();
+    Shim->setPointerObject(  &*CompareFnArg, ArrayPtrObj);
+    Shim->setPointerObject(&*++CompareFnArg, ArrayPtrObj);
+
     acquireMemory();
     quicksort(0, ElementCount - 1);
     releaseMemory();
+
+    ThreadListener.popShimFunction();
   }
 };
 
@@ -515,7 +604,7 @@ SEEC_MANGLE_FUNCTION(qsort)
 // bsearch
 //===----------------------------------------------------------------------===//
 
-void
+void *
 SEEC_MANGLE_FUNCTION(bsearch)
 (char const *Key,
  char const *Array,
@@ -524,9 +613,85 @@ SEEC_MANGLE_FUNCTION(bsearch)
  int (*Compare)(char const *, char const *)
  )
 {
-  seec::BinarySearchImpl(seec::trace::getThreadEnvironment(),
-                         Key, Array, ElementCount, ElementSize, Compare)();
+  return seec::BinarySearchImpl(seec::trace::getThreadEnvironment(),
+                                Key, Array, ElementCount, ElementSize, Compare)
+                               ();
 }
+
+
+//===----------------------------------------------------------------------===//
+// mkstemp
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(mkstemp)
+(char * const Template)
+{
+  extern int mkstemp(char *) __attribute__((weak));
+  assert(mkstemp);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkstemp}
+          (mkstemp,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template));
+}
+
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+int
+SEEC_MANGLE_FUNCTION(mkostemp)
+(char * const Template, int const Flags)
+{
+  extern int mkostemp(char *, int) __attribute__((weak));
+  assert(mkostemp);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkostemp}
+          (mkostemp,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           Flags);
+}
+
+int
+SEEC_MANGLE_FUNCTION(mkstemps)
+(char * const Template, int const SuffixLen)
+{
+  extern int mkstemps(char *, int) __attribute__((weak));
+  assert(mkstemps);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkstemps}
+          (mkstemps,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           SuffixLen);
+}
+
+int
+SEEC_MANGLE_FUNCTION(mkostemps)
+(char *Template, int const SuffixLen, int const Flags)
+{
+  extern int mkostemps(char *, int, int) __attribute__((weak));
+  assert(mkostemps);
+
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::mkostemps}
+          (mkostemps,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(Template),
+           SuffixLen,
+           Flags);
+}
+#endif
 
 
 } // extern "C"

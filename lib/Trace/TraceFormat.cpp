@@ -59,6 +59,15 @@ public:
     Out << static_cast<int>(Value);
     return *this;
   }
+
+  /// \brief Check offsets against \c noOffset() when printing.
+  EventPrinterBase &operator<<(offset_uint const Value) {
+    if (Value == noOffset())
+      Out << "<none>";
+    else
+      Out << Value;
+    return *this;
+  }
   
   /// \brief Wrap llvm::raw_ostream::changeColor().
   EventPrinterBase &changeColor(llvm::raw_ostream::Colors Color,
@@ -155,16 +164,6 @@ char const *describe(EventType Type) {
 
 
 //------------------------------------------------------------------------------
-// RuntimeValueRecord
-//------------------------------------------------------------------------------
-
-EventPrinterBase &operator<<(EventPrinterBase &Out,
-                             RuntimeValueRecord const &Record) {
-  return Out << "<union>";
-}
-
-
-//------------------------------------------------------------------------------
 // EventRecordBase
 //------------------------------------------------------------------------------
 
@@ -209,44 +208,6 @@ seec::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
       return seec::trace::getProcessTime(                                      \
-              *(static_cast<EventRecord<EventType::NAME> const *>(this)));
-#include "seec/Trace/Events.def"
-    default: llvm_unreachable("Reference to unknown event type!");
-  }
-  
-  return seec::Maybe<uint64_t>();
-}
-
-
-//------------------------------------------------------------------------------
-// EventRecordBase::getThreadTime
-//------------------------------------------------------------------------------
-
-SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_get_thread_time, getThreadTime)
-
-template<typename RecordT>
-typename std::enable_if<
-  has_get_thread_time<RecordT,
-                       uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
-getThreadTime(RecordT const &Record) {
-  return Record.getThreadTime();
-}
-
-template<typename RecordT>
-typename std::enable_if<
-  !has_get_thread_time<RecordT,
-                        uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
-getThreadTime(RecordT const &Record) {
-  return seec::Maybe<uint64_t>();
-}
-
-seec::Maybe<uint64_t> EventRecordBase::getThreadTime() const {
-  switch (getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-    case EventType::NAME:                                                      \
-      return seec::trace::getThreadTime(                                       \
               *(static_cast<EventRecord<EventType::NAME> const *>(this)));
 #include "seec/Trace/Events.def"
     default: llvm_unreachable("Reference to unknown event type!");

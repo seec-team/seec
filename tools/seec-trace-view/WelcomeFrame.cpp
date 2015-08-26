@@ -22,8 +22,9 @@
 
 #include <wx/webview.h>
 #include <wx/webviewfshandler.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "CommonMenus.hpp"
+#include "LocaleSettings.hpp"
 #include "TraceViewerApp.hpp"
 #include "WelcomeFrame.hpp"
 
@@ -34,7 +35,7 @@ END_EVENT_TABLE()
 
 WelcomeFrame::~WelcomeFrame() {
   auto &App = wxGetApp();
-  App.removeTopLevelFrame(this);
+  App.removeTopLevelWindow(this);
 }
 
 bool WelcomeFrame::Create(wxWindow *Parent,
@@ -49,21 +50,16 @@ bool WelcomeFrame::Create(wxWindow *Parent,
   // Get the GUIText from the TraceViewer ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto TextTable = seec::getResource("TraceViewer",
-                                     Locale::getDefault(),
+                                     getLocale(),
                                      Status,
                                      "GUIText");
   assert(U_SUCCESS(Status));
 
   // Setup the menus.
-  auto menuFile = new wxMenu();
-  menuFile->Append(wxID_OPEN);
-  menuFile->Append(wxID_CLOSE);
-  menuFile->AppendSeparator();
-  menuFile->Append(wxID_EXIT);
-
   auto menuBar = new wxMenuBar();
-  menuBar->Append(menuFile,
-                  seec::getwxStringExOrEmpty(TextTable, "Menu_File"));
+  append(menuBar, createFileMenu());
+  append(menuBar, createEditMenu());
+  append(menuBar, createRecordingMenu(*this));
 
   SetMenuBar(menuBar);
   

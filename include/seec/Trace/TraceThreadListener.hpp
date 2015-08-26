@@ -14,7 +14,6 @@
 #ifndef SEEC_TRACE_TRACETHREADLISTENER_HPP
 #define SEEC_TRACE_TRACETHREADLISTENER_HPP
 
-#include "seec/DSA/MemoryBlock.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
@@ -70,6 +69,7 @@ class TraceThreadListener
 : public seec::trace::CallDetector<TraceThreadListener>
 {
   friend class CStdLibChecker;
+  friend class CIOChecker;
   
   // Don't allow copying.
   TraceThreadListener(TraceThreadListener const &) = delete;
@@ -115,21 +115,20 @@ class TraceThreadListener
   uint64_t ProcessTime;
 
   /// List of all traced Functions, in order.
-  std::vector<std::unique_ptr<TracedFunction>> RecordedFunctions;
+  std::vector<std::unique_ptr<RecordedFunction>> RecordedFunctions;
 
   /// Offset of all top-level traced Functions.
   std::vector<offset_uint> RecordedTopLevelFunctions;
 
   /// Stack of trace information for still-executing Functions.
   /// The back of the vector is the currently active Function.
-  std::vector<TracedFunction *> FunctionStack;
+  std::vector<TracedFunction> FunctionStack;
 
   /// Controls access to FunctionStack.
   mutable std::mutex FunctionStackMutex;
 
   /// Pointer to the trace information for the currently active Function, or
   /// nullptr if no Function is currently active.
-  // std::atomic<TracedFunction *> ActiveFunction;
   TracedFunction *ActiveFunction;
 
   /// Global memory lock owned by this thread.
@@ -194,6 +193,10 @@ class TraceThreadListener
   ///
   void checkSignals();
 
+  /// \brief Get (an estimate of) the remaining stack available.
+  ///
+  std::uintptr_t getRemainingStack() const;
+
 public:  
   /// \brief Acquire the StreamsLock, if we don't have it already.
   ///
@@ -213,6 +216,21 @@ public:
   void recordStreamOpen(FILE *Stream,
                         char const *Filename,
                         char const *Mode);
+  
+  /// \brief Record a write to a stream.
+  ///
+  /// pre: Own the StreamsLock.
+  ///
+  void recordStreamWrite(FILE *Stream, llvm::ArrayRef<char> Data);
+  
+  /// \brief Record a write to a stream from recorded memory.
+  ///
+  /// This save some space in the trace because we can use the data from the
+  /// recreated state rather than saving another copy into the trace data.
+  ///
+  /// pre: Own the StreamsLock.
+  ///
+  void recordStreamWriteFromMemory(FILE *Stream, MemoryArea Area);
   
   /// \brief Record that a stream closed.
   ///
@@ -271,14 +289,28 @@ public:
   }
 
   /// \brief Write a malloc record and update the process' dynamic memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   void recordMalloc(uintptr_t Address, std::size_t Size);
 
+  /// \brief Write a Realloc event and update the process' dynamic memory.
+  ///
+  void recordRealloc(uintptr_t const Address, std::size_t const NewSize);
+
   /// \brief Write a free record and update the process' dynamic memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   /// \return the DynamicAllocation that was freed.
+  ///
   DynamicAllocation recordFree(uintptr_t Address);
 
   /// \brief Write a free record and update the process' dynamic memory. Clears
   ///        the freed area of memory.
+  ///
+  /// pre: DynamicMemoryLock acquired by this object.
+  ///
   void recordFreeAndClear(uintptr_t Address);
 
   /// @} (Dynamic memory)
@@ -306,33 +338,61 @@ public:
     }
   }
 
-  /// \brief Write a set of overwritten states.
-  void writeStateOverwritten(OverwrittenMemoryInfo const &Info);
-
   /// \brief Record an untyped update to memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordUntypedState(char const *Data, std::size_t Size);
 
   /// \brief Record a typed update to memory.
+  ///
+  /// At the moment this simply defers to recordUntypedState.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordTypedState(void const *Data, std::size_t Size, offset_uint Value);
 
   /// \brief Record a clear to a memory region.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordStateClear(uintptr_t Address, std::size_t Size);
 
   /// \brief Unimplemented.
+  ///
   void recordMemset();
 
   /// \brief Record a memmove (or memcpy) update to memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void recordMemmove(uintptr_t Source, uintptr_t Destination, std::size_t Size);
 
   /// \brief Add a region of known, but unowned, memory.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   void addKnownMemoryRegion(uintptr_t Address,
                             std::size_t Length,
                             MemoryPermission Access);
   
   /// \brief Check if there is a region of known memory at Address.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   bool isKnownMemoryRegionAt(uintptr_t Address) const;
   
+  /// \brief Check if there is a region of known memory covering the given area.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
+  bool isKnownMemoryRegionCovering(uintptr_t const Address,
+                                   std::size_t const Length) const;
+
   /// \brief Remove the region of known memory starting at Address.
+  ///
+  /// pre: GlobalMemoryLock acquired by this object.
+  ///
   bool removeKnownMemoryRegion(uintptr_t Address);
 
   /// @} (Memory states)
@@ -357,6 +417,10 @@ public:
   ///
   bool traceEnabled() const { return OutputEnabled; }
   
+  /// \brief Get the size of the trace's event stream.
+  ///
+  offset_uint traceEventSize() const;
+
   /// \brief Write out complete trace information.
   ///
   void traceWrite();
@@ -379,8 +443,11 @@ public:
   /// \name Accessors
   /// @{
 
-  /// \brief Get the TraceProcessListener for the process that this thread
-  ///        belongs to.
+  /// \brief Get the \c TraceProcessListener that this thread belongs to.
+  ///
+  TraceProcessListener &getProcessListener() { return ProcessListener; }
+
+  /// \brief Get the \c TraceProcessListener that this thread belongs to.
   ///
   TraceProcessListener const &getProcessListener() const {
     return ProcessListener;
@@ -399,6 +466,12 @@ public:
   /// \brief Get access to the event output.
   ///
   EventWriter &getEventsOut() { return EventsOut; }
+
+  /// \brief Get the \c llvm::DataLayout for the \c llvm::Module.
+  ///
+  llvm::DataLayout const &getDataLayout() const {
+    return ProcessListener.getDataLayout();
+  }
 
   /// \brief Get the run-time address of a GlobalVariable.
   /// \param GV the GlobalVariable.
@@ -436,24 +509,15 @@ public:
 
   /// \brief Get the current RuntimeValue associated with an Instruction.
   ///
-  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const {
-    // auto ActiveFunc = ActiveFunction.load();
-    auto ActiveFunc = ActiveFunction;
+  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
+  
+  /// \brief Get the area occupied by the given Argument in the active function.
+  ///
+  seec::Maybe<seec::MemoryArea>
+  getParamByValArea(llvm::Argument const *Arg) const;
 
-    if (!ActiveFunc)
-      return nullptr;
-
-    auto &FIndex = ActiveFunc->getFunctionIndex();
-
-    auto MaybeIndex = FIndex.getIndexOfInstruction(I);
-    if (!MaybeIndex.assigned())
-      return nullptr;
-
-    return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
-  }
-
-  /// \brief Find the allocated range that owns an address, if it belongs to this
-  ///        thread. This method is thread safe.
+  /// \brief Find the allocated range that owns an address, if it belongs to
+  ///        this thread. This method is thread safe.
   ///
   seec::Maybe<MemoryArea>
   getContainingMemoryArea(uintptr_t Address) const {
@@ -461,8 +525,8 @@ public:
 
     seec::Maybe<MemoryArea> Area;
 
-    for (auto TracedFunc : FunctionStack) {
-      Area = TracedFunc->getContainingMemoryArea(Address);
+    for (auto const &TracedFunc : FunctionStack) {
+      Area = TracedFunc.getContainingMemoryArea(Address);
       if (Area.assigned()) {
         return Area;
       }
@@ -505,6 +569,20 @@ public:
   /// @} (Mutators)
 
 
+  /// \name Shadow stack.
+  /// @{
+
+  /// \brief Push a shim function onto the shadow stack.
+  ///
+  void pushShimFunction();
+
+  /// \brief Pop a shim function from the shadow stack.
+  ///
+  void popShimFunction();
+
+  /// @} (Shadow stack.)
+
+
   /// \name Thread Listener Notifications
   /// @{
 
@@ -518,7 +596,10 @@ public:
 
   void notifyFunctionBegin(uint32_t Index, llvm::Function const *F);
 
-  void notifyFunctionEnd(uint32_t Index, llvm::Function const *F);
+  void notifyFunctionEnd(uint32_t const Index,
+                         llvm::Function const *F,
+                         uint32_t const TerminatorIndex,
+                         llvm::Instruction const *Terminator);
   
   /// \brief Notify of a byval argument.
   void notifyArgumentByVal(uint32_t Index, llvm::Argument const *Arg,
@@ -527,6 +608,10 @@ public:
   /// \brief Receive the contents of argc and argv.
   void notifyArgs(uint64_t ArgC, char **ArgV);
   
+private:
+  void setupEnvironTable(char **Environ);
+
+public:
   /// \brief Receive the contents of envp.
   void notifyEnv(char **EnvP);
 
@@ -539,6 +624,11 @@ public:
   void notifyPreCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
 
   void notifyPostCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
+
+  void notifyPreAlloca(uint32_t const Index,
+                       llvm::AllocaInst const &Alloca,
+                       uint64_t const ElemSize,
+                       uint64_t const ElemCount);
 
   void notifyPreLoad(uint32_t Index,
                      llvm::LoadInst const *Load,
@@ -562,6 +652,9 @@ public:
 
   void notifyPreDivide(uint32_t Index,
                        llvm::BinaryOperator const *Instruction);
+
+  void notifyValue(uint32_t const Index,
+                   llvm::Instruction const * const Instruction);
 
   void notifyValue(uint32_t Index,
                    llvm::Instruction const *Instruction,
@@ -660,10 +753,14 @@ public:
   // fputc
   void preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
                  FILE *Stream);
+  void postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+                  FILE *Stream);
   
   // fputs
   void preCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
                  FILE *Stream);
+  void postCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
+                  FILE *Stream);
   
   // getchar
   void preCgetchar(llvm::CallInst const *Call, uint32_t Index);
@@ -672,9 +769,11 @@ public:
   
   // putchar
   void preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
+  void postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
   
   // puts
   void preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  void postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
   
   // ungetc
   void preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch,
@@ -685,15 +784,6 @@ public:
   
   /// \name Detect Calls - stdio.h formatted input/output.
   /// @{
-  
-  // printf
-  void preCprintf(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  detect_calls::VarArgList<TraceThreadListener> const &Args);
-  
-  // fprintf
-  void preCfprintf(llvm::CallInst const *Call, uint32_t Index, FILE *Out,
-                   char const *Str,
-                   detect_calls::VarArgList<TraceThreadListener> const &Args);
   
   // snprintf
   void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
@@ -819,6 +909,9 @@ public:
   void preCmemchr(llvm::CallInst const *Call, uint32_t Index,
                   void const *Ptr, int Value, size_t Num);
 
+  void postCmemchr(llvm::CallInst const *Call, uint32_t Index,
+                   void const *Ptr, int Value, size_t Num);
+
   void preCmemcmp(llvm::CallInst const *Call, uint32_t Index,
                   void const *Address1, void const *Address2, size_t Size);
 
@@ -851,6 +944,9 @@ public:
 
   void preCstrchr(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str, int Character);
+
+  void postCstrchr(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Str, int Character);
 
   void preCstrcmp(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
@@ -892,14 +988,23 @@ public:
   void preCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
                    char const *Str1, char const *Str2);
 
+  void postCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
+                    char const *Str1, char const *Str2);
+
   void preCstrrchr(llvm::CallInst const *Call, uint32_t Index,
                    char const *Str, int Character);
+
+  void postCstrrchr(llvm::CallInst const *Call, uint32_t Index,
+                    char const *Str, int Character);
 
   void preCstrspn(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
 
   void preCstrstr(llvm::CallInst const *Call, uint32_t Index,
                   char const *Str1, char const *Str2);
+
+  void postCstrstr(llvm::CallInst const *Call, uint32_t Index,
+                   char const *Str1, char const *Str2);
 
   void preCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
                    char *Destination, char const *Source, size_t Num);

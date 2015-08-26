@@ -1,22 +1,25 @@
 <?xml version="1.0"?>
 <mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
   <mime-type type="x-content/x-seec-trace">
-    <comment>SeeC execution trace</comment>
-    <acronym>seec</acronym>
-    <expanded-acronym>SeeC Execution Trace</expanded-acronym>
+    <comment>SeeC Execution Trace</comment>
     <icon name="seec"/>
     <treemagic priority="75">
       <treematch path="st.spt" type="file"/>
     </treemagic>
-    <glob pattern="*.seec"/>
-    <glob pattern="*.seec/"/>
+    <glob pattern="*.seecd"/>
+    <glob pattern="*.seecd/"/>
   </mime-type>
   <mime-type type="application/x-seec-trace">
-    <comment>SeeC execution trace</comment>
-    <acronym>seec</acronym>
-    <expanded-acronym>SeeC Execution Trace</expanded-acronym>
+    <sub-class-of type="application/xml"/>
+    <comment>SeeC Execution Trace</comment>
     <icon name="seec"/>
-    <glob pattern="*.spt"/>
+    <glob pattern="*.seec"/>
+  </mime-type>
+  <mime-type type="application/x-seec-record">
+    <sub-class-of type="application/xml"/>
+    <comment>SeeC Recording</comment>
+    <icon name="seec"/>
+    <glob pattern="*.seecrecord"/>
   </mime-type>
 </mime-info>
 

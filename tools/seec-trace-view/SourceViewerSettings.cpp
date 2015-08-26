@@ -16,8 +16,8 @@
 
 #include <wx/log.h>
 #include <wx/tokenzr.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
+#include "LocaleSettings.hpp"
 #include "SourceViewerSettings.hpp"
 
 
@@ -25,7 +25,7 @@ seec::Maybe<SciStyle> getDefaultStyle(char const *StyleName) {
   // Find the default setting for this style in our ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto Table = seec::getResource("TraceViewer",
-                                 Locale::getDefault(),
+                                 getLocale(),
                                  Status,
                                  "ScintillaStyles",
                                  StyleName);
@@ -266,7 +266,7 @@ getDefaultIndicatorStyle(SciIndicatorType Type) {
   // Find the default setting for this indicator style in our ICU resources.
   UErrorCode Status = U_ZERO_ERROR;
   auto Table = seec::getResource("TraceViewer",
-                                 Locale::getDefault(),
+                                 getLocale(),
                                  Status,
                                  "ScintillaIndicatorStyles",
                                  StyleName);

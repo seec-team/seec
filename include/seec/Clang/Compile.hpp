@@ -60,8 +60,8 @@ namespace seec {
 namespace seec_clang {
 
 class SeeCCodeGenAction : public clang::CodeGenAction {
-  char const **ArgBegin;
-  char const **ArgEnd;
+  char const * const *ArgBegin;
+  char const * const *ArgEnd;
   
   clang::CompilerInstance *Compiler;
   std::string File;
@@ -73,8 +73,8 @@ class SeeCCodeGenAction : public clang::CodeGenAction {
   llvm::DenseMap<clang::Stmt const *, uint64_t> StmtMap;
 
 public:
-  SeeCCodeGenAction(const char **WithArgBegin,
-                    const char **WithArgEnd,
+  SeeCCodeGenAction(const char * const *WithArgBegin,
+                    const char * const *WithArgEnd,
                     unsigned _Action,
                     llvm::LLVMContext *_VMContext = 0)
   : CodeGenAction(_Action, _VMContext),
@@ -88,10 +88,11 @@ public:
   {}
 
   virtual
-  clang::ASTConsumer *
-  CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile);
+  std::unique_ptr<clang::ASTConsumer>
+  CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile)
+  override;
   
-  virtual void ModuleComplete(llvm::Module *Mod);
+  virtual void ModuleComplete(llvm::Module *Mod) override;
 
   void addDeclMap(clang::Decl const *D) {
     if (!DeclMap.count(D))
@@ -111,48 +112,48 @@ public:
 class SeeCEmitAssemblyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitAssemblyAction(const char **ArgBegin,
-                         const char **ArgEnd,
+  SeeCEmitAssemblyAction(const char * const *ArgBegin,
+                         const char * const *ArgEnd,
                          llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitBCAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitBCAction(const char **ArgBegin,
-                   const char **ArgEnd,
+  SeeCEmitBCAction(const char * const *ArgBegin,
+                   const char * const *ArgEnd,
                    llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMAction(const char **ArgBegin,
-                     const char **ArgEnd,
+  SeeCEmitLLVMAction(const char * const *ArgBegin,
+                     const char * const *ArgEnd,
                      llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitLLVMOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitLLVMOnlyAction(const char **ArgBegin,
-                         const char **ArgEnd,
+  SeeCEmitLLVMOnlyAction(const char * const *ArgBegin,
+                         const char * const *ArgEnd,
                          llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitCodeGenOnlyAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitCodeGenOnlyAction(const char **ArgBegin,
-                            const char **ArgEnd,
+  SeeCEmitCodeGenOnlyAction(const char * const *ArgBegin,
+                            const char * const *ArgEnd,
                             llvm::LLVMContext *_VMContext = 0);
 };
 
 class SeeCEmitObjAction : public SeeCCodeGenAction {
   virtual void anchor();
 public:
-  SeeCEmitObjAction(const char **ArgBegin,
-                    const char **ArgEnd,
+  SeeCEmitObjAction(const char * const *ArgBegin,
+                    const char * const *ArgEnd,
                     llvm::LLVMContext *_VMContext = 0);
 };
 
@@ -164,59 +165,102 @@ class SeeCASTConsumer
 
   std::unique_ptr<clang::ASTConsumer> Child;
 
+  std::vector<clang::VariableArrayType *> VATypes;
+
 public:
   SeeCASTConsumer(SeeCCodeGenAction &Action,
-                  clang::ASTConsumer *Child)
+                  std::unique_ptr<clang::ASTConsumer> Child)
   : Action(Action),
-    Child(Child)
+    Child(std::move(Child)),
+    VATypes()
   {}
 
-  virtual ~SeeCASTConsumer() {}
+  virtual ~SeeCASTConsumer() override;
 
   /// \name ASTConsumer Methods
   /// \{
-  virtual void Initialize(clang::ASTContext &Context) {
+  virtual void Initialize(clang::ASTContext &Context) override {
     Child->Initialize(Context);
   }
 
-  virtual bool HandleTopLevelDecl(clang::DeclGroupRef D);
+  virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override;
 
-  virtual void HandleInterestingDecl(clang::DeclGroupRef D) {
+  virtual void HandleInlineMethodDefinition(clang::CXXMethodDecl *D) override {
+    Child->HandleInlineMethodDefinition(D);
+  }
+
+  virtual void HandleInterestingDecl(clang::DeclGroupRef D) override {
     HandleTopLevelDecl(D);
   }
 
-  virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
+  virtual void HandleTranslationUnit(clang::ASTContext &Ctx) override;
 
-  virtual void HandleTagDeclDefinition(clang::TagDecl *D) {
+  virtual void HandleTagDeclDefinition(clang::TagDecl *D) override {
     Child->HandleTagDeclDefinition(D);
   }
 
-  virtual void HandleCXXImplicitFunctionInstantiation(clang::FunctionDecl *D){
+  virtual void HandleTagDeclRequiredDefinition(clang::TagDecl const *D) override
+  {
+    Child->HandleTagDeclRequiredDefinition(D);
+  }
+
+  virtual void HandleCXXImplicitFunctionInstantiation(clang::FunctionDecl *D)
+  override
+  {
     Child->HandleCXXImplicitFunctionInstantiation(D);
   }
 
-  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef D) {
+  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef D) override
+  {
     Child->HandleTopLevelDeclInObjCContainer(D);
+  }
+
+  virtual void HandleImplicitImportDecl(clang::ImportDecl *D) override {
+    Child->HandleImplicitImportDecl(D);
+  }
+
+  virtual void HandleLinkerOptionPragma(llvm::StringRef Opts) override {
+    Child->HandleLinkerOptionPragma(Opts);
+  }
+
+  virtual void HandleDetectMismatch(llvm::StringRef Name,
+                                    llvm::StringRef Value) override {
+    Child->HandleDetectMismatch(Name, Value);
+  }
+
+  virtual void HandleDependentLibrary(llvm::StringRef Lib) override {
+    Child->HandleDependentLibrary(Lib);
   }
 
   virtual void CompleteTentativeDefinition(clang::VarDecl *D) {
     Child->CompleteTentativeDefinition(D);
   }
 
+  virtual void HandleCXXStaticMemberVarInstantiation(clang::VarDecl *D) override
+  {
+    Child->HandleCXXStaticMemberVarInstantiation(D);
+  }
+
   virtual void HandleVTable(clang::CXXRecordDecl *D, bool DefinitionRequired){
     Child->HandleVTable(D, DefinitionRequired);
   }
 
-  virtual clang::ASTMutationListener *GetASTMutationListener() {
+  virtual clang::ASTMutationListener *GetASTMutationListener() override {
     return Child->GetASTMutationListener();
   }
 
-  virtual clang::ASTDeserializationListener *GetASTDeserializationListener() {
+  virtual clang::ASTDeserializationListener *GetASTDeserializationListener()
+  override
+  {
     return Child->GetASTDeserializationListener();
   }
 
-  virtual void PrintStats() {
+  virtual void PrintStats() override {
     Child->PrintStats();
+  }
+
+  virtual bool shouldSkipFunctionBody(clang::Decl *D) override {
+    return Child->shouldSkipFunctionBody(D);
   }
 
   /// \}
@@ -227,6 +271,8 @@ public:
   bool VisitStmt(clang::Stmt *S);
 
   bool VisitDecl(clang::Decl *D);
+
+  bool VisitVariableArrayType(::clang::VariableArrayType *T);
 
   /// \}
 };
@@ -250,8 +296,8 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
 ///
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      clang::CompilerInstance &Compiler,
-                                     const char **ArgBegin,
-                                     const char **ArgEnd);
+                                     const char * const *ArgBegin,
+                                     const char * const *ArgEnd);
 
 } // namespace clang (in seec)
 

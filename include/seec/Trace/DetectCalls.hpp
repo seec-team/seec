@@ -32,9 +32,9 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/CallSite.h"
 
 #include <cstdio> // for fpos_t, size_t, FILE *.
 #include <ctime> // for time_t, struct tm.

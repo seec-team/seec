@@ -19,9 +19,16 @@
 #include "seec/Util/Maybe.hpp"
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
+
+#include "Annotations.hpp"
 
 #include <memory>
+#include <string>
+
+class Annotation;
+
+class wxXmlDocument;
+
 
 /// \brief Holds information for a currently-open SeeC trace.
 ///
@@ -31,14 +38,42 @@
 ///
 class OpenTrace
 {
+  /// Path to the temporary directory containing trace files, if used.
+  std::string TempDir;
+
+  /// Paths for the individual trace files.
+  std::vector<std::string> TempFiles;
+
   /// The SeeC-Clang Mapped process trace.
   std::unique_ptr<seec::cm::ProcessTrace> Trace;
 
+  /// The action recording.
+  std::unique_ptr<wxXmlDocument> Recording;
+
+  /// The annotations.
+  AnnotationCollection Annotations;
+
   /// \brief Constructor.
   ///
-  OpenTrace(std::unique_ptr<seec::cm::ProcessTrace> WithTrace)
-  : Trace(std::move(WithTrace))
-  {}
+  OpenTrace(std::string WithTempDir,
+            std::vector<std::string> WithTempFiles,
+            std::unique_ptr<seec::cm::ProcessTrace> WithTrace,
+            std::unique_ptr<wxXmlDocument> WithRecording,
+            AnnotationCollection WithAnnotations);
+  
+  /// \brief Constructor.
+  ///
+  OpenTrace(std::unique_ptr<seec::cm::ProcessTrace> WithTrace);
+
+  /// \brief Attempt to read a trace from a file or directory.
+  ///
+  static seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>
+  ReadTraceFromFilePath(wxString const &FilePath);
+
+  /// \brief Attempt to read a trace and record from a seecrecording archive.
+  ///
+  static seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
+  FromRecordingArchive(wxString const &FilePath);
 
   // Don't allow copying.
   OpenTrace(OpenTrace const &) = delete;
@@ -47,7 +82,8 @@ class OpenTrace
 public:
   /// \brief Destructor.
   ///
-  ~OpenTrace() = default;
+  ~OpenTrace();
+
 
   /// \brief Attempt to read a trace at the given FilePath.
   /// \param FilePath the path to the process trace file.
@@ -55,8 +91,8 @@ public:
   ///         first element will be active and will contain a std::unique_ptr
   ///         holding an OpenTrace. If an error occurred, then the second
   ///         element will be active and will contain the error.
-  static
-  seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
+  ///
+  static seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
   FromFilePath(wxString const &FilePath);
 
 
@@ -64,7 +100,16 @@ public:
   /// @{
 
   /// \brief Get the mapped process trace.
+  ///
   seec::cm::ProcessTrace const &getTrace() const { return *Trace; }
+  
+  /// \brief Get the action recording associated with this trace, if any.
+  ///
+  decltype(Recording) const &getRecording() const { return Recording; }
+
+  /// \brief Get the \c AnnotationCollection for this trace.
+  ///
+  AnnotationCollection &getAnnotations() { return Annotations; }
 
   /// @}
 };

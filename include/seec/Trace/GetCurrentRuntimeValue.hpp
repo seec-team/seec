@@ -14,16 +14,21 @@
 #ifndef SEEC_TRACE_GETCURRENTRUNTIMEVALUE_HPP
 #define SEEC_TRACE_GETCURRENTRUNTIMEVALUE_HPP
 
+#include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/IR/Argument.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cstdint>
+#include <cfloat>
 
 namespace seec {
 
@@ -45,9 +50,19 @@ struct GetCurrentRuntimeValueAsImpl;
 ///
 ///   uintptr_t getRuntimeAddress(Function const *);
 ///   uintptr_t getRuntimeAddress(GlobalVariable const *);
+///   llvm::DataLayout const &getDataLayout();
 ///
 /// Which return the run-time addresses of the objects passed to them, or 0 if
 /// the run-time addresses cannot be found.
+///
+/// To retrieve the value of byval Argument pointers, the following member
+/// function must also be present in the source type SrcTy:
+///
+///   seec::Maybe<seec::MemoryArea>
+///   getParamByValArea(llvm::Argument const *Arg) const;
+///
+/// This function returns the area occupied by the byval parameter. The start
+/// of this area will be used as the value of the Argument.
 ///
 /// \tparam SrcTy The type of object to get raw GenericValue values from.
 template<>
@@ -102,12 +117,77 @@ struct GetCurrentRuntimeValueAsImpl<uintptr_t, void> {
       else if (llvm::isa<llvm::ConstantPointerNull>(StrippedValue)) {
         return seec::Maybe<uintptr_t>(static_cast<uintptr_t>(0));
       }
+      
+      // Get byval argument values
+      if (auto const Arg = llvm::dyn_cast<llvm::Argument>(V)) {
+        if (Arg->hasByValAttr()) {
+          auto const MaybeArea = Source.getParamByValArea(Arg);
+          if (MaybeArea.template assigned<seec::MemoryArea>()) {
+            auto const Val = MaybeArea.template get<seec::MemoryArea>().start();
+            return static_cast<uintptr_t>(Val);
+          }
+          return seec::Maybe<uintptr_t>();
+        }
+        
+        llvm::errs() << "Value = " << *V << "\n";
+        llvm_unreachable("Don't know how to get pointer from argument.");
+      }
 
-      llvm::errs() << "Value = " << *V << "\n";
-      llvm_unreachable("Don't know how to get runtime value of pointer.");
+      // Handle some ConstantExpr operations. A better way to do this, if we
+      // can, would be to replace the used values that are runtime constants
+      // (e.g. global variable addresses) with simple constants and get LLVM
+      // to deduce the value.
+      if (auto const CE = llvm::dyn_cast<llvm::ConstantExpr>(V)) {
+        switch (CE->getOpcode()) {
+          case llvm::Instruction::MemoryOps::GetElementPtr:
+          {
+            llvm::DataLayout const &DL = Source.getDataLayout();
+            auto const Base = CE->getOperand(0);
+
+            auto ElemAddress = getCurrentRuntimeValueAs(Source, Base)
+                               .template get<uintptr_t>();
+            llvm::Type *ElemType = Base->getType();
+
+            auto const NumOperands = CE->getNumOperands();
+
+            for (unsigned i = 1; i < NumOperands; ++i) {
+              auto const MaybeValue =
+                getCurrentRuntimeValueAs(Source, CE->getOperand(i));
+
+              if (!MaybeValue.template assigned<uintptr_t>()) {
+                llvm::errs() << "GetElementPtr const expr couldn't value of: "
+                            << *(CE->getOperand(i)) << "\n";
+                return Maybe<uintptr_t>();
+              }
+
+              auto const Value = MaybeValue.template get<uintptr_t>();
+
+              if (auto ST = llvm::dyn_cast<llvm::SequentialType>(ElemType)) {
+                ElemType = ST->getElementType();
+                ElemAddress += (Value * DL.getTypeAllocSize(ElemType));
+              }
+              else if (auto ST = llvm::dyn_cast<llvm::StructType>(ElemType)) {
+                auto const Layout = DL.getStructLayout(ST);
+                ElemType = ST->getElementType(Value);
+                ElemAddress += Layout->getElementOffset(Value);
+              }
+            }
+
+            return ElemAddress;
+          }
+
+          default:
+            llvm::errs() << "can't get runtime value of const expr pointer: "
+                         << *CE << "\n";
+            return Maybe<uintptr_t>();
+        }
+      }
+
+      llvm::errs() << "don't know how to get runtime value of pointer: "
+                   << *V << "\n";
     }
-    
-    return seec::Maybe<uintptr_t>();
+
+    return Maybe<uintptr_t>();
   }
 };
 
@@ -258,12 +338,31 @@ struct GetCurrentRuntimeValueAsImpl<long double, void> {
     
     if (auto Instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
       if (auto RTValue = Source.getCurrentRuntimeValue(Instruction))
-        return static_cast<long double>(RTValue->getDouble());
+        return static_cast<long double>(RTValue->getLongDouble());
       return seec::Maybe<long double>();
     }
     else if (auto ConstantFloat = llvm::dyn_cast<llvm::ConstantFP>(V)) {
-      auto const DoubleVal = ConstantFloat->getValueAPF().convertToDouble();
-      return static_cast<long double>(DoubleVal);
+      auto const APF = ConstantFloat->getValueAPF();
+      auto const SemanticsPtr = &(APF.getSemantics());
+
+      if (SemanticsPtr == &llvm::APFloat::IEEEsingle) {
+        return static_cast<long double>(APF.convertToFloat());
+      }
+      else if (SemanticsPtr == &llvm::APFloat::IEEEdouble) {
+        return static_cast<long double>(APF.convertToDouble());
+      }
+      else if (SemanticsPtr == &llvm::APFloat::x87DoubleExtended) {
+        assert(LDBL_MANT_DIG == 64);
+        long double Result = 0;
+        auto const API = APF.bitcastToAPInt();
+        memcpy(reinterpret_cast<char *>(&Result),
+               reinterpret_cast<char const *>(API.getRawData()),
+               10);
+        return Result;
+      }
+      else {
+        llvm_unreachable("Float semantics not yet supported!");
+      }
     }
     
     llvm_unreachable("Don't know how to extract long double!");

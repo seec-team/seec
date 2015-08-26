@@ -21,7 +21,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "wx/archive.h"
+
 #include <memory>
+#include <numeric>
 #include <vector>
 
 namespace seec {
@@ -99,86 +102,12 @@ deserializeRuntimeError(EventRange Records) {
 // FunctionTrace
 //------------------------------------------------------------------------------
 
-llvm::ArrayRef<offset_uint> FunctionTrace::getChildList() const {
-  auto List = *reinterpret_cast<offset_uint const *>(Data + ChildListOffset());
-  return Thread->getOffsetList(List);
-}
-
 llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T) {
   Out << "[Function Idx=" << T.getIndex()
-      << ", [" << T.getThreadTimeEntered()
+      << ", (" << T.getThreadTimeEntered()
       << "," << T.getThreadTimeExited()
-      << "] Children=" << T.getChildList().size()
-      << "]";
+      << ")]";
   return Out;
-}
-
-
-//------------------------------------------------------------------------------
-// ThreadTrace
-//------------------------------------------------------------------------------
-
-seec::Maybe<FunctionTrace>
-ThreadTrace::getFunctionContaining(EventReference EvRef) const {
-  auto Evs = rangeBefore(events(), EvRef);
-
-  // Search backwards until we find the FunctionStart for the function that
-  // contains EvRef.
-  for (EventReference It(--Evs.end()); ; --It) {
-    if (It->getType() == EventType::FunctionStart) {
-      // This function must be the containing function, because we have skipped
-      // all child functions.
-      auto const &StartEv = It.get<EventType::FunctionStart>();
-      return getFunctionTrace(StartEv.getRecord());
-    }
-    else if (It->getType() == EventType::FunctionEnd) {
-      // Skip events in child function invocations.
-
-      auto const &EndEv = It.get<EventType::FunctionEnd>();
-      auto const Info = getFunctionTrace(EndEv.getRecord());
-      It = Evs.referenceToOffset(Info.getEventStart());
-
-      // It will be decremented at the end of the loop, correctly skipping the
-      // FunctionStart event for this child function.
-    }
-
-    if (It == Evs.begin())
-      break;
-  }
-
-  return seec::Maybe<FunctionTrace>();
-}
-
-uint64_t ThreadTrace::getFinalThreadTime() const {
-  auto MaybeTime = lastSuccessfulApply(events(),
-                    [this]
-                    (EventRecordBase const &Ev) -> seec::Maybe<uint64_t>
-                    {
-                      auto Ty = Ev.getType();
-
-                      if (Ty == EventType::FunctionEnd) {
-                        auto EndEv = Ev.as<EventType::FunctionEnd>();
-                        auto Record = EndEv.getRecord();
-                        auto FTrace = this->getFunctionTrace(Record);
-                        auto Exited = FTrace.getThreadTimeExited();
-                        // Function might never have been exited, in which case
-                        // it will have a zero exit time.
-                        return Exited ? Exited : seec::Maybe<uint64_t>();
-                      }
-                      else if (Ty == EventType::FunctionStart) {
-                        auto StartEv = Ev.as<EventType::FunctionStart>();
-                        auto Record = StartEv.getRecord();
-                        auto FTrace = this->getFunctionTrace(Record);
-                        return FTrace.getThreadTimeEntered();
-                      }
-
-                      return Ev.getThreadTime();
-                    });
-
-  if (MaybeTime.assigned())
-    return MaybeTime.get<0>();
-
-  return 0;
 }
 
 
@@ -186,18 +115,20 @@ uint64_t ThreadTrace::getFinalThreadTime() const {
 // ProcessTrace
 //------------------------------------------------------------------------------
 
-ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+ProcessTrace::ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
+                           std::unique_ptr<llvm::MemoryBuffer> Trace,
                            std::unique_ptr<llvm::MemoryBuffer> Data,
                            std::string ModuleIdentifier,
                            uint32_t NumThreads,
                            uint64_t FinalProcessTime,
-                           std::vector<uintptr_t> GVAddresses,
+                           std::vector<uint64_t> GVAddresses,
                            std::vector<offset_uint> GVInitialData,
-                           std::vector<uintptr_t> FAddresses,
-                           std::vector<uintptr_t> WithStreamsInitial,
+                           std::vector<uint64_t> FAddresses,
+                           std::vector<uint64_t> WithStreamsInitial,
                            std::vector<std::unique_ptr<ThreadTrace>> TTraces
                            )
-: Trace(std::move(Trace)),
+: Allocator(std::move(WithAllocator)),
+  Trace(std::move(Trace)),
   Data(std::move(Data)),
   ModuleIdentifier(std::move(ModuleIdentifier)),
   NumThreads(NumThreads),
@@ -209,14 +140,14 @@ ProcessTrace::ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
   ThreadTraces(std::move(TTraces))
 {}
 
-seec::Maybe<std::unique_ptr<ProcessTrace>,
-            seec::Error>
-ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
-  auto TraceBuffer = Allocator.getProcessData(ProcessSegment::Trace);
+seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
+ProcessTrace::readFrom(std::unique_ptr<InputBufferAllocator> Allocator)
+{
+  auto TraceBuffer = Allocator->getProcessData(ProcessSegment::Trace);
   if (TraceBuffer.assigned<seec::Error>())
     return std::move(TraceBuffer.get<seec::Error>());
   
-  auto DataBuffer = Allocator.getProcessData(ProcessSegment::Data);
+  auto DataBuffer = Allocator->getProcessData(ProcessSegment::Data);
   if (DataBuffer.assigned<seec::Error>())
     return std::move(DataBuffer.get<seec::Error>());
   
@@ -243,10 +174,10 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   std::string ModuleIdentifier;
   uint32_t NumThreads;
   uint64_t FinalProcessTime;
-  std::vector<uintptr_t> GlobalVariableAddresses;
+  std::vector<uint64_t> GlobalVariableAddresses;
   std::vector<offset_uint> GlobalVariableInitialData;
-  std::vector<uintptr_t> FunctionAddresses;
-  std::vector<uintptr_t> StreamsInitial;
+  std::vector<uint64_t> FunctionAddresses;
+  std::vector<uint64_t> StreamsInitial;
   std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
   TraceReader >> ModuleIdentifier
@@ -264,11 +195,12 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
   }
 
   for (uint32_t i = 0; i < NumThreads; ++i) {
-    ThreadTraces.emplace_back(new ThreadTrace(Allocator, i + 1));
+    ThreadTraces.emplace_back(new ThreadTrace(*Allocator, i + 1));
   }
 
   return std::unique_ptr<ProcessTrace>(
-            new ProcessTrace(std::move(TraceBuffer.get<0>()),
+            new ProcessTrace(std::move(Allocator),
+                             std::move(TraceBuffer.get<0>()),
                              std::move(DataBuffer.get<0>()),
                              std::move(ModuleIdentifier),
                              NumThreads,
@@ -280,8 +212,81 @@ ProcessTrace::readFrom(InputBufferAllocator &Allocator) {
                              std::move(ThreadTraces)));
 }
 
+bool ProcessTrace::writeToArchive(wxArchiveOutputStream &Stream)
+{
+  if (!Stream.PutNextDirEntry("trace"))
+    return false;
+
+  auto const MaybeFiles = getAllFileData();
+  if (MaybeFiles.assigned<Error>())
+    return false;
+
+  for (auto const &File : MaybeFiles.get<std::vector<TraceFile>>())
+  {
+    if (!Stream.PutNextEntry(wxString{"trace/"} + File.getName()))
+      return false;
+
+    auto const &Buffer = File.getContents();
+    if (!Stream.WriteAll(Buffer->getBufferStart(), Buffer->getBufferSize()))
+      return false;
+  }
+
+  return true;
+}
+
+seec::Maybe<std::vector<TraceFile>, seec::Error>
+ProcessTrace::getAllFileData() const
+{
+  std::vector<TraceFile> Files;
+  
+  // Get the module.
+  auto MaybeModule = Allocator->getModuleFile();
+  if (MaybeModule.assigned<seec::Error>())
+    return MaybeModule.move<seec::Error>();
+  Files.emplace_back(MaybeModule.move<TraceFile>());
+  
+  // Get the process files.
+  auto MaybeProcessTrace = Allocator->getProcessFile(ProcessSegment::Trace);
+  if (MaybeProcessTrace.assigned<seec::Error>())
+    return MaybeProcessTrace.move<seec::Error>();
+  Files.emplace_back(MaybeProcessTrace.move<TraceFile>());
+  
+  auto MaybeProcessData = Allocator->getProcessFile(ProcessSegment::Data);
+  if (MaybeProcessData.assigned<seec::Error>())
+    return MaybeProcessData.move<seec::Error>();
+  Files.emplace_back(MaybeProcessData.move<TraceFile>());
+  
+  // Get all threads' files.
+  for (uint32_t i = 1; i <= NumThreads; ++i) {
+    auto MaybeTrace = Allocator->getThreadFile(i, ThreadSegment::Trace);
+    if (MaybeTrace.assigned<seec::Error>())
+      return MaybeTrace.move<seec::Error>();
+    Files.emplace_back(MaybeTrace.move<TraceFile>());
+    
+    auto MaybeEvents = Allocator->getThreadFile(i, ThreadSegment::Events);
+    if (MaybeEvents.assigned<seec::Error>())
+      return MaybeEvents.move<seec::Error>();
+    Files.emplace_back(MaybeEvents.move<TraceFile>());
+  }
+  
+  return std::move(Files);
+}
+
+Maybe<uint64_t, Error> ProcessTrace::getCombinedFileSize() const
+{
+  auto MaybeFiles = getAllFileData();
+  if (MaybeFiles.assigned<Error>())
+    return MaybeFiles.move<Error>();
+
+  auto &Files = MaybeFiles.get<std::vector<TraceFile>>();
+  return std::accumulate(Files.begin(), Files.end(), uint64_t{0},
+                         [] (uint64_t const Sum, TraceFile const &File) {
+                           return Sum + File.getContents()->getBufferSize();
+                         });
+}
+
 Maybe<uint32_t>
-ProcessTrace::getIndexOfFunctionAt(uintptr_t const Address) const
+ProcessTrace::getIndexOfFunctionAt(uint64_t const Address) const
 {
   for (uint32_t i = 0; i < FunctionAddresses.size(); ++i)
     if (FunctionAddresses[i] == Address)

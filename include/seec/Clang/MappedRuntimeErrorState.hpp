@@ -68,7 +68,8 @@ public:
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
-             seec::util::IndentationGuide &Indentation) const;
+             seec::util::IndentationGuide &Indentation,
+             AugmentationCallbackFn Augmenter) const;
   
   /// \brief Get the raw (unmapped) state.
   ///
@@ -84,8 +85,12 @@ public:
   ///
   seec::Maybe<std::unique_ptr<seec::runtime_errors::Description>,
               seec::Error>
-  getDescription() const;
+  getDescription(AugmentationCallbackFn Augmenter) const;
   
+  /// \brief Get the Decl that owns the Instruction that caused this error.
+  ///
+  clang::Decl const *getDecl() const;
+
   /// \brief Get the Stmt that owns the Instruction that caused this error.
   ///
   clang::Stmt const *getStmt() const;

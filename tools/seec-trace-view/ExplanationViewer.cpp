@@ -12,6 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedFunctionState.hpp"
+#include "seec/Clang/MappedProcessState.hpp"
+#include "seec/Clang/MappedThreadState.hpp"
+#include "seec/ICU/Indexing.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -21,22 +25,152 @@
 #include <wx/cursor.h>
 #include <wx/utils.h>
 
+#include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "ExplanationViewer.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
+#include "OpenTrace.hpp"
+#include "RuntimeValueLookup.hpp"
 #include "SourceViewerSettings.hpp"
+#include "StateAccessToken.hpp"
+#include "TraceViewerApp.hpp"
+
+#include <cassert>
 
 
-void ExplanationViewer::setText(wxString const &Value)
+std::pair<int, int>
+ExplanationViewer::getAnnotationByteOffsetRange(int32_t const Start,
+                                                int32_t const End)
+{
+  assert(Start <= End);
+
+  // Initially set the offset to the first valid offset preceding the
+  // "whole character" index. This will always be less than the required offset
+  // (because no encoding uses less than one byte per character).
+  int StartPos = PositionBefore(Start);
+
+  // Find the "whole character" index of the initial position, use that to
+  // determine how many characters away from the desired position we are, and
+  // then iterate to the desired position.
+  auto const StartGuessCount = CountCharacters(0, StartPos);
+  for (int i = 0; i < Start - StartGuessCount; ++i)
+    StartPos = PositionAfter(StartPos);
+
+  // Get the EndPos by iterating from the StartPos.
+  auto const Length = End - Start;
+  int EndPos = StartPos;
+  for (int i = 0; i < Length; ++i)
+    EndPos = PositionAfter(EndPos);
+
+  return std::make_pair(StartPos, EndPos);
+}
+
+std::pair<int, int>
+ExplanationViewer::getExplanationByteOffsetRange(int32_t const Start,
+                                                 int32_t const End)
+{
+  auto const AnnotationText = Annotation->getText();
+  return getAnnotationByteOffsetRange(Start + AnnotationText.length(),
+                                      End   + AnnotationText.length());
+}
+
+void ExplanationViewer::setAnnotationText(wxString const &Value)
+{
+  auto MaybeIndexed = IndexedAnnotationText::create(Trace->getTrace(), Value);
+  if (!MaybeIndexed.assigned<IndexedAnnotationText>())
+    return;
+
+  Annotation = seec::makeUnique<IndexedAnnotationText>
+                               (MaybeIndexed.move<IndexedAnnotationText>());
+
+  this->SetEditable(true);
+  auto const ExplanationLength = GetLength() - AnnotationLength;
+  this->Replace(0, AnnotationLength, Annotation->getText());
+  AnnotationLength = GetLength() - ExplanationLength;
+  this->SetEditable(false);
+  this->ClearSelections();
+
+  // Set indicators for the indexed parts of the annotation.
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::TextInteractive));
+
+  for (auto const &Pair : Annotation->getIndexedString().getNeedleLookup()) {
+    auto const &Needle = Pair.second;
+    auto const Range = getAnnotationByteOffsetRange(Needle.getStart(),
+                                                    Needle.getEnd());
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+  }
+}
+
+void ExplanationViewer::setExplanationText(wxString const &Value)
 {
   this->SetEditable(true);
-  this->ClearAll();
-  this->SetValue(Value);
+  this->Replace(AnnotationLength, this->GetLength(), Value);
   this->SetEditable(false);
   this->ClearSelections();
 }
 
+void ExplanationViewer::setExplanationIndicators()
+{
+  if (!Explanation)
+    return;
+
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::TextInteractive));
+
+  auto const &Indexed = Explanation->getIndexedString();
+
+  for (auto const &NeedlePair : Indexed.getNeedleLookup()) {
+    auto const &Needle = NeedlePair.second;
+    auto const Range = getExplanationByteOffsetRange(Needle.getStart(),
+                                                     Needle.getEnd());
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+  }
+}
+
+void ExplanationViewer::mouseOverDecl(clang::Decl const *TheDecl)
+{
+  if (HighlightedDecl != TheDecl) {
+    HighlightedDecl = TheDecl;
+
+    Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseOverDeclLink",
+                              make_attribute("decl", TheDecl));
+    }
+  }
+}
+
+void ExplanationViewer::mouseOverStmt(clang::Stmt const *TheStmt)
+{
+  if (HighlightedStmt != TheStmt) {
+    HighlightedStmt = TheStmt;
+
+    Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
+
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseOverStmtLink",
+                              make_attribute("stmt", TheStmt));
+    }
+  }
+}
+
+void ExplanationViewer::mouseOverHyperlink(UnicodeString const &URL)
+{
+  SetCursor(wxCursor(wxCURSOR_HAND));
+  URLHover = true;
+  URLHovered.clear();
+  URL.toUTF8String(URLHovered);
+
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseOverURL",
+                            make_attribute("url", URLHovered));
+  }
+}
+
 void ExplanationViewer::clearCurrent()
 {
+  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
   IndicatorClearRange(0, GetTextLength());
   
   CurrentMousePosition = wxSTC_INVALID_POSITION;
@@ -60,18 +194,20 @@ void ExplanationViewer::clearCurrent()
 ExplanationViewer::~ExplanationViewer() {}
 
 bool ExplanationViewer::Create(wxWindow *Parent,
+                               OpenTrace &WithTrace,
                                ContextNotifier &WithNotifier,
+                               ActionRecord &WithRecording,
+                               ActionReplayFrame &WithReplay,
                                wxWindowID ID,
                                wxPoint const &Position,
                                wxSize const &Size)
 {
-  if (!wxStyledTextCtrl::Create(Parent,
-                                ID,
-                                Position,
-                                Size))
+  if (!wxStyledTextCtrl::Create(Parent, ID, Position, Size))
     return false;
   
+  Trace = &WithTrace;
   Notifier = &WithNotifier;
+  Recording = &WithRecording;
   
   Bind(wxEVT_MOTION, &ExplanationViewer::OnMotion, this);
   Bind(wxEVT_ENTER_WINDOW, &ExplanationViewer::OnEnterWindow, this);
@@ -79,8 +215,8 @@ bool ExplanationViewer::Create(wxWindow *Parent,
   Bind(wxEVT_LEFT_DOWN, &ExplanationViewer::OnLeftDown, this);
   Bind(wxEVT_LEFT_UP, &ExplanationViewer::OnLeftUp, this);
   
-  // setupAllSciCommonTypes(*this);
-  // setupAllSciLexerTypes(*this);
+  setupAllSciCommonTypes(*this);
+  setupAllSciLexerTypes(*this);
   setupAllSciIndicatorTypes(*this);
   
   SetEditable(false);
@@ -106,73 +242,86 @@ void ExplanationViewer::OnMotion(wxMouseEvent &Event)
   
   if (Pos == wxSTC_INVALID_POSITION) {
     URLClick = false;
+    URLHovered.clear();
     return;
   }
   
-  // This is the "whole character" offset (regardless of the text's encoding).
-  auto const Count = CountCharacters(0, Pos);
-  
-  auto const Links = Explanation->getCharacterLinksAt(Count);
-  if (Links.getPrimaryIndex().isEmpty())
-    return;
-  
-  SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
-  
-  // Get the byte offset rather than the "whole character" index.
-  auto const StartIndex = Links.getPrimaryIndexStart();
-  
-  // Initially set the offset to the first valid offset preceding the
-  // "whole character" index. This will always be less than the required offset
-  // (because no encoding uses less than one byte per character).
-  int StartPos = PositionBefore(StartIndex);
-  
-  // Find the "whole character" index of the guessed position, use that to
-  // determine how many characters away from the desired position we are, and
-  // then iterate to the desired position.
-  auto const StartGuessCount = CountCharacters(0, StartPos);
-  for (int i = 0; i < StartIndex - StartGuessCount; ++i)
-    StartPos = PositionAfter(StartPos);
-  
-  // Get the EndPos by iterating from the StartPos.
-  auto const Length = Links.getPrimaryIndexEnd() - Links.getPrimaryIndexStart();
-  int EndPos = StartPos;
-  for (int i = 0; i < Length; ++i)
-    EndPos = PositionAfter(EndPos);
-  
-  IndicatorFillRange(StartPos, EndPos - StartPos);
-  
-  if (auto const Decl = Links.getPrimaryDecl()) {
-    if (HighlightedDecl != Decl) {
-      HighlightedDecl = Decl;
-      
-      Notifier->createNotify<ConEvHighlightDecl>(HighlightedDecl);
+  if (CurrentMousePosition < AnnotationLength) {
+    // This is the "whole character" offset into the annotation.
+    auto const Count = CountCharacters(0, Pos);
+
+    auto const MaybeIndex = Annotation->getPrimaryIndexAt(Count);
+    if (!MaybeIndex.assigned<AnnotationIndex>())
+      return;
+
+    auto const &Index = MaybeIndex.get<AnnotationIndex>();
+
+    SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
+
+    auto const Range = getAnnotationByteOffsetRange(Index.getStart(),
+                                                    Index.getEnd());
+
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+
+    if (auto const TheDecl = Index.getDecl())
+      mouseOverDecl(TheDecl);
+
+    if (auto const TheStmt = Index.getStmt())
+      mouseOverStmt(TheStmt);
+
+    if (Index.getIndex().indexOf("://") != -1)
+      mouseOverHyperlink(Index.getIndex());
+    else {
+      URLClick = false;
+      URLHovered.clear();
     }
-  }
-  
-  if (auto const Stmt = Links.getPrimaryStmt()) {
-    if (HighlightedStmt != Stmt) {
-      HighlightedStmt = Stmt;
-      
-      Notifier->createNotify<ConEvHighlightStmt>(HighlightedStmt);
-    }
-  }
-  
-  if (Links.getPrimaryIndex().indexOf("://") != -1) {
-    SetCursor(wxCursor(wxCURSOR_HAND));
-    URLHover = true;
   }
   else {
-    URLClick = false;
+    // This is the "whole character" offset (regardless of the text's encoding).
+    auto const Count = CountCharacters(AnnotationLength, Pos);
+
+    auto const Links = Explanation->getCharacterLinksAt(Count);
+    if (Links.getPrimaryIndex().isEmpty())
+      return;
+
+    SetIndicatorCurrent(static_cast<int>(SciIndicatorType::CodeHighlight));
+
+    auto const Range =
+      getExplanationByteOffsetRange(Links.getPrimaryIndexStart(),
+                                    Links.getPrimaryIndexEnd());
+
+    IndicatorFillRange(Range.first, Range.second - Range.first);
+
+    if (auto const Decl = Links.getPrimaryDecl())
+      mouseOverDecl(Decl);
+
+    if (auto const Stmt = Links.getPrimaryStmt())
+      mouseOverStmt(Stmt);
+
+    if (Links.getPrimaryIndex().indexOf("://") != -1)
+      mouseOverHyperlink(Links.getPrimaryIndex());
+    else {
+      URLClick = false;
+      URLHovered.clear();
+    }
   }
 }
 
 void ExplanationViewer::OnEnterWindow(wxMouseEvent &Event)
 {
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseEnter");
+  }
+
   Event.Skip();
 }
 
 void ExplanationViewer::OnLeaveWindow(wxMouseEvent &Event)
 {
+  if (Recording) {
+    Recording->recordEventL("ExplanationViewer.MouseLeave");
+  }
+
   clearCurrent();
   URLClick = false;
   Event.Skip();
@@ -185,6 +334,7 @@ void ExplanationViewer::OnLeftDown(wxMouseEvent &Event)
   }
   else {
     URLClick = false;
+    URLHovered.clear();
     Event.Skip();
   }
 }
@@ -192,34 +342,131 @@ void ExplanationViewer::OnLeftDown(wxMouseEvent &Event)
 void ExplanationViewer::OnLeftUp(wxMouseEvent &Event)
 {
   if (URLClick) {
-    // This is the "whole character" offset (regardless of the text's encoding).
-    auto const Count = CountCharacters(0, CurrentMousePosition);
-    
-    auto const Links = Explanation->getCharacterLinksAt(Count);
-    if (Links.getPrimaryIndex().isEmpty())
-      return;
-    
-    ::wxLaunchDefaultBrowser(seec::towxString(Links.getPrimaryIndex()));
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseLeftClickURL",
+                              make_attribute("url", URLHovered));
+    }
+
+    ::wxLaunchDefaultBrowser(URLHovered);
   }
   else {
+    if (Recording) {
+      Recording->recordEventL("ExplanationViewer.MouseLeftClick");
+    }
+
     Event.Skip();
+  }
+}
+
+bool ExplanationViewer::showAnnotations(seec::cm::ProcessState const &Process,
+                                        seec::cm::ThreadState const &Thread)
+{
+  // Get annotation for this process state (if any).
+  auto &Annotations = Trace->getAnnotations();
+  wxString CombinedText;
+
+  auto const MaybeProcessAnno = Annotations.getPointForProcessState(Process);
+  if (MaybeProcessAnno.assigned<AnnotationPoint>()) {
+    auto const Text = MaybeProcessAnno.get<AnnotationPoint>().getText();
+    if (!Text.empty()) {
+      CombinedText << Text << "\n";
+    }
+  }
+
+  auto const MaybeThreadAnno = Annotations.getPointForThreadState(Thread);
+  if (MaybeThreadAnno.assigned<AnnotationPoint>()) {
+    auto const Text = MaybeThreadAnno.get<AnnotationPoint>().getText();
+    if (!Text.empty()) {
+      if (!CombinedText.empty())
+        CombinedText << "\n";
+      CombinedText << Text << "\n";
+    }
+  }
+
+  bool SuppressEPV = false;
+  auto const &CallStack = Thread.getCallStack();
+  if (!CallStack.empty()) {
+    auto const &Function = CallStack.back().get();
+    seec::Maybe<AnnotationPoint> MaybeAnno;
+
+    if (auto const ActiveStmt = Function.getActiveStmt())
+      MaybeAnno = Annotations.getPointForNode(Trace->getTrace(), ActiveStmt);
+    else if (auto const FunctionDecl = Function.getFunctionDecl())
+      MaybeAnno = Annotations.getPointForNode(Trace->getTrace(), FunctionDecl);
+
+    if (MaybeAnno.assigned<AnnotationPoint>()) {
+      auto const &Point = MaybeAnno.get<AnnotationPoint>();
+
+      auto const Text = Point.getText();
+      if (!Text.empty()) {
+        if (!CombinedText.empty())
+          CombinedText << "\n";
+        CombinedText << Text << "\n";
+      }
+
+      if (Point.hasSuppressEPV())
+        SuppressEPV = true;
+    }
+  }
+
+  if (!CombinedText.empty()) {
+    CombinedText << "\n";
+    setAnnotationText(CombinedText);
+  }
+
+  return SuppressEPV;
+}
+
+void ExplanationViewer::show(std::shared_ptr<StateAccessToken> Access,
+                             seec::cm::ProcessState const &Process,
+                             seec::cm::ThreadState const &Thread)
+{
+  clearExplanation();
+  
+  if (!Access)
+    return;
+  
+  auto Lock = Access->getAccess();
+  if (!Lock)
+    return;
+  
+  auto const SuppressEPV = showAnnotations(Process, Thread);
+
+  if (!SuppressEPV) {
+    // Find the active function (if any).
+    auto const &CallStack = Thread.getCallStack();
+    if (!CallStack.empty()) {
+      auto const &Function = CallStack.back().get();
+
+      // If there is an active Stmt then explain it. Otherwise, explain the
+      // active function's Decl.
+      if (auto const ActiveStmt = Function.getActiveStmt()) {
+        showExplanation(ActiveStmt, Function);
+      }
+      else if (auto const FunctionDecl = Function.getFunctionDecl()) {
+        showExplanation(FunctionDecl);
+      }
+    }
   }
 }
 
 void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 {
-  auto MaybeExplanation = seec::clang_epv::explain(Decl);
+  auto const &Augmentations = wxGetApp().getAugmentations();
+  auto MaybeExplanation =
+    seec::clang_epv::explain(Decl, Augmentations.getCallbackFn());
   
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
-    setText(seec::towxString(Explanation->getString()));
+    setExplanationText(seec::towxString(Explanation->getString()));
+    setExplanationIndicators();
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
-                                                                 Locale());
+                                                                 getLocale());
     if (U_SUCCESS(Status)) {
-      setText(seec::towxString(String));
+      setExplanationText(seec::towxString(String));
     }
     else {
       wxLogDebug("Indescribable error with seec::clang_epv::explain().");
@@ -233,40 +480,26 @@ void ExplanationViewer::showExplanation(::clang::Decl const *Decl)
 void
 ExplanationViewer::
 showExplanation(::clang::Stmt const *Statement,
-                       ::seec::cm::FunctionState const &InFunction)
+                ::seec::cm::FunctionState const &InFunction)
 {
+  auto const &Augmentations = wxGetApp().getAugmentations();
   auto MaybeExplanation =
     seec::clang_epv::explain(
       Statement,
-      seec::clang_epv::makeRuntimeValueLookupByLambda(
-        [&](::clang::Stmt const *S) -> bool {
-          return InFunction.getStmtValue(S) ? true : false;
-        },
-        [&](::clang::Stmt const *S) -> std::string {
-          auto const Value = InFunction.getStmtValue(S);
-          return Value ? Value->getValueAsStringFull() : std::string();
-        },
-        [&](::clang::Stmt const *S) -> seec::Maybe<bool> {
-          auto const Value = InFunction.getStmtValue(S);
-          if (Value && Value->isCompletelyInitialized()
-              && llvm::isa<seec::cm::ValueOfScalar>(*Value))
-          {
-            auto &Scalar = llvm::cast<seec::cm::ValueOfScalar>(*Value);
-            return !Scalar.isZero();
-          }
-          return seec::Maybe<bool>();
-        }));
+      RuntimeValueLookupForFunction(&InFunction),
+      Augmentations.getCallbackFn());
   
   if (MaybeExplanation.assigned(0)) {
     Explanation = std::move(MaybeExplanation.get<0>());
-    setText(seec::towxString(Explanation->getString()));
+    setExplanationText(seec::towxString(Explanation->getString()));
+    setExplanationIndicators();
   }
   else if (MaybeExplanation.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     auto String = MaybeExplanation.get<seec::Error>().getMessage(Status,
-                                                                 Locale());
+                                                                 getLocale());
     if (U_SUCCESS(Status)) {
-      setText(seec::towxString(String));
+      setExplanationText(seec::towxString(String));
     }
     else {
       wxLogDebug("Indescribable error with seec::clang_epv::explain().");
@@ -283,7 +516,10 @@ void ExplanationViewer::clearExplanation()
   // Ensure that highlights etc. are cleared (if they are active).
   clearCurrent();
   
+  // Discard the annotation.
+  setAnnotationText(wxEmptyString);
+
   // Discard the explanation and clear the display.
   Explanation.reset();
-  setText(wxEmptyString);
+  setExplanationText(wxEmptyString);
 }

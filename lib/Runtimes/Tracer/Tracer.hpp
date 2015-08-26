@@ -23,10 +23,14 @@
 
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 
 namespace seec {
+
+class AugmentationCollection;
+class ResourceLoader;
 
 namespace trace {
 
@@ -70,9 +74,32 @@ public:
   ///
   ThreadEnvironment(ProcessEnvironment &PE);
   
+  /// \brief Destructor.
+  ///
+  ~ThreadEnvironment();
+  
   /// \brief Get this thread's listener.
   ///
   TraceThreadListener &getThreadListener() { return ThreadTracer; }
+  
+  
+  /// \name Accessors.
+  /// @{
+  
+  ProcessEnvironment &getProcessEnvironment() { return Process; }
+  
+  /// @} (Accessors.)
+
+
+  /// \name Trace output.
+  /// @{
+
+  /// \brief Check if this thread's output is too large, in which case the
+  ///        tracing will be stopped (but execution will continue).
+  ///
+  void checkOutputSize();
+
+  /// @}
   
   
   /// \name Function tracking.
@@ -139,6 +166,38 @@ public:
 };
 
 
+/// \brief Holds the result of an attempt to archive (or unarchive) the trace.
+///
+class TraceArchiveResult {
+  bool Success;
+
+  std::string Filename;
+
+  std::string Error;
+
+public:
+  TraceArchiveResult()
+  : Success(false),
+    Filename(),
+    Error()
+  {}
+
+  TraceArchiveResult(bool const WithSuccess,
+                     std::string WithFilename,
+                     std::string WithError)
+  : Success(WithSuccess),
+    Filename(std::move(WithFilename)),
+    Error(std::move(WithError))
+  {}
+
+  bool getSuccess() const { return Success; }
+
+  std::string const &getFilename() const { return Filename; }
+
+  std::string const &getError() const { return Error; }
+};
+
+
 /// \brief ProcessEnvironment.
 ///
 class ProcessEnvironment {
@@ -157,17 +216,32 @@ class ProcessEnvironment {
   /// Support synchronized exit of all threads.
   seec::SynchronizedExit SyncExit;
   
+  /// Loads ICU resources.
+  std::unique_ptr<ResourceLoader> ICUResourceLoader;
+
+  /// Holds augmentations.
+  std::unique_ptr<seec::AugmentationCollection> Augmentations;
+
   /// Process listener.
   std::unique_ptr<TraceProcessListener> ProcessTracer;
   
-  /// Thread listeners.
+  /// Thread environments.
   std::map<std::thread::id, std::unique_ptr<ThreadEnvironment>> ThreadLookup;
+  
+  /// Controls access to the thread environments.
+  std::mutex ThreadLookupMutex;
   
   /// Interceptor function addresses.
   llvm::DenseSet<uintptr_t> InterceptorAddresses;
   
   /// Size limit for thread event files.
   offset_uint ThreadEventLimit;
+  
+  /// Size limit for archiving traces.
+  uint64_t ArchiveSizeLimit;
+  
+  /// The program name as found in argv[0], if we were notified of it.
+  std::string ProgramName;
   
 public:
   /// \brief Constructor.
@@ -180,8 +254,6 @@ public:
   /// are destroyed before the shared ProcessListener object.
   ///
   ~ProcessEnvironment();
-  
-  decltype(ThreadLookup) &getThreadLookup() { return ThreadLookup; }
   
   llvm::LLVMContext &getContext() { return Context; }
   
@@ -213,6 +285,42 @@ public:
   ///
   offset_uint getThreadEventLimit() const { return ThreadEventLimit; }
   
+  /// \brief Get the size limit for archiving traces.
+  ///
+  uint64_t getArchiveSizeLimit() const { return ArchiveSizeLimit; }
+  
+  /// \brief Get the program name as found in argv[0] (may be empty).
+  ///
+  std::string const &getProgramName() const { return ProgramName; }
+  
+  /// @}
+  
+  
+  /// \name Mutators.
+  /// @{
+  
+  /// \brief Get the current thread's environment.
+  ///
+  ThreadEnvironment *getOrCreateCurrentThreadEnvironment();
+  
+  /// \brief Set the program name as found in argv[0].
+  ///
+  void setProgramName(llvm::StringRef Name);
+  
+  /// @}
+
+
+  /// \name Archiving
+  /// @{
+
+  /// \brief Attempt to archive the completed trace.
+  ///
+  TraceArchiveResult archive();
+
+  /// \brief Attempt to extract an archived trace (to continue tracing).
+  ///
+  TraceArchiveResult unarchive(TraceArchiveResult const &FromArchive);
+
   /// @}
 };
 

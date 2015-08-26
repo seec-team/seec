@@ -1,4 +1,5 @@
 set(HEADERS
+  ../../include/seec/ICU/Augmenter.hpp
   ../../include/seec/ICU/Format.hpp
   ../../include/seec/ICU/Indexing.hpp
   ../../include/seec/ICU/LazyMessage.hpp
@@ -8,6 +9,7 @@ set(HEADERS
   )
 
 set(SOURCES
+  Augmenter.cpp
   Format.cpp
   Indexing.cpp
   LazyMessage.cpp
@@ -16,11 +18,7 @@ set(SOURCES
   Resources.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCICU ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCICU ${SOURCES})
-endif()
+add_library(SeeCICU ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCICU
   RUNTIME DESTINATION bin

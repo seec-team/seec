@@ -169,6 +169,7 @@ SEEC_MANGLE_FUNCTION(opendir)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
       {seec::runtime_errors::format_selects::CStdFunction::opendir}
+      .returnPointerIsNewAndValid()
       (opendir,
        [](DIR const *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForDIROpen(dirname),
@@ -188,6 +189,7 @@ SEEC_MANGLE_FUNCTION(readdir)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::readdir}
+      .returnPointerIsNewAndValid()
       (readdir,
        [](struct dirent *){ return true; },
        seec::ResultStateRecorderForStaticInternalObject{

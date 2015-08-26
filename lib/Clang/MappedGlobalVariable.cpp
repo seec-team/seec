@@ -57,7 +57,8 @@ std::shared_ptr<Value const> GlobalVariable::getValue() const
                             Decl->getType(),
                             Decl->getDeclContext()->getParentASTContext(),
                             Address,
-                            State.getUnmappedProcessState());
+                            State.getUnmappedProcessState(),
+                            /* OwningFunction */ nullptr);
 }
 
 

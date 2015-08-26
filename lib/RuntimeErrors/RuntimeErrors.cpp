@@ -50,6 +50,21 @@ char const *getArgumentName(RunErrorType Type, std::size_t Argument) {
   return nullptr;
 }
 
+std::unique_ptr<RunError> RunError::clone() const
+{
+  std::vector<std::unique_ptr<Arg>> CloneArgs;
+  for (auto const &Arg : Args)
+    CloneArgs.emplace_back(Arg->clone());
+
+  std::vector<std::unique_ptr<RunError>> CloneAdditional;
+  for (auto const &Err : Additional)
+    CloneAdditional.emplace_back(Err->clone());
+
+  return std::unique_ptr<RunError>(new RunError(Type,
+                                                std::move(CloneArgs),
+                                                std::move(CloneAdditional)));
+}
+
 } // namespace runtime_errors (in seec)
   
 } // namespace seec

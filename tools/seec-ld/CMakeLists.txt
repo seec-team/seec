@@ -1,14 +1,10 @@
 add_executable(seec-ld seec-ld.cpp)
 
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all
- OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
-)
-string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
-string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} bitreader bitwriter irreader linker)
 
 target_link_libraries(seec-ld
  SeeCRecordExternal
+ SeeCUtil
  ${REQ_LLVM_LIBRARIES}
  ${LLVM_LIB_DEPS}
 )

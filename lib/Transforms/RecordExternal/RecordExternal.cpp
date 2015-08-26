@@ -13,6 +13,7 @@
 
 #define DEBUG_TYPE "seec"
 
+#include "seec/Clang/MDNames.hpp"
 #include "seec/Runtimes/MangleFunction.h"
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -20,6 +21,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeBuilder.h"
@@ -28,7 +30,6 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DataTypes.h"
-#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -38,13 +39,15 @@
 
 namespace llvm {
 
-static bool IsMangledInterceptor(Function &F)
+namespace {
+
+bool IsMangledInterceptor(Function &F)
 {
   return F.getName().startswith("__SeeC_")
       && F.getName().endswith("__");
 }
 
-static llvm::Function *GetInterceptorFor(Function &F, Module &M)
+llvm::Function *GetInterceptorFor(Function &F, Module &M)
 {
   llvm::SmallString<128> InterceptorName;
   InterceptorName += "__SeeC_";
@@ -53,6 +56,24 @@ static llvm::Function *GetInterceptorFor(Function &F, Module &M)
   
   return M.getFunction(InterceptorName);
 }
+
+bool isSystemHeaderDecl(Function &F, Module &M)
+{
+  auto const GlobalSystemDeclsMD
+    = M.getOrInsertNamedMetadata(seec::seec_clang::MDGlobalSystemDeclsStr);
+
+  for (auto const Node : GlobalSystemDeclsMD->operands()) {
+    assert(Node->getNumOperands() == 1);
+    auto const MD = dyn_cast<ConstantAsMetadata>(Node->getOperand(0).get());
+    assert(MD);
+    if (MD->getValue() == &F)
+      return true;
+  }
+
+  return false;
+}
+
+} // anonymous namespace (in llvm)
 
 char InsertExternalRecording::ID = 0;
 
@@ -128,7 +149,18 @@ InsertExternalRecording::insertRecordUpdateForValue(Instruction &I,
     RecordFn = RecordUpdateFP128;
   else if (Ty->isPPC_FP128Ty())
     RecordFn = RecordUpdatePPCFP128;
-  else if (Ty->isVoidTy() || Ty->isLabelTy() || Ty->isMetadataTy())
+  else if (Ty->isVoidTy()) {
+    Value *Args[1] = {
+      ConstantInt::get(Int32Ty, InstructionIndex, false)
+    };
+
+    auto const RecordCall = CallInst::Create(RecordUpdateVoid, Args);
+    assert(RecordCall && "Couldn't create call instruction.");
+
+    RecordCall->insertAfter(&I);
+    return RecordCall;
+  }
+  else if (Ty->isLabelTy() || Ty->isMetadataTy())
     return nullptr;
   else
     return nullptr;
@@ -215,18 +247,22 @@ static void AddLookupArray(Module &M,
     Existing->eraseFromParent();
   }
 
-  new GlobalVariable(M, ArrayTy, true, GlobalValue::ExternalLinkage,
-                     ConstantArray::get(ArrayTy, Contents),
-                     LookupName);
+  auto GVArray = new GlobalVariable(M, ArrayTy, true,
+                                    GlobalValue::ExternalLinkage,
+                                    ConstantArray::get(ArrayTy, Contents),
+                                    LookupName);
+  GVArray->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
   // Add a constant with the size of the array.
   if (auto Existing = M.getNamedGlobal(LookupLengthName)) {
     Existing->eraseFromParent();
   }
 
-  new GlobalVariable(M, Int64Ty, true, GlobalValue::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, Contents.size()),
-                     LookupLengthName);
+  auto GVLength = new GlobalVariable(M, Int64Ty, true,
+                                     GlobalValue::ExternalLinkage,
+                                     ConstantInt::get(Int64Ty, Contents.size()),
+                                     LookupLengthName);
+  GVLength->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 }
 
 /// \brief Add information about the Module M to itself.
@@ -243,25 +279,59 @@ static void AddModuleInfo(Module &M,
   }
   
   auto BitcodeConst = ConstantDataArray::getString(Context, ModuleBitcode);
-  new GlobalVariable(M, BitcodeConst->getType(), true,
-                     GlobalValue::ExternalLinkage, BitcodeConst,
-                     StringRef("SeeCInfoModuleBitcode"));
+  auto GVBitcode = new GlobalVariable(M, BitcodeConst->getType(), true,
+                                      GlobalValue::ExternalLinkage,
+                                      BitcodeConst,
+                                      StringRef("SeeCInfoModuleBitcode"));
+  GVBitcode->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
   
   // Add the size of the module's bitcode as a global.
   if (auto Existing = M.getNamedGlobal("SeeCInfoModuleBitcodeLength")) {
     Existing->eraseFromParent();
   }
   
-  new GlobalVariable(M, Int64Ty, true, GlobalVariable::ExternalLinkage,
-                     ConstantInt::get(Int64Ty, ModuleBitcode.size()),
-                     StringRef("SeeCInfoModuleBitcodeLength"));
+  auto GVBitcodeLength =
+    new GlobalVariable(M, Int64Ty, true, GlobalVariable::ExternalLinkage,
+                       ConstantInt::get(Int64Ty, ModuleBitcode.size()),
+                       StringRef("SeeCInfoModuleBitcodeLength"));
+  GVBitcodeLength->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
 
   // Add the module's identifier as a global string
-  Constant *IdentifierStrConst
-    = ConstantDataArray::getString(Context, M.getModuleIdentifier());
-  new GlobalVariable(M, IdentifierStrConst->getType(), true,
-                     GlobalValue::ExternalLinkage, IdentifierStrConst,
-                     StringRef("SeeCInfoModuleIdentifier"));
+  Constant *IdentifierStrConst =
+    ConstantDataArray::getString(Context, M.getModuleIdentifier());
+  auto GVIdentifier =
+    new GlobalVariable(M, IdentifierStrConst->getType(), true,
+                       GlobalValue::ExternalLinkage, IdentifierStrConst,
+                       StringRef("SeeCInfoModuleIdentifier"));
+  GVIdentifier->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
+}
+
+///
+///
+static void ReplaceUsesWithInterceptor(Function *Original,
+                                       Function *Interceptor)
+{
+  auto const M   = Original->getParent();
+  auto       It  = Original->use_begin();
+  auto const End = Original->use_end();
+
+  while (It != End) {
+    auto Current = It++;
+    auto TheUser = Current->getUser();
+
+    if (auto C = dyn_cast<Constant>(TheUser)) {
+      if (!isa<GlobalValue>(C)) {
+        C->replaceUsesOfWithOnConstant(Original, Interceptor, &*Current);
+      }
+    }
+    else if (auto I = dyn_cast<Instruction>(TheUser)) {
+      auto const Fn = I->getParent()->getParent();
+
+      if (!GetInterceptorFor(*Fn, *M) && !IsMangledInterceptor(*Fn)) {
+        Current->set(Interceptor);
+      }
+    }
+  }
 }
 
 /// Perform module-level initialization before the pass is run.  For this
@@ -278,9 +348,7 @@ bool InsertExternalRecording::doInitialization(Module &M) {
   Int8PtrTy = Type::getInt8PtrTy(Context);
 
   // Get DataLayout
-  DL = getAnalysisIfAvailable<DataLayout>();
-  if (!DL)
-    return false;
+  DL.reset(new llvm::DataLayout(&M));
   
   // Index the module (prior to adding any functions)
   ModIndex.reset(new seec::ModuleIndex(M));
@@ -294,9 +362,23 @@ bool InsertExternalRecording::doInitialization(Module &M) {
                  "SeeCInfoFunctions", "SeeCInfoFunctionsLength");
   AddModuleInfo(M, ModuleBitcode);
 
-  // Check for unhandled external functions.
+  // Add the path to the SeeC installation.
+  if (auto Existing = M.getNamedGlobal("__SeeC_ResourcePath__"))
+    Existing->eraseFromParent();
+
+  auto const PathConst = llvm::ConstantDataArray::getString(Context,
+                                                            ResourcePath);
+  auto GVResourcePath =
+    new llvm::GlobalVariable(M, PathConst->getType(), true,
+                             llvm::GlobalValue::ExternalLinkage, PathConst,
+                             llvm::StringRef("__SeeC_ResourcePath__"));
+  GVResourcePath->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
+
+  // Check for unhandled functions that are either externally defined or were
+  // defined by a system header which was included into the program.
   for (auto &F : M) {
-    if (F.empty() && !F.isIntrinsic()) {
+    if ((F.empty() || isSystemHeaderDecl(F,M)) && !F.isIntrinsic())
+    {
       auto Name = F.getName();
       
       // Don't consider the "\01_" prefix when matching names.
@@ -328,6 +410,12 @@ bool InsertExternalRecording::doInitialization(Module &M) {
 
   // Perform SeeC's function interception.
   for (auto &F : M) {
+    // If the function is defined by the user's program, and they haven't
+    // provided a custom interceptor, then don't intercept it.
+    if (!F.empty() && !isSystemHeaderDecl(F,M) && !GetInterceptorFor(F,M)) {
+      continue;
+    }
+    
     auto Name = F.getName();
     
     // Don't consider the "\01_" prefix when matching names.
@@ -359,8 +447,10 @@ bool InsertExternalRecording::doInitialization(Module &M) {
     if (!Intercept)
       Intercept = GetInterceptorFor(F, M);
 
-    if (Intercept)
+    if (Intercept) {
+      ReplaceUsesWithInterceptor(&F, Intercept);
       Interceptors.insert(std::make_pair(&F, Intercept));
+    }
   }
   
   return true;
@@ -380,42 +470,22 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
   for (auto It = inst_begin(F), End = inst_end(F); It != End; ++It)
     FunctionInstructions.push_back(&*It);
 
-  auto InstrIt = FunctionInstructions.begin();
-  auto InstrEnd = FunctionInstructions.end();
-
-  // Visit each original instruction for instrumentation
-  for (InstructionIndex = 0; InstrIt != InstrEnd; ++InstrIt) {
-    visit(*InstrIt);
-    ++InstructionIndex;
-  }
-
-  // Insert function begin call, after any alloca's. We do this after
-  // instrumenting instructions, so that the function start notification can
-  // occur after alloca's but before the first alloca notification, without
-  // any special logic in the alloca instrumentation.
-
-  // Find the first non-alloca instruction
-  auto AllocaIt = inst_begin(F);
-  for (auto End = inst_end(F);
-       AllocaIt != End && isa<AllocaInst>(&*AllocaIt);
-       ++AllocaIt) {} // Intentionally empty
+  // Insert function entry notifications.
+  auto const FirstIn = FunctionInstructions.front();
 
   // Get a constant int for the index of this function
-  auto FunctionIndex (ModIndex->getIndexOfFunction(&F));
-  if (!FunctionIndex.assigned()) {
+  auto const FunctionIndex (ModIndex->getIndexOfFunction(&F));
+  if (!FunctionIndex.assigned())
     return false;
-  }
 
   Value *Args[] = {
     ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false)
   };
 
   // Pass the index to the function begin notification
-  CallInst *CI = CallInst::Create(RecordFunctionBegin, Args);
+  CallInst *CI = CallInst::Create(RecordFunctionBegin, Args, "", FirstIn);
   assert(CI && "Couldn't create call instruction.");
 
-  CI->insertBefore(&*AllocaIt);
-  
   if (!F.getName().equals("main")) {
     // F is not main(): insert notifications for all argument values.
     uint32_t ArgIndex = 0;
@@ -425,8 +495,7 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
         llvm::Value *ArgPtr = &Arg;
         
         if (ArgPtr->getType() != Int8PtrTy) {
-          auto Cast = new BitCastInst(ArgPtr, Int8PtrTy);
-          Cast->insertBefore(&*AllocaIt);
+          auto Cast = new BitCastInst(ArgPtr, Int8PtrTy, "", FirstIn);
           ArgPtr = Cast;
         }
         
@@ -435,10 +504,8 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
           ArgPtr
         };
         
-        auto Call = CallInst::Create(RecordArgumentByVal, CallArgs);
+        auto Call = CallInst::Create(RecordArgumentByVal, CallArgs, "",FirstIn);
         assert(Call && "Couldn't create call instruction.");
-        
-        Call->insertBefore(&*AllocaIt);
       }
       
       ++ArgIndex;
@@ -452,16 +519,13 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
       llvm::Value *ArgEnvPtr = &*++(++(F.arg_begin()));
       
       if (ArgEnvPtr->getType() != Int8PtrTy) {
-        auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy, "", FirstIn);
         ArgEnvPtr = Cast;
       }
       
       Value *CallArgs[] = { ArgEnvPtr };
-      CallInst *Call = CallInst::Create(RecordEnv, CallArgs);
+      CallInst *Call = CallInst::Create(RecordEnv, CallArgs, "", FirstIn);
       assert(Call && "Couldn't create call instruction.");
-      
-      Call->insertBefore(&*AllocaIt);
     }
     
     // Record argv, if it is used.
@@ -477,23 +541,26 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
       assert(IntTy && "First argument to main() is not an integer type.");
       
       if (IntTy->getBitWidth() < 64) {
-        auto Cast = new SExtInst(ArgArgCPtr, Int64Ty);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new SExtInst(ArgArgCPtr, Int64Ty, "", FirstIn);
         ArgArgCPtr = Cast;
       }
       
       if (ArgArgVPtr->getType() != Int8PtrTy) {
-        auto Cast = new BitCastInst(ArgArgVPtr, Int8PtrTy);
-        Cast->insertBefore(&*AllocaIt);
+        auto Cast = new BitCastInst(ArgArgVPtr, Int8PtrTy, "", FirstIn);
         ArgArgVPtr = Cast;
       }
       
       Value *CallArgs[] = {ArgArgCPtr, ArgArgVPtr};
-      CallInst *Call = CallInst::Create(RecordArgs, CallArgs);
+      CallInst *Call = CallInst::Create(RecordArgs, CallArgs, "", FirstIn);
       assert(Call && "Couldn't create call instruction.");
-      
-      Call->insertBefore(&*AllocaIt);
     }
+  }
+
+  // Visit each original instruction for instrumentation
+  InstructionIndex = 0;
+  for (auto const Instr : FunctionInstructions) {
+    visit(Instr);
+    ++InstructionIndex;
   }
 
   // Clear FunctionInstructions so that it's ready for the next Function
@@ -535,29 +602,38 @@ void InsertExternalRecording::visitReturnInst(ReturnInst &I) {
   }
 
   Value *Args[] = {
-    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false)
+    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false),
+    ConstantInt::get(Int32Ty, InstructionIndex, false),
   };
 
   CallInst::Create(RecordFunctionEnd, Args, "", &I);
 }
 
+static llvm::Value *getAsInt64Ty(llvm::Value * const V,
+                                 llvm::Type * const Int64Ty,
+                                 llvm::Instruction * const Before)
+{
+  if (V->getType()->isIntegerTy(64))
+    return V;
+
+  if (auto const CV = llvm::dyn_cast<llvm::ConstantInt>(V))
+    return ConstantInt::get(Int64Ty, CV->getZExtValue());
+  else
+    return new ZExtInst(V, Int64Ty, "", Before);
+}
+
 /// Insert a call to a tracing function after an alloca instruction.
 /// \param I a reference to the alloca instruction
 void InsertExternalRecording::visitAllocaInst(AllocaInst &I) {
-  // Find the first original instruction after I which isn't an AllocaInst
-  Instruction *FirstNonAlloca = nullptr;
+  Value *Args[] = {
+    ConstantInt::get(Int32Ty, InstructionIndex, false),
+    ConstantInt::get(Int64Ty, DL->getTypeAllocSize(I.getAllocatedType())),
+    getAsInt64Ty(I.getArraySize(), Int64Ty, &I)
+  };
 
-  auto InstructionCount = FunctionInstructions.size();
-  for (auto i = InstructionIndex + 1; i < InstructionCount; ++i) {
-    if (!isa<AllocaInst>(FunctionInstructions[i])) {
-      FirstNonAlloca = FunctionInstructions[i];
-      break;
-    }
-  }
+  CallInst::Create(RecordPreAlloca, Args, "", &I);
 
-  assert(FirstNonAlloca && "Couldn't find non-alloca Instruction");
-
-  insertRecordUpdateForValue(I, FirstNonAlloca);
+  insertRecordUpdateForValue(I);
 }
 
 /// Insert a call to a tracing function prior to a load instruction.
@@ -614,6 +690,19 @@ void InsertExternalRecording::visitStoreInst(StoreInst &SI) {
   PostCall->insertAfter(&SI);
 }
 
+/// We simply record the value produced by the PHINode, but we must ensure that
+/// all PHINodes remain grouped at the top of the BasicBlock.
+///
+void InsertExternalRecording::visitPHINode(PHINode &I) {
+  BasicBlock::iterator it(&I);
+
+  do {
+    ++it;
+  } while (llvm::isa<PHINode>(*it));
+
+  insertRecordUpdateForValue(I, &*it);
+}
+
 /// Insert calls to tracing functions to handle a call instruction. There are
 /// three tracing functions: pre-call, post-call, and the generic update for
 /// the return value, if it is valid.
@@ -625,9 +714,19 @@ void InsertExternalRecording::visitCallInst(CallInst &CI) {
   // a user-defined one, or one provided by SeeC). If it is redirected then we
   // only need to notify the instruction index before the call - checking,
   // recording and value updating must be performed by the interceptor.
-  auto const InterceptorIt = Interceptors.find(CalledFunction);
-  if (InterceptorIt != Interceptors.end()) {
-    CI.setCalledFunction(InterceptorIt->second);
+  bool IsIntercepted = false;
+
+  if (CalledFunction && IsMangledInterceptor(*CalledFunction))
+    IsIntercepted = true;
+  else {
+    auto const InterceptorIt = Interceptors.find(CalledFunction);
+    if (InterceptorIt != Interceptors.end()) {
+      CI.setCalledFunction(InterceptorIt->second);
+      IsIntercepted = true;
+    }
+  }
+
+  if (IsIntercepted) {
     Value *Args[] = {ConstantInt::get(Int32Ty, InstructionIndex)};
     CallInst::Create(RecordSetInstruction, Args, "", &CI);
     return;

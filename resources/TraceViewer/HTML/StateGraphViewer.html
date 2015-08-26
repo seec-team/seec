@@ -7,22 +7,9 @@
     var SeeCProto = "";
     var StateExists = false;
     var HighlightedValues = [];
-
-    // Clear the debug log.
-    //
-    function LogClear() {
-      document.getElementById("Log").innerHTML = "";
-    }
-
-    // Add a debug message to the log.
-    //
-    function Log(Message) {
-      var Container = document.getElementById("Log");
-      
-      Container.innerHTML = Container.innerHTML
-			    + "<span>" + Message
-                            + "</span><br>";
-    }
+    var ActiveStmtValues = [];
+    var HoverNodeID = "null";
+    var HoverTimeoutID = undefined;
 
     // Build the URL for a SeeC function request.
     //
@@ -30,10 +17,17 @@
       var str = SeeCProto + "://" + fn;
 
       for (var i = 0; i < args.length; ++i)
-        str += "/" + args[i];
+        str += "/" + encodeURIComponent(args[i]);
 
       str += "?callback=?";
       return str;
+    }
+
+    // Add a debug message to the log.
+    //
+    function Log(Message) {
+      $.getJSON(SeeCURL("log_debug", ["StateGraphViewer.html: " + Message]),
+        function(data) { /* The result is not important. */ });
     }
 
     function NotifyContextMenu() {
@@ -42,8 +36,18 @@
     }
 
     function NotifyHover(nodeid) {
-      $.getJSON(SeeCURL("notify_hover", [nodeid]),
-        function(data) { /* The result is not important. */ });
+      if (HoverTimeoutID != undefined)
+        clearTimeout(HoverTimeoutID);
+
+      HoverNodeID = nodeid;
+
+      HoverTimeoutID = window.setTimeout(
+        function(){
+          $.getJSON(SeeCURL("notify_hover", [nodeid]),
+            function(data) { /* The result is not important. */ })
+          HoverTimeoutID = undefined;
+        },
+        50);
     }
 
     function NodeMouseEnter(e) {
@@ -64,7 +68,7 @@
     // Highlight a Value.
     //
 
-    function HighlightValueImpl(ValueID) {
+    function ForeachNode(InTypes, CallbackFn) {
       $('a').each(function() {
         var $this = $(this);
         var href = $this.attr('xlink:href');
@@ -79,30 +83,107 @@
           return false;
         }
 
-        if (splitref[0] == "value" && splitref[1] == ValueID) {
-          var Elem = $this[0];
-          var Class = Elem.className.baseVal;
-          Class += ' ' + "valuehighlight";
-          Elem.setAttribute("class", Class);
-
-          for (var i = 0; i < Elem.childNodes.length; ++i) {
-            var Child = Elem.childNodes[i];
-            if (Child.nodeName == "polygon") {
-              Child.setAttribute("fill", "rgb(220,255,220)");
-              Child.setAttribute("fill-opacity", 0.5);
-            }
-          }
+        if (InTypes.indexOf(splitref[0]) != -1) {
+          CallbackFn($this[0], splitref);
         }
       });
+    }
+
+    function HighlightValueImpl(ID) {
+      var ValueID, PointerID;
+
+      if (typeof(ID) === 'object') {
+        ValueID = ID[0];
+        PointerID = ID[1];
+      }
+      else
+        ValueID = ID;
+
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID || Refs[1] == PointerID) {
+          var Class = Elem.className.baseVal;
+          Class += ' valuehighlight';
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function RemoveHighlightValueImpl(ID) {
+      var ValueID, PointerID;
+
+      if (typeof(ID) === 'object') {
+        ValueID = ID[0];
+        PointerID = ID[1];
+      }
+      else
+        ValueID = ID;
+
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID || Refs[1] == PointerID) {
+          var Class = Elem.className.baseVal;
+          Class = Class.replace(' valuehighlight', '');
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function MarkActiveStmtValueImpl(ValueID) {
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID) {
+          var Class = Elem.className.baseVal;
+          Class += ' activestmtvalue';
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function UnmarkActiveStmtValueImpl(ValueID) {
+      ForeachNode(["value", "dereference"], function(Elem, Refs){
+        if (Refs[1] == ValueID) {
+          var Class = Elem.className.baseVal;
+          Class = Class.replace(' activestmtvalue', '');
+          Elem.setAttribute("class", Class);
+        }
+      });
+    }
+
+    function GetValueElement(ValueID) {
+      var Node;
+      ForeachNode(["value"], function(Elem, Refs){
+        if (!Node && Refs[1] == ValueID)
+          Node = Elem;
+        });
+      return Node;
+    }
+
+    function ScrollToValue(ValueID, PointeeID) {
+      var Node = GetValueElement(ValueID)
+                  || GetValueElement(PointeeID);
+      if (!Node)
+        return;
+
+      var Rect = Node.getBoundingClientRect();
+      var Top  = document.body.scrollTop;
+      var Left = document.body.scrollLeft;
+
+      // If the value is off-screen vertically, scroll vertically.
+      if (Rect.top < 0 || Rect.top > document.body.clientHeight)
+        Top += Rect.top;
+
+      // If the value is off-screen horizontally, scroll horizontally.
+      if (Rect.left < 0 || Rect.left > document.body.clientWidth)
+        Left += Rect.left;
+
+      $('html, body').animate({ scrollTop: Top, scrollLeft: Left}, 500);
     }
 
     // Called from seec-trace-viewer to set a new state display.
     //
     var SetStateImplTimer = null;
-    
+
     function SetStateImpl(SVGString) {
       SetStateImplTimer = null;
-      
+
       var Container = document.getElementById("SVGContainer");
       Container.innerHTML = SVGString;
 
@@ -111,20 +192,44 @@
       var refs = $('a');
       refs.removeAttr("xlink:title");
       refs.hover(NodeMouseEnter, NodeMouseLeave);
+      refs.click(function(){return false;});
+
+      $('polygon').each(function() {
+        var $this = $(this);
+
+        var fill = $this.attr('fill');
+        if (fill == 'white')
+          $this.attr('fill', '#fdf6e3');
+        else if (fill == 'black')
+          $this.removeAttr('fill');
+
+        var stroke = $this.attr('stroke');
+        if (stroke == 'black')
+          $this.attr('stroke', '#93a1a1');
+      });
+
+      $('path').each(function() {
+        var $this = $(this);
+        var stroke = $this.attr('stroke');
+        if (stroke == 'black')
+          $this.attr('stroke', '#586e75');
+      });
 
       StateExists = true;
 
       for (var i = 0; i < HighlightedValues.length; ++i)
         HighlightValueImpl(HighlightedValues[i]);
+
+      for (var i = 0; i < ActiveStmtValues.length; ++i)
+        MarkActiveStmtValueImpl(ActiveStmtValues[i]);
     }
-    
+
     function SetState(SVGString) {
       if (SetStateImplTimer != null)
         window.clearTimeout(SetStateImplTimer);
-      
+
       StateExists = false;
-      LogClear();
-      
+
       SetStateImplTimer = setTimeout(function() { SetStateImpl(SVGString); },
                                      0);
     }
@@ -133,6 +238,7 @@
     //
     function InvalidateState() {
       HighlightedValues = [];
+      ActiveStmtValues = [];
     }
 
     // Called from seec-trace-viewer to clear the state display.
@@ -140,15 +246,46 @@
     function ClearState() {
       StateExists = false;
       HighlightedValues = [];
+      ActiveStmtValues = [];
       document.getElementById("SVGContainer").innerHTML = "";
     }
 
-    // Called from seec-trace-viewer to highlight a value.
+    // Called from seec-view to highlight a value.
     //
-    function HighlightValue(ValueID) {
-      HighlightedValues.push(ValueID);
-      if (StateExists)
-        HighlightValueImpl(ValueID);
+    function HighlightValue(ValueID, PointeeID) {
+      if (ValueID == 0) {
+        if (HighlightedValues.length != 0) {
+          var ID = HighlightedValues.pop();
+          if (StateExists && HighlightedValues.indexOf(ID) == -1) {
+            RemoveHighlightValueImpl(ID);
+          }
+        }
+      }
+      else {
+        var ID = PointeeID ? [ValueID, PointeeID] : ValueID;
+        HighlightedValues.push(ID);
+        if (StateExists)
+          HighlightValueImpl(ID);
+        if (HoverNodeID == "null")
+          ScrollToValue(ValueID, PointeeID);
+      }
+    }
+
+    // Called from seec-view to mark a value associated with the active Stmt.
+    //
+    function MarkActiveStmtValue(ValueID) {
+      if (ValueID == 0) {
+        if (ActiveStmtValues.length != 0) {
+          var ID = ActiveStmtValues.pop();
+          if (StateExists && ActiveStmtValues.indexOf(ID) == -1)
+            UnmarkActiveStmtValueImpl(ID);
+        }
+      }
+      else {
+        ActiveStmtValues.push(ValueID);
+        if (StateExists)
+          MarkActiveStmtValueImpl(ValueID);
+      }
     }
 
     // Initial page setup.
@@ -172,12 +309,11 @@
       }
     }
 
-    WaitForSetup();
+    // WaitForSetup();
   </script>
  </head>
- <body>
+ <body onload="WaitForSetup();">
   <div id="SVGContainer"></div>
-  <div id="Log"></div>
  </body>
 </html>
 

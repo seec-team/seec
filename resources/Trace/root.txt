@@ -27,11 +27,6 @@ root:table {
     }
 
     //
-    ExistsFail:string {
-      "Couldn't determine whether or not the output directory path already existed: \"{path\"."
-    }
-
-    //
     FileOutputBufferFail {
       "Couldn't create output buffer for file: \"{path}\"."
     }
@@ -59,6 +54,26 @@ root:table {
     //
     OutputStreamAllocatorFail:string {
       "Failed to construct new OutputStreamAllocator."
+    }
+
+    //
+    CreateArchiveFail:string {
+      "Failed to create archive at \"{path}\"."
+    }
+
+    //
+    ReadFileForArchiveFail:string {
+      "Failed to read trace file \"{path}\" for archiving."
+    }
+
+    //
+    GetFileSizeFail:string {
+      "Failed to get size of trace file \"{path}\"."
+    }
+
+    //
+    DeleteFilesFail:string {
+      "Failed to delete unarchived trace files."
     }
   }
 }

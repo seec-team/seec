@@ -180,10 +180,12 @@ public:
     return removePreviousEventBlock(State, UpdateLock);
   }
   
-  bool moveForward(ProcessState &State,
-                   ProcessPredTy ProcessPredicate,
-                   ThreadPredMapTy ThreadPredicates) {
+  MovementResult moveForward(ProcessState &State,
+                             ProcessPredTy ProcessPredicate,
+                             ThreadPredMapTy ThreadPredicates)
+  {
     std::atomic<bool> Moved(false);
+    std::atomic<bool> PredicateWasSatisfied(false);
     std::vector<std::thread> Workers;
     
     for (auto &ThreadStatePtr : State.getThreadStates()) {
@@ -196,7 +198,9 @@ public:
         ThreadPred = ThreadPredIt->second;
       
       // Create a new worker thread to move this ThreadState.
-      Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
+      Workers.emplace_back(
+      [=, &State, &ProcessPredicate, &Moved, &PredicateWasSatisfied]()
+      {
         // Thread worker code
         auto const LastEvent = RawPtr->getTrace().events().end();
         
@@ -214,6 +218,7 @@ public:
           // updated the ProcessState, in which case check the ProcessPredicate.
           if (Lock && ProcessPredicate && ProcessPredicate(State)) {
             MovementComplete = true;
+            PredicateWasSatisfied = true;
             ProcessStateCV.notify_all();
             break;
           }
@@ -221,6 +226,7 @@ public:
           // Check the thread-specific predicate, if one exists.
           if (ThreadPred && ThreadPred(*RawPtr)) {
             MovementComplete = true;
+            PredicateWasSatisfied = true;
             ProcessStateCV.notify_all();
             break;
           }
@@ -233,13 +239,20 @@ public:
       Worker.join();
     }
     
-    return Moved;
+    if (PredicateWasSatisfied)
+      return MovementResult::PredicateSatisfied;
+    else if (Moved)
+      return MovementResult::ReachedEnd;
+    else
+      return MovementResult::Unmoved;
   }
   
-  bool moveBackward(ProcessState &State,
-                    ProcessPredTy ProcessPredicate,
-                    ThreadPredMapTy ThreadPredicates) {
+  MovementResult moveBackward(ProcessState &State,
+                              ProcessPredTy ProcessPredicate,
+                              ThreadPredMapTy ThreadPredicates)
+  {
     std::atomic<bool> Moved(false);
+    std::atomic<bool> PredicateWasSatisfied(false);
     std::vector<std::thread> Workers;
     
     for (auto &ThreadStatePtr : State.getThreadStates()) {
@@ -252,7 +265,9 @@ public:
         ThreadPred = ThreadPredIt->second;
       
       // Create a new worker thread to move this ThreadState.
-      Workers.emplace_back([=, &State, &ProcessPredicate, &Moved](){
+      Workers.emplace_back(
+      [=, &State, &ProcessPredicate, &Moved, &PredicateWasSatisfied]()
+      {
         // Thread worker code
         auto const FirstEvent = RawPtr->getTrace().events().begin();
         
@@ -270,6 +285,7 @@ public:
           // updated the ProcessState, in which case check the ProcessPredicate.
           if (Lock && ProcessPredicate && ProcessPredicate(State)) {
             MovementComplete = true;
+            PredicateWasSatisfied = true;
             ProcessStateCV.notify_all();
             break;
           }
@@ -277,6 +293,7 @@ public:
           // Check the thread-specific predicate, if one exists.
           if (ThreadPred && ThreadPred(*RawPtr)) {
             MovementComplete = true;
+            PredicateWasSatisfied = true;
             ProcessStateCV.notify_all();
             break;
           }
@@ -289,7 +306,12 @@ public:
       Worker.join();
     }
     
-    return Moved;
+    if (PredicateWasSatisfied)
+      return MovementResult::PredicateSatisfied;
+    else if (Moved)
+      return MovementResult::ReachedBeginning;
+    else
+      return MovementResult::Unmoved;
   }
 };
 
@@ -298,23 +320,24 @@ public:
 // ProcessState movement
 //===------------------------------------------------------------------------===
 
-bool moveForwardUntil(ProcessState &State,
-                      ProcessPredTy Predicate) {
+MovementResult moveForwardUntil(ProcessState &State, ProcessPredTy Predicate)
+{
   ThreadedStateMovementHelper Mover;
   return Mover.moveForward(State, Predicate, ThreadPredMapTy{});
 }
 
-bool moveBackwardUntil(ProcessState &State,
-                       ProcessPredTy Predicate) {
+MovementResult moveBackwardUntil(ProcessState &State, ProcessPredTy Predicate)
+{
   ThreadedStateMovementHelper Mover;
   return Mover.moveBackward(State, Predicate, ThreadPredMapTy{});
 }
 
-bool moveForward(ProcessState &State) {
+MovementResult moveForward(ProcessState &State)
+{
   auto const ProcessTime = State.getProcessTime();
   
   if (ProcessTime == State.getTrace().getFinalProcessTime())
-    return false;
+    return MovementResult::Unmoved;
   
   return moveForwardUntil(State,
                           [=](ProcessState &NewState) -> bool {
@@ -322,11 +345,12 @@ bool moveForward(ProcessState &State) {
                           });
 }
 
-bool moveBackward(ProcessState &State) {
+MovementResult moveBackward(ProcessState &State)
+{
   auto const ProcessTime = State.getProcessTime();
   
   if (ProcessTime == 0)
-    return false;
+    return MovementResult::Unmoved;
   
   return moveBackwardUntil(State,
                            [=](ProcessState &NewState){
@@ -334,47 +358,97 @@ bool moveBackward(ProcessState &State) {
                            });
 }
 
-bool moveToTime(ProcessState &State, uint64_t const ProcessTime) {
-  auto const PreviousTime = State.getProcessTime();
-  
-  if (PreviousTime < ProcessTime)
-    return moveForwardUntil(State,
-                            [=](ProcessState &NewState){
-                              return NewState.getProcessTime() >= ProcessTime;
-                            });
-  else if (PreviousTime > ProcessTime)
-    return moveBackwardUntil(State,
-                             [=](ProcessState &NewState){
-                               return NewState.getProcessTime() <= ProcessTime;
-                             });
-  
-  return false;
-}
-
-bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
+                                             MemoryArea const &Area)
 {
   auto const Region = State.getMemory().getRegion(Area);
-  auto const Frags = Region.getContributingFragments();
-  
+  auto const CurrentInit = Region.getByteInitialization();
+  auto const CurrentData = Region.getByteValues();
+
+  std::vector<unsigned char> Init(CurrentInit.begin(), CurrentInit.end());
+  std::vector<unsigned char> Data(CurrentData.begin(), CurrentData.end());
+
   // This takes advantage of the fact that movement modifies the ProcessState
-  // in-place.
+  // in-place (hence the Region is still valid).
   return moveForwardUntil(State,
-                          [&] (ProcessState &) {
-                            return Frags != Region.getContributingFragments();
-                          });
+          [&] (ProcessState &) -> bool {
+            if (!Region.isAllocated())
+              return true;
+
+            auto const NewInit = Region.getByteInitialization();
+            auto const NewData = Region.getByteValues();
+
+            for (std::size_t i = 0; i < Init.size(); ++i)
+              if (Init[i] != NewInit[i] ||
+                  (Init[i] & Data[i]) != (NewInit[i] & NewData[i]))
+                return true;
+
+            return false;
+          });
 }
 
-bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
+                                              MemoryArea const &Area)
 {
   auto const Region = State.getMemory().getRegion(Area);
-  auto const Frags = Region.getContributingFragments();
-  
+  auto const CurrentInit = Region.getByteInitialization();
+  auto const CurrentData = Region.getByteValues();
+
+  std::vector<unsigned char> Init(CurrentInit.begin(), CurrentInit.end());
+  std::vector<unsigned char> Data(CurrentData.begin(), CurrentData.end());
+
   // This takes advantage of the fact that movement modifies the ProcessState
-  // in-place.
+  // in-place (hence the Region is still valid).
   return moveBackwardUntil(State,
-                          [&] (ProcessState &) {
-                            return Frags != Region.getContributingFragments();
-                          });
+          [&] (ProcessState &) -> bool {
+            if (!Region.isAllocated())
+              return true;
+
+            auto const NewInit = Region.getByteInitialization();
+            auto const NewData = Region.getByteValues();
+
+            for (std::size_t i = 0; i < Init.size(); ++i)
+              if (Init[i] != NewInit[i] ||
+                  (Init[i] & Data[i]) != (NewInit[i] & NewData[i]))
+                return true;
+
+            return false;
+          });
+}
+
+MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
+                                           StreamState const &Stream,
+                                           std::size_t const Position)
+{
+  if (Position >= Stream.getWritten().size())
+    return MovementResult::Unmoved;
+
+  auto const Address = Stream.getAddress();
+  auto const Write = Stream.getWriteAt(Position);
+
+  auto const Moved = moveBackwardUntil(State,
+    [=] (ProcessState const &P) -> bool {
+      auto const StreamPtr = P.getStream(Address);
+      return StreamPtr->getWritten().size() == Write.Begin;
+    });
+
+  if (Moved == MovementResult::PredicateSatisfied)
+    moveForward(State);
+
+  return Moved;
+}
+
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address)
+{
+  auto const Moved = moveBackwardUntil(State,
+    [=] (ProcessState const &P) -> bool {
+      return P.getStream(Address)
+          || P.getDir(Address)
+          || P.getContainingMemoryArea(Address).assigned<seec::MemoryArea>();
+    });
+
+  return Moved;
 }
 
 
@@ -382,45 +456,30 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 // ThreadState movement
 //===------------------------------------------------------------------------===
 
-bool moveForwardUntil(ThreadState &State,
-                      ThreadPredTy Predicate) {
+MovementResult moveForwardUntil(ThreadState &State, ThreadPredTy Predicate)
+{
   ThreadedStateMovementHelper Mover;
   return Mover.moveForward(State.getParent(),
                            ProcessPredTy{},
                            ThreadPredMapTy{std::make_pair(&State, Predicate)});
 }
 
-bool moveBackwardUntil(ThreadState &State,
-                       ThreadPredTy Predicate) {
+MovementResult moveBackwardUntil(ThreadState &State, ThreadPredTy Predicate)
+{
   ThreadedStateMovementHelper Mover;
   return Mover.moveBackward(State.getParent(),
                             ProcessPredTy{},
                             ThreadPredMapTy{std::make_pair(&State, Predicate)});
 }
 
-bool moveForward(ThreadState &State) {
+MovementResult moveForward(ThreadState &State)
+{
   return moveForwardUntil(State, [](ThreadState &){return true;});
 }
 
-bool moveBackward(ThreadState &State) {
+MovementResult moveBackward(ThreadState &State)
+{
   return moveBackwardUntil(State, [](ThreadState &){return true;});
-}
-
-bool moveToTime(ThreadState &State, uint64_t ThreadTime) {
-  auto const PreviousTime = State.getThreadTime();
-  
-  if (PreviousTime < ThreadTime)
-    return moveForwardUntil(State,
-                            [=](ThreadState &NewState){
-                              return NewState.getThreadTime() >= ThreadTime;
-                            });
-  else if (PreviousTime > ThreadTime)
-    return moveBackwardUntil(State,
-                             [=](ThreadState &NewState){
-                               return NewState.getThreadTime() <= ThreadTime;
-                             });
-  
-  return false;
 }
 
 

@@ -51,7 +51,7 @@ void TraceThreadListener::postLINUX__ctype_b_loc(llvm::CallInst const *Call,
   // Lock the global memory.
   acquireGlobalMemoryWriteLock();
   
-  // Remove knowledge of any existing pointer at this position.
+  // Add knowledge of the pointer at this location.
   if (!isKnownMemoryRegionAt(Address)) {
     addKnownMemoryRegion(Address,
                          sizeof(const unsigned short int **),
@@ -59,17 +59,24 @@ void TraceThreadListener::postLINUX__ctype_b_loc(llvm::CallInst const *Call,
     recordUntypedState(reinterpret_cast<char const *>(Ptr),
                        sizeof(const unsigned short int **));
   }
-  
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
+
   auto const ArrPtr = *Ptr;
   auto const ArrStart = &ArrPtr[-128];
   auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
-  
+
   if (!isKnownMemoryRegionAt(ArrStartAddr)) {
     auto const ArrSize = 384 * sizeof(*ArrPtr);
     addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
     recordUntypedState(reinterpret_cast<char const *>(ArrStart),
                        ArrSize);
   }
+
+  ProcessListener.setInMemoryPointerObject(
+    reinterpret_cast<uintptr_t>(ArrPtr),
+    ProcessListener.makePointerObject(ArrStartAddr));
 }
 
 
@@ -105,13 +112,20 @@ TraceThreadListener::postLINUX__ctype_tolower_loc(llvm::CallInst const *Call,
   auto const ArrPtr = *Ptr;
   auto const ArrStart = &ArrPtr[-128];
   auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
-  
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
+
   if (!isKnownMemoryRegionAt(ArrStartAddr)) {
     auto const ArrSize = 384 * sizeof(*ArrPtr);
     addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
     recordUntypedState(reinterpret_cast<char const *>(ArrStart),
                        ArrSize);
   }
+
+  ProcessListener.setInMemoryPointerObject(
+    reinterpret_cast<uintptr_t>(ArrPtr),
+    ProcessListener.makePointerObject(ArrStartAddr));
 }
 
 
@@ -147,13 +161,20 @@ TraceThreadListener::postLINUX__ctype_toupper_loc(llvm::CallInst const *Call,
   auto const ArrPtr = *Ptr;
   auto const ArrStart = &ArrPtr[-128];
   auto const ArrStartAddr = reinterpret_cast<uintptr_t>(ArrStart);
-  
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
+
   if (!isKnownMemoryRegionAt(ArrStartAddr)) {
     auto const ArrSize = 384 * sizeof(*ArrPtr);
     addKnownMemoryRegion(ArrStartAddr, ArrSize, MemoryPermission::ReadOnly);
     recordUntypedState(reinterpret_cast<char const *>(ArrStart),
                        ArrSize);
   }
+
+  ProcessListener.setInMemoryPointerObject(
+    reinterpret_cast<uintptr_t>(ArrPtr),
+    ProcessListener.makePointerObject(ArrStartAddr));
 }
 
 
@@ -181,10 +202,14 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
   auto Address = RTValue->getUIntPtr();
-  
+
   if (Address) {
     recordStreamOpen(reinterpret_cast<FILE *>(Address), Filename, Mode);
+    ProcessListener.incrementRegionTemporalID(Address);
   }
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
 }
 
 
@@ -218,11 +243,14 @@ void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
   auto Address = RTValue->getUIntPtr();
-  
+
   if (Address) {
     recordStreamClose(Stream);
     recordStreamOpen(reinterpret_cast<FILE *>(Address), Filename, Mode);
   }
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
 }
 
 
@@ -343,10 +371,13 @@ postCfgets(llvm::CallInst const *Call,
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
   auto Address = RTValue->getUIntPtr();
-  
-  if (!Address)
+
+  if (!Address) {
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
     return;
-  
+  }
+
+  ActiveFunction->transferArgPointerObjectToCall(0);
   recordUntypedState(Str, std::strlen(Str) + 1);
 }
 
@@ -367,6 +398,14 @@ preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkStreamIsValid(1, Stream);
+}
+
+void
+TraceThreadListener::
+postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+{
+  char C = Ch;
+  recordStreamWrite(Stream, llvm::ArrayRef<char>(&C, 1));
 }
 
 
@@ -391,6 +430,17 @@ preCfputs(llvm::CallInst const *Call,
   
   Checker.checkCStringRead(0, Str);
   Checker.checkStreamIsValid(1, Stream);
+}
+
+void
+TraceThreadListener::
+postCfputs(llvm::CallInst const *Call,
+           uint32_t Index,
+           char const *Str,
+           FILE *Stream)
+{
+  auto const Length = std::strlen(Str);
+  recordStreamWriteFromMemory(Stream, MemoryArea(Str, Length));
 }
 
 
@@ -431,6 +481,14 @@ preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
   Checker.checkStandardStreamIsValid(stdout);
 }
 
+void
+TraceThreadListener::
+postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
+{
+  char C = Ch;
+  recordStreamWrite(stdout, llvm::ArrayRef<char>(&C, 1));
+}
+
 
 //===------------------------------------------------------------------------===
 // puts
@@ -452,6 +510,17 @@ preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
   Checker.checkStandardStreamIsValid(stdout);
 }
 
+void
+TraceThreadListener::
+postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
+{
+  auto const Length = std::strlen(Str);
+  recordStreamWriteFromMemory(stdout, MemoryArea(Str, Length));
+
+  char NL[] = "\n";
+  recordStreamWrite(stdout, llvm::ArrayRef<char>(NL, std::strlen(NL)));
+}
+
 
 //===------------------------------------------------------------------------===
 // ungetc
@@ -469,55 +538,6 @@ preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
                      ProcessListener.getStreams(StreamsLock));
   
   Checker.checkStreamIsValid(1, Stream);
-}
-
-
-//===------------------------------------------------------------------------===
-// printf
-//===------------------------------------------------------------------------===
-
-void
-TraceThreadListener::
-preCprintf(llvm::CallInst const *Call,
-           uint32_t Index,
-           char const *Str,
-           detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  using namespace seec::runtime_errors::format_selects;
-  
-  acquireGlobalMemoryWriteLock();
-  acquireStreamsLock();
-  
-  CIOChecker Checker(*this, Index, CStdFunction::printf,
-                     ProcessListener.getStreams(StreamsLock));
-  
-  Checker.checkStandardStreamIsValid(stdout);
-  Checker.checkPrintFormat(0, Str, Args);
-}
-
-
-//===------------------------------------------------------------------------===
-// fprintf
-//===------------------------------------------------------------------------===
-
-void
-TraceThreadListener::
-preCfprintf(llvm::CallInst const *Call,
-            uint32_t Index,
-            FILE *Out,
-            char const *Str,
-            detect_calls::VarArgList<TraceThreadListener> const &Args)
-{
-  using namespace seec::runtime_errors::format_selects;
-  
-  acquireGlobalMemoryWriteLock();
-  acquireStreamsLock();
-  
-  CIOChecker Checker(*this, Index, CStdFunction::fprintf,
-                     ProcessListener.getStreams(StreamsLock));
-  
-  Checker.checkStreamIsValid(0, Out);
-  Checker.checkPrintFormat(1, Str, Args);
 }
 
 
@@ -660,6 +680,10 @@ void TraceThreadListener::postCstrtol(llvm::CallInst const *Call,
                                       char **EndPtr,
                                       int Base) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -697,6 +721,10 @@ void TraceThreadListener::postCstrtoll(llvm::CallInst const *Call,
                                        char **EndPtr,
                                        int Base) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -734,6 +762,10 @@ void TraceThreadListener::postCstrtoul(llvm::CallInst const *Call,
                                        char **EndPtr,
                                        int Base) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -771,6 +803,10 @@ void TraceThreadListener::postCstrtoull(llvm::CallInst const *Call,
                                         char **EndPtr,
                                         int Base) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -806,6 +842,10 @@ void TraceThreadListener::postCstrtof(llvm::CallInst const *Call,
                                       char const *Str,
                                       char **EndPtr) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -841,6 +881,10 @@ void TraceThreadListener::postCstrtod(llvm::CallInst const *Call,
                                       char const *Str,
                                       char **EndPtr) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -876,6 +920,10 @@ void TraceThreadListener::postCstrtold(llvm::CallInst const *Call,
                                        char const *Str,
                                        char **EndPtr) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -911,6 +959,10 @@ void TraceThreadListener::postCstrtoimax(llvm::CallInst const *Call,
                                          char const *Str,
                                          char **EndPtr) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -946,6 +998,10 @@ void TraceThreadListener::postCstrtoumax(llvm::CallInst const *Call,
                                          char const *Str,
                                          char **EndPtr) {
   if (EndPtr) {
+    auto const EndPtrAddr = reinterpret_cast<uintptr_t>(EndPtr);
+    auto const Obj = ActiveFunction->getPointerObject(Call->getArgOperand(0));
+    ProcessListener.setInMemoryPointerObject(EndPtrAddr, Obj);
+
     recordUntypedState(reinterpret_cast<char *>(EndPtr), sizeof(*EndPtr));
   }
 }
@@ -979,6 +1035,9 @@ void TraceThreadListener::postCcalloc(llvm::CallInst const *Call,
                        Num * Size);
   }
 
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
+
   // TODO: write event for failed Malloc?
 }
 
@@ -1009,8 +1068,10 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
 
 void TraceThreadListener::postCfree(llvm::CallInst const *Call,
                                     uint32_t Index,
-                                    void *Address) {
-  EventsOut.write<EventType::Instruction>(Index, ++Time);
+                                    void *Address)
+{
+  ++Time;
+  EventsOut.write<EventType::Instruction>(Index);
   
   auto FreedMalloc = recordFree(reinterpret_cast<uintptr_t>(Address));
   
@@ -1038,6 +1099,9 @@ void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
   if (Address) {
     recordMalloc(Address, Size);
   }
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
 }
 
 
@@ -1081,26 +1145,21 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
     if (Size) {
       if (NewAddress) {
         if (NewAddress == OldAddress) {
-          // Record free first, so that when we reverse over the events, the
-          // freed malloc will be recreated after the new malloc is removed.
-          auto FreedMalloc = recordFree(OldAddress);
-
-          // If this realloc shrank the allocation, then clear the memory that
-          // is no longer allocated.
-          if (Size < FreedMalloc.size()) {
-            recordStateClear(NewAddress + Size, FreedMalloc.size() - Size);
-          }
-
-          // Record malloc for the new size.
-          recordMalloc(NewAddress, Size);
+          recordRealloc(NewAddress, Size);
         }
         else {
+          // This allocation will be overwritten by the below call to
+          // recordMalloc, so we have to extract the size from it here.
+          auto const Alloc =
+            ProcessListener.getCurrentDynamicMemoryAllocation(OldAddress);
+          auto const CopySize = std::min(Alloc->size(), Size);
+
           // Malloc new address.
           recordMalloc(NewAddress, Size);
 
           // Record the state that was copied to the new address.
-          recordMemmove(OldAddress, NewAddress, Size);
-          
+          recordMemmove(OldAddress, NewAddress, CopySize);
+
           // Free previous address and clear the memory.
           recordFreeAndClear(OldAddress);
         }
@@ -1115,6 +1174,9 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
       recordMalloc(NewAddress, Size);
     }
   }
+
+  ActiveFunction->setPointerObject(Call,
+                                 ProcessListener.makePointerObject(NewAddress));
 }
 
 
@@ -1139,22 +1201,25 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
   auto Address = RTValue->getUIntPtr();
-  if (!Address)
-    return;
-  
-  auto Str = reinterpret_cast<char const *>(Address);
-  auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
-  
-  // Remove knowledge of the existing getenv string at this position (if any).
-  removeKnownMemoryRegion(Address);
-  
-  // TODO: Delete any existing memory states at this address.
-  
-  // Set knowledge of the new string area.
-  addKnownMemoryRegion(Address, Length, MemoryPermission::ReadOnly);
-  
-  // Set the new string at this address.
-  recordUntypedState(Str, Length);
+
+  if (Address) {
+    auto Str = reinterpret_cast<char const *>(Address);
+    auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
+
+    // Remove knowledge of the existing getenv string at this position (if any).
+    removeKnownMemoryRegion(Address);
+
+    // TODO: Delete any existing memory states at this address.
+
+    // Set knowledge of the new string area.
+    addKnownMemoryRegion(Address, Length, MemoryPermission::ReadOnly);
+
+    // Set the new string at this address.
+    recordUntypedState(Str, Length);
+  }
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
 }
 
 
@@ -1193,6 +1258,22 @@ void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
   CStdLibChecker Checker(*this, Index, Fn);
   
   Checker.checkMemoryExistsAndAccessibleForParameter(0, Address, Num, Access);
+}
+
+void TraceThreadListener::postCmemchr(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      void const *Ptr,
+                                      int Value,
+                                      size_t Num)
+{
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
+
+  if (Address)
+    ActiveFunction->transferArgPointerObjectToCall(0);
+  else
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
 }
 
 
@@ -1258,6 +1339,8 @@ void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
                                       void *Destination,
                                       void const *Source,
                                       size_t Size) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   if (MemoryArea(Destination, Size).intersects(MemoryArea(Source, Size))) {
     recordUntypedState(reinterpret_cast<char const *>(Destination), Size);
   }
@@ -1299,6 +1382,8 @@ void TraceThreadListener::postCmemmove(llvm::CallInst const *Call,
                                        void *Destination,
                                        void const *Source,
                                        size_t Size) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   recordMemmove(reinterpret_cast<uintptr_t>(Source),
                 reinterpret_cast<uintptr_t>(Destination),
                 Size);
@@ -1331,6 +1416,8 @@ void TraceThreadListener::postCmemset(llvm::CallInst const *Call,
                                       void *Destination,
                                       int Value,
                                       size_t Size) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   recordUntypedState(reinterpret_cast<char const *>(Destination), Size);
 }
 
@@ -1371,6 +1458,8 @@ void TraceThreadListener::postCstrcat(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char *Destination,
                                       char const *Source) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   // Memory has been locked since the pre, so strlen should be safe.
   auto const SrcStrLength = std::strlen(Source) + 1;
   auto const DestStrLength = std::strlen(Destination) + 1;
@@ -1392,6 +1481,21 @@ void TraceThreadListener::preCstrchr(llvm::CallInst const *Call,
   auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strchr;
   CStdLibChecker Checker(*this, Index, Fn);
   Checker.checkCStringRead(0, Str);
+}
+
+void TraceThreadListener::postCstrchr(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str,
+                                      int Character)
+{
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
+
+  if (Address)
+    ActiveFunction->transferArgPointerObjectToCall(0);
+  else
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
 }
 
 
@@ -1454,12 +1558,18 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
                                                      DestAddr,
                                                      SrcLength,
                                                      MemoryAccess::Write);
+
+  auto const SrcAddr = reinterpret_cast<uintptr_t>(Source);
+  Checker.checkMemoryDoesNotOverlap(MemoryArea(DestAddr, SrcLength),
+                                    MemoryArea(SrcAddr,  SrcLength));
 }
 
 void TraceThreadListener::postCstrcpy(llvm::CallInst const *Call,
                                       uint32_t Index,
                                       char *Destination,
                                       char const *Source) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   // Memory has been locked since the pre, so we know strlen is safe.
   auto const SrcStrLength = std::strlen(Source) + 1;
   recordUntypedState(Destination, SrcStrLength);
@@ -1500,7 +1610,7 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
   auto Address = RTValue->getUIntPtr();
-  
+
   auto Str = reinterpret_cast<char const *>(Address);
   auto Length = std::strlen(Str) + 1; // Include terminating nul byte.
   
@@ -1514,6 +1624,9 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
   
   // Set the new string at this address.
   recordUntypedState(Str, Length);
+
+  ActiveFunction->setPointerObject(Call,
+                                   ProcessListener.makePointerObject(Address));
 }
 
 
@@ -1570,6 +1683,8 @@ void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   auto const SrcStrNullChar = std::memchr(Source, '\0', Size);
   auto const SrcStrEnd = SrcStrNullChar
                        ? static_cast<char const *>(SrcStrNullChar)
@@ -1635,6 +1750,8 @@ void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
+  ActiveFunction->transferArgPointerObjectToCall(0);
+
   recordUntypedState(Destination, Size);
 }
 
@@ -1655,6 +1772,21 @@ void TraceThreadListener::preCstrpbrk(llvm::CallInst const *Call,
   Checker.checkCStringRead(0, Str2);
 }
 
+void TraceThreadListener::postCstrpbrk(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str1,
+                                       char const *Str2)
+{
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
+
+  if (Address)
+    ActiveFunction->transferArgPointerObjectToCall(0);
+  else
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
+}
+
 
 //===------------------------------------------------------------------------===
 // strrchr
@@ -1669,6 +1801,21 @@ void TraceThreadListener::preCstrrchr(llvm::CallInst const *Call,
   auto const Fn = seec::runtime_errors::format_selects::CStdFunction::Strrchr;
   CStdLibChecker Checker(*this, Index, Fn);
   Checker.checkCStringRead(0, Str);
+}
+
+void TraceThreadListener::postCstrrchr(llvm::CallInst const *Call,
+                                       uint32_t Index,
+                                       char const *Str,
+                                       int Character)
+{
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
+
+  if (Address)
+    ActiveFunction->transferArgPointerObjectToCall(0);
+  else
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
 }
 
 
@@ -1703,6 +1850,21 @@ void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
   CStdLibChecker Checker(*this, Index, Fn);
   Checker.checkCStringRead(0, Str1);
   Checker.checkCStringRead(1, Str2);
+}
+
+void TraceThreadListener::postCstrstr(llvm::CallInst const *Call,
+                                      uint32_t Index,
+                                      char const *Str1,
+                                      char const *Str2)
+{
+  auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
+  assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
+  auto Address = RTValue->getUIntPtr();
+
+  if (Address)
+    ActiveFunction->transferArgPointerObjectToCall(0);
+  else
+    ActiveFunction->setPointerObject(Call, PointerTarget{});
 }
 
 

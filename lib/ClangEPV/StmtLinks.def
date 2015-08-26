@@ -281,16 +281,7 @@ SEEC_STMT_LINK(OffsetOfExpr,
   SEEC_PP_QUOTE(),
   SEEC_PP_QUOTE())
 
-SEEC_STMT_LINK(UnaryExprOrTypeTraitExpr,
-  SEEC_PP_QUOTE(
-    ("kind",             String, getKind()),
-    ("is_argument_type", Bool,   isArgumentType()),
-    ("argument_type",    String, getTypeOfArgument().getAsString())
-  ),
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE(
-    ("argument_expr", getArgumentExpr())
-  ))
+// UnaryExprOrTypeTraitExpr is handled manually.
 
 // ArraySubscriptExpr is handled manually.
 
@@ -311,8 +302,10 @@ SEEC_STMT_LINK(MemberExpr,
 
 SEEC_STMT_LINK(BinaryOperator,
   SEEC_PP_QUOTE(
-    ("opcode",       String,            getOpcode()),
-    ("type_general", GeneralTypeString, getType().getTypePtr())
+    ("opcode",           String,            getOpcode()),
+    ("type_general",     GeneralTypeString, getType().getTypePtr()),
+    ("lhs_type_general", GeneralTypeString, getLHS()->getType().getTypePtr()),
+    ("rhs_type_general", GeneralTypeString, getRHS()->getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
     ("rtv_of_lhs", getLHS()),
@@ -325,8 +318,10 @@ SEEC_STMT_LINK(BinaryOperator,
 
 SEEC_STMT_LINK(CompoundAssignOperator,
   SEEC_PP_QUOTE(
-    ("opcode",       String,            getOpcode()),
-    ("type_general", GeneralTypeString, getType().getTypePtr())
+    ("opcode",           String,            getOpcode()),
+    ("type_general",     GeneralTypeString, getType().getTypePtr()),
+    ("lhs_type_general", GeneralTypeString, getLHS()->getType().getTypePtr()),
+    ("rhs_type_general", GeneralTypeString, getRHS()->getType().getTypePtr())
   ),
   SEEC_PP_QUOTE(
     ("rtv_of_lhs", getLHS()),
@@ -398,9 +393,15 @@ SEEC_STMT_LINK(CompoundLiteralExpr,
 
 // TODO: InitListExpr.
 SEEC_STMT_LINK(InitListExpr,
+  SEEC_PP_QUOTE(
+    ("type", String, getType().getTypePtr()),
+    ("is_string_literal_init", Bool, isStringLiteralInit()),
+    ("had_array_range_designator", Bool, hadArrayRangeDesignator())
+  ),
   SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE(),
-  SEEC_PP_QUOTE())
+  SEEC_PP_QUOTE(
+    ("initialized_field_in_union", getInitializedFieldInUnion())
+  ))
 
 // TODO: DesignatedInitExpr.
 SEEC_STMT_LINK(DesignatedInitExpr,

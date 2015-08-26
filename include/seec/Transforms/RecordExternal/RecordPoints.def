@@ -16,16 +16,16 @@
 #endif
 
 HANDLE_RECORD_POINT(FunctionBegin, void (types::i<32>))
-HANDLE_RECORD_POINT(FunctionEnd, void (types::i<32>))
+HANDLE_RECORD_POINT(FunctionEnd, void (types::i<32>, types::i<32>))
 
 HANDLE_RECORD_POINT(ArgumentByVal, void (types::i<32>, types::i<8>*))
 
-HANDLE_RECORD_POINT(SetReadable, void (types::i<8>*, types::i<64>))
-HANDLE_RECORD_POINT(SetWritable, void (types::i<8>*, types::i<64>))
 HANDLE_RECORD_POINT(Args, void (types::i<64>, types::i<8>*))
 HANDLE_RECORD_POINT(Env, void (types::i<8>*))
 
 HANDLE_RECORD_POINT(SetInstruction, void (types::i<32>))
+
+HANDLE_RECORD_POINT(PreAlloca, void (types::i<32>, types::i<64>, types::i<64>))
 
 HANDLE_RECORD_POINT(PreLoad, void (types::i<32>, types::i<8>*, types::i<64>))
 HANDLE_RECORD_POINT(PostLoad, void (types::i<32>, types::i<8>*, types::i<64>))
@@ -40,6 +40,7 @@ HANDLE_RECORD_POINT(PostCallIntrinsic, void (types::i<32>))
 
 HANDLE_RECORD_POINT(PreDivide, void (types::i<32>))
 
+HANDLE_RECORD_POINT(UpdateVoid,     void (types::i<32>))
 HANDLE_RECORD_POINT(UpdatePointer,  void (types::i<32>, types::i<8>*))
 HANDLE_RECORD_POINT(UpdateInt8,     void (types::i<32>, types::i<8>))
 HANDLE_RECORD_POINT(UpdateInt16,    void (types::i<32>, types::i<16>))

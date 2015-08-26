@@ -43,6 +43,10 @@ char const *describe(ArgType Type);
 class Arg {
   ArgType Type;
 
+  /// \brief Clone this Arg.
+  ///
+  virtual std::unique_ptr<Arg> cloneImpl() const =0;
+
 protected:
   Arg(ArgType Type)
   : Type(Type)
@@ -51,9 +55,6 @@ protected:
   // Arg objects should not be copied directly, only as part of copying a
   // subclass.
   Arg(Arg const &Other) = default;
-
-  // Arg objects should not be copied directly, only as part of copying a
-  // subclass.
   Arg &operator=(Arg const &RHS) = default;
 
 public:
@@ -70,12 +71,22 @@ public:
 
   /// Support LLVM's dynamic casting.
   static bool classof(Arg const *A) { return true; }
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> clone() const { return cloneImpl(); }
 };
 
 /// \brief An argument that holds a runtime address.
 ///
 class ArgAddress : public Arg {
   uintptr_t Address;
+
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgAddress(*this));
+  }
 
 public:
   ArgAddress(uintptr_t Address)
@@ -87,7 +98,7 @@ public:
 
   virtual ~ArgAddress();
 
-  virtual uint64_t data() const { return Address; }
+  virtual uint64_t data() const override { return Address; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -109,6 +120,12 @@ public:
 ///
 class ArgObject : public Arg {
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgObject(*this));
+  }
+
 public:
   ArgObject()
   : Arg(ArgType::Object)
@@ -118,7 +135,7 @@ public:
 
   virtual ~ArgObject();
 
-  virtual uint64_t data() const { return 0; }
+  virtual uint64_t data() const override { return 0; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -144,7 +161,7 @@ public:
 
   virtual ~ArgSelectBase();
 
-  virtual uint64_t data() const {
+  virtual uint64_t data() const override {
     uint64_t Data = static_cast<uint32_t>(getSelectID());
     Data <<= 32;
     Data |= static_cast<uint32_t>(getRawItemValue());
@@ -178,13 +195,19 @@ template<typename SelectType>
 class ArgSelect : public ArgSelectBase {
   SelectType Item;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgSelect(*this));
+  }
+
 protected:
   static uintptr_t getCStringAddressImpl() {
     char const *(*func)(SelectType) = format_selects::getCString;
     return (uintptr_t) func;
   }
 
-  virtual uintptr_t getCStringAddress() const {
+  virtual uintptr_t getCStringAddress() const override {
     return getCStringAddressImpl();
   }
 
@@ -208,11 +231,11 @@ public:
     return Base->getCStringAddress() == getCStringAddressImpl();
   }
 
-  virtual format_selects::SelectID getSelectID() const {
+  virtual format_selects::SelectID getSelectID() const override {
     return format_selects::GetSelectID<SelectType>::value();
   }
 
-  virtual uint32_t getRawItemValue() const {
+  virtual uint32_t getRawItemValue() const override {
     return static_cast<uint32_t>(Item);
   }
 };
@@ -226,6 +249,12 @@ std::unique_ptr<Arg> createArgSelect(format_selects::SelectID Select,
 class ArgSize : public Arg {
   uint64_t Size;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgSize(*this));
+  }
+
 public:
   ArgSize(uint64_t Size)
   : Arg(ArgType::Size),
@@ -236,7 +265,7 @@ public:
 
   virtual ~ArgSize();
 
-  virtual uint64_t data() const { return Size; }
+  virtual uint64_t data() const override { return Size; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -259,6 +288,12 @@ public:
 class ArgOperand : public Arg {
   uint64_t Index;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgOperand(*this));
+  }
+
 public:
   ArgOperand(uint64_t Index)
   : Arg(ArgType::Operand),
@@ -269,7 +304,7 @@ public:
 
   virtual ~ArgOperand();
 
-  virtual uint64_t data() const { return Index; }
+  virtual uint64_t data() const override { return Index; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -292,6 +327,12 @@ public:
 class ArgParameter : public Arg {
   uint64_t Index;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgParameter(*this));
+  }
+
 public:
   ArgParameter(uint64_t Index)
   : Arg(ArgType::Parameter),
@@ -302,7 +343,7 @@ public:
 
   virtual ~ArgParameter();
 
-  virtual uint64_t data() const { return Index; }
+  virtual uint64_t data() const override { return Index; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {
@@ -325,6 +366,12 @@ public:
 class ArgCharacter : public Arg {
   char Character;
 
+  /// \brief Clone this Arg.
+  ///
+  std::unique_ptr<Arg> cloneImpl() const override {
+    return std::unique_ptr<Arg>(new ArgCharacter(*this));
+  }
+
 public:
   ArgCharacter(char Character)
   : Arg(ArgType::Character),
@@ -335,7 +382,7 @@ public:
 
   virtual ~ArgCharacter();
 
-  virtual uint64_t data() const { return Character; }
+  virtual uint64_t data() const override { return Character; }
 
   /// \brief Deserialize from data.
   static std::unique_ptr<Arg> deserialize(uint64_t Data) {

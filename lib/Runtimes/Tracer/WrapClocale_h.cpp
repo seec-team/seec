@@ -19,7 +19,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <clocale>
 
@@ -39,6 +39,7 @@ SEEC_MANGLE_FUNCTION(setlocale)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::setlocale}
+      .returnPointerIsNewAndValid()
       (setlocale,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -57,18 +58,23 @@ SEEC_MANGLE_FUNCTION(setlocale)
 class ResultStateRecorderForStaticInternalLConv {
   void recordCString(seec::trace::TraceProcessListener &ProcessListener,
                      seec::trace::TraceThreadListener &ThreadListener,
-                     char *String)
+                     char *&String)
   {
-    if (String == nullptr)
-      return;
-    
-    auto const Address = reinterpret_cast<uintptr_t>(String);
-    auto const Length = std::strlen(String) + 1;
-    
-    ThreadListener.removeKnownMemoryRegion(Address);
-    ThreadListener.addKnownMemoryRegion(Address, Length,
-                                        seec::MemoryPermission::ReadOnly);
-    ThreadListener.recordUntypedState(String, Length);
+    auto const AddrOfStringPtr = reinterpret_cast<uintptr_t>(&String);
+    auto const AddrOfString = reinterpret_cast<uintptr_t>(String);
+
+    if (String != nullptr) {
+      auto const Length = std::strlen(String) + 1;
+
+      ThreadListener.removeKnownMemoryRegion(AddrOfString);
+      ThreadListener.addKnownMemoryRegion(AddrOfString, Length,
+                                          seec::MemoryPermission::ReadOnly);
+      ThreadListener.recordUntypedState(String, Length);
+    }
+
+    ProcessListener.setInMemoryPointerObject(
+      AddrOfStringPtr,
+      ProcessListener.makePointerObject(AddrOfString));
   }
   
 public:
@@ -115,6 +121,7 @@ SEEC_MANGLE_FUNCTION(localeconv)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::localeconv}
+      .returnPointerIsNewAndValid()
       (localeconv,
        [](std::lconv *Result){ return Result != nullptr; },
        ResultStateRecorderForStaticInternalLConv());

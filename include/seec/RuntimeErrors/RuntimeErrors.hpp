@@ -83,6 +83,10 @@ public:
   /// \brief Get the additional errors attached to this runtime error.
   decltype(Additional) const &additional() const { return Additional; }
   
+  /// \brief Clone this \c RunError.
+  ///
+  std::unique_ptr<RunError> clone() const;
+  
   /// @} (Accessors)
   
   

@@ -60,7 +60,8 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   }
   
   // Get the type of the mapping.
-  auto TypeMD = llvm::dyn_cast_or_null<llvm::MDString>(RootMD->getOperand(0u));
+  auto TypeMD = llvm::dyn_cast_or_null<llvm::MDString>
+                                      (RootMD->getOperand(0u).get());
   auto Type = getTypeFromMDString(TypeMD);
   if (!Type.assigned()) {
     llvm::errs() << "MappedStmt::fromMetadata(): "
@@ -71,7 +72,7 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   
   // Find the clang::Stmt.
   auto StmtIdentMD = llvm::dyn_cast_or_null<llvm::MDNode>
-                                           (RootMD->getOperand(1u));
+                                           (RootMD->getOperand(1u).get());
   if (!StmtIdentMD) {
     llvm::errs() << "MappedStmt::fromMetadata(): "
                  << "Stmt identifier is not an MDNode.\n";
@@ -83,8 +84,8 @@ MappedStmt::fromMetadata(llvm::MDNode *RootMD,
   assert(ASTAndStmt.first && ASTAndStmt.second);
   
   // Find the values.
-  auto MapVal1MD = llvm::dyn_cast_or_null<llvm::MDNode>(RootMD->getOperand(2u));
-  auto MapVal2MD = llvm::dyn_cast_or_null<llvm::MDNode>(RootMD->getOperand(3u));
+  auto const MapVal1MD = RootMD->getOperand(2u).get();
+  auto const MapVal2MD = RootMD->getOperand(3u).get();
   
   auto Val1 = seec::cm::getMappedValueFromMD(MapVal1MD,
                                              Module.getModuleIndex());

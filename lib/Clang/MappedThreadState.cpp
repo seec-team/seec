@@ -44,7 +44,9 @@ void ThreadState::cacheClear() {
 }
 
 void ThreadState::print(llvm::raw_ostream &Out,
-                        seec::util::IndentationGuide &Indentation) const
+                        seec::util::IndentationGuide &Indentation,
+                        AugmentationCallbackFn Augmenter)
+const
 {
   // Basic information.
   Out << Indentation.getString()
@@ -57,11 +59,20 @@ void ThreadState::print(llvm::raw_ostream &Out,
     Indentation.indent();
     
     for (seec::cm::FunctionState const &Function : this->getCallStack()) {
-      Function.print(Out, Indentation);
+      Function.print(Out, Indentation, Augmenter);
     }
     
     Indentation.unindent();
   }
+}
+
+
+//===----------------------------------------------------------------------===//
+// Access underlying information.
+//===----------------------------------------------------------------------===//
+
+uint32_t ThreadState::getThreadID() const {
+  return UnmappedState.getThreadID();
 }
 
 
@@ -100,7 +111,7 @@ void ThreadState::generateCallStack() {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out, ThreadState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

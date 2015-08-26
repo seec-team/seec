@@ -41,99 +41,151 @@ root:table {
       "{access_type, select, "
         "read {{address, select, "
           "NULL {Attempt to dereference NULL pointer for memory read.}"
-          "other {Attempt to read unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to read unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "write {{address, select, "
           "NULL {Attempt to dereference NULL pointer for memory write.}"
-          "other {Attempt to write unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to write unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
         "other {{address, select, "
           "NULL {Attempt to dereference NULL pointer.}"
-          "other {Attempt to {access_type} unowned memory at address {address} ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
+          "other {Attempt to {access_type} unallocated memory ({size, plural, =1 {one byte} other {{size} bytes}}).}}}"
       "}"
+      "\n$[runerr:MemoryUnowned]"
     }
 
     // address
     // size
     MemoryUninitialized:string {
-      "Read uninitialized memory from address {address} ({size} bytes)."
+      "Read uninitialized memory (while reading {size, plural, =1 {one byte} other {{size} bytes}})."
+      "\n$[runerr:MemoryUninitialized]"
     }
 
-    // select MemoryAccess {read, write}
-    // access address
-    // access size
+    // access_type {read, write}
+    // access_address
+    // access_size
     // object
-    // object address
-    // object size
+    // object_address
+    // object_size
     MemoryOverflow:string {
-      "Attempt to {access_type} memory at address {access_address} ({access_size} bytes) overflows object at address {object_address} ({object_size} bytes).}"
+      "{access_type, select, "
+       "read  {Attempt to read memory overflows object.}"
+       "write {Attempt to write memory overflows object.}"
+       "other {Attempt to access memory overflows object.}"
+      "}"
+      "\n$[runerr:MemoryOverflow]"
     }
 
     // dynamic memory function
     // address
     BadDynamicMemoryAddress:string {
       "{function, select, "
-        "free {Bad address {address} given to free.}"
-        "realloc {Bad address {address} given to realloc.}"
-        "other {Bad address {address} given to function {function}.}"
+        "free {Attempting to free memory that is not dynamically allocated.}"
+        "realloc {Attempting to realloc memory that is not dynamically allocated.}"
+        "other {Invalid pointer given to function {function}.}"
       "}"
+      "\n$[runerr:BadDynamicMemoryAddress]"
     }
 
     // function name
     // overlap address
     // overlap size
     OverlappingSourceDest:string {
-      "Function {function} source and destination memory blocks overlap at address {address} ({size} bytes)."
+      "Source and destination memory blocks overlap ("
+      "{size, plural, =1 {one byte overlaps} other {{size} bytes overlap}})."
+      "\n$[runerr:OverlappingSourceDest]"
     }
 
     // string function name
     // address of invalid string
     // index of the argument that held the pointer
     InvalidCString:string {
-      "{function, select, "
-        "other {"
-          "{parameter, plural, "
-            "=1    {The pointer passed as the @[arg:parameter]first parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=2    {The pointer passed as the @[arg:parameter]second parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=3    {The pointer passed as the @[arg:parameter]third parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=4    {The pointer passed as the @[arg:parameter]fourth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=5    {The pointer passed as the @[arg:parameter]fifth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=6    {The pointer passed as the @[arg:parameter]sixth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=7    {The pointer passed as the @[arg:parameter]seventh parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=8    {The pointer passed as the @[arg:parameter]eighth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=9    {The pointer passed as the @[arg:parameter]ninth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "=10   {The pointer passed as the @[arg:parameter]tenth parameter@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-            "other {The pointer passed as @[arg:parameter]parameter {parameter}@[] to function {function} does not refer to a C string. A C string must be terminated by a null character.}"
-          "}"
-        "}"
-      "}"
+      "Pointer passed to function does not refer to a valid C string. A C string must be terminated by a NULL character."
+      "\n$[runerr:InvalidCString]"
     }
-    
+
     // dummy
     DivideByZero:string {
-      "Divide by zero!"
+      "Division by zero. This causes undefined behaviour."
+      "\n$[runerr:DivideByZero]"
     }
 
     // dummy
     IntegerOverflow:string {
-      "Integer overflow!"
+      "Integer overflow."
+      "\n$[runerr:IntegerOverflow]"
     }
 
     // dummy
     IntegerUnderflow:string {
-      "Integer underflow!"
+      "Integer underflow."
+      "\n$[runerr:IntegerUnderflow]"
+    }
+
+    // address
+    PointerObjectNULL:string {
+      "Attempting to dereference a NULL pointer."
+      "\n$[runerr:PointerObjectNULL]"
+    }
+
+    // object
+    // address
+    PointerObjectMismatch:string {
+      "Attempting to dereference a pointer that no longer refers to its target object."
+      " This might be caused by accessing an array using an invalid index"
+      " or by incorrect use of pointer arithmetic."
+      "\n$[runerr:PointerObjectMismatch]"
+    }
+
+    // ptr_time
+    // obj_time
+    PointerObjectOutdated:string {
+      "Attempting to dereference a pointer whose target object has been deallocated."
+      "\n$[runerr:PointerObjectOutdated]"
+    }
+
+    // object
+    // address
+    PointerArithmeticResultInvalid:string {
+      "Result of pointer arithmetic is invalid because it does not point to the"
+      " same object as the base pointer."
+      " This might be caused by accessing an array using an invalid index.\n"
+      "$[runerr:PointerArithmeticResultInvalid]"
+      "$[concept:pointers]"
+    }
+
+    // object
+    PointerArithmeticOperandInvalid:string {
+      "{object, select, "
+       "NULL {Attempting pointer arithmetic on NULL pointer.}"
+       "other {Attempting pointer arithmetic on a pointer that does not point"
+              " to a valid object.}}"
+      "\n$[runerr:PointerArithmeticOperandInvalid]"
+    }
+
+    // ptr_time
+    // current_time
+    PointerArithmeticOperandOutdated:string {
+      "Attempting pointer arithmetic on a pointer whose target object has been deallocated."
+      "\n$[runerr:PointerArithmeticOperandOutdated]"
     }
 
     // function
     // address
     // parameter
     PassPointerToUnowned:string {
-      "Parameter {parameter} passed to function {function} points to unowned memory at address {address}."
+      "Passing a pointer that points to unallocated memory."
+      " The called function would access this memory,"
+      " resulting in undefined behaviour."
+      "\n$[runerr:PassPointerToUnowned]"
     }
 
     // function
     // address
     // parameter
     PassPointerToUninitialized:string {
-      "Parameter {parameter} passed to function {function} points to uninitialized memory at address {address}."
+      "Passing a pointer to uninitialized memory."
+      " The called function would read this memory,"
+      " resulting in undefined behaviour."
+      "\n$[runerr:PassPointerToUninitialized]"
     }
 
     // function
@@ -145,23 +197,11 @@ root:table {
     // object_address
     // object_size
     PassPointerToInsufficient:string {
-      "{parameter, plural, "
-        "=1    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the first parameter@[].}"
-        "=2    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the second parameter@[].}"
-        "=3    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the third parameter@[].}"
-        "=4    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fourth parameter@[].}"
-        "=5    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the fifth parameter@[].}"
-        "=6    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the sixth parameter@[].}"
-        "=7    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the seventh parameter@[].}"
-        "=8    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the eighth parameter@[].}"
-        "=9    {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the ninth parameter@[].}"
-        "=10   {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]the tenth parameter@[].}"
-        "other {There was insufficient memory at the destination of the pointer passed to @[arg:function]function {function}@[] as @[arg:parameter]parameter {parameter}@[].}"
-      "}"
+      "Pointer passed to function references an insufficient amount of memory."
 
       "{access_size, plural, "
-        "=1    { In this case the function required one byte,}"
-        "other { In this case the function required {access_size} bytes,}"
+        "=1    { The function required one byte,}"
+        "other { The function required {access_size} bytes,}"
       "}"
 
       "{accessible_size, plural, "
@@ -169,31 +209,39 @@ root:table {
         "=1    { but only one was available.}"
         "other { but only {accessible_size} were available.}"
       "}"
+
+      "\n$[runerr:PassPointerToInsufficient]"
     }
 
     // function
     // parameter
     PassInvalidStream:string {
-      "Parameter {parameter} passed to function {function} is not a valid FILE pointer."
+      "FILE pointer passed to function {function} is invalid."
+      " Perhaps this stream was not opened successfully or was already closed?"
+      "\n$[runerr:PassInvalidStream]"
     }
 
     // function
     // stream
     UseInvalidStream:string {
-      "Call to function \"{function}\" would use standard stream \"{stream}\", which is closed. Perhaps the program previously closed this stream by calling fclose({stream})?"
+      "This function call would use standard stream \"{stream}\", which is closed. Perhaps the program previously closed this stream by calling fclose({stream})?"
+      "\n$[runerr:UseInvalidStream]"
     }
 
     // function
     // parameter
     PassInvalidDIR:string {
-      "Parameter {parameter} passed to function {function} is not a valid DIR pointer."
+      "DIR pointer passed as argument is invalid."
+      " Perhaps this DIR was not opened successfully or was already closed?"
+      "\n$[runerr:PassInvalidDIR]"
     }
 
     // function
     // parameter
     // start
     FormatSpecifierParse:string {
-      "Failed to parse format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
+      "Failed to parse format specifier starting at position {start} in format string."
+      "\n$[runerr:FormatSpecifierParse]"
     }
 
     // function
@@ -202,7 +250,8 @@ root:table {
     // flag
     // end
     FormatSpecifierFlag:string {
-      "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in the format string provided to function {function} (as parameter {parameter})."
+      "Invalid flag \"{flag}\" supplied to format specifier starting at position {start} in format string."
+      "\n$[runerr:FormatSpecifierFlag]"
     }
 
     // function
@@ -210,7 +259,8 @@ root:table {
     // start
     // end
     FormatSpecifierWidthDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), a width was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a width to be specified."
+      "Width was specified for the conversion specifier starting at position {start} in format string, but this conversion specifier does not allow a width to be specified."
+      "\n$[runerr:FormatSpecifierWidthDenied]"
     }
 
     // function
@@ -219,7 +269,9 @@ root:table {
     // end
     // width_parameter
     FormatSpecifierWidthArgType:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} indicated that a width would be passed as an argument (this is indicated by the '*' character). However, the argument provided (as parameter {width_parameter}) was not of type \"int\", which it is required to be."
+      "Conversion specifier starting at position {start} in format string indicated that a width would be passed as an argument (this is indicated by the '*' character)."
+      " However, the argument provided (as parameter {width_parameter}) was not of type \"int\", which it is required to be."
+      "\n$[runerr:FormatSpecifierWidthArgType]"
     }
 
     // function
@@ -227,7 +279,10 @@ root:table {
     // start
     // end
     FormatSpecifierWidthMissing:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} did not provide a maximum field width. It is possible for this to lead to a buffer overflow (if the conversion matches more characters than can fit into the destination buffer). For safety, provide a maximum field width (as an integer written directly after the \"%\" character that begins the conversion specifier)."
+      "Conversion specifier starting at position {start} in format string did not provide a maximum field width."
+      " It is possible for this to lead to a buffer overflow (if the conversion matches more characters than can fit into the destination buffer)."
+      " For safety, provide a maximum field width (as an integer written directly after the \"%\" character that begins the conversion specifier)."
+      "\n$[runerr:FormatSpecifierWidthMissing]"
     }
 
     // function
@@ -235,7 +290,9 @@ root:table {
     // start
     // end
     FormatSpecifierPrecisionDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), a precision was specified for the conversion specifier starting at position {start}, but this conversion specifier does not allow a precision to be specified."
+      "A precision was specified for the conversion specifier starting at position {start} in the format string,"
+      " but this conversion specifier does not allow a precision to be specified."
+      "\n$[runerr:FormatSpecifierPrecisionDenied]"
     }
 
     // function
@@ -244,7 +301,11 @@ root:table {
     // end
     // precision_parameter
     FormatSpecifierPrecisionArgType:string {
-      "When calling function \"{function}\", in the format string provided (as parameter {parameter}), the conversion specifier starting at position {start} indicated that a precision would be passed as an argument (this is indicated by the '*' character following the precision character '.'). However, the argument provided (as parameter {precision_parameter}) was not of type \"int\", which it is required to be."
+      "The conversion specifier starting at position {start} in format string"
+      " indicated that a precision would be passed as an argument"
+      " (this is indicated by the '*' character following the precision character '.')."
+      " However, the argument provided (as parameter {precision_parameter}) was not of type \"int\", which it is required to be."
+      "\n$[runerr:FormatSpecifierPrecisionArgType]"
     }
 
     // function
@@ -253,7 +314,9 @@ root:table {
     // end
     // length
     FormatSpecifierLengthDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), the length modifier \"{length}\" was used for the conversion specifier starting at position {start}, but this conversion specifier does not support this length modifier."
+      "Length modifier \"{length}\" was used for the conversion specifier starting at position {start} in format string,"
+      " but this conversion specifier does not support this length modifier."
+      "\n$[runerr:FormatSpecifierLengthDenied]"
     }
 
     // function
@@ -261,7 +324,21 @@ root:table {
     // start
     // end
     FormatSpecifierSuppressionDenied:string {
-      "In the format string provided to function {function} (as parameter {parameter}), the assignment-suppressing character \"*\" was present in the conversion specifier starting at position {start}, but this conversion specifier does not support assignment suppression."
+      "Assignment-suppressing character \"*\" was present in the conversion specifier starting at position {start} in format string,"
+      " but this conversion specifier does not support assignment suppression."
+      "\n$[runerr:FormatSpecifierSuppressionDenied]"
+    }
+
+    // function
+    // parameter
+    // start
+    // end
+    // length
+    // argument
+    FormatSpecifierArgType:string {
+      "The type of the format specifier beginning at character {start} in format string does not"
+      " match the type of the corresponding argument (argument {argument})."
+      "\n$[runerr:FormatSpecifierArgType]"
     }
 
     // function
@@ -274,7 +351,7 @@ root:table {
     // bytes_required
     //
     ScanFormattedStringOverflow:string {
-      "An overflow occurred while matching the string conversion specifier at character {specifier_start} in the format string given to function {function}."
+      "An overflow occurred while matching the string conversion specifier at character {specifier_start} in the format string."
       " There {bytes_available, plural, =0 {were no bytes available} =1 {was one byte available} other {were {bytes_available} bytes available}}"
       " at the destination of the pointer given as argument {argument},"
       " but the matched string required {bytes_required, plural, =1 {one byte} other {{bytes_required} bytes}}."
@@ -282,38 +359,77 @@ root:table {
       " The maximum field width specifies the maximum number of characters that will be used to match a conversion."
       " It is specified by placing an integer number, greater than zero, after the introductory \"%\" character."
       " For example, if we were reading into a buffer that could hold 20 characters, we would specify the maximum field width to be 19 like so: \"%19s\""
-      " (note that the last character in the buffer is reserved for the terminating null character which will be placed at the end of the string by the scan function)."
+      " (note that the last character in the buffer is reserved for the terminating NULL character which will be placed at the end of the string by the scan function)."
+      "\n$[runerr:ScanFormattedStringOverflow]"
     }
 
     // function
     // expected
     // received
     VarArgsSuperfluous:string {
-      "Superfluous arguments passed to function {function}. Expected "
-        "{expected, plural, =0 {no variadic arguments} =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
+      "Superfluous arguments passed to function. Expected "
+        "{expected, plural, =0 {no variadic arguments} =1 {one variadic argument} other {{expected} variadic arguments}}"
         ", but received "
-        "{received, plural, =0 {none.} other {only {received}.}}"
+        "{received, plural, =0 {none.} =1 {one.} other {{received}.}}"
+      "\n$[runerr:VarArgsSuperfluous]"
     }
 
     // function
     // expected
     // received
     VarArgsInsufficient:string {
-      "Insufficient arguments passed to function {function}. Expected "
+      "Insufficient arguments passed to function. Expected "
         "{expected, plural, =1 {{expected} variadic argument} other {{expected} variadic arguments}}"
         ", but received "
-        "{received, plural, =0 {none.} other {only {received}.}}"
+        "{received, plural, =0 {none.} =1 {only one.} other {only {received}.}}"
+      "\n$[runerr:VarArgsInsufficient]"
+    }
+
+    // function
+    VarArgsExpectedCharPointer:string {
+      "Argument is not a character pointer, but the function {function} requires it to be."
+      "\n$[runerr:VarArgsExpectedCharPointer]"
+    }
+
+    // function
+    VarArgsExpectedCStringArray:string {
+      "{function, select, "
+        "execle {The {function} function expects the argument list's NULL terminator to be followed by a pointer to an array of pointers to NULL-terminated character strings, each of which specifies an environment variable for the new process. The array itself is also terminated by a NULL pointer. Consult documentation of {function} for more details.}"
+        "other {Argument is not a pointer to a NULL-terminated array of C strings, but the function {function} requires it to be.}}"
+      "\n$[runerr:VarArgsExpectedCStringArray]"
+    }
+
+    // function
+    VarArgsNonTerminated:string {
+      "The variadic argument list for this function must be terminated by a NULL pointer."
+      "\n$[runerr:VarArgsNonTerminated]"
+    }
+
+    // function
+    VarArgsPostTerminator:string {
+      "Argument follows terminating NULL pointer and thus will not be used by called function."
+      "\n$[runerr:VarArgsPostTerminator]"
     }
 
     // function
     UnsafeMultithreaded:string {
-      "Calling function {function} in a multithreaded program is unsafe."
+      "Calling this function in a multithreaded program is unsafe."
+      "\n$[runerr:UnsafeMultithreaded]"
     }
 
     // function
     // parameter
     NonTerminatedArray:string {
-      "Passing a non-terminated array to function {function} as parameter {parameter}, but a terminated array is expected."
+      "Array passed as argument to function call is non-terminated, but the function requires it to be terminated"
+      " (the last element must be a NULL pointer)."
+      "\n$[runerr:NonTerminatedArray]"
+    }
+
+    //
+    StackOverflowAlloca:string {
+      "Required memory allocation would exceed the limit of the stack."
+      " This may be caused by the program recursing infinitely, or by using excessively large variables."
+      "\n$[runerr:StackOverflowAlloca]"
     }
   }
 }

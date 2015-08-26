@@ -47,23 +47,23 @@ class MappingASTVisitor : public RecursiveASTVisitor<MappingASTVisitor> {
   /// The SourceManager for this AST.
   clang::SourceManager &SourceManager;
   
-  /// Current stack of visitation.
-  std::vector<ASTNodeTy> VisitStack;
-  
   /// All Decls in visitation order.
   std::vector<Decl const *> Decls;
   
   /// All Stmts in visitation order.
   std::vector<Stmt const *> Stmts;
-  
-  /// Parents of Decls.
-  llvm::DenseMap<clang::Decl const *, ASTNodeTy> DeclParents;
-  
-  /// Parents of Stmts.
-  llvm::DenseMap<clang::Stmt const *, ASTNodeTy> StmtParents;
+
+  /// All Decls seen.
+  llvm::DenseSet<Decl const *> DeclsSeen;
+
+  /// All Stmts seen.
+  llvm::DenseSet<Stmt const *> StmtsSeen;
   
   /// All Decls that are referred to by non-system code.
   llvm::DenseSet<clang::Decl const *> DeclsReferenced;
+
+  /// All VariableArrayType types in visitation order.
+  std::vector<::clang::VariableArrayType *> VATypes;
 
 public:
   /// \brief Constructor.
@@ -71,12 +71,12 @@ public:
   MappingASTVisitor(clang::ASTUnit &ForAST)
   : AST(ForAST),
     SourceManager(ForAST.getSourceManager()),
-    VisitStack(),
     Decls(),
     Stmts(),
-    DeclParents(),
-    StmtParents(),
-    DeclsReferenced()
+    DeclsSeen(),
+    StmtsSeen(),
+    DeclsReferenced(),
+    VATypes()
   {}
   
   /// \name Accessors.
@@ -88,15 +88,22 @@ public:
   /// Get all Stmts in visitation order.
   decltype(Stmts) &getStmts() { return Stmts; }
   
-  /// Get all Decl parents.
-  decltype(DeclParents) &getDeclParents() { return DeclParents; }
-  
-  /// Get all Stmt parents.
-  decltype(StmtParents) &getStmtParents() { return StmtParents; }
-  
   /// Get all Decls that are referenced by non-system code.
   decltype(DeclsReferenced) &getDeclsReferenced() { return DeclsReferenced; }
   
+  /// @}
+
+
+  /// \name Mutators.
+  /// @{
+
+  /// \brief Revisits VariableArrayType's size expressions.
+  ///
+  void revisitVariableArrayTypeSizeExprs() {
+    for (auto const VAType : VATypes)
+      TraverseStmt(VAType->getSizeExpr());
+  }
+
   /// @}
 
 
@@ -110,55 +117,19 @@ public:
     return false;
   }
   
-  /// \brief Traverse a Stmt.
-  ///
-  bool TraverseStmt(::clang::Stmt *S) {
-    ::clang::Stmt const * const CS = S;
-    
-    // Fill in the parent for this Stmt, if any.
-    if (!VisitStack.empty()) {
-      auto const &Parent = VisitStack.back();
-      if (Parent.assigned())
-        StmtParents.insert(std::make_pair(CS, Parent));
-    }
-    
-    // Traverse this Stmt using the default implementation.
-    VisitStack.emplace_back(CS);
-    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseStmt(S);
-    VisitStack.pop_back();
-    return Ret;
-  }
-  
-  /// \brief Traverse a Decl.
-  ///
-  bool TraverseDecl(::clang::Decl *D) {
-    ::clang::Decl const * const CD = D;
-    
-    // Fill in the parent for this Decl, if any.
-    if (!VisitStack.empty()) {
-      auto const &Parent = VisitStack.back();
-      if (Parent.assigned())
-        DeclParents.insert(std::make_pair(CD, Parent));
-    }
-    
-    // Traverse this Decl using the default implementation.
-    VisitStack.push_back(CD);
-    auto const Ret = RecursiveASTVisitor<MappingASTVisitor>::TraverseDecl(D);
-    VisitStack.pop_back();
-    return Ret;
-  }
-  
   /// \brief Visit a Decl.
   ///
   bool VisitDecl(::clang::Decl *D) {
-    Decls.push_back(D);
+    if (DeclsSeen.insert(D).second)
+      Decls.push_back(D);
     return true;
   }
   
   /// \brief Visit a Stmt.
   ///
   bool VisitStmt(::clang::Stmt *S) {
-    Stmts.push_back(S);
+    if (StmtsSeen.insert(S).second)
+      Stmts.push_back(S);
     return true;
   }
   
@@ -174,7 +145,27 @@ public:
     
     return true;
   }
+
+  /// \brief Visit a VariableArrayType.
+  ///
+  bool VisitVariableArrayType(::clang::VariableArrayType *T) {
+    VATypes.push_back(T);
+    return true;
+  }
   
+  /// \brief Print Decl kinds and Stmt classes in visitation order.
+  ///
+  void printInVisitationOrder() const
+  {
+    llvm::errs() << "decls:\n";
+    for (auto const D : Decls)
+      llvm::errs() << "  " << D->getDeclKindName() << "\n";
+
+    llvm::errs() << "stmts:\n";
+    for (auto const S : Stmts)
+      llvm::errs() << "  " << S->getStmtClassName() << "\n";
+  }
+
   /// @}
 };
 
@@ -182,13 +173,13 @@ public:
 // class MappedAST
 //===----------------------------------------------------------------------===//
 
-MappedAST::MappedAST(clang::ASTUnit *ForAST,
+MappedAST::MappedAST(MappedCompileInfo const &FromCompileInfo,
+                     clang::ASTUnit *ForAST,
                      MappingASTVisitor WithMapping)
-: AST(ForAST),
+: CompileInfo(FromCompileInfo),
+  AST(ForAST),
   Decls(std::move(WithMapping.getDecls())),
   Stmts(std::move(WithMapping.getStmts())),
-  DeclParents(std::move(WithMapping.getDeclParents())),
-  StmtParents(std::move(WithMapping.getStmtParents())),
   DeclsReferenced(std::move(WithMapping.getDeclsReferenced()))
 {}
 
@@ -197,21 +188,23 @@ MappedAST::~MappedAST() {
 }
 
 std::unique_ptr<MappedAST>
-MappedAST::FromASTUnit(clang::ASTUnit *AST) {
+MappedAST::FromASTUnit(MappedCompileInfo const &FromCompileInfo,
+                       clang::ASTUnit *AST)
+{
   if (!AST)
     return nullptr;
 
-  std::vector<Decl const *> Decls;
-  std::vector<Stmt const *> Stmts;
-
   MappingASTVisitor Mapper {*AST};
 
-  for (auto It = AST->top_level_begin(), End = AST->top_level_end();
-       It != End; ++It) {
-    Mapper.TraverseDecl(*It);
-  }
+  Mapper.TraverseDecl(AST->getASTContext().getTranslationUnitDecl());
+  Mapper.revisitVariableArrayTypeSizeExprs();
 
-  auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(AST,
+#if defined(SEEC_DEBUG_NODE_MAPPING)
+  Mapper.printInVisitationOrder();
+#endif
+
+  auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(FromCompileInfo,
+                                                         AST,
                                                          std::move(Mapper)));
   if (!Mapped)
     delete AST;
@@ -219,21 +212,55 @@ MappedAST::FromASTUnit(clang::ASTUnit *AST) {
   return Mapped;
 }
 
-std::unique_ptr<MappedAST>
-MappedAST::LoadFromASTFile(llvm::StringRef Filename,
-                           IntrusiveRefCntPtr<DiagnosticsEngine> Diags,
-                           FileSystemOptions const &FileSystemOpts) {
-  return MappedAST::FromASTUnit(
-          ASTUnit::LoadFromASTFile(Filename.str(), Diags, FileSystemOpts));
+seec::Maybe<uint64_t> MappedAST::getIdxForDecl(clang::Decl const *Decl) const
+{
+  auto const It = std::find(Decls.begin(), Decls.end(), Decl);
+  uint64_t const Idx = It != Decls.end() ? std::distance(Decls.begin(), It) : 0;
+  return Idx;
 }
 
-std::unique_ptr<MappedAST>
-MappedAST::LoadFromCompilerInvocation(
-  std::unique_ptr<CompilerInvocation> Invocation,
-  IntrusiveRefCntPtr<DiagnosticsEngine> Diags)
+seec::Maybe<uint64_t> MappedAST::getIdxForStmt(clang::Stmt const *Stmt) const
 {
-  return MappedAST::FromASTUnit(
-          ASTUnit::LoadFromCompilerInvocation(Invocation.release(), Diags));
+  auto const It = std::find(Stmts.begin(), Stmts.end(), Stmt);
+  uint64_t const Idx = It != Stmts.end() ? std::distance(Stmts.begin(), It) : 0;
+  return Idx;
+}
+
+bool MappedAST::contains(::clang::Decl const *Decl) const
+{
+  return &(Decl->getASTContext()) == &(AST->getASTContext());
+}
+
+bool MappedAST::contains(::clang::Stmt const *Stmt) const {
+  for (auto const S : Stmts)
+    if (S == Stmt)
+      return true;
+  return false;
+}
+
+static MappedAST::ASTNodeTy
+getFirstParent(ArrayRef<ast_type_traits::DynTypedNode> const &Parents)
+{
+  if (!Parents.empty()) {
+    auto const &Parent = Parents[0];
+    
+    if (auto const ParentDecl = Parent.get<clang::Decl>())
+      return ParentDecl;
+    else if (auto const ParentStmt = Parent.get<clang::Stmt>())
+      return ParentStmt;
+  }
+  
+  return MappedAST::ASTNodeTy();
+}
+
+MappedAST::ASTNodeTy MappedAST::getParent(clang::Decl const *D) const
+{
+  return getFirstParent(AST->getASTContext().getParents(*D));
+}
+
+MappedAST::ASTNodeTy MappedAST::getParent(clang::Stmt const *S) const
+{
+  return getFirstParent(AST->getASTContext().getParents(*S));
 }
 
 bool MappedAST::isParent(::clang::Decl const *Parent,

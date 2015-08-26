@@ -1,0 +1,10 @@
+set(SEEC_TEST_PREFIX "${SEEC_TEST_PREFIX}cstdlib-")
+add_subdirectory(bsearch)
+add_subdirectory(errno.h)
+add_subdirectory(islower)
+add_subdirectory(malloc_free)
+add_subdirectory(math.h)
+add_subdirectory(qsort)
+add_subdirectory(realloc)
+add_subdirectory(strtok)
+

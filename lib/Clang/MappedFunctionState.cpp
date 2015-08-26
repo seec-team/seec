@@ -19,12 +19,13 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Trace/GetRecreatedValue.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -32,6 +33,7 @@
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
+#include "clang/AST/StmtOpenMP.h"
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
@@ -68,19 +70,17 @@ void addVarDeclsVisible(clang::DeclStmt const *Parent,
 {
   if (Parent->isSingleDecl()) {
     auto const Decl = Parent->getSingleDecl();
-    if (PriorToDecl && Decl == PriorToDecl)
-      return;
     
     if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
       Set.insert(VarDecl);
   }
   else {
     for (auto const Decl : Parent->getDeclGroup()) {
-      if (PriorToDecl && Decl == PriorToDecl)
-        return;
-      
       if (auto const VarDecl = llvm::dyn_cast<clang::VarDecl>(Decl))
         Set.insert(VarDecl);
+
+      if (PriorToDecl && Decl == PriorToDecl)
+        return;
     }
   }
 }
@@ -92,11 +92,11 @@ void addVarDeclsVisible(clang::CompoundStmt const *Parent,
                         llvm::DenseSet<clang::VarDecl const *> &Set)
 {
   for (auto const Stmt : Parent->children()) {
-    if (Stmt == PriorToStmt)
-      return;
-    
     if (auto const DeclStmt = llvm::dyn_cast<clang::DeclStmt>(Stmt))
       addVarDeclsVisible(DeclStmt, nullptr, nullptr, Map, Set);
+
+    if (Stmt == PriorToStmt)
+      return;
   }
 }
 
@@ -305,7 +305,8 @@ std::shared_ptr<Value const> ParamState::getValue() const
                             Decl->getType(),
                             ASTContext,
                             Address,
-                            ProcessState.getUnmappedProcessState());
+                            ProcessState.getUnmappedProcessState(),
+                            &(Parent.getUnmappedState()));
 }
 
 
@@ -341,7 +342,8 @@ std::shared_ptr<Value const> LocalState::getValue() const
                             Decl->getType(),
                             ASTContext,
                             Address,
-                            ProcessState.getUnmappedProcessState());
+                            ProcessState.getUnmappedProcessState(),
+                            &(Parent.getUnmappedState()));
 }
 
 
@@ -412,22 +414,22 @@ FunctionState::FunctionState(ThreadState &WithParent,
         continue; // Alloca should not yet be visible.
     }
     
-    auto const MaybeAddress =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
-    
-    if (!MaybeAddress.assigned<uintptr_t>())
+    auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
+    if (!MaybeAddress.assigned<llvm::APInt>())
       continue;
     
-    Parameters.emplace_back(*this, MaybeAddress.get<uintptr_t>(), MP.getDecl());
+    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
+    Parameters.emplace_back(*this, Address, MP.getDecl());
   }
   
   // Add locals.
   for (auto const &ML : Mapping->getMappedLocals()) {
-    auto const Value = ML.getValue();
-    
-    if (!VisibleDecls.count(ML.getDecl()))
+    auto const Decl = ML.getDecl();
+    if (Decl->isStaticLocal() || !VisibleDecls.count(ML.getDecl()))
       continue;
     
+    auto const Value = ML.getValue();
+
     if (llvm::isa<llvm::AllocaInst>(Value)) {
       auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
         [=] (seec::trace::AllocaState const &Alloca) {
@@ -438,13 +440,13 @@ FunctionState::FunctionState(ThreadState &WithParent,
         continue; // Alloca should not yet be visible.
     }
     
-    auto const MaybeAddress =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>(UnmappedState, Value);
-    
-    if (!MaybeAddress.assigned<uintptr_t>())
+    auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
+    if (!MaybeAddress.assigned<llvm::APInt>())
       continue;
+
+    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
     
-    Variables.emplace_back(*this, MaybeAddress.get<uintptr_t>(), ML.getDecl());
+    Variables.emplace_back(*this, Address, ML.getDecl());
   }
   
   // Add runtime errors.
@@ -456,7 +458,9 @@ FunctionState::FunctionState(ThreadState &WithParent,
 FunctionState::~FunctionState() = default;
 
 void FunctionState::print(llvm::raw_ostream &Out,
-                          seec::util::IndentationGuide &Indentation) const
+                          seec::util::IndentationGuide &Indentation,
+                          AugmentationCallbackFn Augmenter)
+const
 {
   Out << Indentation.getString()
       << "Function \"" << this->getNameAsString() << "\"\n";
@@ -517,7 +521,7 @@ void FunctionState::print(llvm::raw_ostream &Out,
       Indentation.indent();
       
       for (auto const &Error : RuntimeErrors)
-        Error.print(Out, Indentation);
+        Error.print(Out, Indentation, Augmenter);
       
       Indentation.unindent();
     }
@@ -544,6 +548,17 @@ std::string FunctionState::getNameAsString() const {
 seec::seec_clang::MappedAST const *FunctionState::getMappedAST() const {
   return Mapping ? &Mapping->getAST()
                  : nullptr;
+}
+
+
+//===----------------------------------------------------------------------===//
+// Decl execution.
+//===----------------------------------------------------------------------===//
+
+::clang::Decl const *FunctionState::getActiveDecl() const {
+  if (auto const Instr = UnmappedState.getActiveInstruction())
+    return Parent.getParent().getProcessTrace().getMapping().getDecl(Instr);
+  return nullptr;
 }
 
 
@@ -601,7 +616,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               FunctionState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

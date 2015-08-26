@@ -15,7 +15,11 @@
 
 #include "llvm/ADT/StringRef.h"
 
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <dlfcn.h>
+#elif defined(_WIN32)
+#include <Windows.h>
+#endif
 
 namespace seec {
 
@@ -24,14 +28,23 @@ namespace trace {
 namespace detect_calls {
 
 
+static void *getAddressOfSymbol(char const * const Name) {
+#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
+  return dlsym(RTLD_DEFAULT, Name);
+#elif defined(_WIN32)
+  return (void *)GetProcAddress(GetModuleHandle(nullptr), Name);
+#endif
+}
+
+
 Lookup::Lookup()
 : AddressMap{}
 {
   // Find all the standard library functions we know about.
   void *Ptr;
-  
+
 #define DETECT_CALL(PREFIX, NAME, ARGTYPES) \
-  if ((Ptr = dlsym(RTLD_DEFAULT, #NAME))) \
+  if ((Ptr = getAddressOfSymbol(#NAME)))    \
     AddressMap.insert(std::make_pair(Ptr, Call::PREFIX##NAME));
 #include "seec/Trace/DetectCallsAll.def"
 }

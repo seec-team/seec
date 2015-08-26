@@ -24,6 +24,14 @@
 
 
 //===----------------------------------------------------------------------===//
+// C <errno.h>
+//===----------------------------------------------------------------------===//
+
+SEEC_INTERCEPTED_FUNCTION(__errno_location)
+SEEC_INTERCEPTED_FUNCTION(__error)
+
+
+//===----------------------------------------------------------------------===//
 // C <fenv.h>
 //===----------------------------------------------------------------------===//
 
@@ -44,17 +52,49 @@ SEEC_INTERCEPTED_FUNCTION(localeconv)
 
 
 //===----------------------------------------------------------------------===//
+// C <math.h>
+//===----------------------------------------------------------------------===//
+
+SEEC_INTERCEPTED_FUNCTION(remquof)
+SEEC_INTERCEPTED_FUNCTION(remquo)
+SEEC_INTERCEPTED_FUNCTION(remquol)
+
+SEEC_INTERCEPTED_FUNCTION(nanf)
+SEEC_INTERCEPTED_FUNCTION(nan)
+SEEC_INTERCEPTED_FUNCTION(nanl)
+
+SEEC_INTERCEPTED_FUNCTION(frexpf)
+SEEC_INTERCEPTED_FUNCTION(frexp)
+SEEC_INTERCEPTED_FUNCTION(frexpl)
+
+SEEC_INTERCEPTED_FUNCTION(modff)
+SEEC_INTERCEPTED_FUNCTION(modf)
+SEEC_INTERCEPTED_FUNCTION(modfl)
+
+
+//===----------------------------------------------------------------------===//
 // C <stdio.h>
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(fread)
 SEEC_INTERCEPTED_FUNCTION(fwrite)
 
+SEEC_INTERCEPTED_FUNCTION(getc)
+SEEC_INTERCEPTED_FUNCTION_ALIAS(_IO_getc, getc)
+SEEC_INTERCEPTED_FUNCTION(putc)
+SEEC_INTERCEPTED_FUNCTION_ALIAS(_IO_putc, putc)
+
 SEEC_INTERCEPTED_FUNCTION(scanf)
+SEEC_INTERCEPTED_FUNCTION_ALIAS(__isoc99_scanf, scanf)
+
 SEEC_INTERCEPTED_FUNCTION(fscanf)
+SEEC_INTERCEPTED_FUNCTION_ALIAS(__isoc99_fscanf, fscanf)
+
 SEEC_INTERCEPTED_FUNCTION(sscanf)
 SEEC_INTERCEPTED_FUNCTION_ALIAS(__isoc99_sscanf, sscanf)
 
+SEEC_INTERCEPTED_FUNCTION(printf)
+SEEC_INTERCEPTED_FUNCTION(fprintf)
 SEEC_INTERCEPTED_FUNCTION(sprintf)
 
 SEEC_INTERCEPTED_FUNCTION(ftell)
@@ -70,6 +110,7 @@ SEEC_INTERCEPTED_FUNCTION(perror)
 
 SEEC_INTERCEPTED_FUNCTION(remove)
 SEEC_INTERCEPTED_FUNCTION(rename)
+SEEC_INTERCEPTED_FUNCTION(tmpfile)
 SEEC_INTERCEPTED_FUNCTION(tmpnam)
 
 SEEC_INTERCEPTED_FUNCTION(fdopen)
@@ -94,6 +135,8 @@ SEEC_INTERCEPTED_FUNCTION(bsearch)
 // C <string.h>
 //===----------------------------------------------------------------------===//
 
+SEEC_INTERCEPTED_FUNCTION(strcasecmp)
+SEEC_INTERCEPTED_FUNCTION(strncasecmp)
 SEEC_INTERCEPTED_FUNCTION(strdup)
 SEEC_INTERCEPTED_FUNCTION(strtok)
 
@@ -103,6 +146,7 @@ SEEC_INTERCEPTED_FUNCTION(strtok)
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(time)
+SEEC_INTERCEPTED_FUNCTION(timespec_get)
 SEEC_INTERCEPTED_FUNCTION(asctime)
 SEEC_INTERCEPTED_FUNCTION(ctime)
 SEEC_INTERCEPTED_FUNCTION(strftime)
@@ -141,6 +185,13 @@ SEEC_INTERCEPTED_FUNCTION(telldir)
 
 
 //===----------------------------------------------------------------------===//
+// POSIX <pthread.h>
+//===----------------------------------------------------------------------===//
+SEEC_INTERCEPTED_FUNCTION(pthread_create)
+SEEC_INTERCEPTED_FUNCTION(pthread_join)
+
+
+//===----------------------------------------------------------------------===//
 // POSIX <sys/time.h>
 //===----------------------------------------------------------------------===//
 
@@ -153,19 +204,24 @@ SEEC_INTERCEPTED_FUNCTION(settimeofday)
 //===----------------------------------------------------------------------===//
 
 SEEC_INTERCEPTED_FUNCTION(wait)
+SEEC_INTERCEPTED_FUNCTION(waitpid)
 
 
 //===----------------------------------------------------------------------===//
 // POSIX <unistd.h>
 //===----------------------------------------------------------------------===//
 
+SEEC_INTERCEPTED_FUNCTION(access)
+SEEC_INTERCEPTED_FUNCTION(dup)
+SEEC_INTERCEPTED_FUNCTION(dup2)
+SEEC_INTERCEPTED_FUNCTION(dup3)
 SEEC_INTERCEPTED_FUNCTION(close)
 SEEC_INTERCEPTED_FUNCTION(execl)
-SEEC_INTERCEPTED_FUNCTION(execv)
-SEEC_INTERCEPTED_FUNCTION(execle)
-SEEC_INTERCEPTED_FUNCTION(execve)
 SEEC_INTERCEPTED_FUNCTION(execlp)
+SEEC_INTERCEPTED_FUNCTION(execle)
+SEEC_INTERCEPTED_FUNCTION(execv)
 SEEC_INTERCEPTED_FUNCTION(execvp)
+SEEC_INTERCEPTED_FUNCTION(execve)
 SEEC_INTERCEPTED_FUNCTION(fork)
 SEEC_INTERCEPTED_FUNCTION(getcwd)
 SEEC_INTERCEPTED_FUNCTION(getopt)

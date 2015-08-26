@@ -13,8 +13,11 @@
 
 #include "seec/Trace/PrintFormatSpecifiers.hpp"
 #include "seec/Trace/ScanFormatSpecifiers.hpp"
-
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/ScopeExit.hpp"
+
+#include "llvm/IR/Instruction.h"
+#include <signal.h>
 
 
 namespace seec {
@@ -49,6 +52,32 @@ getContainingMemoryArea(TraceThreadListener &Listener,
 // RuntimeErrorChecker
 //===------------------------------------------------------------------------===
 
+void RuntimeErrorChecker::raiseError(runtime_errors::RunError &Err,
+                                     RunErrorSeverity const Severity)
+{
+  for (auto const &Note : PermanentNotes)
+    Err.addAdditional(Note->clone());
+  for (auto const &Note : TemporaryNotes)
+    Err.addAdditional(Note->clone());
+
+  Thread.handleRunError(Err, Severity, Instruction);
+}
+
+void RuntimeErrorChecker::addPermanentNote(std::unique_ptr<RunError> Note)
+{
+  PermanentNotes.emplace_back(std::move(Note));
+}
+
+void RuntimeErrorChecker::addTemporaryNote(std::unique_ptr<RunError> Note)
+{
+  TemporaryNotes.emplace_back(std::move(Note));
+}
+
+void RuntimeErrorChecker::clearTemporaryNotes()
+{
+  TemporaryNotes.clear();
+}
+
 std::ptrdiff_t
 RuntimeErrorChecker::getSizeOfAreaStartingAt(uintptr_t Address)
 {
@@ -76,6 +105,55 @@ RuntimeErrorChecker::getSizeOfWritableAreaStartingAt(uintptr_t Address)
   return Area.withStart(Address).length();
 }
 
+bool RuntimeErrorChecker::checkPointer(PointerTarget const &PtrObj,
+                                       uintptr_t const Address)
+{
+  if (!PtrObj) {
+    return true;
+
+#if 0
+    raiseError(*createRunError<RunErrorType::PointerObjectNULL>(Address),
+               RunErrorSeverity::Fatal);
+
+    return false;
+#endif
+  }
+
+  auto const &Process = Thread.getProcessListener();
+  auto const Time = Process.getRegionTemporalID(PtrObj.getBase());
+  if (Time != PtrObj.getTemporalID()) {
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), Time),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  auto const PtrArea = getContainingMemoryArea(Thread, PtrObj.getBase());
+
+  if (!PtrArea.assigned()) {
+    // This gives the most accurate error message for this case: "dereferencing
+    // a pointer whose target object has been deallocated". The temporal IDs
+    // are not used in the error messages, so it doesn't matter that we don't
+    // have a correct ID for the target object.
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), PtrObj.getTemporalID()),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  if (!PtrArea.get<MemoryArea>().contains(Address)) {
+    raiseError(*createRunError<RunErrorType::PointerObjectMismatch>
+                              (PtrObj.getBase(), Address),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  return true;
+}
+
 bool
 RuntimeErrorChecker::memoryExists(uintptr_t Address,
                                   std::size_t Size,
@@ -85,11 +163,9 @@ RuntimeErrorChecker::memoryExists(uintptr_t Address,
   if (Area.assigned())
     return true;
   
-  Thread.handleRunError(
-    *createRunError<RunErrorType::MemoryUnowned>
-                   (Access, Address, Size),
-    RunErrorSeverity::Fatal,
-    Instruction);
+  raiseError(*createRunError<RunErrorType::MemoryUnowned>
+                            (Access, Address, Size),
+             RunErrorSeverity::Fatal);
   
   return false;
 }
@@ -103,16 +179,15 @@ bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
   MemoryArea AccessArea(Address, Size);
 
   if (!ContainingArea.contains(AccessArea)) {
-    Thread.handleRunError(
-      *createRunError<RunErrorType::MemoryOverflow>
-                     (Access,
-                      Address,
-                      Size,
-                      ArgObject{},
-                      ContainingArea.address(),
-                      ContainingArea.length()),
-      RunErrorSeverity::Fatal,
-      Instruction);
+    raiseError(*createRunError<RunErrorType::MemoryOverflow>
+                              (Access,
+                                Address,
+                                Size,
+                                ArgObject{},
+                                ContainingArea.address(),
+                                ContainingArea.length()),
+               RunErrorSeverity::Fatal);
+
     return false;
   }
 
@@ -122,12 +197,10 @@ bool RuntimeErrorChecker::checkMemoryAccess(uintptr_t Address,
     auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
     
     if (!MemoryState->hasKnownState(Address, Size)) {
-      Thread.handleRunError(
-        *createRunError<RunErrorType::MemoryUninitialized>
-                       (Address, Size),
-        RunErrorSeverity::Fatal,
-        Instruction);
-      
+      raiseError(*createRunError<RunErrorType::MemoryUninitialized>
+                                (Address, Size),
+                 RunErrorSeverity::Fatal);
+
       return false;
     }
   }
@@ -171,7 +244,8 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
   auto const MaybeStrArea = getCStringInArea(String, Area);
   
   if (MaybeStrArea.assigned()) {
-    auto const Length = std::min(MaybeStrArea.get<0>().length(), Limit);
+    auto const AreaLen = MaybeStrArea.get<0>().length();
+    auto const Length = std::min(AreaLen, uint64_t(Limit));
     return MaybeStrArea.get<0>().withLength(Length);
   }
   
@@ -184,23 +258,31 @@ MemoryArea RuntimeErrorChecker::getLimitedCStringInArea(char const *String,
 //===------------------------------------------------------------------------===
 
 bool
-CStdLibChecker::memoryExistsForParameter(
-                  unsigned Parameter,
-                  uintptr_t Address,
-                  std::size_t Size,
-                  format_selects::MemoryAccess Access,
-                  seec::Maybe<MemoryArea> const &Area)
+CStdLibChecker::memoryExistsForParameter(unsigned Parameter,
+                                         uintptr_t Address,
+                                         std::size_t Size,
+                                         format_selects::MemoryAccess Access,
+                                         seec::Maybe<MemoryArea> const &Area,
+                                         PointerTarget const &PtrObj)
 {
-  if (Area.assigned())
-    return true;
-  
-  Thread.handleRunError(
-    *createRunError<RunErrorType::PassPointerToUnowned>
-                   (Function, Address, Parameter),
-    RunErrorSeverity::Fatal,
-    Instruction);
-  
-  return false;
+  // Check that the pointer is valid to use. Do this before checking that the
+  // area exists, because we may be able to raise a more specific error if this
+  // pointer does not have an associated object.
+  //
+  if (Call)
+    if (!checkPointer(PtrObj, Address))
+      return false;
+
+  // Check that the area exists.
+  if (!Area.assigned()) {
+    raiseError(*createRunError<RunErrorType::PassPointerToUnowned>
+                              (Function, Address, Parameter),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
+  return true;
 }
 
 bool
@@ -215,22 +297,17 @@ CStdLibChecker::checkMemoryAccessForParameter(
   MemoryArea AccessArea(Address, Size);
 
   if (!ContainingArea.contains(AccessArea)) {
-    Thread.handleRunError(
-      createRunError<RunErrorType::PassPointerToInsufficient>
-                    (Function,
-                     Parameter,
-                     Address,
-                     Size,
-                     ContainingArea.withStart(Address).length(),
-                     ArgObject{},
-                     ContainingArea.address(),
-                     ContainingArea.length())
-        ->addAdditional(
-          createRunError<RunErrorType::InfoCStdFunctionParameter>
-                        (Function, Parameter)),
-      RunErrorSeverity::Fatal,
-      Instruction);
-    
+    raiseError(*createRunError<RunErrorType::PassPointerToInsufficient>
+                              (Function,
+                              Parameter,
+                              Address,
+                              Size,
+                              ContainingArea.withStart(Address).length(),
+                              ArgObject{},
+                              ContainingArea.address(),
+                              ContainingArea.length()),
+               RunErrorSeverity::Fatal);
+
     return false;
   }
 
@@ -238,55 +315,17 @@ CStdLibChecker::checkMemoryAccessForParameter(
   if (Access == format_selects::MemoryAccess::Read) {
     auto const &ProcListener = Thread.getProcessListener();
     auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
-    
+
     if (!MemoryState->hasKnownState(Address, Size)) {
-      Thread.handleRunError(
-        *createRunError<RunErrorType::PassPointerToUninitialized>
-                       (Function, Address, Parameter),
-        RunErrorSeverity::Fatal,
-        Instruction);
-      
+      raiseError(*createRunError<RunErrorType::PassPointerToUninitialized>
+                                (Function, Address, Parameter),
+                 RunErrorSeverity::Fatal);
+
       return false;
     }
   }
-  
+
   return true;
-}
-
-bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
-                        unsigned Parameter,
-                        uintptr_t Address,
-                        std::size_t Size,
-                        format_selects::MemoryAccess Access)
-{
-  auto MaybeArea = getContainingMemoryArea(Thread, Address);
-
-  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea))
-    return false;
-  
-  return checkMemoryAccessForParameter(Parameter,
-                                       Address,
-                                       Size,
-                                       Access,
-                                       MaybeArea.get<0>());
-}
-
-bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
-                                               MemoryArea Area2)
-{
-  auto const Overlap = Area1.intersection(Area2);
-  if (!Overlap.length())
-    return true;
-
-  Thread.handleRunError(
-    *createRunError<RunErrorType::OverlappingSourceDest>
-                   (Function,
-                    Overlap.start(),
-                    Overlap.length()),
-    RunErrorSeverity::Warning,
-    Instruction);
-  
-  return false;
 }
 
 bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
@@ -295,28 +334,28 @@ bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
 {
   if (Area.assigned())
     return true;
-  
-  Thread.handleRunError(
-    *createRunError<RunErrorType::InvalidCString>
-                   (Function,
-                    Address,
-                    Parameter),
-    RunErrorSeverity::Fatal,
-    Instruction);
+
+  raiseError(*createRunError<RunErrorType::InvalidCString>
+                            (Function, Address, Parameter),
+             RunErrorSeverity::Fatal);
 
   return false;
 }
 
 std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
-                                             char const *String)
+                                             char const *String,
+                                             PointerTarget const &PtrObj)
 {
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
 
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area,
+                                PtrObj))
+  {
     return 0;
+  }
 
   // Check if Str points to a valid C string.
   auto const StrArea = getCStringInArea(String, Area.get<0>());
@@ -333,22 +372,99 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
                                 StrLength,
                                 ReadAccess,
                                 StrArea.get<0>());
-  
+
   return StrLength;
+}
+
+CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
+                               uint32_t const InstructionIndex,
+                               format_selects::CStdFunction const WithFunction)
+: RuntimeErrorChecker(InThread, InstructionIndex),
+  Function(WithFunction),
+  CallerIdx(InThread.FunctionStack.size() - 1),
+  Call(llvm::dyn_cast<llvm::CallInst>
+                     (InThread.getActiveFunction()
+                              ->getFunctionIndex()
+                              .getInstruction(InstructionIndex)))
+{
+  addPermanentNote(createRunError<RunErrorType::InfoCStdFunction>(Function));
+}
+
+bool CStdLibChecker::checkMemoryExistsAndAccessibleForParameter(
+                        unsigned Parameter,
+                        uintptr_t Address,
+                        std::size_t Size,
+                        format_selects::MemoryAccess Access)
+{
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
+  auto MaybeArea = getContainingMemoryArea(Thread, Address);
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+
+  if (!memoryExistsForParameter(Parameter, Address, Size, Access, MaybeArea,
+                                PtrObj))
+  {
+    return false;
+  }
+
+  return checkMemoryAccessForParameter(Parameter,
+                                       Address,
+                                       Size,
+                                       Access,
+                                       MaybeArea.get<0>());
+}
+
+bool CStdLibChecker::checkMemoryDoesNotOverlap(MemoryArea Area1,
+                                               MemoryArea Area2)
+{
+  auto const Overlap = Area1.intersection(Area2);
+  if (!Overlap.length())
+    return true;
+
+  raiseError(*createRunError<RunErrorType::OverlappingSourceDest>
+                            (Function, Overlap.start(), Overlap.length()),
+             RunErrorSeverity::Fatal);
+
+  return false;
+}
+
+std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
+                                             char const *String)
+{
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+  return checkCStringRead(Parameter, String, PtrObj);
 }
 
 std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
                                                     char const *String,
                                                     std::size_t Limit)
 {
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
   auto const ReadAccess = format_selects::MemoryAccess::Read;
   auto const StrAddr = reinterpret_cast<uintptr_t>(String);
-  
+
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+
   // Check if String points to owned memory.
   auto const Area = getContainingMemoryArea(Thread, StrAddr);
-  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area))
+  if (!memoryExistsForParameter(Parameter, StrAddr, 1, ReadAccess, Area,
+                                PtrObj))
+  {
     return 0;
-  
+  }
+
   // Find the C string that String refers to, within Limit.
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
 
@@ -365,28 +481,40 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
 std::size_t
 CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
 {
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
   auto const ArrayAddress = reinterpret_cast<uintptr_t>(Array);
-  
+
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  if (!PtrVal->getType()->isPointerTy()) {
+    return 0;
+  }
+
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+
   // Check if Array points to owned memory.
   auto const MaybeArea = getContainingMemoryArea(Thread, ArrayAddress);
   if (!memoryExistsForParameter(Parameter,
                                 ArrayAddress,
                                 sizeof(char *),
                                 format_selects::MemoryAccess::Read,
-                                MaybeArea)) {
+                                MaybeArea,
+                                PtrObj))
+  {
     return 0;
   }
   
+  auto const &Process = Thread.getProcessListener();
   auto const &Area = MaybeArea.get<0>();
   auto const Size = Area.length();
   auto const MaxElements = Size / sizeof(char *);
   bool IsNullTerminated = false;
   unsigned Element;
   
-  // This should be guaranteed by the success of memoryExitsForParameter().
-  assert(MaxElements > 0);
-  
   for (Element = 0; Element < MaxElements; ++Element) {
+    // TODO: Add temporary note for InfoElementOfArray!
     auto const ElementAddress = ArrayAddress + (Element * sizeof(char *));
     if (!checkMemoryAccessForParameter(Parameter,
                                        ElementAddress,
@@ -401,12 +529,13 @@ CStdLibChecker::checkCStringArray(unsigned Parameter, char const * const *Array)
       break;
     }
     
-    if (checkCStringRead(Parameter, Array[Element]) == 0)
+    auto const PtrObj = Process.getInMemoryPointerObject(ElementAddress);
+    if (checkCStringRead(Parameter, Array[Element], PtrObj) == 0)
       return 0;
   }
   
   if (!IsNullTerminated) {
-    Thread.handleRunError(
+    raiseError(
       *createRunError<seec::runtime_errors::RunErrorType::NonTerminatedArray>
                      (Function, Parameter),
       RunErrorSeverity::Fatal);
@@ -440,11 +569,10 @@ checkPrintFormat(unsigned Parameter,
     
     // Ensure that the conversion specifier was parsed correctly.
     if (!Conversion.End) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierParse>
                        (Function, Parameter, StartIndex),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       return false;
     }
     
@@ -452,88 +580,80 @@ checkPrintFormat(unsigned Parameter,
     
     // Ensure that all the specified flags are allowed for this conversion.
     if (Conversion.JustifyLeft && !Conversion.allowedJustifyLeft()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierFlag>
                        (Function, Parameter, StartIndex, EndIndex, '-'),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     if (Conversion.SignAlwaysPrint && !Conversion.allowedSignAlwaysPrint()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierFlag>
                        (Function, Parameter, StartIndex, EndIndex, '+'),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     if (Conversion.SignPrintSpace && !Conversion.allowedSignPrintSpace()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierFlag>
                        (Function, Parameter, StartIndex, EndIndex, ' '),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     if (Conversion.AlternativeForm && !Conversion.allowedAlternativeForm()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierFlag>
                        (Function, Parameter, StartIndex, EndIndex, '#'),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     if (Conversion.PadWithZero && !Conversion.allowedPadWithZero()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierFlag>
                        (Function, Parameter, StartIndex, EndIndex, '0'),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     // If a width was specified, ensure that width is allowed.
     if (Conversion.WidthSpecified && !Conversion.allowedWidth()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierWidthDenied>
                        (Function, Parameter, StartIndex, EndIndex),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     // If a precision was specified, ensure that precision is allowed.
     if (Conversion.PrecisionSpecified && !Conversion.allowedPrecision()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierPrecisionDenied>
                        (Function, Parameter, StartIndex, EndIndex),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
     
     // Ensure that the length modifier (if any) is allowed.
     if (!Conversion.allowedCurrentLength()) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierLengthDenied>
                        (Function,
                         Parameter,
                         StartIndex,
                         EndIndex,
                         asCFormatLengthModifier(Conversion.Length)),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
@@ -543,15 +663,14 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybeWidth = Args.getAs<int>(NextArg);
         if (!MaybeWidth.assigned()) {
-          Thread.handleRunError(
+          raiseError(
             *createRunError<RunErrorType::FormatSpecifierWidthArgType>
                            (Function,
                             Parameter,
                             StartIndex,
                             EndIndex,
                             Args.offset() + NextArg),
-            RunErrorSeverity::Fatal,
-            Instruction);
+            RunErrorSeverity::Fatal);
           
           return false;
         }
@@ -565,15 +684,14 @@ checkPrintFormat(unsigned Parameter,
       if (NextArg < Args.size()) {
         auto MaybePrecision = Args.getAs<int>(NextArg);
         if (!MaybePrecision.assigned()) {
-          Thread.handleRunError(
+          raiseError(
             *createRunError<RunErrorType::FormatSpecifierPrecisionArgType>
                            (Function,
                             Parameter,
                             StartIndex,
                             EndIndex,
                             Args.offset() + NextArg),
-            RunErrorSeverity::Fatal,
-            Instruction);
+            RunErrorSeverity::Fatal);
           
           return false;
         }
@@ -587,7 +705,7 @@ checkPrintFormat(unsigned Parameter,
     // require an argument (i.e. %%), so we check if it exists when needed, in
     // the isArgumentTypeOK() implementation.
     if (!Conversion.isArgumentTypeOK(Args, NextArg)) {
-      Thread.handleRunError(
+      raiseError(
         *createRunError<RunErrorType::FormatSpecifierArgType>
                        (Function,
                         Parameter,
@@ -595,8 +713,7 @@ checkPrintFormat(unsigned Parameter,
                         EndIndex,
                         asCFormatLengthModifier(Conversion.Length),
                         Args.offset() + NextArg),
-        RunErrorSeverity::Fatal,
-        Instruction);
+        RunErrorSeverity::Fatal);
       
       return false;
     }
@@ -650,20 +767,18 @@ checkPrintFormat(unsigned Parameter,
   
   // Ensure that we got exactly the right number of arguments.
   if (NextArg > Args.size()) {
-    Thread.handleRunError(
+    raiseError(
       *createRunError<RunErrorType::VarArgsInsufficient>
                      (Function, NextArg, Args.size()),
-      RunErrorSeverity::Fatal,
-      Instruction);
+      RunErrorSeverity::Fatal);
     
     return false;
   }
   else if (NextArg < Args.size()) {
-    Thread.handleRunError(
+    raiseError(
       *createRunError<RunErrorType::VarArgsSuperfluous>
                      (Function, NextArg, Args.size()),
-      RunErrorSeverity::Warning,
-      Instruction);
+      RunErrorSeverity::Warning);
   }
   
   return true;
@@ -675,14 +790,31 @@ checkPrintFormat(unsigned Parameter,
 //===------------------------------------------------------------------------===
 
 bool CIOChecker::checkStreamIsValid(unsigned int Parameter,
-                                    FILE *Stream) {
+                                    FILE *Stream)
+{
   using namespace seec::runtime_errors;
-  
+
+  addTemporaryNote(createRunError<RunErrorType::InfoCStdFunctionParameter>
+                                 (Function, Parameter));
+  auto const ClearNotes = seec::scopeExit([this] () { clearTemporaryNotes(); });
+
+  auto const FILEAddr = reinterpret_cast<uintptr_t>(Stream);
+  auto const PtrVal = Call->getArgOperand(Parameter);
+  auto const PtrObj = Thread.FunctionStack[CallerIdx].getPointerObject(PtrVal);
+  auto const Time = Thread.getProcessListener().getRegionTemporalID(FILEAddr);
+
+  if (PtrObj.getTemporalID() != Time) {
+    raiseError(*createRunError<RunErrorType::PointerObjectOutdated>
+                              (PtrObj.getTemporalID(), Time),
+               RunErrorSeverity::Fatal);
+
+    return false;
+  }
+
   if (!Streams.streamWillClose(Stream)) {
-    Thread.handleRunError(*createRunError<RunErrorType::PassInvalidStream>
-                                         (Function, Parameter),
-                          seec::trace::RunErrorSeverity::Fatal,
-                          Instruction);
+    raiseError(*createRunError<RunErrorType::PassInvalidStream>
+                              (Function, Parameter),
+               seec::trace::RunErrorSeverity::Fatal);
     
     return false;
   }
@@ -707,10 +839,9 @@ bool CIOChecker::checkStandardStreamIsValid(FILE *Stream) {
     else
       llvm_unreachable("non-standard stream!");
     
-    Thread.handleRunError(*createRunError<RunErrorType::UseInvalidStream>
-                                         (Function, StdStream),
-                          seec::trace::RunErrorSeverity::Fatal,
-                          Instruction);
+    raiseError(*createRunError<RunErrorType::UseInvalidStream>
+                              (Function, StdStream),
+               seec::trace::RunErrorSeverity::Fatal);
     
     return false;
   }

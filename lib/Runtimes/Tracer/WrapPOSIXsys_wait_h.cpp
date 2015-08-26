@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SimpleWrapper.hpp"
 #include "Tracer.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"
@@ -34,46 +35,33 @@ pid_t
 SEEC_MANGLE_FUNCTION(wait)
 (int *stat_loc)
 {
-  using namespace seec::trace;
-  
-  auto &ThreadEnv = getThreadEnvironment();
-  auto &Listener = ThreadEnv.getThreadListener();
-  auto Instruction = ThreadEnv.getInstruction();
-  auto InstructionIndex = ThreadEnv.getInstructionIndex();
-  
-  // Interact with the thread listener's notification system.
-  Listener.enterNotification();
-  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
-  
-  // Ensure that writing to *stat_loc will be OK.
-  if (stat_loc) {
-    // Lock global memory.
-    Listener.acquireGlobalMemoryWriteLock();
-    
-    // Use a CIOChecker to help check memory.
-    auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
-    CStdLibChecker Checker{Listener, InstructionIndex, FSFunction};
-    
-    Checker.checkMemoryExistsAndAccessibleForParameter
-              (0,
-               reinterpret_cast<uintptr_t>(stat_loc),
-               sizeof(*stat_loc),
-               seec::runtime_errors::format_selects::MemoryAccess::Write);
-  }
-  
-  auto Result = wait(stat_loc);
-  
-  // Record the result.
-  Listener.notifyValue(InstructionIndex,
-                       Instruction,
-                       std::make_unsigned<pid_t>::type(Result));
-  
-  // Record the write to *stat_loc.
-  if (stat_loc)
-    Listener.recordUntypedState(reinterpret_cast<char const *>(stat_loc),
-                                sizeof(*stat_loc));
-  
-  return Result;
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+          {seec::runtime_errors::format_selects::CStdFunction::wait}
+          (wait,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapOutputPointer(stat_loc).setIgnoreNull(true));
+}
+
+
+//===----------------------------------------------------------------------===//
+// waitpid
+//===----------------------------------------------------------------------===//
+
+pid_t
+SEEC_MANGLE_FUNCTION(waitpid)
+(pid_t pid, int *status, int options)
+{
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+          {seec::runtime_errors::format_selects::CStdFunction::waitpid}
+          (waitpid,
+           [](int const Result){ return Result != -1; },
+           seec::ResultStateRecorderForNoOp(),
+           pid,
+           seec::wrapOutputPointer(status).setIgnoreNull(true),
+           options);
 }
 
 

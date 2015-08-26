@@ -14,14 +14,15 @@
 #ifndef SEEC_TRACE_FUNCTIONSTATE_HPP
 #define SEEC_TRACE_FUNCTIONSTATE_HPP
 
-#include "seec/DSA/MemoryBlock.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/MemoryState.hpp"
-#include "seec/Trace/RuntimeValue.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Instructions.h"
 
 #include <cstdint>
@@ -32,6 +33,7 @@
 namespace llvm {
   class raw_ostream;
   class AllocaInst;
+  class DataLayout;
   class Instruction;
   class Function;
 }
@@ -57,7 +59,7 @@ class AllocaState {
   uint32_t InstructionIndex;
 
   /// Runtime address for this allocation.
-  uintptr_t Address;
+  stateptr_ty Address;
 
   /// Size of the element type that this allocation was for.
   std::size_t ElementSize;
@@ -69,7 +71,7 @@ public:
   /// Construct a new AllocaState with the specified values.
   AllocaState(FunctionState const &Parent,
               uint32_t InstructionIndex,
-              uintptr_t Address,
+              stateptr_ty Address,
               std::size_t ElementSize,
               std::size_t ElementCount)
   : Parent(&Parent),
@@ -90,7 +92,7 @@ public:
   uint32_t getInstructionIndex() const { return InstructionIndex; }
 
   /// \brief Get the runtime address for this allocation.
-  uintptr_t getAddress() const { return Address; }
+  stateptr_ty getAddress() const { return Address; }
 
   /// \brief Get the size of the element type that this allocation was for.
   std::size_t getElementSize() const { return ElementSize; }
@@ -111,9 +113,21 @@ public:
   llvm::AllocaInst const *getInstruction() const;
 
   /// \brief Get the region of memory belonging to this AllocaState.
-  MemoryState::Region getMemoryRegion() const;
+  MemoryStateRegion getMemoryRegion() const;
 
   /// @} (Queries)
+
+
+  /// \name Operators
+  /// @{
+
+  bool operator==(AllocaState const &RHS) const {
+    return this->Parent == RHS.Parent
+        && this->InstructionIndex == RHS.InstructionIndex
+        && this->Address == RHS.Address
+        && this->ElementSize == RHS.ElementSize
+        && this->ElementCount == RHS.ElementCount;
+  }
 };
 
 
@@ -223,8 +237,15 @@ class FunctionState {
   /// Index of the currently active llvm::Instruction.
   seec::Maybe<uint32_t> ActiveInstruction;
 
-  /// Runtime values indexed by Instruction index.
-  std::vector<RuntimeValue> InstructionValues;
+  /// true iff the active \llvm::Instruction has completed execution.
+  bool ActiveInstructionComplete;
+
+  // Runtime values for Instructions.
+  llvm::DenseMap<llvm::Instruction const *, uint64_t>      ValuesUInt64;
+  llvm::DenseMap<llvm::Instruction const *, stateptr_ty>   ValuesPtr;
+  llvm::DenseMap<llvm::Instruction const *, float>         ValuesFloat;
+  llvm::DenseMap<llvm::Instruction const *, double>        ValuesDouble;
+  llvm::DenseMap<llvm::Instruction const *, llvm::APFloat> ValuesAPFloat;
 
   /// All active stack allocations for this function.
   std::vector<AllocaState> Allocas;
@@ -269,7 +290,7 @@ public:
   FunctionTrace getTrace() const { return Trace; }
 
   /// \brief Get the number of llvm::Instructions in this llvm::Function.
-  std::size_t getInstructionCount() const { return InstructionValues.size(); }
+  std::size_t getInstructionCount() const;
   
   /// \brief Get the llvm::Instruction at the specified index.
   llvm::Instruction const *getInstruction(uint32_t Index) const;
@@ -287,7 +308,7 @@ public:
   /// This method is thread safe.
   ///
   seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const;
+  getContainingMemoryArea(stateptr_ty Address) const;
 
   /// @} (Accessors)
 
@@ -295,13 +316,26 @@ public:
   /// \name Mutators.
   /// @{
 
-  /// \brief Set the index of the active llvm::Instruction.
-  /// \param Index the index for the new active llvm::Instruction.
-  void setActiveInstruction(uint32_t Index) {
+  /// \brief Set the index of the active \c llvm::Instruction and mark it as
+  ///        having completed execution.
+  /// \param Index the index for the new active \c llvm::Instruction.
+  ///
+  void setActiveInstructionComplete(uint32_t Index) {
     ActiveInstruction = Index;
+    ActiveInstructionComplete = true;
   }
 
-  /// \brief Clear the currently active llvm::Instruction.
+  /// \brief Set the index of the active \c llvm::Instruction and mark it as
+  ///        having not yet completed execution.
+  /// \param Index the index for the new active \c llvm::Instruction.
+  ///
+  void setActiveInstructionIncomplete(uint32_t Index) {
+    ActiveInstruction = Index;
+    ActiveInstructionComplete = false;
+  }
+
+  /// \brief Clear the currently active \c llvm::Instruction.
+  ///
   void clearActiveInstruction() {
     ActiveInstruction.reset();
   }
@@ -309,38 +343,27 @@ public:
   /// @} (Mutators)
   
   
-  /// \name Support getCurrentRuntimeValueAs().
-  /// @{
-  
-  /// \brief Get the run-time address of a Function.
-  ///
-  uintptr_t getRuntimeAddress(llvm::Function const *F) const;
-  
-  /// \brief Get the run-time address of a GlobalVariable.
-  ///
-  uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const;
-  
-  /// \brief Get a pointer to an Instruction's RuntimeValue, by index.
-  ///
-  RuntimeValue const *getCurrentRuntimeValue(uint32_t Index) const;
-  
-  /// \brief Get a pointer to an Instruction's RuntimeValue.
-  ///
-  RuntimeValue const *getCurrentRuntimeValue(llvm::Instruction const *I) const;
-  
-  /// @}
-  
-  
   /// \name Access runtime values.
   /// @{
-  
-  /// \brief Get a reference to an Instruction's RuntimeValue, by index.
-  ///
-  RuntimeValue &getRuntimeValue(uint32_t Index) {
-    assert(Index < InstructionValues.size());
-    return InstructionValues[Index];
-  }
-  
+
+  void setValueUInt64 (llvm::Instruction const *, offset_uint, uint64_t);
+  void setValuePtr    (llvm::Instruction const *, offset_uint, stateptr_ty);
+  void setValueFloat  (llvm::Instruction const *, offset_uint, float);
+  void setValueDouble (llvm::Instruction const *, offset_uint, double);
+  void setValueAPFloat(llvm::Instruction const *, offset_uint, llvm::APFloat);
+
+  void clearValue(llvm::Instruction const *);
+
+  bool isDominatedByActive(llvm::Instruction const *) const;
+  bool hasValue(llvm::Instruction const *) const;
+
+  Maybe<int64_t>       getValueInt64  (llvm::Instruction const *) const;
+  Maybe<uint64_t>      getValueUInt64 (llvm::Instruction const *) const;
+  Maybe<stateptr_ty>   getValuePtr    (llvm::Instruction const *) const;
+  Maybe<float>         getValueFloat  (llvm::Instruction const *) const;
+  Maybe<double>        getValueDouble (llvm::Instruction const *) const;
+  Maybe<llvm::APFloat> getValueAPFloat(llvm::Instruction const *) const;
+
   /// @}
 
 
@@ -363,7 +386,7 @@ public:
   /// \brief Find the Alloca that covers the given address, or nullptr if none
   ///        exists.
   ///
-  AllocaState const *getAllocaContaining(uintptr_t Address) const {
+  AllocaState const *getAllocaContaining(stateptr_ty Address) const {
     for (auto const &Alloca : Allocas) {
       auto const Area = MemoryArea(Alloca.getAddress(), Alloca.getTotalSize());
       if (Area.contains(Address))
@@ -385,15 +408,20 @@ public:
     return ParamByVals;
   }
   
+  /// \brief Get the area occupied by the given byval Arg.
+  ///
+  seec::Maybe<seec::MemoryArea>
+  getParamByValArea(llvm::Argument const *Arg) const;
+  
   /// \brief Add an argument byval memory area.
   ///
   void addByValArea(unsigned ArgumentNumber,
-                    uintptr_t Address,
+                    stateptr_ty Address,
                     std::size_t Size);
   
   /// \brief Remove the argument byval memory area that begins at Address.
   ///
-  void removeByValArea(uintptr_t Address);
+  void removeByValArea(stateptr_ty Address);
   
   /// @} (Argument byval memory area tracking.)
   
@@ -414,6 +442,10 @@ public:
   
   /// @}
 };
+
+/// \brief Print a comparable textual description of a \c FunctionState.
+///
+void printComparable(llvm::raw_ostream &Out, FunctionState const &State);
 
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,

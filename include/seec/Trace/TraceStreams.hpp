@@ -25,27 +25,6 @@ namespace seec {
 namespace trace {
 
 
-/// \brief Information about a physical stream target (source/sink).
-///
-class TraceFile {
-public:
-  /// \brief Default constructor.
-  TraceFile() {}
-  
-  /// \brief Copy constructor.
-  TraceFile(TraceFile const &) = default;
-  
-  /// \brief Move constructor.
-  TraceFile(TraceFile &&) = default;
-  
-  /// \brief Copy assignment.
-  TraceFile &operator=(TraceFile const &) = default;
-  
-  /// \brief Move assignment.
-  TraceFile &operator=(TraceFile &&) = default;
-};
-
-
 /// \brief Information about a single I/O stream (i.e. a FILE *).
 ///
 class TraceStream {

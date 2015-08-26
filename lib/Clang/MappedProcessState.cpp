@@ -60,9 +60,6 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
       if (!TheDecl)
         continue;
       
-      if (TheDecl->isStaticLocal())
-        continue;
-      
       GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
                                                   (*this,
                                                    *Mapped,
@@ -85,7 +82,7 @@ ProcessState::~ProcessState() = default;
 
 void ProcessState::cacheClear() {
   // Clear process-level cached information.
-  CurrentValueStore = seec::cm::ValueStore::create();
+  CurrentValueStore = seec::cm::ValueStore::create(Trace.getMapping());
   Streams.clear();
   Dirs.clear();
   
@@ -103,7 +100,9 @@ void ProcessState::cacheClear() {
 }
 
 void ProcessState::print(llvm::raw_ostream &Out,
-                         seec::util::IndentationGuide &Indentation) const
+                         seec::util::IndentationGuide &Indentation,
+                         AugmentationCallbackFn Augmenter)
+const
 {
   Out << "Process State @" << this->getProcessTime() << "\n";
   
@@ -171,7 +170,7 @@ void ProcessState::print(llvm::raw_ostream &Out,
       
       {
         Indentation.indent();
-        this->getThread(i).print(Out, Indentation);
+        this->getThread(i).print(Out, Indentation, Augmenter);
         Indentation.unindent();
       }
     }
@@ -188,6 +187,16 @@ std::size_t ProcessState::getThreadCount() const {
   return UnmappedState->getThreadStateCount();
 }
 
+seec::Maybe<std::size_t>
+ProcessState::getThreadIndex(seec::cm::ThreadState const &Thread) const
+{
+  for (std::size_t i = 0; i < ThreadStates.size(); ++i)
+    if (ThreadStates[i].get() == &Thread)
+      return i;
+  
+  return seec::Maybe<std::size_t>();
+}
+
 ThreadState &ProcessState::getThread(std::size_t Index) {
   assert(Index < ThreadStates.size());
   return *ThreadStates[Index];
@@ -196,6 +205,16 @@ ThreadState &ProcessState::getThread(std::size_t Index) {
 ThreadState const &ProcessState::getThread(std::size_t Index) const {
   assert(Index < ThreadStates.size());
   return *ThreadStates[Index];
+}
+
+
+//===----------------------------------------------------------------------===//
+// ProcessState: Global variables
+//===----------------------------------------------------------------------===//
+
+bool ProcessState::isStaticallyAllocated(stateptr_ty const Address) const
+{
+  return UnmappedState->isContainedByGlobalVariable(Address);
 }
 
 
@@ -214,15 +233,33 @@ std::vector<MallocState> ProcessState::getDynamicMemoryAllocations() const
   return States;
 }
 
+seec::Maybe<MallocState>
+ProcessState::getDynamicMemoryAllocation(stateptr_ty const Address) const
+{
+  auto const It = UnmappedState->getMallocs().find(Address);
+  if (It == UnmappedState->getMallocs().end())
+    return seec::Maybe<MallocState>();
+
+  return MallocState{*this, It->second};
+}
+
 
 //===----------------------------------------------------------------------===//
 // ProcessState: Streams
 //===----------------------------------------------------------------------===//
 
-StreamState const *ProcessState::getStream(uintptr_t const Address) const
+StreamState const *ProcessState::getStream(stateptr_ty const Address) const
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
+}
+
+StreamState const *ProcessState::getStreamStdout() const
+{
+  auto const &StreamsInitial = UnmappedState->getTrace().getStreamsInitial();
+  if (StreamsInitial.size() >= 2)
+    return getStream(StreamsInitial[1]);
+  return nullptr;
 }
 
 
@@ -230,7 +267,7 @@ StreamState const *ProcessState::getStream(uintptr_t const Address) const
 // ProcessState: DIRs
 //===----------------------------------------------------------------------===//
 
-DIRState const *ProcessState::getDIR(uintptr_t const Address) const
+DIRState const *ProcessState::getDIR(stateptr_ty const Address) const
 {
   auto const It = Dirs.find(Address);
   return It != Dirs.end() ? &It->second : nullptr;
@@ -245,7 +282,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
                               ProcessState const &State)
 {
   seec::util::IndentationGuide Indent("  ");
-  State.print(Out, Indent);
+  State.print(Out, Indent, AugmentationCallbackFn{});
   return Out;
 }
 

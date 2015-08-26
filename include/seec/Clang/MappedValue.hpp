@@ -15,6 +15,8 @@
 #define SEEC_CLANG_MAPPEDVALUE_HPP
 
 
+#include "seec/Clang/MappedStateCommon.hpp"
+#include "seec/Trace/MemoryState.hpp"
 #include "seec/Util/Fallthrough.hpp"
 
 #include "clang/AST/CharUnits.h"
@@ -22,6 +24,7 @@
 
 #include "llvm/Support/Casting.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -57,16 +60,21 @@ public:
   enum class Kind {
     Basic,
     Scalar,
+    Complex,
     Array,
     Record,
-    Pointer,
-    PointerToFILE
+    Pointer
   };
 
 private:
   /// General Kind of this Value.
   Kind ThisKind;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const =0;
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const =0;
@@ -109,7 +117,13 @@ public:
   /// 
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const =0;
+  virtual stateptr_ty getAddress() const =0;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  seec::Maybe<seec::trace::MemoryStateRegion> getUnmappedMemoryRegion() const {
+    return getUnmappedMemoryRegionImpl();
+  }
   
   /// \brief Get the size of the value's type.
   ///
@@ -171,9 +185,31 @@ public:
 };
 
 
+/// \brief Represents a complex runtime value.
+///
+class ValueOfComplex : public Value {
+public:
+  /// \brief Constructor.
+  ///
+  ValueOfComplex()
+  : Value(Value::Kind::Complex)
+  {}
+
+  /// \brief Implement LLVM-style RTTI.
+  ///
+  static bool classof(Value const *V) {
+    return V->getKind() == Value::Kind::Complex;
+  }
+};
+
+
 /// \brief Represents an aggregate's runtime value.
 ///
 class ValueOfArray : public Value {
+  /// \brief Get the size of each child in this value.
+  ///
+  virtual std::size_t getChildSizeImpl() const =0;
+
 public:
   /// \brief Constructor.
   ///
@@ -194,6 +230,10 @@ public:
   /// \brief Get a child of this value.
   ///
   virtual std::shared_ptr<Value const> getChildAt(unsigned Index) const =0;
+
+  /// \brief Get the size of each child in this value.
+  ///
+  std::size_t getChildSize() const { return getChildSizeImpl(); }
 };
 
 
@@ -237,7 +277,7 @@ private:
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const =0;
+  virtual stateptr_ty getRawValueImpl() const =0;
   
   /// \brief Get the size of the pointee type.
   ///
@@ -258,11 +298,11 @@ public:
   
   /// \brief Get the highest legal dereference index of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const =0;
+  virtual int getDereferenceIndexLimit() const =0;
   
   /// \brief Get the Value of this Value dereferenced.
   ///
-  virtual std::shared_ptr<Value const> getDereferenced(unsigned Index) const =0;
+  virtual std::shared_ptr<Value const> getDereferenced(int Index) const =0;
   
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
@@ -270,46 +310,11 @@ public:
   
   /// \brief Get the raw value of this pointer.
   ///
-  uintptr_t getRawValue() const { return getRawValueImpl(); }
+  stateptr_ty getRawValue() const { return getRawValueImpl(); }
   
   /// \brief Get the size of the pointee type.
   ///
   ::clang::CharUnits getPointeeSize() const { return getPointeeSizeImpl(); }
-};
-
-
-/// \brief Represents a FILE pointer's runtime value.
-///
-class ValueOfPointerToFILE : public Value {
-private:
-  /// \brief Get the raw value of this pointer.
-  ///
-  virtual uintptr_t getRawValueImpl() const =0;
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  virtual bool isValidImpl() const =0;
-  
-public:
-  /// \brief Constructor.
-  ///
-  ValueOfPointerToFILE()
-  : Value(Value::Kind::PointerToFILE)
-  {}
-  
-  /// \brief Implement LLVM-style RTTI.
-  ///
-  static bool classof(Value const *V) {
-    return V->getKind() == Value::Kind::PointerToFILE;
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValue() const { return getRawValueImpl(); }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  virtual bool isValid() const { return isValidImpl(); }
 };
 
 
@@ -325,7 +330,7 @@ class ValueStore final {
   
   /// \brief Constructor.
   ///
-  ValueStore();
+  ValueStore(seec::seec_clang::MappedModule const &WithMapping);
   
   // Don't allow copying or moving.
   ValueStore(ValueStore const &) = delete;
@@ -336,8 +341,9 @@ class ValueStore final {
 public:
   /// \brief Create a new ValueStore.
   ///
-  static std::shared_ptr<ValueStore const> create() {
-    return std::shared_ptr<ValueStore const>(new ValueStore());
+  static std::shared_ptr<ValueStore const>
+  create(seec::seec_clang::MappedModule const &WithMapping) {
+    return std::shared_ptr<ValueStore const>(new ValueStore(WithMapping));
   }
   
   /// \brief Destructor.
@@ -347,6 +353,11 @@ public:
   /// \brief Access the underlying implementation.
   ///
   ValueStoreImpl const &getImpl() const;
+
+  /// \brief Find a \c Value from an address and type string.
+  ///
+  std::shared_ptr<Value const>
+  findFromAddressAndType(stateptr_ty Address, llvm::StringRef TypeString) const;
 };
 
 
@@ -359,8 +370,9 @@ std::shared_ptr<Value const>
 getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
-         uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState);
+         stateptr_ty Address,
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction);
 
 
 /// \brief Get a Value for a MappedStmt.
@@ -429,9 +441,9 @@ void visitChildren(Value const &V, FnT &&Callback) {
     
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:       SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer:       SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE: break;
+    case Value::Kind::Pointer:       break;
   }
 }
 
@@ -473,8 +485,8 @@ bool searchChildren(Value const &V, FnT &&Predicate) {
     // The following values kinds do not have direct descendents.
     case Value::Kind::Basic:         SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:        SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer:       SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE: break;
+    case Value::Kind::Complex:       SEEC_FALLTHROUGH;
+    case Value::Kind::Pointer:       break;
   }
   
   return false;

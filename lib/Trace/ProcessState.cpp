@@ -17,6 +17,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include <cstdlib>
 #include <thread>
 #include <functional>
 
@@ -33,14 +34,14 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
 : Trace(std::move(TracePtr)),
   Module(std::move(ModIndexPtr)),
   DL(&(Module->getModule())),
-  UpdateMutex(),
-  UpdateCV(),
   ProcessTime(0),
   ThreadStates(Trace->getNumThreads()),
   Mallocs(),
+  PreviousMallocs(),
   Memory(),
   KnownMemory(),
   Streams(),
+  StreamsClosed(),
   Dirs()
 {
   // Setup initial memory state for global variables.
@@ -53,7 +54,23 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
     auto const Data = Trace->getGlobalVariableInitialData(i, Size);
     auto const Start = Trace->getGlobalVariableAddress(i);
     
-    Memory.add(MappedMemoryBlock(Start, Size, Data.data()), EventLocation());
+    auto const PriorAlloc = Memory.findAllocation(Start);
+    if (PriorAlloc) {
+      auto const PriorArea = MemoryArea(PriorAlloc->getAddress(),
+                                        PriorAlloc->getSize());
+
+      if (PriorArea.contains(MemoryArea(Start, Size)))
+        continue;
+      else if (MemoryArea(Start, Size).contains(PriorArea))
+        Memory.allocationRemove(PriorArea.address(), PriorArea.length());
+      else {
+        llvm::errs() << "\nSeeC: can't handle overlapping globals.\n";
+        std::exit(EXIT_FAILURE);
+      }
+    }
+
+    Memory.allocationAdd(Start, Size);
+    Memory.addBlock(MappedMemoryBlock(Start, Size, Data.data()));
   }
   
   // Setup initial open streams.
@@ -63,13 +80,19 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
     default:
       SEEC_FALLTHROUGH;
     case 3:
-      addStream(StreamState{StreamsInitial[2], "stderr", "w"});
+      addStream(StreamState{StreamsInitial[2],
+                            StreamState::StandardStreamKind::err,
+                            "stderr", "w"});
       SEEC_FALLTHROUGH;
     case 2:
-      addStream(StreamState{StreamsInitial[1], "stdout", "w"});
+      addStream(StreamState{StreamsInitial[1],
+                            StreamState::StandardStreamKind::out,
+                            "stdout", "w"});
       SEEC_FALLTHROUGH;
     case 1:
-      addStream(StreamState{StreamsInitial[0], "stdin", "r"});
+      addStream(StreamState{StreamsInitial[0],
+                            StreamState::StandardStreamKind::in,
+                            "stdin", "r"});
       SEEC_FALLTHROUGH;
     case 0: break;
   }
@@ -83,8 +106,65 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
 
 ProcessState::~ProcessState() = default;
 
+void ProcessState::addMalloc(stateptr_ty const Address,
+                             std::size_t const Size,
+                             llvm::Instruction const *Allocator)
+{
+  Mallocs.emplace(std::piecewise_construct,
+                  std::forward_as_tuple(Address),
+                  std::forward_as_tuple(Address, Size, Allocator));
+}
+
+void ProcessState::unaddMalloc(stateptr_ty const Address)
+{
+  auto const It = Mallocs.find(Address);
+  assert(It != Mallocs.end());
+  Mallocs.erase(It);
+}
+
+void ProcessState::removeMalloc(stateptr_ty const Address)
+{
+  auto const It = Mallocs.find(Address);
+  assert(It != Mallocs.end());
+  PreviousMallocs.emplace_back(std::move(It->second));
+  Mallocs.erase(It);
+}
+
+void ProcessState::unremoveMalloc(stateptr_ty const Address)
+{
+  assert(!PreviousMallocs.empty());
+  assert(PreviousMallocs.back().getAddress() == Address);
+
+  Mallocs.emplace(Address,
+                  std::move(PreviousMallocs.back()));
+
+  PreviousMallocs.pop_back();
+}
+
+bool ProcessState::isContainedByGlobalVariable(stateptr_ty const Address) const
+{
+  // Check global variables.
+  for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
+    auto const Begin = Trace->getGlobalVariableAddress(Index);
+    if (Address < Begin)
+      continue;
+
+    auto const Global = Module->getGlobal(Index);
+    auto const Size = DL.getTypeStoreSize(Global->getType()->getElementType());
+    auto const Permission = Global->isConstant() ? MemoryPermission::ReadOnly
+                                                 : MemoryPermission::ReadWrite;
+
+    auto const Area = MemoryArea(Begin, Size, Permission);
+
+    if (Area.contains(Address))
+      return true;
+  }
+
+  return false;
+}
+
 seec::Maybe<MemoryArea>
-ProcessState::getContainingMemoryArea(uintptr_t Address) const {
+ProcessState::getContainingMemoryArea(stateptr_ty Address) const {
   // Check global variables.
   for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
     auto const Begin = Trace->getGlobalVariableAddress(Index);
@@ -148,15 +228,50 @@ bool ProcessState::addStream(StreamState Stream)
   return Result.second;
 }
 
-bool ProcessState::removeStream(uintptr_t const Address)
+bool ProcessState::removeStream(stateptr_ty const Address)
 {
   return Streams.erase(Address);
 }
 
-StreamState const *ProcessState::getStream(uintptr_t const Address) const
+bool ProcessState::closeStream(stateptr_ty const Address)
+{
+  auto const It = Streams.find(Address);
+  if (It == Streams.end())
+    return false;
+
+  StreamsClosed.emplace_back(std::move(It->second));
+  Streams.erase(It);
+  return true;
+}
+
+bool ProcessState::restoreStream(stateptr_ty const Address)
+{
+  if (StreamsClosed.empty() || StreamsClosed.back().getAddress() != Address)
+    return false;
+
+  Streams.insert(std::make_pair(Address, std::move(StreamsClosed.back())));
+  StreamsClosed.pop_back();
+  return true;
+}
+
+StreamState *ProcessState::getStream(stateptr_ty const Address)
 {
   auto const It = Streams.find(Address);
   return It != Streams.end() ? &It->second : nullptr;
+}
+
+StreamState const *ProcessState::getStream(stateptr_ty const Address) const
+{
+  auto const It = Streams.find(Address);
+  return It != Streams.end() ? &It->second : nullptr;
+}
+
+StreamState const *ProcessState::getStreamStdout() const
+{
+  auto const &StreamsInitial = Trace->getStreamsInitial();
+  if (StreamsInitial.size() >= 2)
+    return getStream(StreamsInitial[1]);
+  return nullptr;
 }
 
 bool ProcessState::addDir(DIRState Dir)
@@ -166,28 +281,58 @@ bool ProcessState::addDir(DIRState Dir)
   return Result.second;
 }
 
-bool ProcessState::removeDir(uintptr_t const Address)
+bool ProcessState::removeDir(stateptr_ty const Address)
 {
   return Dirs.erase(Address);
 }
 
-DIRState const *ProcessState::getDir(uintptr_t const Address) const
+DIRState const *ProcessState::getDir(stateptr_ty const Address) const
 {
   auto const It = Dirs.find(Address);
   return It != Dirs.end() ? &It->second : nullptr;
 }
 
-uintptr_t ProcessState::getRuntimeAddress(llvm::Function const *F) const {
+stateptr_ty ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
   assert(MaybeIndex.assigned());
   return Trace->getFunctionAddress(MaybeIndex.get<0>());
 }
 
-uintptr_t
+stateptr_ty
 ProcessState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
   auto const MaybeIndex = Module->getIndexOfGlobal(GV);
   assert(MaybeIndex.assigned());
   return Trace->getGlobalVariableAddress(MaybeIndex.get<0>());
+}
+
+void printComparable(llvm::raw_ostream &Out, ProcessState const &State)
+{
+  Out << "Process @" << State.getProcessTime() << "\n";
+
+  Out << " Dynamic Allocations: " << State.getMallocs().size() << "\n";
+
+  // Don't print this because it's affected by extern environ.
+  // Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
+
+  // TODO: Memory state.
+
+  Out << " Open Streams: " << State.getStreams().size()     << "\n";
+#if 0
+  for (auto const &Stream : State.getStreams()) {
+    Out << Stream.second;
+  }
+#endif
+
+  Out << " Open DIRs: " << State.getDirs().size() << "\n";
+#if 0
+  for (auto const &Dir : State.getDirs()) {
+    Out << Dir.second;
+  }
+#endif
+
+  for (auto &ThreadStatePtr : State.getThreadStates()) {
+    printComparable(Out, *ThreadStatePtr);
+  }
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
@@ -198,9 +343,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   
   Out << " Known Memory Regions: " << State.getKnownMemory().size() << "\n";
   
-  Out << " Memory State Fragments: "
-      << State.getMemory().getNumberOfFragments() << "\n";
-  Out << State.getMemory();
+  Out << " Memory State:\n" << State.getMemory();
   
   Out << " Open Streams: " << State.getStreams().size() << "\n";
   for (auto const &Stream : State.getStreams()) {

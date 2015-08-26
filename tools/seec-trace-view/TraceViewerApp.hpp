@@ -17,7 +17,6 @@
 #include "seec/ICU/Resources.hpp"
 
 #include <wx/wx.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <memory>
 #include <set>
@@ -27,40 +26,65 @@
 // TraceViewerApp
 //------------------------------------------------------------------------------
 
+namespace seec {
+  class AugmentationCollection;
+}
+
+class ActionRecordingSubmitter;
+class SingleInstanceServer;
 class WelcomeFrame;
+class wxSingleInstanceChecker;
 
 /// \brief The application class for the SeeC Trace Viewer.
 ///
 class TraceViewerApp : public wxApp
 {
+  /// Ensures that no user can simultaneously run multiple trace viewers.
+  std::unique_ptr<wxSingleInstanceChecker> SingleInstanceChecker;
+
+  /// Receive notifications from other instances of the trace viewer.
+  std::unique_ptr<SingleInstanceServer> Server;
+
   /// The welcome frame that is displayed when no files are open.
   WelcomeFrame *Welcome;
 
-  /// All other top-level frames.
-  std::set<wxFrame *> TopLevelFrames;
+  /// All other top-level windows.
+  std::set<wxWindow *> TopLevelWindows;
 
   /// The log window.
   wxLogWindow *LogWindow;
 
   /// Holds the ICU resource files used by this application.
   std::unique_ptr<seec::ResourceLoader> ICUResources;
-  
+
+  /// Holds resource augmentations used by this application.
+  std::unique_ptr<seec::AugmentationCollection> Augmentations;
+
   /// Files that the user passed on the command line.
   std::vector<wxString> CLFiles;
 
+  /// True iff curl was initialized without error.
+  bool const CURL;
+
+  /// Handles submission of user action recordings.
+  std::unique_ptr<ActionRecordingSubmitter> RecordingSubmitter;
+
+  /// \brief Send any "files to open" to the existing trace viewer instance.
+  ///
+  void deferToExistingInstance();
+
   /// \brief Open a new trace viewer for the given file.
+  ///
   void OpenFile(wxString const &FileName);
 
 public:
   /// \brief Constructor.
-  TraceViewerApp()
-  : wxApp(),
-    Welcome(nullptr),
-    TopLevelFrames(),
-    LogWindow(nullptr),
-    ICUResources(),
-    CLFiles()
-  {}
+  ///
+  TraceViewerApp();
+
+  /// \brief Destructor.
+  ///
+  virtual ~TraceViewerApp();
 
   /// \name Interface to wxApp.
   /// @{
@@ -99,26 +123,55 @@ public:
   /// \brief Quit the application.
   void OnCommandExit(wxCommandEvent &Event);
 
+  /// \brief Open the preferences menu.
+  ///
+  void OnCommandPreferences(wxCommandEvent &Event);
+
   /// @}
 
 
   /// \name TraceViewer specific.
   /// @{
 
-  void HandleFatalError(wxString Description);
+  /// \brief Check if libcurl was initialized successfully.
+  ///
+  bool checkCURL() const { return CURL; }
 
-  /// \brief Notify that the welcome frame is being destroyed.
-  void removeTopLevelFrame(WelcomeFrame *Frame) {
+  /// \brief Attempt to bring the viewer to the foreground.
+  /// If there are traces open, then we will call \c Raise() on each trace
+  /// window. Otherwise, we will attempt to show the \c WelcomeFrame.
+  ///
+  void Raise();
+
+  void HandleFatalError(wxString Description);
+  
+  /// \brief Notify that a top-level window is being added.
+  void addTopLevelWindow(wxWindow *Window) {
+    TopLevelWindows.insert(Window);
+  }
+
+  /// \brief Notify that the welcome window is being destroyed.
+  void removeTopLevelWindow(WelcomeFrame *Window) {
     if (!Welcome)
       return;
 
-    assert(Welcome == Frame);
+    assert(Welcome == Window);
     Welcome = nullptr;
   }
 
-  /// \brief Notify that a top-level frame is being destroyed.
-  void removeTopLevelFrame(wxFrame *Frame) {
-    TopLevelFrames.erase(Frame);
+  /// \brief Notify that a top-level window is being destroyed.
+  void removeTopLevelWindow(wxWindow *Window) {
+    TopLevelWindows.erase(Window);
+  }
+
+  /// \brief Get the \c ActionRecordingSubmitter, if there is one.
+  ///
+  ActionRecordingSubmitter *getActionRecordingSubmitter() const;
+
+  /// \brief Get the \c AugmentationCollection.
+  ///
+  seec::AugmentationCollection &getAugmentations() const {
+    return *Augmentations;
   }
 
   /// @}

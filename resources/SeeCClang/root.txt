@@ -1,16 +1,6 @@
 root:table {
   // Contains textual descriptions of errors that can occur in the library.
   errors:table {
-    // 
-    ProcessTraceReadFail:string {
-      "Couldn't read process trace from directory \"{path}\""
-    }
-
-    //
-    ParseModuleFail:string {
-      "Couldn't parse module file \"{path}\". Received the following error: {error}"
-    }
-
     //
     FileManagerGetFileFail:string {
       "Couldn't get file from FileManager."
@@ -20,21 +10,6 @@ root:table {
     SourceLocationInvalid:string {
       "Invalid source location."
     }
-
-    //
-    ResourcePathUnreadable:string { "Couldn't find resources directory (expected to be \"{path}\")." }
-
-    //
-    DriverBuildCompilationFailed:string { "Driver failed to build compilation." }
-
-    //
-    CompilationJobsSizeUnexpected:string { "Unexpected number of driver jobs: {size} (expected one)." }
-
-    //
-    JobCommandNull:string { "Job is not a Command." }
-
-    //
-    JobCommandNotClang:string { "Job is not clang." }
   }
 
   // Contains formatting for printing state information.
@@ -57,6 +32,7 @@ root:table {
       PointerOpaque:string { "⇒ (opaque pointer)" }
       PointerInvalid:string { "↝ (invalid pointer)" }
       Pointer:string { "→ (pointer)" }
+      LValue:string { "(lvalue)" }
 
       // Number of character spaces used by the shortened representation (e.g. the ellipsis).
       ShortenedPadding:int { 1 }
@@ -78,6 +54,7 @@ root:table {
       PointerOpaque:string { "⇒" }
       PointerInvalid:string { "↝" }
       Pointer:string { "→" }
+      LValue:string { "l" }
     }
   }
 
@@ -111,6 +88,7 @@ root:table {
 
     Descriptions:table {
       UnreferencedDynamic:string { "<{0, plural, =1 {1 byte of dynamically allocated memory} other {{0} bytes of dynamically allocated memory}}>" }
+      Stream:string {"FILE: \"{0}\""}
       DIR:string {"DIR: \"{0}\""}
     }
   }

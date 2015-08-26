@@ -16,6 +16,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/ASTUnit.h"
+#include "clang/Lex/Lexer.h"
 
 
 namespace seec {
@@ -26,6 +27,8 @@ namespace seec_clang {
 class SearchingASTVisitor
 : public clang::RecursiveASTVisitor<SearchingASTVisitor>
 {
+  clang::ASTContext const &AST;
+
   clang::SourceManager &SMgr;
   
   clang::SourceLocation SLoc;
@@ -35,50 +38,145 @@ class SearchingASTVisitor
   clang::Stmt *FoundStmt;
   
   SearchResult::EFoundKind FoundLast;
+
+  clang::SourceLocation FoundLastLocBegin;
+
+  clang::SourceLocation FoundLastLocEnd;
+
+  enum class ELocationCheckResult {
+    RangeInvalid,
+    RangeBefore,
+    RangeAfter,
+    RangeCovers,
+    ExpansionRangeCovers
+  };
+
+  ELocationCheckResult checkRange(clang::SourceRange const Range) const
+  {
+    if (Range.isInvalid())
+      return ELocationCheckResult::RangeInvalid;
+
+    // Handle expanded macro arguments.
+    if (SMgr.isMacroArgExpansion(Range.getBegin())) {
+      assert(Range.getBegin().isValid() && Range.getEnd().isValid());
+
+      auto const SpellBegin = SMgr.getSpellingLoc(Range.getBegin());
+      if (SMgr.isBeforeInTranslationUnit(SLoc, SpellBegin))
+        return ELocationCheckResult::RangeAfter;
+
+      auto const SpellEnd = SMgr.getSpellingLoc(Range.getEnd());
+      auto const CharEnd =
+        clang::Lexer::getLocForEndOfToken(SpellEnd, 1, SMgr, AST.getLangOpts());
+
+      if (SMgr.isBeforeInTranslationUnit(CharEnd, SLoc))
+        return ELocationCheckResult::RangeBefore;
+
+      return ELocationCheckResult::RangeCovers;
+    }
+
+    // Handle expanded macro body.
+    if (SMgr.isMacroBodyExpansion(Range.getBegin())) {
+      assert(Range.getBegin().isValid() && Range.getEnd().isValid());
+
+      auto const ExpBegin = SMgr.getExpansionLoc(Range.getBegin());
+      if (SMgr.isBeforeInTranslationUnit(SLoc, ExpBegin))
+        return ELocationCheckResult::RangeAfter;
+
+      auto const ExpEnd = SMgr.getExpansionRange(Range.getEnd()).second;
+      auto const CharEnd =
+        clang::Lexer::getLocForEndOfToken(ExpEnd, 1, SMgr, AST.getLangOpts());
+
+      if (SMgr.isBeforeInTranslationUnit(CharEnd, SLoc))
+        return ELocationCheckResult::RangeBefore;
+
+      return ELocationCheckResult::ExpansionRangeCovers;
+    }
+
+    // Handle regular locations.
+    auto const SpellBegin = SMgr.getSpellingLoc(Range.getBegin());
+    if (SMgr.isBeforeInTranslationUnit(SLoc, SpellBegin))
+      return ELocationCheckResult::RangeAfter;
+
+    auto const SpellEnd = SMgr.getSpellingLoc(Range.getEnd());
+    auto const CharEnd =
+      clang::Lexer::getLocForEndOfToken(SpellEnd, 1, SMgr, AST.getLangOpts());
+
+    if (SMgr.isBeforeInTranslationUnit(CharEnd, SLoc))
+      return ELocationCheckResult::RangeBefore;
+
+    return ELocationCheckResult::RangeCovers;
+  }
   
 public:
-  SearchingASTVisitor(clang::SourceManager &SrcMgr,
+  SearchingASTVisitor(clang::ASTContext const &WithAST,
+                      clang::SourceManager &SrcMgr,
                       clang::SourceLocation SearchLocation)
-  : SMgr(SrcMgr),
+  : AST(WithAST),
+    SMgr(SrcMgr),
     SLoc(SearchLocation),
     FoundDecl(nullptr),
     FoundStmt(nullptr),
-    FoundLast(SearchResult::EFoundKind::None)
+    FoundLast(SearchResult::EFoundKind::None),
+    FoundLastLocBegin(),
+    FoundLastLocEnd()
   {}
   
   bool VisitStmt(clang::Stmt *S) {
-    auto Range = S->getSourceRange();
-    if (Range.isInvalid())
-      return true;
-    
-    if (SMgr.isBeforeInTranslationUnit(SLoc, Range.getBegin())) {
-      return false;
+    switch (checkRange(S->getSourceRange())) {
+      case ELocationCheckResult::RangeInvalid: return true;
+      case ELocationCheckResult::RangeBefore:  return true;
+      case ELocationCheckResult::RangeAfter:   return false;
+
+      case ELocationCheckResult::RangeCovers:
+        FoundStmt = S;
+        FoundLast = SearchResult::EFoundKind::Stmt;
+        FoundLastLocBegin = SMgr.getExpansionLoc(S->getLocStart());
+        FoundLastLocEnd   = SMgr.getExpansionRange(S->getLocEnd()).second;
+        return true;
+
+      // Use outermost rather than innermost node for macro body expansions.
+      case ELocationCheckResult::ExpansionRangeCovers:
+        if (FoundLast == SearchResult::EFoundKind::None
+            || FoundLastLocBegin != SMgr.getExpansionLoc(S->getLocStart())
+            || FoundLastLocEnd != SMgr.getExpansionRange(S->getLocEnd()).second)
+        {
+          FoundStmt = S;
+          FoundLast = SearchResult::EFoundKind::Stmt;
+          FoundLastLocBegin = SMgr.getExpansionLoc(S->getLocStart());
+          FoundLastLocEnd   = SMgr.getExpansionRange(S->getLocEnd()).second;
+        }
+        return true;
     }
-    
-    if (SMgr.isBeforeInTranslationUnit(Range.getEnd(), SLoc)) {
-      return true;
-    }
-    
-    FoundStmt = S;
-    FoundLast = SearchResult::EFoundKind::Stmt;
+
     return true;
   }
   
   bool VisitDecl(clang::Decl *D) {
-    auto Range = D->getSourceRange();
-    if (Range.isInvalid())
-      return true;
-    
-    if (SMgr.isBeforeInTranslationUnit(SLoc, Range.getBegin())) {
-      return false;
+    switch (checkRange(D->getSourceRange())) {
+      case ELocationCheckResult::RangeInvalid: return true;
+      case ELocationCheckResult::RangeBefore:  return true;
+      case ELocationCheckResult::RangeAfter:   return false;
+
+      case ELocationCheckResult::RangeCovers:
+        FoundDecl = D;
+        FoundLast = SearchResult::EFoundKind::Decl;
+        FoundLastLocBegin = SMgr.getExpansionLoc(D->getLocStart());
+        FoundLastLocEnd   = SMgr.getExpansionRange(D->getLocEnd()).second;
+        return true;
+
+      // Use outermost rather than innermost node for macro body expansions.
+      case ELocationCheckResult::ExpansionRangeCovers:
+        if (FoundLast == SearchResult::EFoundKind::None
+            || FoundLastLocBegin != SMgr.getExpansionLoc(D->getLocStart()))
+        {
+          FoundDecl = D;
+          FoundLast = SearchResult::EFoundKind::Decl;
+          FoundLastLocBegin = SMgr.getExpansionLoc(D->getLocStart());
+          FoundLastLocEnd   = SMgr.getExpansionRange(D->getLocEnd()).second;
+        }
+        return true;
     }
-    
-    if (SMgr.isBeforeInTranslationUnit(Range.getEnd(), SLoc)) {
-      return true;
-    }
-    
-    FoundDecl = D;
-    FoundLast = SearchResult::EFoundKind::Decl;
+
     return true;
   }
   
@@ -111,7 +209,8 @@ searchImpl(clang::ASTUnit &AST,
     return SearchResult(nullptr, nullptr, SearchResult::EFoundKind::None);
   
   for (auto &Decl : FoundDecls) {
-    if (Decl->getSourceRange().isInvalid())
+    auto const SrcRange = Decl->getSourceRange();
+    if (SrcRange.isInvalid())
       continue;
     
     // isInLexicalContext?
@@ -120,17 +219,21 @@ searchImpl(clang::ASTUnit &AST,
       if (!TD->isFreeStanding())
         continue;
     
-    // If Decl is before SLoc, continue.
-    // If Decl is after SLoc, break.
+    // Skip this Decl and keep searching.
+    if (SourceMgr.isBeforeInTranslationUnit(SrcRange.getEnd(), SLoc))
+      continue;
+
+    // We've already passed the search location.
+    if (SourceMgr.isBeforeInTranslationUnit(SLoc, SrcRange.getBegin()))
+      break;
     
-    SearchingASTVisitor Visitor (SourceMgr, SLoc);
+    SearchingASTVisitor Visitor (AST.getASTContext(), SourceMgr, SLoc);
     Visitor.TraverseDecl(Decl);
     
     if (Visitor.getFoundLast() != SearchResult::EFoundKind::None)
       return SearchResult(Visitor.getFoundDecl(),
                           Visitor.getFoundStmt(),
                           Visitor.getFoundLast());
-                        
   }
   
   return SearchResult(nullptr, nullptr, SearchResult::EFoundKind::None);

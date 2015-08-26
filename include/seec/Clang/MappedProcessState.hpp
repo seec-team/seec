@@ -17,9 +17,11 @@
 #define SEEC_CLANG_MAPPEDPROCESSSTATE_HPP
 
 #include "seec/Clang/MappedMallocState.hpp"
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedStreamState.hpp"
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/DSA/MemoryArea.hpp"
+#include "seec/ICU/Augmenter.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/DenseMap.h"
@@ -78,10 +80,10 @@ class ProcessState {
   std::shared_ptr<ValueStore const> CurrentValueStore;
   
   /// Currently open streams.
-  llvm::DenseMap<uintptr_t, StreamState> Streams;
+  llvm::DenseMap<stateptr_ty, StreamState> Streams;
   
   /// Currently open DIRs.
-  llvm::DenseMap<uintptr_t, DIRState> Dirs;
+  llvm::DenseMap<stateptr_ty, DIRState> Dirs;
   
 public:
   /// \brief Constructor.
@@ -117,7 +119,8 @@ public:
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
-             seec::util::IndentationGuide &Indentation) const;
+             seec::util::IndentationGuide &Indentation,
+             AugmentationCallbackFn Augmenter) const;
   
   
   /// \name Access underlying information.
@@ -164,6 +167,10 @@ public:
   /// \brief Get the number of threads.
   std::size_t getThreadCount() const;
   
+  /// \brief Get the index of a thread.
+  seec::Maybe<std::size_t>
+  getThreadIndex(seec::cm::ThreadState const &Thread) const;
+  
   /// \brief Get the state of a thread.
   seec::cm::ThreadState &getThread(std::size_t Index);
   
@@ -187,6 +194,10 @@ public:
   decltype(UnmappedStaticAreas) const &getUnmappedStaticAreas() const {
     return UnmappedStaticAreas;
   };
+
+  /// \brief Determine if an address is in statically allocated memory.
+  ///
+  bool isStaticallyAllocated(stateptr_ty const Address) const;
   
   /// @} (Global variables.)
   
@@ -197,6 +208,9 @@ public:
   /// \brief Get all mapped dynamic memory allocations.
   ///
   std::vector<MallocState> getDynamicMemoryAllocations() const;
+
+  seec::Maybe<MallocState>
+  getDynamicMemoryAllocation(stateptr_ty Address) const;
   
   /// @} (Dynamic memory allocations.)
   
@@ -216,7 +230,11 @@ public:
   
   /// \brief Get a pointer to the stream at Address, or nullptr if none exists.
   ///
-  StreamState const *getStream(uintptr_t Address) const;
+  StreamState const *getStream(stateptr_ty Address) const;
+  
+  /// \brief Get a pointer to the stdout stream, if it is open.
+  ///
+  StreamState const *getStreamStdout() const;
   
   /// @} (Streams.)
   
@@ -230,7 +248,7 @@ public:
   
   /// \brief Get a pointer to the DIR at Address, or nullptr if none exists.
   ///
-  DIRState const *getDIR(uintptr_t Address) const;
+  DIRState const *getDIR(stateptr_ty Address) const;
   
   /// @} (Streams.)
 };

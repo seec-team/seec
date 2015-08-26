@@ -11,20 +11,27 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "GraphExpansion.hpp"
-
+#include "seec/Clang/GraphExpansion.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
 #include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
-#include "seec/Clang/MappedStreamState.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/StateCommon.hpp"
 #include "seec/Util/Fallthrough.hpp"
+#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
+#include "llvm/ADT/DenseMap.h"
+
+#include <algorithm>
 #include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 
 
 namespace seec {
@@ -39,28 +46,41 @@ namespace graph {
 //===----------------------------------------------------------------------===//
 
 class ExpansionImpl final {
-  /// Map from Value to pointer dereferences that reference that Value.
+  /// Contains a true entry if the \c seec::cm::Value is directly referenced.
   ///
-  std::multimap<Value const *, Dereference> Edges;
+  llvm::DenseMap<Value const *, bool> DirectlyReferenced;
   
+  /// Used for all unreferenced \c Value objects.
+  ///
+  std::vector<Value const *> EmptyReferences;
+
+  /// Set of all pointers that have been expanded.
+  ///
+  llvm::DenseSet<ValueOfPointer const *> ExpandedPointers;
+
+  using PtrEntryTy = std::pair<stateptr_ty,
+                               std::shared_ptr<ValueOfPointer const>>;
+
   /// Map from address to pointers that reference that address.
   ///
-  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointer const>> Pointers;
-  
-  /// Map from stream addresses to FILE pointers for those streams.
-  ///
-  std::multimap<uintptr_t, std::shared_ptr<ValueOfPointerToFILE const>> Streams;
-  
+  std::vector<PtrEntryTy> Pointers;
+
+  static bool CompareAddressOnly(PtrEntryTy const &Entry,
+                                 stateptr_ty const &Address)
+  {
+    return Entry.first < Address;
+  }
+
 public:
   ExpansionImpl()
-  : Edges(),
-    Pointers(),
-    Streams()
+  : DirectlyReferenced(),
+    ExpandedPointers(),
+    Pointers()
   {}
   
-  void addReference(Value const &ToValue, Dereference FromPointer)
+  void addDirectReference(Value const &ToValue, Value const &FromPointer)
   {
-    Edges.insert(std::make_pair(&ToValue, std::move(FromPointer)));
+    DirectlyReferenced[&ToValue] = true;
   }
   
   /// \brief Add the given pointer if it doesn't already exist.
@@ -69,85 +89,53 @@ public:
   ///
   bool addPointer(std::shared_ptr<ValueOfPointer const> const &Pointer)
   {
-    auto const Address = Pointer->getRawValue();
-    
-    for (auto const &Pair : range(Pointers.equal_range(Address)))
-      if (Pair.second == Pointer)
-        return false;
-    
-    Pointers.insert(std::make_pair(Address, Pointer));
-    
+    auto const NewExpansion = ExpandedPointers.insert(Pointer.get());
+    if (!NewExpansion.second)
+      return false;
+
+    Pointers.emplace_back(Pointer->getRawValue(), Pointer);
     return true;
   }
+
+  void finalize()
+  {
+    std::sort(begin(Pointers), end(Pointers));
+  }
   
-  std::vector<Dereference>
-  getReferencesOf(Value const &Val) const;
+  bool isDirectlyReferenced(Value const &Val) const;
   
   std::vector<std::shared_ptr<ValueOfPointer const>>
-  getReferencesOfArea(uintptr_t Start, uintptr_t End) const;
+  getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const;
   
-  bool isAreaReferenced(uintptr_t Start, uintptr_t End) const;
+  bool isAreaReferenced(stateptr_ty Start, stateptr_ty End) const;
   
   std::vector<std::shared_ptr<ValueOfPointer const>>
   getAllPointers() const {
     std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+
+    Ret.reserve(Pointers.size());
     
     for (auto const &Pair : Pointers)
       Ret.emplace_back(Pair.second);
     
     return Ret;
   }
-  
-  /// \name Stream information.
-  /// @{
-  
-  bool addStream(std::shared_ptr<ValueOfPointerToFILE const> const &Pointer) {
-    auto const Address = Pointer->getRawValue();
-    
-    for (auto const &Pair : range(Streams.equal_range(Address)))
-      if (Pair.second == Pointer)
-        return false;
-    
-    Streams.insert(std::make_pair(Address, Pointer));
-    
-    return true;
-  }
-  
-  bool isReferenced(StreamState const &State) const {
-    return Streams.count(State.getAddress());
-  }
-  
-  std::vector<std::shared_ptr<ValueOfPointerToFILE const>>
-  getReferencesOf(StreamState const &State) const {
-    std::vector<std::shared_ptr<ValueOfPointerToFILE const>> Ret;
-    
-    for (auto const &Pair : range(Streams.equal_range(State.getAddress())))
-      Ret.emplace_back(Pair.second);
-    
-    return Ret;
-  }
-  
-  /// @} (Stream information.)
 };
 
-std::vector<Dereference>
-ExpansionImpl::getReferencesOf(Value const &Val) const
+bool ExpansionImpl::isDirectlyReferenced(Value const &Val) const
 {
-  std::vector<Dereference> Ret;
-  
-  for (auto const &Pair : seec::range(Edges.equal_range(&Val)))
-    Ret.emplace_back(Pair.second);
-  
-  return Ret;
+  auto const It = DirectlyReferenced.find(&Val);
+  return It != DirectlyReferenced.end() ? It->second : false;
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
-ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+ExpansionImpl::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 {
-  auto const Range = seec::range(Pointers.lower_bound(Start),
-                                 Pointers.lower_bound(End));
-  
   std::vector<std::shared_ptr<ValueOfPointer const>> Ret;
+
+  auto const Range = seec::range(
+    std::lower_bound(begin(Pointers), end(Pointers), Start, CompareAddressOnly),
+    std::lower_bound(begin(Pointers), end(Pointers), End, CompareAddressOnly));
   
   for (auto const &Pair : Range)
     Ret.emplace_back(Pair.second);
@@ -155,9 +143,13 @@ ExpansionImpl::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
   return Ret;
 }
 
-bool ExpansionImpl::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+bool ExpansionImpl::isAreaReferenced(stateptr_ty Start, stateptr_ty End) const
 {
-  return Pointers.lower_bound(Start) != Pointers.lower_bound(End);
+  auto const Range = seec::range(
+    std::lower_bound(begin(Pointers), end(Pointers), Start, CompareAddressOnly),
+    std::lower_bound(begin(Pointers), end(Pointers), End, CompareAddressOnly));
+
+  return begin(Range) != end(Range);
 }
 
 
@@ -198,7 +190,8 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
   
   switch (State->getKind()) {
     case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::Scalar:
+    case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Complex:
       break;
     
     case seec::cm::Value::Kind::Array:
@@ -247,18 +240,10 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
         
         for (unsigned i = 0; i < Limit; ++i) {
           auto const Pointee = Ptr->getDereferenced(i);
-          EI.addReference(*Pointee, Dereference{Ptr, i});
+          if (i == 0)
+            EI.addDirectReference(*Pointee, *Ptr);
           expand(EI, Pointee);
         }
-      }
-      break;
-    
-    case seec::cm::Value::Kind::PointerToFILE:
-      {
-        auto const Ptr =
-          std::static_pointer_cast<seec::cm::ValueOfPointerToFILE const>(State);
-        
-        EI.addStream(Ptr);
       }
       break;
   }
@@ -266,12 +251,16 @@ void expand(ExpansionImpl &EI, std::shared_ptr<Value const> const &State)
 
 void expand(ExpansionImpl &EI, seec::cm::LocalState const &State)
 {
-  expand(EI, State.getValue());
+  auto const Value = State.getValue();
+  if (Value)
+    expand(EI, Value);
 }
 
 void expand(ExpansionImpl &EI, seec::cm::ParamState const &State)
 {
-  expand(EI, State.getValue());
+  auto const Value = State.getValue();
+  if (Value)
+    expand(EI, Value);
 }
 
 void expand(ExpansionImpl &EI, seec::cm::FunctionState const &State)
@@ -323,6 +312,7 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
   std::unique_ptr<ExpansionImpl> EI {new ExpansionImpl()};
   
   expand(*EI, State);
+  EI->finalize();
   
   Expansion E;
   
@@ -334,19 +324,16 @@ Expansion Expansion::from(seec::cm::ProcessState const &State)
 bool
 Expansion::isReferencedDirectly(Value const &Value) const
 {
-  for (auto const &Deref : Impl->getReferencesOf(Value))
-    if (Deref.getIndex() == 0)
-      return true;
-  return false;
+  return Impl->isDirectlyReferenced(Value);
 }
 
 std::vector<std::shared_ptr<ValueOfPointer const>>
-Expansion::getReferencesOfArea(uintptr_t Start, uintptr_t End) const
+Expansion::getReferencesOfArea(stateptr_ty Start, stateptr_ty End) const
 {
   return Impl->getReferencesOfArea(Start, End);
 }
 
-bool Expansion::isAreaReferenced(uintptr_t Start, uintptr_t End) const
+bool Expansion::isAreaReferenced(stateptr_ty Start, stateptr_ty End) const
 {
   return Impl->isAreaReferenced(Start, End);
 }
@@ -357,15 +344,100 @@ Expansion::getAllPointers() const
   return Impl->getAllPointers();
 }
 
-bool Expansion::isReferenced(StreamState const &State) const
+
+//===----------------------------------------------------------------------===//
+// reduceReferences()
+//===----------------------------------------------------------------------===//
+
+static
+bool
+isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
+                        std::shared_ptr<ValueOfPointer const> const &Ptr)
 {
-  return Impl->isReferenced(State);
+  auto const Limit = Ptr->getDereferenceIndexLimit();
+
+  for (int i = 0; i < Limit; ++i) {
+    auto const Pointee = Ptr->getDereferenced(i);
+    if (isContainedChild(*Child, *Pointee))
+      return true;
+  }
+
+  return false;
 }
 
-std::vector<std::shared_ptr<ValueOfPointerToFILE const>>
-Expansion::getReferencesOf(StreamState const &State) const
+void reduceReferences(std::vector<std::shared_ptr<ValueOfPointer const>> &Refs)
 {
-  return Impl->getReferencesOf(State);
+  typedef std::shared_ptr<ValueOfPointer const> ValOfPtr;
+
+  // Move all the void pointers to the end of the list. If we have nothing but
+  // void pointers then return, otherwise remove all of them.
+  auto const VoidIt =
+    std::partition(Refs.begin(), Refs.end(),
+                  [] (ValOfPtr const &Ptr) -> bool {
+                    auto const CanTy = Ptr->getCanonicalType();
+                    auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
+                    return !PtrTy->getPointeeType()->isVoidType();
+                  });
+
+  if (VoidIt == Refs.begin())
+    return;
+
+  Refs.erase(VoidIt, Refs.end());
+  if (Refs.size() == 1)
+    return;
+
+  // Remove all pointers to incomplete types to the end of the list. If we have
+  // nothing but pointers to incomplete types, then return.
+  auto const IncompleteIt =
+    std::partition(Refs.begin(), Refs.end(),
+                    [] (ValOfPtr const &Ptr) -> bool {
+                      auto const CanTy = Ptr->getCanonicalType();
+                      auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
+                      return !PtrTy->getPointeeType()->isIncompleteType();
+                    });
+
+  if (IncompleteIt == Refs.begin())
+    return;
+
+  Refs.erase(IncompleteIt, Refs.end());
+  if (Refs.size() == 1)
+    return;
+
+  // Remove all references which refer to a child of another reference. E.g. if
+  // we have a pointer to a struct, and a pointer to a member of that struct,
+  // then we should remove the member pointer (if the struct is selected for
+  // layout then the pointer will be rendered correctly, otherwise it will be
+  // rendered as punned).
+  //
+  // Also remove references which refer either to the same value as another
+  // reference. If one of these references has a lower raw value then it should
+  // be kept, as it will have more dereferences (and thus a more complete
+  // layout will be produced using it).
+  auto const CurrentRefs = Refs;
+  auto const RemovedIt =
+    std::remove_if(Refs.begin(), Refs.end(),
+      [&] (ValOfPtr const &Ptr) -> bool
+      {
+        auto const Pointee = Ptr->getDereferenced(0);
+        return std::any_of(CurrentRefs.begin(), CurrentRefs.end(),
+                  [&] (ValOfPtr const &Other) -> bool {
+                    if (Ptr == Other)
+                      return false;
+
+                    // Check if we directly reference another pointer's
+                    // dereference. If so, don't bother checking children, as
+                    // either us or the other pointer will be removed anyway.
+                    auto const Direct = doReferenceSameValue(*Ptr, *Other);
+                    if (Direct)
+                      return Ptr->getRawValue() > Other->getRawValue();
+
+                    // Check if this pointer directly references a child.
+                    return isChildOfAnyDereference(Pointee, Other);
+                  });
+      });
+
+  if (RemovedIt != Refs.begin())
+    Refs.erase(RemovedIt, Refs.end());
 }
 
 

@@ -20,7 +20,6 @@
 #include <wx/panel.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/auibook.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include <map>
 #include <memory>
@@ -28,8 +27,9 @@
 
 // Forward declarations.
 
+class ActionRecord;
+class ActionReplayFrame;
 class ContextNotifier;
-class ExplanationViewer;
 class OpenTrace;
 class SourceFilePanel;
 class StateAccessToken;
@@ -61,10 +61,13 @@ class SourceViewerPanel : public wxPanel
   wxAuiNotebook *Notebook;
   
   /// The currently associated trace information.
-  OpenTrace const *Trace;
+  OpenTrace *Trace;
   
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+
+  /// Used to record user interactions.
+  ActionRecord *Recording;
   
   /// Lookup from file path to source window.
   std::map<clang::FileEntry const *, SourceFilePanel *> Pages;
@@ -72,10 +75,48 @@ class SourceViewerPanel : public wxPanel
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
   
-  /// Text control that holds explanatory material.
-  ExplanationViewer *ExplanationCtrl;
-  
+  /// \name Event handlers.
+  /// @{
+
+  void OnPageChanged(wxAuiNotebookEvent &Ev);
+
+  /// @} (Event handlers.)
+
+
+  /// \name Replay for \c SourceFilePanel events.
+  /// @{
+
+  void ReplayPageChanged(std::string &File);
+
+  void ReplayMouseEnter(std::string &File);
+
+  void ReplayMouseLeave(std::string &File);
+
+  void ReplayMouseOverDecl(clang::Decl const *TheDecl);
+
+  void ReplayMouseOverStmt(clang::Stmt const *TheStmt);
+
+  /// @}
+
 public:
+  /// \name Recording for SourceFilePanel events.
+  /// @{
+
+  void OnMouseEnter(SourceFilePanel &Page);
+
+  void OnMouseLeave(SourceFilePanel &Page);
+
+  void OnMouseOver(SourceFilePanel &Page, clang::Decl const *Decl);
+
+  void OnMouseOver(SourceFilePanel &Page, clang::Stmt const *Stmt);
+
+  void OnRightClick(SourceFilePanel &Page, clang::Decl const *Decl);
+
+  void OnRightClick(SourceFilePanel &Page, clang::Stmt const *Stmt);
+
+  /// @} (Recording for SourceFilePanel events.)
+
+
   /// \brief Construct without creating.
   ///
   SourceViewerPanel();
@@ -83,8 +124,10 @@ public:
   /// \brief Construct and create.
   ///
   SourceViewerPanel(wxWindow *Parent,
-                    OpenTrace const &TheTrace,
+                    OpenTrace &TheTrace,
                     ContextNotifier &WithNotifier,
+                    ActionRecord &WithRecording,
+                    ActionReplayFrame &WithReplay,
                     wxWindowID ID = wxID_ANY,
                     wxPoint const &Position = wxDefaultPosition,
                     wxSize const &Size = wxDefaultSize);
@@ -96,13 +139,20 @@ public:
   /// \brief Create the panel.
   ///
   bool Create(wxWindow *Parent,
-              OpenTrace const &TheTrace,
+              OpenTrace &TheTrace,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
   
   
+  /// \brief Get the currently associated trace.
+  ///
+  OpenTrace *getTrace() { return Trace; }
+
+
   /// \name Mutators.
   /// @{
   

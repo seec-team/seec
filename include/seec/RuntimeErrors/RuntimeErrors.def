@@ -137,6 +137,58 @@ SEEC_RUNERR(IntegerUnderflow,
   ))
 
 //
+// Dereference a pointer that does not reference an object!
+//
+SEEC_RUNERR(PointerObjectNULL,
+  SEEC_PP_QUOTE(
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Dereference a pointer that does not refer to its original object.
+//
+SEEC_RUNERR(PointerObjectMismatch,
+  SEEC_PP_QUOTE(
+    (object,  seec::runtime_errors::ArgAddress),
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Dereference a pointer to an outdated allocation.
+//
+SEEC_RUNERR(PointerObjectOutdated,
+  SEEC_PP_QUOTE(
+    (ptr_time, seec::runtime_errors::ArgSize),
+    (obj_time, seec::runtime_errors::ArgSize)
+  ))
+
+//
+// Undefined pointer arithmetic (no longer refers to original object).
+//
+SEEC_RUNERR(PointerArithmeticResultInvalid,
+  SEEC_PP_QUOTE(
+    (object,  seec::runtime_errors::ArgAddress),
+    (address, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Pointer arithmetic on pointer that does not point to a valid object.
+//
+SEEC_RUNERR(PointerArithmeticOperandInvalid,
+  SEEC_PP_QUOTE(
+    (object, seec::runtime_errors::ArgAddress)
+  ))
+
+//
+// Pointer arithmetic on pointer to an outdated allocation.
+//
+SEEC_RUNERR(PointerArithmeticOperandOutdated,
+  SEEC_PP_QUOTE(
+    (ptr_time,     seec::runtime_errors::ArgSize),
+    (current_time, seec::runtime_errors::ArgSize)
+  ))
+
+//
 // Passing a pointer to unowned memory to a function.
 //
 SEEC_RUNERR(PassPointerToUnowned,
@@ -436,6 +488,45 @@ SEEC_RUNERR(VarArgsInsufficient,
   ))
 
 //
+// Received an arg that was not of type "char *" in a varargs list that expects
+// character pointers (e.g. execl).
+//
+SEEC_RUNERR(VarArgsExpectedCharPointer,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
+//
+// Received an arg that was not of type "char * const *" in a varargs list that
+// expects that type (execle).
+//
+SEEC_RUNERR(VarArgsExpectedCStringArray,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
+//
+// Passing a non-terminated varargs pointer list to a function that requires
+// it be NULL terminated (e.g. execl).
+//
+SEEC_RUNERR(VarArgsNonTerminated,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
+//
+// Passing a NULL terminated varargs list with items following the terminator.
+//
+SEEC_RUNERR(VarArgsPostTerminator,
+  SEEC_PP_QUOTE(
+    (function,  seec::runtime_errors::ArgSelect
+                  <seec::runtime_errors::format_selects::CStdFunction>)
+  ))
+
+//
 // Called a function that is unsafe in the presence of multiple threads.
 //
 SEEC_RUNERR(UnsafeMultithreaded,
@@ -453,6 +544,14 @@ SEEC_RUNERR(NonTerminatedArray,
     (function,  seec::runtime_errors::ArgSelect
                   <seec::runtime_errors::format_selects::CStdFunction>),
     (parameter, seec::runtime_errors::ArgParameter)
+  ))
+
+//
+// Stack limit will be exceeded by alloca.
+//
+SEEC_RUNERR(StackOverflowAlloca,
+  SEEC_PP_QUOTE(
+    (dummy, seec::runtime_errors::ArgAddress)
   ))
 
 #undef SEEC_RUNERR

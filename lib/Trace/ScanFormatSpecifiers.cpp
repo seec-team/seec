@@ -104,7 +104,6 @@ ScanConversionSpecifier::readNextFrom(char const * const String) {
       Result.SetCharacters.push_back(*Remainder);
       
       auto const CharIdx = static_cast<unsigned char>(*Remainder);
-      assert(CharIdx < UCharValues);
       Result.SetLookup[CharIdx] = true;
       
       if (*++Remainder == '\0')

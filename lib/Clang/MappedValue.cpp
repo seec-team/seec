@@ -23,21 +23,27 @@
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/FunctionState.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Trace/GetRecreatedValue.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Type.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTUnit.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cctype>
 #include <string>
+
+
+using namespace std;
 
 
 namespace seec {
@@ -62,155 +68,289 @@ Value::~Value() = default;
 
 
 //===----------------------------------------------------------------------===//
+// ValueStoreImpl
+//===----------------------------------------------------------------------===//
+
+class TypedValueSet {
+  std::vector<std::pair<MatchType, std::shared_ptr<Value const>>> Items;
+
+public:
+  TypedValueSet()
+  : Items()
+  {}
+
+  std::shared_ptr<Value const> getShared(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second;
+
+    return std::shared_ptr<Value const>{};
+  }
+
+  std::shared_ptr<Value const> getSharedFromTypeString(llvm::StringRef TS) const
+  {
+    for (auto const &Pair : Items)
+      if (Pair.second->getTypeAsString() == TS)
+        return Pair.second;
+
+    return std::shared_ptr<Value const>();
+  }
+
+  Value const *get(MatchType const &ForType) const {
+    for (auto const &Pair : Items)
+      if (Pair.first == ForType)
+        return Pair.second.get();
+
+    return nullptr;
+  }
+
+  void add(MatchType const &ForType, std::shared_ptr<Value const> Val) {
+    Items.emplace_back(ForType, std::move(Val));
+  }
+};
+
+class ValueStoreImpl final {
+  /// Control access to the Store variable.
+  mutable std::mutex StoreAccess;
+
+  // Two-stage lookup to find previously created Value objects.
+  // The first stage is the in-memory address of the object.
+  // The second stage is the canonical type of the object.
+  mutable llvm::DenseMap<stateptr_ty, TypedValueSet> Store;
+
+  /// SeeC-Clang mapping information.
+  seec::seec_clang::MappedModule const &Mapping;
+
+  // Disable copying and moving.
+  ValueStoreImpl(ValueStoreImpl const &) = delete;
+  ValueStoreImpl(ValueStoreImpl &&) = delete;
+  ValueStoreImpl &operator=(ValueStoreImpl const &) = delete;
+  ValueStoreImpl &operator=(ValueStore &&) = delete;
+
+public:
+  /// \brief Constructor.
+  ValueStoreImpl(seec::seec_clang::MappedModule const &WithMapping)
+  : StoreAccess(),
+    Store(),
+    Mapping(WithMapping)
+  {}
+
+  /// \brief Find or construct a Value for the given type.
+  ///
+  std::shared_ptr<Value const>
+  getValue(std::shared_ptr<ValueStore const> StorePtr,
+           ::clang::QualType QualType,
+           ::clang::ASTContext const &ASTContext,
+           stateptr_ty Address,
+           seec::trace::ProcessState const &ProcessState,
+           seec::trace::FunctionState const *OwningFunction) const;
+
+  /// \brief Get SeeC-Clang mapping information.
+  ///
+  seec::seec_clang::MappedModule const &getMapping() const { return Mapping; }
+
+  /// \brief Find first \c Value matching the given predicate.
+  ///
+  std::shared_ptr<Value const>
+  findFromAddressAndType(stateptr_ty Address, llvm::StringRef TypeString) const
+  {
+    auto const It = Store.find(Address);
+
+    if (It == Store.end())
+      return std::shared_ptr<Value const>();
+
+    return It->second.getSharedFromTypeString(TypeString);
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// readAPIntFromMemory()
+//===----------------------------------------------------------------------===//
+
+Maybe<llvm::APInt> readAPIntFromMemory(clang::ASTContext const &AST,
+                                       clang::Type const *Type,
+                                       stateptr_ty const Address,
+                                       seec::trace::MemoryState const &Memory)
+{
+  auto const Size = AST.getTypeSizeInChars(Type);
+  auto const Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+    return Maybe<llvm::APInt>();
+
+  auto const BitWidth = AST.getTypeSize(Type);
+  auto const RawBytes = Region.getByteValues();
+  auto const Data = RawBytes.data();
+
+  if (AST.getTargetInfo().isBigEndian() == llvm::sys::IsBigEndianHost) {
+    switch (BitWidth) {
+    case 8:  return llvm::APInt(8,  *reinterpret_cast<uint8_t  const *>(Data));
+    case 16: return llvm::APInt(16, *reinterpret_cast<uint16_t const *>(Data));
+    case 32: return llvm::APInt(32, *reinterpret_cast<uint32_t const *>(Data));
+    case 64: return llvm::APInt(64, *reinterpret_cast<uint64_t const *>(Data));
+    }
+  }
+  else {
+    switch (BitWidth) {
+    case 8:  return llvm::APInt(8,  *reinterpret_cast<uint8_t  const *>(Data));
+    case 16: return llvm::APInt(16, *reinterpret_cast<uint16_t const *>(Data))
+                          .byteSwap();
+    case 32: return llvm::APInt(32, *reinterpret_cast<uint32_t const *>(Data))
+                          .byteSwap();
+    case 64: return llvm::APInt(64, *reinterpret_cast<uint64_t const *>(Data))
+                          .byteSwap();
+    }
+  }
+
+  llvm::errs() << "readAPIntFromMemory: unsupported bitwidth " << BitWidth
+               << "\n";
+  return Maybe<llvm::APInt>();
+}
+
+
+//===----------------------------------------------------------------------===//
 // getScalarValueAsString() - from memory
 //===----------------------------------------------------------------------===//
 
-template<typename T>
-struct GetMemoryOfBuiltinAsString {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
-    if (Region.getArea().length() != sizeof(T))
-      return std::string("<size mismatch>");
-    
-    auto const Bytes = Region.getByteValues();
-    return std::to_string(*reinterpret_cast<T const *>(Bytes.data()));
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<char> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
-    if (Region.getArea().length() != sizeof(char))
-      return std::string("<size mismatch>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      auto const Bytes = Region.getByteValues();
-      auto const Character = *reinterpret_cast<char const *>(Bytes.data());
-      
-      if (std::isprint(Character))
-        Stream << Character;
-      else {
-        Stream << '\\';
-        
-        switch (Character) {
-          case '\t': Stream << 't'; break;
-          case '\f': Stream << 'f'; break;
-          case '\v': Stream << 'v'; break;
-          case '\n': Stream << 'n'; break;
-          case '\r': Stream << 'r'; break;
-          default:   Stream << int(Character); break;
-        }
-      }
-    }
-    
-    return RetStr;
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<void const *> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
-    if (Region.getArea().length() != sizeof(void const *))
-      return std::string("<size mismatch>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      auto const Bytes = Region.getByteValues();
-      Stream << *reinterpret_cast<void const * const *>(Bytes.data());
-    }
-    
-    return RetStr;
-  }
-};
-
-template<>
-struct GetMemoryOfBuiltinAsString<void> {
-  static std::string impl(seec::trace::MemoryState::Region const &Region) {
-    return std::string("<void>");
-  }
-};
-
 std::string
-getScalarValueAsString(::clang::BuiltinType const *Type,
-                       seec::trace::MemoryState::Region const &Region)
+getScalarValueAsString(clang::ASTContext const &AST,
+                       clang::BuiltinType const *Type,
+                       stateptr_ty const Address,
+                       seec::trace::MemoryState const &Memory)
 {
-  switch (Type->getKind()) {
-#define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
-    case clang::BuiltinType::KIND:                                             \
-      return GetMemoryOfBuiltinAsString<HOST_TYPE>::impl(Region);
+  if (Type->getKind() == clang::BuiltinType::Char_S
+      || Type->getKind() == clang::BuiltinType::Char_U)
+  {
+    // Special handling to pretty-print chars.
+    auto const Region = Memory.getRegion(MemoryArea(Address, 1));
+    if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+      return std::string{"<uninitialized>"};
 
-#define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
-    case clang::BuiltinType::KIND:                                             \
-      return std::string("<builtin \"" #KIND "\" not implemented>"); 
+    auto const Value = Region.getByteValues()[0];
+    std::string Printed;
 
-    // Builtin types
-    SEEC_HANDLE_BUILTIN(Void, void)
+    if ((static_cast<uint8_t>(Value) & 128) == 0) {
+      static char const * const FormattedASCII[] = {
+        "\\0", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",  "BS", "\\t",
+        "\\n",  "VT", "\\f", "\\r",  "SO",  "SI", "DLE", "DC1", "DC2", "DC3",
+        "DC4", "NAK", "SYN", "ETB", "CAN",  "EM", "SUB", "ESC",  "FS",  "GS",
+         "RS",  "US",   " ",   "!",  "\"",   "#",   "$",   "%",   "&",   "'",
+          "(",   ")",   "*",   "+",   ",",   "-",   ".",   "/",   "0",   "1",
+          "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",   ":",   ";",
+          "<",   "=",   ">",   "?",   "@",   "A",   "B",   "C",   "D",   "E",
+          "F",   "G",   "H",   "I",   "J",   "K",   "L",   "M",   "N",   "O",
+          "P",   "Q",   "R",   "S",   "T",   "U",   "V",   "W",   "X",   "Y",
+          "Z",   "[",  "\\",   "]",   "^",   "_",   "`",   "a",   "b",   "c",
+          "d",   "e",   "f",   "g",   "h",   "i",   "j",   "k",   "l",   "m",
+          "n",   "o",   "p",   "q",   "r",   "s",   "t",   "u",   "v",   "w",
+          "x",   "y",   "z",   "{",   "|",   "}",   "~", "DEL" };
 
-    // Unsigned types
-    SEEC_HANDLE_BUILTIN(Bool, bool)
-    SEEC_HANDLE_BUILTIN(Char_U, char)
-    SEEC_HANDLE_BUILTIN(UChar, unsigned char)
-    SEEC_HANDLE_BUILTIN(WChar_U, wchar_t)
-    SEEC_HANDLE_BUILTIN(Char16, char16_t)
-    SEEC_HANDLE_BUILTIN(Char32, char32_t)
-    SEEC_HANDLE_BUILTIN(UShort, unsigned short)
-    SEEC_HANDLE_BUILTIN(UInt, unsigned int)
-    SEEC_HANDLE_BUILTIN(ULong, unsigned long)
-    SEEC_HANDLE_BUILTIN(ULongLong, unsigned long long)
-    SEEC_UNHANDLED_BUILTIN(UInt128)
+      Printed = FormattedASCII[static_cast<unsigned>(Value)];
+    }
+    else if (Type->getKind() == clang::BuiltinType::Char_S) {
+      Printed = std::to_string(static_cast<signed char>(Value));
+    }
+    else {
+      Printed = std::to_string(static_cast<unsigned char>(Value));
+    }
 
-    // Signed types
-    SEEC_HANDLE_BUILTIN(Char_S, char)
-    SEEC_HANDLE_BUILTIN(SChar, signed char)
-    SEEC_HANDLE_BUILTIN(WChar_S, wchar_t)
-    SEEC_HANDLE_BUILTIN(Short, short)
-    SEEC_HANDLE_BUILTIN(Int, int)
-    SEEC_HANDLE_BUILTIN(Long, long)
-    SEEC_HANDLE_BUILTIN(LongLong, long long)
-    SEEC_UNHANDLED_BUILTIN(Int128)
-
-    // Floating point types
-    SEEC_UNHANDLED_BUILTIN(Half)
-    SEEC_HANDLE_BUILTIN(Float, float)
-    SEEC_HANDLE_BUILTIN(Double, double)
-    SEEC_HANDLE_BUILTIN(LongDouble, long double)
-
-    // Language-specific types
-    SEEC_UNHANDLED_BUILTIN(NullPtr)
-    SEEC_UNHANDLED_BUILTIN(ObjCId)
-    SEEC_UNHANDLED_BUILTIN(ObjCClass)
-    SEEC_UNHANDLED_BUILTIN(ObjCSel)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage3d)
-    SEEC_UNHANDLED_BUILTIN(OCLSampler)
-    SEEC_UNHANDLED_BUILTIN(OCLEvent)
-    SEEC_UNHANDLED_BUILTIN(Dependent)
-    SEEC_UNHANDLED_BUILTIN(Overload)
-    SEEC_UNHANDLED_BUILTIN(BoundMember)
-    SEEC_UNHANDLED_BUILTIN(PseudoObject)
-    SEEC_UNHANDLED_BUILTIN(UnknownAny)
-    SEEC_UNHANDLED_BUILTIN(BuiltinFn)
-    SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
-
-#undef SEEC_HANDLE_BUILTIN
-#undef SEEC_UNHANDLED_BUILTIN
+    return Printed;
   }
-  
-  llvm_unreachable("unexpected builtin.");
+  else if (Type->isInteger()) {
+    auto const Size     = AST.getTypeSizeInChars(Type);
+    auto const Region   = Memory.getRegion(MemoryArea(Address,
+                                                      Size.getQuantity()));
+
+    if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+      return std::string{"<unallocated or uninitialized>"};
+
+    auto const BitWidth = AST.getTypeSize(Type);
+    auto const NWords   = BitWidth / 64 + (BitWidth % 64 ? 1 : 0);
+
+    uint64_t Words[NWords];
+    std::memcpy(reinterpret_cast<char *>(Words),
+                Region.getByteValues().data(),
+                Size.getQuantity());
+
+    llvm::SmallString<32> Buffer;
+
+    if (AST.getTargetInfo().isBigEndian() == llvm::sys::IsBigEndianHost) {
+      // Host and recorder have the same endianness.
+      llvm::APSInt Value(llvm::APInt(BitWidth,
+                                     llvm::ArrayRef<uint64_t>(Words, NWords)),
+                         Type->isUnsignedInteger());
+      Value.toString(Buffer);
+    }
+    else {
+      // Recorder's representation must be byte-swapped to match current host.
+      llvm::APSInt Value(llvm::APInt(BitWidth,
+                                     llvm::ArrayRef<uint64_t>(Words, NWords))
+                                    .byteSwap(),
+                         Type->isUnsignedInteger());
+      Value.toString(Buffer);
+    }
+
+    return Buffer.str().str();
+  }
+  else if (Type->isFloatingPoint()) {
+    auto const &Semantics = AST.getFloatTypeSemantics(clang::QualType(Type, 0));
+
+    if (&Semantics == &llvm::APFloat::IEEEsingle) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(float)));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      auto const RawBytes = Region.getByteValues();
+      auto const Value = *reinterpret_cast<float const *>(RawBytes.data());
+      return std::to_string(Value);
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEdouble) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(double)));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      auto const RawBytes = Region.getByteValues();
+      auto const Value = *reinterpret_cast<double const *>(RawBytes.data());
+      return std::to_string(Value);
+    }
+    else if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+      auto const Region = Memory.getRegion(MemoryArea(Address, 10));
+      if (!Region.isAllocated() || !Region.isCompletelyInitialized())
+        return std::string{"<unallocated or uninitialized>"};
+
+      uint64_t Vals[2] = {0, 0}; // 16 bytes.
+      memcpy(reinterpret_cast<char *>(Vals), Region.getByteValues().data(), 10);
+      llvm::APFloat APF(Semantics, llvm::APInt(80, Vals));
+
+      llvm::SmallString<32> Buffer;
+      APF.toString(Buffer);
+      return Buffer.str().str();
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEhalf) {
+      return std::string{"<IEEEhalf unsupported>"};
+    }
+    else if (&Semantics == &llvm::APFloat::IEEEquad) {
+      return std::string{"<IEEEquad unsupported>"};
+    }
+    else if (&Semantics == &llvm::APFloat::PPCDoubleDouble) {
+      return std::string{"<PPCDoubleDouble unsupported>"};
+    }
+  }
+  else if (Type->isVoidType()) {
+    return std::string{"<void>"};
+  }
+
+  clang::LangOptions LangOpts;
+  clang::PrintingPolicy Policy(LangOpts);
+  llvm::errs() << "unexpected builtin: " << Type->getName(Policy) << "\n";
   return std::string("<unexpected builtin>");
 }
 
 std::string
-getScalarValueAsString(::clang::Type const *Type,
-                       seec::trace::MemoryState::Region const &Region)
+getScalarValueAsString(clang::ASTContext const &AST,
+                       clang::Type const *Type,
+                       stateptr_ty const Address,
+                       seec::trace::MemoryState const &Memory)
 {
   auto const CanonQualType = Type->getCanonicalTypeInternal();
   auto const CanonType = CanonQualType.getTypePtr();
@@ -220,7 +360,7 @@ getScalarValueAsString(::clang::Type const *Type,
     case ::clang::Type::Builtin:
     {
       auto const Ty = llvm::cast< ::clang::BuiltinType>(CanonType);
-      return getScalarValueAsString(Ty, Region);
+      return getScalarValueAsString(AST, Ty, Address, Memory);
     }
     
     // AtomicType
@@ -229,7 +369,7 @@ getScalarValueAsString(::clang::Type const *Type,
       // Recursive on the underlying type.
       auto const Ty = llvm::cast< ::clang::AtomicType>(CanonType);
       auto const ValueTy = Ty->getValueType().getCanonicalType().getTypePtr();
-      return getScalarValueAsString(ValueTy, Region);
+      return getScalarValueAsString(AST, ValueTy, Address, Memory);
     }
     
     // EnumType
@@ -239,24 +379,30 @@ getScalarValueAsString(::clang::Type const *Type,
       auto const Ty = llvm::cast< ::clang::EnumType>(CanonType);
       auto const IntegerTy = Ty->getDecl()->getIntegerType();
       auto const CanonicalIntegerTy = IntegerTy.getCanonicalType().getTypePtr();
-      return getScalarValueAsString(CanonicalIntegerTy, Region);
+      return getScalarValueAsString(AST, CanonicalIntegerTy, Address, Memory);
     }
     
     // PointerType
     case ::clang::Type::Pointer:
     {
-      return GetMemoryOfBuiltinAsString<void const *>::impl(Region);
+      auto const MaybeValue = readAPIntFromMemory(AST, Type, Address, Memory);
+      if (MaybeValue.assigned<llvm::APInt>()) {
+        return std::string{"0x"}
+               + MaybeValue.get<llvm::APInt>().toString(16, false);
+      }
+      return std::string{"<unassigned value>"};
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
     case ::clang::Type::CLASS:                                                 \
       return std::string("<type class " #CLASS " not implemented>");
     
-    SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(Record) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(ConstantArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray) // TODO.
-    SEEC_UNHANDLED_TYPE_CLASS(VariableArray) // TODO.
+    // Not needed because this function is only for scalars.
+    SEEC_UNHANDLED_TYPE_CLASS(Complex)
+    SEEC_UNHANDLED_TYPE_CLASS(Record)
+    SEEC_UNHANDLED_TYPE_CLASS(ConstantArray)
+    SEEC_UNHANDLED_TYPE_CLASS(IncompleteArray)
+    SEEC_UNHANDLED_TYPE_CLASS(VariableArray)
     
     // Not needed because we don't support the language(s).
     SEEC_UNHANDLED_TYPE_CLASS(BlockPointer) // ObjC
@@ -306,11 +452,14 @@ getScalarValueAsString(::clang::Type const *Type,
 /// \brief Represents a simple scalar Value in memory.
 ///
 class ValueByMemoryForScalar final : public ValueOfScalar {
+  /// \c ASTContext for the \c Type of this value.
+  clang::ASTContext const &AST;
+
   /// The canonical Type of this value.
   ::clang::Type const * CanonicalType;
   
   /// The recorded memory address of the value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of the value.
   ::clang::CharUnits Size;
@@ -318,6 +467,13 @@ class ValueByMemoryForScalar final : public ValueOfScalar {
   /// The state of recorded memory.
   seec::trace::MemoryState const &Memory;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -329,24 +485,24 @@ class ValueByMemoryForScalar final : public ValueOfScalar {
   /// pre: isCompletelyInitialized() == true
   ///
   virtual bool isZeroImpl() const override {
-    auto const Region = Memory.getRegion(MemoryArea(Address,
-                                                    Size.getQuantity()));
-    
-    for (auto const Byte: Region.getByteValues())
-      if (Byte)
-        return false;
-    
-    return true;
+    auto const Values = Memory.getRegion(MemoryArea(Address,
+                                                    Size.getQuantity()))
+                              .getByteValues();
+
+    return std::all_of(Values.begin(), Values.end(),
+                       [] (char const V) { return V == 0; });
   }
   
 public:
   /// \brief Constructor.
   ///
   ValueByMemoryForScalar(::clang::Type const *WithCanonicalType,
-                         uintptr_t WithAddress,
+                         stateptr_ty WithAddress,
                          ::clang::CharUnits WithSize,
-                         seec::trace::ProcessState const &ForProcessState)
+                         seec::trace::ProcessState const &ForProcessState,
+                         clang::ASTContext const &WithAST)
   : ValueOfScalar(),
+    AST(WithAST),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     Size(WithSize),
@@ -373,7 +529,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   virtual bool isCompletelyInitialized() const override {
     auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
@@ -395,16 +551,127 @@ public:
   virtual std::string getValueAsStringShort() const override {
     if (!isCompletelyInitialized())
       return std::string("<uninitialized>");
-    
-    auto const Length = Size.getQuantity();
-    
-    return getScalarValueAsString(CanonicalType,
-                                  Memory.getRegion(MemoryArea(Address,
-                                                              Length)));
+
+    return getScalarValueAsString(AST, CanonicalType, Address, Memory);
   }
   
   virtual std::string getValueAsStringFull() const override {
     return getValueAsStringShort();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ValueByMemoryForComplex
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents a complex Value in memory.
+///
+class ValueByMemoryForComplex final : public ValueOfComplex {
+  /// \c ASTContext for the \c Type of this value.
+  clang::ASTContext const &AST;
+
+  /// The canonical Type of this value.
+  ::clang::ComplexType const * CanonicalType;
+
+  /// The recorded memory address of the value.
+  stateptr_ty Address;
+
+  /// The size of the value.
+  ::clang::CharUnits Size;
+
+  /// The state of recorded memory.
+  seec::trace::MemoryState const &Memory;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+  }
+
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return Size;
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  ValueByMemoryForComplex(::clang::ComplexType const *WithCanonicalType,
+                          stateptr_ty WithAddress,
+                          ::clang::CharUnits WithSize,
+                          seec::trace::ProcessState const &ForProcessState,
+                          clang::ASTContext const &WithAST)
+  : ValueOfComplex(),
+    AST(WithAST),
+    CanonicalType(WithCanonicalType),
+    Address(WithAddress),
+    Size(WithSize),
+    Memory(ForProcessState.getMemory())
+  {}
+
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return CanonicalType;
+  }
+
+  /// \brief In-memory scalar values never have an associated Expr.
+  /// \return nullptr.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return nullptr; }
+
+  /// \brief In-memory values are always in memory.
+  /// \return true.
+  ///
+  virtual bool isInMemory() const override { return true; }
+
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual stateptr_ty getAddress() const override { return Address; }
+
+  virtual bool isCompletelyInitialized() const override {
+    auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+    return Region.isCompletelyInitialized();
+  }
+
+  virtual bool isPartiallyInitialized() const override {
+    auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
+    return Region.isPartiallyInitialized();
+  }
+
+  virtual std::string getValueAsStringShort() const override {
+    if (!isCompletelyInitialized())
+      return std::string("<uninitialized>");
+
+    return getScalarValueAsString(AST, CanonicalType, Address, Memory);
+  }
+
+  virtual std::string getValueAsStringFull() const override {
+    std::string Ret;
+
+    auto const ElemTy =
+      llvm::dyn_cast<clang::BuiltinType>
+                    (CanonicalType->getElementType().getTypePtr());
+
+    auto const ElemSize = AST.getTypeSizeInChars(ElemTy);
+
+    auto const RealAddr = Address;
+    auto const ImagAddr = RealAddr + ElemSize.getQuantity();
+
+    Ret = getScalarValueAsString(AST, ElemTy, RealAddr, Memory);
+    auto const ImagStr = getScalarValueAsString(AST, ElemTy, ImagAddr, Memory);
+
+    if (ImagStr.size() == 0 || ImagStr[0] != '-')
+      Ret.push_back('+');
+    Ret += ImagStr;
+    Ret.push_back('i');
+
+    return Ret;
   }
 };
 
@@ -426,13 +693,13 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   ::clang::Type const *CanonicalType;
   
   /// The address of this pointer (not the value of the pointer).
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of the pointee type.
   ::clang::CharUnits PointeeSize;
   
   /// The raw value of this pointer.
-  uintptr_t RawValue;
+  stateptr_ty RawValue;
   
   /// The ProcessState that this value is for.
   seec::trace::ProcessState const &ProcessState;
@@ -442,9 +709,9 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   ValueByMemoryForPointer(std::weak_ptr<ValueStore const> InStore,
                           ::clang::ASTContext const &WithASTContext,
                           ::clang::Type const *WithCanonicalType,
-                          uintptr_t WithAddress,
+                          stateptr_ty WithAddress,
                           ::clang::CharUnits WithPointeeSize,
-                          uintptr_t WithRawValue,
+                          stateptr_ty WithRawValue,
                           seec::trace::ProcessState const &ForProcessState)
   : Store(InStore),
     ASTContext(WithASTContext),
@@ -455,6 +722,15 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
     ProcessState(ForProcessState)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address,
+                           std::size_t(getTypeSizeInCharsImpl().getQuantity())};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -464,12 +740,13 @@ class ValueByMemoryForPointer final : public ValueOfPointer {
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
   virtual bool isValidOpaqueImpl() const override {
-    return ProcessState.getDir(RawValue) != nullptr;
+    return ProcessState.getDir(RawValue) != nullptr
+        || ProcessState.getStream(RawValue) != nullptr;
   }
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const override {
+  virtual stateptr_ty getRawValueImpl() const override {
     return RawValue;
   }
   
@@ -486,7 +763,7 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState)
   {
     // Get the size of pointee type.
@@ -498,14 +775,16 @@ public:
                            ? ::clang::CharUnits::fromQuantity(0)
                            : ASTContext.getTypeSizeInChars(PointeeQType);
     
-    // Calculate the raw pointer value (don't worry if the memory is
-    // uninitialized: getByteValues() will return zeros and we simply won't use
-    // the calculated value).
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
-    
+    // Get the raw pointer value.
+    auto const MaybeValue = readAPIntFromMemory(ASTContext,
+                                                Type,
+                                                Address,
+                                                ProcessState.getMemory());
+
+    auto const PtrValue = MaybeValue.assigned<llvm::APInt>()
+                        ? MaybeValue.get<llvm::APInt>().getLimitedValue()
+                        : 0;
+
     // Create the object.
     return std::shared_ptr<ValueByMemoryForPointer const>
                           (new ValueByMemoryForPointer(Store,
@@ -533,7 +812,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   virtual bool isCompletelyInitialized() const override {
     auto const &Memory = ProcessState.getMemory();
@@ -559,10 +838,16 @@ public:
   virtual std::string getValueAsStringShort() const override {
     if (!isCompletelyInitialized())
       return std::string("<uninitialized>");
-    
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    return getScalarValueAsString(CanonicalType, Region);
+
+    std::string RetString;
+
+    {
+      llvm::raw_string_ostream Stream(RetString);
+      Stream << "0x";
+      Stream.write_hex(RawValue);
+    } // destruction of Stream will flush to RetString.
+
+    return RetString;
   }
   
   /// Get a string describing the value.
@@ -573,7 +858,7 @@ public:
   
   /// \brief Get the highest legal dereference of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const override {
+  virtual int getDereferenceIndexLimit() const override {
     if (!isCompletelyInitialized())
       return 0;
     
@@ -607,7 +892,7 @@ public:
   /// \brief Get the value of this pointer dereferenced using the given Index.
   ///
   virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
+  getDereferenced(int Index) const override {
     // Find the Store (if it still exists).
     auto StorePtr = Store.lock();
     if (!StorePtr)
@@ -619,154 +904,8 @@ public:
                     CanonicalType->getPointeeType(),
                     ASTContext,
                     Address,
-                    ProcessState);
-  }
-};
-
-
-//===----------------------------------------------------------------------===//
-// ValueByMemoryForPointerToFILE
-//===----------------------------------------------------------------------===//
-
-class ValueByMemoryForPointerToFILE final : public ValueOfPointerToFILE {
-  /// The canonical type of this Value.
-  ::clang::PointerType const *CanonType;
-  
-  /// The address of this Value in memory.
-  uintptr_t Address;
-  
-  /// The raw value of this FILE pointer.
-  uintptr_t RawValue;
-  
-  /// The initialization state of this Value.
-  InitializationState Initialized;
-  
-  /// The (unmapped) StreamState for this FILE, or nullptr if it is invalid.
-  seec::trace::StreamState const *Stream;
-  
-  /// \brief Get the size of the value's type.
-  ///
-  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
-    return ::clang::CharUnits::fromQuantity(sizeof(void *));
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValueImpl() const override {
-    assert(Initialized == InitializationState::Complete);
-    return RawValue;
-  }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  bool isValidImpl() const override { return Stream != nullptr; }
-  
-  /// \brief Constructor.
-  ///
-  ValueByMemoryForPointerToFILE(::clang::PointerType const *WithCanonType,
-                                uintptr_t const WithAddress,
-                                uintptr_t const WithRawValue,
-                                InitializationState const WithInitialized,
-                                seec::trace::StreamState const *WithStream)
-  : CanonType(WithCanonType),
-    Address(WithAddress),
-    RawValue(WithRawValue),
-    Initialized(WithInitialized),
-    Stream(WithStream)
-  {}
-  
-public:
-  /// \brief Attempt to create a new ValueByMemoryForPointer.
-  ///
-  static std::shared_ptr<ValueByMemoryForPointerToFILE const>
-  create(::clang::Type const * const CanonicalType,
-         uintptr_t const Address,
-         seec::trace::ProcessState const &ProcessState)
-  {
-    // Get the size of pointer type.
-    auto const Type = CanonicalType->getAs< ::clang::PointerType >();
-    assert(Type && "Expected PointerType");
-    
-    auto const &Memory = ProcessState.getMemory();
-    auto Region = Memory.getRegion(MemoryArea(Address, sizeof(uintptr_t)));
-    
-    // Determine the initialization state of the memory.
-    InitializationState const Initialized = Region.isCompletelyInitialized()
-                                          ? InitializationState::Complete
-                                          : (Region.isPartiallyInitialized()
-                                             ? InitializationState::Partial 
-                                             : InitializationState::None);
-    
-    // Calculate the raw pointer value (don't worry if the memory is
-    // uninitialized: getByteValues() will return zeros and we simply won't use
-    // the calculated value).
-    auto const RawBytes = Region.getByteValues();
-    auto const PtrValue = *reinterpret_cast<uintptr_t const *>(RawBytes.data());
-    
-    // Check whether the stream is valid.
-    auto const Stream = ProcessState.getStream(PtrValue);
-    
-    // Create the object.
-    return std::shared_ptr<ValueByMemoryForPointerToFILE const>
-                          (new ValueByMemoryForPointerToFILE{
-                                Type,
-                                Address,
-                                PtrValue,
-                                Initialized,
-                                Stream
-                               });
-  }
-  
-  /// \brief Get the canonical type of this Value.
-  ///
-  ::clang::Type const *getCanonicalType() const override {
-    return CanonType;
-  }
-  
-  /// \brief Get the Expr that this Value is for (if any).
-  ///
-  ::clang::Expr const *getExpr() const override { return nullptr; }
-  
-  /// \brief Check if this represents a value stored in memory.
-  ///
-  bool isInMemory() const override { return true; }
-  
-  /// \brief Get the address in memory.
-  /// 
-  /// pre: isInMemory() == true
-  ///
-  uintptr_t getAddress() const override { return Address; }
-  
-  /// \brief Check if this value is completely initialized.
-  ///
-  bool isCompletelyInitialized() const override {
-    return Initialized == InitializationState::Complete;
-  }
-  
-  /// \brief Check if this value is partially initialized.
-  ///
-  bool isPartiallyInitialized() const override {
-    return Initialized == InitializationState::Partial;
-  }
-  
-  /// \brief Get a string describing the value (which may be elided).
-  ///
-  std::string getValueAsStringShort() const override {
-    return getValueAsStringFull();
-  }
-  
-  /// \brief Get a string describing the value.
-  ///
-  std::string getValueAsStringFull() const override {
-    if (Initialized != InitializationState::Complete)
-      return std::string("<uninitialized>");
-    
-    if (!Stream)
-      return std::string("<invalid FILE>");
-    
-    std::string Value = "FILE ";
-    Value += Stream->getFilename();
-    return Value;
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -791,7 +930,7 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
   ::clang::Type const *CanonicalType;
   
   /// The memory address of this Value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The process state that this Value is in.
   seec::trace::ProcessState const &ProcessState;
@@ -802,7 +941,7 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
                          ::clang::ASTContext const &WithASTContext,
                          ::clang::ASTRecordLayout const &WithLayout,
                          ::clang::Type const *WithCanonicalType,
-                         uintptr_t WithAddress,
+                         stateptr_ty WithAddress,
                          seec::trace::ProcessState const &ForProcessState)
   : Store(InStore),
     ASTContext(WithASTContext),
@@ -812,12 +951,21 @@ class ValueByMemoryForRecord final : public ValueOfRecord {
     ProcessState(ForProcessState)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address,
+                           std::size_t(getTypeSizeInCharsImpl().getQuantity())};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
     return ASTContext.getTypeSizeInChars(CanonicalType);
   }
-  
+
 public:
   /// \brief Attempt to create a new instance of this class.
   ///
@@ -825,7 +973,7 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
+         stateptr_ty Address,
          seec::trace::ProcessState const &ProcessState)
   {
     auto const RecordTy = llvm::cast< ::clang::RecordType>(CanonicalType);
@@ -864,7 +1012,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   /// \brief Check if this value is completely initialized.
   ///
@@ -997,7 +1145,8 @@ public:
                     FieldIt->getType(),
                     ASTContext,
                     Address + (BitOffset / CHAR_BIT),
-                    ProcessState);
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -1019,7 +1168,7 @@ class ValueByMemoryForArray final : public ValueOfArray {
   ::clang::ArrayType const *CanonicalType;
   
   /// The memory address of this Value.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The size of an element.
   unsigned ElementSize;
@@ -1030,30 +1179,107 @@ class ValueByMemoryForArray final : public ValueOfArray {
   /// The process state that this Value is in.
   seec::trace::ProcessState const &ProcessState;
 
+  /// The function state that this Value is in.
+  seec::trace::FunctionState const *OwningFunction;
+
   /// \brief Constructor.
   ///
   ValueByMemoryForArray(std::weak_ptr<ValueStore const> InStore,
                         ::clang::ASTContext const &WithASTContext,
                         ::clang::ArrayType const *WithCanonicalType,
-                        uintptr_t WithAddress,
+                        stateptr_ty WithAddress,
                         unsigned WithElementSize,
                         unsigned WithElementCount,
-                        seec::trace::ProcessState const &ForProcessState)
+                        seec::trace::ProcessState const &ForProcessState,
+                        seec::trace::FunctionState const *WithOwningFunction)
   : Store(InStore),
     ASTContext(WithASTContext),
     CanonicalType(WithCanonicalType),
     Address(WithAddress),
     ElementSize(WithElementSize),
     ElementCount(WithElementCount),
-    ProcessState(ForProcessState)
+    ProcessState(ForProcessState),
+    OwningFunction(WithOwningFunction)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    MemoryArea const Area {Address, ElementSize * ElementCount};
+    return ProcessState.getMemory().getRegion(Area);
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
     return ASTContext.getTypeSizeInChars(CanonicalType);
   }
+
+  /// \brief Get the size of each child in this value.
+  ///
+  virtual std::size_t getChildSizeImpl() const override {
+    return ElementSize;
+  }
   
+  /// \brief Get the runtime value of a \c VariableArrayType size expression.
+  ///
+  static Maybe<uint64_t>
+  getValueOfSizeExpr(clang::VariableArrayType const *Type,
+                     trace::FunctionState const &State,
+                     seec_clang::MappedModule const &Mapping)
+  {
+    auto const MappedStmt =
+      Mapping.getMappedStmtForStmt(Type->getSizeExpr());
+
+    if (!MappedStmt ||
+        MappedStmt->getMapType() != seec_clang::MappedStmt::Type::RValScalar)
+    {
+      llvm::errs() << "VariableArrayType size expr unmapped.\n";
+      return Maybe<uint64_t>();
+    }
+
+    auto const MaybeSize =
+      seec::trace::getAPInt(State, MappedStmt->getValue());
+
+    if (!MaybeSize.assigned<llvm::APInt>()) {
+      llvm::errs() << "VariableArrayType size expr unresolvable.\n";
+      llvm::errs() << *(MappedStmt->getValue()) << "\n";
+      return Maybe<uint64_t>();
+    }
+
+    return MaybeSize.get<llvm::APInt>().getZExtValue();
+  }
+
+  static Maybe<uint64_t>
+  calculateElementTypeSize(clang::ASTContext const &ASTContext,
+                           clang::Type const *Type,
+                           trace::FunctionState const &OwningFunction,
+                           seec_clang::MappedModule const &Mapping)
+  {
+    auto const Size = ASTContext.getTypeSizeInChars(Type);
+    if (!Size.isZero())
+      return uint64_t(Size.getQuantity());
+
+    if (auto const VAType = llvm::dyn_cast<clang::VariableArrayType>(Type)) {
+      auto const ElemSize =
+        calculateElementTypeSize(ASTContext,
+                                 VAType->getElementType().getTypePtr(),
+                                 OwningFunction,
+                                 Mapping);
+      if (!ElemSize.assigned<uint64_t>())
+        return Maybe<uint64_t>();
+
+      auto const Count = getValueOfSizeExpr(VAType, OwningFunction, Mapping);
+      if (!Count.assigned<uint64_t>())
+        return Maybe<uint64_t>();
+
+      return ElemSize.get<uint64_t>() * Count.get<uint64_t>();
+    }
+
+    return uint64_t(0);
+  }
+
 public:
   /// \brief Attempt to create a new instance of this class.
   ///
@@ -1061,15 +1287,35 @@ public:
   create(std::weak_ptr<ValueStore const> Store,
          ::clang::ASTContext const &ASTContext,
          ::clang::Type const *CanonicalType,
-         uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState)
+         stateptr_ty Address,
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction)
   {
+    auto StorePtr = Store.lock();
+    if (!StorePtr)
+      return std::shared_ptr<ValueByMemoryForArray const>();
+
+    auto const &Mapping = StorePtr->getImpl().getMapping();
     auto const ArrayTy = llvm::cast< ::clang::ArrayType>(CanonicalType);
     auto const ElementTy = ArrayTy->getElementType();
-    auto const ElementSize = ASTContext.getTypeSizeInChars(ElementTy);
+
+    unsigned ElementSize = ASTContext.getTypeSizeInChars(ElementTy)
+                                     .getQuantity();
     
-    if (ElementSize.isZero()) {
-      return std::shared_ptr<ValueByMemoryForArray const>();
+    if (!ElementSize) {
+      if (OwningFunction) {
+        auto const MaybeSize =
+          calculateElementTypeSize(ASTContext,
+                                   ElementTy.getTypePtr(),
+                                   *OwningFunction,
+                                   Mapping);
+
+        if (MaybeSize.assigned<uint64_t>())
+          ElementSize = MaybeSize.get<uint64_t>();
+      }
+
+      if (!ElementSize)
+        return std::shared_ptr<ValueByMemoryForArray const>();
     }
     
     unsigned ElementCount = 0;
@@ -1083,17 +1329,31 @@ public:
         break;
       }
       
-      // We could attempt to get the runtime value generated by the size
-      // expression, but we would need access to the function state. Instead,
-      // just use whatever size fills the allocated memory block, as we do
-      // for IncompleteArray types.
-      case ::clang::Type::TypeClass::VariableArray: SEEC_FALLTHROUGH;
+      // Attempt to get the runtime value generated by the size
+      // expression, but we would need access to the function state.
+      case ::clang::Type::TypeClass::VariableArray:
+        if (OwningFunction) {
+          auto const Ty = llvm::cast< ::clang::VariableArrayType>(ArrayTy);
+          auto const MaybeCount = getValueOfSizeExpr(Ty, *OwningFunction,
+                                                     Mapping);
+
+          if (MaybeCount.assigned<uint64_t>())
+            ElementCount = MaybeCount.get<uint64_t>();
+          else
+            llvm::errs() << "couldn't resolve VariableArrayType size\n";
+        }
+        else {
+          llvm::errs() << "VariableArray with no owning function\n";
+        }
+        break;
+
+      // Use whatever size fills the allocated memory block.
       case ::clang::Type::TypeClass::IncompleteArray:
       {
         auto const MaybeArea = ProcessState.getContainingMemoryArea(Address);
         if (MaybeArea.assigned<MemoryArea>()) {
           auto const Area = MaybeArea.get<MemoryArea>().withStart(Address);
-          ElementCount = Area.length() / ElementSize.getQuantity();
+          ElementCount = Area.length() / ElementSize;
         }
         
         break;
@@ -1111,9 +1371,10 @@ public:
                                                      ASTContext,
                                                      ArrayTy,
                                                      Address,
-                                                     ElementSize.getQuantity(),
+                                                     ElementSize,
                                                      ElementCount,
-                                                     ProcessState));
+                                                     ProcessState,
+                                                     OwningFunction));
   }
   
   /// \brief Get the canonical type of this Value.
@@ -1136,7 +1397,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return Address; }
+  virtual stateptr_ty getAddress() const override { return Address; }
   
   /// \brief Check if this value is completely initialized.
   ///
@@ -1221,7 +1482,8 @@ public:
                     CanonicalType->getElementType(),
                     ASTContext,
                     ChildAddress,
-                    ProcessState);
+                    ProcessState,
+                    OwningFunction);
   }
 };
 
@@ -1230,32 +1492,19 @@ public:
 // getScalarValueAsAPSInt() - from llvm::Value
 //===----------------------------------------------------------------------===//
 
-template<typename T>
-struct GetValueOfBuiltinAsAPSInt {
-  static seec::Maybe<llvm::APSInt>
-  impl(seec::trace::FunctionState const &State, ::llvm::Value const *Value)
-  {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
-                                                                 (State, Value);
-    if (!MaybeValue.assigned())
-      return seec::Maybe<llvm::APSInt>();
-    
-    llvm::APSInt APSValue(sizeof(T) * CHAR_BIT, std::is_unsigned<T>::value);
-    APSValue = MaybeValue.template get<0>();
-    
-    return APSValue;
-  }
-};
-
 seec::Maybe<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::BuiltinType const *Type,
                        ::llvm::Value const *Value)
 {
   switch (Type->getKind()) {
-#define SEEC_HANDLE_BUILTIN(KIND, HOST_TYPE)                                   \
+#define SEEC_HANDLE_BUILTIN_UNSIGNED(KIND, HOST_TYPE)                          \
     case clang::BuiltinType::KIND:                                             \
-      return GetValueOfBuiltinAsAPSInt<HOST_TYPE>::impl(State, Value);
+      return seec::trace::getAPSIntUnsigned(State, Value);
+
+#define SEEC_HANDLE_BUILTIN_SIGNED(KIND, HOST_TYPE)                            \
+    case clang::BuiltinType::KIND:                                             \
+      return seec::trace::getAPSIntSigned(State, Value);
 
 #define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
     case clang::BuiltinType::KIND:                                             \
@@ -1265,26 +1514,26 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(Void)
     
     // Unsigned types
-    SEEC_HANDLE_BUILTIN(Bool, bool)
-    SEEC_HANDLE_BUILTIN(Char_U, char)
-    SEEC_HANDLE_BUILTIN(UChar, unsigned char)
-    SEEC_HANDLE_BUILTIN(WChar_U, wchar_t)
-    SEEC_HANDLE_BUILTIN(Char16, char16_t)
-    SEEC_HANDLE_BUILTIN(Char32, char32_t)
-    SEEC_HANDLE_BUILTIN(UShort, unsigned short)
-    SEEC_HANDLE_BUILTIN(UInt, unsigned int)
-    SEEC_HANDLE_BUILTIN(ULong, unsigned long)
-    SEEC_HANDLE_BUILTIN(ULongLong, unsigned long long)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Bool, bool)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char_U, char)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UChar, unsigned char)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(WChar_U, wchar_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char16, char16_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(Char32, char32_t)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UShort, unsigned short)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(UInt, unsigned int)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(ULong, unsigned long)
+    SEEC_HANDLE_BUILTIN_UNSIGNED(ULongLong, unsigned long long)
     SEEC_UNHANDLED_BUILTIN(UInt128)
 
     // Signed types
-    SEEC_HANDLE_BUILTIN(Char_S, char)
-    SEEC_HANDLE_BUILTIN(SChar, signed char)
-    SEEC_HANDLE_BUILTIN(WChar_S, wchar_t)
-    SEEC_HANDLE_BUILTIN(Short, short)
-    SEEC_HANDLE_BUILTIN(Int, int)
-    SEEC_HANDLE_BUILTIN(Long, long)
-    SEEC_HANDLE_BUILTIN(LongLong, long long)
+    SEEC_HANDLE_BUILTIN_SIGNED(Char_S, char)
+    SEEC_HANDLE_BUILTIN_SIGNED(SChar, signed char)
+    SEEC_HANDLE_BUILTIN_SIGNED(WChar_S, wchar_t)
+    SEEC_HANDLE_BUILTIN_SIGNED(Short, short)
+    SEEC_HANDLE_BUILTIN_SIGNED(Int, int)
+    SEEC_HANDLE_BUILTIN_SIGNED(Long, long)
+    SEEC_HANDLE_BUILTIN_SIGNED(LongLong, long long)
     SEEC_UNHANDLED_BUILTIN(Int128)
 
     // Floating point types
@@ -1314,7 +1563,8 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(BuiltinFn)
     SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
 
-#undef SEEC_HANDLE_BUILTIN
+#undef SEEC_HANDLE_BUILTIN_UNSIGNED
+#undef SEEC_HANDLE_BUILTIN_SIGNED
 #undef SEEC_UNHANDLED_BUILTIN
   }
   
@@ -1363,20 +1613,54 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 // getScalarValueAsString() - from llvm::Value
 //===----------------------------------------------------------------------===//
 
+template<typename T, typename Enable = void>
+struct GetValueOfBuiltinAsString; // undefined
+
 template<typename T>
-struct GetValueOfBuiltinAsString {
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_integral<T>::value && is_signed<T>::value>::type>
+{
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<T>
-                                                                 (State, Value);
-    if (!MaybeValue.assigned()) {
-      return std::string("<")
-             + __PRETTY_FUNCTION__
-             + ": couldn't get current runtime value>";
+    auto const MaybeValue = seec::trace::getAPSIntSigned(State, Value);
+    if (MaybeValue.assigned())
+      return MaybeValue.get<llvm::APSInt>().toString(10);
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
+  }
+};
+
+template<typename T>
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_integral<T>::value && is_unsigned<T>::value>::type>
+{
+  static std::string impl(seec::trace::FunctionState const &State,
+                          ::llvm::Value const *Value)
+  {
+    auto const MaybeValue = seec::trace::getAPInt(State, Value);
+    if (MaybeValue.assigned())
+      return MaybeValue.get<llvm::APInt>().toString(10, false);
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
+  }
+};
+
+template<typename T>
+struct GetValueOfBuiltinAsString
+<T, typename enable_if<is_floating_point<T>::value>::type>
+{
+  static std::string impl(seec::trace::FunctionState const &State,
+                          ::llvm::Value const *Value)
+  {
+    auto const MaybeValue = seec::trace::getAPFloat(State, Value);
+    if (MaybeValue.assigned()) {
+      llvm::SmallString<32> Buffer;
+      MaybeValue.get<llvm::APFloat>().toString(Buffer);
+      return Buffer.str().str();
     }
-    
-    return std::to_string(MaybeValue.template get<0>());
+    else
+      return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
   }
 };
 
@@ -1385,19 +1669,12 @@ struct GetValueOfBuiltinAsString<void const *> {
   static std::string impl(seec::trace::FunctionState const &State,
                           ::llvm::Value const *Value)
   {
-    auto const MaybeValue = seec::trace::getCurrentRuntimeValueAs<void const *>
-                                                                 (State, Value);
+    auto const MaybeValue = seec::trace::getAPInt(State, Value);
     if (!MaybeValue.assigned())
       return std::string("<void const *: couldn't get current runtime value>");
-    
-    std::string RetStr;
-    
-    {
-      llvm::raw_string_ostream Stream(RetStr);
-      Stream << MaybeValue.get<0>();
-    }
-    
-    return RetStr;
+
+    return std::string{"0x"}
+           + MaybeValue.get<llvm::APInt>().toString(16, false);
   }
 };
 
@@ -1556,12 +1833,12 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     // PointerType
     case ::clang::Type::Pointer:
     {
-      auto const MaybeInt = GetValueOfBuiltinAsAPSInt<uintptr_t>::impl(State,
-                                                                       Value);
-      if (!MaybeInt.assigned<llvm::APSInt>())
+      auto const MaybeInt = seec::trace::getAPInt(State, Value);
+      if (!MaybeInt.assigned<llvm::APInt>())
         return std::string("<pointer: couldn't get value>");
       
-      return std::string("0x") + MaybeInt.get<llvm::APSInt>().toString(16);
+      auto const Value = MaybeInt.get<llvm::APInt>();
+      return std::string("0x") + Value.toString(16, false);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -1637,6 +1914,13 @@ class ValueByRuntimeValueForScalar final : public ValueOfScalar {
   /// The size of this value.
   ::clang::CharUnits TypeSizeInChars;
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -1690,7 +1974,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return 0; }
+  virtual stateptr_ty getAddress() const override { return 0; }
   
   /// \brief Runtime values are always initialized (at the moment).
   ///
@@ -1708,6 +1992,117 @@ public:
     return getScalarValueAsString(FunctionState, CanonTy, LLVMValue);
   }
   
+  /// \brief Get a string describing the value.
+  ///
+  virtual std::string getValueAsStringFull() const override {
+    return getValueAsStringShort();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
+// ValueByRuntimeValueForComplex
+//===----------------------------------------------------------------------===//
+
+/// \brief Represents a complex Value in LLVM's virtual registers.
+///
+class ValueByRuntimeValueForComplex final : public ValueOfComplex {
+  /// The Expr that this value is for.
+  ::clang::Expr const *m_Expression;
+
+  /// The FunctionState that this value is for.
+  seec::trace::FunctionState const &m_FunctionState;
+
+  /// The LLVM Value for the real part of this value.
+  llvm::Value const *m_Real;
+
+  /// The LLVM Value for the imaginary part of this value.
+  llvm::Value const *m_Imag;
+
+  /// The size of this value.
+  ::clang::CharUnits m_TypeSize;
+
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
+  /// \brief Get the size of the value's type.
+  ///
+  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
+    return m_TypeSize;
+  }
+
+public:
+  /// \brief Constructor.
+  ///
+  ValueByRuntimeValueForComplex(::clang::Expr const *ForExpression,
+                               seec::trace::FunctionState const &ForState,
+                               llvm::Value const *WithRealValue,
+                               llvm::Value const *WithImagValue,
+                               ::clang::CharUnits WithTypeSizeInChars)
+  : ValueOfComplex(),
+    m_Expression(ForExpression),
+    m_FunctionState(ForState),
+    m_Real(WithRealValue),
+    m_Imag(WithImagValue),
+    m_TypeSize(WithTypeSizeInChars)
+  {}
+
+  /// \brief Get the canonical type of this Value.
+  ///
+  virtual ::clang::Type const *getCanonicalType() const override {
+    return m_Expression->getType().getCanonicalType().getTypePtr();
+  }
+
+  /// \brief Get the Expr that this Value is for.
+  ///
+  virtual ::clang::Expr const *getExpr() const override { return m_Expression; }
+
+  /// \brief Runtime values are never in memory.
+  ///
+  virtual bool isInMemory() const override { return false; }
+
+  /// \brief Get the address in memory.
+  ///
+  /// pre: isInMemory() == true
+  ///
+  virtual stateptr_ty getAddress() const override { return 0; }
+
+  /// \brief Runtime values are always initialized (at the moment).
+  ///
+  virtual bool isCompletelyInitialized() const override { return true; }
+
+  /// \brief Runtime values are never partially initialized (at the moment).
+  ///
+  virtual bool isPartiallyInitialized() const override { return false; }
+
+  /// \brief Get a string describing the value (which may be elided).
+  ///
+  virtual std::string getValueAsStringShort() const override {
+    auto const MaybeReal = getAPFloat(m_FunctionState, m_Real);
+    if (!MaybeReal.assigned<llvm::APFloat>())
+      return "<real part not found>";
+
+    auto const MaybeImag = getAPFloat(m_FunctionState, m_Imag);
+    if (!MaybeImag.assigned<llvm::APFloat>())
+      return "<imaginary part not found>";
+
+    auto const &Real = MaybeReal.get<llvm::APFloat>();
+    auto const &Imag = MaybeImag.get<llvm::APFloat>();
+
+    llvm::SmallString<32> TheString;
+    Real.toString(TheString);
+
+    if (!Imag.isInfinity() && !Imag.isNegative())
+      TheString.push_back('+');
+    Imag.toString(TheString);
+    TheString.push_back('i');
+    return TheString.str().str();
+  }
+
   /// \brief Get a string describing the value.
   ///
   virtual std::string getValueAsStringFull() const override {
@@ -1736,7 +2131,7 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   seec::trace::ProcessState const &ProcessState;
   
   /// The value of this pointer.
-  uintptr_t PtrValue;
+  stateptr_ty PtrValue;
   
   /// The size of the pointee type.
   ::clang::CharUnits PointeeSize;
@@ -1747,7 +2142,7 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
                                 ::clang::Expr const *ForExpression,
                                 seec::seec_clang::MappedAST const &WithAST,
                                 seec::trace::ProcessState const &ForState,
-                                uintptr_t WithPtrValue,
+                                stateptr_ty WithPtrValue,
                                 ::clang::CharUnits WithPointeeSize)
   : Store(WithStore),
     Expression(ForExpression),
@@ -1757,6 +2152,13 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
     PointeeSize(WithPointeeSize)
   {}
   
+  /// \brief Get the region of memory that this Value occupies.
+  ///
+  virtual seec::Maybe<seec::trace::MemoryStateRegion>
+  getUnmappedMemoryRegionImpl() const override {
+    return seec::Maybe<seec::trace::MemoryStateRegion>();
+  }
+
   /// \brief Get the size of the value's type.
   ///
   virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
@@ -1768,12 +2170,13 @@ class ValueByRuntimeValueForPointer final : public ValueOfPointer {
   /// \brief Check if this is a valid opaque pointer (e.g. a DIR *).
   ///
   virtual bool isValidOpaqueImpl() const override {
-    return ProcessState.getDir(PtrValue) != nullptr;
+    return ProcessState.getDir(PtrValue) != nullptr
+        || ProcessState.getStream(PtrValue) != nullptr;
   }
   
   /// \brief Get the raw value of this pointer.
   ///
-  virtual uintptr_t getRawValueImpl() const override { return PtrValue; }
+  virtual stateptr_ty getRawValueImpl() const override { return PtrValue; }
   
   /// \brief Get the size of the pointee type.
   ///
@@ -1792,13 +2195,11 @@ public:
          llvm::Value const *LLVMValue)
   {
     // Get the raw runtime value of the pointer.
-    auto const MaybeValue =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                           (FunctionState, LLVMValue);
+    auto const MaybeValue = seec::trace::getAPInt(FunctionState, LLVMValue);
     if (!MaybeValue.assigned())
       return std::shared_ptr<ValueByRuntimeValueForPointer>();
     
-    auto const PtrValue = MaybeValue.get<uintptr_t>();
+    auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
     
     // Get the MappedAST and ASTContext.
     auto const &MappedAST = SMap.getAST();
@@ -1808,8 +2209,7 @@ public:
     auto const &ProcessState = FunctionState.getParent().getParent();
     
     // Get the size of pointee type.
-    auto const Type = llvm::cast< ::clang::PointerType>
-                                (Expression->getType().getTypePtr());
+    auto const Type = Expression->getType()->getAs<clang::PointerType>();
     auto const PointeeQType = Type->getPointeeType().getCanonicalType();
     auto const PointeeSize = PointeeQType->isIncompleteType()
                            ? ::clang::CharUnits::fromQuantity(0)
@@ -1843,7 +2243,7 @@ public:
   ///
   /// pre: isInMemory() == true
   ///
-  virtual uintptr_t getAddress() const override { return 0; }
+  virtual stateptr_ty getAddress() const override { return 0; }
   
   /// \brief Runtime values are always initialized (at the moment).
   ///
@@ -1874,7 +2274,7 @@ public:
   
   /// \brief Get the highest legal dereference of this value.
   ///
-  virtual unsigned getDereferenceIndexLimit() const override {
+  virtual int getDereferenceIndexLimit() const override {
     // TODO: Move these calculations into the construction process.
     auto const MaybeArea = ProcessState.getContainingMemoryArea(PtrValue);
     if (!MaybeArea.assigned<MemoryArea>())
@@ -1902,7 +2302,7 @@ public:
   /// \brief Get the value of this pointer dereferenced using the given Index.
   ///
   virtual std::shared_ptr<Value const>
-  getDereferenced(unsigned Index) const override {
+  getDereferenced(int Index) const override {
     // Get the store (if it still exists).
     auto StorePtr = Store.lock();
     if (!StorePtr)
@@ -1914,120 +2314,8 @@ public:
                     Expression->getType()->getPointeeType(),
                     MappedAST.getASTUnit().getASTContext(),
                     Address,
-                    ProcessState);
-  }
-};
-
-
-//===----------------------------------------------------------------------===//
-// ValueByRuntimeValueForPointerToFILE
-//===----------------------------------------------------------------------===//
-
-class ValueByRuntimeValueForPointerToFILE final : public ValueOfPointerToFILE {
-  /// The Expr that this value is for.
-  ::clang::Expr const *Expression;
-  
-  /// The raw value of this FILE pointer.
-  uintptr_t RawValue;
-  
-  /// The (unmapped) StreamState for this FILE, or nullptr if it is invalid.
-  seec::trace::StreamState const *Stream;
-  
-  /// \brief Get the size of the value's type.
-  ///
-  virtual ::clang::CharUnits getTypeSizeInCharsImpl() const override {
-    return ::clang::CharUnits::fromQuantity(sizeof(void *));
-  }
-  
-  /// \brief Get the raw value of this pointer.
-  ///
-  uintptr_t getRawValueImpl() const override { return RawValue; }
-  
-  /// \brief Check whether this FILE pointer is valid (an open stream).
-  ///
-  bool isValidImpl() const override { return Stream != nullptr; }
-  
-  /// \brief Constructor.
-  ///
-  ValueByRuntimeValueForPointerToFILE(::clang::Expr const *WithExpression,
-                                      uintptr_t const WithRawValue,
-                                      trace::StreamState const *WithStream)
-  : Expression(WithExpression),
-    RawValue(WithRawValue),
-    Stream(WithStream)
-  {}
-  
-public:
-  /// \brief Attempt to create a new \c ValueByRuntimeValueForPointerToFILE.
-  ///
-  static std::shared_ptr<ValueByRuntimeValueForPointerToFILE>
-  create(::clang::Expr const *Expression,
-         seec::trace::FunctionState const &FunctionState,
-         llvm::Value const *LLVMValue)
-  {
-    // Get the raw runtime value of the pointer.
-    auto const MaybeValue =
-      seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                           (FunctionState, LLVMValue);
-    if (!MaybeValue.assigned())
-      return std::shared_ptr<ValueByRuntimeValueForPointerToFILE>();
-    
-    auto const PtrValue = MaybeValue.get<uintptr_t>();
-    
-    // Check whether the stream is valid.
-    auto const &Process = FunctionState.getParent().getParent();
-    auto const Stream = Process.getStream(PtrValue);
-    
-    // Create the object.
-    return std::shared_ptr<ValueByRuntimeValueForPointerToFILE>
-                          (new ValueByRuntimeValueForPointerToFILE(Expression,
-                                                                   PtrValue,
-                                                                   Stream));
-  }
-  
-  /// \brief Get the canonical type of this Value.
-  ///
-  ::clang::Type const *getCanonicalType() const override {
-    return Expression->getType().getCanonicalType().getTypePtr();
-  }
-  
-  /// \brief Get the Expr that this Value is for (if any).
-  ///
-  ::clang::Expr const *getExpr() const override { return Expression; }
-  
-  /// \brief Check if this represents a value stored in memory.
-  ///
-  bool isInMemory() const override { return false; }
-  
-  /// \brief Get the address in memory.
-  /// 
-  /// pre: isInMemory() == true
-  ///
-  uintptr_t getAddress() const override { return 0; }
-  
-  /// \brief Check if this value is completely initialized.
-  ///
-  bool isCompletelyInitialized() const override { return true; }
-  
-  /// \brief Check if this value is partially initialized.
-  ///
-  bool isPartiallyInitialized() const override { return false; }
-  
-  /// \brief Get a string describing the value (which may be elided).
-  ///
-  std::string getValueAsStringShort() const override {
-    return getValueAsStringFull();
-  }
-  
-  /// \brief Get a string describing the value.
-  ///
-  std::string getValueAsStringFull() const override {
-    if (!Stream)
-      return std::string("<invalid FILE>");
-    
-    std::string Value = "FILE ";
-    Value += Stream->getFilename();
-    return Value;
+                    ProcessState,
+                    /* OwningFunction */ nullptr);
   }
 };
 
@@ -2042,8 +2330,9 @@ std::shared_ptr<Value const>
 createValue(std::shared_ptr<ValueStore const> Store,
             ::clang::QualType QualType,
             ::clang::ASTContext const &ASTContext,
-            uintptr_t Address,
-            seec::trace::ProcessState const &ProcessState)
+            stateptr_ty Address,
+            seec::trace::ProcessState const &ProcessState,
+            seec::trace::FunctionState const *OwningFunction)
 {
   if (!QualType.getTypePtr()) {
     llvm_unreachable("null type");
@@ -2052,15 +2341,28 @@ createValue(std::shared_ptr<ValueStore const> Store,
   
   auto const CanonicalType = QualType.getCanonicalType();
   if (CanonicalType->isIncompleteType()) {
-    DEBUG(llvm::dbgs() << "Can't create Value for incomplete type.\n");
+    llvm::errs() << "can't create value for incomplete type: "
+                 << CanonicalType.getAsString() << "\n";
     return std::shared_ptr<Value const>(); // No values for incomplete types.
   }
   
-  auto const TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
+  auto TypeSize = ASTContext.getTypeSizeInChars(CanonicalType);
   
   switch (CanonicalType->getTypeClass()) {
     // Scalar values.
-    case ::clang::Type::Builtin: SEEC_FALLTHROUGH;
+    case ::clang::Type::Builtin:
+    {
+      // Correct the size of long double to only consider the used bytes.
+      auto const BT = llvm::dyn_cast< ::clang::BuiltinType >(CanonicalType);
+      if (BT->getKind() == clang::BuiltinType::LongDouble) {
+        auto const &Semantics = ASTContext.getFloatTypeSemantics(CanonicalType);
+        if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+          TypeSize = ::clang::CharUnits::fromQuantity(10);
+        }
+      }
+
+      SEEC_FALLTHROUGH;
+    }
     case ::clang::Type::Atomic:  SEEC_FALLTHROUGH;
     case ::clang::Type::Enum:
     {
@@ -2068,29 +2370,28 @@ createValue(std::shared_ptr<ValueStore const> Store,
                              (CanonicalType.getTypePtr(),
                               Address,
                               TypeSize,
-                              ProcessState);
+                              ProcessState,
+                              ASTContext);
+    }
+
+    case ::clang::Type::Complex:
+    {
+      auto const CT = llvm::dyn_cast< ::clang::ComplexType>(CanonicalType);
+      return std::make_shared<ValueByMemoryForComplex>
+                             (CT,
+                              Address,
+                              TypeSize,
+                              ProcessState,
+                              ASTContext);
     }
     
     case ::clang::Type::Pointer:
     {
-      auto const Desugared = QualType.getDesugaredType(ASTContext);
-      auto const DesugaredPointer = Desugared->getAs<clang::PointerType>();
-      auto const DesugaredPointee = DesugaredPointer->getPointeeType();
-      auto const FILEType = ASTContext.getFILEType();
-      
-      if (DesugaredPointee.getTypePtrOrNull() == FILEType.getTypePtrOrNull())
-      {
-        return ValueByMemoryForPointerToFILE::create(CanonicalType.getTypePtr(),
-                                                     Address,
-                                                     ProcessState);
-      }
-      else {
-        return ValueByMemoryForPointer::create(Store,
-                                               ASTContext,
-                                               CanonicalType.getTypePtr(),
-                                               Address,
-                                               ProcessState);
-      }
+      return ValueByMemoryForPointer::create(Store,
+                                             ASTContext,
+                                             CanonicalType.getTypePtr(),
+                                             Address,
+                                             ProcessState);
     }
     
     case ::clang::Type::Record:
@@ -2110,14 +2411,13 @@ createValue(std::shared_ptr<ValueStore const> Store,
                                            ASTContext,
                                            CanonicalType.getTypePtr(),
                                            Address,
-                                           ProcessState);
+                                           ProcessState,
+                                           OwningFunction);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
     case ::clang::Type::CLASS:                                                 \
       return std::shared_ptr<Value const>();
-    
-    SEEC_UNHANDLED_TYPE_CLASS(Complex) // TODO.
     
     // Not needed because we don't support the language(s).
     SEEC_UNHANDLED_TYPE_CLASS(BlockPointer) // ObjC
@@ -2161,114 +2461,71 @@ createValue(std::shared_ptr<ValueStore const> Store,
 
 
 //===----------------------------------------------------------------------===//
-// ValueStoreImpl
+// ValueStoreImpl method definitions
 //===----------------------------------------------------------------------===//
 
-class TypedValueSet {
-  std::vector<std::pair<MatchType, std::shared_ptr<Value const>>> Items;
+std::shared_ptr<Value const>
+ValueStoreImpl::getValue(std::shared_ptr<ValueStore const> StorePtr,
+                         ::clang::QualType QualType,
+                         ::clang::ASTContext const &ASTContext,
+                         stateptr_ty Address,
+                         seec::trace::ProcessState const &ProcessState,
+                         seec::trace::FunctionState const *OwningFunction) const
+{
+  auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
+  if (!CanonicalType) {
+    llvm::errs() << "can't get value: QualType has no CanonicalType.\n"
+                  << "QualType: " << QualType.getAsString() << "\n";
+    return std::shared_ptr<Value const>();
+  }
 
-public:
-  TypedValueSet()
-  : Items()
-  {}
-  
-  std::shared_ptr<Value const> getShared(MatchType const &ForType) const {
-    for (auto const &Pair : Items)
-      if (Pair.first == ForType)
-        return Pair.second;
-    
-    return std::shared_ptr<Value const>{};
-  }
-  
-  Value const *get(MatchType const &ForType) const {
-    for (auto const &Pair : Items)
-      if (Pair.first == ForType)
-        return Pair.second.get();
-    
-    return nullptr;
-  }
-  
-  void add(MatchType const &ForType, std::shared_ptr<Value const> Val) {
-    Items.emplace_back(ForType, std::move(Val));
-  }
-};
+  // Lock the Store.
+  std::lock_guard<std::mutex> LockStore(StoreAccess);
 
-class ValueStoreImpl final {
-  /// Control access to the Store variable.
-  mutable std::mutex StoreAccess;
-  
-  // Two-stage lookup to find previously created Value objects.
-  // The first stage is the in-memory address of the object.
-  // The second stage is the canonical type of the object.
-  mutable llvm::DenseMap<uintptr_t, TypedValueSet> Store;
-  
-  // Disable copying and moving.
-  ValueStoreImpl(ValueStoreImpl const &) = delete;
-  ValueStoreImpl(ValueStoreImpl &&) = delete;
-  ValueStoreImpl &operator=(ValueStoreImpl const &) = delete;
-  ValueStoreImpl &operator=(ValueStore &&) = delete;
-  
-public:
-  /// \brief Constructor.
-  ValueStoreImpl()
-  : Store()
-  {}
-  
-  /// \brief Find or construct a Value for the given type.
-  ///
-  std::shared_ptr<Value const>
-  getValue(std::shared_ptr<ValueStore const> StorePtr,
-           ::clang::QualType QualType,
-           ::clang::ASTContext const &ASTContext,
-           uintptr_t Address,
-           seec::trace::ProcessState const &ProcessState) const
-  {
-    auto const CanonicalType = QualType.getCanonicalType().getTypePtr();
-    if (!CanonicalType) {
-      DEBUG(llvm::dbgs() << "QualType has no CanonicalType.\n");
-      return std::shared_ptr<Value const>();
-    }
-    
-    // Lock the Store.
-    std::lock_guard<std::mutex> LockStore(StoreAccess);
-    
-    // Get (or create) the lookup table for this memory address.
-    auto &TypeMap = Store[Address];
-    
-    auto const Matcher = MatchType(ASTContext, *CanonicalType);
-    auto const Existing = TypeMap.getShared(Matcher);
-    if (Existing)
-      return Existing;
-    
-    // We must create a new Value.
-    auto SharedPtr = createValue(StorePtr,
-                                 QualType,
-                                 ASTContext,
-                                 Address,
-                                 ProcessState);
-    if (!SharedPtr)
-      return SharedPtr;
-    
-    // Store a shared_ptr for this Value in the lookup table.
-    TypeMap.add(Matcher, SharedPtr);
-    
+  // Get (or create) the lookup table for this memory address.
+  auto &TypeMap = Store[Address];
+
+  auto const Matcher = MatchType(ASTContext, *CanonicalType);
+  auto const Existing = TypeMap.getShared(Matcher);
+  if (Existing)
+    return Existing;
+
+  // We must create a new Value.
+  auto SharedPtr = createValue(StorePtr,
+                                QualType,
+                                ASTContext,
+                                Address,
+                                ProcessState,
+                                OwningFunction);
+  if (!SharedPtr)
     return SharedPtr;
-  }
-};
+
+  // Store a shared_ptr for this Value in the lookup table.
+  TypeMap.add(Matcher, SharedPtr);
+
+  return SharedPtr;
+}
 
 
 //===----------------------------------------------------------------------===//
 // ValueStore
 //===----------------------------------------------------------------------===//
 
-ValueStore::ValueStore()
-: Impl(new ValueStoreImpl())
+ValueStore::ValueStore(seec::seec_clang::MappedModule const &WithMapping)
+: Impl(new ValueStoreImpl(WithMapping))
 {}
 
 ValueStore::~ValueStore() = default;
 
 ValueStoreImpl const &ValueStore::getImpl() const {
   return *Impl;
+}
+
+std::shared_ptr<Value const>
+ValueStore::findFromAddressAndType(stateptr_ty Address,
+                                   llvm::StringRef TypeString) const
+{
+  return Impl->findFromAddressAndType(Address, TypeString);
 }
 
 
@@ -2282,14 +2539,16 @@ std::shared_ptr<Value const>
 getValue(std::shared_ptr<ValueStore const> Store,
          ::clang::QualType QualType,
          ::clang::ASTContext const &ASTContext,
-         uintptr_t Address,
-         seec::trace::ProcessState const &ProcessState)
+         stateptr_ty Address,
+         seec::trace::ProcessState const &ProcessState,
+         seec::trace::FunctionState const *OwningFunction)
 {
   return Store->getImpl().getValue(Store,
                                    QualType,
                                    ASTContext,
                                    Address,
-                                   ProcessState);
+                                   ProcessState,
+                                   OwningFunction);
 }
 
 
@@ -2312,21 +2571,22 @@ getValue(std::shared_ptr<ValueStore const> Store,
     case seec::seec_clang::MappedStmt::Type::LValSimple:
     {
       // Extract the address of the in-memory object that this lval represents.
-      auto const MaybeValue =
-        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                             (FunctionState, SMap.getValue());
+      auto const MaybeValue = seec::trace::getAPInt(FunctionState,
+                                                    SMap.getValue());
+
       if (!MaybeValue.assigned()) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,
                       Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent());
+                      FunctionState.getParent().getParent(),
+                      &FunctionState);
     }
     
     case seec::seec_clang::MappedStmt::Type::RValScalar:
@@ -2339,44 +2599,32 @@ getValue(std::shared_ptr<ValueStore const> Store,
       // If the first Value is an Instruction, then ensure that it has been
       // evaluated and is still valid.
       if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.first)) {
-        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
-        if (!RTV || !RTV->assigned()) {
+        if (!FunctionState.hasValue(I)) {
           return std::shared_ptr<Value const>();
         }
       }
       
+      auto const ExprType = Expression->getType();
+      auto const TypeSize = SMap.getAST()
+                                .getASTUnit()
+                                .getASTContext()
+                                .getTypeSizeInChars(ExprType);
+
       // Simple scalar value.
       if (LLVMValues.second == nullptr) {
-        auto const ExprType = Expression->getType();
-        
-        if (auto const PtrType = ExprType->getAs<clang::PointerType>()) {
+        if (ExprType->getAs<clang::PointerType>()) {
           // Pointer types use a special implementation.
-          auto const &ASTContext = SMap.getAST().getASTUnit().getASTContext();
-          auto const PointeeType = PtrType->getPointeeType();
-          auto const FILEType = ASTContext.getFILEType();
-          
-          if (PointeeType.getTypePtrOrNull() == FILEType.getTypePtrOrNull()) {
-            return ValueByRuntimeValueForPointerToFILE
-                    ::create(Expression, FunctionState, LLVMValues.first);
-          }
-          else {
-            return ValueByRuntimeValueForPointer::create(Store,
-                                                         SMap,
-                                                         Expression,
-                                                         FunctionState,
-                                                         LLVMValues.first);
-          }
+          return ValueByRuntimeValueForPointer::create(Store,
+                                                       SMap,
+                                                       Expression,
+                                                       FunctionState,
+                                                       LLVMValues.first);
+        }
+        else if (ExprType->isIncompleteType()) {
+          return std::shared_ptr<Value const>();
         }
         else {
-          if (ExprType->isIncompleteType())
-            return std::shared_ptr<Value const>();
-          
           // All other types use a single implementation.
-          auto const TypeSize = SMap.getAST()
-                                    .getASTUnit()
-                                    .getASTContext()
-                                    .getTypeSizeInChars(ExprType);
-          
           return std::make_shared<ValueByRuntimeValueForScalar>
                                  (Expression,
                                   FunctionState,
@@ -2384,41 +2632,44 @@ getValue(std::shared_ptr<ValueStore const> Store,
                                   TypeSize);
         }
       }
-      
-      // Complex value.
-      
-      // If the second Value is an Instruction, then ensure that it has been
-      // evaluated and is still valid.
-      if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second)) {
-        auto const RTV = FunctionState.getCurrentRuntimeValue(I);
-        if (!RTV || !RTV->assigned()) {
-          return std::shared_ptr<Value const>();
+      else { // Complex value.
+        // If the second Value is an Instruction, then ensure that it has been
+        // evaluated and is still valid.
+        if (auto const I = llvm::dyn_cast<llvm::Instruction>(LLVMValues.second))
+        {
+          if (!FunctionState.hasValue(I)) {
+            return std::shared_ptr<Value const>();
+          }
         }
+
+        return std::make_shared<ValueByRuntimeValueForComplex>
+                              (Expression,
+                                FunctionState,
+                                LLVMValues.first,
+                                LLVMValues.second,
+                                TypeSize);
       }
-      
-      // TODO: Generate complex Value.
-      
-      return std::shared_ptr<Value const>();
     }
     
     case seec::seec_clang::MappedStmt::Type::RValAggregate:
     {
       // Extract the address of the in-memory object that this rval represents.
-      auto const MaybeValue =
-        seec::trace::getCurrentRuntimeValueAs<uintptr_t>
-                                             (FunctionState, SMap.getValue());
+      auto const MaybeValue = seec::trace::getAPInt(FunctionState,
+                                                    SMap.getValue());
+
       if (!MaybeValue.assigned()) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<uintptr_t>();
+      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,
                       Expression->getType(),
                       SMap.getAST().getASTUnit().getASTContext(),
                       PtrValue,
-                      FunctionState.getParent().getParent());
+                      FunctionState.getParent().getParent(),
+                      &FunctionState);
     }
   }
   
@@ -2482,8 +2733,8 @@ bool isContainedChild(Value const &Child, Value const &Parent)
     
     case Value::Kind::Basic: SEEC_FALLTHROUGH;
     case Value::Kind::Scalar: SEEC_FALLTHROUGH;
-    case Value::Kind::Pointer: SEEC_FALLTHROUGH;
-    case Value::Kind::PointerToFILE:
+    case Value::Kind::Complex: SEEC_FALLTHROUGH;
+    case Value::Kind::Pointer:
       return false;
   }
   
@@ -2504,23 +2755,20 @@ bool doReferenceSameValue(ValueOfPointer const &LHS, ValueOfPointer const &RHS)
   auto const L0 = LHS.getDereferenced(0);
   auto const R0 = RHS.getDereferenced(0);
   
-  // Fail quickly if the pointees have different types.
-  if (L0->getCanonicalType() != R0->getCanonicalType())
+  auto const L0Size = L0->getTypeSizeInChars().getQuantity();
+  auto const R0Size = R0->getTypeSizeInChars().getQuantity();
+  if (L0Size != R0Size)
     return false;
-  
+
   if (LHS.getRawValue() <= RHS.getRawValue()) {
-    auto const Limit = LHS.getDereferenceIndexLimit();
-    
-    for (unsigned i = 0; i < Limit; ++i)
-      if (LHS.getDereferenced(i) == R0)
-        return true;
+    int  const Offset = (RHS.getRawValue() - LHS.getRawValue()) / L0Size;
+    auto const Limit  = LHS.getDereferenceIndexLimit();
+    return Offset < Limit && LHS.getDereferenced(Offset) == R0;
   }
   else {
-    auto const Limit = RHS.getDereferenceIndexLimit();
-    
-    for (unsigned i = 0; i < Limit; ++i)
-      if (RHS.getDereferenced(i) == L0)
-        return true;
+    int  const Offset = (LHS.getRawValue() - RHS.getRawValue()) / R0Size;
+    auto const Limit  = RHS.getDereferenceIndexLimit();
+    return Offset < Limit && RHS.getDereferenced(Offset) == L0;
   }
   
   return false;

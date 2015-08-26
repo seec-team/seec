@@ -14,6 +14,8 @@
 #ifndef SEEC_UTIL_CONSTEXPRMATH_HPP
 #define SEEC_UTIL_CONSTEXPRMATH_HPP
 
+#include <type_traits>
+
 namespace seec {
   
 /// Functions for performing constexpr math operations.
@@ -34,6 +36,12 @@ constexpr T1 max(T1 Left, T2 Right, TS... Remaining) {
   return sizeof...(Remaining)
           ? max(max(Left, Right), Remaining...)
           : (Left < Right ? Right : Left);
+}
+
+template<typename T>
+constexpr auto to_unsigned(T Value) -> typename std::make_unsigned<T>::type
+{
+  return static_cast<typename std::make_unsigned<T>::type>(Value);
 }
 
 } // namespace const_math (in seec)

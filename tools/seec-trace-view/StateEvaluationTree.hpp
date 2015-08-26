@@ -18,7 +18,6 @@
 #include <wx/panel.h>
 #include <wx/timer.h>
 #include <wx/tipwin.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -39,7 +38,11 @@ namespace clang {
   class Stmt;
 }
 
+class ActionRecord;
+class ActionReplayFrame;
+class ContextEvent;
 class ContextNotifier;
+class OpenTrace;
 class StateAccessToken;
 
 
@@ -47,6 +50,21 @@ class StateAccessToken;
 ///
 class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
 {
+  /// \brief Types of decoration that may be applied to a node.
+  ///
+  enum class NodeDecoration {
+    None,
+    Active,
+    Highlighted
+  };
+
+  /// \brief Determines if a node has an associated runtime error.
+  ///
+  enum class NodeError {
+    None,
+    Error
+  };
+  
   /// \brief Information for a single node in the tree.
   ///
   struct NodeInfo {
@@ -82,6 +100,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     /// End of this node's rectangle.
     wxCoord YEnd;
+
+    /// If this node's Stmt has a runtime error.
+    NodeError Error;
     
     /// \brief Constructor.
     ///
@@ -95,7 +116,8 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
              wxCoord WithXStart,
              wxCoord WithXEnd,
              wxCoord WithYStart,
-             wxCoord WithYEnd)
+             wxCoord WithYEnd,
+             NodeError WithError)
     : Statement(ForStatement),
       Value(std::move(WithValue)),
       ValueString(std::move(WithValueString)),
@@ -106,10 +128,16 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
       XStart(WithXStart),
       XEnd(WithXEnd),
       YStart(WithYStart),
-      YEnd(WithYEnd)
+      YEnd(WithYEnd),
+      Error(WithError)
     {}
   };
   
+  enum class IndicatorStyle {
+    Plain,
+    Box
+  };
+
   /// \brief Contains settings that control the display of the evaluation tree.
   ///
   struct DisplaySettings {
@@ -126,17 +154,31 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     unsigned CodeFontSize;
     
+    int PenWidth;
+    
+    wxColour Background;
+
+    wxColour Text;
+    
     wxColour NodeBackground;
     
     wxColour NodeBorder;
+
+    wxColour NodeText;
     
     wxColour NodeActiveBackground;
     
     wxColour NodeActiveBorder;
+
+    wxColour NodeActiveText;
     
     wxColour NodeHighlightedBackground;
     
     wxColour NodeHighlightedBorder;
+
+    wxColour NodeHighlightedText;
+    
+    wxColour NodeErrorBorder;
     
     /// \brief Constructor.
     ///
@@ -146,8 +188,14 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// Settings for the display of the evaluation tree.
   DisplaySettings Settings;
   
+  /// The trace that this tree will render states from.
+  OpenTrace *Trace;
+
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Used to record user interactions.
+  ActionRecord *Recording;
   
   /// Token for accessing the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
@@ -161,6 +209,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The current active function.
   seec::cm::FunctionState const *ActiveFn;
   
+  /// Size required to draw the evaluation tree.
+  wxSize CurrentSize;
+
   /// Font to use for drawing code and values.
   wxFont CodeFont;
   
@@ -173,11 +224,74 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   /// The node that the mouse is currently over.
   decltype(Nodes)::const_iterator HoverNodeIt;
   
+  /// Node that the user hovered over in the replay.
+  decltype(Nodes)::const_iterator ReplayHoverNodeIt;
+  
   /// Used to detect significant mouse hover over nodes.
   wxTimer HoverTimer;
   
   /// False if there was movement between mouse down and mouse up.
   bool ClickUnmoved;
+
+  /// Highlighted Stmt.
+  clang::Stmt const *HighlightedStmt;
+
+  /// Highlighted Value.
+  seec::cm::Value const *HighlightedValue;
+
+  /// \brief Draw a single node using the given \c wxDC.
+  ///
+  void drawNode(wxDC &DC,
+                NodeInfo const &Node,
+                NodeDecoration const Decoration);
+
+  /// \brief Render this panel using the given \c wxDC.
+  ///
+  void render(wxDC &dc);
+  
+  /// \brief Redraw this panel.
+  ///
+  void redraw();
+  
+  /// \brief Scroll the window to center on the given node.
+  ///
+  void centreOnNode(NodeInfo const &Node);
+  
+  /// \brief Set the node that the mouse is hovering over.
+  /// \return true iff the hover node changed.
+  ///
+  bool setHoverNode(decltype(Nodes)::iterator It);
+  
+  /// \brief Show the hover tooltip for a node.
+  ///
+  void showHoverTooltip(NodeInfo const &Node);
+
+  /// \brief Check if the tree contains a \c clang::Stmt.
+  ///
+  bool treeContainsStmt(clang::Stmt const *S) const;
+
+  /// \brief Check if the tree contains a \c seec::cm::Value.
+  ///
+  bool treeContainsValue(seec::cm::Value const &V) const;
+
+  /// \name Context events
+  /// @{
+
+  void notifyContextEvent(ContextEvent const &);
+
+  /// @} (Context events)
+
+  /// \name Replay events
+  /// @{
+
+  void ReplayNodeMouseOver(decltype(Nodes)::difference_type const NodeIndex,
+                           clang::Stmt const *Stmt);
+  void ReplayNodeRightClick(decltype(Nodes)::difference_type const NodeIndex,
+                            clang::Stmt const *Stmt);
+  void ReplayNodeHover(decltype(Nodes)::difference_type const NodeIndex,
+                       clang::Stmt const *Stmt);
+
+  /// @} (Replay events)
 
 public:
   /// \brief Construct.
@@ -187,7 +301,10 @@ public:
   /// \brief Construct and create.
   ///
   StateEvaluationTreePanel(wxWindow *Parent,
+                           OpenTrace &WithTrace,
                            ContextNotifier &WithNotifier,
+                           ActionRecord &WithRecording,
+                           ActionReplayFrame &WithReplay,
                            wxWindowID ID = wxID_ANY,
                            wxPoint const &Position = wxDefaultPosition,
                            wxSize const &Size = wxDefaultSize);
@@ -199,7 +316,10 @@ public:
   /// \brief Create (if default constructed).
   ///
   bool Create(wxWindow *Parent,
+              OpenTrace &WithTrace,
               ContextNotifier &WithNotifier,
+              ActionRecord &WithRecording,
+              ActionReplayFrame &WithReplay,
               wxWindowID ID = wxID_ANY,
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize);
@@ -214,10 +334,6 @@ public:
   ///
   void clear();
 
-  /// \brief Render this panel using the given \c wxDC.
-  ///
-  void render(wxDC &dc);
-
   /// \name Event Handling.
   /// @{
   
@@ -226,9 +342,21 @@ public:
   void OnMouseLeftWindow(wxMouseEvent &);
   void OnMouseRightDown(wxMouseEvent &);
   void OnMouseRightUp(wxMouseEvent &);
+  void OnMouseWheel(wxMouseEvent &);
   void OnHover(wxTimerEvent &);
   
   /// @} (Event Handling)
+
+  /// \name Render to image.
+  /// @{
+
+  /// \brief Render the current dynamic evaluation tree to a bitmap.
+  /// This will overwrite any existing file at the given location.
+  /// \return true iff the bitmap was written successfully.
+  ///
+  bool renderToBMP(wxString const &Filename);
+
+  /// @}
 
 public:
   DECLARE_EVENT_TABLE()

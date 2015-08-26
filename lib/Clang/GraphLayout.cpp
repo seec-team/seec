@@ -12,8 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "GraphExpansion.hpp"
-
+#include "seec/Clang/GraphExpansion.hpp"
 #include "seec/Clang/GraphLayout.hpp"
 #include "seec/Clang/MappedMallocState.hpp"
 #include "seec/Clang/MappedFunctionState.hpp"
@@ -30,11 +29,14 @@
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
+#include "clang/AST/Decl.h"
+
 #include "llvm/Support/raw_ostream.h"
 
 #include "unicode/locid.h"
 #include "unicode/unistr.h"
 
+#include <algorithm>
 #include <future>
 
 
@@ -329,7 +331,8 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
   
   switch (V.getKind()) {
     case Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case Value::Kind::Scalar:
+    case Value::Kind::Scalar: SEEC_FALLTHROUGH;
+    case Value::Kind::Complex:
     {
       auto const IsInit = V.isCompletelyInitialized();
       
@@ -486,35 +489,10 @@ LEVStandard::doLayoutImpl(Value const &V, Expansion const &E) const
       
       break;
     }
-    
-    case Value::Kind::PointerToFILE:
-    {
-      auto const &Ptr = llvm::cast<ValueOfPointerToFILE const>(V);
-      
-      if (!Ptr.isCompletelyInitialized()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">?</TD>";
-      }
-      else if (!Ptr.getRawValue()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">NULL</TD>";
-      }
-      else if (!Ptr.isValid()) {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">!</TD>";
-      }
-      else {
-        Stream << "<TD PORT=\"" << getStandardPortFor(V) << "\"";
-        getHandler().writeStandardProperties(Stream, V);
-        Stream << ">" << Ptr.getValueAsStringFull() << "</TD>";
-      }
-    }
   }
   
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+  if (V.getKind() == Value::Kind::Pointer || E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   Stream.flush();
   return LayoutOfValue{std::move(DotString), std::move(Ports)};
@@ -559,7 +537,9 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = static_cast<ValueOfArray const &>(V);
@@ -571,11 +551,10 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
   
   Handler.writeStandardProperties(Stream, V);
   
-  Stream << "><TABLE BORDER=\"0\" CELLPADDING=\"0\" COLOR=\"#BBBBBB\" "
+  Stream << "><TABLE BORDER=\"0\" CELLPADDING=\"0\" "
               "CELLSPACING=\"0\" CELLBORDER=\"1\"><TR>";
   
   bool Eliding = false;
-  std::size_t ElidingFrom;
   std::size_t ElidingCount;
   
   for (unsigned i = 0; i < ChildCount; ++i) {
@@ -588,19 +567,14 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
     
     if (Eliding) {
       if (E.isReferencedDirectly(*ChildValue)) {
-        // This char is referenced. Stop eliding and resume layout.
+        // This char is referenced. Stop eliding and resume layout. Write a cell
+        // to represent the elided characters.
+        Stream << "<TD> </TD>";
         Eliding = false;
       }
       else {
         // Elide this char and move to the next.
-        if (++ElidingCount == 1) {
-          // Write a cell that will be used for all elided chars.
-          Stream << "<TD PORT=\""
-                 << getStandardPortFor(V)
-                 << "_elided_" << std::to_string(ElidingFrom)
-                 << "\"> </TD>";
-        }
-        
+        ++ElidingCount;
         continue;
       }
     }
@@ -622,14 +596,14 @@ LayoutOfValue LEVCString::doLayoutImpl(Value const &V, Expansion const &E) const
       Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "> </TD>";
       
-      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+      if (E.isReferencedDirectly(*ChildValue))
+        Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
     
     // If this was a terminating null character, start eliding.
     auto const &Scalar = static_cast<ValueOfScalar const &>(*ChildValue);
     if (Scalar.isZero()) {
       Eliding = true;
-      ElidingFrom = i + 1;
       ElidingCount = 0;
     }
   }
@@ -691,7 +665,9 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
@@ -884,7 +860,9 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
@@ -909,65 +887,65 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
   std::size_t ElidingFrom;
   std::string ElidedPort;
   
-  auto ChildValue = Array.getChildAt(0);
-  if (ChildValue) {
-    auto const FirstAddress = ChildValue->getAddress();
-    auto const ChildSize = ChildValue->getTypeSizeInChars().getQuantity();
-    
+  assert(Array.isInMemory());
+  auto const FirstAddress = Array.getAddress();
+  auto const ChildSize    = Array.getChildSize();
+  auto const Region       = Array.getUnmappedMemoryRegion().get<0>();
+
+  auto const Data = Region.getByteValues();
+  auto const Init = Region.getByteInitialization();
+
+  if (ChildCount * ChildSize <= Data.size()) {
     for (unsigned i = 0; i < ChildCount; ++i) {
-      auto const Start = FirstAddress + (i * ChildSize);
-      auto const End = Start + ChildSize;
-      
-      ChildValue = Array.getChildAt(i);
-      if (!ChildValue)
-        continue;
-      
-      auto const &ChildArray = llvm::cast<ValueOfArray const>(*ChildValue);
-      if (ChildArray.getChildCount() == 0)
-        continue;
-      
-      auto const FirstChar = ChildArray.getChildAt(0);
-      auto const &Scalar = llvm::cast<ValueOfScalar const>(*FirstChar);
-      
-      auto const IsEmpty = !Scalar.isCompletelyInitialized() || Scalar.isZero();
+      auto const Offset = (i * ChildSize);
+      auto const IsEmpty =
+        Init[Offset] != std::numeric_limits<unsigned char>::max()
+        || Data[Offset] == 0;
+
+      auto const Start = FirstAddress + Offset;
+      auto const End   = Start + ChildSize;
       auto const IsReferenced = E.isAreaReferenced(Start, End);
-      
+
       if (IsEmpty && !IsReferenced) {
         if (!Eliding) {
           Eliding = true;
           ElidingFrom = i;
           ElidedPort = getStandardPortFor(V) + "_elided_" +
-                       std::to_string(ElidingFrom);
+                        std::to_string(ElidingFrom);
         }
-        
+
         continue;
       }
-      
+
+      auto const ChildValue = Array.getChildAt(i);
+      if (!ChildValue)
+        continue;
+
       if (Eliding) {
         // This element is non-empty or referenced, so stop eliding and
         // resume layout.
         Eliding = false;
-        
+
         // Write a row for the elided elements.
         Stream << "<TR><TD PORT=\"" << ElidedPort
-               << "\">&#91;" << ElidingFrom;
+                << "\">&#91;" << ElidingFrom;
         if (ElidingFrom < i - 1)
           Stream << " &#45; " << (i - 1);
         Stream << "&#93;</TD><TD>";
-        
+
         // Attempt to format and insert the elision placeholder text.
         UErrorCode Status = U_ZERO_ERROR;
         auto const Formatted = seec::format(ElidedText, Status,
                                             int64_t(i - ElidingFrom));
         if (U_SUCCESS(Status))
           Stream << EscapeForHTML(Formatted);
-        
+
         Stream << "</TD></TR>";
       }
-      
+
       // Layout this referenced value.
       Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
-      
+
       auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
       if (MaybeLayout.assigned<LayoutOfValue>()) {
         auto const &Layout = MaybeLayout.get<LayoutOfValue>();
@@ -1058,7 +1036,7 @@ bool LEVElideUninitOrZeroElements::canLayoutImpl(Value const &V) const
   if (!ElemTy)
     return false;
   
-  return ElemTy->isScalarType();
+  return !ElemTy->isAnyPointerType();
 }
 
 LayoutOfValue
@@ -1069,11 +1047,12 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(V, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(V))
+    Ports.add(V, ValuePort{EdgeEndType::Standard});
   
   auto const &Handler = getHandler();
   auto const &Array = llvm::cast<ValueOfArray const>(V);
-  unsigned const ChildCount = Array.getChildCount();
   
   Stream << "<TD PORT=\""
          << getStandardPortFor(V)
@@ -1081,7 +1060,17 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   Handler.writeStandardProperties(Stream, V);
   Stream << ">";
   
-  // Exit early if the array has no children.
+  assert(Array.isInMemory());
+
+  auto const FirstAddress = Array.getAddress();
+  auto const ChildCount   = Array.getChildCount();
+  auto const ChildSize    = Array.getChildSize();
+  auto const Region       = Array.getUnmappedMemoryRegion().get<0>();
+
+  assert(Region.getByteValues().size() >= ChildCount * ChildSize);
+
+  // Exit early if the array has no children, or if the memory region isn't
+  // sufficiently large to contain all of the children.
   if (ChildCount == 0) {
     Stream << "</TD>";
     Stream.flush();
@@ -1095,15 +1084,18 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   std::string ElidedPort;
   
   for (unsigned i = 0; i < ChildCount; ++i) {
-    auto const ChildValue = Array.getChildAt(i);
-    if (!ChildValue)
-      continue;
+    auto const Start = FirstAddress + (i * ChildSize);
+    auto const SubRegion = Region.getState().getRegion(MemoryArea(Start,
+                                                                  ChildSize));
+
+    auto const Data = SubRegion.getByteValues();
+    auto const IsEmpty = SubRegion.isUninitialized()
+      || std::all_of(Data.begin(), Data.end(),
+                     [] (char const C) { return C == 0; });
+
+    auto const IsReferenced = E.isAreaReferenced(Start, Start + ChildSize);
     
-    auto const &Scalar = llvm::cast<ValueOfScalar const>(*ChildValue);
-    auto const Elide = (!Scalar.isCompletelyInitialized() || Scalar.isZero())
-                        && !E.isReferencedDirectly(*ChildValue);
-    
-    if (Elide) {
+    if (IsEmpty && !IsReferenced) {
       if (!Eliding) {
         Eliding = true;
         ElidingFrom = i;
@@ -1136,6 +1128,10 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
     }
     
     // Layout this referenced value.
+    auto const ChildValue = Array.getChildAt(i);
+    if (!ChildValue)
+      continue;
+    
     Stream << "<TR><TD>&#91;" << i << "&#93;</TD>";
     
     auto const MaybeLayout = Handler.doLayout(*ChildValue, E);
@@ -1242,7 +1238,7 @@ LEAStandard::doLayoutImpl(seec::MemoryArea const &Area,
     }
   }
   else if (Limit > 1) {
-    for (unsigned i = 0; i < Limit; ++i) {
+    for (int i = 0; i < Limit; ++i) {
       auto const Pointee = Reference.getDereferenced(i);
       if (Pointee) {
         auto const MaybeLayout = Handler.doLayout(*Pointee, E);
@@ -1289,7 +1285,8 @@ class LEACString final : public LayoutEngineForArea {
   {
     auto const Ty = llvm::cast< ::clang::PointerType >
                               (Reference.getCanonicalType());
-    return Ty->getPointeeType()->isCharType();
+    return Ty->getPointeeType()->isCharType()
+        && Reference.getDereferenceIndexLimit() != 0;
   }
   
   virtual LayoutOfArea
@@ -1316,7 +1313,9 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   llvm::raw_string_ostream Stream {DotString};
   
   ValuePortMap Ports;
-  Ports.add(Reference, ValuePort{EdgeEndType::Standard});
+
+  if (E.isReferencedDirectly(Reference))
+    Ports.add(Reference, ValuePort{EdgeEndType::Standard});
   
   Stream << IDString
          << " [ label = <"
@@ -1326,7 +1325,6 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
             "<TABLE"
             " BORDER=\"0\""
             " CELLSPACING=\"0\""
-            " COLOR=\"#BBBBBB\""
             " CELLBORDER=\"1\""
             " CELLPADDING=\"0\">"
             "<TR>";
@@ -1337,7 +1335,7 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
   std::size_t ElidingFrom;
   std::size_t ElidingCount;
   
-  for (unsigned i = 0; i < Limit; ++i) {
+  for (int i = 0; i < Limit; ++i) {
     auto const ChildValue = Reference.getDereferenced(i);
     if (!ChildValue) {
       if (!Eliding)
@@ -1360,11 +1358,6 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
                  << "\"> </TD>";
         }
         
-        Ports.add(*ChildValue,
-                  ValuePort(EdgeEndType::Elided,
-                            IDString
-                            + "_elided_" + std::to_string(ElidingFrom)));
-        
         continue;
       }
     }
@@ -1379,14 +1372,15 @@ LEACString::doLayoutImpl(seec::MemoryArea const &Area,
     }
     else {
       // No layout generated.
-      
+
       Stream << "<TD PORT=\""
              << getStandardPortFor(*ChildValue)
              << "\"";
       Handler.writeStandardProperties(Stream, *ChildValue);
       Stream << "> </TD>";
-      
-      Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
+
+      if (E.isReferencedDirectly(*ChildValue))
+        Ports.add(*ChildValue, ValuePort{EdgeEndType::Standard});
     }
     
     // If this was a terminating null character, start eliding.
@@ -1429,7 +1423,8 @@ doLayout(LayoutHandler const &Handler,
   
   ValuePortMap Ports;
   
-  DotStream << "<TR><TD>"
+  DotStream << "<TR><TD HREF=\"local "
+            << reinterpret_cast<uintptr_t>(&State) << "\">"
             << State.getDecl()->getNameAsString()
             << "</TD>";
   
@@ -1479,7 +1474,8 @@ doLayout(LayoutHandler const &Handler,
   
   ValuePortMap Ports;
   
-  DotStream << "<TR><TD>"
+  DotStream << "<TR><TD HREF=\"param "
+            << reinterpret_cast<uintptr_t>(&State) << "\">"
             << State.getDecl()->getNameAsString()
             << "</TD>";
   
@@ -1538,7 +1534,7 @@ doLayout(LayoutHandler const &Handler,
                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"function "
             << reinterpret_cast<uintptr_t>(&State)
             << "\">"
-               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"blue\">"
+               "<TR><TD COLSPAN=\"2\" PORT=\"fname\" COLOR=\"#268bd2\">"
             << State.getNameAsString()
             << "</TD></TR>";
   
@@ -1630,7 +1626,7 @@ doLayout(LayoutHandler const &Handler,
                 << ":fname -> "
                 << FunctionLayouts[i].getID()
                 << ":fname "
-                   "[constraint=false dir=back color=\"blue\""
+                   "[dir=back color=\"#268bd2\""
                    " style=\"dashed\"];\n";
     }
   }
@@ -1660,19 +1656,30 @@ doLayout(LayoutHandler const &Handler,
     IDStream << "global_at_" << reinterpret_cast<uintptr_t>(&State);
   }
   
+  auto const TheDecl = State.getClangValueDecl();
   std::string DotString;
   llvm::raw_string_ostream DotStream {DotString};
-  
-  ValuePortMap Ports;
   
   DotStream << IDString
             << " [ label = <"
             << "<TABLE BORDER=\"0\" "
-                "CELLSPACING=\"0\" CELLBORDER=\"1\">"
-            << "<TR><TD>"
-            << State.getClangValueDecl()->getName()
-            << "</TD>";
+                "CELLSPACING=\"0\" CELLBORDER=\"1\" HREF=\"global "
+            << reinterpret_cast<uintptr_t>(&State) << "\"><TR><TD>";
+
+  if (auto const TheVarDecl = llvm::dyn_cast<clang::VarDecl>(TheDecl)) {
+    if (TheVarDecl->isStaticLocal()) {
+      // Attempt to find the FunctionDecl that owns this VarDecl.
+      auto Context = TheVarDecl->getDeclContext();
+      while (!llvm::isa<clang::FunctionDecl>(Context))
+        Context = Context->getLexicalParent();
+      auto const OwningFn = llvm::cast<clang::FunctionDecl>(Context);
+      DotStream << OwningFn->getName() << " :: ";
+    }
+  }
+
+  DotStream << TheDecl->getName() << "</TD>";
   
+  ValuePortMap Ports;
   MemoryArea Area;
   
   auto const Value = State.getValue();
@@ -1704,22 +1711,6 @@ doLayout(LayoutHandler const &Handler,
 // Layout Memory Area
 //===----------------------------------------------------------------------===//
 
-static
-bool
-isChildOfAnyDereference(std::shared_ptr<Value const> const &Child,
-                        std::shared_ptr<ValueOfPointer const> const &Ptr)
-{
-  auto const Limit = Ptr->getDereferenceIndexLimit();
-  
-  for (unsigned i = 0; i < Limit; ++i) {
-    auto const Pointee = Ptr->getDereferenced(i);
-    if (isContainedChild(*Child, *Pointee))
-      return true;
-  }
-  
-  return false;
-}
-
 /// \brief Generate a placeholder layout for an unreferenced memory area.
 ///
 static
@@ -1749,7 +1740,7 @@ layoutUnreferencedArea(LayoutHandler const &Handler,
          << " [ label = <"
             "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
   // TODO: Make a href for unreferenced areas.
-  Stream << "><TR><TD COLOR=\"red\">";
+  Stream << "><TR><TD COLOR=\"#dc322f\">";
   
   // Attempt to load placeholder text from the resource bundle.
   auto const MaybeText =
@@ -1788,6 +1779,8 @@ doLayout(LayoutHandler const &Handler,
   typedef std::shared_ptr<ValueOfPointer const> ValOfPtr;
   
   auto Refs = Expansion.getReferencesOfArea(Area.start(), Area.end());
+  if (Area.length() == 0)
+    Refs = Expansion.getReferencesOfArea(Area.start(), Area.start() + 1);
   
   // Layout as an unreferenced area? We should only do this for mallocs.
   if (Refs.empty())
@@ -1811,84 +1804,10 @@ doLayout(LayoutHandler const &Handler,
                             Area);
   }
   
-  // Move all the void pointers to the end of the list. If we have nothing but
-  // void pointers then layout using any one of them, otherwise remove all of
-  // them from consideration.
-  auto const VoidIt =
-    std::partition(Refs.begin(), Refs.end(),
-                  [] (ValOfPtr const &Ptr) -> bool {
-                    auto const CanTy = Ptr->getCanonicalType();
-                    auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
-                    return !PtrTy->getPointeeType()->isVoidType();
-                  });
-  
-  if (VoidIt == Refs.begin())
-    return std::make_pair(Handler.doLayout(Area, **VoidIt, Expansion), Area);
-  
-  Refs.erase(VoidIt, Refs.end());
-  
-  if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
-                          Area);
-  
-  // Remove all pointers to incomplete types to the end of the list. If we have
-  // nothing but pointers to incomplete types, then layout using any one of
-  // them (we can't do the child reference removal below).
-  auto const IncompleteIt =
-    std::partition(Refs.begin(), Refs.end(),
-                    [] (ValOfPtr const &Ptr) -> bool {
-                      auto const CanTy = Ptr->getCanonicalType();
-                      auto const PtrTy = llvm::cast<clang::PointerType>(CanTy);
-                      return !PtrTy->getPointeeType()->isIncompleteType();
-                    });
-  
-  if (IncompleteIt == Refs.begin())
-    return std::make_pair(Handler.doLayout(Area, **IncompleteIt, Expansion),
-                          Area);
-  
-  Refs.erase(IncompleteIt, Refs.end());
-  
-  if (Refs.size() == 1)
-    return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
-                          Area);
-  
-  // Remove all references which refer to a child of another reference. E.g. if
-  // we have a pointer to a struct, and a pointer to a member of that struct,
-  // then we should remove the member pointer (if the struct is selected for
-  // layout then the pointer will be rendered correctly, otherwise it will be
-  // rendered as punned).
-  //
-  // Also remove references which refer either to the same value as another
-  // reference. If one of these references has a lower raw value then it should
-  // be kept, as it will have more dereferences (and thus a more complete
-  // layout will be produced using it).
-  {
-    auto const CurrentRefs = Refs;
-    
-    auto const RemovedIt =
-      std::remove_if(Refs.begin(), Refs.end(),
-        [&] (ValOfPtr const &Ptr) -> bool
-        {
-          auto const Pointee = Ptr->getDereferenced(0);
-          return std::any_of(CurrentRefs.begin(), CurrentRefs.end(),
-                    [&] (ValOfPtr const &Other) -> bool {
-                      if (Ptr == Other)
-                        return false;
-                      
-                      // Check if we directly reference another pointer's
-                      // dereference. If so, don't bother checking children, as
-                      // either us or the other pointer will be removed anyway.
-                      auto const Direct = doReferenceSameValue(*Ptr, *Other);
-                      if (Direct)
-                        return Ptr->getRawValue() >= Other->getRawValue();
-                      
-                      // Check if this pointer directly references a child.
-                      return isChildOfAnyDereference(Pointee, Other);
-                    });
-        });
-    
-    Refs.erase(RemovedIt, Refs.end());
-  }
+  // Remove pointers to void, incomplete types, or to children of other
+  // pointees (e.g. pointers to struct members).
+  seec::cm::graph::reduceReferences(Refs);
+  assert(!Refs.empty());
   
   if (Refs.size() == 1)
     return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion),
@@ -1897,6 +1816,59 @@ doLayout(LayoutHandler const &Handler,
   // TODO: Layout as type-punned (or pass to a layout engine that supports
   //       multiple references).
   return std::make_pair(Handler.doLayout(Area, *Refs.front(), Expansion), Area);
+}
+
+
+//===----------------------------------------------------------------------===//
+// Render Streams
+//===----------------------------------------------------------------------===//
+
+static
+std::pair<Maybe<LayoutOfArea>, MemoryArea>
+doLayout(StreamState const &State, Expansion const &Expansion)
+{
+  auto const Address = State.getAddress();
+  
+  // Don't render unreferenced streams.
+  if (State.isstd() && !Expansion.isAreaReferenced(Address, Address + 1))
+    return std::make_pair(Maybe<LayoutOfArea>(), MemoryArea{Address, 1});
+  
+  // Generate the identifier for this node.
+  auto const IDString = std::string{"area_at_"} + std::to_string(Address);
+  
+  std::string DotString;
+  llvm::raw_string_ostream Stream {DotString};
+  
+  ValuePortMap Ports;
+  
+  Stream << IDString
+         << " [ label = <"
+            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLPADDING=\"2\"";
+  // TODO: Make a href for unreferenced Streams?
+  Stream << "><TR><TD PORT=\"opaque\">";
+  
+  // Attempt to load text from the resource bundle.
+  auto const MaybeText =
+    seec::getString("SeeCClang",
+                    (char const *[]){"Graph", "Descriptions", "Stream"});
+  
+  if (MaybeText.assigned<UnicodeString>()) {
+    // Attempt to format and insert the text.
+    UErrorCode Status = U_ZERO_ERROR;
+    auto const Formatted = seec::format(MaybeText.get<UnicodeString>(), Status,
+                                        State.getFilename().c_str());
+    if (U_SUCCESS(Status))
+      Stream << EscapeForHTML(Formatted);
+  }
+  
+  Stream << "</TD></TR></TABLE>> ];\n";
+  Stream.flush();
+  
+  return std::make_pair(Maybe<LayoutOfArea>
+                             (LayoutOfArea{std::move(IDString),
+                              std::move(DotString),
+                              ValuePortMap{}}),
+                        MemoryArea{Address, 1});
 }
 
 
@@ -1971,9 +1943,11 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
     auto const HeadIt =
       std::find_if(AllNodeInfo.begin(),
                    AllNodeInfo.end(),
-                   [=] (NodeInfo const &NI) { return NI.getArea()
-                                                       .contains(HeadAddress);
-                                            });
+                   [=] (NodeInfo const &NI) {
+                     auto Area = NI.getArea();
+                     return Area.contains(HeadAddress)
+                         || (Area.length() == 0 && Area.start() == HeadAddress);
+                   });
     
     if (HeadIt == AllNodeInfo.end())
       continue;
@@ -2006,9 +1980,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       // Tail port was explicitly defined during layout.
       auto const &TailPort = MaybeTailPort.get<ValuePort>();
       
-      if (!TailPort.getCustomPort().empty())
-        DotStream << ':' << TailPort.getCustomPort();
-      else if (TailPort.getEdgeEnd() == EdgeEndType::Standard)
+      if (TailPort.getEdgeEnd() == EdgeEndType::Standard)
         DotStream << ':'
                   << getStandardPortFor(*Pointer)
                   << ":c";
@@ -2035,9 +2007,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
         // Tail port was explicitly defined during layout.
         auto const &HeadPort = MaybeHeadPort.get<ValuePort>();
         
-        if (!HeadPort.getCustomPort().empty())
-          DotStream << ':' << HeadPort.getCustomPort();
-        else if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
+        if (HeadPort.getEdgeEnd() == EdgeEndType::Standard)
           DotStream << ':'
                     << getStandardPortFor(*Pointee)
                     << ":nw";
@@ -2046,7 +2016,7 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
         if (HeadAddress == HeadIt->getArea().start())
           DotStream << ":nw";
         
-        EdgeAttributes += "arrowhead=odot ";
+        EdgeAttributes += "arrowhead=onormal ";
         IsPunned = true;
       }
     }
@@ -2061,19 +2031,13 @@ static void renderEdges(llvm::raw_string_ostream &DotStream,
       if (HeadAddress == HeadIt->getArea().start())
         DotStream << ":nw";
       
-      EdgeAttributes += "arrowhead=odot ";
+      EdgeAttributes += "arrowhead=onormal ";
       IsPunned = true;
     }
     
     if (IsPunned)
       EdgeAttributes += "style=dashed ";
-    
-    // Allow functions to be stacked vertically by forcing edges between
-    // functions to not be used in ranking.
-    if (HeadIt->getType() == NodeType::Function
-        && TailIt->getType() == NodeType::Function)
-      EdgeAttributes += "constraint=false ";
-    
+
     // Write attributes.
     if (!EdgeAttributes.empty()) {
       EdgeAttributes.pop_back();
@@ -2093,12 +2057,11 @@ static
 LayoutOfProcess
 doLayout(LayoutHandler const &Handler,
          seec::cm::ProcessState const &State,
-         seec::cm::graph::Expansion const &Expansion)
+         seec::cm::graph::Expansion const &Expansion,
+         std::atomic_bool &CancelIfFalse)
 {
   auto const TimeStart = std::chrono::steady_clock::now();
   
-#ifndef _LIBCPP_VERSION
-
   // Create tasks to generate global variable layouts.
   std::vector<std::future<LayoutOfGlobalVariable>> GlobalVariableLayouts;
   
@@ -2157,60 +2120,19 @@ doLayout(LayoutHandler const &Handler,
         return doLayout(Handler, Area, Expansion, AreaType::Static); } ));
   }
   
+  // Generate stream layouts.
+  for (auto const &Stream : State.getStreams()) {
+    AreaLayouts.emplace_back(
+      std::async([&, Stream] () {
+        return doLayout(Stream.second, Expansion); } ));
+  }
+  
   // Generate DIR layouts.
   for (auto const &Dir : State.getDIRs()) {
     AreaLayouts.emplace_back(
       std::async([&, Dir] () {
         return doLayout(Dir.second, Expansion); } ));
   }
-
-#else // _LIBCPP_VERSION
-
-  // Generate global variable layouts.
-  std::vector<LayoutOfGlobalVariable> GlobalVariableLayouts;
-  
-  for (auto const &Global : State.getGlobalVariables()) {
-    if (Global->isInSystemHeader() && !Global->isReferenced())
-      continue;
-    
-    GlobalVariableLayouts.emplace_back(doLayout(Handler, *Global, Expansion));
-  }
-  
-  // Generate thread layouts.
-  std::vector<LayoutOfThread> ThreadLayouts;
-  
-  for (std::size_t i = 0; i < State.getThreadCount(); ++i)
-    ThreadLayouts.emplace_back(doLayout(Handler,
-                               State.getThread(i),
-                               Expansion));
-  
-  // Generate area layouts.
-  std::vector<std::pair<seec::Maybe<LayoutOfArea>, MemoryArea>> AreaLayouts;
-  
-  for (auto const &Area : State.getUnmappedStaticAreas())
-    AreaLayouts.emplace_back(
-      doLayout(Handler, Area, Expansion, AreaType::Static));
-  
-  for (auto const &Malloc : State.getDynamicMemoryAllocations())
-    AreaLayouts.emplace_back(doLayout(Handler,
-                                      MemoryArea(Malloc.getAddress(),
-                                                 Malloc.getSize()),
-                                      Expansion,
-                                      AreaType::Dynamic));
-  
-  for (auto const &Known : State.getUnmappedProcessState().getKnownMemory())
-    AreaLayouts.emplace_back(doLayout(Handler,
-                                      MemoryArea(Known.Begin,
-                                                 (Known.End - Known.Begin) + 1,
-                                                 Known.Value),
-                                      Expansion,
-                                      AreaType::Static));
-  
-  // Generate DIR layouts.
-  for (auto const &Dir : State.getDIRs())
-    AreaLayouts.emplace_back(doLayout(Dir.second, Expansion));
-  
-#endif // _LIBCPP_VERSION
   
   // Retrieve results and combine layouts.
   std::string DotString;
@@ -2219,16 +2141,15 @@ doLayout(LayoutHandler const &Handler,
   std::vector<NodeInfo> AllNodeInfo;
   
   DotStream << "digraph Process {\n"
-            << "node [shape=plaintext];\n" //  fontsize=6
+            << "node [shape=plaintext fontname=\"Monospace\"];\n" //  fontsize=6
             // << "penwidth=0.5;\n"
             << "rankdir=LR;\n";
   
   for (auto &GlobalFuture : GlobalVariableLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Layout = GlobalFuture.get();
-#else
-    auto const &Layout = GlobalFuture;
-#endif
 
     DotStream << Layout.getDotString();
     
@@ -2239,11 +2160,10 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &ThreadFuture : ThreadLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Layout = ThreadFuture.get();
-#else
-    auto const &Layout = ThreadFuture;
-#endif
     
     DotStream << Layout.getDotString();
     
@@ -2253,11 +2173,10 @@ doLayout(LayoutHandler const &Handler,
   }
   
   for (auto &AreaFuture : AreaLayouts) {
-#ifndef _LIBCPP_VERSION
+    if (CancelIfFalse == false)
+      return LayoutOfProcess{std::string{}, std::chrono::nanoseconds{0}};
+
     auto const Result = AreaFuture.get();
-#else
-    auto const &Result = AreaFuture;
-#endif
 
     auto const &MaybeLayout = Result.first;
     if (!MaybeLayout.assigned<LayoutOfArea>())
@@ -2432,8 +2351,8 @@ void LayoutHandler::writeStandardProperties(llvm::raw_ostream &Out,
   switch (ForValue.getKind()) {
     case seec::cm::Value::Kind::Basic: SEEC_FALLTHROUGH;
     case seec::cm::Value::Kind::Scalar: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::Pointer: SEEC_FALLTHROUGH;
-    case seec::cm::Value::Kind::PointerToFILE:
+    case seec::cm::Value::Kind::Complex: SEEC_FALLTHROUGH;
+    case seec::cm::Value::Kind::Pointer:
       if (!ForValue.isCompletelyInitialized())
         Out << " BGCOLOR=\"#AAAAAA\"";
       break;
@@ -2490,9 +2409,20 @@ LayoutHandler::doLayout(seec::MemoryArea const &Area,
 }
 
 LayoutOfProcess
+LayoutHandler::doLayout(seec::cm::ProcessState const &State,
+                        std::atomic_bool &CancelIfFalse) const
+{
+  return seec::cm::graph::doLayout(*this,
+                                   State,
+                                   Expansion::from(State),
+                                   CancelIfFalse);
+}
+
+LayoutOfProcess
 LayoutHandler::doLayout(seec::cm::ProcessState const &State) const
 {
-  return seec::cm::graph::doLayout(*this, State, Expansion::from(State));
+  std::atomic_bool CancelIfFalse (true);
+  return doLayout(State, CancelIfFalse);
 }
 
 

@@ -31,84 +31,86 @@ root:table {
     // Decl descriptions.
     //--------------------------------------------------------------------------
 
-    // Label description.
+    // LabelDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   is_gnu_local
+    //   [String] name
+    //   [String] qualified_name
+    //   [Bool]   has_linkage
+    //   [Bool]   is_hidden
+    //   [Bool]   is_cxx_class_member
+    //   [Bool]   is_cxx_instance_member
+    //   [Bool]   is_gnu_local
     // Outputs:
-    //   underlying_decl
-    //   stmt
+    //   [Decl] underlying_decl
+    //   [Stmt] stmt
     //
     Label:string {
       "This is a label named “{name}”. If execution reaches this label, or jumps to this label from another location, then the next evaluated statement will be @[stmt]the statement immediately following this label@[]."
+      "\n$[concept:label]"
     }
 
-    // Type description.
+    // TypeDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type_for_decl
+    //   [String] name
+    //   [String] qualified_name
+    //   [Bool]   has_linkage
+    //   [Bool]   is_hidden
+    //   [Bool]   is_cxx_class_member
+    //   [Bool]   is_cxx_instance_member
+    //   [Type]   type_for_decl
     // Outputs:
-    //   underlying_decl
+    //   [Decl] underlying_decl
     //
     Type:string {
       "This declares a type named “{name}”, with type “{type_for_decl}”."
     }
 
-    // Typedef description.
+    // TypedefNameDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type_for_decl
-    //   underlying_type
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [Type]     type_for_decl
+    //   [QualType] underlying_type
     // Outputs:
-    //   underlying_decl
-    //   canonical_decl
+    //   [Decl] underlying_decl
+    //   [Decl] canonical_decl
     //
     Typedef:string {
       "This is a typedef that associates the name “{name}” with the type “{underlying_type}”."
+      "\n$[concept:typedef]"
     }
 
-    // Enum description.
+    // EnumDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   is_this_declaration_a_definition
-    //   is_complete_definition
-    //   is_embedded_in_declarator
-    //   is_free_standing
-    //   is_dependent_type
-    //   is_struct
-    //   is_interface
-    //   is_class
-    //   is_union
-    //   is_enum
-    //   promotion_type
-    //   integer_type
-    //   is_scoped
-    //   is_fixed
-    //   is_complete
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [Bool]     is_this_declaration_a_definition
+    //   [Bool]     is_complete_definition
+    //   [Bool]     is_embedded_in_declarator
+    //   [Bool]     is_free_standing
+    //   [Bool]     is_dependent_type
+    //   [Bool]     is_struct
+    //   [Bool]     is_interface
+    //   [Bool]     is_class
+    //   [Bool]     is_union
+    //   [Bool]     is_enum
+    //   [QualType] promotion_type
+    //   [QualType] integer_type
+    //   [Bool]     is_scoped
+    //   [Bool]     is_fixed
+    //   [Bool]     is_complete
     // Outputs:
-    //   underlying_decl
-    //   canonical_decl
-    //   definition
+    //   [Decl] underlying_decl
+    //   [Decl] canonical_decl
+    //   [Decl] definition
     //
     Enum:string {
       "{is_complete_definition, select,"
@@ -117,219 +119,234 @@ root:table {
 
       " other {This declares an enum named “{name}”. The enum is completed by a @[definition]definition@[].}}"
 
-      "\n\nRead more about enums in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/01.html]Lecture 24@[]."
+      "\n$[concept:enum]"
     }
 
-    // Record description.
+    // RecordDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   is_this_declaration_a_definition
-    //   is_complete_definition
-    //   is_embedded_in_declarator
-    //   is_free_standing
-    //   is_dependent_type
-    //   is_struct
-    //   is_interface
-    //   is_class
-    //   is_union
-    //   is_enum
-    //   has_flexible_array_member
-    //   is_anonymous_struct_or_union
-    //   has_object_member
-    //   has_volatile_member
-    //   is_injected_class_name
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [Bool]     is_this_declaration_a_definition
+    //   [Bool]     is_complete_definition
+    //   [Bool]     is_embedded_in_declarator
+    //   [Bool]     is_free_standing
+    //   [Bool]     is_dependent_type
+    //   [Bool]     is_struct
+    //   [Bool]     is_interface
+    //   [Bool]     is_class
+    //   [Bool]     is_union
+    //   [Bool]     is_enum
+    //   [Bool]     has_flexible_array_member
+    //   [Bool]     is_anonymous_struct_or_union
+    //   [Bool]     has_object_member
+    //   [Bool]     has_volatile_member
+    //   [Bool]     is_injected_class_name
     // Outputs:
-    //   underlying_decl
-    //   canonical_decl
-    //   definition
+    //   [Decl] underlying_decl
+    //   [Decl] canonical_decl
+    //   [Decl] definition
     //
     Record:string {
       "{is_struct, select,"
-      " true {This declares a structure type named “{name}”.\n\nRead more about structures in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture22/01.html]Lecture 22@[].}"
+      " true {This declares a structure type named “{name}”.\n$[concept:struct]}"
       " other {"
         "{is_union, select,"
-        " true {This declares a union type named “{name}”.}"
+        " true {This declares a union type named “{name}”.\n$[concept:union]}"
         " other {"
           "This declares a record type named “{name}”."
         "}}"
       "}}"
     }
 
-    // EnumConstant description.
+    // EnumConstantDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
     // Values:
-    //   [has_]rtv_of_init_expr
+    //   rtv_of_init_expr
     // Outputs:
-    //   underlying_decl
-    //   init_expr
+    //   [Decl] underlying_decl
+    //   [Expr] init_expr
     //
     EnumConstant:string {
-      "This is an enum constant named “{name}”.\n\nRead more about enums in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/01.html]Lecture 24@[]." 
+      "This is an enum constant named “{name}”."
+      "\n$[concept:enum]"
     }
 
-    // IndirectField description.
+    // IndirectFieldDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
     // Outputs:
-    //   underlying_decl
-    //   anon_field
-    //   var_decl
+    //   [Decl] underlying_decl
+    //   [Decl] anon_field
+    //   [Decl] var_decl
     //
     IndirectField:string {
       "This represents the @[anon_field]field named “{name}”@[], included in the parent scope by an anonymous union or struct."
+      "\n$[concept:anonymous record]"
     }
 
-    // Function description.
+    // FunctionDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
-    //   type_source_info_type
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
+    //   [QualType] type_source_info_type
     // Outputs:
-    //   underlying_decl
+    //   [Decl] underlying_decl
     //
     Function:string {
       "This declares a function named “{name}”."
+      "\n$[concept:function declaration]"
     }
 
-    // Field description.
+    // FieldDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
-    //   type_source_info_type
-    //   field_index
-    //   is_mutable
-    //   is_bit_field
-    //   is_unnamed_bitfield
-    //   has_in_class_initializer
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
+    //   [QualType] type_source_info_type
+    //   [Int]      field_index
+    //   [Bool]     is_mutable
+    //   [Bool]     is_bit_field
+    //   [Bool]     is_unnamed_bitfield
+    //   [Bool]     has_in_class_initializer
     // Values:
-    //   [has_]rtv_of_bit_width
+    //   rtv_of_bit_width
     // Outputs:
-    //   underlying_decl
-    //   bit_width
-    //   in_class_initializer
-    //   parent
+    //   [Decl] underlying_decl
+    //   [Expr] bit_width
+    //   [Expr] in_class_initializer
+    //   [Decl] parent
     //
     Field:string {
       "This declares a field named “{name}”, with type “{type}”, in @[parent]the enclosing record type@[]."
+      "\n$[concept:field declaration]"
     }
 
-    // Var description.
+    // VarDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
-    //   type_source_info_type
-    //   is_thread_specified
-    //   has_local_storage
-    //   is_static_local
-    //   has_external_storage
-    //   has_global_storage
-    //   is_extern_C
-    //   is_local_var_decl
-    //   is_function_or_method_var_decl
-    //   is_static_data_member
-    //   is_tentative_definition_now
-    //   is_out_of_line
-    //   is_file_var_decl
-    //   is_direct_init
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
+    //   [QualType] type_source_info_type
+    //   [Bool]     has_local_storage
+    //   [Bool]     is_static_local
+    //   [Bool]     has_external_storage
+    //   [Bool]     has_global_storage
+    //   [Bool]     is_extern_C
+    //   [Bool]     is_local_var_decl
+    //   [Bool]     is_function_or_method_var_decl
+    //   [Bool]     is_static_data_member
+    //   [Bool]     is_tentative_definition_now
+    //   [Bool]     is_out_of_line
+    //   [Bool]     is_file_var_decl
+    //   [Bool]     is_direct_init
     // Outputs:
-    //   underlying_decl
-    //   canonical_decl
-    //   definition
-    //   any_initializer
-    //   init
+    //   [Decl] underlying_decl
+    //   [Decl] canonical_decl
+    //   [Decl] definition
+    //   [Expr] any_initializer
+    //   [Expr] init
     //
     Var:string {
       "This declares a variable named “{name}”, with type “{type}”."
+      "\n$[concept:variable declaration]"
 
-      "{is_static_local, select, true {\n\nThis is a local static variable. Read more about local static variables in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture24/10.html]Lecture 24@[].} false {} other {}"
+      "{is_static_local, select,"
+      " true {\n\nThis is a local static variable. $[concept:local static]}"
+      " false {}"
+      " other {}}"
     }
 
-    // ParmVar description.
+    // ParmVarDecl
     // Inputs:
-    //   name
-    //   qualified_name
-    //   has_linkage
-    //   is_hidden
-    //   is_cxx_class_member
-    //   is_cxx_instance_member
-    //   type
-    //   is_weak
-    //   type_source_info_type
-    //   is_thread_specified
-    //   has_local_storage
-    //   is_static_local
-    //   has_external_storage
-    //   has_global_storage
-    //   is_extern_C
-    //   is_local_var_decl
-    //   is_function_or_method_var_decl
-    //   is_static_data_member
-    //   is_tentative_definition_now
-    //   is_out_of_line
-    //   is_file_var_decl
-    //   is_direct_init
-    //   is_knr_promoted
-    //   has_default_arg
-    //   original_type
+    //   [String]   name
+    //   [String]   qualified_name
+    //   [Bool]     has_linkage
+    //   [Bool]     is_hidden
+    //   [Bool]     is_cxx_class_member
+    //   [Bool]     is_cxx_instance_member
+    //   [QualType] type
+    //   [Bool]     is_weak
+    //   [QualType] type_source_info_type
+    //   [Bool]     has_local_storage
+    //   [Bool]     is_static_local
+    //   [Bool]     has_external_storage
+    //   [Bool]     has_global_storage
+    //   [Bool]     is_extern_C
+    //   [Bool]     is_local_var_decl
+    //   [Bool]     is_function_or_method_var_decl
+    //   [Bool]     is_static_data_member
+    //   [Bool]     is_tentative_definition_now
+    //   [Bool]     is_out_of_line
+    //   [Bool]     is_file_var_decl
+    //   [Bool]     is_direct_init
+    //   [Bool]     is_knr_promoted
+    //   [Bool]     has_default_arg
+    //   [QualType] original_type
     // Outputs:
-    //   underlying_decl
-    //   canonical_decl
-    //   definition
-    //   any_initializer
-    //   init
-    //   default_arg
+    //   [Decl] underlying_decl
+    //   [Decl] canonical_decl
+    //   [Decl] definition
+    //   [Expr] any_initializer
+    //   [Expr] init
+    //   [Expr] default_arg
     //
     ParmVar:string {
       "This declares a parameter named “{name}”, with type “{type}”."
+      "\n$[concept:parameter declaration]"
     }
 
-    // LinkageSpec description.
+    // LinkageSpecDecl
+    // Inputs:
+    //   [LinkageSpecDecl::LanguageIDs] language
     //
     LinkageSpec:string {
-      "This specifies linkage."
+      "{language, select,"
+
+      " c {This specifies C language linkage.}"
+
+      " cxx {This specifies C++ language linkage.}"
+
+      " other {}}"
     }
 
-    // FileScopeAsm description.
+    // FileScopeAsmDecl
     // Outputs:
-    //   asm_string
+    //   [Expr] asm_string
     //
     FileScopeAsm:string {
       "This is used to include raw assembly."
@@ -340,313 +357,448 @@ root:table {
     // Stmt descriptions.
     //--------------------------------------------------------------------------
     
-    // ArraySubscriptExpr description.
+    // ArraySubscriptExpr
     // Inputs:
-    //   is_lhs_base
-    //   base_type_general
-    //   idx_type_general
+    //   [Bool]        is_lhs_base
+    //   [GeneralType] base_type_general
+    //   [GeneralType] idx_type_general
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_base
+    //   rtv_of_idx
     // Outputs:
-    //   base
-    //   idx
+    //   [Expr] base
+    //   [Expr] idx
     //
     ArraySubscriptExpr:string {
       "{is_lhs_base, select,"
 
       " true {{base_type_general, select,"
-             " Pointer {This is an array subscript expression. It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer. The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to. That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on.\n\nRead more about pointers in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture17/]Lecture 17@[].}"
-
-             " other {This is an array subscript expression. It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer. The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array. That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on.\n\nRead more about arrays in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture06/]Lecture 6@[].}}}"
+       " Pointer {"
+        "This is an array subscript expression."
+        " It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer."
+        " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
+        " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
+        "\n\n$[concept:pointers]}"
+       " other {"
+        "This is an array subscript expression."
+        " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
+        " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
+        " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
+        "\n\n$[concept:arrays]}}}"
 
       " false {{base_type_general, select,"
-             " Pointer {This is an array subscript expression. It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer. Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form. The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to. That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on.\n\nRead more about pointers in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture17/]Lecture 17@[].}"
+       " Pointer {"
+        " This is an array subscript expression."
+        " It consists of a @[base]base@[], which is a pointer, and an @[idx]index@[], which is an integer."
+        " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
+        " The result of this expression is the object that is “@[idx]index@[]” positions after the object that the @[base]base@[] points to."
+        " That is, if the @[idx]index@[] is zero, the result of this expression will be the object that @[base]base@[] points to; if the @[idx]index@[] is one, the result of this expression will be object immediately following the object that @[base]base@[] points to; and so on."
+        "\n\n$[concept:pointers]}"
+       " other {"
+        "This is an array subscript expression."
+        " It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer."
+        " Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form."
+        " The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array."
+        " That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on."
+        "\n\n$[concept:arrays]}}}"
 
-             " other {This is an array subscript expression. It consists of a @[base]base@[], which is an array, and an @[idx]index@[], which is an integer. Typically the @[base]base@[] is on the left hand side, and the @[idx]index@[] is in square brackets, but this particular expression is using the opposite form. The result of this expression is the element in the array that is “@[idx]index@[]” positions after the first element in the array. That is, if the @[idx]index@[] is zero, the result of this expression will be the first element in the array; if the @[idx]index@[] is one, the result of this expression will be the second element in the array; and so on.\n\nRead more about arrays in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture06/]Lecture 6@[].}}}"
-
-      " other {Unexpected value for is_lhs_base.}}"
+      " other {}}"
     }
 
-    // BreakStmt description.
+    // BreakStmt
     // Inputs:
     // Outputs:
     //
-    BreakStmt:string { "This is a break statement. It ends the execution of the first loop (“do”, “for”, or “while”) or “switch” statement that encloses it.\n\nRead more about using break statements in loops in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture04/06.html]Lecture 4@[]." }
+    BreakStmt:string {
+      "This is a break statement."
+      " It ends the execution of the first loop (“do”, “for”, or “while”) or “switch” statement that encloses it."
+      "\n\n$[concept:break loop]"
+    }
 
-    // BinaryOperator description.
+    // BinaryOperator
     // Inputs:
-    //   opcode
-    //   type_general
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_lhs
-    //   [has_]rtv_of_rhs
+    //   [String]      opcode
+    //   [GeneralType] type_general
+    //   [GeneralType] lhs_type_general
+    //   [GeneralType] rhs_type_general
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_lhs
+    //   rtv_of_rhs
     // Outputs:
-    //   lhs
-    //   rhs
+    //   [Expr] lhs
+    //   [Expr] rhs
     //
     BinaryOperator:string {
       "{opcode, select,"
 
+      // N1570 6.5.5
       " BO_Mul {{type_general, select,"
-               " Integer {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
-               " Floating {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
-               " other {This is the Multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}}}"
+               " Integer {This is the multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
+               " Floating {This is the multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}"
+               " other {This is the multiplication operator. The result of this expression is the value of the @[lhs]left hand side@[] multiplied by the value of the @[rhs]right hand side@[].}}}"
 
       " BO_Div {{type_general, select,"
-               " Integer {This is the Division operator. In this case the division operator is being used to divide integers, so the result of the expression will be the result of dividing the value of @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], with any fractional part discarded. If you wish to find the value including the fractional part, then one or both of the values should be a floating point type.}"
-               " Floating {This is the Division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}"
-               " other {This is the Division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}}}"
+               " Integer {This is the division operator. In this case the division operator is being used to divide integers, so the result of the expression will be the result of dividing the value of @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], with any fractional part discarded. If you wish to find the value including the fractional part, then one or both of the values must be a floating point type.}"
+               " Floating {This is the division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}"
+               " other {This is the division operator. The result of this expression is the value of the @[lhs]left hand side@[] divided by the value of the @[rhs]right hand side@[].}}}"
 
-      " BO_Rem {This is the Modulo operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.}"
+      " BO_Rem {This is the remainder operator. It returns the remainder of dividing the @[lhs]left hand side@[] by the @[rhs]right hand side@[]. Since C99, the result is defined to have the same sign as the dividend.}"
 
-      " BO_Add {This is the Addition operator. It returns the addition of the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[].{has_rtv_of_lhs, select, true { The value of the left hand side is “{rtv_of_lhs}”.} other {}}{has_rtv_of_rhs, select, true { The value of the right hand side is “{rtv_of_rhs}”.} other {}}}"
+      // N1570 6.5.6
+      " BO_Add {{type_general, select,"
+        " Pointer {"
+          "{lhs_type_general, select,"
+            " Pointer {"
+              "This is the addition operator."
+              " In this case it is being used to perform pointer arithmetic, because the @[lhs]left hand side@[] is a pointer."
+              " If the @[lhs]left hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i+N)-th element, where N is the value of the @[rhs]right hand side@[] expression."
+            "}"
+            " other {"
+              "This is the addition operator."
+              " In this case it is being used to perform pointer arithmetic, because the @[rhs]right hand side@[] is a pointer."
+              " If the @[rhs]right hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i+N)-th element, where N is the value of the @[lhs]left hand side@[] expression."
+            "}}"
+        "}"
+        " other {"
+          "This is the addition operator."
+          " It returns the addition of the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[]."
+          "{has_rtv_of_lhs, select, true { The value of the left hand side is “{rtv_of_lhs}”.} other {}}"
+          "{has_rtv_of_rhs, select, true { The value of the right hand side is “{rtv_of_rhs}”.} other {}}"
+        "}}}"
 
-      " BO_Sub {This is the Subtraction operator. It returns the result of subtracting the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[].}"
+      " BO_Sub {{type_general, select,"
+        " Pointer {"
+          "{lhs_type_general, select,"
+            " Pointer {"
+              "This is the subtraction operator."
+              " In this case it is being used to perform pointer arithmetic, because the @[lhs]left hand side@[] is a pointer."
+              " If the @[lhs]left hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i-N)-th element, where N is the value of the @[rhs]right hand side@[] expression."
+            "}"
+            " other {"
+              "This is the subtraction operator."
+              " In this case it is being used to perform pointer arithmetic, because the @[rhs]right hand side@[] is a pointer."
+              " If the @[rhs]right hand side@[] expression points to the i-th element of an array, then the result is a pointer to the (i-N)-th element, where N is the value of the @[lhs]left hand side@[] expression."
+            "}}"
+        "}"
+        " other {"
+          "{lhs_type_general, select,"
+            " Pointer {"
+              "This is the subtraction operator."
+              " In this case it is being used to find the difference between two pointer operands, both of which must point to elements of the same array."
+              " If the @[lhs]left hand side@[] and @[rhs]right hand side@[] expressions point to, respectively, the i-th and j-th elements of the array, then the result of this operation is the value (i-j)."
+            "}"
+            " other {"
+              "This is the subtraction operator."
+              " It returns the result of subtracting the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[]."
+            "}"
+          "}"
+        "}"
+      "}}"
 
-      " BO_Shl {This is the “Bitwise Left Shift” operator.}"
+      " BO_Shl {This is the “bitwise left shift” operator.}"
 
-      " BO_Shr {This is the “Bitwise Right Shift” operator.}"
+      " BO_Shr {This is the “bitwise right shift” operator.}"
 
-      " BO_LT {This is the “Less Than” operator. If the value of the @[lhs]left hand side@[] is less than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_LT {This is the “less than” operator. If the value of the @[lhs]left hand side@[] is less than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_GT {This is the “Greater Than” operator. If the value of the @[lhs]left hand side@[] is greater than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_GT {This is the “greater than” operator. If the value of the @[lhs]left hand side@[] is greater than the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_LE {This is the “Less Than Or Equal To” operator. If the value of the @[lhs]left hand side@[] is less than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_LE {This is the “less than or equal to” operator. If the value of the @[lhs]left hand side@[] is less than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_GE {This is the “Greater Than Or Equal To” operator. If the value of the @[lhs]left hand side@[] is greater than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_GE {This is the “greater than or equal to” operator. If the value of the @[lhs]left hand side@[] is greater than or equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_EQ {This is the “Equal To” operator. If the value of the @[lhs]left hand side@[] is equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_EQ {This is the “equal to” operator. If the value of the @[lhs]left hand side@[] is equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_NE {This is the “Not Equal To” operator. If the value of the @[lhs]left hand side@[] is not equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
+      " BO_NE {This is the “not equal to” operator. If the value of the @[lhs]left hand side@[] is not equal to the value of the @[rhs]right hand side@[], then it returns 1, otherwise it returns 0.}"
 
-      " BO_And {This is the “Bitwise AND” operator. If you wish to use the “Logical AND” operator, it is &&.}"
+      " BO_And {This is the “bitwise AND” operator. If you wish to use the “logical AND” operator, it is &&.}"
 
-      " BO_Xor {This is the “Bitwise XOR” operator. If you wish to perform exponentiation use the function “pow”.}"
+      " BO_Xor {This is the “bitwise exclusive OR” operator. If you wish to perform exponentiation use the function “pow”.}"
 
-      " BO_Or {This is the “Bitwise OR” operator. If you wish to use the “Logical OR” operator, it is ||.}"
+      " BO_Or {This is the “bitwise inclusive OR” operator. If you wish to use the “logical inclusive OR” operator, it is ||.}"
 
-      " BO_LAnd {This is the “Logical AND” operator. If both the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0. In C the Logical AND operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 0.}"
+      " BO_LAnd {"
+        "This is the “logical AND” operator."
+        " If both the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0."
+        " The logical AND operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 0.}"
 
-      " BO_LOr {This is the “Logical OR” operator. If either the value of the @[lhs]left hand side@[] or the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0. In C the Logical OR operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a non-zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 1.}"
+      " BO_LOr {"
+        "This is the “logical OR” operator."
+        " If either the value of the @[lhs]left hand side@[] or the value of the @[rhs]right hand side@[] are non-zero, then it returns 1, otherwise it returns 0."
+        " The Logical OR operator has “short-circuit evaluation”, which means that the @[lhs]left hand side@[] is always evaluated first, and if it evaluates to a non-zero value then the @[rhs]right hand side@[] is not evaluated, because the result of the operator is already known to be 1.}"
 
-      " BO_Assign {This is the Assignment operator. It sets the value of the @[lhs]left hand side@[] to the value of the @[rhs]right hand side@[].}"
+      " BO_Assign {"
+        "This is the assignment operator."
+        " It stores the value of the @[rhs]right hand side@[] into the object designated by the @[lhs]left hand side@[]."
+        " The result of the assignment operator is the new value of the object designated by the @[lhs]left hand side@[]."
+      "}"
 
-      " BO_Comma {This is the Comma operator. The Comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression and returns the result.}"
+      " BO_Comma {"
+        "This is the comma operator."
+        " The comma operator evaluates the @[lhs]left hand side@[] expression and discards the result, then evaluates the @[rhs]right hand side@[] expression."
+        " The value of the comma operator is the value of the @[rhs]right hand side@[] expression.}"
 
       " other {This is the binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
     }
 
-    // CaseStmt description.
+    // CaseStmt
     // Inputs:
-    //   has_next_switch_case
-    //   has_sub_stmt
-    //   has_lhs
-    //   has_rhs
-    // Value inputs:
-    //   [has_]rtv_of_lhs
-    //   [has_]rtv_of_rhs
+    //   [Bool] has_next_switch_case
+    //   [Bool] has_sub_stmt
+    //   [Bool] has_lhs
+    //   [Bool] has_rhs
+    // Values:
+    //   rtv_of_lhs
+    //   rtv_of_rhs
     // Outputs:
-    //   next_switch_case
-    //   sub_stmt
-    //   lhs
-    //   rhs
+    //   [SwitchCase] next_switch_case
+    //   [Stmt]       sub_stmt
+    //   [Expr]       lhs
+    //   [Expr]       rhs
     //
     CaseStmt:string {
-      "This is a case statement. If the @[lhs]left hand side@[] of this statement matches the value of the condition in the immediately enclosing switch statement, then the execution of the switch statement's body will begin with the @[rhs]right hand side@[] of this case. If a break statement is encountered, then execution will jump to the end of the immediately enclosing switch statement. If the end of this case is reached, then execution will proceed to the @[next_switch_case]next case@[], if one exists, otherwise it will proceed from the end of the immediately enclosing switch statement."
+      "This is a case statement."
+      " If the @[lhs]left hand side@[] of this statement matches the value of the condition in the immediately enclosing switch statement, then the execution of the switch statement's body will begin with the @[rhs]right hand side@[] of this case."
+      " If a break statement is encountered, then execution will jump to the end of the immediately enclosing switch statement."
+      " If the end of this case is reached, then execution will proceed to the @[next_switch_case]next case@[], if one exists, otherwise it will proceed from the end of the immediately enclosing switch statement."
+      "\n$[concept:case statement]"
     }
 
-    // CallExpr description.
+    // CallExpr
     // Inputs:
-    //   has_callee
-    //   has_callee_decl
-    //   has_direct_callee
-    //   num_args
-    //   general_type
-    // Value inputs:
-    //   
+    //   [Bool]        has_callee
+    //   [Bool]        has_callee_decl
+    //   [Bool]        has_direct_callee
+    //   [Int]         num_args
+    //   [GeneralType] general_type
+    // Values:
+    //   rtv_of_this
     // Outputs:
-    //   callee_expr
-    // Outputs (when has_direct_callee == "true"):
-    //   direct_callee_decl
+    //   [Expr] callee_expr
+    //   [Decl] direct_callee_decl (when has_direct_callee == "true")
     //
     CallExpr:string {
       "{has_direct_callee, select,"
-      //
-      // Direct callee.
-      //
-      " true {{num_args, plural,"
-             //
-             // Direct callee with no arguments.
-             //
-             " =0 {{general_type, select,"
-                  " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parenthesis are empty. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[], and continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
+      " true {This is a function call."
+             " It is formed by the @[callee_expr]name of a function@[],"
+             " followed by a parenthesised list of argument expressions.}"
+      " false {This is an indirect function call."
+              " It is formed by @[callee_expr]an expression with a function pointer type@[],"
+              " followed by a parenthesised list of argument expressions.}"
+      " other {}}"
 
-                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there are no arguments, so the parenthesis are empty. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[], and continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}"
+      "{num_args, plural,"
+      " =0 { In this case there are no arguments, so the parentheses are empty.}"
+      " =1 { In this case there is only one argument.}"
+      " other { In this case there are {num_args} arguments.}"
+      "}"
 
-             //
-             // Direct callee with one argument.
-             //
-             " =1 {{general_type, select,"
-                  " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[], followed by a parenthesised list of argument expressions. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
+      "{general_type, select,"
+      " Void { The called function has a void return type,"
+             " so no value is produced by this call expression.}"
+      " other { The value provided to the called function's return statement will be passed back from the function,"
+              " and become the value produced by this call expression.}"
+      "}"
 
-                  " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by parentheses containing a sequence of expressions separated by commas. In this case there is only one argument. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The value produced by the argument expression will be passed to the @[direct_callee_decl]called function@[], becoming the value of the function's parameter. Execution will continue until the function reaches a return statement. The value provided to this return statement will be passed back from the function, and become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}"
-
-             //
-             // Direct callee with N>1 arguments.
-             //
-             " other {{general_type, select,"
-                     " Void {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by a parenthesised list of argument expressions. In this case there are {num_args} arguments. To evaluate the result of this function call, execution will enter the @[direct_callee_decl]called function@[]. The values produced by the argument expressions will be passed to the @[direct_callee_decl]called function@[] in order, becoming the value of the function's parameters. Execution will continue until the function either reaches a return statement, or reaches the end of the function's body. In this case the function has a void return type, so no value is produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}"
-
-                     " other {This is a function call expression. It is formed by the @[callee_expr]name of a function@[] followed by parentheses containing a sequence of expressions separated by commas."
-                             "{num_args, plural, "
-                             " =2 { In this case there are two expressions. }"
-                             " =3 { In this case there are three expressions. }"
-                             " =4 { In this case there are four expressions. }"
-                             " =5 { In this case there are five expressions. }"
-                             " =6 { In this case there are six expressions. }"
-                             " =7 { In this case there are seven expressions. }"
-                             " =8 { In this case there are eight expressions. }"
-                             " =9 { In this case there are nine expressions. }"
-                             " other { In this case there are {num_args} expressions. }}"
-                             "Each of these expressions will be evaluated, and the produced values will be copied to the parameters of the @[direct_callee_decl]function@[]. Execution will then enter the @[direct_callee_decl]function@[] and continue until it reaches a return statement. The value provided to this return statement will become the value produced by this call expression.\n\nRead more about function calls in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture05/]Lecture 5@[].}}}}}"
-
-      //
-      // Indirect call.
-      //
-      " false {{num_args, plural,"
-              //
-              // Indirect call with no arguments.
-              //
-              " =0 {}"
-              " =1 {}"
-              " other {}}}"
-
-      " other {Unexpected value for has_direct_callee.}}"
+      "\n\n$[concept:function call]"
     }
 
-    // CharacterLiteral description.
-    // Value inputs:
-    //   [has_]rtv_of_this
+    // CharacterLiteral
     // Inputs:
-    //   character_kind
-    //   type
+    //   [CharacterKind] character_kind
+    //   [Type]          type
+    // Values:
+    //   rtv_of_this
+    // Outputs:
     //
     CharacterLiteral:string {
       "This is a character literal. It is a constant value of type “{type}”."
       "{has_rtv_of_this, select, true { The value is “{rtv_of_this}”.} false {} other {}}"
     }
 
-    // CompoundAssignOperator description.
+    // CompoundAssignOperator
     // Inputs:
-    //   opcode
-    //   type_general
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_lhs
-    //   [has_]rtv_of_rhs
+    //   [BinaryOperatorKind] opcode
+    //   [GeneralTypeString]  type_general
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_lhs
+    //   rtv_of_rhs
     // Outputs:
-    //   lhs
-    //   rhs
+    //   [Expr] lhs
+    //   [Expr] rhs
     //
     CompoundAssignOperator:string {
       "{opcode, select,"
 
-      " BO_MulAssign {This is the “Multiplication Assignment” operator. It multiplies the value of the @[lhs]left hand side@[] with the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+      " BO_MulAssign {This is the multiplication compound assignment operator."
+                     " It multiplies the value of the @[lhs]left hand side@[]"
+                     " with the value of the @[rhs]right hand side@[],"
+                     " then assigns the resulting value to the @[lhs]left hand side@[].}"
 
-      " BO_DivAssign {This is the “Division Assignment” operator. It divides the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+      " BO_DivAssign {This is the division compound assignment operator."
+                     " It divides the value of the @[lhs]left hand side@[] by"
+                     " the value of the @[rhs]right hand side@[], then assigns"
+                     " the resulting value to the @[lhs]left hand side@[].}"
 
-      " BO_RemAssign {This is the “Modulo Assignment” operator. It finds the remainder of dividing the value of the @[lhs]left hand side@[] by the value of the @[rhs]right hand side@[], then assigns the value of the remainder to the @[lhs]left hand side@[].}"
+      " BO_RemAssign {This is the remainder compound  assignment operator."
+                     " It calculates the remainder of dividing the value of the"
+                     " @[lhs]left hand side@[] by the value of the"
+                     " @[rhs]right hand side@[], then assigns the value of the"
+                     " remainder to the @[lhs]left hand side@[].}"
 
-      " BO_AddAssign {This is the “Addition Assignment” operator. It adds the value of the @[lhs]left hand side@[] and the value of the @[rhs]right hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+      " BO_AddAssign {"
+        "{type_general, select,"
+          " Pointer {"
+            "This is the addition compound assignment operator."
+            " In this case the @[lhs]left operand@[] is a pointer, so the operator"
+            " performs pointer arithmetic addition on the value of the @[lhs]left operand@[]"
+            " and the value of the @[rhs]right operand@[], then stores the result"
+            " in the object designated by the @[lhs]left operand@[]."
+          "}"
+          " other {"
+            "This is the addition compound assignment operator."
+            " It adds the value of the @[lhs]left hand side@[] and the"
+            " value of the @[rhs]right hand side@[], then assigns the"
+            " resulting value to the @[lhs]left hand side@[]."
+          "}"
+        "}"
+      "}"
 
-      " BO_SubAssign {This is the “Subtraction Assignment” operator. It subtracts the value of the @[rhs]right hand side@[] from the value of the @[lhs]left hand side@[], then assigns the resulting value to the @[lhs]left hand side@[].}"
+      " BO_SubAssign {"
+        "{type_general, select,"
+          " Pointer {"
+            "This is the subtraction compound assignment operator."
+            " In this case the @[lhs]left operand@[] is a pointer, so the operator"
+            " performs pointer arithmetic subtraction on the value of the @[lhs]left operand@[]"
+            " and the value of the @[rhs]right operand@[], then stores the result"
+            " in the object designated by the @[lhs]left operand@[]."
+          "}"
+          " other {"
+            "This is the subtraction compound assignment operator."
+            " It subtracts the value of the @[rhs]right hand side@[]"
+            " from the value of the @[lhs]left hand side@[], then"
+            " assigns the resulting value to the @[lhs]left hand side@[]."
+          "}"
+        "}"
+      "}"
 
-      " BO_ShlAssign {This is the “Bitwise Left Shift Assignment” operator.}"
+      " BO_ShlAssign {This is the left-shift compound assignment operator.}"
 
-      " BO_ShrAssign {This is the “Bitwise Right Shift Assignment” operator.}"
+      " BO_ShrAssign {This is the right-shift compound assignment operator.}"
 
-      " BO_AndAssign {This is the “Bitwise AND Assignment” operator.}"
+      " BO_AndAssign {This is the bitwise AND compound assignment operator.}"
 
-      " BO_XorAssign {This is the “Bitwise XOR Assignment” operator.}"
+      " BO_XorAssign {This is the bitwise exclusive OR compound assignment operator.}"
 
-      " BO_OrAssign {This is the “Bitwise OR Assignment” operator.}"
+      " BO_OrAssign {This is the bitwise inclusive OR compound assignment operator.}"
 
-      " other {This is the compound assignment binary operator {opcode}. It has a @[lhs]left hand side@[] and a @[rhs]right hand side@[]. The general type of this expression is {type_general}}}"
+      " other {Unknown CompoundAssignOperator: {opcode}.}"
+      "}"
+
+      "\n$[concept:compound assignment]"
     }
 
-    // CompoundLiteral description.
+    // CompoundLiteralExpr
     // Inputs:
-    //   type
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_init
+    //   [Type] type
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_init
     // Outputs:
-    //   init
+    //   [Expr] init
     //
-    CompoundLiteral:string {
-      "This is a compound literal. It is a value of type “{type}”, initialized by the @[init]initialization expression@[]."
-      "{has_rtv_of_this, select, true { The value is “{rtv_of_this}”.} false {} other {}}"
+    CompoundLiteralExpr:string {
+      "This is a compound literal."
+      " It provides an unnamed object of type “{type}”, whose value is given by"
+      " the @[init]initializer list@[]."
+
+      "{has_rtv_of_this, select,"
+      " true  { In this case the value is “{rtv_of_this}”.}"
+      " other {}}"
     }
 
-    // CompoundStmt description.
+    // CompoundStmt
     // Inputs:
-    //   size
+    //   [Int] size
+    // Values:
     // Outputs:
     //
     CompoundStmt:string {
-      "This is a compound statement. It consists of a group of statements. Each of these statements will be evaluated in order."
-      " {size, plural, =0 {There are no statements in this compound statement's group.} =1 {There is one statement in this compound statement's group.} other {There are {size} statements in this compound statement's group.}}"
+      "This is a compound statement."
+      " It consists of a group of statements, each of which will be evaluated in order."
+      " {size, plural,"
+      " =0 {This compound statement is empty (it contains no statements).}"
+      " =1 {This compound statement contains one statement.}"
+      " other {This compound statement contains {size} statements.}}"
     }
 
-    // ConditionalOperator description.
+    // ConditionalOperator
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
-    //   cond
-    //   true_expr
-    //   false_expr
+    //   [Expr] cond
+    //   [Expr] true_expr
+    //   [Expr] false_expr
     //
     ConditionalOperator:string {
-      "This is a ternary conditional operation. The form of this operation is “@[cond]condition@[] ? @[true_expr]true-expression@[] : @[false_expr]false-expression@[]”. If the @[cond]condition@[] is considered to be true, then this operation returns the result of evaluating the @[true_expr]true-expression@[], otherwise it returns the result of evaluating the @[false_expr]false-expression.@[]"
+      "This is the conditional operator."
+      " The form of this operator is “@[cond]condition@[] ? @[true_expr]true-expression@[] : @[false_expr]false-expression@[]”."
+      " If the @[cond]condition@[] evaluates to true (non-zero), then the @[true_expr]true-expression@[]"
+      " is evaluated and the result of the conditional operator is the result of"
+      " the @[true_expr]true-expression@[]. Otherwise the @[false_expr]false-expression@[]"
+      " is evaluated and the result of the conditional operator is the result of"
+      " the @[false_expr]false-expression@[]."
+      "\n$[concept:conditional operator]"
     }
 
-    // ContinueStmt description.
+    // ContinueStmt
     // Inputs:
+    // Values:
     // Outputs:
     //
-    ContinueStmt:string { "This is a continue statement. It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it. If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop. If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression.\n\nRead more about the continue statement in @[http://undergraduate.csse.uwa.edu.au/units/CITS1002/lectures/lecture04/06.html]Lecture 4@[]." }
+    ContinueStmt:string {
+      "This is a continue statement."
+      " It ends the execution of the current iteration of the first loop (“do”, “for”, or “while”) that encloses it."
+      " If this is a “do” or “while” loop, then execution continues by evaluating the condition expression of the loop."
+      " If this is a “for” loop, then execution continues by evaluating the increment expression, followed by the condition expression."
+      "\n\n$[concept:continue]"
+    }
 
-    // CStyleCastExpr description.
+    // CStyleCastExpr
     // Inputs:
-    //   cast_kind_name
-    //   type
-    //   type_as_written
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_sub_expr
-    //   [has_]rtv_of_sub_expr_as_written
+    //   [String] cast_kind_name
+    //   [Type]   type
+    //   [String] type_as_written
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_sub_expr
+    //   rtv_of_sub_expr_as_written
     // Outputs:
-    //   sub_expr
-    //   sub_expr_as_written
+    //   [Expr] sub_expr
+    //   [Expr] sub_expr_as_written
     //
     CStyleCastExpr:string {
-      "This is an explicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it to a new type. In this case the new type is “{type_as_written}”."
-       "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
-       "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
+      "This is an explicit cast expression."
+      " It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it to a new type."
+      " In this case the new type is “{type_as_written}”."
+      "\n$[concept:explicit cast]"
     }
 
-    // DeclRefExpr description.
+    // DeclRefExpr
     // Inputs:
-    //   name = string
-    //   kind_general = "Var" | "Function" | "EnumConstant" | "Other"
-    // Inputs (when kind_general == "Var"):
-    //   has_definition
-    // Inputs (when kind_general == "Function"):
-    //   has_body
-    // Inputs (when kind_general == "EnumConstant"):
-    //   init_val
+    //   [String] name
+    //   [String] kind_general: "Var" | "Function" | "EnumConstant" | "Other"
+    //   [Bool]   has_definition (when kind_general == "Var")
+    //   [Bool]   has_body       (when kind_general == "Function")
+    //   [String] init_val       (when kind_general == "EnumConstant")
+    // Values:
+    //   rtv_of_this
     // Outputs:
-    //   decl
-    //   found_decl
+    //   [Decl] decl
+    //   [Decl] found_decl
     //
     DeclRefExpr:string {
       "{kind_general, select,"
@@ -656,374 +808,596 @@ root:table {
       " other {This is a reference to the declaration @[decl]“{name}”@[].}}"
     }
 
-    // DeclStmt description.
+    // DeclStmt
     // Inputs:
-    //   is_single_decl
+    //   [Bool] is_single_decl
+    // Values:
     // Outputs:
-    //   single_decl
+    //   [Decl] single_decl (when is_single_decl == "true")
     //
     DeclStmt:string {
       "{is_single_decl, select,"
-      " true {This is a statement containing a @[single_decl]single declaration@[].}"
+      " true  {This is a statement containing a @[single_decl]single declaration@[].}"
       " false {This is a statement containing a group of declarations.}"
-      " other {Bad value for is_single_decl.}}"
+      " other {}}"
     }
 
-    // DefaultStmt description.
+    // DefaultStmt
     // Inputs:
-    //   has_next_switch_case
-    //   has_sub_stmt
-    // Value inputs:
+    //   [Bool] has_next_switch_case
+    //   [Bool] has_sub_stmt
+    // Values:
     // Outputs:
-    //   next_switch_case
-    //   sub_stmt
+    //   [SwitchCase] next_switch_case
+    //   [Stmt]       sub_stmt
     //
-    DefaultStmt:string { "This is a default case. It is associated with the immediately enclosing switch statement. If the condition of the switch statement does not exactly match any other case statement, then the execution of the switch will proceed to this default case. If a break statement is encountered, then execution will jump to the end of the switch statement. If the end of this case is reached, then execution will proceed to the @[next_switch_case]next case@[], if one exists, otherwise it will proceed from the end of the switch statement." }
+    DefaultStmt:string {
+      "This is a default case."
+      " It is associated with the immediately enclosing switch statement."
+      " If the condition of the switch statement does not match any other case"
+      " statement, then the execution of the switch will proceed to this"
+      " default case. If a break statement is encountered, then execution will"
+      " jump to the end of the switch statement. If the end of this case is"
+      " reached, then execution will proceed to the"
+      " @[next_switch_case]next case@[], if one exists, otherwise it will"
+      " proceed from the end of the switch statement."
+      "\n$[concept:default statement]"
+    }
 
-    // DoStmt description.
+    // DoStmt
     // Inputs:
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_cond
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_cond
     // Outputs:
-    //   cond
-    //   body
+    //   [Expr] cond
+    //   [Stmt] body
     //
-    DoStmt:string { "This is a “do while” loop. It has a @[body]body@[] and a @[cond]condition@[]. Initially, the @[body]body@[] is evaluated. After the @[body]body@[] is evaluated, the @[cond]condition@[] is evaluated. If the result of the @[cond]condition@[] is considered to be true (non-zero), then execution transfers to the beginning of the loop: the @[body]body@[] is evaluated again, followed by the @[cond]condition@[]." }
+    DoStmt:string {
+      "This is a “do while” loop."
+      " It has a @[body]body@[] and a @[cond]condition@[]."
+      " Initially, the @[body]body@[] is evaluated."
+      " After the @[body]body@[] is evaluated, the @[cond]condition@[] is evaluated."
+      " If the result of the @[cond]condition@[] is true (non-zero),"
+      " then execution transfers to the beginning of the loop:"
+      " the @[body]body@[] is evaluated again, followed by the @[cond]condition@[]."
+      " This continues until the @[cond]condition@[]'s result is false (zero)."
+      "\n$[concept:do while]"
+    }
 
-    // FloatingLiteral description.
+    // FloatingLiteral
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
     //
     FloatingLiteral:string {
-      "This is a floating-point literal."
+      "This is a floating point literal."
     }
 
-    // ForStmt description.
+    // ForStmt
     // Inputs:
-    //   has_init
-    //   has_cond
-    //   has_inc
-    //   has_condition_variable
-    //   has_body
-    // Value inputs:
-    //   [has_]rtv_of_init
-    //   [has_]rtv_of_cond
-    //   [has_]rtv_of_inc
+    //   [Bool] has_init
+    //   [Bool] has_cond
+    //   [Bool] has_inc
+    //   [Bool] has_condition_variable
+    //   [Bool] has_body
+    // Values:
+    //   rtv_of_init
+    //   rtv_of_cond
+    //   rtv_of_inc
     // Outputs:
-    //   init
-    //   cond
-    //   inc
-    //   body
+    //   [Stmt] init
+    //   [Expr] cond
+    //   [Expr] inc
+    //   [Stmt] body
     //
     ForStmt:string {
-      "This is a “for” loop. It consists of an @[init]initialization expression@[], a @[cond]condition expression@[], an @[inc]increment expression@[], and a @[body]body@[]. Any of these elements can be empty."
+      "This is a “for” loop."
+      " It consists of an @[init]initialization expression@[],"
+      " a @[cond]condition expression@[],"
+      " an @[inc]increment expression@[],"
+      " and a @[body]body@[]."
+      " Any of these expressions may be empty."
 
-      " The @[init]initialization expression@[] will be evaluated once, before starting the loop. Variables declared in the initialization expression will live until the loop is exited."
-      "{has_init, select, true {} false { This for loop's initialization expression is empty.} other {}}"
+      " The @[init]initialization expression@[] is evaluated once at the"
+      " beginning of the for loop's evaluation."
+      " A variable declared in the @[init]initialization expression@[]"
+      " has a lifetime that extends to the for loop's conclusion."
+      "{has_init, select, false { This for loop's initialization expression is empty.}"
+                        " other {}}"
 
-      " The @[cond]condition expression@[] is evaluated at the beginning of each iteration. If the expression is considered to be false (i.e. it is zero or NULL), then the loop is exited and execution continues from the first statement following the loop."
-      "{has_cond, select, true {} false { Because this for loop's condition expression is empty, the loop will continue until it reaches a “break” statement or a “return” statement.} other {}}"
+      " The @[cond]condition expression@[] is evaluated at the beginning of each iteration."
+      " If the expression's result is false (zero), then the loop is exited and"
+      " execution continues from the first statement following the loop."
+      "{has_cond, select, false { This for loop's condition expression is empty,"
+                                " so the loop will continue until it reaches a"
+                                " “break” statement or a “return” statement.}"
+                        " other {}}"
 
-      " The @[inc]increment expression@[] is evaluated at the end of each iteration (regardless of whether the iteration was completed by reaching the end of the @[body]body@[] or by evaluating a “continue” statement)."
-      "{has_inc, select, true {} false { This for loop's increment expression is empty.} other {}}"
+      " The @[inc]increment expression@[] is evaluated at the end of each"
+      " iteration (regardless of whether the iteration was completed by"
+      " reaching the end of the @[body]body@[] or by evaluating a “continue” statement)."
+      "{has_inc, select, false { This for loop's increment expression is empty.}"
+                       " other {}}"
 
-      " The @[body]body@[] is evaluated during each iteration of the loop (after the @[cond]condition expression@[] has evaluated to true, and before the @[inc]increment expression@[] is evaluated)."
-      "{has_body, select, true {} false { This for loop's body is empty.} other {}}"
+      " The @[body]body@[] is evaluated during each iteration of the loop"
+      " (after the @[cond]condition expression@[] has evaluated to true (non-zero),"
+      " and before the @[inc]increment expression@[] is evaluated)."
+      "{has_body, select, false { This for loop's body is empty.}"
+                        " other {}}"
+
+      "\n$[concept:for]"
     }
 
-    // GotoStmt description.
+    // GotoStmt
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
-    //   label
+    //   [LabelDecl] label
     //
     GotoStmt:string {
-      "This is a “goto” statement. It transfers execution directly to the named @[label]label@[]. There a many safety problems associated with using goto statements. You should always prefer to structure your code using if statements, switch statements, for loops, and while loops -- never goto statements!"
+      "This is a “goto” statement."
+      " It transfers execution directly to the named @[label]label@[]."
+      " There are many safety problems associated with using goto statements."
+      " You should prefer to structure your code using if statements,"
+      " switch statements, for loops, and while loops."
+      "\n$[concept:goto]"
     }
 
-    // IfStmt description.
+    // IfStmt
     // Inputs:
-    //   has_condition_variable
-    //   has_else
-    // Value inputs:
-    //   [has_][bool_]rtv_of_this
-    //   [has_][bool_]rtv_of_cond
+    //   [Bool] has_condition_variable
+    //   [Bool] has_else
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_cond
     // Outputs:
-    //   cond
-    //   then
-    //   else
+    //   [Expr] cond
+    //   [Stmt] then
+    //   [Stmt] else
     //
     IfStmt:string {
       "This is an if statement. "
+
       "{has_else, select, "
        "true {It consists of a @[cond]condition@[], a @[then]body@[], and an @[else]else@[]. }"
        "false {It consists of a @[cond]condition@[] and a @[then]body@[]. }"
-       "other {}"
-      "}"
+       "other {}}"
+
       "{has_bool_rtv_of_cond, select, "
        "true {"
         "{bool_rtv_of_cond, select, "
          "true {"
           "{has_else, select, "
-           "true {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be true} other {a value that is considered to be true}}, so the @[then]body@[] is evaluated, and the @[else]else section@[] is ignored.}"
-           "false {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be true} other {a value that is considered to be true}}, so the @[then]body@[] is evaluated.}"
-           "other {}"
-          "}"
-         "}"
+           "true {The @[cond]condition@[]'s result is not equal to zero,"
+                 " so the @[then]body@[] is executed,"
+                 " but the @[else]else section@[] is not executed.}"
+           "false {The @[cond]condition@[]'s result is not equal to zero,"
+                  " so the @[then]body@[] is executed.}"
+           "other {}}}"
          "false {"
           "{has_else, select, "
-           "true {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be false} other {a value that is considered to be false}}, so the @[else]else section@[] is evaluated.}"
-           "false {The @[cond]condition@[] evaluated to {has_rtv_of_cond, select, true {“{rtv_of_cond}”, which is considered to be false} other {a value that is considered to be false}}, so execution skips the @[then]body@[].}"
-           "other {}"
-          "}"
-         "}"
-         "other {}"
-        "}"
-       "}"
+           "true {The @[cond]condition@[]'s result is equal to zero,"
+                 " so the @[then]body@[] is not executed,"
+                 " but the @[else]else section@[] is executed.}"
+           "false {The @[cond]condition@[]'s result is equal to zero,"
+                  " so the @[then]body@[] is not executed.}"
+           "other {}}}"
+         "other {}}}"
        "false {"
         "{has_else, select, "
-         "true {If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body@[] will be evaluated, otherwise the @[else]else section@[] will be evaluated.}"
-         "false {If the @[cond]condition@[] evaluates to a value that is considered to be true, then the @[then]body@[] will be evaluated, otherwise execution will skip the @[then]body@[].}"
-         "other {}"
-        "}"
-       "}"
-       "other {}"
-      "}"
+         "true {If the @[cond]condition@[]'s result does not equal zero,"
+               " then the @[then]body@[] will be executed,"
+               " otherwise the @[else]else section@[] will be executed.}"
+         "false {If the @[cond]condition@[]'s result does not equal zero,"
+                " then the @[then]body@[] will be executed.}"
+         "other {}}}"
+       "other {}}"
+
+       "\n$[concept:if]"
     }
 
-    // ImaginaryLiteral description.
+    // ImaginaryLiteral
     // Inputs:
-    //   sub_expr_type_general
-    // Value inputs:
+    //   [GeneralType] sub_expr_type_general
+    // Values:
     // Outputs:
-    //   sub_expr
+    //   [Expr] sub_expr
     //
     ImaginaryLiteral:string {
       "This is an imaginary {sub_expr_type_general} literal."
     }
 
-    // ImplicitCastExpr description.
+    // ImplicitCastExpr
     // Inputs:
-    //   cast_kind_name
-    //   type
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_sub_expr
-    //   [has_]rtv_of_sub_expr_as_written
+    //   [CastKind] cast_kind_name
+    //   [Type]     type
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_sub_expr
+    //   rtv_of_sub_expr_as_written
     // Outputs:
-    //   sub_expr
-    //   sub_expr_as_written
+    //   [Expr] sub_expr
+    //   [Expr] sub_expr_as_written
     //
     ImplicitCastExpr:string {
-      "This is an implicit cast expression. It changes the type of the @[sub_expr_as_written]sub-expression@[] by “casting” it into an appropriate type, so that it can be stored in a variable, passed to a function, or used with an operator. In this case the new type is “{type}”."
-       "{has_rtv_of_sub_expr_as_written, select, true { The value of the @[sub_expr_as_written]sub-expression@[] is “{rtv_of_sub_expr_as_written}”.} false {} other {}}"
-       "{has_rtv_of_this, select, true { The value after casting is “{rtv_of_this}”.} false {} other {}}"
+      "{cast_kind_name, select,"
+
+       "LValueToRValue {This represents loading the value referenced by the"
+                       " @[sub_expr_as_written]sub-expression@[] from memory.}"
+
+       "ArrayToPointerDecay {This is an implicit conversion from the array"
+                            " @[sub_expr_as_written]sub-expression@[],"
+                            " to a pointer that points to the first element"
+                            " in the array.}"
+
+       "FunctionToPointerDecay {This is an implicit conversion from the function"
+                               " designator @[sub_expr_as_written]sub-expression@[]"
+                               " to a pointer to the designated function.}"
+
+       "NullToPointer {This is the implicit conversion of the NULL pointer"
+                      " constant to a NULL pointer of the appropriate type.}"
+
+       "PointerToBoolean {This is an implicit pointer to boolean conversion."
+                         " If the @[sub_expr_as_written]sub-expression@[] is"
+                         " not equal to NULL then the result is true, otherwise"
+                         " the result is false.}"
+
+       "IntegralToBoolean {This is an implicit conversion from the integer type"
+                          " @[sub_expr_as_written]sub-expression@[] to a boolean."
+                          " If the @[sub_expr_as_written]sub-expression@[]'s"
+                          " result is not equal to zero then the result is true,"
+                          " otherwise the result is false.}"
+
+       "FloatingToBoolean {This is an implicit conversion from the floating point type"
+                          " @[sub_expr_as_written]sub-expression@[] to a boolean."
+                          " If the @[sub_expr_as_written]sub-expression@[]'s"
+                          " result is not equal to zero then the result is true,"
+                          " otherwise the result is false.}"
+
+       "other {"
+        "This is an implicit cast expression."
+        " It changes the type of the @[sub_expr_as_written]sub-expression@[] by"
+        " “casting” it into an appropriate type, so that it can be stored in a"
+        " variable, passed to a function, or used with an operator. In this"
+        " case the new type is “{type}”."
+       "}"
+      "}"
     }
 
     // IntegerLiteral description.
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
     //
     IntegerLiteral:string {
       "This is an integer literal."
     }
 
-    // LabelStmt description.
+    // LabelStmt
     // Inputs:
-    //   name
-    //   has_decl
-    //   has_sub_stmt
-    // Value inputs:
+    //   [String] name
+    //   [Bool]   has_decl
+    //   [Bool]   has_sub_stmt
+    // Values:
     // Outputs:
-    //   decl
-    //   sub_stmt
+    //   [Decl] decl
+    //   [Stmt] sub_stmt
     //
     LabelStmt:string {
-      "This is a label statement. It declares a label with the name “{name}”, which is followed by a @[sub_stmt]sub-statement@[]."
+      "This is a label statement."
+      " It declares a label with the name “{name}”, which is followed by a"
+      " @[sub_stmt]sub-statement@[]."
     }
 
-    // MemberExpr description.
+    // MemberExpr
     // Inputs:
-    //   member_decl_name
-    //   is_arrow
-    // Value inputs:
+    //   [String] member_decl_name
+    //   [Bool]   is_arrow
+    // Values:
     // Outputs:
-    //   base
-    //   member_decl
+    //   [Expr] base
+    //   [Decl] member_decl
     //
     MemberExpr:string {
-      "{is_arrow, select"
-      " true {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that is pointed to by the pointer that precedes the arrow.}"
-      " false {This expression returns the member object named “{member_decl_name}” in the @[base]base object@[] that precedes the dot.}"
+      "{is_arrow, select,"
+      " true {This expression returns the member object named “{member_decl_name}”"
+             " in the object that is pointed to by the @[base]pointer that"
+             " precedes the arrow@[].}"
+      " false {This expression returns the member object named “{member_decl_name}”"
+              " in the @[base]object@[] that precedes the dot.}"
       " other {}}"
     }
 
     // NullStmt description.
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
     //
-    NullStmt:string { "This is a null statement. It does nothing at execution time. When a statement is required to appear, a null statement can be used to indicate that no operations should occur. For example, it may be used to indicate that a for loop should perform no initialization." }
+    NullStmt:string {
+      "This is a null statement."
+      " It does nothing at execution time."
+      " When a statement is required to appear, a null statement can be used to"
+      " indicate that no operations should occur."
+      " For example, it may be used to indicate that the body of a loop is empty."
+    }
 
-    // OffsetOfExpr description.
+    // OffsetOfExpr
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
     //
     OffsetOfExpr:string {
-      "This is an offsetof expression. It finds the offset of the specified member (the second parameter) in the given struct type (the first parameter)."
+      "This is an offsetof expression."
+      " It finds the offset of the specified member (the second parameter) in"
+      " the given struct type (the first parameter)."
     }
 
-    // ParenExpr description.
+    // ParenExpr
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
-    //   sub_expr
+    //   [Expr] sub_expr
     //
     ParenExpr:string {
-      "This is a parenthesized expression. It wraps the contained @[sub_expr]sub-expression@[]. This can be used, for example, to ensure that mathematical operators are associated with the intended operands."
+      "This is a parenthesized expression."
+      " It wraps the contained @[sub_expr]sub-expression@[]."
+      " This can be used, for example, to ensure that mathematical operators"
+      " are associated with the intended operands."
+      "\n$[concept:parentheses]"
     }
 
-    // PredefinedExpr description.
+    // PredefinedExpr
+    //   A predefined identifier, e.g. __func__ [C99 6.4.2.2].
     // Inputs:
-    // Value inputs:
+    // Values:
     // Outputs:
     //
     PredefinedExpr:string {
       "This is a predefined identifier."
     }
 
-    // ReturnStmt description.
+    // ReturnStmt
     // Inputs:
-    //   has_return_value
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_return_value
+    //   [Bool] has_return_value
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_return_value
     // Outputs:
-    //   current_function
-    //   called_from
-    //   return_value
+    //   [Expr] return_value
     //
     ReturnStmt:string {
-      "This is a return statement. It ends the execution of the @[current_function]current function@[], returning control to the @[called_from]caller of this function@[]. If a value is returned, then it will be received at the site where this function was called. If this is the main function, then the program will end."
-      "{has_return_value, select, true { This return statement @[return_value]returns a value@[].} false { This return statement does not return a value.} other { Very sad.}}"
-      "{has_rtv_of_return_value, select, true { This return statement is returning the value “{rtv_of_return_value}”. } other {}}"
+      "This is a return statement."
+      " It terminates execution of the enclosing function, returning control to"
+      " the caller of this function."
+      " If a value is returned, then it will be received at the site where this"
+      " function was called."
+      " If this is the main function, then the program will end."
+
+      "{has_return_value, select,"
+      " true  { This return statement @[return_value]returns a value@[].}"
+      " false { This return statement does not return a value.}"
+      " other {}}"
+
+      "{has_rtv_of_return_value, select,"
+      " true  { This return statement is returning the value “{rtv_of_return_value}”.}"
+      " other {}}"
+
+      "\n$[concept:return]"
     }
 
-    // StringLiteral description.
+    // StringLiteral
     // Inputs:
-    //   string
-    //   byte_length
-    //   length
-    //   char_byte_width
-    //   string_kind
-    //   num_concatenated
-    // Value inputs:
+    //   [String]     string
+    //   [Int]        byte_length
+    //   [Int]        length
+    //   [Int]        char_byte_width
+    //   [StringKind] string_kind
+    //   [Int]        num_concatenated
+    // Values:
     // Outputs:
     //
     StringLiteral:string {
       "{string_kind, select,"
        " ASCII {This is an ASCII string literal.}"
        " Wide {This is a wide string literal.}"
-       " UTF-8 {This is a UTF-8 (Unicode) string literal.}"
-       " UTF-16 {This is a UTF-16 (Unicode) string literal.}"
-       " UTF-32 {This is a UTF-32 (Unicode) string literal.}}"
-      "{num_concatenated, plural, =0 {} =1 {} other { This string literal was concatenated from {num_concatenated} individual string literals.}}"
+       " UTF8 {This is a UTF-8 (Unicode) string literal.}"
+       " UTF16 {This is a UTF-16 (Unicode) string literal.}"
+       " UTF32 {This is a UTF-32 (Unicode) string literal.}"
+       " other {}}"
+
+       "{num_concatenated, plural,"
+       " =0    {}"
+       " =1    {}"
+       " other { This string literal was concatenated from {num_concatenated}"
+               " individual string literals.}}"
     }
 
-    // SwitchStmt description
+    // SwitchStmt
     // Inputs:
-    //   has_condition_variable
-    //   has_cond
-    //   has_body
-    //   is_all_enum_cases_covered
-    // Value inputs:
-    //   [has_]rtv_of_cond
+    //   [Bool] has_condition_variable
+    //   [Bool] has_cond
+    //   [Bool] has_body
+    //   [Bool] is_all_enum_cases_covered
+    // Values:
+    //   rtv_of_cond
     // Outputs:
-    //   cond
-    //   body
+    //   [Expr] cond
+    //   [Stmt] body
     //
     SwitchStmt:string {
-      "This is a switch statement. It has a @[cond]condition expression@[] and a @[body]body@[]. The body contains case statements, optionally including a “default” statement. If the value produced by the @[cond]condition expression@[] matches the value of one of the case statements, then execution will jump to that case statement. If the value does not match any case statement, but there is a default statement, then execution will jump to the default statement. Otherwise, execution will jump to the end of the @[body]body@[] (i.e. it will proceed from the first point immediately following the switch statement)."
+      "This is a switch statement."
+      " It has a @[cond]condition expression@[] and a @[body]body@[]."
+      " The body may contain “case” statements and optionally a single “default” statement."
+      " If the value produced by the @[cond]condition expression@[] matches the"
+      " value of one of the case statements, then execution will jump to that"
+      " case statement. If the value does not match any case statement, and"
+      " there is a default statement, then execution will jump to the default"
+      " statement. Otherwise, execution will jump to the end of the"
+      " @[body]body@[] (i.e. it will proceed from the first point immediately"
+      " following the switch statement)."
+      "\n$[concept:switch]"
     }
 
-    // UnaryExprOrTypeTraitExpr description
+    // UnaryExprOrTypeTraitExpr
     // Inputs:
-    //   kind
-    //   is_argument_type
-    //   argument_type
-    // Value inputs:
+    //   [UnaryExprOrTypeTrait] kind
+    //   [Bool]                 is_argument_type
+    //   [QualType]             argument_type
+    // Values:
     // Outputs:
-    //   argument_expr
+    //   [Expr] argument_expr (if "is_argument_type" == "false")
     //
     UnaryExprOrTypeTraitExpr:string {
       "{kind, select,"
+
       " UETT_SizeOf {"
         "{is_argument_type, select,"
-        " true {This is a sizeof operation, being used on the type {argument_type}. This operation returns the size of the type, which is the number of bytes needed to store one object of this type.}"
-        " false {This is a sizeof operation, being used on an @[argument_expr]expression@[], which has type {argument_type}. This operation returns the size of the type, which is the number of bytes needed to store one object of this type.}"
-        " other{}}"
-      " UETT_AlignOf {}"
+        " true {This is a sizeof operation, being used on the type {argument_type}."
+               " This operation returns the size of the type, which is the number"
+               " of bytes needed to store one object of this type.}"
+        " false {This is a sizeof operation, being used on an"
+                " @[argument_expr]expression@[], which has type {argument_type}."
+                " This operation returns the size of the type, which is the"
+                " number of bytes needed to store one object of this type.}"
+        " other {}}"
+        "\n$[concept:sizeof]"
+        "}"
+
+      " UETT_AlignOf {"
         "{is_argument_type, select,"
-        " true {This is the alignof operation, being used on the type {argument_type}.}"
-        " false {This is the alignof operation, being used on an @[argument_expr]expression@[], which has type {argument_type}.}"
-        " other{}}"
-      " UETT_VecStep {This is vec_step, used in OpenCL.}"
-      " other {This is a unary expression or type trait expression with an unknown kind: {kind}.}}"
+        " true {This is the alignof operation, being used on the type"
+               " {argument_type}.}"
+        " false {This is the alignof operation, being used on an"
+                " @[argument_expr]expression@[], which has type {argument_type}.}"
+        " other {}}}"
+
+      " UETT_VecStep {This is vec_step (used in OpenCL).}"
+
+      " other {}}"
     }
 
-    // UnaryOperator description
+    // UnaryOperator
     // Inputs:
-    //   opcode
-    //   is_prefix
-    //   is_postfix
-    //   is_increment_op
-    //   is_decrement_op
-    //   is_increment_decrement_op
-    //   is_arithmetic_op
-    // Value inputs:
-    //   [has_]rtv_of_this
-    //   [has_]rtv_of_sub_expr
+    //   [UnaryOperatorKind] opcode
+    //   [Bool]              is_prefix
+    //   [Bool]              is_postfix
+    //   [Bool]              is_increment_op
+    //   [Bool]              is_decrement_op
+    //   [Bool]              is_increment_decrement_op
+    //   [Bool]              is_arithmetic_op
+    // Values:
+    //   rtv_of_this
+    //   rtv_of_sub_expr
     // Outputs:
-    //   sub_expr
+    //   [Expr] sub_expr
     //
     UnaryOperator:string {
       "{opcode, select,"
-      " UO_PostInc {This is a post-increment operation. It returns the current value of the object referenced by the @[sub_expr]sub-expression@[], and increments (adds 1 to) the value that is stored in that object.}"
-      " UO_PostDec {This is a post-decrement operation. It returns the current value of the object referenced by the @[sub_expr]sub-expression@[], and decrements (subtracts 1 from) the value that is stored in that object.}"
-      " UO_PreInc {This is a pre-increment operation. It increments (adds 1 to) the value that is stored in the object referenced by the @[sub_expr]sub-expression@[], and returns the new value.}"
-      " UO_PreDec {This is a pre-decrement operation. It decrements (subtracts 1 from) the value that is stored in the object referenced by the @[sub_expr]sub-expression@[], and returns the new value.}"
-      " UO_AddrOf {This is an address-of operation. It takes the address of the object that is referenced by the @[sub_expr]sub-expression@[], producing a pointer to that object.}"
-      " UO_Deref {This is a dereference operation. It returns the object that is at the address that is referenced by the pointer-type @[sub_expr]sub-expression@[].}"
+
+      " UO_PostInc {"
+        "This is a post-increment operation. It returns the current value of"
+        " the object referenced by the @[sub_expr]sub-expression@[], and"
+        " increments (adds 1 to) the value that is stored in that object.}"
+
+      " UO_PostDec {"
+        "This is a post-decrement operation. It returns the current value of"
+        " the object referenced by the @[sub_expr]sub-expression@[], and"
+        " decrements (subtracts 1 from) the value that is stored in that object.}"
+
+      " UO_PreInc {"
+        "This is a pre-increment operation. It increments (adds 1 to) the value"
+        " that is stored in the object referenced by the"
+        " @[sub_expr]sub-expression@[], and returns the new value.}"
+
+      " UO_PreDec {"
+        "This is a pre-decrement operation. It decrements (subtracts 1 from)"
+        " the value that is stored in the object referenced by the"
+        " @[sub_expr]sub-expression@[], and returns the new value.}"
+
+      " UO_AddrOf {"
+        "This is an address-of operation. It takes the address of the object"
+        " that is referenced by the @[sub_expr]sub-expression@[], producing a"
+        " pointer to that object.}"
+
+      " UO_Deref {"
+        "This is a dereference operation. It returns the object that is at the"
+        " address that is referenced by the pointer type"
+        " @[sub_expr]sub-expression@[].}"
+
       " UO_Plus {This is a unary plus operation.}"
-      " UO_Minus {This is a unary minus operation, which returns the additive inverse of the value produced by the @[sub_expr]sub-expression@[] (i.e. the value of the @[sub_expr]sub-expression@[] subtracted from zero).}"
-      " UO_Not {This is a bitwise NOT, or complement, operation. It inverts the value of each individual bit in the value produced by the @[sub_expr]sub-expression@[].}"
-      " UO_LNot {This is a logical negation (NOT) operation. If the value of the @[sub_expr]sub-expression@[] is considered to be true, then this operation returns a false value. If the value of the @[sub_expr]sub-expression@[] is considered to be false, then this operation returns a true value.}"
+
+      " UO_Minus {"
+        "This is a unary minus operation, which returns the additive inverse of"
+        " the value produced by the @[sub_expr]sub-expression@[] (i.e. the"
+        " value of the @[sub_expr]sub-expression@[] subtracted from zero).}"
+
+      " UO_Not {"
+        "This is a bitwise NOT, or complement, operation. It inverts the value"
+        " of each individual bit in the value produced by the"
+        " @[sub_expr]sub-expression@[].}"
+
+      " UO_LNot {"
+        "This is a logical negation (NOT) operation. If the value of the"
+        " @[sub_expr]sub-expression@[] is true (non-zero), then this operation"
+        " returns a false (zero) value. If the value of the"
+        " @[sub_expr]sub-expression@[] is false (zero), then this operation"
+        " returns a true (non-zero) value.}"
+
       " UO_Real {This operation returns the real part of a complex number.}"
+
       " UO_Imag {This operation returns the imaginary part of a complex number.}"
+
       " UO_Extension {This is the extension marker.}"
-      " other {This is an unknown unary operator.}}"
+
+      " other {}}"
     }
 
     // WhileStmt description
     // Inputs:
-    //   has_condition_variable
-    //   has_cond
-    //   has_body
-    // Value inputs:
-    //   [has_]rtv_of_cond
+    //   [Bool] has_condition_variable
+    //   [Bool] has_cond
+    //   [Bool] has_body
+    // Values:
+    //   rtv_of_cond
     // Outputs:
-    //   condition_variable
-    //   cond
-    //   body
+    //   [DeclStmt] condition_variable
+    //   [Expr]     cond
+    //   [Stmt]     body
     //
     WhileStmt:string {
-      "This is a while loop. It has a @[cond]condition expression@[] and a @[body]body@[]. At the beginning of the loop, the @[cond]condition expression@[] is evaluated."
-      "{has_rtv_of_cond, select, true { In this case it has evaluated to {rtv_of_cond}.} false {} other {}}"
-      " If this value is considered to be true (i.e. it is not zero), then the loop's @[body]body@[] will be evaluated. If the end of the @[body]body@[] is reached, or a continue statement is evaluated, then the iteration is complete. Evaluation will return to the beginning of the loop, starting with the @[cond]condition expression@[]. If the value produced by the @[cond]condition expression@[] is considered to be false, then the loop is complete and execution proceeds to the first point following the end of the @[body]body@[]."
+      "This is a while loop. It has a @[cond]condition expression@[] and a"
+      " @[body]body@[]. At the beginning of the loop, the"
+      " @[cond]condition expression@[] is evaluated."
+
+      "{has_rtv_of_cond, select,"
+      " true  { In this case it has evaluated to {rtv_of_cond}.}"
+      " other {}}"
+
+      " If this value is true (non-zero), then the loop's @[body]body@[] is"
+      " executed. If the end of the @[body]body@[] is reached, or a continue"
+      " statement is evaluated, then the iteration is complete and execution"
+      " returns to the beginning of the loop (i.e. the"
+      " @[cond]condition expression@[] is evaluated again). If the value"
+      " produced by the @[cond]condition expression@[] is false (zero), then"
+      " the loop is terminated and execution proceeds to the first statement"
+      " following the end of the @[body]body@[]."
+
+      "\n$[concept:while]"
+    }
+
+    // InitListExpr
+    // Inputs:
+    //   [Type] type
+    //   [Bool] is_string_literal_init
+    //   [Bool] had_array_range_designator
+    // Values:
+    // Outputs:
+    //   [FieldDecl] initialized_field_in_union
+    //
+    InitListExpr:string {
+      "This is an initializer list."
+      " It is used to initialize structs, unions, or arrays."
     }
   }
 }

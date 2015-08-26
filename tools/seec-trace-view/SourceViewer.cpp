@@ -23,8 +23,10 @@
 #include "seec/ICU/LineWrapper.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "clang/Basic/SourceManager.h"
@@ -34,25 +36,73 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/font.h>
+#include <wx/timer.h>
 #include <wx/tokenzr.h>
 #include <wx/stc/stc.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 #include "unicode/brkiter.h"
 
+#include "ActionRecord.hpp"
+#include "ActionReplay.hpp"
 #include "CommonMenus.hpp"
-#include "ExplanationViewer.hpp"
+#include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
 #include "SourceViewer.hpp"
 #include "SourceViewerSettings.hpp"
 #include "StateAccessToken.hpp"
+#include "StmtTooltip.hpp"
+#include "TraceViewerApp.hpp"
 #include "ValueFormat.hpp"
 
+#include <functional>
 #include <list>
 #include <map>
 #include <memory>
+
+
+//------------------------------------------------------------------------------
+// Helpers
+//------------------------------------------------------------------------------
+
+wxRect RectFromRange(wxStyledTextCtrl * const Text,
+                     int const Start,
+                     int const End)
+{
+  auto const StartLine = Text->LineFromPosition(Start);
+  auto const EndLine   = Text->LineFromPosition(End);
+
+  auto const StartPos = Text->PointFromPosition(Start);
+  auto const EndPos   = Text->PointFromPosition(End);
+
+  // Calculate the "minimum x" position.
+  auto TopLeftX = StartPos.x;
+  for (auto Line = StartLine + 1; Line <= EndLine; ++Line) {
+    auto const Pos   = Text->GetLineIndentPosition(Line);
+    auto const Point = Text->PointFromPosition(Pos);
+    if (Point.x < TopLeftX)
+      TopLeftX = Point.x;
+  }
+
+  // Calculate the "maximum x" position.
+  auto BottomRightX = EndPos.x;
+  for (auto Line = StartLine; Line < EndLine; ++Line) {
+    auto const Pos   = Text->GetLineEndPosition(Line);
+    auto const Point = Text->PointFromPosition(Pos);
+    if (Point.x > BottomRightX)
+      BottomRightX = Point.x;
+  }
+
+  auto const EndHeight = Text->TextHeight(EndLine);
+
+  auto const TopLeft = wxPoint(TopLeftX, StartPos.y);
+
+  auto const BottomRight = wxPoint(BottomRightX, EndPos.y + EndHeight);
+
+  return wxRect(TopLeft, wxSize(BottomRight.x - TopLeft.x,
+                                BottomRight.y - TopLeft.y));
+}
 
 
 //------------------------------------------------------------------------------
@@ -112,7 +162,9 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const &SourceManager = AST.getSourceManager();
   
   // Find the first character in the first token.
-  while (Start.isMacroID())
+  if (SourceManager.isMacroArgExpansion(Start))
+    Start = SourceManager.getSpellingLoc(Start);
+  else if (Start.isMacroID())
     Start = SourceManager.getExpansionLoc(Start);
   
   // Find the file that the first token belongs to.
@@ -120,8 +172,10 @@ static SourceFileRange getRangeOutermost(clang::SourceLocation Start,
   auto const File = SourceManager.getFileEntryForID(FileID);
   
   // Find the first character in the last token.
-  while (End.isMacroID())
-    End = SourceManager.getExpansionLoc(End);
+  if (SourceManager.isMacroArgExpansion(End))
+    End = SourceManager.getSpellingLoc(End);
+  else if (End.isMacroID())
+    End = SourceManager.getExpansionRange(End).second;
   
   if (SourceManager.getFileID(End) != FileID)
     return SourceFileRange{};
@@ -174,22 +228,36 @@ static SourceFileRange getRangeInFile(clang::SourceLocation Start,
 {
   auto const &SrcMgr = AST.getSourceManager();
   
+  if (SrcMgr.isMacroArgExpansion(Start)) {
+    auto const SpellStart = SrcMgr.getSpellingLoc(Start);
+    if (SrcMgr.getFileEntryForID(SrcMgr.getFileID(SpellStart)) == FileEntry) {
+      Start = SpellStart;
+    }
+  }
+
   // Take the expansion location of the Start until it is in the requested file.
   while (SrcMgr.getFileEntryForID(SrcMgr.getFileID(Start)) != FileEntry) {
     if (!Start.isMacroID())
       return SourceFileRange{};
     
-    Start = SrcMgr.getExpansionLoc(Start);
+    Start = SrcMgr.getImmediateExpansionRange(Start).first;
   }
   
   auto const FileID = SrcMgr.getFileID(Start);
   
+  if (SrcMgr.isMacroArgExpansion(End)) {
+    auto const SpellEnd = SrcMgr.getSpellingLoc(End);
+    if (SrcMgr.getFileID(SpellEnd) == FileID) {
+      End = SpellEnd;
+    }
+  }
+
   // Take the expansion location of the End until it is in the requested file.
   while (SrcMgr.getFileID(End) != FileID) {
     if (!End.isMacroID())
       return SourceFileRange{};
     
-    End = SrcMgr.getExpansionLoc(End);
+    End = SrcMgr.getImmediateExpansionRange(End).second;
   }
   
   // Find the first character following the last token.
@@ -331,6 +399,12 @@ class SourceFilePanel : public wxPanel {
   };
   
 
+  /// The \c SourceViewerPanel that contains this \c SourceFilePanel.
+  SourceViewerPanel *Parent;
+
+  /// The \c ActionRecord for the \c TraceViewerFrame that owns this panel.
+  ActionRecord *Recording;
+
   /// The ASTUnit that the file belongs to.
   clang::ASTUnit *AST;
   
@@ -345,6 +419,12 @@ class SourceFilePanel : public wxPanel {
   
   /// Access to the current state.
   std::shared_ptr<StateAccessToken> CurrentAccess;
+  
+  /// The current process state.
+  seec::cm::ProcessState const *CurrentProcess;
+  
+  /// The current thread state.
+  seec::cm::ThreadState const *CurrentThread;
   
   /// Regions that have indicators for the current state.
   std::vector<IndicatedRegion> StateIndications;
@@ -366,7 +446,13 @@ class SourceFilePanel : public wxPanel {
   
   /// Temporary indicator for the node that the mouse is hovering over.
   decltype(TemporaryIndicators)::iterator HoverIndicator;
+
+  /// Temporary indicator for the node that the replay is hovering over.
+  decltype(TemporaryIndicators)::iterator ReplayIndicator;
   
+  /// Timer to determine how long the mouse has hovered over the current node.
+  wxTimer HoverTimer;
+
   /// Used to determine if the mouse remains stationary during a click.
   bool ClickUnmoved;
   
@@ -389,7 +475,7 @@ class SourceFilePanel : public wxPanel {
     //
     UErrorCode Status = U_ZERO_ERROR;
     auto KeywordRes = seec::getResource("TraceViewer",
-                                        Locale::getDefault(),
+                                        getLocale(),
                                         Status,
                                         "ScintillaKeywords",
                                         "C");
@@ -568,11 +654,18 @@ class SourceFilePanel : public wxPanel {
   ///
   void OnTextMotion(wxMouseEvent &Event);
   
+  /// \brief Called when the mouse enters the Text (Scintilla) window.
+  void OnTextEnterWindow(wxMouseEvent &Event) {
+    Parent->OnMouseEnter(*this);
+    Event.Skip();
+  }
+
   /// \brief Called when the mouse leaves the Text (Scintilla) window.
   ///
   void OnTextLeaveWindow(wxMouseEvent &Event) {
     CurrentMousePosition = -1;
     clearHoverNode();
+    Parent->OnMouseLeave(*this);
     Event.Skip();
   }
   
@@ -589,20 +682,69 @@ class SourceFilePanel : public wxPanel {
     if (!ClickUnmoved)
       return;
     
-    if (HoverDecl)
-      return;
+    if (HoverDecl) {
+      HoverTimer.Stop();
+      Parent->OnRightClick(*this, HoverDecl);
+
+      wxMenu CM{};
+      addDeclAnnotationEdit(CM, this, *(this->Parent->getTrace()), HoverDecl);
+      PopupMenu(&CM);
+    }
     
     if (HoverStmt) {
-      wxMenu ContextMenu{};
+      HoverTimer.Stop();
+      Parent->OnRightClick(*this, HoverStmt);
+
+      auto const MaybeIndex = CurrentProcess->getThreadIndex(*CurrentThread);
+      if (!MaybeIndex.assigned<std::size_t>())
+        return;
       
-      addStmtNavigation(*this, CurrentAccess, ContextMenu, HoverStmt);
+      auto const ThreadIndex = MaybeIndex.get<std::size_t>();
       
-      PopupMenu(&ContextMenu);
+      wxMenu CM{};
+      addStmtNavigation(*this,
+                        CurrentAccess,
+                        CM,
+                        ThreadIndex,
+                        HoverStmt,
+                        Recording);
+      CM.AppendSeparator();
+      addStmtAnnotationEdit(CM, this, *(this->Parent->getTrace()), HoverStmt);
+      PopupMenu(&CM);
     }
   }
   
   /// @} (Mouse events.)
   
+  /// \brief Called when the mouse has hovered on a node.
+  ///
+  void OnHover(wxTimerEvent &Ev)
+  {
+    if (HoverIndicator == end(TemporaryIndicators))
+      return;
+
+    auto const Trace = Parent->getTrace();
+    assert(Trace && "SourceViewerPanel has no trace!");
+
+    auto const Start = HoverIndicator->Start;
+    auto const End   = Start + HoverIndicator->Length;
+
+    auto const ClientRect = RectFromRange(Text, Start, End);
+
+    wxRect ScreenRect(ClientToScreen(ClientRect.GetTopLeft()),
+                      ClientRect.GetSize());
+
+    // Determine a good maximum width for the tip window.
+    auto const WindowSize = GetSize();
+    auto const TipWidth = WindowSize.GetWidth();
+
+    if (HoverDecl) {
+      makeDeclTooltip(this, *Trace, HoverDecl, TipWidth, ScreenRect);
+    }
+    else if (HoverStmt) {
+      makeStmtTooltip(this, *Trace, HoverStmt, TipWidth, ScreenRect);
+    }
+  }
 
 public:
   /// Type used to reference temporary indicators.
@@ -613,11 +755,15 @@ public:
   ///
   SourceFilePanel()
   : wxPanel(),
+    Parent(nullptr),
+    Recording(nullptr),
     AST(nullptr),
     File(nullptr),
     Text(nullptr),
     Breaker(nullptr),
     CurrentAccess(),
+    CurrentProcess(nullptr),
+    CurrentThread(nullptr),
     StateIndications(),
     StateAnnotations(),
     TemporaryIndicators(),
@@ -625,34 +771,31 @@ public:
     HoverDecl(nullptr),
     HoverStmt(nullptr),
     HoverIndicator(TemporaryIndicators.end()),
+    ReplayIndicator(TemporaryIndicators.end()),
+    HoverTimer(),
     ClickUnmoved(false)
   {}
 
   /// \brief Construct and create.
   ///
-  SourceFilePanel(wxWindow *Parent,
+  SourceFilePanel(SourceViewerPanel *WithParent,
+                  ActionRecord &WithRecording,
                   clang::ASTUnit &WithAST,
                   clang::FileEntry const *WithFile,
                   llvm::MemoryBuffer const &Buffer,
                   wxWindowID ID = wxID_ANY,
                   wxPoint const &Position = wxDefaultPosition,
                   wxSize const &Size = wxDefaultSize)
-  : wxPanel(),
-    AST(nullptr),
-    File(nullptr),
-    Text(nullptr),
-    Breaker(nullptr),
-    CurrentAccess(),
-    StateIndications(),
-    StateAnnotations(),
-    TemporaryIndicators(),
-    CurrentMousePosition(-1),
-    HoverDecl(nullptr),
-    HoverStmt(nullptr),
-    HoverIndicator(TemporaryIndicators.end()),
-    ClickUnmoved(false)
+  : SourceFilePanel()
   {
-    Create(Parent, WithAST, WithFile, Buffer, ID, Position, Size);
+    Create(WithParent,
+           WithRecording,
+           WithAST,
+           WithFile,
+           Buffer,
+           ID,
+           Position,
+           Size);
   }
 
   /// \brief Destructor.
@@ -661,7 +804,8 @@ public:
 
   /// \brief Create the panel.
   ///
-  bool Create(wxWindow *Parent,
+  bool Create(SourceViewerPanel *WithParent,
+              ActionRecord &WithRecording,
               clang::ASTUnit &WithAST,
               clang::FileEntry const *WithFile,
               llvm::MemoryBuffer const &Buffer,
@@ -669,9 +813,11 @@ public:
               wxPoint const &Position = wxDefaultPosition,
               wxSize const &Size = wxDefaultSize)
   {
-    if (!wxPanel::Create(Parent, ID, Position, Size))
+    if (!wxPanel::Create(WithParent, ID, Position, Size))
       return false;
 
+    Parent = WithParent;
+    Recording = &WithRecording;
     AST = &WithAST;
     File = WithFile;
 
@@ -683,7 +829,7 @@ public:
     setSTCPreferences();
     
     // Load the source code into the Scintilla control.
-    Text->SetText(wxString(Buffer.getBufferStart(), Buffer.getBufferSize()));
+    Text->SetText(wxString::FromUTF8(Buffer.getBufferStart()));
     
     setFileSpecificOptions();
 
@@ -693,7 +839,7 @@ public:
     
     // Setup the BreakIterator used for line wrapping.
     UErrorCode Status = U_ZERO_ERROR;
-    Breaker.reset(BreakIterator::createLineInstance(Locale(), Status));
+    Breaker.reset(BreakIterator::createLineInstance(getLocale(), Status));
     
     if (U_FAILURE(Status)) {
       Breaker.reset();
@@ -725,20 +871,39 @@ public:
     
     // Setup mouse handling.
     Text->Bind(wxEVT_MOTION,       &SourceFilePanel::OnTextMotion,      this);
+    Text->Bind(wxEVT_ENTER_WINDOW, &SourceFilePanel::OnTextEnterWindow, this);
     Text->Bind(wxEVT_LEAVE_WINDOW, &SourceFilePanel::OnTextLeaveWindow, this);
     Text->Bind(wxEVT_RIGHT_DOWN,   &SourceFilePanel::OnTextRightDown,   this);
     Text->Bind(wxEVT_RIGHT_UP,     &SourceFilePanel::OnTextRightUp,     this);
+
+    // Detect when the mouse has hovered on a node.
+    HoverTimer.Bind(wxEVT_TIMER, &SourceFilePanel::OnHover, this);
 
     return true;
   }
   
   
+  /// \name Accessors.
+  /// @{
+
+  /// \brief Get the name of the source file displayed by this panel.
+  ///
+  char const *getFileName() const {
+    return File->getName();
+  }
+
+  /// @} (Accessors)
+
+
   /// \name State display.
   /// @{
   
   /// \brief Clear state-related information.
   ///
   void clearState() {
+    // Remove hovers.
+    clearHoverNode();
+
     // Remove temporary indicators.
     for (auto &Region : StateIndications) {
       Text->SetIndicatorCurrent(Region.Indicator);
@@ -746,7 +911,7 @@ public:
     }
     
     StateIndications.clear();
-  
+
     // Remove temporary annotations.
     for (auto const &LineAnno : StateAnnotations) {
       Text->AnnotationClearLine(LineAnno.first);
@@ -756,6 +921,10 @@ public:
     
     // wxStyledTextCtrl doesn't automatically redraw after the above.
     Text->Refresh();
+    
+    CurrentAccess.reset();
+    CurrentProcess = nullptr;
+    CurrentThread = nullptr;
   }
   
   /// \brief Update this panel to reflect the given state.
@@ -765,6 +934,8 @@ public:
             seec::cm::ThreadState const &Thread)
   {
     CurrentAccess = std::move(Access);
+    CurrentProcess = &Process;
+    CurrentThread = &Thread;
   }
   
   /// \brief Set an indicator on a range of text for the current state.
@@ -831,6 +1002,7 @@ public:
     
     Text->SetIndicatorCurrent(IndicatorInt);
     Text->IndicatorFillRange(Token->Start, Token->Length);
+    Text->Refresh();
     
     return Token;
   }
@@ -839,9 +1011,17 @@ public:
   ///
   void temporaryIndicatorRemove(temporary_indicator_token Token)
   {
+    if (Token == end(TemporaryIndicators))
+      return;
+
     Text->SetIndicatorCurrent(Token->Indicator);
     Text->IndicatorClearRange(Token->Start, Token->Length);
     
+    if (HoverIndicator == Token)
+      HoverIndicator = end(TemporaryIndicators);
+    if (ReplayIndicator == Token)
+      ReplayIndicator = end(TemporaryIndicators);
+
     TemporaryIndicators.erase(Token);
   }
   
@@ -860,13 +1040,43 @@ public:
   /// \name Display control
   /// @{
   
-  /// \brief Scroll enough to make the given line visible.
+  /// \brief Scroll enough to make the given range visible.
   ///
-  void scrollToLine(int const Line) {
-    Text->ScrollToLine(Line);
+  void scrollToRange(SourceFileRange const &Range) {
+    if (Range.File != File)
+      return;
+
+    // TODO: Newer versions of Scintilla (and thus wxStyledTextCtrl) support
+    // scrolling to ensure a range is visible (wxStyledTextCtrl::ScrollRange),
+    // so update this function when we upgrade wxWidgets.
+
+    assert(Range.StartLine <= std::numeric_limits<int>::max());
+    int const RangeStartSci = Range.StartLine - 1;
+
+    auto const DisplayFirst = Text->GetFirstVisibleLine();
+    auto const LinesOnScreen = Text->LinesOnScreen();
+
+    auto const DocFirst = Text->DocLineFromVisible(DisplayFirst);
+    auto const DocLast = Text->DocLineFromVisible(DisplayFirst + LinesOnScreen);
+
+    if (DocLast < RangeStartSci)
+      Text->ScrollToLine(RangeStartSci);
+    else if (DocFirst > RangeStartSci)
+      Text->ScrollToLine(RangeStartSci);
   }
   
   /// @} (Display control)
+
+  /// \brief Replay a hover indicator over the given range.
+  ///
+  void replayHover(SourceFileRange const &Range)
+  {
+    if (ReplayIndicator != end(TemporaryIndicators))
+      temporaryIndicatorRemove(ReplayIndicator);
+    ReplayIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
+                                            Range.Start, Range.End);
+    scrollToRange(Range);
+  }
 };
 
 void SourceFilePanel::clearHoverNode() {
@@ -877,6 +1087,8 @@ void SourceFilePanel::clearHoverNode() {
     temporaryIndicatorRemove(HoverIndicator);
     HoverIndicator = TemporaryIndicators.end();
   }
+
+  HoverTimer.Stop();
 }
 
 void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
@@ -892,6 +1104,9 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
   if (Pos == CurrentMousePosition)
     return;
   
+  auto const PreviousHoverDecl = HoverDecl;
+  auto const PreviousHoverStmt = HoverStmt;
+
   CurrentMousePosition = Pos;
   clearHoverNode();
   
@@ -915,14 +1130,18 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
     case seec::seec_clang::SearchResult::EFoundKind::Decl:
     {
       HoverDecl = Result.getFoundDecl();
-      
       auto const Range = getRangeInFile(HoverDecl, ASTContext, File);
       
       if (Range.File) {
         HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
                                                Range.Start,
                                                Range.End);
+
+        if (PreviousHoverDecl != HoverDecl)
+          Parent->OnMouseOver(*this, HoverDecl);
       }
+
+      HoverTimer.Start(1000, wxTIMER_ONE_SHOT);
       
       break;
     }
@@ -930,14 +1149,18 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
     case seec::seec_clang::SearchResult::EFoundKind::Stmt:
     {
       HoverStmt = Result.getFoundStmt();
-      
       auto const Range = getRangeInFile(HoverStmt, ASTContext, File);
       
       if (Range.File) {
         HoverIndicator = temporaryIndicatorAdd(SciIndicatorType::CodeHighlight,
                                                Range.Start,
                                                Range.End);
+
+        if (PreviousHoverStmt != HoverStmt)
+          Parent->OnMouseOver(*this, HoverStmt);
       }
+
+      HoverTimer.Start(1000, wxTIMER_ONE_SHOT);
       
       break;
     }
@@ -949,46 +1172,245 @@ void SourceFilePanel::OnTextMotion(wxMouseEvent &Event) {
 // SourceViewerPanel
 //------------------------------------------------------------------------------
 
+/// Workaround because wxAuiNotebook has a bug that breaks member FindPage.
+///
+static int FindPage(wxBookCtrlBase const *Book, wxWindow const *Page)
+{
+  for (std::size_t i = 0, Count = Book->GetPageCount(); i < Count; ++i)
+    if (Book->GetPage(i) == Page)
+      return static_cast<int>(i);
+
+  return wxNOT_FOUND;
+}
+
+void SourceViewerPanel::ReplayPageChanged(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      auto const Index = FindPage(Notebook, Page.second);
+      if (Index != wxNOT_FOUND)
+        Notebook->SetSelection(Index);
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseEnter(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      Page.second->temporaryIndicatorRemoveAll();
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseLeave(std::string &File)
+{
+  for (auto &Page : Pages) {
+    if (Page.first->getName() == File) {
+      Page.second->temporaryIndicatorRemoveAll();
+      break;
+    }
+  }
+}
+
+void SourceViewerPanel::ReplayMouseOverDecl(clang::Decl const *D)
+{
+  if (D == nullptr) {
+    highlightOff();
+    return;
+  }
+
+  if (!Trace)
+    return;
+
+  auto const MappedAST = Trace->getTrace().getMapping().getASTForDecl(D);
+  if (!MappedAST)
+    return;
+
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(D, ASTUnit.getASTContext());
+  if (!Range.File)
+    return;
+
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+
+  PageIt->second->replayHover(Range);
+}
+
+void SourceViewerPanel::ReplayMouseOverStmt(clang::Stmt const *S)
+{
+  if (S == nullptr) {
+    highlightOff();
+    return;
+  }
+
+  if (!Trace)
+    return;
+
+  auto const MappedAST = Trace->getTrace().getMapping().getASTForStmt(S);
+  if (!MappedAST)
+    return;
+
+  auto const &ASTUnit = MappedAST->getASTUnit();
+  auto const Range = getRangeOutermost(S, ASTUnit.getASTContext());
+  if (!Range.File)
+    return;
+
+  auto const PageIt = Pages.find(Range.File);
+  if (PageIt == Pages.end())
+    return;
+
+  PageIt->second->replayHover(Range);
+}
+
+void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
+{
+  auto const Selection = Ev.GetSelection();
+  if (!Recording || Selection == wxNOT_FOUND)
+    return;
+
+  auto const Page = static_cast<SourceFilePanel const *>
+                                (Notebook->GetPage(Selection));
+  if (!Page)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.PageChanged",
+                          make_attribute("page", Selection),
+                          make_attribute("file", Page->getFileName()));
+}
+
+void SourceViewerPanel::OnMouseEnter(SourceFilePanel &Page)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseEnter",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()));
+}
+
+void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseLeave",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()));
+}
+
+void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
+                                    clang::Decl const *Decl)
+{
+  Notifier->createNotify<ConEvHighlightDecl>(Decl);
+
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseOverDecl",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("decl", Decl));
+}
+
+void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
+                                    clang::Stmt const *Stmt)
+{
+  Notifier->createNotify<ConEvHighlightStmt>(Stmt);
+
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseOverStmt",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("stmt", Stmt));
+}
+
+void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
+                                     clang::Decl const *Decl)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseRightClickDecl",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("decl", Decl));
+}
+
+void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
+                                     clang::Stmt const *Stmt)
+{
+  auto const PageIndex = Notebook->GetPageIndex(&Page);
+  if (!Recording || PageIndex == wxNOT_FOUND)
+    return;
+
+  Recording->recordEventL("SourceViewerPanel.MouseRightClickStmt",
+                          make_attribute("page", PageIndex),
+                          make_attribute("file", Page.getFileName()),
+                          make_attribute("stmt", Stmt));
+}
+
 SourceViewerPanel::SourceViewerPanel()
 : wxPanel(),
   Notebook(nullptr),
   Trace(nullptr),
   Notifier(nullptr),
+  Recording(nullptr),
   Pages(),
   CurrentAccess()
 {}
 
 SourceViewerPanel::SourceViewerPanel(wxWindow *Parent,
-                                     OpenTrace const &TheTrace,
+                                     OpenTrace &TheTrace,
                                      ContextNotifier &WithNotifier,
+                                     ActionRecord &WithRecording,
+                                     ActionReplayFrame &WithReplay,
                                      wxWindowID ID,
                                      wxPoint const &Position,
                                      wxSize const &Size)
-: wxPanel(),
-  Notebook(nullptr),
-  Trace(nullptr),
-  Notifier(nullptr),
-  Pages(),
-  CurrentAccess()
+: SourceViewerPanel()
 {
-  Create(Parent, TheTrace, WithNotifier, ID, Position, Size);
+  Create(Parent,
+         TheTrace,
+         WithNotifier,
+         WithRecording,
+         WithReplay,
+         ID,
+         Position,
+         Size);
 }
 
 SourceViewerPanel::~SourceViewerPanel()
 {}
 
 bool SourceViewerPanel::Create(wxWindow *Parent,
-                               OpenTrace const &TheTrace,
+                               OpenTrace &TheTrace,
                                ContextNotifier &WithNotifier,
+                               ActionRecord &WithRecording,
+                               ActionReplayFrame &WithReplay,
                                wxWindowID ID,
                                wxPoint const &Position,
-                               wxSize const &Size) {
+                               wxSize const &Size)
+{
   if (!wxPanel::Create(Parent, ID, Position, Size))
     return false;
 
   Trace = &TheTrace;
   
   Notifier = &WithNotifier;
+
+  Recording = &WithRecording;
 
   Notebook = new wxAuiNotebook(this,
                                wxID_ANY,
@@ -999,17 +1421,14 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
                                | wxAUI_NB_TAB_MOVE
                                | wxAUI_NB_SCROLL_BUTTONS);
   
-  ExplanationCtrl = new ExplanationViewer(this,
-                                          WithNotifier,
-                                          wxID_ANY,
-                                          wxDefaultPosition,
-                                          wxSize(100, 100));
-
   auto TopSizer = new wxBoxSizer(wxVERTICAL);
   TopSizer->Add(Notebook, wxSizerFlags(1).Expand());
-  TopSizer->Add(ExplanationCtrl, wxSizerFlags(0).Expand());
   SetSizerAndFit(TopSizer);
   
+  // Setup notebook event recording.
+  Notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,
+                 &SourceViewerPanel::OnPageChanged, this);
+
   // Setup highlight event handling.
   Notifier->callbackAdd([this] (ContextEvent const &Ev) -> void {
     switch (Ev.getKind()) {
@@ -1036,8 +1455,34 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
     }
   });
 
-  // TODO: Load all source files.
+  // Load main source files.
+  auto &MappedModule = Trace->getTrace().getMapping();
   
+  for (auto const MappedAST : MappedModule.getASTs()) {
+    if (MappedAST) {
+      auto const &Unit = MappedAST->getASTUnit();
+      auto const &SrcMgr = Unit.getSourceManager();
+      auto const FileEntry = SrcMgr.getFileEntryForID(SrcMgr.getMainFileID());
+      loadAndShowFile(FileEntry, *MappedAST);
+    }
+  }
+  
+  // Setup replay of recorded actions.
+  WithReplay.RegisterHandler("SourceViewerPanel.PageChanged", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayPageChanged));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseEnter", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseEnter));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseLeave", {{"file"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseLeave));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseOverDecl", {{"decl"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseOverDecl));
+
+  WithReplay.RegisterHandler("SourceViewerPanel.MouseOverStmt", {{"stmt"}},
+    seec::make_function(this, &SourceViewerPanel::ReplayMouseOverStmt));
+
   return true;
 }
 
@@ -1050,9 +1495,6 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
                              seec::cm::ProcessState const &Process,
                              seec::cm::ThreadState const &Thread)
 {
-  // Clear any existing explanation.
-  ExplanationCtrl->clearExplanation();
-  
   // Clear existing state information from all files.
   for (auto &PagePair : Pages)
     PagePair.second->clearState();
@@ -1081,9 +1523,11 @@ void SourceViewerPanel::show(std::shared_ptr<StateAccessToken> Access,
   
   auto const &Function = CallStack.back().get();
   
-  auto const ActiveStmt = Function.getActiveStmt();
-  if (ActiveStmt) {
+  if (auto const ActiveStmt = Function.getActiveStmt()) {
     showActiveStmt(ActiveStmt, Function);
+  }
+  else if (auto const ActiveDecl = Function.getActiveDecl()) {
+    showActiveDecl(ActiveDecl, Function);
   }
   else {
     auto const FunctionDecl = Function.getFunctionDecl();
@@ -1101,13 +1545,16 @@ void
 SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                                     seec::cm::FunctionState const &InFunction)
 {
+  auto const &Augmentations = wxGetApp().getAugmentations();
+
   // Generate a localised textual description of the error.
-  auto MaybeDesc = Error.getDescription();
+  auto MaybeDesc = Error.getDescription(Augmentations.getCallbackFn());
   
   if (MaybeDesc.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
     
-    auto const Str = MaybeDesc.get<seec::Error>().getMessage(Status, Locale());
+    auto const Str = MaybeDesc.get<seec::Error>().getMessage(Status,
+                                                             getLocale());
     
     if (U_SUCCESS(Status)) {
       wxLogDebug("Error getting runtime error description: %s.",
@@ -1121,36 +1568,35 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
                                                             "\n",
                                                             " " };
   
-  // Find the source location of the Stmt that caused the error.
-  auto const Statement = Error.getStmt();
-  if (!Statement)
-    return;
-  
   auto const MappedAST = InFunction.getMappedAST();
   if (!MappedAST)
     return;
   
   auto &ASTUnit = MappedAST->getASTUnit();
   
-  auto const Range = getRangeOutermost(Statement, ASTUnit.getASTContext());
-  
+  // Find the source location of the node that caused the error.
+  auto const Decl = Error.getDecl();
+  auto const Stmt = Error.getStmt();
+  if (!Decl && !Stmt) {
+    wxLogDebug("Runtime error with no Decl or Stmt!");
+    return;
+  }
+
+  auto const Range = Stmt ? getRangeOutermost(Stmt, ASTUnit.getASTContext())
+                          : getRangeOutermost(Decl, ASTUnit.getASTContext());
   if (!Range.File) {
-    wxLogDebug("Couldn't find file for Stmt.");
+    wxLogDebug("Couldn't find file for node.");
     return;
   }
-  
-  auto const Panel = loadAndShowFile(Range.File, *MappedAST);
-  if (!Panel) {
-    wxLogDebug("Couldn't show source panel for file %s.",
-               Range.File->getName());
-    return;
+
+  // Attempt to load the containing file and annotate the error message.
+  if (auto const Panel = loadAndShowFile(Range.File, *MappedAST)) {
+    Panel->annotateLine(Range.EndLine - 1,
+                        /* Column */ 0,
+                        Printer.getString(),
+                        SciLexerType::SeeCRuntimeError,
+                        WrapStyle::Wrapped);
   }
-  
-  Panel->annotateLine(Range.EndLine - 1,
-                      /* Column */ 0,
-                      Printer.getString(),
-                      SciLexerType::SeeCRuntimeError,
-                      WrapStyle::Wrapped);
 }
 
 void
@@ -1183,38 +1629,19 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                            Range.End);
   
   // Scroll to the active Stmt.
-  Panel->scrollToLine(Range.EndLine - 1);
-  Panel->scrollToLine(Range.StartLine - 1);
+  Panel->scrollToRange(Range);
   
   auto const Value = InFunction.getStmtValue(Statement);
   if (Value) {
     auto const &Process = InFunction.getParent().getParent();
-    auto const String = getPrettyStringForInline(*Value, Process);
+    auto const String = getPrettyStringForInline(*Value, Process, Statement);
     
     Panel->annotateLine(Range.EndLine - 1,
                         Range.StartColumn - 1,
                         String,
                         SciLexerType::SeeCRuntimeValue,
                         WrapStyle::None);
-    
-    // Highlight this value.
-    Notifier->createNotify<ConEvHighlightValue>(Value.get(), CurrentAccess);
-    
-    // If this value is a pointer then also highlight the pointee.
-    if (Value->getKind() == seec::cm::Value::Kind::Pointer) {
-      auto const &Ptr = llvm::cast<seec::cm::ValueOfPointer>(*Value);
-      
-      if (Ptr.getDereferenceIndexLimit()) {
-        if (auto const Pointee = Ptr.getDereferenced(0)) {
-          Notifier->createNotify<ConEvHighlightValue>(Pointee.get(),
-                                                      CurrentAccess);
-        }
-      }
-    }
   }
-  
-  // Show an explanation for the Stmt.
-  ExplanationCtrl->showExplanation(Statement, InFunction);
 }
 
 void
@@ -1247,11 +1674,7 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
                            Range.End);
   
   // Scroll to the active Decl.
-  Panel->scrollToLine(Range.EndLine - 1);
-  Panel->scrollToLine(Range.StartLine - 1);
-  
-  // Show an explanation for the Decl.
-  ExplanationCtrl->showExplanation(Declaration);
+  Panel->scrollToRange(Range);
 }
 
 SourceFilePanel *
@@ -1272,10 +1695,14 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
   bool Invalid = false;
   auto const Buffer = SrcMgr.getMemoryBufferForFile(File, &Invalid);
   
-  if (Invalid)
+  if (Invalid) {
+    wxLogDebug("loadAndShowFile %s: MemoryBuffer is invalid!",
+               wxString{File->getName()});
     return nullptr;
-  
+  }
+
   auto const SourcePanel = new SourceFilePanel(this,
+                                               *Recording,
                                                ASTUnit,
                                                File,
                                                *Buffer);

@@ -21,8 +21,14 @@
 
 namespace seec {
 
+
+/// \brief Attempt to load the given resource as a wxImage.
+///
+wxImage getwxImage(ResourceBundle const &Resource, UErrorCode &Status);
+
 /// \brief Extract binary data from a ResourceBundle and attempt to load it as
 ///        a wxImage.
+///
 wxImage getwxImageEx(ResourceBundle const &Bundle,
                      char const *Key,
                      UErrorCode &Status);

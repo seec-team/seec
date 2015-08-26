@@ -15,6 +15,7 @@
 
 #include <wx/sstream.h>
 #include <wx/tokenzr.h>
+#include <wx/uri.h>
 
 #include <memory>
 #include <string>
@@ -37,7 +38,7 @@ std::string CallbackBase::call(wxString const &Right) const
   std::vector<std::string> Split;
   
   while (Tokenizer.HasMoreTokens())
-    Split.emplace_back(Tokenizer.GetNextToken().ToStdString());
+    Split.emplace_back(wxURI::Unescape(Tokenizer.GetNextToken().ToStdString()));
   
   auto const ReceivedArgs = Split.size();
   

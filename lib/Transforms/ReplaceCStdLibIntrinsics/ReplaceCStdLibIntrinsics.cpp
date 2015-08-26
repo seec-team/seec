@@ -18,12 +18,12 @@
 #include "seec/Util/ValueConversion.hpp"
 
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -63,7 +63,13 @@ bool EraseFunctionPredicate(Function &F) {
 
 ///
 bool ReplaceCStdLibIntrinsics::doFinalization(Module &M) {
-  M.getFunctionList().erase_if(EraseFunctionPredicate);
+  auto &Funs = M.getFunctionList();
+  for (auto I = Funs.begin(), E = Funs.end(); I != E; ) {
+    auto Next = I; ++Next;
+    if (EraseFunctionPredicate(*I))
+      Funs.erase(I);
+    I = Next;
+  }
   return true;
 }
 

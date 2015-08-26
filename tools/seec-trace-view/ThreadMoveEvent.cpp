@@ -18,10 +18,11 @@ IMPLEMENT_CLASS(ThreadMoveEvent, wxEvent)
 wxDEFINE_EVENT(SEEC_EV_THREAD_MOVE, ThreadMoveEvent);
 
 void
-raiseMovementEvent(wxWindow &Control,
-                   std::shared_ptr<StateAccessToken> &Access,
-                   std::size_t const ThreadIndex,
-                   std::function<bool (seec::cm::ThreadState &State)> Mover)
+raiseMovementEvent(
+  wxWindow &Control,
+  std::shared_ptr<StateAccessToken> &Access,
+  std::size_t const ThreadIndex,
+  std::function<seec::cm::MovementResult (seec::cm::ThreadState &State)> Mover)
 {
   auto const Handler = Control.GetEventHandler();
   if (!Handler)
@@ -30,8 +31,8 @@ raiseMovementEvent(wxWindow &Control,
   if (!Access)
     return;
   
-  auto Lock = Access->getAccess();
-  if (!Lock) // Token is out of date.
+  auto LockAccess = Access->getAccess();
+  if (!LockAccess) // Token is out of date.
     return;
   
   ThreadMoveEvent Ev {
@@ -43,7 +44,7 @@ raiseMovementEvent(wxWindow &Control,
   
   Ev.SetEventObject(&Control);
   
-  Lock.unlock();
+  LockAccess.release();
   
   Handler->AddPendingEvent(Ev);
 }

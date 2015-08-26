@@ -11,7 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+#include "seec/Util/Error.hpp"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -24,6 +26,17 @@ wxString towxString(UnicodeString const &icu) {
   std::string Buffer;
   icu.toUTF8String(Buffer);
   return wxString(Buffer.c_str(), wxConvUTF8);
+}
+
+wxString towxString(Resource const &R)
+{
+  return towxString(R.asString());
+}
+
+wxString towxStringOr(Resource const &R, wxString const &Default)
+{
+  auto const Str = R.asString();
+  return U_SUCCESS(R.status()) ? towxString(Str) : Default;
 }
 
 UnicodeString toUnicodeString(wxString const &wx) {
@@ -40,6 +53,21 @@ wxString getwxStringEx(ResourceBundle const &Bundle,
   }
 
   return wxString{};
+}
+
+wxString getwxStringExOr(ResourceBundle const &Bundle,
+                         char const *Key,
+                         wxString const &Default)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+
+  auto Str = Bundle.getStringEx(Key, Status);
+
+  if (U_FAILURE(Status)) {
+    return Default;
+  }
+
+  return towxString(Str);
 }
 
 wxString getwxStringExOrDie(ResourceBundle const &Bundle,
@@ -59,16 +87,49 @@ wxString getwxStringExOrDie(ResourceBundle const &Bundle,
 }
 
 wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
-                              char const *Key) {
+                              char const *Key)
+{
+  return getwxStringExOr(Bundle, Key, wxEmptyString);
+}
+
+wxString getwxStringExOrKey(ResourceBundle const &Bundle,
+                            char const *Key)
+{
+  return getwxStringExOr(Bundle, Key, Key);
+}
+
+wxString getwxStringExOrEmpty(ResourceBundle const &Bundle,
+                              llvm::ArrayRef<char const *> const &Keys)
+{
+  auto const MaybeStr = getString(Bundle, Keys);
+  
+  if (MaybeStr.assigned<UnicodeString>())
+    return towxString(MaybeStr.get<UnicodeString>());
+  
+  return wxString{};
+}
+
+wxString getwxStringExOrEmpty(char const *Package,
+                              llvm::ArrayRef<char const *> const &Keys)
+{
+  auto const MaybeStr = getString(Package, Keys);
+  
+  if (MaybeStr.assigned<UnicodeString>())
+    return towxString(MaybeStr.get<UnicodeString>());
+  
+  return wxString{};
+}
+
+wxString getMessageOrDescribe(seec::Error const &Error,
+                              Locale const &ForLocale)
+{
   UErrorCode Status = U_ZERO_ERROR;
 
-  auto Str = Bundle.getStringEx(Key, Status);
+  auto const Message = Error.getMessage(Status, ForLocale);
+  if (!U_FAILURE(Status))
+    return towxString(Message);
 
-  if (U_FAILURE(Status)) {
-    return wxString();
-  }
-
-  return towxString(Str);
+  return towxString(Error.describeMessage());
 }
 
 } // namespace seec

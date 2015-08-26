@@ -1,4 +1,4 @@
-//===- lib/Clang/GraphLayout.hpp ------------------------------------------===//
+//===- include/seec/Clang/GraphLayout.hpp ---------------------------------===//
 //
 //                                    SeeC
 //
@@ -20,6 +20,9 @@
 #include "seec/ICU/LazyMessage.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/ADT/DenseMap.h"
+
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -80,41 +83,19 @@ enum class AreaType {
 class ValuePort {
   EdgeEndType EdgeEnd;
   
-  std::string CustomPort;
-  
 public:
   ValuePort(EdgeEndType WithEdgeEnd)
-  : EdgeEnd(WithEdgeEnd),
-    CustomPort()
-  {}
-  
-  ValuePort(EdgeEndType WithEdgeEnd,
-            std::string WithCustomPort)
-  : EdgeEnd(WithEdgeEnd),
-    CustomPort(std::move(WithCustomPort))
+  : EdgeEnd(WithEdgeEnd)
   {}
   
   EdgeEndType getEdgeEnd() const { return EdgeEnd; }
-  
-  /// \brief Get the custom port for this Value, or an empty string if there is
-  ///        none.
-  ///
-  /// A custom port is used if the standard port that would be returned from
-  /// getStandardPortFor() does not exist, but a useful port is still available.
-  /// For example, if a layout engine elides a number of values, but shows a
-  /// marker where the values would be, then a port for this marker may be a
-  /// reasonable custom port for all of the elided values.
-  ///
-  std::string getCustomPort() const {
-    return CustomPort;
-  }
 };
 
 
 /// \brief Contains several ValuePorts.
 ///
 class ValuePortMap {
-  std::map<Value const *, ValuePort> Map;
+  llvm::DenseMap<Value const *, ValuePort> Map;
   
 public:
   /// \brief Find the port for a Value, if it exists.
@@ -457,6 +438,14 @@ public:
            seec::cm::ValueOfPointer const &Reference,
            Expansion const &Exp) const;
   
+  /// \brief Perform expansion and layout for a process state.
+  ///
+  /// Cancel expansion and layout if \c CancelIfFalse is false.
+  ///
+  LayoutOfProcess
+  doLayout(seec::cm::ProcessState const &State,
+           std::atomic_bool &CancelIfFalse) const;
+
   /// \brief Perform expansion and layout for a process state.
   ///
   LayoutOfProcess

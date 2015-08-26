@@ -31,6 +31,51 @@ root:table {
 
     Menu_File:string {"&File"}
 
+    MenuEdit:table {
+      Title:string {"&Edit"}
+      ThreadTimeAnnotation:string {"&Annotation"}
+    }
+
+    MenuRecord:table {
+      Title:string {"&Recording"}
+      Settings:string {"&Settings"}
+    }
+
+    MenuView:table {
+      Title:string {"&View"}
+      Explanation:string {"&Explanation"}
+      Graph:string {"&Graph"}
+      EvaluationTree:string {"E&valuation Tree"}
+      StreamState:string {"&FILE Streams"}
+    }
+
+    MenuTools:table {
+      Title:string {"&Tools"}
+
+      SaveDETBMP:string {"&Export evaluation tree"}
+      SaveBMP:string {"Save evaluation tree as bitmap"}
+      BMPFiles:string {"Bitmap files (*.bmp)|*.bmp"}
+
+      ExportGraphSVG:string {"&Export graph"}
+      SaveGraphSVG:string {"Save graph as SVG"}
+      SVGFiles:string {"SVG files (*.svg)|*.svg"}
+    }
+
+
+    //
+    // Recording settings dialog
+    //
+
+    RecordingSettingsDialog:table {
+      Title:string {"Recording settings"}
+
+      Token:string {"Your unique token:"}
+
+      MaximumSize:string {"Maximum size of a single recording (in MiB):"}
+
+      MaximumStore:string {"Maximum size of recordings to store locally (in MiB):"}
+    }
+
 
     //
     // Open trace dialog
@@ -40,78 +85,205 @@ root:table {
 
     OpenTrace_FileType:string {"SeeC Process Trace (*.seec;*.spt)|*.seec;*.spt"}
 
-    OpenTrace_Status_Loaded {"Loaded trace with {0} states."}
-
     OpenTrace_Error_FailIsDirectory:string {"Couldn't check if path was a directory."}
 
     OpenTrace_Error_LoadProcessTrace:string {"Couldn't read process trace."}
 
-    OpenTrace_Error_ParseIRFile:string {"Couldn't parse LLVM Module."}
+    OpenTrace_Error_AnnotationXml:string {"Annotation file is invalid."}
 
+    OpenTrace_Error_AnnotationBad:string {"Annotation file is invalid."}
+
+
+    //
+    // Save trace dialog
+    //
+
+    SaveTrace:table {
+      Title:string {"Save execution trace as..."}
+      FileType:string {"SeeC Execution Trace (*.seec)|*.seec"}
+      IncludeAnnotations:string {"Include annotations"}
+      IncludeActionRecording:string {"Include action recordings from this session"}
+
+      // Couldn't open temporary file for saving.
+      OpenFailTitle:string {"Failed to open file for writing."}
+      OpenFailMessage:string {"Save failed"}
+
+      // Couldn't write the trace into the archive.
+      WriteTraceFailTitle:string {"Failed to write execution trace."}
+      WriteTraceFailMessage:string {"Save failed"}
+
+      // Couldn't write the annotations into the archive.
+      WriteAnnotationsFailTitle:string {"Failed to write annotations."}
+      WriteAnnotationsFailMessage:string {"Save failed"}
+
+      // Couldn't write the user action recording into the archive.
+      WriteActionRecordingFailTitle:string {"Failed to write action recordings."}
+      WriteActionRecordingFailMessage:string {"Save failed"}
+
+      // Failed to close the archive.
+      ZipCloseFailTitle:string {"Failed to complete the archive."}
+      ZipCloseFailMessage:string {"Save failed"}
+
+      // Failed to commit the temporary file to the save location.
+      CommitFailTitle:string {"Failed to save to the given location."}
+      CommitFailMessage:string {"Save failed"}
+    }
 
     //
     // Source-code notebook
     //
     SourceBook_Title:string {"Source code"}
 
-    SourceView_FunctionEntry:string {"Entering function"}
-
-    SourceView_FunctionExit:string {"Leaving function"}
-
-
-    //
-    // ProcessTime scroller
-    //
-    ScrollProcessTime_Title:string {"Process time"}
-
 
     //
     // ThreadTime scroller
     //
     ScrollThreadTime:table {
-      Title:string {"Thread time"}
+      Title:string {"Thread Time"}
 
       GoToStart:string {"Go to start"}
+
+      StepBackTopLevel:string {"Step back statement"}
 
       StepBack:string {"Step back"}
 
       StepForward:string {"Step forward"}
+
+      StepForwardTopLevel:string {"Step forward statement"}
 
       GoToNextError:string {"Go to next error"}
 
       GoToEnd:string {"Go to end"}
     }
 
-    //
-    // Status view
-    //
-    StatusView_Title:string {"Status"}
-
 
     //
-    // Common
+    // Explanation viewer
     //
-    ThreadNumber:string {"Thread #{0}"}
+    Explanation:table {
+      Title:string {"Explanation"}
+    }
 
 
     //
-    // Call tree
+    // Graph viewer
     //
-    CallTree_Column0Title:string {"Call tree"}
+    Graph:table {
+      Title:string {"Graph"}
 
-    CallTree_UnknownFunction:string {"<Unknown Function>"}
+      RenderToSVG {
+        NoGraphTitle:string {"Export graph error"}
+        NoGraphMessage:string {"There is no graph to export."}
+
+        GraphWriteFailedTitle:string {"Export graph error"}
+        GraphWriteFailedMessage:string {"Failed to write graph file."}
+      }
+    }
 
 
     //
-    // Dynamic memory view
+    // Evaluation tree
     //
-    MallocView_Title:string {"Dynamic memory"}
+    EvaluationTree:table {
+      Title:string {"Evaluation Tree"}
+    }
 
-    MallocView_ColumnTime:string {"Allocation Time"}
 
-    MallocView_ColumnAddress:string {"At Address"}
+    //
+    // Stream states
+    //
+    StreamState:table {
+      Title:string {"FILE Streams"}
+    }
 
-    MallocView_ColumnSize:string {"Size (in bytes)"}
+
+    //
+    // Locale settings dialog
+    //
+
+    LocaleSettingsDialog:table {
+      Title:string {"Locale"}
+    }
+
+
+    //
+    // Preference dialog
+    //
+
+    PreferenceDialog:table {
+      Title:string {"Preferences"}
+    }
+
+
+    //
+    // Augmentation settings
+    //
+
+    AugmentationSettings:table {
+      Title:string {"Augmentations"}
+
+      Download:string {"Download new augmentation"}
+
+      Delete:string {"Delete selected"}
+
+      DeleteNoneMessage:string {"No augmentations selected!"}
+      DeleteNoneCaption:string {"Delete failure"}
+
+      DeleteNonUserLocalMessage:string {"You don't own this augmentation."}
+      DeleteNonUserLocalCaption:string {"Delete failure"}
+
+      DeleteFailedMessage:string {"Couldn't delete augmentation file."}
+      DeleteFailedCaption:string {"Delete failure"}
+
+      DownloadMessage:string {"URL"}
+
+      DownloadCaption:string {"Enter augmentation location"}
+
+      DownloadingTitle:string {"Downloading augmentation"}
+
+      DownloadingMessage:string {"Progress"}
+
+      FailCaption:string {"Download failed"}
+
+      InvalidTitle:string {"Invalid augmentation"}
+
+      InvalidMessage:string {"Invalid augmentation"}
+
+      SaveFailTitle:string {"Couldn't save augmentation"}
+
+      Columns:table {
+        ID:string {"ID"}
+        Enabled:string {"Enabled"}
+        Name:string {"Name"}
+        Source:string {"Source"}
+        Version:string {"Version"}
+      }
+    }
+
+
+    //
+    // Tracing preferences
+    //
+
+    TracingPreferences:table {
+      Title:string {"Tracing"}
+
+      ThreadEventLimit:string {"Event record limit (in uncompressed MiB):"}
+
+      ArchiveLimit:string {"Compress all traces less than (in MiB):"}
+    }
+
+
+    //
+    // Annotation editor
+    //
+
+    AnnotationEditor:table {
+      EditStmt:string {"Edit statement annotation"}
+      EditDecl:string {"Edit declaration annotation"}
+      EditorTitle:string {"Annotation editor"}
+      SuppressEPV:string {"Hide default explanation"}
+    }
   }
 
 
@@ -119,24 +291,335 @@ root:table {
     Movement:table {
       BackwardArrow:import {"Images/backward-arrow.png"}
 
+      BackwardArrowShort:import {"Images/backward-arrow-short.png"}
+
       BackwardArrowToBlock:import {"Images/backward-arrow-to-block.png"}
 
       BackwardArrowToError:import {"Images/backward-arrow-to-error.png"}
 
       ForwardArrow:import {"Images/forward-arrow.png"}
 
+      ForwardArrowShort:import {"Images/forward-arrow-short.png"}
+
       ForwardArrowToBlock:import {"Images/forward-arrow-to-block.png"}
 
       ForwardArrowToError:import {"Images/forward-arrow-to-error.png"}
     }
+
+    CountryFlags:table {
+      root:import {"Images/Flags/root.png"}
+      ad:import {"Images/Flags/ad.png"}
+      ae:import {"Images/Flags/ae.png"}
+      af:import {"Images/Flags/af.png"}
+      ag:import {"Images/Flags/ag.png"}
+      ai:import {"Images/Flags/ai.png"}
+      al:import {"Images/Flags/al.png"}
+      am:import {"Images/Flags/am.png"}
+      an:import {"Images/Flags/an.png"}
+      ao:import {"Images/Flags/ao.png"}
+      ar:import {"Images/Flags/ar.png"}
+      as:import {"Images/Flags/as.png"}
+      at:import {"Images/Flags/at.png"}
+      au:import {"Images/Flags/au.png"}
+      aw:import {"Images/Flags/aw.png"}
+      ax:import {"Images/Flags/ax.png"}
+      az:import {"Images/Flags/az.png"}
+      ba:import {"Images/Flags/ba.png"}
+      bb:import {"Images/Flags/bb.png"}
+      bd:import {"Images/Flags/bd.png"}
+      be:import {"Images/Flags/be.png"}
+      bf:import {"Images/Flags/bf.png"}
+      bg:import {"Images/Flags/bg.png"}
+      bh:import {"Images/Flags/bh.png"}
+      bi:import {"Images/Flags/bi.png"}
+      bj:import {"Images/Flags/bj.png"}
+      bm:import {"Images/Flags/bm.png"}
+      bn:import {"Images/Flags/bn.png"}
+      bo:import {"Images/Flags/bo.png"}
+      br:import {"Images/Flags/br.png"}
+      bs:import {"Images/Flags/bs.png"}
+      bt:import {"Images/Flags/bt.png"}
+      bv:import {"Images/Flags/bv.png"}
+      bw:import {"Images/Flags/bw.png"}
+      by:import {"Images/Flags/by.png"}
+      bz:import {"Images/Flags/bz.png"}
+      ca:import {"Images/Flags/ca.png"}
+      cc:import {"Images/Flags/cc.png"}
+      cd:import {"Images/Flags/cd.png"}
+      cf:import {"Images/Flags/cf.png"}
+      cg:import {"Images/Flags/cg.png"}
+      ch:import {"Images/Flags/ch.png"}
+      ci:import {"Images/Flags/ci.png"}
+      ck:import {"Images/Flags/ck.png"}
+      cl:import {"Images/Flags/cl.png"}
+      cm:import {"Images/Flags/cm.png"}
+      cn:import {"Images/Flags/cn.png"}
+      co:import {"Images/Flags/co.png"}
+      cr:import {"Images/Flags/cr.png"}
+      cs:import {"Images/Flags/cs.png"}
+      cu:import {"Images/Flags/cu.png"}
+      cv:import {"Images/Flags/cv.png"}
+      cx:import {"Images/Flags/cx.png"}
+      cy:import {"Images/Flags/cy.png"}
+      cz:import {"Images/Flags/cz.png"}
+      de:import {"Images/Flags/de.png"}
+      dj:import {"Images/Flags/dj.png"}
+      dk:import {"Images/Flags/dk.png"}
+      dm:import {"Images/Flags/dm.png"}
+      do:import {"Images/Flags/do.png"}
+      dz:import {"Images/Flags/dz.png"}
+      ec:import {"Images/Flags/ec.png"}
+      ee:import {"Images/Flags/ee.png"}
+      eg:import {"Images/Flags/eg.png"}
+      eh:import {"Images/Flags/eh.png"}
+      er:import {"Images/Flags/er.png"}
+      es:import {"Images/Flags/es.png"}
+      et:import {"Images/Flags/et.png"}
+      fam:import {"Images/Flags/fam.png"}
+      fi:import {"Images/Flags/fi.png"}
+      fj:import {"Images/Flags/fj.png"}
+      fk:import {"Images/Flags/fk.png"}
+      fm:import {"Images/Flags/fm.png"}
+      fo:import {"Images/Flags/fo.png"}
+      fr:import {"Images/Flags/fr.png"}
+      ga:import {"Images/Flags/ga.png"}
+      gb:import {"Images/Flags/gb.png"}
+      gd:import {"Images/Flags/gd.png"}
+      ge:import {"Images/Flags/ge.png"}
+      gf:import {"Images/Flags/gf.png"}
+      gh:import {"Images/Flags/gh.png"}
+      gi:import {"Images/Flags/gi.png"}
+      gl:import {"Images/Flags/gl.png"}
+      gm:import {"Images/Flags/gm.png"}
+      gn:import {"Images/Flags/gn.png"}
+      gp:import {"Images/Flags/gp.png"}
+      gq:import {"Images/Flags/gq.png"}
+      gr:import {"Images/Flags/gr.png"}
+      gs:import {"Images/Flags/gs.png"}
+      gt:import {"Images/Flags/gt.png"}
+      gu:import {"Images/Flags/gu.png"}
+      gw:import {"Images/Flags/gw.png"}
+      gy:import {"Images/Flags/gy.png"}
+      hk:import {"Images/Flags/hk.png"}
+      hm:import {"Images/Flags/hm.png"}
+      hn:import {"Images/Flags/hn.png"}
+      hr:import {"Images/Flags/hr.png"}
+      ht:import {"Images/Flags/ht.png"}
+      hu:import {"Images/Flags/hu.png"}
+      id:import {"Images/Flags/id.png"}
+      ie:import {"Images/Flags/ie.png"}
+      il:import {"Images/Flags/il.png"}
+      in:import {"Images/Flags/in.png"}
+      io:import {"Images/Flags/io.png"}
+      iq:import {"Images/Flags/iq.png"}
+      ir:import {"Images/Flags/ir.png"}
+      is:import {"Images/Flags/is.png"}
+      it:import {"Images/Flags/it.png"}
+      jm:import {"Images/Flags/jm.png"}
+      jo:import {"Images/Flags/jo.png"}
+      jp:import {"Images/Flags/jp.png"}
+      ke:import {"Images/Flags/ke.png"}
+      kg:import {"Images/Flags/kg.png"}
+      kh:import {"Images/Flags/kh.png"}
+      ki:import {"Images/Flags/ki.png"}
+      km:import {"Images/Flags/km.png"}
+      kn:import {"Images/Flags/kn.png"}
+      kp:import {"Images/Flags/kp.png"}
+      kr:import {"Images/Flags/kr.png"}
+      kw:import {"Images/Flags/kw.png"}
+      ky:import {"Images/Flags/ky.png"}
+      kz:import {"Images/Flags/kz.png"}
+      la:import {"Images/Flags/la.png"}
+      lb:import {"Images/Flags/lb.png"}
+      lc:import {"Images/Flags/lc.png"}
+      li:import {"Images/Flags/li.png"}
+      lk:import {"Images/Flags/lk.png"}
+      lr:import {"Images/Flags/lr.png"}
+      ls:import {"Images/Flags/ls.png"}
+      lt:import {"Images/Flags/lt.png"}
+      lu:import {"Images/Flags/lu.png"}
+      lv:import {"Images/Flags/lv.png"}
+      ly:import {"Images/Flags/ly.png"}
+      ma:import {"Images/Flags/ma.png"}
+      mc:import {"Images/Flags/mc.png"}
+      md:import {"Images/Flags/md.png"}
+      me:import {"Images/Flags/me.png"}
+      mg:import {"Images/Flags/mg.png"}
+      mh:import {"Images/Flags/mh.png"}
+      mk:import {"Images/Flags/mk.png"}
+      ml:import {"Images/Flags/ml.png"}
+      mm:import {"Images/Flags/mm.png"}
+      mn:import {"Images/Flags/mn.png"}
+      mo:import {"Images/Flags/mo.png"}
+      mp:import {"Images/Flags/mp.png"}
+      mq:import {"Images/Flags/mq.png"}
+      mr:import {"Images/Flags/mr.png"}
+      ms:import {"Images/Flags/ms.png"}
+      mt:import {"Images/Flags/mt.png"}
+      mu:import {"Images/Flags/mu.png"}
+      mv:import {"Images/Flags/mv.png"}
+      mw:import {"Images/Flags/mw.png"}
+      mx:import {"Images/Flags/mx.png"}
+      my:import {"Images/Flags/my.png"}
+      mz:import {"Images/Flags/mz.png"}
+      na:import {"Images/Flags/na.png"}
+      nc:import {"Images/Flags/nc.png"}
+      ne:import {"Images/Flags/ne.png"}
+      nf:import {"Images/Flags/nf.png"}
+      ng:import {"Images/Flags/ng.png"}
+      ni:import {"Images/Flags/ni.png"}
+      nl:import {"Images/Flags/nl.png"}
+      no:import {"Images/Flags/no.png"}
+      np:import {"Images/Flags/np.png"}
+      nr:import {"Images/Flags/nr.png"}
+      nu:import {"Images/Flags/nu.png"}
+      nz:import {"Images/Flags/nz.png"}
+      om:import {"Images/Flags/om.png"}
+      pa:import {"Images/Flags/pa.png"}
+      pe:import {"Images/Flags/pe.png"}
+      pf:import {"Images/Flags/pf.png"}
+      pg:import {"Images/Flags/pg.png"}
+      ph:import {"Images/Flags/ph.png"}
+      pk:import {"Images/Flags/pk.png"}
+      pl:import {"Images/Flags/pl.png"}
+      pm:import {"Images/Flags/pm.png"}
+      pn:import {"Images/Flags/pn.png"}
+      pr:import {"Images/Flags/pr.png"}
+      ps:import {"Images/Flags/ps.png"}
+      pt:import {"Images/Flags/pt.png"}
+      pw:import {"Images/Flags/pw.png"}
+      py:import {"Images/Flags/py.png"}
+      qa:import {"Images/Flags/qa.png"}
+      re:import {"Images/Flags/re.png"}
+      ro:import {"Images/Flags/ro.png"}
+      rs:import {"Images/Flags/rs.png"}
+      ru:import {"Images/Flags/ru.png"}
+      rw:import {"Images/Flags/rw.png"}
+      sa:import {"Images/Flags/sa.png"}
+      sb:import {"Images/Flags/sb.png"}
+      sc:import {"Images/Flags/sc.png"}
+      sd:import {"Images/Flags/sd.png"}
+      se:import {"Images/Flags/se.png"}
+      sg:import {"Images/Flags/sg.png"}
+      sh:import {"Images/Flags/sh.png"}
+      si:import {"Images/Flags/si.png"}
+      sj:import {"Images/Flags/sj.png"}
+      sk:import {"Images/Flags/sk.png"}
+      sl:import {"Images/Flags/sl.png"}
+      sm:import {"Images/Flags/sm.png"}
+      sn:import {"Images/Flags/sn.png"}
+      so:import {"Images/Flags/so.png"}
+      sr:import {"Images/Flags/sr.png"}
+      st:import {"Images/Flags/st.png"}
+      sv:import {"Images/Flags/sv.png"}
+      sy:import {"Images/Flags/sy.png"}
+      sz:import {"Images/Flags/sz.png"}
+      tc:import {"Images/Flags/tc.png"}
+      td:import {"Images/Flags/td.png"}
+      tf:import {"Images/Flags/tf.png"}
+      tg:import {"Images/Flags/tg.png"}
+      th:import {"Images/Flags/th.png"}
+      tj:import {"Images/Flags/tj.png"}
+      tk:import {"Images/Flags/tk.png"}
+      tl:import {"Images/Flags/tl.png"}
+      tm:import {"Images/Flags/tm.png"}
+      tn:import {"Images/Flags/tn.png"}
+      to:import {"Images/Flags/to.png"}
+      tr:import {"Images/Flags/tr.png"}
+      tt:import {"Images/Flags/tt.png"}
+      tv:import {"Images/Flags/tv.png"}
+      tw:import {"Images/Flags/tw.png"}
+      tz:import {"Images/Flags/tz.png"}
+      ua:import {"Images/Flags/ua.png"}
+      ug:import {"Images/Flags/ug.png"}
+      um:import {"Images/Flags/um.png"}
+      us:import {"Images/Flags/us.png"}
+      uy:import {"Images/Flags/uy.png"}
+      uz:import {"Images/Flags/uz.png"}
+      va:import {"Images/Flags/va.png"}
+      vc:import {"Images/Flags/vc.png"}
+      ve:import {"Images/Flags/ve.png"}
+      vg:import {"Images/Flags/vg.png"}
+      vi:import {"Images/Flags/vi.png"}
+      vn:import {"Images/Flags/vn.png"}
+      vu:import {"Images/Flags/vu.png"}
+      wf:import {"Images/Flags/wf.png"}
+      ws:import {"Images/Flags/ws.png"}
+      ye:import {"Images/Flags/ye.png"}
+      yt:import {"Images/Flags/yt.png"}
+      za:import {"Images/Flags/za.png"}
+      zm:import {"Images/Flags/zm.png"}
+      zw:import {"Images/Flags/zw.png"}
+    }
+  }
+
+
+  // Recording toolbar.
+  RecordingToolbar:table {
+    Title:string {"Recording"}
+
+    ButtonOffText:string {"Recording Disabled"}
+
+    ButtonOffImg:import {"Images/recording-off.png"}
+
+    ButtonOnText:string {"Recording Enabled"}
+
+    ButtonOnImg:import {"Images/recording-on.png"}
   }
 
 
   // Common contextual navigation resources.
   ContextualNavigation:table {
-    StmtRewind:string {"Rewind to when this statement was last evaluated"}
+    StmtRewind:string {"Rewind to when this statement was previously evaluated"}
 
     StmtForward:string {"Move forward to when this statement is next evaluated"}
+
+    StreamRewindToWrite:string {"Rewind to when this was written"}
+
+    ValueRewindAllocation:string {"Rewind to when this memory was allocated"}
+
+    ValueRewindModification:string {"Rewind to when this value was previously changed"}
+
+    ValueForwardModification:string {"Forward to when this value is next changed"}
+
+    ValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
+
+    ValueOfPointerRewindValid:string {"Rewind to when this pointer's reference was valid"}
+  }
+
+
+  // Describe contextual navigation failure.
+  ContextualNavigationFailure:table {
+    StmtRewind:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a previous evaluation of the statement."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an evaluation of the statement."}
+    }
+    StmtForward:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a previous evaluation of the statement."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an evaluation of the statement."}
+    }
+    ValueRewindAllocation:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding an allocation for this memory."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding an allocation for this memory."}
+    }
+    ValueRewindModification:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a modification of this value."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a modification of this value."}
+    }
+    ValueForwardModification:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a modification of this value."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a modification of this value."}
+    }
+    ValueForwardDeallocation:table {
+      Unmoved:string {"State is unmoved."}
+      ReachedBeginning:string {"Reached the beginning of the execution trace without finding a deallocation for this memory."}
+      ReachedEnd:string {"Reached the end of the execution trace without finding a deallocation for this memory."}
+    }
   }
 
 
@@ -149,14 +632,6 @@ root:table {
     "jquery-1.8.2.min.js":import {"HTML/jquery-1.8.2.min.js"}
 
     "Styles.css":import {"HTML/Styles.css"}
-
-    CMValueRewindAllocation:string {"Rewind to when this memory was allocated"}
-
-    CMValueRewindModification:string {"Rewind to when this value was last changed"}
-
-    CMValueForwardModification:string {"Forward to when this value is next changed"}
-
-    CMValueForwardDeallocation:string {"Forward to when this memory is deallocated"}
 
     CMValueDisplayAs:string {"Display as"}
 
@@ -171,6 +646,39 @@ root:table {
     CMAreaForwardDeallocation:string {"Forward to when this memory is deallocated"}
 
     CMAreaDisplayAs:string {"Display as"}
+  }
+
+
+  // Messages for the record and replay system.
+  ActionRecording:table {
+    ErrorAttribute:string {"Failed to read attribute {name}."}
+
+    ReplayFrameTitle:string {"Action replay"}
+
+    ReplayFileOpen:string {"Select an action recording to replay"}
+
+    ReplayFileType:string {"SeeC Action Recording (*.xml)|*.xml"}
+
+    ReplayFileInvalid:string {"This does not appear to be a valid action recording."}
+
+    ReplayFileOld:string {"This action recording is for an older version of SeeC."}
+
+    ReplayFileNew:string {"A newer version of SeeC is required to view this action recording."}
+
+    ButtonPlay:string {"Play"}
+
+    ButtonPause:string {"Pause"}
+
+    ButtonStep:string {"Step"}
+
+    CURLNotInitialized:string {"Can't send action recording because CURL was not initialized."}
+
+    CURLError:string {"Failed to send action recording: {message}"}
+  }
+
+
+  ActionRecordSubmitter:table {
+    Title:string {"Action recording submission"}
   }
 
 
@@ -198,8 +706,8 @@ root:table {
     
     Default:table {
       Name:string {"Default"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -208,8 +716,8 @@ root:table {
     
     LineNumber:table {
       Name:string {"Line number"}
-      Foreground:string {"DARK GREY"}
-      Background:string {"LIGHT GREY"}
+      Foreground:string {"rgb(147,161,161)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -218,8 +726,8 @@ root:table {
     
     BraceLight:table {
       Name:string {"Brace light"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -228,8 +736,8 @@ root:table {
     
     BraceBad:table {
       Name:string {"Brace bad"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(238,232,213)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -238,8 +746,8 @@ root:table {
     
     ControlChar:table {
       Name:string {"Control character"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -248,8 +756,8 @@ root:table {
     
     IndentGuide:table {
       Name:string {"Indent guide"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -258,8 +766,8 @@ root:table {
     
     CallTip:table {
       Name:string {"Call tip"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -272,8 +780,8 @@ root:table {
 
     SeeCRuntimeError:table {
       Name:string {"Runtime error"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(255,200,200)"}
+      Foreground:string {"rgb(220, 50, 47)"} // red
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -282,8 +790,8 @@ root:table {
 
     SeeCRuntimeValue:table {
       Name:string {"Runtime value"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(200,255,200)"}
+      Foreground:string {"rgb(133,153,  0)"} // green
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -292,8 +800,8 @@ root:table {
 
     SeeCRuntimeInformation:table {
       Name:string {"Runtime information"}
-      Foreground:string {"BLACK"}
-      Background:string {"rgb(200,200,255)"}
+      Foreground:string {"rgb(181,137,  0)"} // yellow
+      Background:string {"rgb(238,232,213)"} // base2
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -306,8 +814,8 @@ root:table {
     
     Comment:table {
       Name:string {"Comment"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -316,8 +824,8 @@ root:table {
 
     CommentLine:table {
       Name:string {"Comment line"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -326,8 +834,8 @@ root:table {
     
     CommentDoc:table {
       Name:string {"Comment (Doxygen)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -336,8 +844,8 @@ root:table {
 
     Number:table {
       Name:string {"Number"}
-      Foreground:string {"SIENNA"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(203, 75, 22)"} // orange
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -346,8 +854,8 @@ root:table {
     
     Keyword1:table {
       Name:string {"Keyword1"}
-      Foreground:string {"BLUE"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {"Bold"}
@@ -356,8 +864,8 @@ root:table {
     
     String:table {
       Name:string {"String"}
-      Foreground:string {"BROWN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -366,8 +874,8 @@ root:table {
     
     Character:table {
       Name:string {"Character"}
-      Foreground:string {"KHAKI"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 42,161,152)"} // cyan
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -376,8 +884,8 @@ root:table {
 
     UUID:table {
       Name:string {"UUID"}
-      Foreground:string {"ORCHID"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -386,8 +894,8 @@ root:table {
 
     Preprocessor:table {
       Name:string {"Preprocessor"}
-      Foreground:string {"GREY"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(211, 54,130)"} // magenta
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -396,8 +904,8 @@ root:table {
     
     Operator:table {
       Name:string {"Operator"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -406,8 +914,8 @@ root:table {
     
     Identifier:table {
       Name:string {"Identifier"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -416,8 +924,8 @@ root:table {
     
     StringEOL:table {
       Name:string {"String (EOL)"}
-      Foreground:string {"BROWN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -426,8 +934,8 @@ root:table {
 
     Verbatim:table {
       Name:string {"Verbatim"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -436,8 +944,8 @@ root:table {
     
     RegEx:table {
       Name:string {"Regular expression"}
-      Foreground:string {"ORCHID"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -446,8 +954,8 @@ root:table {
     
     CommentLineDoc:table {
       Name:string {"Comment line (Doxygen)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(147,161,161)"} // base1
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -456,8 +964,8 @@ root:table {
     
     Keyword2:table {
       Name:string {"Keyword2"}
-      Foreground:string {"MIDNIGHT BLUE"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb( 88,110,117)"} // base01
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -466,8 +974,8 @@ root:table {
     
     CommentDocKeyword:table {
       Name:string {"Comment (Doxygen keyword)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(211, 54,130)"} // magenta
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -476,8 +984,8 @@ root:table {
 
     CommentDocKeywordError:table {
       Name:string {"Comment (Doxygen keyword error)"}
-      Foreground:string {"FOREST GREEN"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(220, 50, 47)"} // red
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -486,8 +994,8 @@ root:table {
     
     GlobalClass:table {
       Name:string {"Global class"}
-      Foreground:string {"BLACK"}
-      Background:string {"WHITE"}
+      Foreground:string {"rgb(101,123,131)"}
+      Background:string {"rgb(253,246,227)"}
       FontName:string {""}
       FontSize:int {12}
       FontStyle:string {""}
@@ -505,10 +1013,10 @@ root:table {
     //
     CodeActive:table {
       Name:string {"Active code"}
-      Style:string {"STRAIGHTBOX"}      
-      Foreground:string {"YELLOW"}
-      Alpha:int {60}
-      OutlineAlpha:int {80}
+      Style:string {"PLAIN"}
+      Foreground:string {"rgb(181,137,  0)"} // yellow
+      Alpha:int {100}
+      OutlineAlpha:int {0}
       Under:string {"False"}
     }
 
@@ -517,10 +1025,22 @@ root:table {
     //
     CodeHighlight:table {
       Name:string {"Highlight code"}
-      Style:string {"STRAIGHTBOX"}      
-      Foreground:string {"BLUE"}
-      Alpha:int {0}
-      OutlineAlpha:int {80}
+      Style:string {"BOX"}
+      Foreground:string {"rgb(108,113,196)"} // violet
+      Alpha:int {100}
+      OutlineAlpha:int {0}
+      Under:string {"False"}
+    }
+
+    //
+    // Interactive text (e.g. node links in explanations).
+    //
+    TextInteractive:table {
+      Name:string {"Interactive text"}
+      Style:string {"PLAIN"}
+      Foreground:string {"rgb( 38,139,210)"} // blue
+      Alpha:int {100}
+      OutlineAlpha: int {0}
       Under:string {"False"}
     }
   } // End ScintillaIndicatorStyles

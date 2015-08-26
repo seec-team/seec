@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_STATEMOVEMENT_HPP
 #define SEEC_TRACE_STATEMOVEMENT_HPP
 
+#include "seec/Trace/StateCommon.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -27,6 +29,7 @@ namespace seec {
 namespace trace {
 
 class ProcessState;
+class StreamState;
 class ThreadState;
 
 
@@ -41,41 +44,57 @@ typedef std::function<bool (llvm::Instruction const &)> InstructionPredTy;
 /// @}
 
 
+/// \brief Enumerates possible outcomes of requesting state movement.
+///
+enum class MovementResult {
+  Unmoved,
+  PredicateSatisfied,
+  ReachedBeginning,
+  ReachedEnd
+};
+
+
 /// \name ProcessState movement.
 /// @{
 
 /// \brief Move State forward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveForwardUntil(ProcessState &State,
-                      ProcessPredTy Predicate);
+///
+MovementResult moveForwardUntil(ProcessState &State, ProcessPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveBackwardUntil(ProcessState &State,
-                       ProcessPredTy Predicate);
+///
+MovementResult moveBackwardUntil(ProcessState &State, ProcessPredTy Predicate);
 
 /// \brief Move State forward to the next process time.
-/// \return true iff the State was moved.
-bool moveForward(ProcessState &State);
+///
+MovementResult moveForward(ProcessState &State);
 
 /// \brief Move State backward to the previous process time.
-/// \return true iff the State was moved.
-bool moveBackward(ProcessState &State);
-
-/// \brief Move State to the given process time.
-/// If State cannot assume the given process time, it will be moved as close as
-/// possible.
-/// \return true iff the State was moved.
-bool moveToTime(ProcessState &State, uint64_t ProcessTime);
+///
+MovementResult moveBackward(ProcessState &State);
 
 /// \brief Move State forward until the memory state in Area changes.
-/// \return true iff the State was moved.
-bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+///
+MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
+                                             MemoryArea const &Area);
 
 /// \brief Move State backward until the memory state in Area changes.
-/// \return true iff the State was moved.
-bool
-moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
+///
+MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
+                                              MemoryArea const &Area);
+
+/// \brief Move \c State to the write to \c Stream that produced the character
+///        at \c Position.
+///
+MovementResult moveBackwardToStreamWriteAt(ProcessState &State,
+                                           StreamState const &Stream,
+                                           std::size_t const Position);
+
+/// \brief Move \c State backward until an allocation exists for the given
+///        \c Address.
+///
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address);
 
 /// @} (ProcessState movement)
 
@@ -84,28 +103,20 @@ moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area);
 /// @{
 
 /// \brief Move State forward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveForwardUntil(ThreadState &State,
-                      ThreadPredTy Predicate);
+///
+MovementResult moveForwardUntil(ThreadState &State, ThreadPredTy Predicate);
 
 /// \brief Move State backward until Predicate returns true.
-/// \return true iff the State was moved.
-bool moveBackwardUntil(ThreadState &State,
-                       ThreadPredTy Predicate);
+///
+MovementResult moveBackwardUntil(ThreadState &State, ThreadPredTy Predicate);
 
 /// \brief Move State forward to the next thread time.
-/// \return true iff the State was moved.
-bool moveForward(ThreadState &State);
+///
+MovementResult moveForward(ThreadState &State);
 
 /// \brief Move State backward to the previous thread time.
-/// \return true iff the State was moved.
-bool moveBackward(ThreadState &State);
-
-/// \brief Move State to the given thread time.
-/// If State cannot assume the given thread time, it will be moved as close as
-/// possible.
-/// \return true iff the State was moved.
-bool moveToTime(ThreadState &State, uint64_t ThreadTime);
+///
+MovementResult moveBackward(ThreadState &State);
 
 /// @} (ThreadState movement)
 
@@ -125,7 +136,13 @@ getNextInstructionInActiveFunction(ThreadState const &State);
 llvm::Instruction const *
 getPreviousInstructionInActiveFunction(ThreadState const &State);
 
-/// \brief 
+/// \brief Check if any previously executed \c llvm::Instruction in the active
+///        \c FunctionState matches the given \c Predicate.
+/// \param State the \c ThreadState to search.
+/// \param Predicate the predicate to check each previously executed
+///        \c llvm::Instruction against.
+/// \return true iff \c Predicate(I) returns true for any \c llvm::Instruction
+///         I that was previously executed in the active \c FunctionState.
 ///
 bool
 findPreviousInstructionInActiveFunctionIf(ThreadState const &State,

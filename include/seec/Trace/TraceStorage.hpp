@@ -18,11 +18,15 @@
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <map>
 #include <memory>
 #include <string>
+#include <set>
+#include <system_error>
 
 
 namespace llvm {
@@ -55,13 +59,29 @@ enum class ThreadSegment {
 /// \brief Allocates raw_ostreams for the various outputs required by tracing.
 ///
 /// This gives us a central area to control the output locations and filenames.
+///
 class OutputStreamAllocator {
-  /// Path to the trace directory.
-  std::string TraceDirectory;
+  /// Path to the trace location.
+  std::string TraceLocation;
+  
+  /// Name of the directory containing the trace files.
+  std::string TraceDirectoryName;
+  
+  /// Path to the directory containing the trace files.
+  std::string TraceDirectoryPath;
+  
+  /// Name to use when creating an archive of the trace.
+  std::string TraceArchiveName;
+  
+  /// Paths for all created files.
+  std::set<std::string> TraceFiles;
   
   /// \brief Create a new OutputStreamAllocator.
   ///
-  OutputStreamAllocator(llvm::StringRef Directory);
+  OutputStreamAllocator(llvm::StringRef WithTraceLocation,
+                        llvm::StringRef WithTraceDirectoryName,
+                        llvm::StringRef WithTraceDirectoryPath,
+                        llvm::StringRef WithTraceArchiveName);
   
   // Don't allow copying.
   OutputStreamAllocator(OutputStreamAllocator const &) = delete;
@@ -69,23 +89,34 @@ class OutputStreamAllocator {
   OutputStreamAllocator &operator=(OutputStreamAllocator const &) = delete;
   OutputStreamAllocator &operator=(OutputStreamAllocator &&) = delete;
   
+  /// \brief Attempt to delete all existing trace files, and the directory.
+  ///
+  bool deleteAll();
+  
 public:
+  /// \brief Construction.
+  /// @{
+  
   /// \brief Attempt to create OutputStreamAllocator.
   ///
   static 
   seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
   createOutputStreamAllocator();
   
-  /// \brief Attempt to create OutputStreamAllocator.
-  ///
-  /// \param Identifier an identifier to use in the output trace's name.
-  ///
-  static 
-  seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
-  createOutputStreamAllocator(llvm::StringRef Identifier);
+  /// @} (Construction.)
   
   
-  /// \name Mutators
+  /// \name Accessors.
+  /// @{
+  
+  /// \brief Get the combined size of all trace files (in bytes).
+  ///
+  seec::Maybe<uint64_t, seec::Error> getTotalSize() const;
+  
+  /// @} (Accessors.)
+  
+  
+  /// \name Mutators.
   /// @{
   
   /// \brief Write the Module's bitcode to the trace directory.
@@ -96,85 +127,177 @@ public:
   ///
   std::unique_ptr<llvm::raw_ostream>
   getProcessStream(ProcessSegment Segment,
-                   unsigned Flags = 0);
+                   llvm::sys::fs::OpenFlags Flags =
+                     llvm::sys::fs::OpenFlags::F_None);
 
   /// \brief Get an output for a thread-specific data segment.
   ///
   std::unique_ptr<llvm::raw_ostream>
   getThreadStream(uint32_t ThreadID,
                   ThreadSegment Segment,
-                  unsigned Flags = 0);
+                  llvm::sys::fs::OpenFlags Flags =
+                    llvm::sys::fs::OpenFlags::F_None);
   
-  /// @}
+  /// \brief Archive all existing trace files.
+  ///
+  /// If the files are successfully archived, the originals will be deleted.
+  ///
+  /// \return either the location of the archive, or an \c Error describing
+  ///         the reason that the archive was not created.
+  ///
+  Maybe<std::string, Error> archiveTo(llvm::StringRef Path);
+  
+  /// \brief Unarchive all trace files from the given archive.
+  ///
+  Maybe<Error> extractFrom(std::string const &ArchivePath);
+
+  /// @} (Mutators.)
+};
+
+
+/// \brief Holds the name and contents of a single file in a trace.
+///
+class TraceFile {
+  /// The name of the file.
+  std::string Name;
+  
+  /// The contents of the file.
+  std::unique_ptr<llvm::MemoryBuffer> Contents;
+  
+public:
+  /// \brief Constructor.
+  ///
+  TraceFile(std::string WithName,
+            std::unique_ptr<llvm::MemoryBuffer> WithContents)
+  : Name(std::move(WithName)),
+    Contents(std::move(WithContents))
+  {}
+  
+  /// \brief Get the name of the file.
+  ///
+  decltype(Name) const &getName() const { return Name; }
+
+  /// \brief Get the contents of the file.
+  ///
+  decltype(Contents) &getContents() { return Contents; }
+
+  /// \brief Get the contents of the file.
+  ///
+  decltype(Contents) const &getContents() const { return Contents; }
 };
 
 
 /// \brief Gets MemoryBuffers for the various sections of a trace.
 ///
 class InputBufferAllocator {
+  /// Path to the directory containing the individual execution trace files.
   std::string TraceDirectory;
 
-  /// Default constructor.
+  /// Paths for temporary files (if used).
+  std::vector<std::string> TempFiles;
+
+  /// \brief Constructor (no temporaries).
+  ///
   InputBufferAllocator(llvm::StringRef Directory)
-  : TraceDirectory(Directory)
+  : TraceDirectory(Directory),
+    TempFiles()
   {}
-  
+
+  /// \brief Constructor (with temporary files).
+  ///
+  InputBufferAllocator(std::string WithTempDirectory,
+                       std::vector<std::string> WithTempFiles)
+  : TraceDirectory(std::move(WithTempDirectory)),
+    TempFiles(std::move(WithTempFiles))
+  {}
+
+  /// \brief Get a buffer for an arbitrary file.
+  ///
+  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  getBuffer(llvm::StringRef Path) const;
+
 public:
+  /// \brief Destructor. Deletes temporary files and directories.
+  ///
+  ~InputBufferAllocator();
+
   /// \name Constructors.
   /// @{
-  
-  /// \brief Attempt to create an InputBufferAllocator.
+
+  // No copying.
+  InputBufferAllocator(InputBufferAllocator const &) = delete;
+  InputBufferAllocator &operator=(InputBufferAllocator const &) = delete;
+
+  // Moving.
+  InputBufferAllocator(InputBufferAllocator &&) = default;
+  InputBufferAllocator &operator=(InputBufferAllocator &&) = default;
+
+  /// \brief Create an \c InputBufferAllocator for a trace archive.
+  /// The archive contents will be extracted to a temporary directory, and will
+  /// be deleted by the destructor of the \c InputBufferAllocator.
+  /// \param Path the path to the trace archive.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
   ///
-  /// \param Directory the path to the trace directory.
-  /// \return The InputBufferAllocator or an Error describing the reason why it
-  ///         could not be created.
+  static seec::Maybe<InputBufferAllocator, seec::Error>
+  createForArchive(llvm::StringRef Path);
+
+  /// \brief Create an \c InputBufferAllocator for a trace directory.
+  /// \param Path the path to the trace directory.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
+  ///
+  static seec::Maybe<InputBufferAllocator, seec::Error>
+  createForDirectory(llvm::StringRef Path);
+
+  /// \brief Attempt to create an \c InputBufferAllocator.
+  /// \param Path the path to the trace archive or directory.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
   ///
   static
   seec::Maybe<InputBufferAllocator, seec::Error>
-  createFor(llvm::StringRef Directory);
-
-  /// Copy constructor.
-  InputBufferAllocator(InputBufferAllocator const &) = default;
-
-  /// Move constructor.
-  InputBufferAllocator(InputBufferAllocator &&Other) = default;
+  createFor(llvm::StringRef Path);
 
   /// @} (Constructors.)
-  
 
-  /// \name Operators.
-  /// @{
-  
-  /// Copy assignment.
-  InputBufferAllocator &operator=(InputBufferAllocator const &) = default;
-  
-  /// Move assignment.
-  InputBufferAllocator &operator=(InputBufferAllocator &&RHS) = default;
-  
-  /// @} (Operators.)
-  
-  
+
   /// \brief Get the path of the directory containing the trace files.
   ///
   std::string const &getTraceDirectory() const {
     return TraceDirectory;
   }
-  
+
   /// \brief Get the original, uninstrumented Module.
   ///
   seec::Maybe<llvm::Module *, seec::Error>
-  getModule(llvm::LLVMContext &Context);
+  getModule(llvm::LLVMContext &Context) const;
 
-  /// Create a MemoryBuffer containing the process data for the given Segment.
+  /// \brief Get the original, uninstrumented Module's file.
   ///
-  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-  getProcessData(ProcessSegment Segment);
+  seec::Maybe<TraceFile, seec::Error> getModuleFile() const;
 
-  /// Create a MemoryBuffer containing the data for the given thread's given
+  /// \brief Create a MemoryBuffer containing the process data for the given
   /// Segment.
   ///
   seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-  getThreadData(uint32_t ThreadID, ThreadSegment Segment);
+  getProcessData(ProcessSegment Segment) const;
+
+  /// \brief Get the given process segment's file.
+  ///
+  seec::Maybe<TraceFile, seec::Error>
+  getProcessFile(ProcessSegment Segment) const;
+
+  /// \brief Create a MemoryBuffer containing the data for the given thread's
+  /// given Segment.
+  ///
+  seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
+  getThreadData(uint32_t ThreadID, ThreadSegment Segment) const;
+
+  /// \brief Get the given thread segment's file.
+  ///
+  seec::Maybe<TraceFile, seec::Error>
+  getThreadFile(uint32_t ThreadID, ThreadSegment Segment) const;
 };
 
 

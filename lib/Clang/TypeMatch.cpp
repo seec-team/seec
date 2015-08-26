@@ -19,110 +19,161 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <algorithm>
+
 namespace seec {
 
 namespace cm {
 
+using HistoryTy = std::vector<clang::Type const *>;
+
+bool matchImpl(::clang::ASTContext const &AContext,
+               HistoryTy &AHistory,
+               ::clang::Type const *AType,
+               ::clang::ASTContext const &BContext,
+               HistoryTy &BHistory,
+               ::clang::Type const *BType);
+
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::BuiltinType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::BuiltinType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   return A->getKind() == B->getKind();
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ComplexType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ComplexType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
-  return match(AContext,
-               *(A->getElementType().getTypePtr()),
-               BContext,
-               *(B->getElementType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getElementType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getElementType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::PointerType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::PointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
-  return match(AContext,
-               *(A->getPointeeType().getTypePtr()),
-               BContext,
-               *(B->getPointeeType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getPointeeType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getPointeeType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::BlockPointerType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::BlockPointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
-  return match(AContext,
-               *(A->getPointeeType().getTypePtr()),
-               BContext,
-               *(B->getPointeeType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getPointeeType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getPointeeType().getTypePtr());
 }
 
 // This will handle \c LValueReferenceType and \c RValueReferenceType. Note: A
 // and B will be the same derived type, as that is checked in \c matchImpl().
 //
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ReferenceType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ReferenceType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
-  return match(AContext,
-               *(A->getPointeeType().getTypePtr()),
-               BContext,
-               *(B->getPointeeType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getPointeeType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getPointeeType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::MemberPointerType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::MemberPointerType const *B)
 {
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
-  return match(AContext,
-               *(A->getPointeeType().getTypePtr()),
-               BContext,
-               *(B->getPointeeType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getPointeeType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getPointeeType().getTypePtr());
 }
 
 // This handles ConstantArrayType, IncompleteArrayType, VariableArrayType.
 //
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ArrayType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ArrayType const *B)
 {
-  return match(AContext,
-               *(A->getElementType().getTypePtr()),
-               BContext,
-               *(B->getElementType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getElementType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getElementType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::VectorType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::VectorType const *B)
 {
   assert(A && B);
@@ -133,15 +184,19 @@ static bool matchType(::clang::ASTContext const &AContext,
   if (A->getVectorKind() != B->getVectorKind())
     return false;
   
-  return match(AContext,
-               *(A->getElementType().getTypePtr()),
-               BContext,
-               *(B->getElementType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getElementType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getElementType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::FunctionProtoType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::FunctionProtoType const *B)
 {
   // TODO.
@@ -150,23 +205,29 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::FunctionNoProtoType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::FunctionNoProtoType const *B)
 {
   if ((A->getCallConv() != B->getCallConv())
       || (A->isConst() != B->isConst()))
     return false;
   
-  return match(AContext,
-               *(A->getResultType().getTypePtr()),
-               BContext,
-               *(B->getResultType().getTypePtr()));
+  return matchImpl(AContext,
+                   AHistory,
+                   A->getReturnType().getTypePtr(),
+                   BContext,
+                   BHistory,
+                   B->getReturnType().getTypePtr());
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::RecordType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::RecordType const *B)
 {
   auto const ADecl = A->getDecl();
@@ -182,7 +243,9 @@ static bool matchType(::clang::ASTContext const &AContext,
     return false; // TODO: Can we decide if this is a match in some cases?
   
   // Check the size and alignment of each type.
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   // Check that the fields in each definition are matching.
@@ -200,7 +263,7 @@ static bool matchType(::clang::ASTContext const &AContext,
     auto const AFieldType = AIt->getType().getTypePtr();
     auto const BFieldType = BIt->getType().getTypePtr();
     
-    if (!match(AContext, *AFieldType, BContext, *BFieldType))
+    if (!matchImpl(AContext,AHistory,AFieldType,BContext,BHistory,BFieldType))
       return false;
   }
   
@@ -208,8 +271,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::EnumType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::EnumType const *B)
 {
   auto const ADecl = A->getDecl();
@@ -225,14 +290,16 @@ static bool matchType(::clang::ASTContext const &AContext,
     return false; // TODO: Can we decide if this is a match in some cases?
   
   // Check the size and alignment of each type.
-  if (AContext.getTypeInfo(A) != BContext.getTypeInfo(B))
+  auto const ATypeInfo = AContext.getTypeInfo(A);
+  auto const BTypeInfo = BContext.getTypeInfo(B);
+  if (ATypeInfo.Width != BTypeInfo.Width || ATypeInfo.Align != BTypeInfo.Align)
     return false;
   
   // Check that the underlying type of the enums matches.
   auto const AEnumType = ADef->getIntegerType().getTypePtr();
   auto const BEnumType = BDef->getIntegerType().getTypePtr();
     
-  if (!match(AContext, *AEnumType, BContext, *BEnumType))
+  if (!matchImpl(AContext,AHistory,AEnumType,BContext,BHistory,BEnumType))
     return false;
   
   // Check that the enums have the same values.
@@ -256,8 +323,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::AutoType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::AutoType const *B)
 {
   llvm_unreachable("matchType: AutoType not supported.");
@@ -265,8 +334,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ObjCObjectType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ObjCObjectType const *B)
 {
   llvm_unreachable("matchType: ObjCObjectType not supported.");
@@ -274,8 +345,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ObjCInterfaceType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ObjCInterfaceType const *B)
 {
   llvm_unreachable("matchType: ObjCInterfaceType not supported.");
@@ -283,8 +356,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ObjCObjectPointerType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::ObjCObjectPointerType const *B)
 {
   llvm_unreachable("matchType: ObjCObjectPointerType not supported.");
@@ -292,8 +367,10 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::AtomicType const *A,
                       ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
                       ::clang::AtomicType const *B)
 {
   llvm_unreachable("matchType: AtomicType not supported.");
@@ -301,20 +378,33 @@ static bool matchType(::clang::ASTContext const &AContext,
 }
 
 bool matchImpl(::clang::ASTContext const &AContext,
+               HistoryTy &AHistory,
                ::clang::Type const *AType,
                ::clang::ASTContext const &BContext,
+               HistoryTy &BHistory,
                ::clang::Type const *BType)
 {
   // Ensure that the types are non-null.
   if (!AType || !BType)
     return false;
-  
+
   auto const ACanon = AType->getCanonicalTypeInternal().getTypePtr();
   auto const BCanon = BType->getCanonicalTypeInternal().getTypePtr();
-  
+
   if (ACanon->getTypeClass() != BCanon->getTypeClass())
     return false;
-  
+
+  auto AHistIt = find(AHistory.begin(), AHistory.end(), AType);
+  auto BHistIt = find(BHistory.begin(), BHistory.end(), BType);
+
+  if (distance(AHistory.begin(), AHistIt) != distance(BHistory.begin(), BHistIt))
+    return false;
+  else if (AHistIt != AHistory.end())
+    return true;
+
+  AHistory.push_back(AType);
+  BHistory.push_back(BType);
+
   switch (ACanon->getTypeClass()) {
 #define ABSTRACT_TYPE(CLASS, BASE)
 #define NON_CANONICAL_TYPE(CLASS, BASE) // Ignore non canonical types.
@@ -323,16 +413,28 @@ bool matchImpl(::clang::ASTContext const &AContext,
 #define TYPE(CLASS, BASE)                                                      \
     case ::clang::Type::CLASS:                                                 \
       return matchType(AContext,                                               \
+                       AHistory,                                               \
                        llvm::dyn_cast< ::clang::CLASS ## Type >(ACanon),       \
                        BContext,                                               \
+                       BHistory,                                               \
                        llvm::dyn_cast< ::clang::CLASS ## Type >(BCanon));
 #include "clang/AST/TypeNodes.def"
     default:
       break;
   }
-  
+
   llvm_unreachable("type class not handled in switch.");
   return false;
+}
+
+bool matchImpl(::clang::ASTContext const &AContext,
+               ::clang::Type const *AType,
+               ::clang::ASTContext const &BContext,
+               ::clang::Type const *BType)
+{
+  HistoryTy AHistory, BHistory;
+
+  return matchImpl(AContext, AHistory, AType, BContext, BHistory, BType);
 }
 
 } // namespace cm

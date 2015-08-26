@@ -16,14 +16,15 @@
 
 #include "seec/Util/ModuleIndex.hpp"
 
-#include "llvm/InstVisitor.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/DataTypes.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 
@@ -47,6 +48,9 @@ private:
   Function *Record##POINT;
 #include "seec/Transforms/RecordExternal/RecordPoints.def"
 
+  /// Path to SeeC resources.
+  std::string const ResourcePath;
+
   /// Set of all SeeC interceptor functions used by this Module.
   llvm::DenseMap<llvm::Function *, llvm::Function *> Interceptors;
   
@@ -61,7 +65,7 @@ private:
   Type *Int8PtrTy; ///< Type of i8 *.
 
   /// DataLayout for the Module.
-  DataLayout *DL;
+  std::unique_ptr<DataLayout> DL;
 
   /// Index of the Module.
   std::unique_ptr<seec::ModuleIndex> ModIndex;
@@ -91,9 +95,11 @@ public:
   static char ID; ///< For LLVM's RTTI
 
   /// \brief Constructor.
+  /// \param PathToSeeCResources path to SeeC resources.
   ///
-  InsertExternalRecording()
+  InsertExternalRecording(llvm::StringRef PathToSeeCResources)
   : FunctionPass(ID),
+    ResourcePath(PathToSeeCResources),
     Interceptors(),
     FunctionInstructions(),
     InstructionIndex(),
@@ -153,7 +159,7 @@ public:
   SIMPLE_RECORD_UPDATE_FOR_VALUE(GetElementPtrInst)
 
   // Other operators
-  SIMPLE_RECORD_UPDATE_FOR_VALUE(PHINode)
+  void visitPHINode(PHINode &I);
   SIMPLE_RECORD_UPDATE_FOR_VALUE(SelectInst)
   void visitCallInst(CallInst &I);
 

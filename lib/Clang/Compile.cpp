@@ -16,7 +16,9 @@
 #include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 #include "seec/Util/ModuleIndex.hpp"
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/Version.h"
 #include "clang/CodeGen/SeeCMapping.h"
@@ -24,9 +26,13 @@
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Lex/DirectoryLookup.h"
+#include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Serialization/ASTWriter.h"
 
 #include "llvm/PassManager.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -34,8 +40,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Analysis/Verifier.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -73,15 +80,18 @@ static void PrepareForInstrumentation(llvm::Module &Module)
 // class SeeCCodeGenAction
 //===----------------------------------------------------------------------===//
 
-ASTConsumer *
+std::unique_ptr< ::clang::ASTConsumer >
 SeeCCodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
+  std::unique_ptr< ::clang::ASTConsumer > Ret;
+
   Compiler = &CI;
   
   File = InFile.str();
   
-  auto CodeGenConsumer = CodeGenAction::CreateASTConsumer(CI, InFile);
+  Ret.reset(new SeeCASTConsumer(*this,
+                                CodeGenAction::CreateASTConsumer(CI, InFile)));
   
-  return new SeeCASTConsumer(*this, CodeGenConsumer);
+  return Ret;
 }
 
 void SeeCCodeGenAction::ModuleComplete(llvm::Module *Mod) {
@@ -99,42 +109,42 @@ void SeeCCodeGenAction::ModuleComplete(llvm::Module *Mod) {
 }
 
 void SeeCEmitAssemblyAction::anchor() {}
-SeeCEmitAssemblyAction::SeeCEmitAssemblyAction(const char **ArgBegin,
-                                               const char **ArgEnd,
+SeeCEmitAssemblyAction::SeeCEmitAssemblyAction(const char * const *ArgBegin,
+                                               const char * const *ArgEnd,
                                                llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitAssembly, _VMContext)
 {}
 
 void SeeCEmitBCAction::anchor() {}
-SeeCEmitBCAction::SeeCEmitBCAction(const char **ArgBegin,
-                                   const char **ArgEnd,
+SeeCEmitBCAction::SeeCEmitBCAction(const char * const *ArgBegin,
+                                   const char * const *ArgEnd,
                                    llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitBC, _VMContext) {}
 
 void SeeCEmitLLVMAction::anchor() {}
-SeeCEmitLLVMAction::SeeCEmitLLVMAction(const char **ArgBegin,
-                                       const char **ArgEnd,
+SeeCEmitLLVMAction::SeeCEmitLLVMAction(const char * const *ArgBegin,
+                                       const char * const *ArgEnd,
                                        llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitLL, _VMContext) {}
 
 void SeeCEmitLLVMOnlyAction::anchor() {}
-SeeCEmitLLVMOnlyAction::SeeCEmitLLVMOnlyAction(const char **ArgBegin,
-                                               const char **ArgEnd,
+SeeCEmitLLVMOnlyAction::SeeCEmitLLVMOnlyAction(const char * const *ArgBegin,
+                                               const char * const *ArgEnd,
                                                llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitNothing, _VMContext)
 {}
 
 void SeeCEmitCodeGenOnlyAction::anchor() {}
 SeeCEmitCodeGenOnlyAction::
-  SeeCEmitCodeGenOnlyAction(const char **ArgBegin,
-                            const char **ArgEnd,
+  SeeCEmitCodeGenOnlyAction(const char * const *ArgBegin,
+                            const char * const *ArgEnd,
                             llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitMCNull, _VMContext)
 {}
 
 void SeeCEmitObjAction::anchor() {}
-SeeCEmitObjAction::SeeCEmitObjAction(const char **ArgBegin,
-                                     const char **ArgEnd,
+SeeCEmitObjAction::SeeCEmitObjAction(const char * const *ArgBegin,
+                                     const char * const *ArgEnd,
                                      llvm::LLVMContext *_VMContext)
 : SeeCCodeGenAction(ArgBegin, ArgEnd, ::clang::Backend_EmitObj, _VMContext) {}
 
@@ -143,21 +153,18 @@ SeeCEmitObjAction::SeeCEmitObjAction(const char **ArgBegin,
 // class SeeCASTConsumer
 //===----------------------------------------------------------------------===//
 
-bool SeeCASTConsumer::HandleTopLevelDecl(DeclGroupRef D) {
-  if (D.isSingleDecl()) {
-    TraverseDecl(D.getSingleDecl());
-  }
-  else {
-    DeclGroup &Group = D.getDeclGroup();
-    for (unsigned i = 0; i < Group.size(); ++i) {
-      TraverseDecl(Group[i]);
-    }
-  }
+SeeCASTConsumer::~SeeCASTConsumer() {}
 
+bool SeeCASTConsumer::HandleTopLevelDecl(DeclGroupRef D) {
   return Child->HandleTopLevelDecl(D);
 }
 
 void SeeCASTConsumer::HandleTranslationUnit(ASTContext &Ctx) {
+  TraverseDecl(Ctx.getTranslationUnitDecl());
+
+  for (auto const VAType : VATypes)
+    TraverseStmt(VAType->getSizeExpr());
+
   Child->HandleTranslationUnit(Ctx);
 }
 
@@ -168,6 +175,12 @@ bool SeeCASTConsumer::VisitStmt(Stmt *S) {
 
 bool SeeCASTConsumer::VisitDecl(Decl *D) {
   Action.addDeclMap(D);
+  return true;
+}
+
+bool SeeCASTConsumer::VisitVariableArrayType(::clang::VariableArrayType *T)
+{
+  VATypes.push_back(T);
   return true;
 }
 
@@ -183,25 +196,21 @@ std::string getResourcesDirectory(llvm::StringRef ExecutablePath)
   // For Bundles find: ../../Resources/clang/CLANG_VERSION_STRING
   // Otherwise find:   ../lib/seec/resources/clang/CLANG_VERSION_STRING
   
-  llvm::sys::Path ResourcePath (ExecutablePath);
-  ResourcePath.eraseComponent(); // remove executable name
-  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  llvm::SmallString<256> ResourcePath {ExecutablePath};
+  llvm::sys::path::remove_filename(ResourcePath); // remove executable name
+  llvm::sys::path::remove_filename(ResourcePath); // remove "bin" or "MacOS"
   
-  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
-    ResourcePath.eraseComponent(); // remove "Contents" (bundle)
-    ResourcePath.appendComponent("Resources");
-    ResourcePath.appendComponent("clang");
-    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+  if (ResourcePath.str().endswith("Contents")) { // Bundle
+    llvm::sys::path::remove_filename(ResourcePath); // remove "Contents"
+    llvm::sys::path::append(ResourcePath,
+                            "Resources", "clang", CLANG_VERSION_STRING);
   }
   else {
-    ResourcePath.appendComponent("lib");
-    ResourcePath.appendComponent("seec");
-    ResourcePath.appendComponent("resources");
-    ResourcePath.appendComponent("clang");
-    ResourcePath.appendComponent(CLANG_VERSION_STRING);
+    llvm::sys::path::append(ResourcePath, "lib", "seec", "resources", "clang");
+    llvm::sys::path::append(ResourcePath, CLANG_VERSION_STRING);
   }
   
-  return ResourcePath.str();
+  return ResourcePath.str().str();
 }
 
 
@@ -214,21 +223,26 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
   // The runtime library location should be fixed relative to our executable
   // path.
   
+  // For Windows the runtime is in the same directory.
   // For Bundles find: ???
   // Otherwise find:   ../lib
   
-  llvm::sys::Path ResourcePath (ExecutablePath);
-  ResourcePath.eraseComponent(); // remove executable name
-  ResourcePath.eraseComponent(); // remove "bin" or "MacOS" (bundle)
+  llvm::SmallString<256> ResourcePath {ExecutablePath};
+  llvm::sys::path::remove_filename(ResourcePath); // remove executable name
+
+  // TODO: this should perhaps depend on the target.
+#if !defined(_WIN32)
+  llvm::sys::path::remove_filename(ResourcePath); // remove "bin" or "MacOS"
   
-  if (llvm::StringRef(ResourcePath.str()).endswith("Contents")) { // Bundle
+  if (ResourcePath.str().endswith("Contents")) { // Bundle
     llvm_unreachable("bundle support not implemented.");
   }
   else {
-    ResourcePath.appendComponent("lib");
+    llvm::sys::path::append(ResourcePath, "lib", "seec");
   }
+#endif
   
-  return ResourcePath.str();
+  return ResourcePath.str().str();
 }
 
 
@@ -236,31 +250,38 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath)
 // GetMetadataPointer
 //===----------------------------------------------------------------------===//
 template<typename T>
-T *GetPointerFromMetadata(llvm::Value const *V) {
-  auto CI = llvm::dyn_cast<llvm::ConstantInt>(V);
+T *GetPointerFromMetadata(llvm::Metadata const *MD) {
+  auto CMD = llvm::dyn_cast<llvm::ConstantAsMetadata>(MD);
+  assert(CMD && "GetPointerFromMetadata requires ConstantAsMetadata");
+
+  auto CI = llvm::dyn_cast<llvm::ConstantInt>(CMD->getValue());
   assert(CI && "GetPointerFromMetadata requires a ConstantInt.");
+
   return reinterpret_cast<T *>(static_cast<uintptr_t>(CI->getZExtValue()));
 }
 
 template<typename T>
 T const *GetMetadataPointer(Instruction const &I, unsigned MDKindID) {
-  MDNode *Node = I.getMetadata(MDKindID);
+  llvm::MDNode *Node = I.getMetadata(MDKindID);
   if (!Node)
     return nullptr;
   
   assert(Node->getNumOperands() > 0 && "Insufficient operands in MDNode.");
   
-  return GetPointerFromMetadata<T const>(Node->getOperand(0));
+  return GetPointerFromMetadata<T const>(Node->getOperand(0).get());
 }
 
 //===----------------------------------------------------------------------===//
 // GenerateSerializableMappings
 //===----------------------------------------------------------------------===//
-llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
-                                      seec::ModuleIndex const &ModIndex) {
+llvm::Metadata *MakeValueMapSerializable(llvm::Metadata *ValueMap,
+                                         seec::ModuleIndex const &ModIndex) {
   if (!ValueMap)
     return ValueMap;
   
+  if (llvm::isa<llvm::ConstantAsMetadata>(ValueMap))
+    return ValueMap;
+
   auto &ModContext = ModIndex.getModule().getContext();
   
   auto ValueMapMD = llvm::dyn_cast<llvm::MDNode>(ValueMap);
@@ -269,32 +290,185 @@ llvm::Value *MakeValueMapSerializable(llvm::Value *ValueMap,
   auto TypeStr = Type->getString();
   
   if (TypeStr.equals("instruction")) {
-    auto Func = llvm::dyn_cast<llvm::Function>(ValueMapMD->getOperand(1u));
-    assert(Func);
-    
+    auto const FuncMD = llvm::dyn_cast<llvm::ConstantAsMetadata>
+                                      (ValueMapMD->getOperand(1u).get());
+    if (!FuncMD)
+      return nullptr;
+
+    auto Func = llvm::dyn_cast<llvm::Function>(FuncMD->getValue());
     auto FuncIndex = ModIndex.getFunctionIndex(Func);
     assert(FuncIndex);
     
-    auto InstrAddr = ValueMapMD->getOperand(2u);
-    auto Instr = GetPointerFromMetadata<llvm::Instruction>(InstrAddr);
+    auto InstrAddrMD = llvm::dyn_cast<llvm::ConstantAsMetadata>
+                                     (ValueMapMD->getOperand(2u).get());
+    auto Instr = GetPointerFromMetadata<llvm::Instruction>(InstrAddrMD);
     auto InstrIndex = FuncIndex->getIndexOfInstruction(Instr);
     if (!InstrIndex.assigned())
       return nullptr;
     
     auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
     
-    llvm::Value *Ops[] = {
+    llvm::Metadata *Ops[] = {
       Type,
-      Func,
-      ConstantInt::get(Int64Ty, InstrIndex.get<0>())
+      FuncMD,
+      ConstantAsMetadata::get(ConstantInt::get(Int64Ty, InstrIndex.get<0>()))
     };
     
-    return MDNode::get(ModContext, Ops);
+    return llvm::MDNode::get(ModContext, Ops);
   }
   else {
     return ValueMap;
   }
 }
+
+class InstructionMetadataSerializer
+{
+  llvm::LLVMContext &ModContext;
+  llvm::Type * const Int64Ty;
+  SeeCCodeGenAction &Action;
+  llvm::Metadata * const MainFileNode;
+  unsigned const MDStmtPtrID;
+  unsigned const MDStmtIdxID;
+  unsigned const MDDeclPtrIDClang;
+  unsigned const MDDeclPtrID;
+  unsigned const MDDeclIdxID;
+  unsigned const MDStmtCompletionPtrsID;
+  unsigned const MDStmtCompletionIdxsID;
+  unsigned const MDDeclCompletionPtrsID;
+  unsigned const MDDeclCompletionIdxsID;
+
+  void SerializeStmtMetadata(llvm::Instruction &Instruction) {
+    if (auto const S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID)) {
+      auto &StmtMap = Action.getStmtMap();
+      auto It = StmtMap.find(S);
+      if (It != StmtMap.end()) {
+        llvm::Metadata *Ops[] {
+          MainFileNode,
+          // StmtIdx
+          ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
+        };
+
+        Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDStmtPtrID, nullptr);
+    }
+  }
+
+  void SerializeDeclMetadata(llvm::Instruction &Instruction) {
+    if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID)) {
+      auto &DeclMap = Action.getDeclMap();
+      auto It = DeclMap.find(D);
+      if (It != DeclMap.end()) {
+        llvm::Metadata *Ops[] {
+          MainFileNode,
+          // DeclIdx
+          ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
+        };
+
+        Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDDeclPtrID, nullptr);
+    }
+  }
+
+  void SerializeClangDeclMetadata(llvm::Instruction &Instruction) {
+    if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrIDClang)) {
+      auto &DeclMap = Action.getDeclMap();
+      auto It = DeclMap.find(D);
+      if (It != DeclMap.end()) {
+        llvm::Metadata *Ops[] {
+          MainFileNode,
+          // DeclIdx
+          ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
+        };
+
+        Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
+      }
+      
+      Instruction.setMetadata(MDDeclPtrIDClang, nullptr);
+    }
+  }
+
+  void SerializeStmtCompletionMetadata(llvm::Instruction &Instruction) {
+    if (auto const MD = Instruction.getMetadata(MDStmtCompletionPtrsID)) {
+      if (auto const NumOperands = MD->getNumOperands()) {
+        auto &StmtMap = Action.getStmtMap();
+
+        std::vector<llvm::Metadata *> Ops;
+        Ops.reserve(NumOperands);
+
+        for (unsigned i = 0; i < NumOperands; ++i) {
+          if (auto const S = GetPointerFromMetadata<Stmt>(MD->getOperand(i))) {
+            auto const It = StmtMap.find(S);
+            if (It != StmtMap.end())
+              Ops.emplace_back(
+                ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second)));
+          }
+        }
+
+        Instruction.setMetadata(MDStmtCompletionIdxsID,
+                                MDNode::get(ModContext, Ops));
+      }
+
+      Instruction.setMetadata(MDStmtCompletionPtrsID, nullptr);
+    }
+  }
+
+  void SerializeDeclCompletionMetadata(llvm::Instruction &Instruction) {
+    if (auto const MD = Instruction.getMetadata(MDDeclCompletionPtrsID)) {
+      if (auto const NumOperands = MD->getNumOperands()) {
+        auto &DeclMap = Action.getDeclMap();
+
+        std::vector<llvm::Metadata *> Ops;
+        Ops.reserve(NumOperands);
+
+        for (unsigned i = 0; i < NumOperands; ++i) {
+          if (auto const S = GetPointerFromMetadata<Decl>(MD->getOperand(i))) {
+            auto const It = DeclMap.find(S);
+            if (It != DeclMap.end())
+              Ops.emplace_back(
+                ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second)));
+          }
+        }
+
+        Instruction.setMetadata(MDDeclCompletionIdxsID,
+                                MDNode::get(ModContext, Ops));
+      }
+
+      Instruction.setMetadata(MDDeclCompletionPtrsID, nullptr);
+    }
+  }
+
+public:
+  InstructionMetadataSerializer(llvm::Module *Mod,
+                                SeeCCodeGenAction &WithAction,
+                                llvm::Metadata * const WithMainFileNode)
+  : ModContext(Mod->getContext()),
+    Int64Ty(llvm::Type::getInt64Ty(ModContext)),
+    Action(WithAction),
+    MainFileNode(WithMainFileNode),
+    MDStmtPtrID(Mod->getMDKindID(MDStmtPtrStr)),
+    MDStmtIdxID(Mod->getMDKindID(MDStmtIdxStr)),
+    MDDeclPtrIDClang(Mod->getMDKindID(MDDeclPtrStrClang)),
+    MDDeclPtrID(Mod->getMDKindID(MDDeclPtrStr)),
+    MDDeclIdxID(Mod->getMDKindID(MDDeclIdxStr)),
+    MDStmtCompletionPtrsID(Mod->getMDKindID(MDStmtCompletionPtrsStr)),
+    MDStmtCompletionIdxsID(Mod->getMDKindID(MDStmtCompletionIdxsStr)),
+    MDDeclCompletionPtrsID(Mod->getMDKindID(MDDeclCompletionPtrsStr)),
+    MDDeclCompletionIdxsID(Mod->getMDKindID(MDDeclCompletionIdxsStr))
+  {}
+
+  void SerializeInstructionMetadata(llvm::Instruction &Instruction)
+  {
+    SerializeStmtMetadata(Instruction);
+    SerializeDeclMetadata(Instruction);
+    SerializeClangDeclMetadata(Instruction);
+    SerializeStmtCompletionMetadata(Instruction);
+    SerializeDeclCompletionMetadata(Instruction);
+  }
+};
 
 /// Modify Mod's Metadata to use numbered mappings rather than pointers.
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
@@ -310,74 +484,49 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto &DeclMap = Action.getDeclMap();
   auto &StmtMap = Action.getStmtMap();
 
+#if defined(SEEC_DEBUG_NODE_MAPPING)
+  {
+    std::vector< ::clang::Decl const *> Decls;
+    Decls.resize(DeclMap.size());
+    for (auto const &Pair : DeclMap)
+      Decls[Pair.second] = Pair.first;
+
+    std::vector< ::clang::Stmt const *> Stmts;
+    Stmts.resize(StmtMap.size());
+    for (auto const &Pair : StmtMap)
+      Stmts[Pair.second] = Pair.first;
+
+    llvm::errs() << "decls:\n";
+    for (auto const D : Decls)
+      llvm::errs() << "  " << D->getDeclKindName() << "\n";
+
+    llvm::errs() << "stmts:\n";
+    for (auto const S : Stmts)
+      llvm::errs() << "  " << S->getStmtClassName() << "\n";
+  }
+#endif
+
+  llvm::SmallString<256> CurrentDirectory;
+  auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
+  assert(!Err);
+
   // setup the file node for the main file and add it to the files node
-  llvm::Value *MainFileNodeOps[] {
+  llvm::Metadata *MainFileNodeOps[] {
     MDString::get(ModContext, MainFilename),
-    MDString::get(ModContext, llvm::sys::Path::GetCurrentDirectory().str())
+    MDString::get(ModContext, CurrentDirectory.str())
   };
 
   auto MainFileNode = MDNode::get(ModContext, MainFileNodeOps);
 
   // Handle Instruction Metadata
-  unsigned MDStmtPtrID = Mod->getMDKindID(MDStmtPtrStr);
-  unsigned MDStmtIdxID = Mod->getMDKindID(MDStmtIdxStr);
-  unsigned MDDeclPtrIDClang = Mod->getMDKindID(MDDeclPtrStrClang);
-  unsigned MDDeclPtrID = Mod->getMDKindID(MDDeclPtrStr);
-  unsigned MDDeclIdxID = Mod->getMDKindID(MDDeclIdxStr);
+  InstructionMetadataSerializer ISerializer(Mod, Action, MainFileNode);
 
   for (auto &Function: *Mod) {
     for (auto &BasicBlock: Function) {
       for (auto &Instruction: BasicBlock) {
         if (!Instruction.hasMetadata())
           continue;
-
-        // Handle SeeC's Stmt metadata.
-        if (auto S = GetMetadataPointer<Stmt>(Instruction, MDStmtPtrID))
-        {
-          auto It = StmtMap.find(S);
-          if (It != StmtMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // StmtIdx
-            };
-
-            Instruction.setMetadata(MDStmtIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDStmtPtrID, nullptr);
-        }
-
-        // Handle SeeC's Decl metadata.
-        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrID))
-        {
-          auto It = DeclMap.find(D);
-          if (It != DeclMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // DeclIdx
-            };
-
-            Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDDeclPtrID, nullptr);
-        }
-        
-        // Handle Clang's Decl metadata.
-        if (auto D = GetMetadataPointer<Decl>(Instruction, MDDeclPtrIDClang))
-        {
-          auto It = DeclMap.find(D);
-          if (It != DeclMap.end()) {
-            Value *Ops[] {
-              MainFileNode,
-              ConstantInt::get(Int64Ty, It->second) // DeclIdx
-            };
-
-            Instruction.setMetadata(MDDeclIdxID, MDNode::get(ModContext, Ops));
-          }
-          
-          Instruction.setMetadata(MDDeclPtrIDClang, nullptr);
-        }
+        ISerializer.SerializeInstructionMetadata(Instruction);
       }
     }
   }
@@ -387,26 +536,33 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   if (GlobalPtrMD) {
     llvm::NamedMDNode *GlobalIdxMD
       = Mod->getOrInsertNamedMetadata(MDGlobalDeclIdxsStr);
+    llvm::NamedMDNode *GlobalSystemDeclsMD
+      = Mod->getOrInsertNamedMetadata(MDGlobalSystemDeclsStr);
 
     unsigned NumOperands = GlobalPtrMD->getNumOperands();
     for (unsigned i = 0; i < NumOperands; ++i) {
       llvm::MDNode *PtrNode = GlobalPtrMD->getOperand(i);
       assert(PtrNode->getNumOperands() == 2 && "Unexpected NumOperands!");
 
-      auto MDDeclPtr = PtrNode->getOperand(1);
+      auto MDDeclPtr = PtrNode->getOperand(1).get();
       auto D = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
 
       auto It = DeclMap.find(D);
       if (It == DeclMap.end())
         continue;
       
-      llvm::Value *Ops[] = {
+      llvm::Metadata *Ops[] = {
         MainFileNode,
-        PtrNode->getOperand(0),
-        ConstantInt::get(Int64Ty, It->second)
+        PtrNode->getOperand(0).get(),
+        ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
       };
 
       GlobalIdxMD->addOperand(llvm::MDNode::get(ModContext, Ops));
+      
+      if (SM.isInSystemHeader(D->getLocation())) {
+        llvm::Metadata *DeclOp[] = { PtrNode->getOperand(0).get() };
+        GlobalSystemDeclsMD->addOperand(llvm::MDNode::get(ModContext, DeclOp));
+      }
     }
     
     GlobalPtrMD->eraseFromParent();
@@ -429,17 +585,20 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       auto MappingNode = GlobalStmtPtrMD->getOperand(i);
       assert(MappingNode->getNumOperands() == 4 && "Unexpected NumOperands!");
       
-      auto MDStmtPtr = MappingNode->getOperand(1);
+      auto MDStmtPtr = MappingNode->getOperand(1).get();
       auto Stmt = GetPointerFromMetadata< ::clang::Stmt const>(MDStmtPtr);
       assert(Stmt && "Couldn't get clang::Stmt pointer.");
       
       auto It = StmtMap.find(Stmt);
-      if (It == StmtMap.end())
+      if (It == StmtMap.end()) {
+        llvm::errs() << "Stmt mapping dropped because Stmt is unknown:\n";
+        Stmt->dump();
         continue;
+      }
       
-      llvm::Value *StmtIdentifierOps[] = {
+      llvm::Metadata *StmtIdentifierOps[] = {
         MainFileNode,
-        ConstantInt::get(Int64Ty, It->second)
+        ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
       };
       
       // Must convert Instruction and Argument maps to use indices rather than
@@ -452,10 +611,13 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       
       // It's possible that an Instruction is deleted after the mapping has
       // been created for it. In this case, discard the entire mapping.
-      if (Val1 == nullptr)
+      if (Val1 == nullptr) {
+        llvm::errs() << "Stmt mapping has unknown Val1:\n";
+        Stmt->dump();
         continue;
+      }
       
-      llvm::Value *MappingOps[] = {
+      llvm::Metadata *MappingOps[] = {
         MappingNode->getOperand(0),
         llvm::MDNode::get(ModContext, StmtIdentifierOps),
         Val1,
@@ -483,16 +645,16 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       auto const MappingNode = GlobalParamPtrMD->getOperand(i);
       assert(MappingNode->getNumOperands() == 2 && "Unexpected NumOperands!");
       
-      auto const MDDeclPtr = MappingNode->getOperand(0);
+      auto const MDDeclPtr = MappingNode->getOperand(0).get();
       auto const Decl = GetPointerFromMetadata< ::clang::Decl const>(MDDeclPtr);
 
       auto const It = DeclMap.find(Decl);
       if (It == DeclMap.end())
         continue;
       
-      llvm::Value *DeclIdentifierOps[] = {
+      llvm::Metadata *DeclIdentifierOps[] = {
         MainFileNode,
-        ConstantInt::get(Int64Ty, It->second)
+        ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
       };
 
       // Must convert Instruction and Argument maps to use indices rather than
@@ -505,7 +667,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       if (Val == nullptr)
         continue;
       
-      llvm::Value *MappingOps[] = {
+      llvm::Metadata *MappingOps[] = {
         llvm::MDNode::get(ModContext, DeclIdentifierOps),
         Val
       };
@@ -531,7 +693,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       auto const MappingNode = GlobalLocalPtrMD->getOperand(i);
       assert(MappingNode->getNumOperands() == 2 && "Unexpected NumOperands!");
       
-      auto const MDDeclPtr = MappingNode->getOperand(0);
+      auto const MDDeclPtr = MappingNode->getOperand(0).get();
       auto const Decl =
         GetPointerFromMetadata< ::clang::VarDecl const>(MDDeclPtr);
 
@@ -539,9 +701,9 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       if (It == DeclMap.end())
         continue;
       
-      llvm::Value *DeclIdentifierOps[] = {
+      llvm::Metadata *DeclIdentifierOps[] = {
         MainFileNode,
-        ConstantInt::get(Int64Ty, It->second)
+        ConstantAsMetadata::get(ConstantInt::get(Int64Ty, It->second))
       };
 
       // Must convert Instruction and Argument maps to use indices rather than
@@ -554,7 +716,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
       if (Val == nullptr)
         continue;
       
-      llvm::Value *MappingOps[] = {
+      llvm::Metadata *MappingOps[] = {
         llvm::MDNode::get(ModContext, DeclIdentifierOps),
         Val
       };
@@ -564,25 +726,60 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   }
 }
 
+Metadata *getMDForLookupType(LLVMContext &Context,
+                             ::clang::DirectoryLookup::LookupType_t const LT)
+{
+  switch (LT)
+  {
+    case ::clang::DirectoryLookup::LT_NormalDir:
+      return llvm::MDString::get(Context, "LT_NormalDir");
+    case ::clang::DirectoryLookup::LT_Framework:
+      return llvm::MDString::get(Context, "LT_Framework");
+    case ::clang::DirectoryLookup::LT_HeaderMap:
+      return llvm::MDString::get(Context, "LT_HeaderMap");
+  }
+
+  return nullptr;
+}
+
+Metadata *getMDForCharacteristicKind(LLVMContext &Context,
+                                     ::clang::SrcMgr::CharacteristicKind CK)
+{
+  switch(CK)
+  {
+    case ::clang::SrcMgr::CharacteristicKind::C_User:
+      return llvm::MDString::get(Context, "C_User");
+    case ::clang::SrcMgr::CharacteristicKind::C_System:
+      return llvm::MDString::get(Context, "C_System");
+    case ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem:
+      return llvm::MDString::get(Context, "C_ExternCSystem");
+  }
+
+  return nullptr;
+}
+
 void StoreCompileInformationInModule(llvm::Module *Mod,
                                      ::clang::CompilerInstance &Compiler,
-                                     const char **ArgBegin,
-                                     const char **ArgEnd)
+                                     const char * const *ArgBegin,
+                                     const char * const *ArgEnd)
 {
   assert(Mod && "No module?");
   
   auto &LLVMContext = Mod->getContext();
   auto &SrcManager = Compiler.getSourceManager();
   
-  std::vector<llvm::Value *> FileInfoNodes;
-  std::vector<llvm::Value *> ArgNodes;
+  std::vector<llvm::Metadata *> FileInfoNodes;
+  std::vector<llvm::Metadata *> ArgNodes;
   
   // Get information about the main file.
   auto MainFileID = SrcManager.getMainFileID();
   auto MainFileEntry = SrcManager.getFileEntryForID(MainFileID);
-  auto CurrentDirectory = llvm::sys::Path::GetCurrentDirectory();
   
-  llvm::Value *MainFileOperands[] = {
+  llvm::SmallString<256> CurrentDirectory;
+  auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
+  assert(!Err);
+  
+  llvm::Metadata *MainFileOperands[] = {
     llvm::MDString::get(LLVMContext, MainFileEntry->getName()),
     llvm::MDString::get(LLVMContext, CurrentDirectory.str())
   };
@@ -607,7 +804,11 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
     }
     
     // Get an MDNode with the filename and contents.
-    llvm::Value *Pair[] = {NameNode, ContentsNode};
+    llvm::Metadata *Pair[] = {
+      NameNode,
+      ConstantAsMetadata::get(ContentsNode)
+    };
+
     auto PairNode = llvm::MDNode::get(LLVMContext, Pair);
     
     FileInfoNodes.push_back(PairNode);
@@ -618,11 +819,42 @@ void StoreCompileInformationInModule(llvm::Module *Mod,
     if (*ArgIt)
       ArgNodes.push_back(llvm::MDString::get(LLVMContext, *ArgIt));
   
+  // Save information about header lookups used.
+  std::vector<llvm::Metadata *> HeaderSearchDirNodes;
+  auto const &HeaderSearch = Compiler.getPreprocessor().getHeaderSearchInfo();
+  for (auto It = HeaderSearch.search_dir_begin(),
+            End = HeaderSearch.search_dir_end();
+       It != End; ++It)
+  {
+    llvm::Metadata *Args[] = {
+      getMDForLookupType(LLVMContext, It->getLookupType()),
+      llvm::MDString::get(LLVMContext, It->getName()),
+      getMDForCharacteristicKind(LLVMContext, It->getDirCharacteristic()),
+      It->isIndexHeaderMap()
+        ? ConstantAsMetadata::get(ConstantInt::getTrue(LLVMContext))
+        : ConstantAsMetadata::get(ConstantInt::getFalse(LLVMContext))
+    };
+
+    HeaderSearchDirNodes.emplace_back(llvm::MDNode::get(LLVMContext, Args));
+  }
+
+  auto const Int64Ty = llvm::Type::getInt64Ty(LLVMContext);
+  llvm::Metadata *HeaderSearchInfoNodes[] = {
+    llvm::MDNode::get(LLVMContext, HeaderSearchDirNodes),
+    ConstantAsMetadata::get(ConstantInt::get(Int64Ty,
+      std::distance(HeaderSearch.search_dir_begin(),
+                    HeaderSearch.angled_dir_begin()))),
+    ConstantAsMetadata::get(ConstantInt::get(Int64Ty,
+      std::distance(HeaderSearch.search_dir_begin(),
+                    HeaderSearch.system_dir_begin()))),
+  };
+
   // Create the compile info node for this unit.
-  llvm::Value *CompileInfoOperands[] = {
+  llvm::Metadata *CompileInfoOperands[] = {
     MainFileNode,
     llvm::MDNode::get(LLVMContext, FileInfoNodes),
-    llvm::MDNode::get(LLVMContext, ArgNodes)
+    llvm::MDNode::get(LLVMContext, ArgNodes),
+    llvm::MDNode::get(LLVMContext, HeaderSearchInfoNodes)
   };
   
   auto CompileInfoNode = llvm::MDNode::get(LLVMContext, CompileInfoOperands);

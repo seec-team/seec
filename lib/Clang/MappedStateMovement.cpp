@@ -22,12 +22,37 @@
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
 
+#include "clang/AST/Expr.h"
+
 #include "llvm/Support/raw_ostream.h"
+
+#include <algorithm>
 
 
 namespace seec {
 
 namespace cm {
+
+
+static MovementResult toCMResult(seec::trace::MovementResult const Result)
+{
+  switch (Result) {
+    case trace::MovementResult::Unmoved:
+      return MovementResult::Unmoved;
+
+    case trace::MovementResult::PredicateSatisfied:
+      return MovementResult::PredicateSatisfied;
+
+    case trace::MovementResult::ReachedBeginning:
+      return MovementResult::ReachedBeginning;
+
+    case trace::MovementResult::ReachedEnd:
+      return MovementResult::ReachedEnd;
+  }
+
+  llvm_unreachable("Unknown MovementResult");
+  return MovementResult::Unmoved;
+}
 
 
 //===----------------------------------------------------------------------===//
@@ -39,8 +64,7 @@ static bool isLogicalPoint(seec::trace::ThreadState const &Thread,
   // Logical points:
   // 1) No active Function.
   // 2) End of a Function's prelude.
-  // 3) Instruction with mapping where the next active Instruction either does
-  //    not exist or has a different mapping.
+  // 3) Instruction that completes a Stmt or Decl's evaluation.
   // 4) Non-mapped Functions are not allowed.
   // 5) System header functions are not allowed.
   
@@ -82,11 +106,11 @@ static bool isLogicalPoint(seec::trace::ThreadState const &Thread,
   }
   
   // Handles 3).
-  auto const Next = trace::getNextInstructionInActiveFunction(Thread);
-  return (!Next || !Mapping.areMappedToSameStmt(*ActiveInst, *Next));
+  return Mapping.hasCompletionMapping(*ActiveInst);
 }
 
-bool moveForward(ThreadState &Thread) {
+MovementResult moveForward(ThreadState &Thread)
+{
   auto &Unmapped = Thread.getUnmappedState();
   auto const &MappedTrace = Thread.getParent().getProcessTrace();
   auto const &MappedModule = MappedTrace.getMapping();
@@ -98,10 +122,11 @@ bool moveForward(ThreadState &Thread) {
   
   Thread.getParent().cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-bool moveForwardToEnd(ThreadState &Thread) {
+MovementResult moveForwardToEnd(ThreadState &Thread)
+{
   auto &Unmapped = Thread.getUnmappedState();
   
   auto const Moved = seec::trace::moveForwardUntil(Unmapped,
@@ -111,10 +136,77 @@ bool moveForwardToEnd(ThreadState &Thread) {
   
   Thread.getParent().cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-bool moveBackward(ThreadState &Thread) {
+/// \brief Check if the given \c clang::Stmt is "top-level" (does not have a
+///        parent that is an Expr).
+///
+static
+bool isTopLevel(clang::Stmt const *S, seec::seec_clang::MappedAST const &AST)
+{
+  if (!llvm::isa<clang::Expr>(S))
+    return false;
+
+  auto const MaybeParent = AST.getParent(S);
+  if (MaybeParent.assigned<clang::Stmt const *>()) {
+    auto const TheStmt = MaybeParent.get<clang::Stmt const *>();
+
+    if (auto const Expr = llvm::dyn_cast<clang::Expr>(TheStmt)) {
+      // If the parent is a top-level ParenExpr then also treat this Expr as
+      // top-level, because the parent won't exist in the IR.
+      if (auto const Paren = llvm::dyn_cast<clang::ParenExpr>(Expr)) {
+        return isTopLevel(Paren, AST);
+      }
+
+      return false;
+    }
+
+    return true;
+  }
+
+  return true;
+}
+
+MovementResult moveForwardToCompleteTopLevelStmt(ThreadState &Thread)
+{
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+
+  llvm::SmallVector<clang::Stmt const *, 8> Complete;
+
+  auto const Moved = trace::moveForwardUntil(Unmapped,
+    [&] (seec::trace::ThreadState const &T) -> bool {
+      if (auto const ActiveFnState = T.getActiveFunction()) {
+        auto const ActiveFn = ActiveFnState->getFunction();
+        auto const MappedFn = MappedModule.getMappedFunctionDecl(ActiveFn);
+        if (!MappedFn)
+          return false;
+
+        if (auto const ActiveInst = ActiveFnState->getActiveInstruction()) {
+          auto const &AST = MappedFn->getAST();
+          if (MappedModule.getStmtCompletions(*ActiveInst, AST, Complete)) {
+            auto const Success = std::any_of(Complete.begin(), Complete.end(),
+                                              [&] (clang::Stmt const *S) {
+                                                return isTopLevel(S, AST);
+                                              });
+            Complete.clear();
+            return Success;
+          }
+        }
+      }
+
+      return false;
+    });
+
+  Thread.getParent().cacheClear();
+
+  return toCMResult(Moved);
+}
+
+MovementResult moveBackward(ThreadState &Thread)
+{
   auto &Unmapped = Thread.getUnmappedState();
   auto const &MappedTrace = Thread.getParent().getProcessTrace();
   auto const &MappedModule = MappedTrace.getMapping();
@@ -126,10 +218,11 @@ bool moveBackward(ThreadState &Thread) {
   
   Thread.getParent().cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-bool moveBackwardToEnd(ThreadState &Thread) {
+MovementResult moveBackwardToEnd(ThreadState &Thread)
+{
   auto &Unmapped = Thread.getUnmappedState();
   
   auto const Moved = seec::trace::moveBackwardUntil(Unmapped,
@@ -139,7 +232,44 @@ bool moveBackwardToEnd(ThreadState &Thread) {
   
   Thread.getParent().cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
+}
+
+MovementResult moveBackwardToCompleteTopLevelStmt(ThreadState &Thread)
+{
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+
+  llvm::SmallVector<clang::Stmt const *, 8> Complete;
+
+  auto const Moved = trace::moveBackwardUntil(Unmapped,
+    [&] (seec::trace::ThreadState const &T) -> bool {
+      if (auto const ActiveFnState = T.getActiveFunction()) {
+        auto const ActiveFn = ActiveFnState->getFunction();
+        auto const MappedFn = MappedModule.getMappedFunctionDecl(ActiveFn);
+        if (!MappedFn)
+          return false;
+
+        if (auto const ActiveInst = ActiveFnState->getActiveInstruction()) {
+          auto const &AST = MappedFn->getAST();
+          if (MappedModule.getStmtCompletions(*ActiveInst, AST, Complete)) {
+            auto const Success = std::any_of(Complete.begin(), Complete.end(),
+                                              [&] (clang::Stmt const *S) {
+                                                return isTopLevel(S, AST);
+                                              });
+            Complete.clear();
+            return Success;
+          }
+        }
+      }
+
+      return false;
+    });
+
+  Thread.getParent().cacheClear();
+
+  return toCMResult(Moved);
 }
 
 // (Thread movement.)
@@ -149,7 +279,8 @@ bool moveBackwardToEnd(ThreadState &Thread) {
 //===----------------------------------------------------------------------===//
 // Contextual movement for functions.
 
-bool moveToFunctionEntry(FunctionState &Function) {
+MovementResult moveToFunctionEntry(FunctionState &Function)
+{
   auto &UnmappedFunction = Function.getUnmappedState();
   auto &UnmappedThread = UnmappedFunction.getParent();
   auto &CallStack = UnmappedThread.getCallStack();
@@ -184,7 +315,8 @@ bool moveToFunctionEntry(FunctionState &Function) {
   return moveForward(Function.getParent());
 }
 
-bool moveToFunctionFinished(FunctionState &Function) {
+MovementResult moveToFunctionFinished(FunctionState &Function)
+{
   auto &Thread = Function.getParent();
   auto &Process = Thread.getParent();
   auto const &MappedModule = Process.getProcessTrace().getMapping();
@@ -210,7 +342,7 @@ bool moveToFunctionFinished(FunctionState &Function) {
   
   Process.cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
 // (Contextual movement for functions.)
@@ -218,16 +350,12 @@ bool moveToFunctionFinished(FunctionState &Function) {
 
 
 //===----------------------------------------------------------------------===//
-// Contextual movement for values.
+// Contextual movement for memory.
 
-bool moveToAllocation(ProcessState &Process, Value const &OfValue)
+MovementResult moveToAllocation(ProcessState &Process,
+                                stateptr_ty const Address)
 {
-  // The allocation of virtual register values is meaningless for now.
-  if (!OfValue.isInMemory())
-    return false;
-  
   auto &Unmapped = Process.getUnmappedProcessState();
-  auto const Address = OfValue.getAddress();
   
   // Move backwards until the area is not allocated.
   auto const Moved =
@@ -237,7 +365,9 @@ bool moveToAllocation(ProcessState &Process, Value const &OfValue)
       });
   
   // Now move forwards just enough that the area is allocated.
-  if (Moved && !Unmapped.getContainingMemoryArea(Address).assigned()) {
+  if (Moved == trace::MovementResult::PredicateSatisfied
+      && !Unmapped.getContainingMemoryArea(Address).assigned())
+  {
     seec::trace::moveForwardUntil(Unmapped,
       [=] (seec::trace::ProcessState &P) -> bool {
         return P.getContainingMemoryArea(Address).assigned();
@@ -246,17 +376,13 @@ bool moveToAllocation(ProcessState &Process, Value const &OfValue)
   
   Process.cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
+MovementResult moveToDeallocation(ProcessState &Process,
+                                  stateptr_ty const Address)
 {
-  // The allocation of virtual register values is meaningless for now.
-  if (!OfValue.isInMemory())
-    return false;
-  
   auto &Unmapped = Process.getUnmappedProcessState();
-  auto const Address = OfValue.getAddress();
   
   // Move forwards until the area is not allocated.
   auto const Moved =
@@ -266,7 +392,9 @@ bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
       });
   
   // Now move backwards just enough that the area is allocated.
-  if (Moved && !Unmapped.getContainingMemoryArea(Address).assigned()) {
+  if (Moved == trace::MovementResult::PredicateSatisfied
+      && !Unmapped.getContainingMemoryArea(Address).assigned())
+  {
     seec::trace::moveBackwardUntil(Unmapped,
       [=] (seec::trace::ProcessState &P) -> bool {
         return P.getContainingMemoryArea(Address).assigned();
@@ -275,27 +403,22 @@ bool moveToDeallocation(ProcessState &Process, Value const &OfValue)
   
   Process.cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-// (Contextual movement for values.)
-//===----------------------------------------------------------------------===//
-
-
-//===----------------------------------------------------------------------===//
-// Contextual movement for memory.
-
-bool moveForwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+MovementResult moveForwardUntilMemoryChanges(ProcessState &State,
+                                             MemoryArea const &Area)
 {
   auto &Unmapped = State.getUnmappedProcessState();
   auto const Moved = seec::trace::moveForwardUntilMemoryChanges(Unmapped, Area);
   
   State.cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
 }
 
-bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
+MovementResult moveBackwardUntilMemoryChanges(ProcessState &State,
+                                              MemoryArea const &Area)
 {
   auto &Unmapped = State.getUnmappedProcessState();
   auto const Moved = seec::trace::moveBackwardUntilMemoryChanges(Unmapped,
@@ -303,7 +426,18 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
   
   State.cacheClear();
   
-  return Moved;
+  return toCMResult(Moved);
+}
+
+MovementResult moveBackwardUntilAllocated(ProcessState &State,
+                                          stateptr_ty const Address)
+{
+  auto &Unmapped = State.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveBackwardUntilAllocated(Unmapped, Address);
+
+  State.cacheClear();
+
+  return toCMResult(Moved);
 }
 
 // (Contextual movement for memory.)
@@ -311,140 +445,102 @@ bool moveBackwardUntilMemoryChanges(ProcessState &State, MemoryArea const &Area)
 
 
 //===----------------------------------------------------------------------===//
-// \name Contextual movement based on AST nodes.
+// \name Contextual movement for FILE streams.
 
-bool moveForwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
+MovementResult moveBackwardToStreamWriteAt(ProcessState &MappedState,
+                                           StreamState const &MappedStream,
+                                           std::size_t const Position)
 {
-  using namespace seec::trace;
-  
-  // This movement passes through three distinct states. We begin at PreStmt,
-  // and continue moving forward until the active Instruction is "in" the
-  // requested Stmt (S) -- it is mapped to either S or one of S's children. At
-  // that point we move to StmtPartial. We continue moving forward until the
-  // next Instruction that would be active (but is not yet) is not "in" S (it
-  // is neither S nor any of S's children), at which point we move to
-  // StmtComplete. In StmtComplete we move forward until we are at a logical
-  // point to stop.
-  enum class MoveStateEn {
-    PreStmt,
-    StmtPartial,
-    StmtComplete
-  };
-  
-  if (!S)
-    return false;
-  
-  auto &Unmapped = Thread.getUnmappedState();
-  auto const &MappedTrace = Thread.getParent().getProcessTrace();
-  auto const &MappedModule = MappedTrace.getMapping();
-  auto const StmtChildren = seec::seec_clang::getAllChildren(S);
-  
-  MoveStateEn MoveState = MoveStateEn::PreStmt;
-  seec::trace::FunctionState const *InFunction = nullptr;
-  
+  auto &State = MappedState.getUnmappedProcessState();
+  auto &Stream = MappedStream.getUnmappedState();
+
   auto const Moved =
-    trace::moveForwardUntil(Unmapped,
-      [&] (seec::trace::ThreadState const &T) {
-        auto const ActiveFn = T.getActiveFunction();
-        
-        if (MoveState == MoveStateEn::PreStmt && ActiveFn) {
-          if (auto const ActiveInst = ActiveFn->getActiveInstruction()) {
-            if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst)) {
-              if (S == ActiveStmt || StmtChildren.count(ActiveStmt)) {
-                MoveState = MoveStateEn::StmtPartial;
-                InFunction = ActiveFn;
-              }
-            }
-          }
-        }
-        
-        if (MoveState == MoveStateEn::StmtPartial && ActiveFn == InFunction) {
-          if (auto const Next = getNextInstructionInActiveFunction(T)) {
-            if (auto const NextStmt = MappedModule.getStmt(Next)) {
-              if (S != NextStmt && !StmtChildren.count(NextStmt)) {
-                MoveState = MoveStateEn::StmtComplete;
-              }
-            }
-          }
-          else { 
-            // There are no more instructions in this function call, so the
-            // Stmt must have completed.
-            MoveState = MoveStateEn::StmtComplete;
-          }
-        }
-        
-        if (MoveState == MoveStateEn::StmtComplete)
-          return isLogicalPoint(T, MappedModule);
-        
-        return false;
-      });
-  
-  Thread.getParent().cacheClear();
-  
-  return Moved;
+    seec::trace::moveBackwardToStreamWriteAt(State, Stream, Position);
+
+  MappedState.cacheClear();
+
+  return toCMResult(Moved);
 }
 
-bool moveBackwardUntilEvaluated(ThreadState &Thread, clang::Stmt const *S)
+// (Contextual movement for FILE streams.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
+// \name Contextual movement based on AST nodes.
+
+MovementResult moveForwardUntilEvaluated(ThreadState &Thread,
+                                         clang::Stmt const *S)
 {
-  using namespace seec::trace;
-  
-  enum class MoveStateEn {
-    InitiallyInStmt,
-    OutsideOfStmt
-  };
-  
-  if (!S)
-    return false;
-  
   auto &Unmapped = Thread.getUnmappedState();
   auto const &MappedTrace = Thread.getParent().getProcessTrace();
   auto const &MappedModule = MappedTrace.getMapping();
-  auto const StmtChildren = seec::seec_clang::getAllChildren(S);
-  
-  MoveStateEn MoveState = MoveStateEn::OutsideOfStmt;
-  
-  // Check if we are starting movement from "within" the Stmt (in which case
-  // we must rewind to the previous execution of the Stmt).
-  if (auto const ActiveFn = Unmapped.getActiveFunction())
-    if (auto const ActiveInst = ActiveFn->getActiveInstruction())
-      if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst))
-        if (S == ActiveStmt || StmtChildren.count(ActiveStmt))
-          MoveState = MoveStateEn::InitiallyInStmt;
-  
-  // First move backward until we are "within" the Stmt S (if we started in S,
-  // then move until we are within the previous execution).
-  auto const Moved =
-    trace::moveBackwardUntil(Unmapped,
-      [&] (seec::trace::ThreadState const &T) {
-        if (auto const ActiveFn = T.getActiveFunction()) {
-          if (auto const ActiveInst = ActiveFn->getActiveInstruction()) {
-            if (auto const ActiveStmt = MappedModule.getStmt(ActiveInst)) {
-              if (S == ActiveStmt || StmtChildren.count(ActiveStmt)) {
-                if (MoveState == MoveStateEn::OutsideOfStmt) {
-                  return true;
-                }
-              }
-              else if (MoveState == MoveStateEn::InitiallyInStmt) {
-                MoveState = MoveStateEn::OutsideOfStmt;
-              }
-            }
+
+  llvm::SmallVector<clang::Stmt const *, 8> Complete;
+
+  auto const Moved = trace::moveForwardUntil(Unmapped,
+    [&] (seec::trace::ThreadState const &T) -> bool {
+      if (auto const ActiveFnState = T.getActiveFunction()) {
+        auto const ActiveFn = ActiveFnState->getFunction();
+        auto const MappedFn = MappedModule.getMappedFunctionDecl(ActiveFn);
+        if (!MappedFn)
+          return false;
+
+        if (auto const ActiveInst = ActiveFnState->getActiveInstruction()) {
+          auto const &AST = MappedFn->getAST();
+
+          if (MappedModule.getStmtCompletions(*ActiveInst, AST, Complete)) {
+            auto const Success = std::find(Complete.begin(), Complete.end(), S)
+                                 != Complete.end();
+            Complete.clear();
+            return Success;
           }
         }
-        
-        return false;
-      });
-  
-  // If we have to, move forward until we're at a logical point.
-  if (Moved && !isLogicalPoint(Unmapped, MappedModule)) {
-    trace::moveForwardUntil(Unmapped,
-      [&] (seec::trace::ThreadState const &T) {
-        return isLogicalPoint(T, MappedModule);
-      });
-  }
-  
+      }
+
+      return false;
+    });
+
   Thread.getParent().cacheClear();
-  
-  return Moved;
+
+  return toCMResult(Moved);
+}
+
+MovementResult moveBackwardUntilEvaluated(ThreadState &Thread,
+                                          clang::Stmt const *S)
+{
+  auto &Unmapped = Thread.getUnmappedState();
+  auto const &MappedTrace = Thread.getParent().getProcessTrace();
+  auto const &MappedModule = MappedTrace.getMapping();
+
+  llvm::SmallVector<clang::Stmt const *, 8> Complete;
+
+  auto const Moved = trace::moveBackwardUntil(Unmapped,
+    [&] (seec::trace::ThreadState const &T) -> bool {
+      if (auto const ActiveFnState = T.getActiveFunction()) {
+        auto const ActiveFn = ActiveFnState->getFunction();
+        auto const MappedFn = MappedModule.getMappedFunctionDecl(ActiveFn);
+        if (!MappedFn)
+          return false;
+
+        if (auto const ActiveInst = ActiveFnState->getActiveInstruction()) {
+          auto const &AST = MappedFn->getAST();
+
+          if (MappedModule.getStmtCompletions(*ActiveInst, AST, Complete)) {
+            auto const Success = std::find(Complete.begin(), Complete.end(), S)
+                                 != Complete.end();
+            Complete.clear();
+            return Success;
+          }
+        }
+      }
+
+      return false;
+    });
+
+  Thread.getParent().cacheClear();
+
+  return toCMResult(Moved);
 }
 
 // (Contextual movement based on AST nodes.)

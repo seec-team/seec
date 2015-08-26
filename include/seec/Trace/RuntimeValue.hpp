@@ -17,14 +17,75 @@
 #include "seec/Trace/TraceFormat.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/APSInt.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <cstdint>
+#include <cfloat>
 #include <limits>
 
 namespace seec {
 
 namespace trace {
+
+/// \brief Holds a single runtime value (the result of an \c llvm::Instruction).
+///
+union RuntimeValueRecord {
+  /// Used for any integers <=64 bits. We simply zero extend smaller values.
+  /// Larger width integers are not currently supported.
+  uint64_t UInt64;
+
+  /// Used to hold pointer type values.
+  uintptr_t UIntPtr;
+
+  float Float;
+
+  double Double;
+
+  long double LongDouble;
+
+  /// \brief Default construct.
+  RuntimeValueRecord()
+  {}
+
+  /// \brief Copy construct.
+  RuntimeValueRecord(RuntimeValueRecord const &Other) = default;
+
+  /// \brief Construct a new record holding a uint32_t.
+  explicit RuntimeValueRecord(uint32_t Value)
+  : UInt64(Value)
+  {}
+
+  /// \brief Construct a new record holding a uint64_t.
+  explicit RuntimeValueRecord(uint64_t Value)
+  : UInt64(Value)
+  {}
+
+  /// \brief Create a new record holding a uintptr_t.
+  explicit RuntimeValueRecord(void const *Value)
+  : UIntPtr(reinterpret_cast<uintptr_t>(Value))
+  {}
+
+  /// \brief Construct a new record holding a float.
+  explicit RuntimeValueRecord(float Value)
+  : Float(Value)
+  {}
+
+  /// \brief Construct a new record holding a double.
+  explicit RuntimeValueRecord(double Value)
+  : Double(Value)
+  {}
+
+  /// \brief Construct a new record holding a long double.
+  explicit RuntimeValueRecord(long double Value)
+  : LongDouble(Value)
+  {}
+
+  /// \brief Copy assign.
+  RuntimeValueRecord &operator=(RuntimeValueRecord const &RHS) = default;
+};
 
 class RuntimeValue {
   offset_uint RecordOffset;
@@ -82,26 +143,6 @@ public:
     RecordOffset = Offset;
     Data.LongDouble = Value;
   }
-  
-  llvm::APInt getAPInt(llvm::IntegerType *Type, bool isSigned = false) const {
-    auto BitWidth = Type->getBitWidth();
-    
-    assert(BitWidth <= 64 && "Can't get int with more than 64 bits.");
-    
-    uint64_t Value = Data.UInt64;
-    
-    // If they want a signed value, and it appears that the run-time value
-    // would have been negative, then fill the extra bits in the uint64_t
-    // with 1s (as though it were an int64_t).
-    if (isSigned && (Value & Type->getSignBit())) {
-      uint64_t BitMask = Type->getBitMask();
-      Value |= ~BitMask;
-    }
-    
-    return llvm::APInt(BitWidth, Value, isSigned);
-  }
-  
-  decltype(Data) const &getData() const { return Data; }
   
   uint64_t getUInt64() const { return Data.UInt64; }
   

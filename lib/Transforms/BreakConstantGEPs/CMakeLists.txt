@@ -6,11 +6,7 @@ set(SOURCES
   BreakConstantGEPs.cpp
   )
 
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_library(SeeCBreakConstantGEPs ${HEADERS} ${SOURCES})
-else()
-  add_library(SeeCBreakConstantGEPs ${SOURCES})
-endif()
+add_library(SeeCBreakConstantGEPs ${HEADERS} ${SOURCES})
 
 INSTALL(TARGETS SeeCBreakConstantGEPs
   RUNTIME DESTINATION bin

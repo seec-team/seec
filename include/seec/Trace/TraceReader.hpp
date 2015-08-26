@@ -37,6 +37,9 @@ namespace llvm {
 } // namespace llvm
 
 
+class wxArchiveOutputStream;
+
+
 namespace seec {
 
 namespace runtime_errors {
@@ -91,32 +94,6 @@ public:
   EventRecordBase const &operator*() const { return *Record; }
 
   EventRecordBase const *operator->() const { return Record; }
-
-  /// Get the result of applying the appropriate predicate to the underlying
-  /// event record. An appropriate predicate from the supplied predicates will
-  /// be selected using the dispatch() function.
-  /// \tparam PredTs the types of the predicates.
-  /// \param Preds the predicates.
-  /// \return a seec::Maybe with element type based on the return types
-  ///         of the predicates. If no appropriate predicate was found for the
-  ///         event record, the Maybe will be unassigned.
-  template<typename... PredTs>
-  typename seec::dispatch_impl::ReturnType<getDefaultDispatchFlagSet(),
-                                           PredTs...>::type
-  dispatch(PredTs &&...Preds) const {
-    switch(Record->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        {                                                                      \
-          auto Ptr = static_cast<EventRecord<EventType::NAME> const *>(Record);\
-          return seec::dispatch(*Ptr, std::forward<PredTs>(Preds)...);         \
-        }
-#include "seec/Trace/Events.def"
-      default: llvm_unreachable("Reference to unknown event type!");
-    }
-  }
-
-  /// @} (Access)
 
 
   /// \name Comparison operators
@@ -210,30 +187,52 @@ class EventRange {
   EventReference End;
 
 public:
+  /// \brief Create an empty \c EventRange.
+  ///
   EventRange()
   : Begin(nullptr),
     End(nullptr)
   {}
 
+  /// \brief Create a new \c EventRange from a pair of \c EventReference.
+  /// \param Begin the first event in the range.
+  /// \param End the first event following (not in) the range.
+  ///
   EventRange(EventReference Begin, EventReference End)
   : Begin(Begin),
     End(End)
   {}
 
+  /// \brief Copy constructor.
+  ///
   EventRange(EventRange const &) = default;
 
+  /// \brief Copy assignment.
+  ///
   EventRange &operator=(EventRange const &) = default;
 
+  /// \brief Get a reference to the first event in the range.
+  ///
   EventReference begin() const { return Begin; }
 
+  /// \brief Get a reference to the first event following (not in) the range.
+  ///
   EventReference end() const { return End; }
 
+  /// \brief Check if the range is empty (i.e. begin() == end()).
+  ///
   bool empty() const { return Begin == End; }
 
+  /// \brief Check if the given event is contained within this range.
+  ///
   bool contains(EventReference Ev) const {
     return Begin <= Ev && Ev < End;
   }
 
+  /// \brief Get the raw offset of an event from the start of this range.
+  /// \param Ev the event to find the offset of.
+  /// \return the number of bytes from \c begin() to \c Ev.
+  ///
   offset_uint offsetOf(EventReference Ev) const {
     assert(Begin <= Ev && Ev <= End && "Ev not in EventRange");
 
@@ -243,11 +242,26 @@ public:
     return static_cast<offset_uint>(EvPtr - BeginPtr);
   }
 
+  /// \brief Get a reference to the event at the given offset in this range.
+  /// \param Offset the number of bytes from \c begin() to the event.
+  /// \return a reference to the event that is \c Offset bytes after \c begin().
+  ///
   EventReference referenceToOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
     return EventReference(BeginPtr + Offset);
   }
 
+  /// \brief Get a typed reference to the event at the given offset in this
+  ///        range.
+  /// This differs from \c referenceToOffset in that it returns a reference
+  /// to an \c EventRecord<ET> rather than an \c EventReference.
+  /// \tparam ET the \c EventType of the \c EventRecord that will be
+  ///         retrieved. This *must* match the event that exists at the
+  ///         given \c Offset.
+  /// \param Offset the number of bytes from \c begin() to the event.
+  /// \return a reference to the \c EventRecord<ET> that is Offset bytes after
+  ///         \c begin().
+  ///
   template<EventType ET>
   EventRecord<ET> const &eventAtOffset(offset_uint Offset) const {
     auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
@@ -256,11 +270,15 @@ public:
 };
 
 
-/// Attempt to recreate a RunError from a RuntimeError event record.
-/// \param Record the RuntimeErrorRecord to recreate the RunError from.
-/// \param End end of the Event array (e.g. end of thread containing Record).
-/// \return A unique_ptr holding the recreated RunError if deserialization was
-///         successful, otherwise an empty unique_ptr.
+/// \brief Deserialize a \c RunError from a \c RuntimeError event record.
+/// \param Records a range of events that starts with the
+///                \c EventRecord<EventType::RuntimeError> and should contain
+///                all subservient events.
+/// \return A \c std::unique_ptr holding the recreated \c RunError if
+///         deserialization was successful (otherwise holding nothing),
+///         and a reference to the first event that is not associated with
+///         this \c RunError.
+///
 std::pair<std::unique_ptr<seec::runtime_errors::RunError>, EventReference>
 deserializeRuntimeError(EventRange Records);
 
@@ -349,9 +367,6 @@ public:
     auto ValuePtr = Data + ThreadTimeExitedOffset();
     return *reinterpret_cast<uint64_t const *>(ValuePtr);
   }
-
-  /// Get the list of child FunctionTraces.
-  llvm::ArrayRef<offset_uint> getChildList() const;
 };
 
 /// Write a description of a FunctionTrace to an llvm::raw_ostream.
@@ -375,7 +390,17 @@ class ThreadTrace {
   /// A list of offsets of top-level FunctionTraces.
   llvm::ArrayRef<offset_uint> TopLevelFunctions;
 
-  /// Constructor
+  /// \brief Get a list of offsets from this thread's trace information.
+  ///
+  llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
+    auto List = Trace->getBufferStart() + AtOffset;
+    auto Length = *reinterpret_cast<uint64_t const *>(List);
+    auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
+    return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
+  }
+ 
+  /// \brief Constructor
+  ///
   ThreadTrace(InputBufferAllocator &Allocator, uint32_t ID)
   : ThreadID(ID),
     Trace(std::move(Allocator.getThreadData(ID,
@@ -390,10 +415,12 @@ public:
   /// \name Accessors
   /// @{
 
-  /// Get the ID of the thread that this trace represents.
+  /// \brief Get the ID of the thread that this trace represents.
+  ///
   uint32_t getThreadID() const { return ThreadID; }
 
-  /// Get a range containing all of the events in this thread.
+  /// \brief Get a range containing all of the events in this thread.
+  ///
   EventRange events() const {
     auto LastEvent = Events->getBufferEnd()
                      - sizeof(EventRecord<EventType::TraceEnd>);
@@ -402,54 +429,23 @@ public:
                       EventReference(LastEvent));
   }
 
-  /// Get a list of offsets from this thread's trace information.
-  llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
-    auto List = Trace->getBufferStart() + AtOffset;
-    auto Length = *reinterpret_cast<uint64_t const *>(List);
-    auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
-    return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
-  }
-
   /// @} (Accessors)
 
 
   /// \name Function traces
   /// @{
 
-  /// Get a list of offsets of top-level FunctionTraces.
+  /// \brief Get a list of offsets of top-level \c FunctionTrace records.
+  ///
   llvm::ArrayRef<offset_uint> topLevelFunctions() const {
     return TopLevelFunctions;
   }
 
-  /// Get a FunctionTrace from a given offset.
+  /// \brief Get a \c FunctionTrace from a given offset.
+  ///
   FunctionTrace getFunctionTrace(offset_uint const AtOffset) const {
     return FunctionTrace(*this, Trace->getBufferStart() + AtOffset);
   }
-
-  /// Get a dynamically-allocated FunctionTrace from a given offset.
-  std::unique_ptr<FunctionTrace>
-  makeFunctionTrace(offset_uint const AtOffset) const {
-    return std::unique_ptr<FunctionTrace>(
-      new FunctionTrace(*this, Trace->getBufferStart() + AtOffset));
-  }
-
-  /// @}
-
-
-  /// Queries
-  /// @{
-  
-  uint64_t getFinalThreadTime() const;
-  
-  /// @}
-  
-
-  /// Searching
-  /// @{
-
-  /// Find the FunctionTrace for the function call containing the given event.
-  seec::Maybe<FunctionTrace>
-  getFunctionContaining(EventReference EvRef) const;
 
   /// @}
 };
@@ -458,6 +454,9 @@ public:
 /// \brief Trace information for a single process invocation.
 ///
 class ProcessTrace {
+  /// The allocator used to initially read the trace.
+  std::unique_ptr<InputBufferAllocator> const Allocator;
+  
   /// Process-wide trace information.
   std::unique_ptr<llvm::MemoryBuffer> const Trace;
 
@@ -474,51 +473,61 @@ class ProcessTrace {
   uint64_t FinalProcessTime;
 
   /// Global variable runtime addresses, by index.
-  std::vector<uintptr_t> GlobalVariableAddresses;
+  std::vector<uint64_t> GlobalVariableAddresses;
 
   /// Offsets of global variable's initial data.
   std::vector<offset_uint> GlobalVariableInitialData;
 
   /// Function runtime addresses, by index.
-  std::vector<uintptr_t> FunctionAddresses;
+  std::vector<uint64_t> FunctionAddresses;
   
   /// Runtime addresses of the initial standard input/output streams.
-  std::vector<uintptr_t> StreamsInitial;
+  std::vector<uint64_t> StreamsInitial;
 
   /// Thread-specific traces, by (ThreadID - 1).
-  // mutable because we lazily construct the ThreadTrace objects.
-  mutable std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
+  std::vector<std::unique_ptr<ThreadTrace>> ThreadTraces;
 
-  /// Constructor.
-  ProcessTrace(std::unique_ptr<llvm::MemoryBuffer> Trace,
+  /// \brief Constructor.
+  ///
+  ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
+               std::unique_ptr<llvm::MemoryBuffer> Trace,
                std::unique_ptr<llvm::MemoryBuffer> Data,
                std::string ModuleIdentifier,
                uint32_t NumThreads,
                uint64_t FinalProcessTime,
-               std::vector<uintptr_t> GVAddresses,
+               std::vector<uint64_t> GVAddresses,
                std::vector<offset_uint> GVInitialData,
-               std::vector<uintptr_t> FAddresses,
-               std::vector<uintptr_t> WithStreamsInitial,
+               std::vector<uint64_t> FAddresses,
+               std::vector<uint64_t> WithStreamsInitial,
                std::vector<std::unique_ptr<ThreadTrace>> TTraces);
 
 public:
-  /// Read a ProcessTrace using an InputBufferAllocator.
+  /// \brief Read a ProcessTrace using an InputBufferAllocator.
+  ///
   static
   seec::Maybe<std::unique_ptr<ProcessTrace>, seec::Error>
-  readFrom(InputBufferAllocator &Allocator);
+  readFrom(std::unique_ptr<InputBufferAllocator> Allocator);
+
+  /// \brief Write execution trace to an archive.
+  /// \return true iff write successful.
+  ///
+  bool writeToArchive(wxArchiveOutputStream &Stream);
 
   /// \name Accessors
   /// @{
 
-  /// Get the identifier of the Module recorded by this trace.
+  /// \brief Get the identifier of the Module recorded by this trace.
+  ///
   std::string const &getModuleIdentifier() const { return ModuleIdentifier; }
 
-  /// Get the number of distinct threads in this process trace.
+  /// \brief Get the number of distinct threads in this process trace.
+  ///
   uint32_t getNumThreads() const { return NumThreads; }
 
-  /// Get a reference to a block of data.
+  /// \brief Get a reference to a block of data.
   /// \param Offset the offset of the data in the process' data record.
   /// \param Size the number of bytes in the block.
+  ///
   llvm::ArrayRef<char> getData(offset_uint Offset, std::size_t Size) const {
     auto DataStart = Data->getBufferStart() + Offset;
     auto DataPtr = reinterpret_cast<char const *>(DataStart);
@@ -526,18 +535,29 @@ public:
   }
   
   /// \brief Get a raw pointer into the process' data record.
+  ///
   char const *getDataRaw(offset_uint const Offset) const {
     return Data->getBufferStart() + Offset;
   }
 
-  /// Get the process time at the end of this trace.
+  /// \brief Get the process time at the end of this trace.
+  ///
   uint64_t getFinalProcessTime() const { return FinalProcessTime; }
   
   /// \brief Get the runtime addresses of the initial standard streams.
   ///
-  std::vector<uintptr_t> const &getStreamsInitial() const {
+  std::vector<uint64_t> const &getStreamsInitial() const {
     return StreamsInitial;
   }
+  
+  /// \brief Get all files used by this trace.
+  ///
+  seec::Maybe<std::vector<TraceFile>, seec::Error>
+  getAllFileData() const;
+
+  /// \brief Get the combined size of all files.
+  ///
+  Maybe<uint64_t, Error> getCombinedFileSize() const;
 
   /// @} (Accessors)
 
@@ -545,19 +565,21 @@ public:
   /// \name Global Variables
   /// @{
 
-  /// Get the run-time address of a global variable.
+  /// \brief Get the run-time address of a global variable.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \return the run-time address of the specified GlobalVariable.
-  uintptr_t getGlobalVariableAddress(uint32_t Index) const {
+  ///
+  uint64_t getGlobalVariableAddress(uint32_t Index) const {
     assert(Index < GlobalVariableAddresses.size());
     return GlobalVariableAddresses[Index];
   }
 
-  /// Get a reference to the block of data holding a global variable's initial
-  /// state.
+  /// \brief Get a reference to the block of data holding a global variable's
+  /// initial state.
   /// \param Index the index of the GlobalVariable in the Module.
   /// \param Size the size of the GlobalVariable.
   /// \return an llvm::ArrayRef that references the initial state data.
+  ///
   llvm::ArrayRef<char> getGlobalVariableInitialData(uint32_t Index,
                                                     std::size_t Size) const {
     assert(Index < GlobalVariableInitialData.size());
@@ -574,7 +596,7 @@ public:
   /// \param Index the index of the Function in the Module.
   /// \return the run-time address of the specified Function.
   ///
-  uintptr_t getFunctionAddress(uint32_t Index) const {
+  uint64_t getFunctionAddress(uint32_t Index) const {
     assert(Index < FunctionAddresses.size());
     return FunctionAddresses[Index];
   }
@@ -584,7 +606,7 @@ public:
   /// \return the index of the Function with the specified run-time Address, or
   ///         an unassigned Maybe if no such Function exists.
   ///
-  Maybe<uint32_t> getIndexOfFunctionAt(uintptr_t const Address) const;
+  Maybe<uint32_t> getIndexOfFunctionAt(uint64_t const Address) const;
 
   /// @} (Functions)
 
@@ -592,9 +614,10 @@ public:
   /// \name Threads
   /// @{
 
-  /// Get a reference to the ThreadTrace for a specific thread.
+  /// \brief Get a reference to the ThreadTrace for a specific thread.
   /// \param ThreadID the unique ID of the thread to get,
   ///                 where 0 < ThreadID <= getNumThreads().
+  ///
   ThreadTrace const &getThreadTrace(uint32_t ThreadID) const;
 
   /// @} (Threads)
@@ -603,6 +626,8 @@ public:
   /// \name Events
   /// @{
 
+  /// \brief Get a reference to the event at the given location.
+  ///
   EventReference getEventReference(EventLocation Ev) const;
 
   /// @}

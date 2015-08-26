@@ -50,15 +50,15 @@ public:
   /// \name Accessors.
   /// @{
   
-  constexpr char operator[](int const i) {
+  constexpr char operator[](int const i) const {
     return Begin[i];
   }
   
-  constexpr operator char const *() {
+  constexpr operator char const *() const {
     return Begin;
   }
   
-  constexpr unsigned size() {
+  constexpr unsigned size() const {
     return Size;
   }
   
@@ -68,7 +68,7 @@ public:
   /// \name Create mutated copies.
   /// @{
   
-  constexpr StringRef takeAllFromIndex(unsigned const i) {
+  constexpr StringRef takeAllFromIndex(unsigned const i) const {
     return i >= size() ? StringRef()
                        : StringRef(Begin + i, size() - i);
   }

@@ -15,6 +15,8 @@
 #define SEEC_CLANG_MAPPEDSTREAMSTATE_HPP
 
 
+#include "seec/Clang/MappedStateCommon.hpp"
+
 #include <string>
 
 
@@ -42,13 +44,27 @@ public:
   ///
   StreamState(seec::trace::StreamState const &ForUnmappedState);
   
+  
   /// \name Accessors.
   /// @{
-  
+
+  /// \brief Get the base (unmapped) state.
+  ///
+  seec::trace::StreamState const &getUnmappedState() const {
+    return UnmappedState;
+  }
+
   /// \brief Get the runtime address of the stream.
   ///
-  uintptr_t getAddress() const;
+  stateptr_ty getAddress() const;
   
+  /// \brief Check if this is one of the standard streams.
+  ///
+  bool isstd()    const;
+  bool isstdin()  const;
+  bool isstdout() const;
+  bool isstderr() const;
+
   /// \brief Get the filename used when opening the stream.
   ///
   std::string const &getFilename() const;
@@ -57,7 +73,36 @@ public:
   ///
   std::string const &getMode() const;
   
+  /// \brief Get the data written to the stream so far.
+  ///
+  std::string const &getWritten() const;
+  
   /// @} (Accessors.)
+  
+  
+  /// \name Queries
+  /// @{
+  
+  /// \brief Provides information about a single write to a stream.
+  ///
+  struct StreamWrite {
+    std::size_t Begin; ///< Length of stream before this write occurred.
+    std::size_t End;   ///< Length of stream after this write occurred.
+  };
+  
+  /// \brief Get information about the write covering a given position.
+  ///
+  StreamWrite getWriteAt(std::size_t const Position) const;
+
+  /// \brief Get the number of writes to this stream.
+  ///
+  std::size_t getWriteCount() const;
+
+  /// \brief Get the n-th write to this stream.
+  ///
+  StreamWrite getWrite(std::size_t const Index) const;
+  
+  /// @} (Queries)
 };
 
 
@@ -82,7 +127,7 @@ public:
   
   /// \brief Get the runtime address of the DIR.
   ///
-  uintptr_t getAddress() const;
+  stateptr_ty getAddress() const;
   
   /// \brief Get the pathname used when opening the DIR.
   ///

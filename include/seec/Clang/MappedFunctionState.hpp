@@ -14,13 +14,16 @@
 #ifndef SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 #define SEEC_CLANG_MAPPEDFUNCTIONSTATE_HPP
 
+#include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/ICU/Augmenter.hpp"
 #include "seec/Util/Range.hpp"
 
 #include <string>
 
 
 namespace clang {
+  class Decl;
   class FunctionDecl;
   class Stmt;
   class VarDecl;
@@ -61,7 +64,7 @@ class ParamState {
   FunctionState &Parent;
   
   /// The address of the parameter in memory.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The mapped Decl.
   ::clang::VarDecl const *Decl;
@@ -70,7 +73,7 @@ public:
   /// \brief Constructor.
   ///
   ParamState(FunctionState &WithParent,
-             uintptr_t WithAddress,
+             stateptr_ty WithAddress,
              ::clang::VarDecl const *ForDecl)
   : Parent(WithParent),
     Address(WithAddress),
@@ -114,7 +117,7 @@ class LocalState {
   FunctionState &Parent;
   
   /// The address of the variable in memory.
-  uintptr_t Address;
+  stateptr_ty Address;
   
   /// The mapped Decl.
   ::clang::VarDecl const *Decl;
@@ -123,7 +126,7 @@ public:
   /// \brief Constructor.
   ///
   LocalState(FunctionState &WithParent,
-             uintptr_t WithAddress,
+             stateptr_ty WithAddress,
              ::clang::VarDecl const *ForDecl)
   : Parent(WithParent),
     Address(WithAddress),
@@ -207,7 +210,8 @@ public:
   /// \brief Print a textual description of the state.
   ///
   void print(llvm::raw_ostream &Out,
-             seec::util::IndentationGuide &Indentation) const;
+             seec::util::IndentationGuide &Indentation,
+             AugmentationCallbackFn Augmenter) const;
   
   
   /// \name Access underlying information.
@@ -250,6 +254,16 @@ public:
   seec::seec_clang::MappedAST const *getMappedAST() const;
   
   /// @} (Accessors.)
+
+
+  /// \name Decl execution.
+  /// @{
+
+  /// \brief Get the active Decl (if any).
+  ///
+  ::clang::Decl const *getActiveDecl() const;
+
+  /// @}
   
   
   /// \name Stmt evaluation.

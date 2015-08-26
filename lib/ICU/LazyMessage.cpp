@@ -62,5 +62,44 @@ UnicodeString LazyMessageByRef::create(UErrorCode &Status,
   return Result;
 }
 
+UnicodeString LazyMessageByRef::describe() const {
+  UnicodeString Description;
+  
+  Description += "<Package=";
+  Description += Package;
+  
+  if (Keys.size()) {
+    Description += ", Keys=";
+    Description += Keys[0];
+    for (std::size_t i = 1; i < Keys.size(); ++i) {
+      Description += "/";
+      Description += Keys[i];
+    }
+  }
+  
+  if (ArgumentNames.size()) {
+    Description += ", Arguments=";
+    Description += "(";
+    Description += ArgumentNames[0];
+    Description += ")";
+    
+    for (std::size_t i = 1; i < ArgumentNames.size(); ++i) {
+      Description += ",(";
+      Description += ArgumentNames[i];
+      
+      if (ArgumentValues[i].getType() == icu::Formattable::kString) {
+        Description += ": ";
+        Description += ArgumentValues[i].getString();
+      }
+      
+      Description += ")";
+    }
+  }
+  
+  Description += ">";
+  
+  return Description;
+}
+
 
 } // namespace seec

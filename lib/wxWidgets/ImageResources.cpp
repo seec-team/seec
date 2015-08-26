@@ -18,12 +18,11 @@
 
 namespace seec {
 
-wxImage getwxImageEx(ResourceBundle const &Bundle,
-                     char const *Key,
-                     UErrorCode &Status) {
+wxImage getwxImage(ResourceBundle const &Resource, UErrorCode &Status)
+{
   wxImage Image;
 
-  auto Data = seec::getBinaryEx(Bundle, Key, Status);
+  auto Data = seec::getBinary(Resource, Status);
   if (U_FAILURE(Status))
     return Image;
 
@@ -32,6 +31,13 @@ wxImage getwxImageEx(ResourceBundle const &Bundle,
   Image.LoadFile(Stream);
 
   return Image;
+}
+
+wxImage getwxImageEx(ResourceBundle const &Bundle,
+                     char const *Key,
+                     UErrorCode &Status)
+{
+  return getwxImage(Bundle.get(Key, Status), Status);
 }
 
 } // namespace seec

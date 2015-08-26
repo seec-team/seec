@@ -87,8 +87,7 @@ SEEC_TRACE_EVENT(NewThreadTime,
 
 SEEC_TRACE_EVENT(PreInstruction,
   SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (uint64_t, ThreadTime)
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
     (PreInstruction, is_block_start),
@@ -98,8 +97,7 @@ SEEC_TRACE_EVENT(PreInstruction,
 
 SEEC_TRACE_EVENT(Instruction,
   SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (uint64_t, ThreadTime)
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
     (Instruction, is_block_start),
@@ -107,43 +105,93 @@ SEEC_TRACE_EVENT(Instruction,
     (Instruction, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithSmallValue,
+SEEC_TRACE_EVENT(InstructionWithUInt8,
+  SEEC_PP_QUOTE(
+    (uint8_t, Value),
+    (uint32_t, Index)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithUInt8, is_block_start),
+    (InstructionWithUInt8, is_function_level),
+    (InstructionWithUInt8, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithUInt16,
   SEEC_PP_QUOTE(
     (uint16_t, Value),
-    (uint32_t, Index),
-    (uint64_t, ThreadTime),
-    (offset_uint, PreviousSame)
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithSmallValue, is_block_start),
-    (InstructionWithSmallValue, is_function_level),
-    (InstructionWithSmallValue, is_instruction)
+    (InstructionWithUInt16, is_block_start),
+    (InstructionWithUInt16, is_function_level),
+    (InstructionWithUInt16, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithValue,
+SEEC_TRACE_EVENT(InstructionWithUInt32,
   SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (uint64_t, ThreadTime),
-    (offset_uint, PreviousSame),
-    (RuntimeValueRecord, Value)
+    (uint32_t, Value),
+    (uint32_t, Index)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithValue, is_block_start),
-    (InstructionWithValue, is_function_level),
-    (InstructionWithValue, is_instruction)
+    (InstructionWithUInt32, is_block_start),
+    (InstructionWithUInt32, is_function_level),
+    (InstructionWithUInt32, is_instruction)
   ))
 
-SEEC_TRACE_EVENT(InstructionWithLargeValue,
+SEEC_TRACE_EVENT(InstructionWithUInt64,
   SEEC_PP_QUOTE(
     (uint32_t, Index),
-    (uint64_t, ThreadTime),
-    (offset_uint, PreviousSame),
-    (offset_uint, DataOffset)
+    (uint64_t, Value)
   ),
   SEEC_PP_QUOTE(
-    (InstructionWithLargeValue, is_block_start),
-    (InstructionWithLargeValue, is_function_level),
-    (InstructionWithLargeValue, is_instruction)
+    (InstructionWithUInt64, is_block_start),
+    (InstructionWithUInt64, is_function_level),
+    (InstructionWithUInt64, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithPtr,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithPtr, is_block_start),
+    (InstructionWithPtr, is_function_level),
+    (InstructionWithPtr, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithFloat,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (float, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithFloat, is_block_start),
+    (InstructionWithFloat, is_function_level),
+    (InstructionWithFloat, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithDouble,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (double, Value)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithDouble, is_block_start),
+    (InstructionWithDouble, is_function_level),
+    (InstructionWithDouble, is_instruction)
+  ))
+
+SEEC_TRACE_EVENT(InstructionWithLongDouble,
+  SEEC_PP_QUOTE(
+    (uint32_t, Index),
+    (uint64_t, ValueWord1),
+    (uint64_t, ValueWord2)
+  ),
+  SEEC_PP_QUOTE(
+    (InstructionWithLongDouble, is_block_start),
+    (InstructionWithLongDouble, is_function_level),
+    (InstructionWithLongDouble, is_instruction)
   ))
 
 SEEC_TRACE_EVENT(Alloca,
@@ -191,9 +239,19 @@ SEEC_TRACE_EVENT(Free,
     (Free, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(Realloc,
+  SEEC_PP_QUOTE(
+    (uintptr_t,   Address),
+    (std::size_t, OldSize),
+    (std::size_t, NewSize),
+    (uint64_t,    ProcessTime)
+  ),
+  SEEC_PP_QUOTE(
+    (Realloc, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(StateTyped,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, ValueOffset)
@@ -206,7 +264,6 @@ SEEC_TRACE_EVENT(StateTyped,
 SEEC_TRACE_EVENT(StateUntypedSmall,
   SEEC_PP_QUOTE(
     (uint8_t, Size),
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (uint64_t, Data)
@@ -218,7 +275,6 @@ SEEC_TRACE_EVENT(StateUntypedSmall,
 
 SEEC_TRACE_EVENT(StateUntyped,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (offset_uint, DataOffset),
@@ -231,7 +287,6 @@ SEEC_TRACE_EVENT(StateUntyped,
 
 SEEC_TRACE_EVENT(StateMemmove,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uint64_t, ProcessTime),
     (uintptr_t, SourceAddress),
     (uintptr_t, DestinationAddress),
@@ -242,74 +297,14 @@ SEEC_TRACE_EVENT(StateMemmove,
     (StateMemmove, is_memory_state)
   ))
 
-SEEC_TRACE_EVENT(StateCopied,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset),
-    (uintptr_t, Address),
-    (std::size_t, Size)
-  ),
-  SEEC_PP_QUOTE(
-    (StateCopied, modifies_shared_state),
-    (StateCopied, is_subservient)
-  ))
-
 SEEC_TRACE_EVENT(StateClear,
   SEEC_PP_QUOTE(
-    (uint32_t, Overwritten),
     (uintptr_t, Address),
     (uint64_t, ProcessTime),
     (std::size_t, ClearSize)
   ),
   SEEC_PP_QUOTE(
     (StateClear, modifies_shared_state)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwrite,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwrite, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragment,
-  SEEC_PP_QUOTE(
-    (uint32_t, StateThreadID),
-    (offset_uint, StateOffset),
-    (uintptr_t, FragmentAddress),
-    (std::size_t, FragmentSize)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragment, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedRight,
-  SEEC_PP_QUOTE(
-    (uintptr_t, AddressOfBlock),
-    (std::size_t, AmountTrimmed)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentTrimmedRight, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentTrimmedLeft,
-  SEEC_PP_QUOTE(
-    (uintptr_t, TrimmedAddressOfBlock),
-    (uintptr_t, PreviousAddressOfBlock)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentTrimmedLeft, is_subservient)
-  ))
-
-SEEC_TRACE_EVENT(StateOverwriteFragmentSplit,
-  SEEC_PP_QUOTE(
-    (uintptr_t, AddressOfLeftBlock),
-    (uintptr_t, AddressOfRightBlock)
-  ),
-  SEEC_PP_QUOTE(
-    (StateOverwriteFragmentSplit, is_subservient)
   ))
 
 SEEC_TRACE_EVENT(KnownRegionAdd,
@@ -346,6 +341,7 @@ SEEC_TRACE_EVENT(ByValRegionAdd,
 
 SEEC_TRACE_EVENT(FileOpen,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, FileAddress),
     (offset_uint, FilenameOffset),
     (offset_uint, ModeOffset)
@@ -354,8 +350,31 @@ SEEC_TRACE_EVENT(FileOpen,
     (FileOpen, modifies_shared_state)
   ))
 
+SEEC_TRACE_EVENT(FileWrite,
+  SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
+    (uintptr_t,   FileAddress),
+    (offset_uint, DataOffset),
+    (uint64_t,    DataSize)
+  ),
+  SEEC_PP_QUOTE(
+    (FileWrite, modifies_shared_state)
+  ))
+
+SEEC_TRACE_EVENT(FileWriteFromMemory,
+  SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
+    (uintptr_t, FileAddress),
+    (uintptr_t, DataAddress),
+    (uint64_t,  DataSize)
+  ),
+  SEEC_PP_QUOTE(
+    (FileWriteFromMemory, modifies_shared_state)
+  ))
+
 SEEC_TRACE_EVENT(FileClose,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, FileAddress),
     (offset_uint, FilenameOffset),
     (offset_uint, ModeOffset)
@@ -366,6 +385,7 @@ SEEC_TRACE_EVENT(FileClose,
 
 SEEC_TRACE_EVENT(DirOpen,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, DirAddress),
     (offset_uint, DirnameOffset)
   ),
@@ -375,6 +395,7 @@ SEEC_TRACE_EVENT(DirOpen,
 
 SEEC_TRACE_EVENT(DirClose,
   SEEC_PP_QUOTE(
+    (uint64_t, ProcessTime),
     (uintptr_t, DirAddress),
     (offset_uint, DirnameOffset)
   ),
@@ -390,6 +411,7 @@ SEEC_TRACE_EVENT(RuntimeError,
     (uint8_t, IsTopLevel)
   ),
   SEEC_PP_QUOTE(
+    (RuntimeError, is_function_level)
   ))
 
 SEEC_TRACE_EVENT(RuntimeErrorArgument,

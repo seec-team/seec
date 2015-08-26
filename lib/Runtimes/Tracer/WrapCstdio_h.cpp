@@ -25,7 +25,7 @@
 #include "seec/Util/ScopeExit.hpp"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <cctype>
 #include <cinttypes>
@@ -234,14 +234,10 @@ bool parseInt(int &CharactersRead,
   
   // Push unused characters back into the stream.
   if (ParseEnd != BufferPtr) {
-    // Teach Clang's static analyzer that the value of ParseEnd following the
-    // call to strtoumax or strtoimax will always be within the buffer range.
-    assert(ParseEnd >= Buffer && ParseEnd < BufferPtr
-           && "ParseEnd is not in buffer!");
-    
-    for (--BufferPtr; BufferPtr > ParseEnd; --BufferPtr) {
-      std::ungetc(*BufferPtr, Stream);
-    }
+    auto const NumUnused = BufferPtr - ParseEnd;
+    for (ptrdiff_t i = NumUnused - 1; i >= 0; --i)
+      std::ungetc(ParseEnd[i], Stream);
+    CharactersRead -= NumUnused;
   }
   
   return (ParseEnd != Buffer);
@@ -330,7 +326,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
         RunErrorSeverity::Fatal,
         InstructionIndex);
       
-      CriticalError = true;
       break; // Leave the main processing loop.
     }
     
@@ -348,7 +343,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        CriticalError = true;
         break; // Leave the main processing loop.
       }
     }
@@ -369,7 +363,6 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
           RunErrorSeverity::Fatal,
           InstructionIndex);
         
-        CriticalError = true;
         break; // Leave the main processing loop.
       }
 
@@ -377,22 +370,31 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       // writable. The conversion for strings (and sets) is a special case.
       if (Conversion.Conversion == ScanConversionSpecifier::Specifier::s
           || Conversion.Conversion == ScanConversionSpecifier::Specifier::set) {
-        if (NextArg < VarArgs.size() && Conversion.WidthSpecified) {
-          // Check that the destination is writable and has sufficient space
-          // for the field width specified by the programmer.
+        if (NextArg < VarArgs.size()) {
           auto MaybeArea = Conversion.getArgumentPointee(VarArgs, NextArg);
-          auto const Size = (Conversion.Length == LengthModifier::l)
-                          ? (Conversion.Width + 1) * sizeof(wchar_t)
-                          : (Conversion.Width + 1) * sizeof(char);
-          
+          std::size_t Size = 0;
+
+          if (Conversion.WidthSpecified) {
+            // Check that the destination is writable and has sufficient space
+            // for the field width specified by the programmer.
+            assert(Conversion.Width >= 0);
+
+            Size = (Conversion.Length == LengthModifier::l)
+                 ? (Conversion.Width + 1) * sizeof(wchar_t)
+                 : (Conversion.Width + 1) * sizeof(char);
+          }
+
+          // If no width was specified, this is simply used to ensure that the
+          // pointer itself is valid. We will check that the pointed to memory
+          // is sufficient as the string is read.
           if (!Checker.checkMemoryExistsAndAccessibleForParameter(
-                  VarArgs.offset() + NextArg,
-                  reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
-                  Size,
-                  seec::runtime_errors::format_selects::MemoryAccess::Write))
-            
-            CriticalError = true;
+                VarArgs.offset() + NextArg,
+                reinterpret_cast<uintptr_t>(MaybeArea.get<0>().first),
+                Size,
+                seec::runtime_errors::format_selects::MemoryAccess::Write))
+          {
             break; // Leave the main processing loop.
+          }
         }
       }
       else {
@@ -715,6 +717,7 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
       case ScanConversionSpecifier::Specifier::d: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::i: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::o: SEEC_FALLTHROUGH;
+      case ScanConversionSpecifier::Specifier::X: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::x:
         // Read integer.
         {
@@ -958,6 +961,57 @@ checkStreamScan(seec::runtime_errors::format_selects::CStdFunction FSFunction,
   return NumAssignments;
 }
 
+class ResultStateRecorderForFwrite {
+  void const * const Buffer;
+
+  std::size_t const ObjectSize;
+
+  FILE * const Stream;
+
+public:
+  ResultStateRecorderForFwrite(void const *WithBuffer,
+                               std::size_t WithObjectSize,
+                               FILE *WithStream)
+  : Buffer(WithBuffer),
+    ObjectSize(WithObjectSize),
+    Stream(WithStream)
+  {}
+
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              std::size_t const ObjectsWritten)
+  {
+    if (!ObjectsWritten)
+      return;
+
+    auto const Data = reinterpret_cast<char const *>(Buffer);
+    auto const Size = ObjectsWritten * ObjectSize;
+    ThreadListener.recordStreamWrite(Stream, llvm::ArrayRef<char>(Data, Size));
+  }
+};
+
+class ResultStateRecorderForFputc {
+  char Character;
+
+  FILE * const Stream;
+
+public:
+  ResultStateRecorderForFputc(char WithCharacter, FILE *WithStream)
+  : Character(WithCharacter),
+    Stream(WithStream)
+  {}
+
+  void record(seec::trace::TraceProcessListener &ProcessListener,
+              seec::trace::TraceThreadListener &ThreadListener,
+              int const Result)
+  {
+    if (Result == EOF)
+      return;
+
+    ThreadListener.recordStreamWrite(Stream, llvm::ArrayRef<char>(Character));
+  }
+};
+
 
 extern "C" {
 
@@ -1001,10 +1055,50 @@ SEEC_MANGLE_FUNCTION(fwrite)
       {seec::runtime_errors::format_selects::CStdFunction::fwrite}
       (fwrite,
        [](size_t Result){ return Result != 0; },
-       seec::ResultStateRecorderForNoOp(),
-       seec::wrapInputPointer(CharBuffer).setSize(size * count),
+       ResultStateRecorderForFwrite{buffer, size, stream},
+       seec::wrapInputPointer(CharBuffer).setSize(size * count)
+                                         .setForCopy(true),
        size,
        count,
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// getc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(getc)
+(FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::getc}
+      (fgetc,
+       [](int Result){ return Result != EOF; },
+       seec::ResultStateRecorderForNoOp{},
+       seec::wrapInputFILE(stream));
+}
+
+//===----------------------------------------------------------------------===//
+// putc
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(putc)
+(int ch, FILE *stream)
+{
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+      {seec::runtime_errors::format_selects::CStdFunction::putc}
+      (fputc,
+       [](int Result){ return Result != EOF; },
+       ResultStateRecorderForFputc{(char)ch, stream},
+       ch,
        seec::wrapInputFILE(stream));
 }
 
@@ -1443,6 +1537,7 @@ SEEC_MANGLE_FUNCTION(sscanf)
         IntConversionBase = 8;
         break;
       
+      case ScanConversionSpecifier::Specifier::X: SEEC_FALLTHROUGH;
       case ScanConversionSpecifier::Specifier::x:
         IntConversion = true;
         IntConversionBase = 16;
@@ -1620,6 +1715,160 @@ SEEC_MANGLE_FUNCTION(sscanf)
   return NumConversions;
 }
 
+//===----------------------------------------------------------------------===//
+// printf
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(printf)
+(char const *Format, ...)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  Listener.acquireGlobalMemoryWriteLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::printf;
+
+  seec::trace::CIOChecker Checker
+    {Listener, InstructionIndex, FSFunction, StreamsAccessor.getObject()};
+
+  seec::trace::detect_calls::VarArgList<seec::trace::TraceThreadListener>
+    VarArgs{Listener, llvm::CallSite(Instruction), 1};
+
+  // Check that the stream, format, and arguments are valid.
+  if (!Checker.checkStandardStreamIsValid(stdout))
+    return -1;
+
+  if (!Checker.checkPrintFormat(0, Format, VarArgs))
+    return -1;
+
+  int Written = 0;
+
+  if (VarArgs.size() == 0) {
+    // Shortcut for fprintf() with no variadic arguments.
+    Written = std::strlen(Format);
+    fputs(Format, stdout);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+    // Record the stream write.
+    Listener.recordStreamWriteFromMemory(stdout,
+                                         seec::MemoryArea(Format, Written));
+  }
+  else {
+    // Defer to vsnprintf to perform the formatting.
+    va_list Args;
+    va_start(Args, Format);
+
+    va_list Args2;
+    va_copy(Args2, Args);
+
+    auto const SizeRequired = vsnprintf(nullptr, 0, Format, Args);
+    va_end(Args);
+
+    std::unique_ptr<char []> Buffer {new char[SizeRequired + 1]};
+    Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
+    va_end(Args2);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+    // Write the formatted string to the stream.
+    fputs(Buffer.get(), stdout);
+    Listener.recordStreamWrite(stdout,
+                               llvm::ArrayRef<char>(Buffer.get(), Written));
+  }
+
+  return Written;
+}
+
+//===----------------------------------------------------------------------===//
+// fprintf
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(fprintf)
+(FILE *Stream, char const *Format, ...)
+{
+  auto &ThreadEnv = seec::trace::getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto const Instruction = ThreadEnv.getInstruction();
+  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  Listener.acquireGlobalMemoryWriteLock();
+  auto StreamsAccessor = Listener.getProcessListener().getStreamsAccessor();
+  auto const FSFunction =
+    seec::runtime_errors::format_selects::CStdFunction::fprintf;
+
+  seec::trace::CIOChecker Checker
+    {Listener, InstructionIndex, FSFunction, StreamsAccessor.getObject()};
+
+  seec::trace::detect_calls::VarArgList<seec::trace::TraceThreadListener>
+    VarArgs{Listener, llvm::CallSite(Instruction), 2};
+
+  // Check that the stream, format, and arguments are valid.
+  if (!Checker.checkStreamIsValid(0, Stream))
+    return -1;
+
+  if (!Checker.checkPrintFormat(1, Format, VarArgs))
+    return -1;
+
+  int Written = 0;
+
+  if (VarArgs.size() == 0) {
+    // Shortcut for fprintf() with no variadic arguments.
+    Written = std::strlen(Format);
+    fputs(Format, Stream);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+    Listener.recordStreamWriteFromMemory(Stream,
+                                         seec::MemoryArea(Format, Written));
+  }
+  else {
+    // Defer to vsnprintf to perform the formatting.
+    va_list Args;
+    va_start(Args, Format);
+
+    va_list Args2;
+    va_copy(Args2, Args);
+
+    auto const SizeRequired = vsnprintf(nullptr, 0, Format, Args);
+    va_end(Args);
+
+    std::unique_ptr<char []> Buffer {new char[SizeRequired + 1]};
+    Written = vsnprintf(Buffer.get(), SizeRequired + 1, Format, Args2);
+    va_end(Args2);
+
+    // Record the produced value.
+    typedef std::make_unsigned<decltype(Written)>::type ResultTy;
+    Listener.notifyValue(InstructionIndex, Instruction, ResultTy(Written));
+
+    // Write the formatted string to the stream.
+    fputs(Buffer.get(), Stream);
+    Listener.recordStreamWrite(Stream,
+                               llvm::ArrayRef<char>(Buffer.get(), Written));
+  }
+
+  return Written;
+}
 
 //===----------------------------------------------------------------------===//
 // sprintf
@@ -1673,10 +1922,11 @@ SEEC_MANGLE_FUNCTION(sprintf)
   // Defer to vsnprintf.
   va_list Args;
   va_start(Args, Format);
-  auto const NumWritten = vsnprintf(Buffer, Size, Format, Args);
+  auto const NumWritten = std::vsnprintf(Buffer, Size, Format, Args);
   va_end(Args);
   
-  // Check if sprintf would have overflowed the buffer.
+  // Check if sprintf would have overflowed the buffer. The number of characters
+  // returned by vsnprintf does not include the terminating null-byte.
   if (NumWritten >= Size) {
     auto const MaybeArea =
       seec::trace::getContainingMemoryArea(Listener, BufferAddr);
@@ -1689,7 +1939,7 @@ SEEC_MANGLE_FUNCTION(sprintf)
         (FSFunction,
          0,
          BufferAddr,
-         NumWritten,
+         NumWritten + 1,
          Size,
          seec::runtime_errors::ArgObject{},
          MaybeArea.get<0>().address(),
@@ -1710,6 +1960,54 @@ SEEC_MANGLE_FUNCTION(sprintf)
   Listener.recordUntypedState(Buffer, NumWritten + 1);
   
   return NumWritten;
+}
+
+
+//===----------------------------------------------------------------------===//
+// tmpfile
+//===----------------------------------------------------------------------===//
+
+FILE *
+SEEC_MANGLE_FUNCTION(tmpfile)
+()
+{
+  using namespace seec::trace;
+
+  auto &ThreadEnv = getThreadEnvironment();
+  auto &Listener = ThreadEnv.getThreadListener();
+  auto Instruction = ThreadEnv.getInstruction();
+  auto InstructionIndex = ThreadEnv.getInstructionIndex();
+
+  // Interact with the thread listener's notification system.
+  Listener.enterNotification();
+  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
+
+  // Lock global memory.
+  Listener.acquireGlobalMemoryWriteLock();
+  Listener.acquireStreamsLock();
+
+  auto Result = tmpfile();
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
+
+  // Record the result.
+  Listener.notifyValue(InstructionIndex, Instruction, Result);
+
+  if (Result) {
+    // TODO: internationalize?
+    std::string FakeFilename = "(temporary file)";
+    Listener.recordStreamOpen(Result, FakeFilename.c_str(), "w+b");
+    Listener.getProcessListener().incrementRegionTemporalID(ResultInt);
+  }
+  else{
+    Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
+                                sizeof(errno));
+  }
+
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultInt));
+
+  return Result;
 }
 
 
@@ -1758,11 +2056,12 @@ SEEC_MANGLE_FUNCTION(tmpnam)
   if (Buffer) {
     // Record the write to Buffer.
     Listener.recordUntypedState(Buffer, Length);
+    Listener.getActiveFunction()->transferArgPointerObjectToCall(0);
   }
   else {
     // Record tmpnam's internal static array.
     auto Address = reinterpret_cast<uintptr_t>(Result);
-    
+
     // Remove knowledge of the existing getenv string at this position (if any).
     Listener.removeKnownMemoryRegion(Address);
   
@@ -1775,6 +2074,10 @@ SEEC_MANGLE_FUNCTION(tmpnam)
     
     // Record the write to the new string area.
     Listener.recordUntypedState(Result, Length);
+
+    Listener.getActiveFunction()->setPointerObject(
+      Instruction,
+      Listener.getProcessListener().makePointerObject(Address));
   }
   
   return Result;
@@ -1792,7 +2095,6 @@ SEEC_MANGLE_FUNCTION(fdopen)
   
   auto &ThreadEnv = getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
-  auto &ProcessListener = getProcessEnvironment().getProcessListener();
   auto Instruction = ThreadEnv.getInstruction();
   auto InstructionIndex = ThreadEnv.getInstructionIndex();
   
@@ -1802,7 +2104,7 @@ SEEC_MANGLE_FUNCTION(fdopen)
   
   // Lock global memory.
   Listener.acquireGlobalMemoryWriteLock();
-  auto Streams = ProcessListener.getStreamsAccessor();
+  Listener.acquireStreamsLock();
   
   // Use a CIOChecker to help check memory.
   auto FSFunction = seec::runtime_errors::format_selects::CStdFunction::wait;
@@ -1812,24 +2114,30 @@ SEEC_MANGLE_FUNCTION(fdopen)
   Checker.checkCStringRead(1, Mode);
   
   auto Result = fdopen(FileDescriptor, Mode);
+  auto const ResultInt = reinterpret_cast<uintptr_t>(Result);
   
   // Record the result.
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        Result);
-  
+
   if (Result) {
     std::string FakeFilename = "(file descriptor ";
     FakeFilename += std::to_string(FileDescriptor);
     FakeFilename += ")";
     
     Listener.recordStreamOpen(Result, FakeFilename.c_str(), Mode);
+    Listener.getProcessListener().incrementRegionTemporalID(ResultInt);
   }
   else{
     Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
                                 sizeof(errno));
   }
-  
+
+  Listener.getActiveFunction()->setPointerObject(
+    Instruction,
+    Listener.getProcessListener().makePointerObject(ResultInt));
+
   return Result;
 }
 

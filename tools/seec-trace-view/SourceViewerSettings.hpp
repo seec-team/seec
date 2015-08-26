@@ -22,7 +22,6 @@
 #include <wx/colour.h>
 #include <wx/font.h>
 #include <wx/stc/stc.h>
-#include "seec/wxWidgets/CleanPreprocessor.h"
 
 
 //===----------------------------------------------------------------------===//

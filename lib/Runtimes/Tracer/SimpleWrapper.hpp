@@ -22,12 +22,14 @@
 #include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cerrno>
 #include <climits>
 #include <cstring>
+#include <type_traits>
 
 
 // Forward declarations.
@@ -37,6 +39,28 @@ namespace llvm {
 
 
 namespace seec {
+
+
+//===----------------------------------------------------------------------===//
+// recordErrno
+//===----------------------------------------------------------------------===//
+
+inline void recordErrno(seec::trace::TraceThreadListener &Thread,
+                        int const &Errno)
+{
+  auto const CharPtr = reinterpret_cast<char const *>(&Errno);
+  auto const Address = reinterpret_cast<uintptr_t>(CharPtr);
+  auto const Length  = sizeof(Errno);
+
+  if (!Thread.isKnownMemoryRegionCovering(Address, Length)) {
+    // Set knowledge of the area.
+    Thread.removeKnownMemoryRegion(Address);
+    Thread.addKnownMemoryRegion(Address, Length, MemoryPermission::ReadWrite);
+  }
+
+  // Update memory state.
+  Thread.recordUntypedState(CharPtr, Length);
+}
 
 
 //===----------------------------------------------------------------------===//
@@ -115,6 +139,19 @@ constexpr bool isSettingInList() {
 
 
 //===----------------------------------------------------------------------===//
+// PointerOrigin
+//===----------------------------------------------------------------------===//
+
+/// \brief Possible sources of a returned or written pointer.
+///
+enum class PointerOrigin {
+  None,
+  FromArgument,
+  NewValid
+};
+
+
+//===----------------------------------------------------------------------===//
 // WrappedArgumentChecker
 //===----------------------------------------------------------------------===//
 
@@ -122,15 +159,10 @@ constexpr bool isSettingInList() {
 ///
 template<typename T>
 class WrappedArgumentChecker {
-  /// The underlying memory checker.
-  seec::trace::CStdLibChecker &Checker;
-
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
-  : Checker(WithChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &)
   {}
   
   /// \brief Check if the given value is OK.
@@ -145,18 +177,15 @@ public:
 
 /// \brief Base case of WrappedArgumentRecorder records nothing.
 ///
-template<typename T>
+template<typename T, typename Enable = void>
 class WrappedArgumentRecorder {
-  /// The underlying TraceThreadListener.
-  seec::trace::TraceThreadListener &Listener;
-
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
-  : Listener(WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &)
   {}
-  
+
   /// \brief Record any state changes.
   ///
   bool record(T &Value, bool Success) { return true; }
@@ -173,10 +202,16 @@ class WrappedInputPointer {
   
   std::size_t Size;
   
+  bool IgnoreNull;
+
+  bool ForCopy;
+  
 public:
   WrappedInputPointer(T ForValue)
   : Value(ForValue),
-    Size(sizeof(*ForValue))
+    Size(sizeof(*ForValue)),
+    IgnoreNull(false),
+    ForCopy(false)
   {}
   
   /// \name Flags.
@@ -188,6 +223,20 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
+  
+  WrappedInputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputPointer &setForCopy(bool const Value) {
+    ForCopy = Value;
+    return *this;
+  }
+
+  bool getForCopy() const { return ForCopy; }
   
   /// @} (Flags.)
   
@@ -204,10 +253,16 @@ class WrappedInputPointer<void const *> {
   
   std::size_t Size;
   
+  bool IgnoreNull;
+
+  bool ForCopy;
+  
 public:
   WrappedInputPointer(void const * ForValue)
   : Value(ForValue),
-    Size(0)
+    Size(0),
+    IgnoreNull(false),
+    ForCopy(false)
   {}
   
   /// \name Flags.
@@ -219,6 +274,20 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
+  
+  WrappedInputPointer &setIgnoreNull(bool Value) {
+    IgnoreNull = Value;
+    return *this;
+  }
+  
+  bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputPointer &setForCopy(bool const Value) {
+    ForCopy = Value;
+    return *this;
+  }
+
+  bool getForCopy() const { return ForCopy; }
   
   /// @} (Flags.)
   
@@ -245,19 +314,25 @@ class WrappedArgumentChecker<WrappedInputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
   /// \brief Check if the given value is OK.
   ///
   bool check(WrappedInputPointer<T> &Value, int Parameter) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+    
+    auto const Access = Value.getForCopy()
+      ? seec::runtime_errors::format_selects::MemoryAccess::Copy
+      : seec::runtime_errors::format_selects::MemoryAccess::Read;
+
     return Checker.checkMemoryExistsAndAccessibleForParameter(
               Parameter,
               Value.address(),
               Value.getSize(),
-              seec::runtime_errors::format_selects::MemoryAccess::Read);
+              Access);
   }
 };
 
@@ -266,15 +341,22 @@ public:
 // WrappedInputCString
 //===----------------------------------------------------------------------===//
 
+template<typename CharT>
 class WrappedInputCString {
-  char const *Value;
-  
+  CharT *Value;
+
   bool IgnoreNull;
+
+  bool IsLimited;
+
+  std::size_t Limit;
   
 public:
-  WrappedInputCString(char const *ForValue)
+  WrappedInputCString(CharT *ForValue)
   : Value(ForValue),
-    IgnoreNull(false)
+    IgnoreNull(false),
+    IsLimited(false),
+    Limit(0)
   {}
   
   /// \name Flags
@@ -286,27 +368,41 @@ public:
   }
   
   bool getIgnoreNull() const { return IgnoreNull; }
+
+  WrappedInputCString &setLimited(std::size_t const Value) {
+    IsLimited = true;
+    Limit = Value;
+    return *this;
+  }
+
+  bool isLimited() const { return IsLimited; }
+
+  std::size_t getLimit() const { return Limit; }
   
   /// @} (Flags)
   
   /// \name Value information
   /// @{
   
-  operator char const *() const { return Value; }
+  operator CharT *() const { return Value; }
   
   uintptr_t address() const { return reinterpret_cast<uintptr_t>(Value); }
   
   /// @}
 };
 
-inline WrappedInputCString wrapInputCString(char const *ForValue) {
-  return WrappedInputCString(ForValue);
+inline WrappedInputCString<char> wrapInputCString(char *ForValue) {
+  return WrappedInputCString<char>(ForValue);
+}
+
+inline WrappedInputCString<char const> wrapInputCString(char const *ForValue) {
+  return WrappedInputCString<char const>(ForValue);
 }
 
 /// \brief WrappedArgumentChecker specialization for WrappedInputCString.
 ///
-template<>
-class WrappedArgumentChecker<WrappedInputCString>
+template<typename CharT>
+class WrappedArgumentChecker<WrappedInputCString<CharT>>
 {
   /// The underlying memory checker.
   seec::trace::CStdLibChecker &Checker;
@@ -314,18 +410,23 @@ class WrappedArgumentChecker<WrappedInputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
   /// \brief Check if the given value is OK.
   ///
-  bool check(WrappedInputCString &Value, int Parameter) {
-    if (Value == nullptr && Value.getIgnoreNull())
+  bool check(WrappedInputCString<CharT> &Value, int Parameter) {
+    if (Value == nullptr && Value.template getIgnoreNull())
       return true;
     
-    return Checker.checkCStringRead(Parameter, Value);
+    if (Value.template isLimited()) {
+      return Checker.checkLimitedCStringRead(Parameter, Value,
+                                             Value.template getLimit());
+    }
+    else {
+      return Checker.checkCStringRead(Parameter, Value);
+    }
   }
 };
 
@@ -382,8 +483,7 @@ class WrappedArgumentChecker<WrappedInputCStringArray>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -450,8 +550,7 @@ class WrappedArgumentChecker<WrappedInputFILE>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CIOChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -477,12 +576,18 @@ class WrappedOutputPointer {
   std::size_t Size;
   
   bool IgnoreNull;
-  
+
+  PointerOrigin OutPtrOrigin;
+
+  unsigned OutPtrOriginArg;
+
 public:
   WrappedOutputPointer(T ForValue)
   : Value(ForValue),
     Size(sizeof(*ForValue)),
-    IgnoreNull(false)
+    IgnoreNull(false),
+    OutPtrOrigin(PointerOrigin::None),
+    OutPtrOriginArg(0)
   {}
   
   /// \name Flags
@@ -502,6 +607,20 @@ public:
   
   std::size_t getSize() const { return Size; }
   
+  WrappedOutputPointer &setOriginNewValid() {
+    OutPtrOrigin = PointerOrigin::NewValid;
+    return *this;
+  }
+
+  WrappedOutputPointer &setOriginFromArg(unsigned const ArgNo) {
+    OutPtrOrigin = PointerOrigin::FromArgument;
+    OutPtrOriginArg = ArgNo;
+  }
+
+  PointerOrigin getOrigin() const { return OutPtrOrigin; }
+
+  unsigned getOriginArg() const { return OutPtrOriginArg; }
+
   /// @} (Flags)
   
   /// \name Value information
@@ -547,7 +666,11 @@ public:
   }
   
   std::size_t getSize() const { return Size; }
-  
+
+  PointerOrigin getOrigin() const { return PointerOrigin::None; }
+
+  unsigned getOriginArg() const { return 0; }
+
   /// @} (Flags)
   
   /// \name Value information
@@ -578,8 +701,7 @@ class WrappedArgumentChecker<WrappedOutputPointer<T>>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -597,17 +719,92 @@ public:
   }
 };
 
-/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer.
+template<typename T>
+struct is_pointer_to_pointer
+: std::integral_constant
+<bool,
+ std::is_pointer<T>::value
+ && std::is_pointer<typename std::remove_pointer<T>::type>::value>
+{};
+
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer
+///        when the referenced object is also a pointer.
 ///
 template<typename T>
-class WrappedArgumentRecorder<WrappedOutputPointer<T>> {
+class WrappedArgumentRecorder<WrappedOutputPointer<T>,
+        typename std::enable_if<is_pointer_to_pointer<T>::value>::type>
+{
+  seec::trace::TraceProcessListener &Process;
+
   /// The underlying TraceThreadListener.
   seec::trace::TraceThreadListener &Listener;
 
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &WithProcess,
+                          seec::trace::TraceThreadListener &WithListener)
+  : Process(WithProcess),
+    Listener(WithListener)
+  {}
+
+  /// \brief Record any state changes.
+  ///
+  bool record(WrappedOutputPointer<T> &Value, bool Success) {
+    if (Value == nullptr && Value.getIgnoreNull())
+      return true;
+
+    if (Success) {
+      T const Ptr = Value;
+      Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
+                                  Value.getSize());
+
+      switch (Value.getOrigin()) {
+        case PointerOrigin::None:
+          llvm_unreachable("output pointer with no origin.");
+          break;
+
+        case PointerOrigin::FromArgument:
+        {
+          auto const Fn = Listener.getActiveFunction();
+          auto const Inst = Fn->getActiveInstruction();
+          auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst);
+          assert(Call && "active instruction is not a CallInst");
+
+          auto const Arg = Call->getArgOperand(Value.getOriginArg());
+          auto const Obj = Fn->getPointerObject(Arg);
+
+          Process.setInMemoryPointerObject(reinterpret_cast<uintptr_t>(Ptr),
+                                           Obj);
+          break;
+        }
+
+        case PointerOrigin::NewValid:
+          Process.setInMemoryPointerObject(
+            reinterpret_cast<uintptr_t>(Ptr),
+            Process.makePointerObject(reinterpret_cast<uintptr_t>(*Ptr)));
+          break;
+      }
+    }
+
+    return true;
+  }
+};
+
+/// \brief WrappedArgumentRecorder specialization for WrappedOutputPointer.
+///
+template<typename T>
+class WrappedArgumentRecorder<WrappedOutputPointer<T>,
+        typename std::enable_if<!is_pointer_to_pointer<T>::value>::type>
+{
+  /// The underlying TraceThreadListener.
+  seec::trace::TraceThreadListener &Listener;
+
+public:
+  /// \brief Construct a new WrappedArgumentRecorder.
+  ///
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &WithListener)
   : Listener(WithListener)
   {}
   
@@ -689,8 +886,7 @@ class WrappedArgumentChecker<WrappedOutputCString>
 public:
   /// \brief Construct a new WrappedArgumentChecker.
   ///
-  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker,
-                         seec::trace::DIRChecker &WithDIRChecker)
+  WrappedArgumentChecker(seec::trace::CStdLibChecker &WithChecker)
   : Checker(WithChecker)
   {}
   
@@ -718,7 +914,8 @@ class WrappedArgumentRecorder<WrappedOutputCString> {
 public:
   /// \brief Construct a new WrappedArgumentRecorder.
   ///
-  WrappedArgumentRecorder(seec::trace::TraceThreadListener &WithListener)
+  WrappedArgumentRecorder(seec::trace::TraceProcessListener &,
+                          seec::trace::TraceThreadListener &WithListener)
   : Listener(WithListener)
   {}
   
@@ -808,11 +1005,11 @@ public:
     auto const Ptr = reinterpret_cast<char const *>(Value);
     auto const Length = sizeof(*Value);
     
-    // Remove existing knowledge of the area.
-    ThreadListener.removeKnownMemoryRegion(Address);
-    
-    // Set knowledge of the new string area.
-    ThreadListener.addKnownMemoryRegion(Address, Length, Access);
+    if (!ThreadListener.isKnownMemoryRegionCovering(Address, Length)) {
+      // Set knowledge of the area.
+      ThreadListener.removeKnownMemoryRegion(Address);
+      ThreadListener.addKnownMemoryRegion(Address, Length, Access);
+    }
     
     // Update memory state.
     ThreadListener.recordUntypedState(Ptr, Length);
@@ -835,6 +1032,9 @@ class GlobalVariableTracker {
   
   /// Holds the pre-call contents of the global.
   llvm::SmallVector<char, 16> PreState;
+
+  /// Whether or not this global is a pointer.
+  bool const IsPointerType;
   
 public:
   /// \brief Constructor.
@@ -843,7 +1043,8 @@ public:
   GlobalVariableTracker(T const &ForGlobal)
   : Global(reinterpret_cast<char const *>(&ForGlobal)),
     Size(sizeof(ForGlobal)),
-    PreState()
+    PreState(),
+    IsPointerType(std::is_pointer<T>::value)
   {}
   
   /// \brief Save the state of the global so that we can check if it changed.
@@ -858,9 +1059,27 @@ public:
   ///
   void recordChanges(seec::trace::TraceThreadListener &ThreadListener) const
   {
-    // Update memory state if it has changed.
-    if (std::memcmp(PreState.data(), Global, Size)) {
-      ThreadListener.recordUntypedState(Global, Size);
+    // Update memory state if it has changed, and the allocation is visible to
+    // the user's program.
+    if (!std::memcmp(PreState.data(), Global, Size))
+      return;
+
+    auto const Address = reinterpret_cast<uintptr_t>(Global);
+    auto const MaybeArea = getContainingMemoryArea(ThreadListener, Address);
+    if (!MaybeArea.assigned<MemoryArea>())
+      return;
+
+    auto const &Area = MaybeArea.get<MemoryArea>();
+    if (!Area.contains(MemoryArea(Address, Size)))
+      return;
+
+    ThreadListener.recordUntypedState(Global, Size);
+
+    if (IsPointerType) {
+      auto &Process = ThreadListener.getProcessListener();
+      auto const Value = *reinterpret_cast<uintptr_t const *>(Global);
+      Process.setInMemoryPointerObject(Address,
+                                       Process.makePointerObject(Value));
     }
   }
 };
@@ -869,6 +1088,233 @@ public:
 //===----------------------------------------------------------------------===//
 // SimpleWrapper
 //===----------------------------------------------------------------------===//
+
+/// \brief Check if ArgT's WrappedArgumentChecker is constructible using the
+///        primary checker CheckerT.
+///
+template<typename CheckerT, typename ArgT>
+class RequireChecker
+{
+  typedef WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+          WACTy;
+
+  static bool const C1 = std::is_constructible<WACTy, CheckerT &>::value;
+  static bool const C2 =
+    std::is_constructible<WACTy, CheckerT &, seec::trace::DIRChecker &>::value;
+
+public:
+  static bool const value = C1 || C2;
+};
+
+/// \brief Check if any of ArgTs's WrappedArgumentChecker types are
+///        constructible using the primary checker CheckerT.
+///
+template<typename CheckerT, typename... ArgTs>
+struct AnyRequireChecker
+: seec::ct::static_any_of<RequireChecker<CheckerT, ArgTs>::value...> {};
+
+/// \brief Check if the checker for ArgT requires a DIRChecker.
+///
+template<typename ArgT>
+struct RequireDIRChecker
+: std::is_constructible<
+    WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>,
+    seec::trace::CIOChecker &,
+    seec::trace::DIRChecker &> {};
+
+/// \brief Check if any of the checkers for ArgTs requires a DIRChecker.
+///
+template<typename... ArgTs>
+struct AnyRequireDIRChecker
+: seec::ct::static_any_of<RequireDIRChecker<ArgTs>::value...> {};
+
+/// \brief Dispatch to a single argument checker.
+///
+template<typename ArgT, typename Enable = void>
+struct ArgumentCheckerDispatch;
+
+template<typename ArgT>
+struct ArgumentCheckerDispatch
+  <ArgT, typename std::enable_if<RequireDIRChecker<ArgT>::value>::type>
+{
+  template<typename CheckT>
+  static bool impl(CheckT &&Check,
+                   seec::trace::DIRChecker *DIRCheck,
+                   ArgT &Arg,
+                   int Index)
+  {
+    return
+      WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+                            (std::forward<CheckT>(Check), *DIRCheck)
+                            .check(Arg, Index);
+  }
+};
+
+template<typename ArgT>
+struct ArgumentCheckerDispatch
+  <ArgT, typename std::enable_if<!RequireDIRChecker<ArgT>::value>::type>
+{
+  template<typename CheckT>
+  static bool impl(CheckT &&Check,
+                   seec::trace::DIRChecker *DIRCheck,
+                   ArgT &Arg,
+                   int Index)
+  {
+    return
+      WrappedArgumentChecker<typename std::remove_reference<ArgT>::type>
+                            (std::forward<CheckT>(Check))
+                            .check(Arg, Index);
+  }
+};
+
+/// \brief Handles argument checking.
+///
+template<bool UseDIRChecker, bool UseCStdLib, bool UseCIO, typename...>
+struct ArgumentCheckerHandlerImpl;
+
+/// Specialization for no arguments.
+///
+template<>
+struct ArgumentCheckerHandlerImpl<false, false, false, seec::ct::sequence_int<>>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn)
+  {}
+};
+
+/// Specialization for CIOChecker and DIRChecker.
+///
+template<bool UseCStdLib, int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <true, UseCStdLib, true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    auto StreamsAccessor = Process.getStreamsAccessor();
+    seec::trace::CIOChecker Checker
+      {Thread, Instruction, Fn, StreamsAccessor.getObject()};
+    seec::trace::DIRChecker DIRChecker
+      {Thread, Instruction, Fn, Thread.getDirs()};
+    
+    // Check each of the inputs.
+    std::vector<bool> InputChecks {
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, &DIRChecker, Args, ArgIs)...
+    };
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+/// Specialization for CStdLibChecker and DIRChecker.
+///
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <true, true, false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    seec::trace::CStdLibChecker Checker{Thread, Instruction, Fn};
+    seec::trace::DIRChecker DIRChecker
+      {Thread, Instruction, Fn, Thread.getDirs()};
+    
+    // Check each of the inputs.
+    std::vector<bool> InputChecks {
+      ArgumentCheckerDispatch<ArgTs>::impl(Checker, &DIRChecker, Args, ArgIs)...
+    };
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+/// Specialization for CIOChecker.
+///
+template<bool UseCStdLib, int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <false, UseCStdLib, true, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    auto StreamsAccessor = Process.getStreamsAccessor();
+    seec::trace::CIOChecker Checker
+      {Thread, Instruction, Fn, StreamsAccessor.getObject()};
+    
+    std::vector<bool> InputChecks
+      {ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...};
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+/// Specialization for CStdLibChecker.
+///
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandlerImpl
+  <false, true, false, seec::ct::sequence_int<ArgIs...>, ArgTs...>
+{
+  static void impl(seec::trace::TraceProcessListener &Process,
+                   seec::trace::TraceThreadListener &Thread,
+                   uint32_t const Instruction,
+                   seec::runtime_errors::format_selects::CStdFunction const Fn,
+                   ArgTs &... Args)
+  {
+    seec::trace::CStdLibChecker Checker{Thread, Instruction, Fn};
+    
+    std::vector<bool> InputChecks
+      {ArgumentCheckerDispatch<ArgTs>::impl(Checker, nullptr, Args, ArgIs)...};
+    
+#ifndef NDEBUG
+    for (auto const InputCheck : InputChecks) {
+      assert(InputCheck && "Input check failed.");
+    }
+#endif
+    
+    InputChecks.clear();
+  }
+};
+
+template<typename...>
+struct ArgumentCheckerHandler;
+
+template<int... ArgIs, typename... ArgTs>
+struct ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+: ArgumentCheckerHandlerImpl<
+    AnyRequireDIRChecker<ArgTs...>::value,
+    AnyRequireChecker<seec::trace::CStdLibChecker, ArgTs...>::value,
+    AnyRequireChecker<seec::trace::CIOChecker, ArgTs...>::value,
+    seec::ct::sequence_int<ArgIs...>,
+    ArgTs...> {};
 
 template<typename RetT,
          typename FnT,
@@ -879,19 +1325,57 @@ class SimpleWrapperImpl
 {
   /// The function that is wrapped.
   seec::runtime_errors::format_selects::CStdFunction FSFunction;
-  
+
+  /// Where did the returned pointer originate from?
+  PointerOrigin RetPtrOrigin;
+
+  /// Index of the argument that a returned pointer originated from.
+  unsigned RetPtrOriginArg;
+
   /// \brief Check if the given setting is enabled for this wrapper.
   ///
   template<SimpleWrapperSetting Setting>
-  constexpr bool isEnabled() {
+  constexpr bool isEnabled() const {
     return isSettingInList<Setting, Settings...>();
   }
-  
+
+  /// \brief Record a new valid pointer.
+  ///
+  template<typename PtrT>
+  typename std::enable_if<std::is_pointer<PtrT>::value, void>::type
+  setPointerOriginNewValid(seec::trace::TraceThreadListener &Thread,
+                           llvm::Instruction const *Instruction,
+                           PtrT const Ptr) const
+  {
+    auto const PtrInt = reinterpret_cast<uintptr_t>(Ptr);
+    auto const MaybeArea = seec::trace::getContainingMemoryArea(Thread, PtrInt);
+
+    // If the referenced area is known then use the start of the area as the
+    // pointer's object. Otherwise use the raw pointer value (for opaque
+    // pointers, e.g. FILE *).
+    auto const Object = MaybeArea.assigned() ? MaybeArea.get<0>().start()
+                                             : PtrInt;
+
+    Thread.getActiveFunction()->setPointerObject(
+      Instruction,
+      Thread.getProcessListener().makePointerObject(Object));
+  }
+
+  /// \brief Specialization of above to allow compiling with non-pointer return
+  ///        types.
+  ///
+  void setPointerOriginNewValid(seec::trace::TraceThreadListener &, ...) const
+  {}
+
 public:
   /// \brief Construct a new wrapper implementation for the given function.
   ///
-  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
-  : FSFunction(ForFn)
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn,
+                    PointerOrigin const WithRetPtrOrigin,
+                    unsigned const WithRetPtrOriginArg)
+  : FSFunction(ForFn),
+    RetPtrOrigin(WithRetPtrOrigin),
+    RetPtrOriginArg(WithRetPtrOriginArg)
   {}
   
   /// \brief Implementation of the wrapped function.
@@ -924,34 +1408,11 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    
-    // Create the memory checker.
-    seec::trace::CIOChecker Checker {Listener,
-                                     InstructionIndex,
-                                     FSFunction,
-                                     StreamsAccessor.getObject()};
-    
-    // Create a DIR checker. TODO: Don't do this if we don't need it.
-    // This causes the ThreadListener to acquire the DirsLock.
-    seec::trace::DIRChecker DIRChecker {Listener,
-                                        InstructionIndex,
-                                        FSFunction,
-                                        Listener.getDirs()};
-    
-    
+    Listener.getActiveFunction()->setActiveInstruction(Instruction);
+
     // Check each of the inputs.
-    std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker, DIRChecker).check(Args, ArgIs))...
-    };
-    
-#ifndef NDEBUG
-    for (auto const InputCheck : InputChecks) {
-      assert(InputCheck && "Input check failed.");
-    }
-#endif
+    ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+      ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
@@ -968,15 +1429,12 @@ public:
     (void)Success;
     
     // Notify the TraceThreadListener of the new value.
-    typedef typename std::remove_reference<FnT>::type FnTLessReference;
     ListenerNotifier<RetT> Notifier;
     Notifier(Listener, InstructionIndex, Instruction, Result);
-    
+
     // Record any changes to errno.
-    if (errno != PreCallErrno) {
-      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                  sizeof(errno));
-    }
+    if (errno != PreCallErrno)
+      recordErrno(Listener, errno);
     
     // Record any changes to global variables we are tracking.
     for (auto const &GVTracker : GVTrackers)
@@ -988,7 +1446,8 @@ public:
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
       (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
-                              (Listener).record(Args, Success))...
+                              (ProcessListener, Listener)
+                              .record(Args, Success))...
     };
     
 #ifndef NDEBUG
@@ -996,6 +1455,22 @@ public:
       assert(OutputRecord && "Output record failed.");
     }
 #endif
+
+    // Update the pointer origin (if necessary).
+    if (std::is_pointer<RetT>::value) {
+      switch (RetPtrOrigin) {
+        case PointerOrigin::None:
+          // TODO: This is bad.
+          break;
+        case PointerOrigin::FromArgument:
+          Listener.getActiveFunction()
+                    ->transferArgPointerObjectToCall(RetPtrOriginArg);
+          break;
+        case PointerOrigin::NewValid:
+          setPointerOriginNewValid(Listener, Instruction, Result);
+          break;
+      }
+    }
     
     // Do Listener's notification exit.
     Listener.exitPostNotification();
@@ -1020,14 +1495,16 @@ class SimpleWrapperImpl<void,
   /// \brief Check if the given setting is enabled for this wrapper.
   ///
   template<SimpleWrapperSetting Setting>
-  constexpr bool isEnabled() {
+  constexpr bool isEnabled() const {
     return isSettingInList<Setting, Settings...>();
   }
   
 public:
   /// \brief Construct a new wrapper implementation for the given function.
   ///
-  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn)
+  SimpleWrapperImpl(seec::runtime_errors::format_selects::CStdFunction ForFn,
+                    PointerOrigin const WithRetPtrOrigin,
+                    unsigned const WithRetPtrOriginArg)
   : FSFunction(ForFn)
   {}
   
@@ -1060,31 +1537,12 @@ public:
     if (isEnabled<SimpleWrapperSetting::AcquireDynamicMemoryLock>())
       Listener.acquireDynamicMemoryLock();
     
-    // TODO: Don't acquire stream lock if we don't need a CIOChecker.
-    auto StreamsAccessor = ProcessListener.getStreamsAccessor();
-    
-    // Create the memory checker.
-    seec::trace::CIOChecker Checker {Listener,
-                                     InstructionIndex,
-                                     FSFunction,
-                                     StreamsAccessor.getObject()};
-    
-    // Create a DIR checker. TODO: Don't do this if we don't need it.
-    // This causes the ThreadListener to acquire the DirsLock.
-    seec::trace::DIRChecker DIRChecker {Listener,
-                                        InstructionIndex,
-                                        FSFunction,
-                                        Listener.getDirs()};
-    
+    auto const CallInstruction = ThreadEnv.getInstruction();
+    Listener.getActiveFunction()->setActiveInstruction(CallInstruction);
+
     // Check each of the inputs.
-    std::vector<bool> InputChecks {
-      (WrappedArgumentChecker<typename std::remove_reference<ArgTs>::type>
-                             (Checker, DIRChecker).check(Args, ArgIs))...
-    };
-    
-    for (auto const InputCheck : InputChecks) {
-      assert(InputCheck && "Input check failed.");
-    }
+    ArgumentCheckerHandler<seec::ct::sequence_int<ArgIs...>, ArgTs...>
+      ::impl(ProcessListener, Listener, InstructionIndex, FSFunction, Args...);
     
     // Get the pre-call value of errno.
     auto const PreCallErrno = errno;
@@ -1098,10 +1556,8 @@ public:
     bool const Success = SuccessPred();
         
     // Record any changes to errno.
-    if (errno != PreCallErrno) {
-      Listener.recordUntypedState(reinterpret_cast<char const *>(&errno),
-                                  sizeof(errno));
-    }
+    if (errno != PreCallErrno)
+      recordErrno(Listener, errno);
     
     // Record any changes to global variables we are tracking.
     for (auto const &GVTracker : GVTrackers)
@@ -1113,7 +1569,8 @@ public:
     // Record each of the outputs.
     std::vector<bool> OutputRecords {
       (WrappedArgumentRecorder<typename std::remove_reference<ArgTs>::type>
-                              (Listener).record(Args, Success))...
+                              (ProcessListener, Listener)
+                              .record(Args, Success))...
     };
     
     for (auto const OutputRecord : OutputRecords) {
@@ -1135,7 +1592,13 @@ class SimpleWrapper {
   
   /// Global variable trackers.
   llvm::SmallVector<GlobalVariableTracker, 4> GVTrackers;
-  
+
+  /// Where did the returned pointer originate from?
+  PointerOrigin RetPtrOrigin;
+
+  /// Index of the argument that a returned pointer originated from.
+  unsigned RetPtrOriginArg;
+
   /// @}
   
 public:
@@ -1143,7 +1606,9 @@ public:
   ///
   SimpleWrapper(seec::runtime_errors::format_selects::CStdFunction ForFunction)
   : FSFunction(ForFunction),
-    GVTrackers()
+    GVTrackers(),
+    RetPtrOrigin(PointerOrigin::None),
+    RetPtrOriginArg(0)
   {}
   
   /// \brief Add a global variable tracker.
@@ -1154,7 +1619,24 @@ public:
     GVTrackers.push_back(GlobalVariableTracker{Global});
     return *this;
   }
-  
+
+  /// \brief Set the pointer to originate from an argument.
+  ///
+  SimpleWrapper &returnPointerFromArg(unsigned const ArgNo)
+  {
+    RetPtrOrigin = PointerOrigin::FromArgument;
+    RetPtrOriginArg = ArgNo;
+    return *this;
+  }
+
+  /// \brief Set the returned pointer to be newly created and valid.
+  ///
+  SimpleWrapper &returnPointerIsNewAndValid()
+  {
+    RetPtrOrigin = PointerOrigin::NewValid;
+    return *this;
+  }
+
   /// \brief Execute the wrapped function.
   ///
   template<typename FnT,
@@ -1183,7 +1665,9 @@ public:
                              SuccessPredT,
                              ResultStateRecorderT,
                              Settings...>
-                             { FSFunction }
+                             { FSFunction,
+                               RetPtrOrigin,
+                               RetPtrOriginArg }
             .impl(std::forward<FnT>(Function),
                   std::forward<SuccessPredT>(SuccessPred),
                   std::forward<ResultStateRecorderT>(ResultStateRecorder),

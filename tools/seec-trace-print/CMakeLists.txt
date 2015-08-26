@@ -1,32 +1,50 @@
-add_executable(seec-trace-print main.cpp)
-
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader
- OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
+add_executable(seec-print
+ ClangMapped.cpp
+ main.cpp
+ OnlinePythonTutor.cpp
+ Unmapped.cpp
 )
-string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
-string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
 
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (LLVM)
+#--------------------------------------------------------------------------------
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader option)
+
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (ICU)
+#--------------------------------------------------------------------------------
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
-target_link_libraries(seec-trace-print
+#--------------------------------------------------------------------------------
+# Determine the libraries that we need to link against. (WX)
+#--------------------------------------------------------------------------------
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml"
+ OUTPUT_VARIABLE REQ_WX_LIBRARIES
+)
+string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
+
+target_link_libraries(seec-print
  # SeeC libraries
  SeeCClang
  SeeCClangMappedTrace
+ SeeCTraceReader
  SeeCTrace
  SeeCRuntimeErrors
- SeeCUtil
  SeeCICU
+ SeeCUtil
+ SeeCwxWidgets
+
+ # wxWidgets libraries
+ ${REQ_WX_LIBRARIES}
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangCodeGen.a
- ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a
  ${LLVM_INSTALL}/lib/libclangDriver.a
  ${LLVM_INSTALL}/lib/libclangSerialization.a
@@ -45,9 +63,11 @@ target_link_libraries(seec-trace-print
  ${REQ_ICU_LIBRARIES}
 
  ${LLVM_LIB_DEPS}
+
+ ${REQ_ICU_LIBRARIES}
 )
 
-INSTALL(TARGETS seec-trace-print
+INSTALL(TARGETS seec-print
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

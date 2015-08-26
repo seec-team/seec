@@ -12,12 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/FunctionState.hpp"
-#include "seec/Trace/GetCurrentRuntimeValue.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
+#include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace seec {
@@ -36,7 +36,7 @@ llvm::AllocaInst const *AllocaState::getInstruction() const {
   return llvm::cast<llvm::AllocaInst>(Inst);
 }
 
-MemoryState::Region AllocaState::getMemoryRegion() const {
+MemoryStateRegion AllocaState::getMemoryRegion() const {
   auto &Thread = Parent->getParent();
   auto &Process = Thread.getParent();
   auto &Memory = Process.getMemory();
@@ -71,7 +71,12 @@ FunctionState::FunctionState(ThreadState &Parent,
   Index(Index),
   Trace(Trace),
   ActiveInstruction(),
-  InstructionValues(Function.getInstructionCount()),
+  ActiveInstructionComplete(false),
+  ValuesUInt64(),
+  ValuesPtr(),
+  ValuesFloat(),
+  ValuesDouble(),
+  ValuesAPFloat(),
   Allocas(),
   ParamByVals(),
   RuntimeErrors()
@@ -83,10 +88,11 @@ llvm::Function const *FunctionState::getFunction() const {
   return Parent->getParent().getModule().getFunction(Index);
 }
 
+std::size_t FunctionState::getInstructionCount() const {
+  return FunctionLookup->getInstructionCount();
+}
+
 llvm::Instruction const *FunctionState::getInstruction(uint32_t Index) const {
-  if (Index >= InstructionValues.size())
-    return nullptr;
-  
   return FunctionLookup->getInstruction(Index);
 }
 
@@ -98,7 +104,7 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
 }
 
 seec::Maybe<MemoryArea>
-FunctionState::getContainingMemoryArea(uintptr_t Address) const {
+FunctionState::getContainingMemoryArea(stateptr_ty Address) const {
   auto const Alloca = getAllocaContaining(Address);
   if (Alloca)
     return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
@@ -110,34 +116,180 @@ FunctionState::getContainingMemoryArea(uintptr_t Address) const {
   return seec::Maybe<MemoryArea>();
 }
 
-uintptr_t FunctionState::getRuntimeAddress(llvm::Function const *F) const {
-  return Parent->getParent().getRuntimeAddress(F);
+void FunctionState::setValueUInt64(llvm::Instruction const *ForInstruction,
+                                   offset_uint const Offset,
+                                   uint64_t const Value)
+{
+  ValuesUInt64[ForInstruction] = Value;
 }
 
-uintptr_t
-FunctionState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
-  return Parent->getParent().getRuntimeAddress(GV);
+void FunctionState::setValuePtr(llvm::Instruction const *ForInstruction,
+                                offset_uint const Offset,
+                                stateptr_ty const Value)
+{
+  ValuesPtr[ForInstruction] = Value;
 }
 
-RuntimeValue const *
-FunctionState::getCurrentRuntimeValue(uint32_t Index) const {
-  assert(Index < InstructionValues.size());
-  
-  // If we have jumped to a prior Instruction, we consider the latter
-  // Instruction values to no longer exist.
-  if (ActiveInstruction.assigned(0) && ActiveInstruction.get<0>() < Index)
-    return nullptr;
-  
-  return &InstructionValues[Index];
+void FunctionState::setValueFloat(llvm::Instruction const *ForInstruction,
+                                  offset_uint const Offset,
+                                  float const Value)
+{
+  ValuesFloat[ForInstruction] = Value;
 }
 
-RuntimeValue const *
-FunctionState::getCurrentRuntimeValue(llvm::Instruction const *I) const {
-  auto const MaybeIndex = FunctionLookup->getIndexOfInstruction(I);
-  if (!MaybeIndex.assigned())
-    return nullptr;
-  
-  return getCurrentRuntimeValue(MaybeIndex.get<0>());
+void FunctionState::setValueDouble(llvm::Instruction const *ForInstruction,
+                                   offset_uint const Offset,
+                                   double const Value)
+{
+  ValuesDouble[ForInstruction] = Value;
+}
+
+void FunctionState::setValueAPFloat(llvm::Instruction const *ForInstruction,
+                                    offset_uint const Offset,
+                                    llvm::APFloat Value)
+{
+  auto It = ValuesAPFloat.find(ForInstruction);
+  if (It != ValuesAPFloat.end())
+    It->second = std::move(Value);
+  else
+    ValuesAPFloat.insert(std::make_pair(ForInstruction, std::move(Value)));
+}
+
+void FunctionState::clearValue(llvm::Instruction const *ForInstruction)
+{
+  auto const Type = ForInstruction->getType();
+
+  if (Type->isIntegerTy()) {
+    ValuesUInt64.erase(ForInstruction);
+  }
+  else if (Type->isPointerTy()) {
+    ValuesPtr.erase(ForInstruction);
+  }
+  else if (Type->isFloatTy()) {
+    ValuesFloat.erase(ForInstruction);
+  }
+  else if (Type->isDoubleTy()) {
+    ValuesDouble.erase(ForInstruction);
+  }
+  else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty()) {
+    ValuesAPFloat.erase(ForInstruction);
+  }
+}
+
+bool FunctionState::isDominatedByActive(llvm::Instruction const *Inst) const
+{
+  if (!ActiveInstruction.assigned<uint32_t>())
+    return false;
+
+  auto const MaybeIndex = FunctionLookup->getIndexOfInstruction(Inst);
+  if (!MaybeIndex.assigned<uint32_t>())
+    return false;
+
+  if (ActiveInstruction.get<uint32_t>() < MaybeIndex.get<uint32_t>())
+    return false;
+
+  return true;
+}
+
+bool FunctionState::hasValue(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return false;
+
+  auto const Type = ForInstruction->getType();
+
+  if (Type->isIntegerTy()) {
+    return ValuesUInt64.count(ForInstruction);
+  }
+  else if (Type->isPointerTy()) {
+    return ValuesPtr.count(ForInstruction);
+  }
+  else if (Type->isFloatTy()) {
+    return ValuesFloat.count(ForInstruction);
+  }
+  else if (Type->isDoubleTy()) {
+    return ValuesDouble.count(ForInstruction);
+  }
+  else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty()) {
+    return ValuesAPFloat.count(ForInstruction);
+  }
+  else {
+    return false;
+  }
+}
+
+Maybe<int64_t>
+FunctionState::getValueInt64(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<int64_t>();
+
+  auto const It = ValuesUInt64.find(ForInstruction);
+  if (It != ValuesUInt64.end()) {
+    auto const IntTy = llvm::dyn_cast<llvm::IntegerType>
+                                     (ForInstruction->getType());
+
+    auto const Value = It->second;
+
+    // If the integer has its sign bit set, then set all higher bits.
+    if (Value & IntTy->getSignBit()) {
+      return static_cast<int64_t>(Value | ~IntTy->getBitMask());
+    }
+
+    return static_cast<int64_t>(Value);
+  }
+
+  return Maybe<int64_t>();
+}
+
+Maybe<uint64_t>
+FunctionState::getValueUInt64(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<uint64_t>();
+
+  auto const It = ValuesUInt64.find(ForInstruction);
+  return It != ValuesUInt64.end() ? It->second : Maybe<uint64_t>();
+}
+
+Maybe<stateptr_ty>
+FunctionState::getValuePtr(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<stateptr_ty>();
+
+  auto const It = ValuesPtr.find(ForInstruction);
+  return It != ValuesPtr.end() ? It->second : Maybe<stateptr_ty>();
+}
+
+Maybe<float>
+FunctionState::getValueFloat(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<float>();
+
+  auto const It = ValuesFloat.find(ForInstruction);
+  return It != ValuesFloat.end() ? It->second : Maybe<float>();
+}
+
+Maybe<double>
+FunctionState::getValueDouble(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<double>();
+
+  auto const It = ValuesDouble.find(ForInstruction);
+  return It != ValuesDouble.end() ? It->second : Maybe<double>();
+}
+
+Maybe<llvm::APFloat>
+FunctionState::getValueAPFloat(llvm::Instruction const *ForInstruction) const
+{
+  if (!isDominatedByActive(ForInstruction))
+    return Maybe<llvm::APFloat>();
+
+  auto const It = ValuesAPFloat.find(ForInstruction);
+  return It != ValuesAPFloat.end() ? It->second : Maybe<llvm::APFloat>();
 }
 
 std::vector<std::reference_wrapper<AllocaState const>>
@@ -196,8 +348,18 @@ void FunctionState::removeLastRuntimeError() {
   RuntimeErrors.pop_back();
 }
 
+seec::Maybe<seec::MemoryArea>
+FunctionState::getParamByValArea(llvm::Argument const *Arg) const
+{
+  for (auto const &PBV : ParamByVals)
+    if (PBV.getArgument() == Arg)
+      return PBV.getArea();
+  
+  return seec::Maybe<seec::MemoryArea>();
+}
+
 void FunctionState::addByValArea(unsigned ArgumentNumber,
-                                 uintptr_t Address,
+                                 stateptr_ty Address,
                                  std::size_t Size)
 {
   auto const Fn = getFunction();
@@ -209,7 +371,7 @@ void FunctionState::addByValArea(unsigned ArgumentNumber,
   ParamByVals.emplace_back(&*ArgIt, MemoryArea(Address, Size));
 }
 
-void FunctionState::removeByValArea(uintptr_t Address)
+void FunctionState::removeByValArea(stateptr_ty Address)
 {
   auto const It = std::find_if(ParamByVals.begin(),
                                ParamByVals.end(),
@@ -221,6 +383,73 @@ void FunctionState::removeByValArea(uintptr_t Address)
     ParamByVals.erase(It);
 }
 
+
+void printComparable(llvm::raw_ostream &Out, FunctionState const &State)
+{
+  Out << "  Function [Index=" << State.getIndex() << "]\n";
+
+  Out << "   Allocas:\n";
+  for (auto const &Alloca : State.getAllocas()) {
+    Out << "    " << Alloca.getInstructionIndex()
+        <<  " =[" << Alloca.getElementCount()
+        <<    "x" << Alloca.getElementSize()
+        <<  "]\n";
+  }
+
+  Out << "   Instruction values [Active=";
+  if (State.getActiveInstructionIndex().assigned(0))
+    Out << State.getActiveInstructionIndex().get<0>();
+  else
+    Out << "unassigned";
+  Out << "]:\n";
+
+  auto const InstructionCount = State.getInstructionCount();
+  for (std::size_t i = 0; i < InstructionCount; ++i) {
+    auto const Instruction = State.getInstruction(i);
+    auto const Type = Instruction->getType();
+
+    if (llvm::isa<llvm::IntegerType>(Type)) {
+      auto const UValue = State.getValueUInt64(Instruction);
+      if (UValue.assigned<uint64_t>()) {
+        auto const SValue = State.getValueInt64(Instruction);
+        assert(SValue.assigned<int64_t>());
+
+        Out << "    " << i << " = (int64_t)" << SValue.get< int64_t>()
+                           << ", (uint64_t)" << UValue.get<uint64_t>() << "\n";
+      }
+    }
+    else if (Type->isPointerTy()) {
+      auto const Value = State.getValuePtr(Instruction);
+      if (Value.assigned<stateptr_ty>()) {
+        Out << "    " << i << " = \n";
+        // TODO: a comparable pointer representation (this requires us to
+        //       determine the allocation that a pointer references, and then
+        //       display the pointer value relative to that allocation).
+      }
+    }
+    else if (Type->isFloatTy()) {
+      auto const Value = State.getValueFloat(Instruction);
+      if (Value.assigned<float>()) {
+        Out << "    " << i << " = (float)" << Value.get<float>() << "\n";
+      }
+    }
+    else if (Type->isDoubleTy()) {
+      auto const Value = State.getValueDouble(Instruction);
+      if (Value.assigned<double>()) {
+        Out << "    " << i << " = (double)" << Value.get<double>() << "\n";
+      }
+    }
+    else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty())
+    {
+      auto const Value = State.getValueAPFloat(Instruction);
+      if (Value.assigned<llvm::APFloat>()) {
+        llvm::SmallString<32> Buffer;
+        Value.get<llvm::APFloat>().toString(Buffer);
+        Out << "    " << i << " = (long double)" << Buffer << "\n";
+      }
+    }
+  }
+}
 
 /// Print a textual description of a FunctionState.
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
@@ -245,32 +474,42 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   
   auto const InstructionCount = State.getInstructionCount();
   for (std::size_t i = 0; i < InstructionCount; ++i) {
-    auto const Value = State.getCurrentRuntimeValue(i);
-    if (!Value || !Value->assigned())
-      continue;
-    
-    auto Type = State.getInstruction(i)->getType();
-    
-    Out << "    " << i << " = ";
+    auto const Instruction = State.getInstruction(i);
+    auto const Type = Instruction->getType();
     
     if (llvm::isa<llvm::IntegerType>(Type)) {
-      Out << "(int64_t)" << getAs<int64_t>(*Value, Type)
-          << ", (uint64_t)" << getAs<uint64_t>(*Value, Type);
-    }
-    else if (Type->isFloatTy()) {
-      Out << "(float)" << getAs<float>(*Value, Type);
-    }
-    else if (Type->isDoubleTy()) {
-      Out << "(double)" << getAs<double>(*Value, Type);
+      auto const Value = State.getValueUInt64(Instruction);
+      if (Value.assigned<uint64_t>()) {
+        Out << "    " << i << " = (uint64_t)" << Value.get<uint64_t>() << "\n";
+      }
     }
     else if (Type->isPointerTy()) {
-      Out << "(? *)" << getAs<void *>(*Value, Type);
+      auto const Value = State.getValuePtr(Instruction);
+      if (Value.assigned<stateptr_ty>()) {
+        Out << "    " << i << " = (? *)" << Value.get<stateptr_ty>() << "\n";
+      }
     }
-    else {
-      Out << "(unknown type)";
+    else if (Type->isFloatTy()) {
+      auto const Value = State.getValueFloat(Instruction);
+      if (Value.assigned<float>()) {
+        Out << "    " << i << " = (float)" << Value.get<float>() << "\n";
+      }
     }
-    
-    Out << "\n";
+    else if (Type->isDoubleTy()) {
+      auto const Value = State.getValueDouble(Instruction);
+      if (Value.assigned<double>()) {
+        Out << "    " << i << " = (double)" << Value.get<double>() << "\n";
+      }
+    }
+    else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty())
+    {
+      auto const Value = State.getValueAPFloat(Instruction);
+      if (Value.assigned<llvm::APFloat>()) {
+        llvm::SmallString<32> Buffer;
+        Value.get<llvm::APFloat>().toString(Buffer);
+        Out << "    " << i << " = (long double)" << Buffer << "\n";
+      }
+    }
   }
 
   return Out;

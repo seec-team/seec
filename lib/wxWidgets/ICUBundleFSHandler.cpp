@@ -27,12 +27,10 @@ static seec::Maybe<ResourceBundle> getResourceAt(wxString const &Location)
   if (FirstSlash == wxString::npos)
     return seec::Maybe<ResourceBundle>();
   
-  UErrorCode Status = U_ZERO_ERROR;
-  ResourceBundle Bundle(Location.substr(PathStart, FirstSlash - PathStart)
+  seec::Resource Bundle(Location.substr(PathStart, FirstSlash - PathStart)
                                 .utf8_str(),
-                        Locale(),
-                        Status);
-  if (U_FAILURE(Status))
+                        Locale::getDefault());
+  if (U_FAILURE(Bundle.status()))
     return seec::Maybe<ResourceBundle>();
   
   auto SearchFrom = FirstSlash + 1;
@@ -45,8 +43,8 @@ static seec::Maybe<ResourceBundle> getResourceAt(wxString const &Location)
     if (Length == 0)
       break; // Allow paths to end with a slash.
     
-    Bundle = Bundle.get(Location.substr(SearchFrom, Length).utf8_str(), Status);
-    if (U_FAILURE(Status))
+    Bundle = Bundle[Location.substr(SearchFrom, Length).utf8_str()];
+    if (U_FAILURE(Bundle.status()))
       return seec::Maybe<ResourceBundle>();
     
     if (NextSlash == wxString::npos)
@@ -55,7 +53,7 @@ static seec::Maybe<ResourceBundle> getResourceAt(wxString const &Location)
     SearchFrom = NextSlash + 1;
   }
   
-  return Bundle;
+  return Bundle.bundle();
 }
 
 bool ICUBundleFSHandler::CanOpen(wxString const &Location)

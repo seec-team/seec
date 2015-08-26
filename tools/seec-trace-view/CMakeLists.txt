@@ -18,47 +18,77 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_HEADERS
+  ActionRecord.hpp
+  ActionRecordSettings.hpp
+  ActionReplay.hpp
+  AnnotationEditor.hpp
+  Annotations.hpp
+  AugmentationSettings.hpp
   CommonMenus.hpp
   ExplanationViewer.hpp
   FunctionStateViewer.hpp
+  InternationalizedButton.hpp
+  LocaleSettings.hpp
   MallocViewer.hpp
   NotifyContext.hpp
   OpenTrace.hpp
+  Preferences.hpp
   ProcessMoveEvent.hpp
+  RuntimeValueLookup.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
-  SourceViewerSettingsTypes.def
   StateAccessToken.hpp
   StateEvaluationTree.hpp
   StateGraphViewer.hpp
-  StateViewer.hpp
+  StmtTooltip.hpp
+  StreamStatePanel.hpp
   ThreadMoveEvent.hpp
   ThreadStateViewer.hpp
   ThreadTimeControl.hpp
   TraceViewerApp.hpp
   TraceViewerFrame.hpp
+  TracingPreferences.hpp
   ValueFormat.hpp
   WelcomeFrame.hpp
   )
 
+# On WIN32 the build mistakenly attempts to link in .def files, so don't include them.
+if (NOT WIN32)
+  set(SEEC_TRACE_VIEW_HEADERS ${SEEC_TRACE_VIEW_HEADERS}
+    SourceViewerSettingsTypes.def
+    )
+endif (NOT WIN32)
+
 set(SEEC_TRACE_VIEW_SRCS
+  ActionRecord.cpp
+  ActionRecordSettings.cpp
+  ActionReplay.cpp
+  AnnotationEditor.cpp
+  Annotations.cpp
+  AugmentationSettings.cpp
   CommonMenus.cpp
   ExplanationViewer.cpp
   FunctionStateViewer.cpp
+  InternationalizedButton.cpp
+  LocaleSettings.cpp
   MallocViewer.cpp
   NotifyContext.cpp
   OpenTrace.cpp
+  Preferences.cpp
   ProcessMoveEvent.cpp
+  RuntimeValueLookup.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
   StateEvaluationTree.cpp
   StateGraphViewer.cpp
-  StateViewer.cpp
+  StmtTooltip.cpp
+  StreamStatePanel.cpp
   ThreadMoveEvent.cpp
   ThreadStateViewer.cpp
   ThreadTimeControl.cpp
   TraceViewerApp.cpp
   TraceViewerFrame.cpp
+  TracingPreferences.cpp
   ValueFormat.cpp
   WelcomeFrame.cpp
   )
@@ -66,27 +96,18 @@ set(SEEC_TRACE_VIEW_SRCS
 #--------------------------------------------------------------------------------
 # Create the executable.
 #--------------------------------------------------------------------------------
-if (${CMAKE_GENERATOR} MATCHES "Xcode")
-  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
-else()
-  add_executable(seec-trace-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_SRCS})
-endif()
+add_executable(seec-view MACOSX_BUNDLE ${SEEC_TRACE_VIEW_HEADERS} ${SEEC_TRACE_VIEW_SRCS})
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (LLVM)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${LLVM_INSTALL}/bin/llvm-config --libfiles all-targets codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader
- OUTPUT_VARIABLE REQ_LLVM_LIBRARIES
-)
-string(STRIP ${REQ_LLVM_LIBRARIES} REQ_LLVM_LIBRARIES)
-string(REPLACE " " ";" REQ_LLVM_LIBRARIES ${REQ_LLVM_LIBRARIES})
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} codegen linker bitreader bitwriter asmparser selectiondag ipo instrumentation core target irreader option)
 
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (ICU)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${ICU_INSTALL}/bin/icu-config --prefix=${ICU_INSTALL} --ldflags-libsonly
+EXEC_PROGRAM(sh
+ ARGS "${ICU_INSTALL}/bin/icu-config --noverify --prefix=${ICU_INSTALL} --ldflags-libsonly"
  OUTPUT_VARIABLE REQ_ICU_LIBRARIES
 )
 string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
@@ -96,8 +117,8 @@ string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 #--------------------------------------------------------------------------------
 # Determine the libraries that we need to link against. (WX)
 #--------------------------------------------------------------------------------
-execute_process(
- COMMAND ${WX_INSTALL}/bin/wx-config --prefix=${WX_INSTALL} --libs html stc core base aui adv webview
+EXEC_PROGRAM(sh
+ ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs html stc core base aui adv webview xml net"
  OUTPUT_VARIABLE REQ_WX_LIBRARIES
 )
 string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
@@ -107,23 +128,23 @@ string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 #--------------------------------------------------------------------------------
 # Link.
 #--------------------------------------------------------------------------------
-target_link_libraries(seec-trace-view
- # wxWidgets libraries
- ${REQ_WX_LIBRARIES}
- 
+target_link_libraries(seec-view
  # SeeC libraries
  SeeCClangEPV
  SeeCClangMappedTrace
  SeeCClang
+ SeeCTraceReader
  SeeCTrace
  SeeCRuntimeErrors
- SeeCUtil
  SeeCICU
+ SeeCUtil
  SeeCwxWidgets
+ SeeCwxWidgetsGUI
+
+ # wxWidgets libraries
+ ${REQ_WX_LIBRARIES}
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangCodeGen.a
- ${LLVM_INSTALL}/lib/libclangFrontendTool.a
  ${LLVM_INSTALL}/lib/libclangFrontend.a
  ${LLVM_INSTALL}/lib/libclangDriver.a
  ${LLVM_INSTALL}/lib/libclangSerialization.a
@@ -142,33 +163,36 @@ target_link_libraries(seec-trace-view
  ${REQ_ICU_LIBRARIES}
 
  ${LLVM_LIB_DEPS}
+
+ # cURL
+ curl
 )
 
 #--------------------------------------------------------------------------------
 # Bundle options for Mac OS X
 #--------------------------------------------------------------------------------
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set_target_properties(seec-trace-view PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/Info.plist.in)
+  set_target_properties(seec-view PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/Info.plist.in)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 #--------------------------------------------------------------------------------
 # Installation settings.
 #--------------------------------------------------------------------------------
-INSTALL(TARGETS seec-trace-view
+INSTALL(TARGETS seec-view
   BUNDLE DESTINATION ${BUNDLE_PREFIX} COMPONENT Runtime
   RUNTIME DESTINATION bin COMPONENT Runtime
 )
 
 # Copy all of our resources into the bundle's Resources directory.
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+  INSTALL(DIRECTORY ${CMAKE_BINARY_DIR}/resources/clang DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Resources)
   
   get_property(RES_FILES GLOBAL PROPERTY SEEC_RESOURCE_FILES)
   foreach(RES_FILE ${RES_FILES})
-    INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Resources)
+    INSTALL(FILES ${RES_FILE} DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Resources)
   endforeach(RES_FILE)
 
-  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-trace-view.app/Contents/Resources/)
+  INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Bundle/SeeC.icns DESTINATION ${BUNDLE_PREFIX}/seec-view.app/Contents/Resources/)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 # Linux-specific installation options.

@@ -19,7 +19,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #include <ctime>
 
@@ -48,6 +48,30 @@ SEEC_MANGLE_FUNCTION(time)
 
 
 //===----------------------------------------------------------------------===//
+// timespec_get
+//===----------------------------------------------------------------------===//
+
+int
+SEEC_MANGLE_FUNCTION(timespec_get)
+(struct timespec *ts, int base)
+{
+  extern int timespec_get(struct timespec *ts, int base) __attribute__((weak));
+  assert(timespec_get);
+
+  // Use the SimpleWrapper mechanism.
+  return
+    seec::SimpleWrapper
+      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      {seec::runtime_errors::format_selects::CStdFunction::timespec_get}
+      (timespec_get,
+       [](int Result){ return Result != 0; },
+       seec::ResultStateRecorderForNoOp(),
+       seec::wrapOutputPointer(ts).setIgnoreNull(false),
+       base);
+}
+
+
+//===----------------------------------------------------------------------===//
 // asctime
 //===----------------------------------------------------------------------===//
 
@@ -62,6 +86,7 @@ SEEC_MANGLE_FUNCTION(asctime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::asctime}
+      .returnPointerIsNewAndValid()
       (asctime,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -83,6 +108,7 @@ SEEC_MANGLE_FUNCTION(ctime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::ctime}
+      .returnPointerIsNewAndValid()
       (ctime,
        [](char *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalCString(
@@ -127,6 +153,7 @@ SEEC_MANGLE_FUNCTION(gmtime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::gmtime}
+      .returnPointerIsNewAndValid()
       (gmtime,
        [](std::tm *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalObject(
@@ -148,6 +175,7 @@ SEEC_MANGLE_FUNCTION(localtime)
     seec::SimpleWrapper
       <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
       {seec::runtime_errors::format_selects::CStdFunction::localtime}
+      .returnPointerIsNewAndValid()
       (localtime,
        [](std::tm *Result){ return Result != nullptr; },
        seec::ResultStateRecorderForStaticInternalObject(

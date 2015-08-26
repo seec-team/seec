@@ -25,8 +25,12 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Util/Error.hpp"
 #include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
+#include "seec/Util/Resources.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
+#include "seec/wxWidgets/Config.hpp"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -34,6 +38,7 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IRReader/IRReader.h"
@@ -45,364 +50,75 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/system_error.h"
 
 #include "unicode/unistr.h"
 
+#include "ClangMapped.hpp"
+#include "OnlinePythonTutor.hpp"
+#include "Unmapped.hpp"
+
 #include <array>
 #include <memory>
+#include <system_error>
+#include <type_traits>
 
 using namespace seec;
 using namespace llvm;
 
-namespace {
-  static cl::opt<std::string>
-  InputDirectory(cl::desc("<input trace>"), cl::Positional, cl::init(""));
+namespace seec {
+  namespace trace_print {
+    cl::opt<std::string>
+    InputDirectory(cl::desc("<input trace>"), cl::Positional, cl::init(""));
 
-  static cl::opt<bool>
-  UseClangMapping("C", cl::desc("use SeeC-Clang mapped states"));
-  
-  static cl::opt<std::string>
-  OutputDirectoryForClangMappedDot("G", cl::desc("output dot graphs to this directory"));
+    cl::opt<bool>
+    UseClangMapping("C", cl::desc("use SeeC-Clang mapped states"));
 
-  static cl::opt<bool>
-  ShowRawEvents("R", cl::desc("show raw events"));
+    cl::opt<std::string>
+    OutputDirectoryForClangMappedDot("G", cl::desc("output dot graphs to this directory"));
 
-  static cl::opt<bool>
-  ShowStates("S", cl::desc("show recreated states"));
+    cl::opt<bool>
+    TestGraphGeneration("graph-test", cl::desc("generate dot graphs (but do not write them)"));
 
-  static cl::opt<bool>
-  ShowErrors("E", cl::desc("show run-time errors"));
+    cl::opt<bool>
+    ShowCounts("counts", cl::desc("show event counts"));
+
+    cl::opt<bool>
+    ShowRawEvents("R", cl::desc("show raw events"));
+
+    cl::opt<bool>
+    ShowStates("S", cl::desc("show recreated states"));
+
+    cl::opt<bool>
+    ShowErrors("E", cl::desc("show run-time errors"));
+
+    cl::opt<bool>
+    OnlinePythonTutor("P", cl::desc("output suitable for Online Python Tutor"));
+
+    cl::opt<bool>
+    ReverseStates("reverse", cl::desc("show reverse iterated states at the end"));
+
+    cl::opt<bool>
+    ShowComparable("comparable", cl::desc("print comparable states (don't show raw addresses)"));
+
+    cl::opt<bool>
+    Quiet("quiet", cl::desc("don't print recreated states (for timing)"));
+
+    cl::opt<bool>
+    TestMovement("test-movement", cl::desc("test movement only"));
+  }
 }
 
+using namespace seec::trace_print;
+
 // From clang's driver.cpp:
-llvm::sys::Path GetExecutablePath(const char *ArgV0, bool CanonicalPrefixes) {
+std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
   if (!CanonicalPrefixes)
-    return llvm::sys::Path(ArgV0);
+    return Argv0;
 
   // This just needs to be some symbol in the binary; C++ doesn't
   // allow taking the address of ::main however.
-  void *P = (void *) (intptr_t) GetExecutablePath;
-  return llvm::sys::Path::GetMainExecutable(ArgV0, P);
-}
-
-void WriteDotGraph(seec::cm::ProcessState const &State,
-                   char const *Filename,
-                   seec::cm::graph::LayoutHandler const &Handler)
-{
-  assert(Filename && "NULL Filename.");
-  
-  std::string StreamError;
-  llvm::raw_fd_ostream Stream {Filename, StreamError};
-  
-  if (!StreamError.empty()) {
-    llvm::errs() << "Error opening dot file: " << StreamError << "\n";
-    return;
-  }
-  
-  Stream << Handler.doLayout(State).getDotString();
-}
-
-void PrintClangMapped(llvm::sys::Path const &ExecutablePath)
-{
-  // Attempt to setup the trace reader.
-  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
-  if (MaybeIBA.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeIBA.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
-  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
-
-  // Read the trace.
-  auto CMProcessTraceLoad
-    = cm::ProcessTrace::load(ExecutablePath.str(),
-                             seec::makeUnique<trace::InputBufferAllocator>
-                                             (std::move(BufferAllocator)));
-  
-  if (CMProcessTraceLoad.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(CMProcessTraceLoad.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  auto CMProcessTrace = std::move(CMProcessTraceLoad.get<0>());
-  
-  // Print the states.
-  if (ShowStates) {
-    seec::cm::ProcessState State(*CMProcessTrace);
-    
-    // If we're going to output dot graph files for the states, then setup the
-    // output directory and layout handler now.
-    std::unique_ptr<seec::cm::graph::LayoutHandler> LayoutHandler;
-    llvm::SmallString<256> OutputForDot;
-    std::string FilenameString;
-    llvm::raw_string_ostream FilenameStream {FilenameString};
-    long StateNumber = 1;
-    
-    if (!OutputDirectoryForClangMappedDot.empty()) {
-      OutputForDot = OutputDirectoryForClangMappedDot;
-      
-      bool Existed;
-      auto const Err =
-        llvm::sys::fs::create_directories(llvm::StringRef(OutputForDot),
-                                          Existed);
-      
-      if (Err != llvm::errc::success) {
-        llvm::errs() << "Couldn't create output directory.\n";
-        return;
-      }
-      
-      LayoutHandler.reset(new seec::cm::graph::LayoutHandler());
-      LayoutHandler->addBuiltinLayoutEngines();
-    }
-    
-    if (State.getThreadCount() == 1) {
-      llvm::outs() << "Using thread-level iterator.\n";
-      
-      do {
-        // Write textual description to stdout.
-        llvm::outs() << State;
-        llvm::outs() << "\n";
-        
-        // If enabled, write graphs in dot format.
-        if (!OutputForDot.empty()) {
-          // Add filename for this state.
-          FilenameString.clear();
-          FilenameStream << "state." << StateNumber++ << ".dot";
-          FilenameStream.flush();
-          
-          llvm::sys::path::append(OutputForDot, FilenameString);
-          
-          // Write the graph.
-          WriteDotGraph(State, OutputForDot.c_str(), *LayoutHandler);
-          
-          // Remove filename for this state.
-          llvm::sys::path::remove_filename(OutputForDot);
-        }
-      } while (seec::cm::moveForward(State.getThread(0)));
-    }
-    else {
-      llvm::outs() << "Using process-level iteration.\n";
-      llvm::outs() << State;
-    }
-  }
-}
-
-void PrintUnmapped(llvm::sys::Path const &ExecutablePath)
-{
-  auto &Context = llvm::getGlobalContext();
-
-  // Attempt to setup the trace reader.
-  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
-  if (MaybeIBA.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeIBA.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
-  auto BufferAllocator = MaybeIBA.get<seec::trace::InputBufferAllocator>();
-  
-  // Attempt to read the trace.
-  auto MaybeProcTrace = trace::ProcessTrace::readFrom(BufferAllocator);
-  if (MaybeProcTrace.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeProcTrace.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  std::shared_ptr<trace::ProcessTrace> Trace(MaybeProcTrace.get<0>().release());
-
-  // Load the bitcode.
-  auto MaybeMod = BufferAllocator.getModule(Context);
-  if (MaybeMod.assigned<seec::Error>()) {
-    UErrorCode Status = U_ZERO_ERROR;
-    auto Error = std::move(MaybeMod.get<seec::Error>());
-    llvm::errs() << Error.getMessage(Status, Locale()) << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  assert(MaybeMod.assigned<llvm::Module *>());
-  auto Mod = MaybeMod.get<llvm::Module *>();
-
-  // Index the llvm::Module.
-  auto ModIndexPtr = std::make_shared<seec::ModuleIndex>(*Mod, true);
-
-  // Setup diagnostics printing for Clang diagnostics.
-  IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts
-    = new clang::DiagnosticOptions();
-  DiagOpts->ShowColors = true;
-  
-  clang::TextDiagnosticPrinter DiagnosticPrinter(errs(), &*DiagOpts);
-
-  IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diagnostics
-    = new clang::DiagnosticsEngine(
-      IntrusiveRefCntPtr<clang::DiagnosticIDs>(new clang::DiagnosticIDs()),
-      &*DiagOpts,
-      &DiagnosticPrinter,
-      false);
-
-  Diagnostics->setSuppressSystemWarnings(true);
-  Diagnostics->setIgnoreAllWarnings(true);
-
-  // Setup the map to find Decls and Stmts from Instructions
-  seec::seec_clang::MappedModule MapMod(*ModIndexPtr,
-                                        ExecutablePath.str(),
-                                        Diagnostics);
-
-  // Print the raw events from each thread trace.
-  if (ShowRawEvents) {
-    auto NumThreads = Trace->getNumThreads();
-
-    outs() << "Showing raw events:\n";
-
-    for (uint32_t i = 1; i <= NumThreads; ++i) {
-      auto &&Thread = Trace->getThreadTrace(i);
-
-      outs() << "Thread #" << i << ":\n";
-
-      outs() << "Functions:\n";
-
-      for (auto Offset: Thread.topLevelFunctions()) {
-        outs() << " @" << Offset << "\n";
-        outs() << " " << Thread.getFunctionTrace(Offset) << "\n";
-      }
-
-      outs() << "Events:\n";
-
-      for (auto &&Ev: Thread.events()) {
-        if (Ev.isBlockStart())
-          outs() << "\n";
-        outs() << Ev << " @" << Thread.events().offsetOf(Ev) << "\n";
-      }
-    }
-  }
-
-  // Recreate complete process states and print the details.
-  if (ShowStates) {
-    outs() << "Recreating states:\n";
-
-    trace::ProcessState ProcState{Trace, ModIndexPtr};
-    outs() << ProcState << "\n";
-
-    while (ProcState.getProcessTime() != Trace->getFinalProcessTime()) {
-      moveForward(ProcState);
-      outs() << ProcState << "\n";
-    }
-
-    while (ProcState.getProcessTime() != 0) {
-      moveBackward(ProcState);
-      outs() << ProcState << "\n";
-    }
-  }
-
-  // Print basic descriptions of all run-time errors.
-  if (ShowErrors) {
-    clang::LangOptions LangOpt;
-
-    clang::PrintingPolicy PrintPolicy(LangOpt);
-    PrintPolicy.ConstantArraySizeAsWritten = true;
-
-    auto NumThreads = Trace->getNumThreads();
-
-    for (uint32_t i = 1; i <= NumThreads; ++i) {
-      auto &&Thread = Trace->getThreadTrace(i);
-      std::vector<uint32_t> FunctionStack;
-
-      outs() << "Thread #" << i << ":\n";
-
-      for (auto &&Ev: Thread.events()) {
-        if (Ev.getType() == trace::EventType::FunctionStart) {
-          auto const &Record = Ev.as<trace::EventType::FunctionStart>();
-          auto const Info = Thread.getFunctionTrace(Record.getRecord());
-          FunctionStack.push_back(Info.getIndex());
-        }
-        else if (Ev.getType() == trace::EventType::FunctionEnd) {
-          assert(!FunctionStack.empty());
-          
-          FunctionStack.pop_back();
-        }
-        else if (Ev.getType() == trace::EventType::RuntimeError) {
-          auto &EvRecord = Ev.as<trace::EventType::RuntimeError>();
-          if (!EvRecord.getIsTopLevel())
-            continue;
-          
-          assert(!FunctionStack.empty());
-          
-          // Print a textual description of the error.
-          auto ErrRange = rangeAfterIncluding(Thread.events(), Ev);
-          auto RunErr = deserializeRuntimeError(ErrRange);
-          
-          if (RunErr.first) {
-            using namespace seec::runtime_errors;
-            
-            auto MaybeDesc = Description::create(*RunErr.first);
-            
-            if (MaybeDesc.assigned(0)) {
-              DescriptionPrinterUnicode Printer(std::move(MaybeDesc.get<0>()),
-                                                "\n",
-                                                "  ");
-              
-              llvm::outs() << Printer.getString() << "\n";
-            }
-            else if (MaybeDesc.assigned<seec::Error>()) {
-              UErrorCode Status = U_ZERO_ERROR;
-              llvm::errs() << MaybeDesc.get<seec::Error>()
-                                       .getMessage(Status, Locale()) << "\n";
-              exit(EXIT_FAILURE);
-            }
-            else {
-              llvm::outs() << "Couldn't get error description.\n";
-            }
-          }
-
-          // Find the Instruction responsible for this error.
-          auto const Prev = trace::rfind<trace::EventType::PreInstruction>
-                                 (rangeBefore(Thread.events(), Ev));
-          assert(Prev.assigned());
-
-          auto const InstrIndex = Prev.get<0>()->getIndex();
-          assert(InstrIndex.assigned());
-
-          auto const FunIndex =
-            ModIndexPtr->getFunctionIndex(FunctionStack.back());
-          assert(FunIndex);
-
-          auto const Instr = FunIndex->getInstruction(InstrIndex.get<0>());
-          assert(Instr);
-
-          // Show the Clang Stmt that caused the error.
-          auto const StmtAndAST = MapMod.getStmtAndMappedAST(Instr);
-          assert(StmtAndAST.first && StmtAndAST.second);
-
-          auto const &AST = StmtAndAST.second->getASTUnit();
-          auto const &SrcManager = AST.getSourceManager();
-
-          auto const LocStart = StmtAndAST.first->getLocStart();
-          auto const Filename = SrcManager.getFilename(LocStart);
-          auto const Line = SrcManager.getSpellingLineNumber(LocStart);
-          auto const Column = SrcManager.getSpellingColumnNumber(LocStart);
-
-          outs() << Filename
-                 << ", Line " << Line
-                 << " Column " << Column << ":\n";
-
-          StmtAndAST.first->printPretty(outs(),
-                                        nullptr,
-                                        PrintPolicy);
-
-          outs() << "\n";
-        }
-      }
-    }
-  }
+  void *P = (void*) (intptr_t) GetExecutablePath;
+  return llvm::sys::fs::getMainExecutable(Argv0, P);
 }
 
 int main(int argc, char **argv, char * const *envp) {
@@ -413,10 +129,11 @@ int main(int argc, char **argv, char * const *envp) {
 
   cl::ParseCommandLineOptions(argc, argv, "seec trace printer\n");
 
-  llvm::sys::Path ExecutablePath = GetExecutablePath(argv[0], true);
+  auto const ExecutablePath = GetExecutablePath(argv[0], true);
 
   // Setup resource loading.
-  ResourceLoader Resources(ExecutablePath);
+  auto const ResourcePath = seec::getResourceDirectory(ExecutablePath);
+  ResourceLoader Resources(ResourcePath);
   
   std::array<char const *, 3> ResourceList {
     {"RuntimeErrors", "SeeCClang", "Trace"}
@@ -427,11 +144,24 @@ int main(int argc, char **argv, char * const *envp) {
     exit(EXIT_FAILURE);
   }
 
-  if (UseClangMapping) {
-    PrintClangMapped(ExecutablePath);
+  // Setup a dummy wxApp to enable some wxWidgets functionality.
+  seec::setupDummyAppConsole();
+
+  // Attempt to get common config files.
+  if (!seec::setupCommonConfig()) {
+    llvm::errs() << "Failed to setup configuration.\n";
+  }
+
+  // Load augmentations.
+  seec::AugmentationCollection Augmentations;
+  Augmentations.loadFromResources(ResourcePath);
+  Augmentations.loadFromUserLocalDataDir();
+
+  if (UseClangMapping || OnlinePythonTutor) {
+    PrintClangMapped(Augmentations);
   }
   else {
-    PrintUnmapped(ExecutablePath);
+    PrintUnmapped(Augmentations);
   }
   
   return EXIT_SUCCESS;

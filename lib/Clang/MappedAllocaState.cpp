@@ -75,7 +75,8 @@ std::shared_ptr<Value const> AllocaState::getValue() const {
                             Decl->getType(),
                             ASTContext,
                             UnmappedState.getAddress(),
-                            ProcessState.getUnmappedProcessState());
+                            ProcessState.getUnmappedProcessState(),
+                            &(Parent.getUnmappedState()));
 }
 
 
