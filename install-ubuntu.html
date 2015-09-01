@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Installing SeeC on Ubuntu">
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+    <title>Installing SeeC on Ubuntu</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/seec-team/seec">View on GitHub</a>
+
+          <h1 id="project_title">SeeC</h1>
+          <h2 id="project_tagline">Installing on Ubuntu</h2>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+
+        <p>
+        This page describes the process of installing SeeC on Ubuntu using SeeC's Personal Package Archive (PPA).
+        We will use Ubuntu 14.04 (Trusty Tahr).
+        This process might work on other versions of Ubuntu, or distributions based on Ubuntu, but if it does not then please <a href="mailto:matthew.heinsen.egan@gmail.com">email me</a>.
+        SeeC's PPA allows us to provide SeeC to you using Ubuntu's packaging system, which in turn makes it easy for you to update or uninstall SeeC.
+        </p>
+        
+        <ul>
+          <li>First we must add SeeC's Personal Package Archive to the system's software sources. This allows Ubuntu's package management system to find and download the SeeC package. Open the <strong>System Settings</strong>, then select <strong>Software &amp; Updates</strong>:</li>
+          <img style="margin: 10px;" src="images/install-ubuntu-01.png" /><br />
+          <br />
+          
+          <li>The following window should be displayed:</li>
+          <img style="margin: 10px;" src="img/install-ubuntu-02.png" /><br />
+          <br />
+
+          <li>Select the <strong>Other Software</strong> tab:</li>
+          <img style="margin: 10px;" src="img/install-ubuntu-03.png" /><br />
+          <br />
+
+          <li>Click on the <strong>Add...</strong> button to add a new software source:</li>
+          <img style="margin: 10px;" src="img/install-ubuntu-04.png" /><br />
+          <br />
+
+          <li>Enter the following APT line for SeeC's PPA: <strong>ppa:sen-tieshar/seec</strong></li>
+          <img style="margin: 10px;" src="img/install-ubuntu-05.png" /><br />
+          <br />
+
+          <li>Ubuntu will ask you to enter your password to authenticate the changes:</li>
+          <img style="margin: 10px;" src="img/install-ubuntu-06.png" /><br />
+          <br />
+
+          <li>Now we must tell the package management system to update its package information. Open a terminal and enter the following command to update from the package sources (including our newly added PPA):<br />
+            <kbd>sudo apt-get update</kbd>
+          </li>
+          <img style="margin: 10px;" src="img/install-ubuntu-07.png" /><br />
+          <br />
+
+          <li>Finally we can tell the package management system to download and install SeeC's package by entering the following command:<br />
+            <kbd>sudo apt-get install seec</kbd>
+          </li>
+          <img style="margin: 10px;" src="img/install-ubuntu-08.png" /><br />
+          <br />
+
+          <li>SeeC should now be installed and usable!</li>
+          <br />
+        </ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">SeeC is maintained by <a href="https://github.com/seec-team">seec-team</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
