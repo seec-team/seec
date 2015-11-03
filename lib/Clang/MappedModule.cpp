@@ -287,10 +287,21 @@ void MappedCompileInfo::createVirtualFiles(clang::FileManager &FM,
 {
   // SeeC-Clang specific: only allow the files and contents that we set below.
   FM.setDisableNonVirtualFiles(true);
+  llvm::SmallString<256> Name {};
+  llvm::SmallString<256> Path {};
 
   for (auto const &FileInfo : SourceFiles) {
-    llvm::SmallString<256> Name {FileInfo.getName()};
-    llvm::sys::path::native(Name);
+    Name = FileInfo.getName();
+    
+    for (auto &HS : HeaderSearchEntries) {
+      if (Name.startswith(HS.getPath())) {
+        Path = Name.substr(0, HS.getPath().length() + 1);
+        llvm::sys::path::native(Path);
+        Path += Name.substr(HS.getPath().length() + 1);
+        Name = std::move(Path);
+        break;
+      }
+    }
 
     auto &Contents = FileInfo.getContents();
     auto const Entry = FM.getVirtualFile(Name,
@@ -562,7 +573,8 @@ MappedModule::MappedModule(
 
       auto const Decl = AST->getDeclFromIdx(DeclIdx->getZExtValue());
       if (!Decl) {
-        DEBUG(dbgs() << "Global's Decl is null.\n");
+        DEBUG(dbgs() << "Global's Decl is null (idx = "
+                     << DeclIdx->getZExtValue() << ").\n");
         continue;
       }
       
