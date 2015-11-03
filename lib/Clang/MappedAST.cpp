@@ -155,15 +155,27 @@ public:
   
   /// \brief Print Decl kinds and Stmt classes in visitation order.
   ///
-  void printInVisitationOrder() const
+  void printInVisitationOrder(clang::SourceManager &SM) const
   {
     llvm::errs() << "decls:\n";
-    for (auto const D : Decls)
-      llvm::errs() << "  " << D->getDeclKindName() << "\n";
+    unsigned Index = 0;
+    for (auto const D : Decls) {
+      auto const Loc = D->getLocation();
+      llvm::errs() << "  " << '[' << Index++ << "] "
+                  << D->getDeclKindName()
+                  << " (" << SM.getFilename(Loc)
+                  << ":" << SM.getSpellingLineNumber(Loc) << ")\n";
+    }
 
     llvm::errs() << "stmts:\n";
-    for (auto const S : Stmts)
-      llvm::errs() << "  " << S->getStmtClassName() << "\n";
+    Index = 0;
+    for (auto const S : Stmts) {
+      auto const Loc = S->getLocStart();
+      llvm::errs() << "  " << '[' << Index++ << "] "
+                  << S->getStmtClassName()
+                  << " (" << SM.getFilename(Loc)
+                  << ":" << SM.getSpellingLineNumber(Loc) << ")\n";
+    }
   }
 
   /// @}
@@ -200,7 +212,7 @@ MappedAST::FromASTUnit(MappedCompileInfo const &FromCompileInfo,
   Mapper.revisitVariableArrayTypeSizeExprs();
 
 #if defined(SEEC_DEBUG_NODE_MAPPING)
-  Mapper.printInVisitationOrder();
+  Mapper.printInVisitationOrder(AST->getSourceManager());
 #endif
 
   auto Mapped = std::unique_ptr<MappedAST>(new MappedAST(FromCompileInfo,
