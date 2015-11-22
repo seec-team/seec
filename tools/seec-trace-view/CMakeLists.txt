@@ -94,6 +94,11 @@ set(SEEC_TRACE_VIEW_SRCS
   ValueFormat.cpp
   WelcomeFrame.cpp
   )
+  
+# include icon in executable on windows
+if (WIN32)
+  set(SEEC_TRACE_VIEW_SRCS ${SEEC_TRACE_VIEW_SRCS} MSW/seec-view.rc)
+endif (WIN32)
 
 #--------------------------------------------------------------------------------
 # Create the executable.
