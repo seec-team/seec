@@ -470,6 +470,47 @@ public:
   }
 };
 
+namespace {
+
+void printInVisitationOrder(SeeCCodeGenAction &Action,
+                            SourceManager &SM)
+{
+  auto &DeclMap = Action.getDeclMap();
+  auto &StmtMap = Action.getStmtMap();
+
+  std::vector< ::clang::Decl const *> Decls;
+  Decls.resize(DeclMap.size());
+  for (auto const &Pair : DeclMap)
+    Decls[Pair.second] = Pair.first;
+
+  std::vector< ::clang::Stmt const *> Stmts;
+  Stmts.resize(StmtMap.size());
+  for (auto const &Pair : StmtMap)
+    Stmts[Pair.second] = Pair.first;
+
+  llvm::errs() << "decls:\n";
+  unsigned Index = 0;
+  for (auto const D : Decls) {
+    auto const Loc = D->getLocation();
+    llvm::errs() << "  " << '[' << Index++ << "] "
+                << D->getDeclKindName()
+                << " (" << SM.getFilename(Loc)
+                << ":" << SM.getSpellingLineNumber(Loc) << ")\n";
+  }
+
+  llvm::errs() << "stmts:\n";
+  Index = 0;
+  for (auto const S : Stmts) {
+    auto const Loc = S->getLocStart();
+    llvm::errs() << "  " << '[' << Index++ << "] "
+                << S->getStmtClassName()
+                << " (" << SM.getFilename(Loc)
+                << ":" << SM.getSpellingLineNumber(Loc) << ")\n";
+  }
+}
+
+}
+
 /// Modify Mod's Metadata to use numbered mappings rather than pointers.
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
@@ -485,25 +526,7 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto &StmtMap = Action.getStmtMap();
 
 #if defined(SEEC_DEBUG_NODE_MAPPING)
-  {
-    std::vector< ::clang::Decl const *> Decls;
-    Decls.resize(DeclMap.size());
-    for (auto const &Pair : DeclMap)
-      Decls[Pair.second] = Pair.first;
-
-    std::vector< ::clang::Stmt const *> Stmts;
-    Stmts.resize(StmtMap.size());
-    for (auto const &Pair : StmtMap)
-      Stmts[Pair.second] = Pair.first;
-
-    llvm::errs() << "decls:\n";
-    for (auto const D : Decls)
-      llvm::errs() << "  " << D->getDeclKindName() << "\n";
-
-    llvm::errs() << "stmts:\n";
-    for (auto const S : Stmts)
-      llvm::errs() << "  " << S->getStmtClassName() << "\n";
-  }
+  printInVisitationOrder(Action, SM);
 #endif
 
   llvm::SmallString<256> CurrentDirectory;

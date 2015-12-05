@@ -320,6 +320,7 @@ int main(int argc, char **argv)
     
     // Codegen this Module to an object format and write it to a temporary file.
     TempObj = Compile(argv[0], *Composite, TempObjPath);
+    TempObj->os().close();
     
     // Insert the temporary file's path into the forwarding arguments.
     ForwardArgs.insert(ForwardArgs.begin() + InsertCompositePathAt,
