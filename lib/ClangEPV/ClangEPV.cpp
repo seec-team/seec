@@ -143,6 +143,7 @@ Formattable formatAsString(::clang::UnaryExprOrTypeTrait Kind) {
 SEEC_KIND_STRINGIZE(UETT_SizeOf)
 SEEC_KIND_STRINGIZE(UETT_AlignOf)
 SEEC_KIND_STRINGIZE(UETT_VecStep)
+SEEC_KIND_STRINGIZE(UETT_OpenMPRequiredSimdAlign)
 
 #undef SEEC_KIND_STRINGIZE
   }
