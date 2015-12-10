@@ -65,12 +65,12 @@ public:
     m_Book = new wxListbook(this, wxID_ANY);
 
     // Create individual pages of the book.
-    AddPage(new LocaleSettingsWindow(this));
-    AddPage(new ColourSchemeSettingsWindow(this, wxGetApp()
+    AddPage(new LocaleSettingsWindow(m_Book));
+    AddPage(new ColourSchemeSettingsWindow(m_Book, wxGetApp()
                                                    .getColourSchemeSettings()));
-    AddPage(new AugmentationSettingsWindow(this));
-    AddPage(new StateGraphViewerPreferencesWindow(this));
-    AddPage(new TracingPreferencesWindow(this));
+    AddPage(new AugmentationSettingsWindow(m_Book));
+    AddPage(new StateGraphViewerPreferencesWindow(m_Book));
+    AddPage(new TracingPreferencesWindow(m_Book));
 
     // Create accept/cancel buttons.
     auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);
