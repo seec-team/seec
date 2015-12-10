@@ -65,38 +65,13 @@
 #include "ProcessMoveEvent.hpp"
 #include "StateAccessToken.hpp"
 #include "StateGraphViewer.hpp"
+#include "StateGraphViewerPreferences.hpp"
 #include "TraceViewerApp.hpp"
 
 
 //------------------------------------------------------------------------------
 // Helper functions
 //------------------------------------------------------------------------------
-
-static std::string FindDotExecutable()
-{
-#if defined(_WIN32)
-  auto const DotName = "dot.exe";
-#else
-  auto const DotName = "dot";
-#endif
-
-  auto SearchEnvPath = llvm::sys::findProgramByName(DotName);
-  if (SearchEnvPath)
-    return std::move(*SearchEnvPath);
-  
-  // TODO: give the user control over where dot is found. 
-  llvm::StringRef SearchPaths[] = {
-    "/usr/bin",
-    "/usr/local/bin",
-    "C:\\graphviz\\bin"
-  };
-  
-  auto SearchManual = llvm::sys::findProgramByName(DotName, SearchPaths);
-  if (SearchManual)
-    return std::move(*SearchManual);
-  
-  return std::string{};
-}
 
 void convertTextStyleToJSON(llvm::raw_string_ostream &Stream,
                             llvm::StringRef StyleName,
@@ -383,6 +358,8 @@ void StateGraphViewerPanel::workerTaskLoop()
     }
 
     if (Result) {
+      // TODO: send a message to the user - possibly they have selected the
+      // wrong executable?
       wxLogDebug("Dot returned non-zero.");
       continue;
     }
@@ -614,7 +591,7 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   SetSizerAndFit(Sizer);
   
   // Find the dot executable.
-  PathToDot = FindDotExecutable();
+  PathToDot = getPathForDotExecutable();
   
   if (!PathToDot.empty())
   {

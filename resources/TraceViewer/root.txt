@@ -275,6 +275,25 @@ root:table {
 
 
     //
+    // State graph viewer preferences
+    //
+
+    StateGraphViewerPreferences:table {
+      Title:string {"Graph"}
+
+      DotLocationLabel:string {"Location of dot executable:"}
+
+      DotLocationPrompt:string {"Select the dot executable"}
+
+      DotNotExecutableCaption:string {"Dot not executable"}
+
+      DotNotExecutableMessage:string {"The selected file does not appear to be executable. Please select the dot executable provided by Graphviz."}
+
+      RestartForEffectLabel:string {"SeeC must be restarted for this change to take effect."}
+    }
+
+
+    //
     // Annotation editor
     //
 

@@ -26,6 +26,7 @@
 #include "ColourSchemeSettings.hpp"
 #include "LocaleSettings.hpp"
 #include "Preferences.hpp"
+#include "StateGraphViewerPreferences.hpp"
 #include "TraceViewerApp.hpp"
 #include "TracingPreferences.hpp"
 
@@ -68,6 +69,7 @@ public:
     AddPage(new ColourSchemeSettingsWindow(this, wxGetApp()
                                                    .getColourSchemeSettings()));
     AddPage(new AugmentationSettingsWindow(this));
+    AddPage(new StateGraphViewerPreferencesWindow(this));
     AddPage(new TracingPreferencesWindow(this));
 
     // Create accept/cancel buttons.
