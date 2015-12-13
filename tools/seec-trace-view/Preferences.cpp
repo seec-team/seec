@@ -56,7 +56,9 @@ public:
     auto const Title = seec::towxString(ResText["Title"].asStringOrDefault(""));
 
     if (!wxDialog::Create(nullptr, wxID_ANY, Title, wxDefaultPosition,
-                          wxSize(700, 300)))
+                          wxSize(700, 300),
+                          wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER |
+                          wxMAXIMIZE_BOX | wxMINIMIZE_BOX))
     {
       return;
     }

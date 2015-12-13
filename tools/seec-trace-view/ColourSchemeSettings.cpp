@@ -418,10 +418,10 @@ public:
                     .Align(wxALIGN_CENTRE_VERTICAL));
 
     TheSizer->Add(DefaultFGColourPicker,
-                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
 
     TheSizer->Add(DefaultBGColourPicker,
-                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
 
     SetSizerAndFit(TheSizer.release());
   }
@@ -595,7 +595,8 @@ bool ColourSchemeSettingsWindow::Create(wxWindow *Parent,
       OnColourSchemeUpdated();                                                 \
       Ev.Skip(); }));                                                          \
   TextStyleListSizer->Add(STYLE_NAME##Control,                                 \
-                          wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT, 5));
+                          wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT, 5));\
+  TextStyleListSizer->AddSpacer(3);
 
   SEEC_ADD_EDIT_CONTROL(Default)
   SEEC_ADD_EDIT_CONTROL(LineNumber)

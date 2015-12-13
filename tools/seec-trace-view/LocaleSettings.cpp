@@ -82,11 +82,12 @@ bool LocaleSettingsWindow::Create(wxWindow *Parent)
                                     wxID_ANY,
                                     wxEmptyString,
                                     wxDefaultPosition,
-                                    wxSize(300, wxDefaultSize.GetHeight()),
+                                    wxDefaultSize,
                                     0,
                                     nullptr,
                                     wxCB_READONLY);
-
+  
+  // Now add items for all locales.
   int CurrentLocaleIndex = wxNOT_FOUND;
 
   int32_t NumLocales = 0;
@@ -146,7 +147,11 @@ bool LocaleSettingsWindow::Create(wxWindow *Parent)
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
-  ParentSizer->Add(m_Selector, wxSizerFlags().Expand().Border(wxALL, 5));
+#if !defined(__WXMSW__)
+  ParentSizer->AddSpacer(5);
+#endif
+  ParentSizer->Add(m_Selector, wxSizerFlags().Expand()
+                                             .Border(wxLEFT | wxRIGHT, 5));
 
   SetSizerAndFit(ParentSizer);
 
