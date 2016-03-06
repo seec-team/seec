@@ -368,6 +368,17 @@ static bool matchType(::clang::ASTContext const &AContext,
 
 static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &AHistory,
+                      ::clang::PipeType const *A,
+                      ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
+                      ::clang::PipeType const *B)
+{
+  llvm_unreachable("matchType: PipeType not supported.");
+  return false;
+}
+
+static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::AtomicType const *A,
                       ::clang::ASTContext const &BContext,
                       HistoryTy &BHistory,

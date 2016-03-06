@@ -26,6 +26,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
@@ -127,6 +128,7 @@ SEEC_OPCODE_STRINGIZE(UO_LNot)
 SEEC_OPCODE_STRINGIZE(UO_Real)
 SEEC_OPCODE_STRINGIZE(UO_Imag)
 SEEC_OPCODE_STRINGIZE(UO_Extension)
+SEEC_OPCODE_STRINGIZE(UO_Coawait)
 
 #undef SEEC_OPCODE_STRINGIZE
   }
@@ -166,6 +168,8 @@ Formattable formatAsString(::clang::CharacterLiteral::CharacterKind Kind) {
       return formatAsString("ASCII");
     case ::clang::CharacterLiteral::CharacterKind::Wide:
       return formatAsString("Wide");
+    case ::clang::CharacterLiteral::CharacterKind::UTF8:
+      return formatAsString("UTF8");
     case ::clang::CharacterLiteral::CharacterKind::UTF16:
       return formatAsString("UTF-16");
     case ::clang::CharacterLiteral::CharacterKind::UTF32:

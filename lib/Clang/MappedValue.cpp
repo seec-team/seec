@@ -413,6 +413,7 @@ getScalarValueAsString(clang::ASTContext const &AST,
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
+    SEEC_UNHANDLED_TYPE_CLASS(Pipe)
     
     SEEC_UNHANDLED_TYPE_CLASS(Vector) // GCC extension
     SEEC_UNHANDLED_TYPE_CLASS(ExtVector) // Extension
@@ -1552,9 +1553,19 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dDepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayDepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAA)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAA)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAADepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAADepth)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
     SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
+    SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
+    SEEC_UNHANDLED_BUILTIN(OCLQueue)
+    SEEC_UNHANDLED_BUILTIN(OCLNDRange)
+    SEEC_UNHANDLED_BUILTIN(OCLReserveID)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
     SEEC_UNHANDLED_BUILTIN(BoundMember)
@@ -1562,6 +1573,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(UnknownAny)
     SEEC_UNHANDLED_BUILTIN(BuiltinFn)
     SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
+    SEEC_UNHANDLED_BUILTIN(OMPArraySection)
 
 #undef SEEC_HANDLE_BUILTIN_UNSIGNED
 #undef SEEC_HANDLE_BUILTIN_SIGNED
@@ -1742,9 +1754,19 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
     SEEC_UNHANDLED_BUILTIN(OCLImage2d)
     SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dDepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayDepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAA)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAA)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAADepth)
+    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAADepth)
     SEEC_UNHANDLED_BUILTIN(OCLImage3d)
     SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
+    SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
+    SEEC_UNHANDLED_BUILTIN(OCLQueue)
+    SEEC_UNHANDLED_BUILTIN(OCLNDRange)
+    SEEC_UNHANDLED_BUILTIN(OCLReserveID)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
     SEEC_UNHANDLED_BUILTIN(BoundMember)
@@ -1752,6 +1774,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(UnknownAny)
     SEEC_UNHANDLED_BUILTIN(BuiltinFn)
     SEEC_UNHANDLED_BUILTIN(ARCUnbridgedCast)
+    SEEC_UNHANDLED_BUILTIN(OMPArraySection)
 
 #undef SEEC_HANDLE_BUILTIN
 #undef SEEC_UNHANDLED_BUILTIN
@@ -1858,6 +1881,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
+    SEEC_UNHANDLED_TYPE_CLASS(Pipe) // OpenCL
     
     // May not be needed because we are only interested in runtime values (not
     // in-memory values)?
@@ -2428,6 +2452,7 @@ createValue(std::shared_ptr<ValueStore const> Store,
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
+    SEEC_UNHANDLED_TYPE_CLASS(Pipe) // OpenCL
     
     SEEC_UNHANDLED_TYPE_CLASS(Vector) // GCC extension
     SEEC_UNHANDLED_TYPE_CLASS(ExtVector) // Extension
