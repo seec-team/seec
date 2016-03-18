@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-if [ "$#" -ne 3]; then
+if [ "$#" -ne 3　]; then
   echo "Usage: $0 VERSION LOCAL_PATH GUI_PATH"
   echo "  VERSION is a version string such as 0.26.0-alpha"
   echo "  LOCAL_PATH is the path to the command line tools e.g. /usr/local"

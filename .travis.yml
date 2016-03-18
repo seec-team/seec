@@ -142,8 +142,7 @@ after_success:
       OSX_PACKAGE_DIR=${HOME}/seec-osx-package
       mkdir -p ${OSX_PACKAGE_DIR}
       cd ${OSX_PACKAGE_DIR}
-      ${TRAVIS_BUILD_DIR}/packaging/osx/package_seec.sh 0.27.0-alpha ${OSX_PACKAGE_DIR} ${OSX_PACKAGE_DIR}/Applications
-      
+      ${TRAVIS_BUILD_DIR}/packaging/osx/package_seec.sh 0.27.0-alpha ${HOME}/seec-install /Applications
     fi
 
 #
