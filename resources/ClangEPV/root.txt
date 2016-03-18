@@ -1400,6 +1400,8 @@ root:table {
 
       " UO_Extension {This is the extension marker.}"
 
+      " UO_Coawait {This is coawait.}"
+
       " other {}}"
     }
 

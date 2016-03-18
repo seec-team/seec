@@ -259,12 +259,9 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
   llvm::sys::path::append(Path, getModuleFilename());
   
   // Attempt to open an output buffer for the bitcode file.
-  std::unique_ptr<llvm::FileOutputBuffer> Output;
-  
-  auto ErrCode = llvm::FileOutputBuffer::create(llvm::StringRef(Path),
-                                                Bitcode.size(),
-                                                Output);
-  if (ErrCode) {
+  auto OutputOrErr = llvm::FileOutputBuffer::create(llvm::StringRef(Path),
+                                                    Bitcode.size());
+  if (!OutputOrErr) {
     return Error{LazyMessageByRef::create("Trace",
                                           {"errors", "FileOutputBufferFail"},
                                           std::make_pair("path",
@@ -272,8 +269,8 @@ OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
   }
   
   // Copy the bitcode into the output buffer and commit it.
-  std::memcpy(Output->getBufferStart(), Bitcode.data(), Bitcode.size());
-  Output->commit();
+  std::memcpy((*OutputOrErr)->getBufferStart(), Bitcode.data(), Bitcode.size());
+  (*OutputOrErr)->commit();
   
   // Save the relative path to the module.
   TraceFiles.emplace(getModuleFilename());

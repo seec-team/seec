@@ -290,7 +290,7 @@ int main(int argc, char **argv)
       if (Module) {
         if (Linker) {
           // Attempt to link this new Module to the existing Module.
-          if (Linker->linkInModule(Module.get())) {
+          if (Linker->linkInModule(std::move(Module))) {
             llvm::errs() << argv[0] << ": error linking '" << argv[i] << "'\n";
             exit(EXIT_FAILURE);
           }
@@ -298,7 +298,7 @@ int main(int argc, char **argv)
         else {
           // This becomes our base Module.
           Composite = std::move(Module);
-          Linker.reset(new llvm::Linker(Composite.get()));
+          Linker.reset(new llvm::Linker(*Composite));
           InsertCompositePathAt = ForwardArgs.size();
         }
         

@@ -18,6 +18,25 @@ Process @3
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
+ Thread #1 @TT=7
+  Function [Index=3]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x8]
+    4 =[1x16]
+   Instruction values [Active=5]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+
+Process @4
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
  Thread #1 @TT=8
   Function [Index=3]
    Allocas:
@@ -26,16 +45,14 @@ Process @3
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
    Instruction values [Active=6]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
 
-Process @4
+Process @5
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
@@ -47,16 +64,14 @@ Process @4
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=7]:
+   Instruction values [Active=8]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
 
-Process @5
+Process @6
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
@@ -68,41 +83,18 @@ Process @5
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=9]:
+   Instruction values [Active=10]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-
-Process @6
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=11
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=11]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
 
 Process @7
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=24
+ Thread #1 @TT=23
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -110,31 +102,29 @@ Process @7
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=28]:
+   Instruction values [Active=27]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
 
 Process @8
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=29
+ Thread #1 @TT=28
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -142,35 +132,33 @@ Process @8
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=33]:
+   Instruction values [Active=32]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
 
 Process @9
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=32
+ Thread #1 @TT=39
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -178,74 +166,32 @@ Process @9
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=36]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
-
-Process @10
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=43
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
-    14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
-    19 = 
-    20 = 
-    21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
-    29 = 
-    30 = 
-    31 = 
-    32 = 
-    34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -253,6 +199,53 @@ Process @10
     0 = 
     1 = 
     2 = 
+
+Process @10
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=41
+  Function [Index=3]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x8]
+    4 =[1x16]
+   Instruction values [Active=38]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
+    14 = (int64_t)0, (uint64_t)0
+    18 = 
+    19 = 
+    20 = 
+    21 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
+    29 = 
+    30 = 
+    31 = 
+    33 = 
+    34 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
+    37 = 
+  Function [Index=0]
+   Allocas:
+    0 =[1x16]
+   Instruction values [Active=5]:
+    0 = 
+    1 = 
+    2 = 
+    4 = 
 
 Process @11
  Dynamic Allocations: 0
@@ -266,87 +259,32 @@ Process @11
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
-  Function [Index=0]
-   Allocas:
-    0 =[1x16]
-   Instruction values [Active=5]:
-    0 = 
-    1 = 
-    2 = 
-    4 = 
-
-Process @12
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=49
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
-    14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
-    19 = 
-    20 = 
-    21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
-    29 = 
-    30 = 
-    31 = 
-    32 = 
-    34 = 
-    35 = 
-    37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -360,54 +298,11 @@ Process @12
     9 = 
     10 = (int64_t)18, (uint64_t)18
 
-Process @13
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=50
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
-    14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
-    19 = 
-    20 = 
-    21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
-    29 = 
-    30 = 
-    31 = 
-    32 = 
-    34 = 
-    35 = 
-    37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
-
 Process @12
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=49
+ Thread #1 @TT=46
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -415,54 +310,38 @@ Process @12
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
-  Function [Index=0]
-   Allocas:
-    0 =[1x16]
-   Instruction values [Active=10]:
-    0 = 
-    1 = 
-    2 = 
-    4 = 
-    7 = 
-    8 = 
-    9 = 
-    10 = (int64_t)18, (uint64_t)18
 
 Process @11
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=48
+ Thread #1 @TT=45
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -470,40 +349,36 @@ Process @11
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
   Function [Index=0]
    Allocas:
     0 =[1x16]
-   Instruction values [Active=9]:
+   Instruction values [Active=10]:
     0 = 
     1 = 
     2 = 
@@ -511,6 +386,7 @@ Process @11
     7 = 
     8 = 
     9 = 
+    10 = (int64_t)18, (uint64_t)18
 
 Process @10
  Dynamic Allocations: 0
@@ -524,36 +400,82 @@ Process @10
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
+  Function [Index=0]
+   Allocas:
+    0 =[1x16]
+   Instruction values [Active=9]:
+    0 = 
+    1 = 
+    2 = 
+    4 = 
+    7 = 
+    8 = 
+    9 = 
+
+Process @9
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=40
+  Function [Index=3]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x8]
+    4 =[1x16]
+   Instruction values [Active=38]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
+    14 = (int64_t)0, (uint64_t)0
+    18 = 
+    19 = 
+    20 = 
+    21 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
+    29 = 
+    30 = 
+    31 = 
+    33 = 
+    34 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
+    37 = 
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -563,11 +485,11 @@ Process @10
     2 = 
     4 = 
 
-Process @9
+Process @8
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=42
+ Thread #1 @TT=38
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -575,36 +497,32 @@ Process @9
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=42]:
+   Instruction values [Active=38]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
+    33 = 
     34 = 
-    35 = 
+    35 = (int64_t)0, (uint64_t)0
+    36 = 
     37 = 
-    38 = 
-    39 = (int64_t)0, (uint64_t)0
-    40 = 
-    41 = 
   Function [Index=0]
    Allocas:
     0 =[1x16]
@@ -613,49 +531,11 @@ Process @9
     1 = 
     2 = 
 
-Process @8
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=31
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=35]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
-    14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
-    19 = 
-    20 = 
-    21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
-    29 = 
-    30 = 
-    31 = 
-    32 = 
-    34 = 
-    35 = 
-
 Process @7
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=28
+ Thread #1 @TT=27
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -663,35 +543,33 @@ Process @7
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=32]:
+   Instruction values [Active=31]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
+    28 = 
     29 = 
     30 = 
     31 = 
-    32 = 
 
 Process @6
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
- Thread #1 @TT=23
+ Thread #1 @TT=22
   Function [Index=3]
    Allocas:
     0 =[1x4]
@@ -699,48 +577,25 @@ Process @6
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=27]:
+   Instruction values [Active=26]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
-    13 = (int64_t)2, (uint64_t)2
+    12 = (int64_t)2, (uint64_t)2
+    13 = (int64_t)0, (uint64_t)0
     14 = (int64_t)0, (uint64_t)0
-    15 = (int64_t)0, (uint64_t)0
+    18 = 
     19 = 
     20 = 
     21 = 
-    22 = 
-    23 = (int64_t)0, (uint64_t)0
-    24 = (int64_t)-1, (uint64_t)1
-    25 = (int64_t)1, (uint64_t)1
-    27 = 
+    22 = (int64_t)0, (uint64_t)0
+    23 = (int64_t)-1, (uint64_t)1
+    24 = (int64_t)1, (uint64_t)1
+    26 = 
 
 Process @5
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=10
-  Function [Index=3]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x8]
-    4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=9]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-
-Process @4
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
@@ -752,16 +607,14 @@ Process @4
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
-   Instruction values [Active=7]:
+   Instruction values [Active=8]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
 
-Process @3
+Process @4
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
@@ -773,16 +626,14 @@ Process @3
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
    Instruction values [Active=6]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
 
-Process @2
+Process @3
  Dynamic Allocations: 0
  Open Streams: 3
  Open DIRs: 0
@@ -794,14 +645,31 @@ Process @2
     2 =[1x8]
     3 =[1x8]
     4 =[1x16]
-    5 =[1x16]
    Instruction values [Active=5]:
     0 = 
     1 = 
     2 = 
     3 = 
     4 = 
-    5 = 
+
+Process @2
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=6
+  Function [Index=3]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+    3 =[1x8]
+    4 =[1x16]
+   Instruction values [Active=4]:
+    0 = 
+    1 = 
+    2 = 
+    3 = 
+    4 = 
 
 Process @0
  Dynamic Allocations: 0
