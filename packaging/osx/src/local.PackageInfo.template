@@ -1,0 +1,4 @@
+
+<pkg-info format-version="2" identifier="au.edu.uwa.csse.seec.cl.pkg" version="SEEC_VERSION" install-location="/usr/local" auth="root">
+    <payload installKBytes="SEEC_CL_INSTALL_KBYTES" numberOfFiles="SEEC_CL_NUM_FILES"/>
+</pkg-info>

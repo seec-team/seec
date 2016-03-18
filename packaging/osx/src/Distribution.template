@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-script minSpecVersion="1.000000">
+    <title>SeeC</title>
+    <options customize="never" allow-external-scripts="no"/>
+    <domains enable_localSystem="true"/>
+    <license file="license.rtf"/>
+    <welcome file="welcome.rtf"/>
+    <choices-outline>
+        <line choice="cl"/>
+        <line choice="viewer"/>
+    </choices-outline>
+    <choice id="cl" title="Command Line Tools">
+        <pkg-ref id="au.edu.uwa.csse.seec.cl.pkg"/>
+    </choice>
+    <choice id="viewer" title="Trace Viewer Application">
+        <pkg-ref id="au.edu.uwa.csse.seec.viewer.pkg"/>
+    </choice>
+    <pkg-ref id="au.edu.uwa.csse.seec.cl.pkg" installKBytes="SEEC_CL_INSTALL_KBYTES" version="SEEC_VERSION" auth="Root">#local.pkg</pkg-ref>
+    <pkg-ref id="au.edu.uwa.csse.seec.viewer.pkg" installKBytes="SEEC_VIEWER_INSTALL_KBYTES" version="SEEC_VERSION" auth="Root">#seec-view.pkg</pkg-ref>
+</installer-script>

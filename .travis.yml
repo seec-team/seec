@@ -136,3 +136,27 @@ after_success:
     cd ${HOME}/seec-test
     cmake -DSEEC_INSTALL=${HOME}/seec-install ${TRAVIS_BUILD_DIR}/tests
     make && make test
+
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+      OSX_PACKAGE_DIR=${HOME}/seec-osx-package
+      mkdir -p ${OSX_PACKAGE_DIR}
+      cd ${OSX_PACKAGE_DIR}
+      ${TRAVIS_BUILD_DIR}/packaging/osx/package_seec.sh 0.27.0-alpha ${OSX_PACKAGE_DIR} ${OSX_PACKAGE_DIR}/Applications
+      
+    fi
+
+#
+# For OS X, if this is tagged, then upload the package to GitHub.
+#
+deploy:
+  provider: releases
+  api_key:
+    secure: c+WV2+zKZNtzuhbtH16cnBtDd467IkPJ10sRhQcb7AUfMSHlK2FeJrA8MFw/dFJ0/tmrqYzb4apkZGFQPphU22ZDsZj6tE2bnHDFz1viyMuV/4SRHiqSm5/yJw8S+bNAhNYz7U3g+0Y1+vhqbg4bD+xPM/chIYyf5kVu2nNjCnScmFSVSOH0h9TSmUB4ipdUB9XHA5akO6uCfKR8UMTV9jKyN7ZfUs5lruaPfWXEKP+BdkB1lrB3STyUh6VUpX+do7VlbAOt7AhhRxcZmgXp1ZuNJso9QPpnfoRAQSaxkVijbYljOxz6FHaQqxSTMfrVdWGHsHqLveAbDAQmbsBVw6v5KSMXxSycZanA8djWGxpdaJYRlXyVfsg5bgqta+/db54Cwj2gowGGuC35cPxSqrB2Nt5OpWi/3xahP3YTGY9ZJOMx+nE2GVcqb3tPVS1/CV2mHtSWgrWNQSkCC5F72fi8lkh3c1N3El1ovNCWCJYIiaQ0b2kpbWaBI8z6lnS7bB7X3H2BfCWrkbKApZuzFmAVA9YDcDvSCloU/Oy2lVLVd3OhCmLmFDvJQJjehH8PkWLCl+qrDvMufnvOTBmyRkrWjc6M9uwxFvOIqWBx0ankxrRBaiIlzjt6XqhxuVkI2T0qTjuBfQWS8TH1uObXDzxDtXfcyLVZD13GSOlfBPc=
+  file: "${OSX_PACKAGE_DIR}/seec-0.27.0-alpha.pkg"
+  skip_cleanup: true
+  on:
+    condition: "${TRAVIS_OS_NAME} = osx"
+    tags: true
+    repo: seec-team/seec
+
