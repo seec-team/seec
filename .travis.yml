@@ -34,6 +34,11 @@ addons:
    - libwebkitgtk-dev
 
 before_install:
+  - SEEC_CLANG_RELEASE_TAG="v38_0.1.0"
+  - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
+  - CMAKE_URL="http://www.cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz"
+  - WXWIDGETS_VERSION_TAG="v3.0.2"
+  - SEEC_VERSION_STRING="0.27.0"
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 
 install:
@@ -55,7 +60,6 @@ install:
     cd ${DEPS_INSTALL}
     if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
       if [ ! -d "cmake" ]; then
-        CMAKE_URL="http://www.cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz"
         mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
       fi
       export PATH=${DEPS_INSTALL}/cmake/bin:${PATH}
@@ -68,7 +72,6 @@ install:
   - |
     cd ${DEPS_INSTALL}
     if [ ! -d "include/llvm" ]; then
-      SEEC_CLANG_RELEASE_TAG="v38_0.1.0"
       SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
       travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/seec-clang/releases/download/${SEEC_CLANG_RELEASE_TAG}/${SEEC_CLANG_BUILT_XZ_FILENAME} | tar -xJ
     fi
@@ -79,7 +82,6 @@ install:
     if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
       if [ ! -e "${DEPS_INSTALL}/bin/icu-config" ]; then
         cd ${DEPS_SRC}
-        ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
         ICU_INSTALL_DIR="${DEPS_INSTALL}"
         travis_retry wget --no-check-certificate --quiet -O - ${ICU_SOURCE_URL} | tar -x
         cd icu/source
@@ -98,7 +100,7 @@ install:
       cd ${DEPS_SRC}
       git clone https://github.com/wxWidgets/wxWidgets.git wxWidgets
       cd wxWidgets
-      git checkout v3.0.2
+      git checkout ${WXWIDGETS_VERSION_TAG}
       cd ${DEPS_BUILD}
       mkdir wxWidgets && cd wxWidgets
       if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
@@ -142,7 +144,7 @@ after_success:
       OSX_PACKAGE_DIR=${HOME}/seec-osx-package
       mkdir -p ${OSX_PACKAGE_DIR}
       cd ${OSX_PACKAGE_DIR}
-      ${TRAVIS_BUILD_DIR}/packaging/osx/package_seec.sh 0.27.0-alpha ${HOME}/seec-install /Applications
+      ${TRAVIS_BUILD_DIR}/packaging/osx/package_seec.sh ${SEEC_VERSION_STRING} ${HOME}/seec-install /Applications
     fi
 
 #
@@ -152,7 +154,7 @@ deploy:
   provider: releases
   api_key:
     secure: sfv/wVHWC0nuKqV95HeqA50NLK/rpR7jKy42MTMdG1gvU7IYdzAkav7fOk9lCs6rWKHdpVA9XBUk2nd6pNPm6/iYZH/VczzYQQv8/9Rsh2gYkvn/aGoSgJ7GzjUzs5L+EUbOHtEI/ddURSQQ6JDDk1qMJh+E2wlEr8nuAn+rJen/xTfB5YU+qkliBHR0Qm/P3iVm6OZapXFNG3/8G4mQagYDISc3DUuRnkjBMcFtb2bUlBh465vzXUHH0qik9Nw7jLKYSqcvpNDIBMAD/0PxGCRmnDhaCGUVx9UVCooNgmfBNd2pZWIDHGbCPDkNGeu3+KRbdwol3jV6MlRfVpafI6vO7b/ujFBgw7rm7MwwcKMIIpMXrD3HwDFy+/dTZVFz8+jOuH7pqjl4L1soIItGPYW67A7UshtTOegLBDRoj/BIv3ZlwOFr0WWe0XYmfL2on/nvmwhw0yhTIEH7I5knCex+xrpiUnPuDdfM1Hj308QD9AmJahWmZl0DgEe3GIvHN9kBVNtdBL5nsYPWpz75FpVXpI5sKLpgwHIJCIOFjjDCoMy+MKD7r+5w2poz18yfzvNfHxHNFOZ1NobGLPOFgNNUx8YTopzYybx9+2oeAHGErLWKBpWCpp00/28uvp9aGKwiNMFf2Az853Pb2GLDXK/WxlPYjsJu8xJ7MjCd3dM=
-  file: "${OSX_PACKAGE_DIR}/seec-0.27.0-alpha.pkg"
+  file: "${OSX_PACKAGE_DIR}/seec-${SEEC_VERSION_STRING}.pkg"
   skip_cleanup: true
   on:
     condition: "${TRAVIS_OS_NAME} = osx"
