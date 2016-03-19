@@ -8,8 +8,6 @@ if [[ "$#" -ne 3 ]] ; then
   exit 1
 fi
 
-exit 0
-
 SEEC_VERSION=$1    # e.g. 0.26.0~pr3
 SEEC_LOCAL_PATH=$2 # e.g. /usr/local
 SEEC_GUI_PATH=$3   # e.g. /Applications
