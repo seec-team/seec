@@ -60,6 +60,7 @@
 #include "ActionReplay.hpp"
 #include "ColourSchemeSettings.hpp"
 #include "CommonMenus.hpp"
+#include "HiddenExecuteAndWait.hpp"
 #include "LocaleSettings.hpp"
 #include "NotifyContext.hpp"
 #include "ProcessMoveEvent.hpp"
@@ -342,15 +343,8 @@ void StateGraphViewerPanel::workerTaskLoop()
     std::string ErrorMsg;
 
     bool ExecFailed = false;
-
-    auto const Result = llvm::sys::ExecuteAndWait(PathToDot,
-                                                  Args,
-                                                  EnvPtr,
-                                                  /* redirects */ nullptr,
-                                                  /* wait */ 0,
-                                                  /* mem */ 0,
-                                                  &ErrorMsg,
-                                                  &ExecFailed);
+    auto const Result = HiddenExecuteAndWait(PathToDot, Args, EnvPtr, &ErrorMsg,
+                                             &ExecFailed);
 
     if (!ErrorMsg.empty()) {
       wxLogDebug("Dot failed: %s", ErrorMsg);

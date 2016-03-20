@@ -99,8 +99,13 @@ set(SEEC_TRACE_VIEW_SRCS
   
 # include icon in executable on windows
 if (WIN32)
-  set(SEEC_TRACE_VIEW_SRCS ${SEEC_TRACE_VIEW_SRCS} MSW/seec-view.rc)
-endif (WIN32)
+  set(SEEC_TRACE_VIEW_SRCS ${SEEC_TRACE_VIEW_SRCS}
+    HiddenExecuteAndWait_WIN32.cpp
+    MSW/seec-view.rc)
+else()
+  set(SEEC_TRACE_VIEW_SRCS ${SEEC_TRACE_VIEW_SRCS}
+    HiddenExecuteAndWait_Generic.cpp)
+endif ()
 
 #--------------------------------------------------------------------------------
 # Create the executable.
