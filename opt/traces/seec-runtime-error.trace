@@ -1,0 +1,286 @@
+var trace = {
+  "code": "#include <stdio.h>\n\nint main(int argc, char *argv[])\n{\n  printf(\"Hello %s\\n\", argv[1]);\n  return 0;\n}\n\n",
+  "trace": [
+    {
+      "globals": {
+
+      },
+      "ordered_globals": [],
+      "func_name": "<none>",
+      "stack_to_render": [],
+      "event": "step_line",
+      "stdout": "",
+      "heap": {
+        "0x00007f418de34640": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34640", "FILE",           "stderr" ] 
+        ],
+        "0x00007f418de34740": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34740", "FILE",           "stdout" ] 
+        ],
+        "0x00007f418de33980": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de33980", "FILE",           "stdin" ] 
+        ]
+      },
+      "line": 3
+    },
+    {
+      "globals": {
+
+      },
+      "ordered_globals": [],
+      "func_name": "main",
+      "stack_to_render": [
+        {
+          "func_name": "main",
+          "frame_id": 1,
+          "unique_hash": "main1",
+          "encoded_locals": {
+            "argc": ["C_DATA", "0x00007ffd5fd87510", "int",1],
+            "argv": [
+              "C_DATA",
+              "0x00007ffd5fd87508",
+              "pointer",
+              "0x00007ffd5fd87628"
+            ]
+          },
+          "ordered_varnames": ["argc", "argv"],
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "parent_frame_id_list": []
+        }
+      ],
+      "event": "step_line",
+      "stdout": "",
+      "heap": {
+        "0x00007ffd5fd87628": [
+          "C_ARRAY",
+          "0x00007ffd5fd87628",
+          [
+            "C_DATA",
+            "0x00007ffd5fd87628",
+            "pointer",
+            "0x00007ffd5fd8932a"
+          ],
+          [
+            "C_DATA",
+            "0x00007ffd5fd87630",
+            "pointer",
+            "NULL"
+          ]
+        ],
+        "0x00007ffd5fd8932a": [
+          "C_ARRAY",
+          "0x00007ffd5fd8932a",
+          ["C_DATA", "0x00007ffd5fd8932a", "char","."],
+          ["C_DATA", "0x00007ffd5fd8932b", "char","\/"],
+          ["C_DATA", "0x00007ffd5fd8932c", "char","r"],
+          ["C_DATA", "0x00007ffd5fd8932d", "char","u"],
+          ["C_DATA", "0x00007ffd5fd8932e", "char","n"],
+          ["C_DATA", "0x00007ffd5fd8932f", "char","t"],
+          ["C_DATA", "0x00007ffd5fd89330", "char","i"],
+          ["C_DATA", "0x00007ffd5fd89331", "char","m"],
+          ["C_DATA", "0x00007ffd5fd89332", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89333", "char","-"],
+          ["C_DATA", "0x00007ffd5fd89334", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89335", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89336", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89337", "char","o"],
+          ["C_DATA", "0x00007ffd5fd89338", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89339", "char","\\0"]
+        ],
+        "0x00007f418de34640": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34640", "FILE",           "stderr" ] 
+        ],
+        "0x00007f418de34740": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34740", "FILE",           "stdout" ] 
+        ],
+        "0x00007f418de33980": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de33980", "FILE",           "stdin" ] 
+        ]
+      },
+      "line": 5
+    },
+    {
+      "globals": {
+
+      },
+      "ordered_globals": [],
+      "func_name": "main",
+      "stack_to_render": [
+        {
+          "func_name": "main",
+          "frame_id": 1,
+          "unique_hash": "main1",
+          "encoded_locals": {
+            "argc": ["C_DATA", "0x00007ffd5fd87510", "int",1],
+            "argv": [
+              "C_DATA",
+              "0x00007ffd5fd87508",
+              "pointer",
+              "0x00007ffd5fd87628"
+            ]
+          },
+          "ordered_varnames": ["argc", "argv"],
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "parent_frame_id_list": []
+        }
+      ],
+      "event": "step_line",
+      "stdout": "",
+      "heap": {
+        "0x00007ffd5fd87628": [
+          "C_ARRAY",
+          "0x00007ffd5fd87628",
+          [
+            "C_DATA",
+            "0x00007ffd5fd87628",
+            "pointer",
+            "0x00007ffd5fd8932a"
+          ],
+          [
+            "C_DATA",
+            "0x00007ffd5fd87630",
+            "pointer",
+            "NULL"
+          ]
+        ],
+        "0x00007ffd5fd8932a": [
+          "C_ARRAY",
+          "0x00007ffd5fd8932a",
+          ["C_DATA", "0x00007ffd5fd8932a", "char","."],
+          ["C_DATA", "0x00007ffd5fd8932b", "char","\/"],
+          ["C_DATA", "0x00007ffd5fd8932c", "char","r"],
+          ["C_DATA", "0x00007ffd5fd8932d", "char","u"],
+          ["C_DATA", "0x00007ffd5fd8932e", "char","n"],
+          ["C_DATA", "0x00007ffd5fd8932f", "char","t"],
+          ["C_DATA", "0x00007ffd5fd89330", "char","i"],
+          ["C_DATA", "0x00007ffd5fd89331", "char","m"],
+          ["C_DATA", "0x00007ffd5fd89332", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89333", "char","-"],
+          ["C_DATA", "0x00007ffd5fd89334", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89335", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89336", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89337", "char","o"],
+          ["C_DATA", "0x00007ffd5fd89338", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89339", "char","\\0"]
+        ],
+        "0x00007f418de34640": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34640", "FILE",           "stderr" ] 
+        ],
+        "0x00007f418de34740": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34740", "FILE",           "stdout" ] 
+        ],
+        "0x00007f418de33980": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de33980", "FILE",           "stdin" ] 
+        ]
+      },
+      "line": 5
+    },
+    {
+      "globals": {
+
+      },
+      "ordered_globals": [],
+      "func_name": "main",
+      "exception_msg": "Passing a pointer that points to unallocated memory. The called function would access this memory, resulting in undefined behaviour.\n  Note: Error was raised by call to function printf.\n  Note: Error was raised for the second parameter passed to function printf.\n",
+      "stack_to_render": [
+        {
+          "func_name": "main",
+          "frame_id": 1,
+          "unique_hash": "main1",
+          "encoded_locals": {
+            "argc": ["C_DATA", "0x00007ffd5fd87510", "int",1],
+            "argv": [
+              "C_DATA",
+              "0x00007ffd5fd87508",
+              "pointer",
+              "0x00007ffd5fd87628"
+            ]
+          },
+          "ordered_varnames": ["argc", "argv"],
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "parent_frame_id_list": []
+        }
+      ],
+      "event": "exception",
+      "stdout": "",
+      "heap": {
+        "0x00007ffd5fd87628": [
+          "C_ARRAY",
+          "0x00007ffd5fd87628",
+          [
+            "C_DATA",
+            "0x00007ffd5fd87628",
+            "pointer",
+            "0x00007ffd5fd8932a"
+          ],
+          [
+            "C_DATA",
+            "0x00007ffd5fd87630",
+            "pointer",
+            "NULL"
+          ]
+        ],
+        "0x00007ffd5fd8932a": [
+          "C_ARRAY",
+          "0x00007ffd5fd8932a",
+          ["C_DATA", "0x00007ffd5fd8932a", "char","."],
+          ["C_DATA", "0x00007ffd5fd8932b", "char","\/"],
+          ["C_DATA", "0x00007ffd5fd8932c", "char","r"],
+          ["C_DATA", "0x00007ffd5fd8932d", "char","u"],
+          ["C_DATA", "0x00007ffd5fd8932e", "char","n"],
+          ["C_DATA", "0x00007ffd5fd8932f", "char","t"],
+          ["C_DATA", "0x00007ffd5fd89330", "char","i"],
+          ["C_DATA", "0x00007ffd5fd89331", "char","m"],
+          ["C_DATA", "0x00007ffd5fd89332", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89333", "char","-"],
+          ["C_DATA", "0x00007ffd5fd89334", "char","e"],
+          ["C_DATA", "0x00007ffd5fd89335", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89336", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89337", "char","o"],
+          ["C_DATA", "0x00007ffd5fd89338", "char","r"],
+          ["C_DATA", "0x00007ffd5fd89339", "char","\\0"]
+        ],
+        "0x00007f418de34640": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34640", "FILE",           "stderr" ] 
+        ],
+        "0x00007f418de34740": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de34740", "FILE",           "stdout" ] 
+        ],
+        "0x00007f418de33980": [
+          "HEAP_PRIMITIVE",
+          "",
+          [ "C_DATA", "0x00007f418de33980", "FILE",           "stdin" ] 
+        ]
+      },
+      "line": 5
+    }
+  ]
+};
