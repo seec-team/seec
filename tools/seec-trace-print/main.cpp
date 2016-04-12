@@ -94,6 +94,9 @@ namespace seec {
     cl::opt<bool>
     OnlinePythonTutor("P", cl::desc("output suitable for Online Python Tutor"));
 
+    cl::opt<std::string>
+    OPTVariableName("opt-var-name", cl::desc("for Online Python Tutor trace output, create a variable with this name"));
+
     cl::opt<bool>
     ReverseStates("reverse", cl::desc("show reverse iterated states at the end"));
 
@@ -158,7 +161,7 @@ int main(int argc, char **argv, char * const *envp) {
   Augmentations.loadFromUserLocalDataDir();
 
   if (UseClangMapping || OnlinePythonTutor) {
-    PrintClangMapped(Augmentations);
+    PrintClangMapped(Augmentations, OPTVariableName);
   }
   else {
     PrintUnmapped(Augmentations);

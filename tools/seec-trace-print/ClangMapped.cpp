@@ -187,7 +187,8 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace,
   }
 }
 
-void PrintClangMapped(seec::AugmentationCollection const &Augmentations)
+void PrintClangMapped(seec::AugmentationCollection const &Augmentations,
+                      llvm::StringRef OPTVariableName)
 {
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);
@@ -218,6 +219,8 @@ void PrintClangMapped(seec::AugmentationCollection const &Augmentations)
   }
   else if (OnlinePythonTutor) {
     PrintOnlinePythonTutor(*CMProcessTrace,
-                           OPTSettings{}.setPyCrazyMode(true));
+                           OPTSettings{Augmentations}
+                            .setPyCrazyMode(false)
+                            .setVariableName(OPTVariableName));
   }
 }

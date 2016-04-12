@@ -16,12 +16,16 @@
 #include "seec/Clang/MappedGlobalVariable.hpp"
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/ICU/Output.hpp"
+#include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Printing.hpp"
+#include "seec/wxWidgets/AugmentResources.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/Lex/Lexer.h"
@@ -33,7 +37,24 @@
 
 using namespace seec;
 using namespace seec::cm;
+using namespace seec::runtime_errors;
 using namespace seec::util;
+
+namespace {
+
+std::string makeAddressString(seec::trace::stateptr_ty const Address)
+{
+  std::string RetVal;
+  {
+    llvm::raw_string_ostream RetStream(RetVal);
+    RetStream << '"';
+    write_hex_padded(RetStream, Address);
+    RetStream << '"';
+  }
+  return RetVal;
+}
+
+}
 
 llvm::StringRef GetSingularMainFileContents(ProcessTrace const &Trace)
 {
@@ -47,12 +68,6 @@ llvm::StringRef GetSingularMainFileContents(ProcessTrace const &Trace)
 
   return FI->getContents().getBuffer();
 }
-
-enum class ValuePrintLocation {
-  Local,
-  Heap,
-  HeapNested
-};
 
 class OPTPrinter {
   OPTSettings const &Settings;
@@ -99,13 +114,13 @@ class OPTPrinter {
 
   void printRecord(ValueOfRecord const &V);
 
-  void printPointer(ValueOfPointer const &PV,
-                    ValuePrintLocation Location);
+  void printPointer(ValueOfPointer const &PV);
 
   void printValue(Value const &V);
 
-  void printHeapValue(std::shared_ptr<Value const> const &V,
-                      ValuePrintLocation Location);
+  void printPossibleNullValue(std::shared_ptr<Value const> const &V);
+
+  void printHeapValue(std::shared_ptr<Value const> const &V);
 
   std::string printGlobal(GlobalVariable const &GV);
 
@@ -124,6 +139,12 @@ class OPTPrinter {
 
   bool printArea(MemoryArea const &Area,
                  seec::cm::graph::Expansion const &Expansion);
+
+  bool printFILE(StreamState const &State,
+                 seec::cm::graph::Expansion const &Expansion);
+
+  bool printDIR(DIRState const &State,
+                seec::cm::graph::Expansion const &Expansion);
 
   void printHeap();
 
@@ -159,13 +180,14 @@ void OPTPrinter::printArray(ValueOfArray const &V)
 
   Out << "[\n";
   Indent.indent();
-  Out << Indent.getString() << "\"LIST\",\n";
+  Out << Indent.getString() << "\"C_ARRAY\",\n"
+      << Indent.getString() << makeAddressString(V.getAddress()) << ",\n";
 
   for (unsigned i = 0; i < Limit; ++i) {
     if (i != 0)
       Out << ",\n";
     Out << Indent.getString();
-    printHeapValue(V.getChildAt(i), ValuePrintLocation::HeapNested);
+    printPossibleNullValue(V.getChildAt(i));
   }
   Out << "\n";
 
@@ -179,7 +201,13 @@ void OPTPrinter::printRecord(ValueOfRecord const &V)
 
   Out << "[\n";
   Indent.indent();
-  Out << Indent.getString() << "\"DICT\",\n";
+  Out << Indent.getString() << "\"C_STRUCT\",\n"
+      << Indent.getString() << makeAddressString(V.getAddress()) << ",\n";
+
+  // Write the struct type name.
+  Out << Indent.getString();
+  writeJSONStringLiteral(V.getTypeAsString(), Out);
+  Out << ",\n";
 
   for (unsigned i = 0; i < Limit; ++i) {
     if (i != 0)
@@ -195,7 +223,7 @@ void OPTPrinter::printRecord(ValueOfRecord const &V)
 
     // field value
     Out << Indent.getString();
-    printHeapValue(V.getChildAt(i), ValuePrintLocation::HeapNested);
+    printPossibleNullValue(V.getChildAt(i));
     Out << "\n";
 
     Indent.unindent();
@@ -207,148 +235,101 @@ void OPTPrinter::printRecord(ValueOfRecord const &V)
   Out << Indent.getString() << "]";
 }
 
-void OPTPrinter::printPointer(ValueOfPointer const &PV,
-                              ValuePrintLocation const Location)
+void OPTPrinter::printPointer(ValueOfPointer const &PV)
 {
-  auto PrintPlaceholder =
-    [this, Location, &PV] (std::string const &Text) -> void {
-      if (Location == ValuePrintLocation::Heap) {
-        Out << "[\"HEAP_PRIMITIVE\", ";
-        writeJSONStringLiteral(PV.getTypeAsString(), Out);
-        Out << ", ";
-        writeJSONStringLiteral(Text, Out);
-        Out << "]";
-      }
-      else {
-        writeJSONStringLiteral(Text, Out);
-      }
-    };
+  Out << "[\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"C_DATA\",\n"
+      << Indent.getString() << makeAddressString(PV.getAddress()) << ",\n"
+      << Indent.getString() << "\"pointer\",\n"
+      << Indent.getString();
 
   if (!PV.isCompletelyInitialized()) {
-    PrintPlaceholder("<uninitialized>");
-    return;
-  }
-
-  auto const RawValue = PV.getRawValue();
-
-  if (!RawValue) {
-    PrintPlaceholder("NULL");
-  }
-  else if (PV.isValidOpaque()) {
-    if (Process.getStream(RawValue)) {
-      PrintPlaceholder("<FILE *>");
-    }
-    else if (Process.getDIR(RawValue)) {
-      PrintPlaceholder("<DIR *>");
-    }
-    else {
-      PrintPlaceholder("<opaque>");
-    }
-  }
-  else if (PV.getDereferenceIndexLimit() != 0) {
-    Out << "[\"REF\", " << std::to_string(RawValue) << "]";
+    Out << "\"<UNINITIALIZED>\"\n";
   }
   else {
-    PrintPlaceholder("<invalid>");
+    auto const RawValue = PV.getRawValue();
+    if (!RawValue) {
+      Out << "\"NULL\"\n";
+    }
+    else if (PV.getDereferenceIndexLimit() != 0 || PV.isValidOpaque()) {
+      Out << makeAddressString(RawValue) << "\n";
+    }
+    else {
+      Out << "\"<INVALID>\"\n";
+    }
   }
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
 }
 
 void OPTPrinter::printValue(Value const &V)
 {
   switch (V.getKind()) {
-    case Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case Value::Kind::Complex:
-      writeJSONStringLiteral(V.getValueAsStringFull(), Out);
-      break;
-
+    case Value::Kind::Basic:   SEEC_FALLTHROUGH;
+    case Value::Kind::Complex: SEEC_FALLTHROUGH;
     case Value::Kind::Scalar:
       {
-        auto const Str = V.getValueAsStringFull();
+        Out << "[\"C_DATA\", "
+            << makeAddressString(V.getAddress()) << ", ";
+        writeJSONStringLiteral(V.getTypeAsString(), Out);
+        Out << ",";
 
-        int (*IsDigitPtr)(int) = &std::isdigit;
-        auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+        if (V.isCompletelyInitialized()) {
+          auto const Str = V.getValueAsStringFull();
 
-        if (IsNumeric)
-          Out << Str;
-        else
-          writeJSONStringLiteral(Str, Out);
-      }
-      break;
-
-    case Value::Kind::Array:
-      writeJSONStringLiteral("<cannot render correctly>", Out);
-      break;
-
-    case Value::Kind::Record:
-      writeJSONStringLiteral("<cannot render correctly>", Out);
-      break;
-
-    case Value::Kind::Pointer:
-      printPointer(llvm::cast<ValueOfPointer>(V), ValuePrintLocation::Local);
-      break;
-  }
-}
-
-void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V,
-                                ValuePrintLocation const Location)
-{
-  if (!V) {
-    if (Location == ValuePrintLocation::HeapNested)
-      Out << "\"<no value>\"";
-    else
-      Out << "[\"HEAP_PRIMITIVE\", \"invalid value\", \"\"]";
-    return;
-  }
-
-  switch (V->getKind()) {
-    case Value::Kind::Basic: SEEC_FALLTHROUGH;
-    case Value::Kind::Complex:
-      if (Location == ValuePrintLocation::HeapNested)
-        writeJSONStringLiteral(V->getValueAsStringFull(), Out);
-      else {
-        Out << "[\"HEAP_PRIMITIVE\", ";
-        writeJSONStringLiteral(V->getTypeAsString(), Out);
-        Out << ", ";
-        writeJSONStringLiteral(V->getValueAsStringFull(), Out);
-        Out << "]";
-      }
-      break;
-
-    case Value::Kind::Scalar:
-      {
-        auto const Str = V->getValueAsStringFull();
-
-        if (Location == ValuePrintLocation::HeapNested) {
           int (*IsDigitPtr)(int) = &std::isdigit;
-          auto const Numeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+          auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
 
-          if (Numeric)
+          if (IsNumeric)
             Out << Str;
           else
             writeJSONStringLiteral(Str, Out);
         }
         else {
-          Out << "[\"HEAP_PRIMITIVE\", ";
-          writeJSONStringLiteral(V->getTypeAsString(), Out);
-          Out << ", ";
-          writeJSONStringLiteral(Str, Out);
-          Out << "]";
+          Out << "\"<UNINITIALIZED>\"";
         }
+
+        Out << "]";
       }
       break;
 
     case Value::Kind::Array:
-      printArray(llvm::cast<ValueOfArray>(*V));
+      printArray(llvm::cast<ValueOfArray>(V));
       break;
 
     case Value::Kind::Record:
-      printRecord(llvm::cast<ValueOfRecord>(*V));
+      printRecord(llvm::cast<ValueOfRecord>(V));
       break;
 
     case Value::Kind::Pointer:
-      printPointer(llvm::cast<ValueOfPointer>(*V), Location);
+      printPointer(llvm::cast<ValueOfPointer>(V));
       break;
   }
+}
+
+void OPTPrinter::printPossibleNullValue(std::shared_ptr<Value const> const &V)
+{
+  if (V) {
+    printValue(*V);
+  }
+  else {
+    Out << "null";
+  }
+}
+
+void OPTPrinter::printHeapValue(std::shared_ptr<Value const> const &V)
+{
+  Out << "[\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"HEAP_PRIMITIVE\",\n"
+      << Indent.getString() << "\"\",\n";
+
+  printPossibleNullValue(V);
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
 }
 
 std::string OPTPrinter::printGlobal(GlobalVariable const &GV)
@@ -359,10 +340,7 @@ std::string OPTPrinter::printGlobal(GlobalVariable const &GV)
   writeJSONStringLiteral(NameOut, Out);
   Out << ": ";
 
-  if (auto const V = GV.getValue())
-    printValue(*V);
-  else
-    Out << "\"<no value>\"";
+  printPossibleNullValue(GV.getValue());
 
   return NameOut;
 }
@@ -410,10 +388,7 @@ void OPTPrinter::printParameter(ParamState const &Param, std::string &NameOut)
   writeJSONStringLiteral(NameOut, Out);
   Out << ": ";
 
-  if (auto const V = Param.getValue())
-    printValue(*V);
-  else
-    Out << "\"<no value>\"";
+  printPossibleNullValue(Param.getValue());
 }
 
 void OPTPrinter::printLocal(LocalState const &Local, std::string &NameOut)
@@ -424,10 +399,7 @@ void OPTPrinter::printLocal(LocalState const &Local, std::string &NameOut)
   writeJSONStringLiteral(NameOut, Out);
   Out << ": ";
 
-  if (auto const V = Local.getValue())
-    printValue(*V);
-  else
-    Out << "\"<no value>\"";
+  printPossibleNullValue(Local.getValue());
 }
 
 void OPTPrinter::printFunction(FunctionState const &Function, bool IsActive)
@@ -510,6 +482,7 @@ void OPTPrinter::printFunction(FunctionState const &Function, bool IsActive)
 void OPTPrinter::printThread(ThreadState const &Thread)
 {
   auto const &Stack = Thread.getCallStack();
+  std::string ExceptionMessage;
 
   // func_name
   // stack_to_render
@@ -519,6 +492,25 @@ void OPTPrinter::printThread(ThreadState const &Thread)
     Out << Indent.getString() << "\"func_name\": ";
     writeJSONStringLiteral(Active.getNameAsString(), Out);
     Out << ",\n";
+
+    // Add runtime error descriptions to ExceptionMessage
+    {
+      llvm::raw_string_ostream ExceptionStream(ExceptionMessage);
+      auto const AugmentFn = Settings.getAugmentations().getCallbackFn();
+      for (auto const &RunError : Active.getRuntimeErrorsActive()) {
+        auto MaybeDesc = RunError.getDescription(AugmentFn);
+        if (MaybeDesc.assigned(0)) {
+          DescriptionPrinterUnicode Printer(MaybeDesc.move<0>(), "\n", "  ");
+          ExceptionStream << Printer.getString() << "\n";
+        }
+      }
+    }
+
+    if (!ExceptionMessage.empty()) {
+      Out << Indent.getString() << "\"exception_msg\": ";
+      writeJSONStringLiteral(ExceptionMessage, Out);
+      Out << ",\n";
+    }
 
     // Write the stack.
     Out << Indent.getString() << "\"stack_to_render\": [\n";
@@ -544,47 +536,33 @@ void OPTPrinter::printThread(ThreadState const &Thread)
 
   // event: string
   Out << Indent.getString() << "\"event\": ";
-  if (!Thread.isAtEnd())
-    Out << "\"step_line\"";
-  else
+  if (!ExceptionMessage.empty())
+    Out << "\"exception\"";
+  else if (Thread.isAtEnd())
     Out << "\"return\"";
+  else
+    Out << "\"step_line\"";
   Out << ",\n";
 }
 
 void OPTPrinter::printAreaList(std::shared_ptr<ValueOfPointer const> const &Ref,
                                unsigned const Limit)
 {
-  auto const Ty = llvm::cast<clang::PointerType>(Ref->getCanonicalType());
-  if (Ty->getPointeeType()->isCharType()) {
-    // Special case for strings.
-    Out << "[\"HEAP_PRIMITIVE\", \"string\", \"";
+  Out << "[\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"C_ARRAY\",\n"
+      << Indent.getString() << makeAddressString(Ref->getRawValue()) << ",\n";
 
-    for (unsigned i = 0; i < Limit; ++i) {
-      auto const Child = Ref->getDereferenced(i);
-      if (!Child || !Child->isCompletelyInitialized())
-        Out << "\uFFFD";
-      else
-        Out << Child->getValueAsStringFull();
-    }
-
-    Out << "\"]";
+  for (unsigned i = 0; i < Limit; ++i) {
+    if (i != 0)
+      Out << ",\n";
+    Out << Indent.getString();
+    printPossibleNullValue(Ref->getDereferenced(i));
   }
-  else {
-    Out << "[\n";
-    Indent.indent();
-    Out << Indent.getString() << "\"LIST\",\n";
+  Out << "\n";
 
-    for (unsigned i = 0; i < Limit; ++i) {
-      if (i != 0)
-        Out << ",\n";
-      Out << Indent.getString();
-      printHeapValue(Ref->getDereferenced(i), ValuePrintLocation::HeapNested);
-    }
-    Out << "\n";
-
-    Indent.unindent();
-    Out << Indent.getString() << "]";
-  }
+  Indent.unindent();
+  Out << Indent.getString() << "]";
 }
 
 bool OPTPrinter::printArea(MemoryArea const &Area,
@@ -598,24 +576,68 @@ bool OPTPrinter::printArea(MemoryArea const &Area,
   // pointees (e.g. pointers to struct members).
   seec::cm::graph::reduceReferences(Refs);
 
-  Out << Indent.getString() << std::to_string(Area.start()) << ": ";
+  Out << Indent.getString() << makeAddressString(Area.start()) << ": ";
 
   auto const &Ref = Refs.front();
   auto const Limit = Ref->getDereferenceIndexLimit();
 
   switch (Limit) {
     case 0:
-      Out << "\"<not dereferencable>\"";
+      Out << "[\"HEAP_PRIMITIVE\", \"\", [ \"C_DATA\", "
+          << makeAddressString(Area.start()) << ", \"\", "
+          << "\"non-dereferenceable area\"]]";
       break;
 
     case 1:
-      printHeapValue(Ref->getDereferenced(0), ValuePrintLocation::Heap);
+      printHeapValue(Ref->getDereferenced(0));
       break;
 
     default:
       printAreaList(Ref, Limit);
       break;
   }
+
+  return true;
+}
+
+bool OPTPrinter::printFILE(StreamState const &State,
+                           seec::cm::graph::Expansion const &Expansion)
+{
+  Out << Indent.getString() << makeAddressString(State.getAddress()) << ": [\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"HEAP_PRIMITIVE\",\n"
+      << Indent.getString() << "\"\",\n"
+      << Indent.getString() << "[ \"C_DATA\", "
+                            << makeAddressString(State.getAddress()) << ", "
+                            << "\"FILE\", ";
+
+  Out << Indent.getString();
+  writeJSONStringLiteral(State.getFilename(), Out);
+  Out << " ] \n";
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
+
+  return true;
+}
+
+bool OPTPrinter::printDIR(DIRState const &State,
+                          seec::cm::graph::Expansion const &Expansion)
+{
+  Out << Indent.getString() << makeAddressString(State.getAddress()) << ": [\n";
+  Indent.indent();
+  Out << Indent.getString() << "\"HEAP_PRIMITIVE\",\n"
+      << Indent.getString() << "\"\",\n"
+      << Indent.getString() << "[ \"C_DATA\", "
+                            << makeAddressString(State.getAddress()) << ", "
+                            << "\"DIR\", ";
+
+  Out << Indent.getString();
+  writeJSONStringLiteral(State.getDirname(), Out);
+  Out << " ] \n";
+
+  Indent.unindent();
+  Out << Indent.getString() << "]";
 
   return true;
 }
@@ -649,6 +671,20 @@ void OPTPrinter::printHeap()
     auto const Size = (Known.End - Known.Begin) + 1;
 
     Printed = printArea(MemoryArea(Known.Begin, Size), Expansion);
+  }
+
+  // Print FILEs
+  for (auto const &File : Process.getStreams()) {
+    if (Printed)
+      Out << ",\n";
+    Printed = printFILE(File.second, Expansion);
+  }
+
+  // Print DIRs
+  for (auto const &Dir : Process.getDIRs()) {
+    if (Printed)
+      Out << ",\n";
+    Printed = printDIR(Dir.second, Expansion);
   }
 
   Out << "\n";
@@ -776,7 +812,12 @@ bool OPTPrinter::printAllStates()
   if (Process.getThreadCount() != 1)
     return false;
 
-  Stream << Indent.getString() << "{\n";
+  bool const UseVarName = !Settings.getVariableName().empty();
+
+  Stream << Indent.getString();
+  if (UseVarName)
+    Stream << "var " << Settings.getVariableName() << " = ";
+  Stream << "{\n";
   Indent.indent();
 
   // Write the source code.
@@ -797,7 +838,11 @@ bool OPTPrinter::printAllStates()
   Stream << Indent.getString() << "]\n";
 
   Indent.unindent();
-  Stream << Indent.getString() << "}\n";
+  Stream << Indent.getString();
+  if (UseVarName)
+    Stream << "};\n";
+  else
+    Stream << "}\n";
 
   return true;
 }
