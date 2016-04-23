@@ -1,0 +1,35 @@
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH SEEC-CC 1 "APRIL 2016" Linux "User Manuals"
+.SH NAME
+seec-cc \- compile programs with SeeC instrumentation
+.SH SYNOPSIS
+.B seec-cc [-c] [-std=
+.I standard
+.B ] [-o
+.I filename
+.B ]
+.I file
+.B seec-cc -help
+.SH DESCRIPTION
+.B seec-cc
+Compile programs with SeeC instrumentation. This driver
+is based on
+.BR clang (1)
+and the usage is similar.
+However, the compiled programs will be instrumented for
+use with the SeeC system.
+Therefore, when the compiled program is executed it will
+automatically check for run-time errors, and will
+produce an execution trace file which can be reviewed
+with
+.BR seec-view (1)
+.SH OPTION
+.IP -help
+Print detailed usage information.
+.SH AUTHOR Matthew Heinsen Egan <matthew.heinsen.egan at gmail dot com>
+.SH "SEE ALSO"
+.BR seec-ld (1),
+.BR seec-print (1),
+.BR seec-view (1)

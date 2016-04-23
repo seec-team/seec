@@ -1,0 +1,40 @@
+.\" Process this file with
+.\" groff -man -Tascii foo.1
+.\"
+.TH SEEC-LD 1 "APRIL 2016" Linux "User Manuals"
+.SH NAME
+seec-ld \- link object files with SeeC instrumentation
+.SH SYNOPSIS
+.B seec-ld [
+.I linker arguments and files
+.B ] [--seec -use-ld=
+.I path
+.B ]
+.SH DESCRIPTION
+.B seec-ld
+links objects compiled with SeeC instrumentation, i.e. by
+.BR seec-cc (1).
+This program links together object files which were
+compiled by
+.BR seec-cc (1),
+performs instrumentation, and then
+passes the new object file through to the system linker
+to do the final linking.
+All arguments prior to the
+.B --seec
+argument will be passed through to the system linker,
+except the names of objects that were compiled by 
+.BR seec-cc (1)
+will be replaced by the name of the single object that
+results from linking and instrumenting these objects. The
+names of other objects (not compiled by
+.BR seec-cc (1)
+) will be passed through to the linker as they were specified.
+.SH OPTION
+.IP -help
+Print detailed usage information.
+.SH AUTHOR Matthew Heinsen Egan <matthew.heinsen.egan at gmail dot com>
+.SH "SEE ALSO"
+.BR seec-cc (1),
+.BR seec-print (1),
+.BR seec-view (1)

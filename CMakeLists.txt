@@ -16,6 +16,7 @@ endif()
 # Cached variables.
 #--------------------------------------------------------------------------------
 set(BUNDLE_PREFIX "/Applications" CACHE PATH "Where to install application bundles (Mac OS X).")
+set(MAN_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/man/" CACHE PATH "Where to install man pages.")
 set(LLVM_INSTALL_OVERRIDE "" CACHE PATH "Override LLVM install location.")
 set(ICU_INSTALL "/usr/local" CACHE PATH "Root of ICU install.")
 set(WX_INSTALL "/usr/local" CACHE PATH "Root of wxWidgets install.")
