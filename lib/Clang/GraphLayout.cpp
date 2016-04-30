@@ -682,7 +682,7 @@ LEVElideUnreferenced::doLayoutImpl(Value const &V, Expansion const &E) const
   Stream << "><TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
   
   bool Eliding = false;
-  std::size_t ElidingFrom;
+  std::size_t ElidingFrom = 0;
   std::string ElidedPort;
   
   auto const ArrayStart = Array.getAddress();
@@ -884,7 +884,7 @@ LEVElideEmptyUnreferencedStrings::doLayoutImpl(Value const &V,
   Stream << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
   
   bool Eliding = false;
-  std::size_t ElidingFrom;
+  std::size_t ElidingFrom = 0;
   std::string ElidedPort;
   
   assert(Array.isInMemory());
@@ -1080,7 +1080,7 @@ LEVElideUninitOrZeroElements::doLayoutImpl(Value const &V,
   Stream << "<TABLE BORDER=\"0\" CELLSPACING=\"0\" CELLBORDER=\"1\">";
   
   bool Eliding = false;
-  std::size_t ElidingFrom;
+  std::size_t ElidingFrom = 0;
   std::string ElidedPort;
   
   for (unsigned i = 0; i < ChildCount; ++i) {

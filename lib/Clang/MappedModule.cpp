@@ -349,6 +349,9 @@ const
         case ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem:
           Group = clang::frontend::IncludeDirGroup::ExternCSystem;
           break;
+        default:
+          llvm::errs() << "system include path with unknown CharacteristicKind.\n";
+          Group = clang::frontend::IncludeDirGroup::System;
       }
     }
 

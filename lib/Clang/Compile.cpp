@@ -526,8 +526,14 @@ void GenerateSerializableMappings(SeeCCodeGenAction &Action,
   auto &StmtMap = Action.getStmtMap();
 
 #if defined(SEEC_DEBUG_NODE_MAPPING)
-  printInVisitationOrder(Action, SM);
-#endif
+  bool const DebugNodeMapping = true;
+#else
+  bool const DebugNodeMapping = false;
+#endif // defined(SEEC_DEBUG_NODE_MAPPING)
+  
+  if (DebugNodeMapping) {
+    printInVisitationOrder(Action, SM);
+  }
 
   llvm::SmallString<256> CurrentDirectory;
   auto const Err = llvm::sys::fs::current_path(CurrentDirectory);
