@@ -195,7 +195,7 @@ protected:
   /// \brief Create an InvalidCString error if Area is unassigned.
   ///
   /// \return true iff there were no errors.
-  bool checkCStringIsValid(uintptr_t Address,
+  bool checkCStringIsValid(char const *String,
                            unsigned Parameter,
                            seec::Maybe<MemoryArea> Area);
 

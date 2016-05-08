@@ -328,13 +328,31 @@ CStdLibChecker::checkMemoryAccessForParameter(
   return true;
 }
 
-bool CStdLibChecker::checkCStringIsValid(uintptr_t Address,
+bool CStdLibChecker::checkCStringIsValid(char const *String,
                                          unsigned Parameter,
                                          seec::Maybe<MemoryArea> Area)
 {
-  if (Area.assigned())
-    return true;
-
+  if (Area.assigned()) {
+    // Check how much memory is initialized within the detected C String. The
+    // terminating null-byte that bounds Area may be uninitialized memory, in
+    // which case we would prefer to raise InvalidCString than the
+    // PassPointerToUninitialized that would be raised later. Unless the
+    // string contains no initialized memory at all, in which case
+    // PassPointerToUninitialized is more appropriate.
+    
+    auto const &ProcListener = Thread.getProcessListener();
+    auto MemoryState = ProcListener.getTraceMemoryStateAccessor();
+    
+    auto const &DArea = Area.get<MemoryArea>();
+    auto const InitLength = MemoryState->getLengthOfKnownState(DArea.start(),
+                                                               DArea.length());
+    
+    if (InitLength == 0 || InitLength >= DArea.length()) {
+      return true;
+    }
+  }
+  
+  auto const Address = reinterpret_cast<uintptr_t>(String);
   raiseError(*createRunError<RunErrorType::InvalidCString>
                             (Function, Address, Parameter),
              RunErrorSeverity::Fatal);
@@ -359,7 +377,7 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
 
   // Check if Str points to a valid C string.
   auto const StrArea = getCStringInArea(String, Area.get<0>());
-  if (!checkCStringIsValid(StrAddr, Parameter, StrArea))
+  if (!checkCStringIsValid(String, Parameter, StrArea))
     return 0;
 
   auto const StrLength = StrArea.get<0>().length();
@@ -467,6 +485,10 @@ std::size_t CStdLibChecker::checkLimitedCStringRead(unsigned Parameter,
 
   // Find the C string that String refers to, within Limit.
   auto const StrArea = getLimitedCStringInArea(String, Area.get<0>(), Limit);
+
+  // Check if String points to a valid C string.
+  if (!checkCStringIsValid(String, Parameter, StrArea))
+    return 0;
 
   // Check if the read from Str is OK.
   checkMemoryAccessForParameter(Parameter,

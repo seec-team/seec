@@ -189,6 +189,25 @@ SEEC_MANGLE_FUNCTION(strndup)
 
 
 //===----------------------------------------------------------------------===//
+// strnlen
+//===----------------------------------------------------------------------===//
+
+size_t
+SEEC_MANGLE_FUNCTION(strnlen)
+(char const * const string, size_t maxlen)
+{
+  return seec::SimpleWrapper
+          <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
+          {seec::runtime_errors::format_selects::CStdFunction::strnlen}
+          (strnlen,
+           [](size_t){ return true; },
+           seec::ResultStateRecorderForNoOp(),
+           seec::wrapInputCString(string).setLimited(maxlen),
+           maxlen);
+}
+
+
+//===----------------------------------------------------------------------===//
 // strsep
 //===----------------------------------------------------------------------===//
 

@@ -154,6 +154,11 @@ public:
   
   /// \brief 
   bool hasKnownState(uintptr_t Address, std::size_t Length) const;
+  
+  /// \brief Find the length of initialized memory beginning at \c Address and
+  ///        to a maximum length of \c MaxLength
+  ///
+  size_t getLengthOfKnownState(uintptr_t Address, std::size_t MaxLength) const;
 };
 
 

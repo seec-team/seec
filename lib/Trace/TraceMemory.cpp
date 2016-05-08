@@ -234,6 +234,62 @@ bool TraceMemoryState::hasKnownState(uintptr_t Address,
   return false;
 }
 
+size_t TraceMemoryState::getLengthOfKnownState(uintptr_t Address,
+                                               std::size_t MaxLength)
+const
+{
+  auto const AreaEnd = Address + MaxLength;
+  
+  // Get the first fragment starting >= Address.
+  auto It = Fragments.lower_bound(Address);
+  
+  // If there was no fragment, we only have to check the last fragment in the
+  // map (if there isn't one, then the state can't possibly be known).
+  if (It == Fragments.end()) {
+    if (It == Fragments.begin())
+      return 0;
+    
+    --It;
+    
+    return It->second.area().end() - Address;
+  }
+  
+  // If necessary, rewind to the previous fragment.
+  if (It->first > Address) {
+    // The left-hand side of the area (at least) is uninitialized.
+    if (It == Fragments.begin())
+      return 0;
+    
+    --It;
+    
+    // The left-hand side of the area (at least) is uninitialized.
+    if (It->second.area().lastAddress() < Address)
+      return 0;
+  }
+  
+  // This single fragment covers the entire area.
+  if (It->second.area().end() >= AreaEnd)
+    return It->second.area().end() - Address;
+  
+  // Next address after the end of the previous fragment. If the next fragment
+  // doesn't start here, there's an uninitialized gap in the area.
+  auto NextAddress = It->second.area().end();
+  
+  while (++It != Fragments.end()) {
+    if (It->first != NextAddress)
+      return NextAddress - Address;
+    
+    // This fragment covers the remainder of the area!
+    if (It->second.area().end() >= AreaEnd)
+      return It->second.area().end() - Address;
+    
+    NextAddress = It->second.area().end();
+  }
+  
+  // The right-hand side of the area is uninitialized.
+  return NextAddress - Address;
+}
+
 } // namespace trace (in seec)
 
 } // namespace seec
