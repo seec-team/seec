@@ -88,6 +88,24 @@ void convertTextStyleToJSON(llvm::raw_string_ostream &Stream,
     << "}";
 };
 
+void convertIndicatorStyleToJSON(llvm::raw_string_ostream &Stream,
+                                 llvm::StringRef StyleName,
+                                 IndicatorStyle const &Style)
+{
+  Stream
+  << '"' << StyleName << '"'
+  << ": {"
+  << "\"Kind\": \""
+  << to_string(Style.GetKind()) << "\","
+  << "\"Foreground\": \""
+  << Style.GetForeground().GetAsString().ToStdString() << "\","
+  << "\"Alpha\": "
+  << Style.GetAlpha() << ","
+  << "\"OutlineAlpha\": "
+  << Style.GetOutlineAlpha()
+  << "}";
+}
+
 std::string convertColourSchemeToJSON(ColourScheme const &Scheme)
 {
   std::string JSON;
@@ -115,9 +133,19 @@ std::string convertColourSchemeToJSON(ColourScheme const &Scheme)
   SEEC_CONVERT_TEXTSTYLE(Operator)     Stream << ',';
   SEEC_CONVERT_TEXTSTYLE(Identifier)   Stream << ',';
   SEEC_CONVERT_TEXTSTYLE(StringEOL)    Stream << ',';
-  SEEC_CONVERT_TEXTSTYLE(Keyword2)
+  SEEC_CONVERT_TEXTSTYLE(Keyword2)     Stream << ",";
 
 #undef SEEC_CONVERT_TEXTSTYLE
+
+#define SEEC_CONVERT_INDICATORSTYLE(NAME)                                      \
+  convertIndicatorStyleToJSON(Stream, #NAME, Scheme.get##NAME());
+  
+  SEEC_CONVERT_INDICATORSTYLE(ActiveCode)      Stream << ",";
+  SEEC_CONVERT_INDICATORSTYLE(ErrorCode)       Stream << ",";
+  SEEC_CONVERT_INDICATORSTYLE(HighlightCode)   Stream << ",";
+  SEEC_CONVERT_INDICATORSTYLE(InteractiveText)
+  
+#undef SEEC_CONVERT_INDICATORSTYLE
 
   Stream << "}";
 

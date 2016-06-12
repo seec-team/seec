@@ -18,6 +18,7 @@
 #include <wx/panel.h>
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
+#include <wx/spinctrl.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/xml/xml.h>
@@ -179,11 +180,47 @@ std::unique_ptr<wxXmlNode> TextStyleToXML(TextStyle const &Style,
   return Node;
 }
 
+Maybe<IndicatorStyle::EKind, Error>
+IndicatorStyleKindFromString(wxString const &String)
+{
+  if (String == "PLAIN")
+    return IndicatorStyle::EKind::Plain;
+  else if (String == "BOX")
+    return IndicatorStyle::EKind::Box;
+  else if (String == "STRAIGHTBOX")
+    return IndicatorStyle::EKind::StraightBox;
+  
+  return Error(LazyMessageByRef::create("TraceViewer",
+                                        {"ColourSchemes",
+                                         "IndicatorKindIncorrect"},
+                                        std::make_pair(
+                                           "value",
+                                           toUnicodeString(String))));
+}
+
+std::unique_ptr<wxXmlNode> IndicatorStyleToXML(IndicatorStyle const &Style,
+                                               wxString const &Name)
+{
+  auto Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
+  
+  Node->AddAttribute("Kind", to_string(Style.GetKind()));
+  
+  auto Foreground = Style.GetForeground().GetAsString();
+  Node->AddAttribute("Foreground", Foreground);
+  
+  Node->AddAttribute("Alpha", std::to_string(Style.GetAlpha()));
+  Node->AddAttribute("OutlineAlpha", std::to_string(Style.GetOutlineAlpha()));
+  
+  return Node;
+}
+
 std::unique_ptr<wxXmlNode> ColourSchemeToXml(ColourScheme const &Scheme,
                                              wxString const &Name)
 {
   auto Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
   auto TextStyles = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, "TextStyles");
+  auto IndicatorStyles = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE,
+                                               "IndicatorStyles");
 
   // Create nodes for all TextStyles.
 #define SEEC_SERIALIZE_TEXTSTYLE(NAME)                                         \
@@ -211,7 +248,20 @@ std::unique_ptr<wxXmlNode> ColourSchemeToXml(ColourScheme const &Scheme,
 
 #undef SEEC_SERIALIZE_TEXTSTYLE
 
+  // Create nodes for all IndicatorStyles.
+#define SEEC_SERIALIZE_INDICATORSTYLE(NAME)                        \
+  if (auto Child = IndicatorStyleToXML(Scheme.get##NAME(), #NAME)) \
+    IndicatorStyles->AddChild(Child.release());
+  
+  SEEC_SERIALIZE_INDICATORSTYLE(ActiveCode)
+  SEEC_SERIALIZE_INDICATORSTYLE(ErrorCode)
+  SEEC_SERIALIZE_INDICATORSTYLE(HighlightCode)
+  SEEC_SERIALIZE_INDICATORSTYLE(InteractiveText)
+  
+#undef SEEC_SERIALIZE_INDICATORSTYLE
+
   Node->AddChild(TextStyles.release());
+  Node->AddChild(IndicatorStyles.release());
   return Node;
 }
 
@@ -246,6 +296,40 @@ Maybe<TextStyle, Error> TextStyle::fromXML(wxXmlNode const &Node)
   return TextStyle(wxColour(ForegroundString),
                    wxColour(BackgroundString),
                    MaybeFontInfo.get<wxFontInfo>());
+}
+
+Maybe<IndicatorStyle, Error> IndicatorStyle::fromXML(wxXmlNode const &Node)
+{
+  auto const KindString = Node.GetAttribute("Kind", "PLAIN");
+  auto Kind = IndicatorStyleKindFromString(KindString);
+  if (Kind.assigned<Error>())
+    return Kind.move<Error>();
+  
+  auto const ForegroundString = Node.GetAttribute("Foreground", wxEmptyString);
+  
+  auto const AlphaString = Node.GetAttribute("Alpha", "255");
+  long Alpha = 0;
+  AlphaString.ToLong(&Alpha);
+  
+  auto const OutlineAlphaString = Node.GetAttribute("OutlineAlpha", "0");
+  long OutlineAlpha = 0;
+  OutlineAlphaString.ToLong(&OutlineAlpha);
+  
+  return IndicatorStyle(Kind.get<IndicatorStyle::EKind>(),
+                        wxColour(ForegroundString),
+                        static_cast<int>(Alpha),
+                        static_cast<int>(OutlineAlpha));
+}
+
+char const * const to_string(IndicatorStyle::EKind const Kind)
+{
+  switch (Kind)
+  {
+    case IndicatorStyle::EKind::Plain:       return "PLAIN";
+    case IndicatorStyle::EKind::Box:         return "BOX";
+    case IndicatorStyle::EKind::StraightBox: return "STRAIGHTBOX";
+    default:                                 return "PLAIN";
+  }
 }
 
 Maybe<std::shared_ptr<ColourScheme>, Error>
@@ -299,6 +383,29 @@ ColourSchemeFromXML(wxXmlDocument const &Doc)
 
 #undef SEEC_READ_TEXTSTYLE
 
+  // Find IndicatorStyles child.
+  auto const IndicatorStyles = GetChildNamed(*Root, "IndicatorStyles");
+  if (!IndicatorStyles)
+    return Error(
+      LazyMessageByRef::create(
+        "TraceViewer",
+        {"ColourSchemes", "IndicatorStylesMissing"}));
+  
+#define SEEC_READ_INDICATORSTYLE(INDICATORSTYLE)                               \
+  if (auto const StyleNode = GetChildNamed(*IndicatorStyles, #INDICATORSTYLE)){\
+    auto MaybeStyle = IndicatorStyle::fromXML(*StyleNode);                     \
+    if (MaybeStyle.assigned<Error>())                                          \
+      return MaybeStyle.move<Error>();                                         \
+    Scheme->set##INDICATORSTYLE(MaybeStyle.move<IndicatorStyle>());            \
+  }
+
+  SEEC_READ_INDICATORSTYLE(ActiveCode)
+  SEEC_READ_INDICATORSTYLE(ErrorCode)
+  SEEC_READ_INDICATORSTYLE(HighlightCode)
+  SEEC_READ_INDICATORSTYLE(InteractiveText)
+  
+#undef SEEC_READ_INDICATORSTYLE
+
   return Scheme;
 }
 
@@ -349,7 +456,7 @@ wxDECLARE_CLASS(TextStyleModifiedEvent);
 
 IMPLEMENT_CLASS(TextStyleModifiedEvent, wxEvent)
 
-// Produced when the user changes the thread time.
+// Produced when the user changes the text style.
 wxDEFINE_EVENT(SEEC_EV_TEXTSTYLE_MODIFIED, TextStyleModifiedEvent);
 
 /// \brief Allow user to edit a \c TextStyle.
@@ -374,6 +481,9 @@ public:
   : wxPanel(Parent),
     m_Style(WithStyle)
   {
+    auto const TextTable = Resource("TraceViewer")["ColourSchemes"]
+                            ["SettingsPanel"]["TextStylePicker"];
+
     std::unique_ptr<wxBoxSizer> TheSizer (new wxBoxSizer(wxHORIZONTAL));
 
     auto const DefaultLabel = new wxStaticText(this, wxID_ANY, DisplayName);
@@ -388,6 +498,12 @@ public:
                             }));
 
     DefaultFontPicker->SetSelectedFont(m_Style.GetFont());
+    DefaultFontPicker->SetToolTip(towxString(TextTable["FontPickerToolTip"]));
+
+    auto const FGLabel =
+      new wxStaticText(this, wxID_ANY,
+                       towxString(TextTable["ForegroundPickerLabel"]));
+    FGLabel->SetBackgroundStyle(wxBG_STYLE_COLOUR);
 
     auto const DefaultFGColourPicker = new wxColourPickerCtrl(this, wxID_ANY);
     DefaultFGColourPicker->Bind(wxEVT_COLOURPICKER_CHANGED,
@@ -398,6 +514,13 @@ public:
                                 }));
 
     DefaultFGColourPicker->SetColour(m_Style.GetForeground());
+    DefaultFGColourPicker->SetToolTip(
+      towxString(TextTable["ForegroundPickerToolTip"]));
+
+    auto const BGLabel =
+      new wxStaticText(this, wxID_ANY,
+                       towxString(TextTable["BackgroundPickerLabel"]));
+    BGLabel->SetBackgroundStyle(wxBG_STYLE_COLOUR);
 
     auto const DefaultBGColourPicker = new wxColourPickerCtrl(this, wxID_ANY);
     DefaultBGColourPicker->Bind(wxEVT_COLOURPICKER_CHANGED,
@@ -408,6 +531,8 @@ public:
                                 }));
 
     DefaultBGColourPicker->SetColour(m_Style.GetBackground());
+    DefaultBGColourPicker->SetToolTip(
+      towxString(TextTable["BackgroundPickerToolTip"]));
 
     TheSizer->Add(DefaultLabel,
                   wxSizerFlags().Proportion(1)
@@ -417,9 +542,15 @@ public:
                   wxSizerFlags().Proportion(1)
                     .Align(wxALIGN_CENTRE_VERTICAL));
 
+    TheSizer->AddSpacer(15);
+    TheSizer->Add(FGLabel,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
     TheSizer->Add(DefaultFGColourPicker,
                   wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
 
+    TheSizer->AddSpacer(15);
+    TheSizer->Add(BGLabel,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
     TheSizer->Add(DefaultBGColourPicker,
                   wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
 
@@ -427,6 +558,203 @@ public:
   }
 
   TextStyle const &getStyle() const { return m_Style; }
+};
+
+/// \brief Emitted when an \c IndicatorStyle is modified.
+///
+class IndicatorStyleModifiedEvent : public wxEvent
+{
+public:
+  // Make this class known to wxWidgets' class hierarchy.
+wxDECLARE_CLASS(IndicatorStyleModifiedEvent);
+
+  /// \brief Constructor.
+  ///
+  IndicatorStyleModifiedEvent(wxEventType EventType, int WinID)
+  : wxEvent(WinID, EventType)
+  {
+    this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
+  }
+
+  /// \brief Copy constructor.
+  ///
+  IndicatorStyleModifiedEvent(IndicatorStyleModifiedEvent const &Ev)
+    : wxEvent(Ev)
+  {
+    this->m_propagationLevel = Ev.m_propagationLevel;
+  }
+
+  /// \brief wxEvent::Clone().
+  ///
+  virtual wxEvent *Clone() const {
+    return new IndicatorStyleModifiedEvent(*this);
+  }
+};
+
+IMPLEMENT_CLASS(IndicatorStyleModifiedEvent, wxEvent)
+
+// Produced when the user changes the indicator style.
+wxDEFINE_EVENT(SEEC_EV_INDICATORSTYLE_MODIFIED, IndicatorStyleModifiedEvent);
+
+/// \brief Allow user to edit an \c IndicatorStyle.
+///
+class IndicatorStyleEditControl : public wxPanel
+{
+private:
+  IndicatorStyle m_Style;
+
+  void raiseIndicatorStyleModifiedEvent()
+  {
+    IndicatorStyleModifiedEvent Ev {SEEC_EV_INDICATORSTYLE_MODIFIED, GetId()};
+    Ev.SetEventObject(this);
+    if (auto const Handler = GetEventHandler())
+      Handler->AddPendingEvent(Ev);
+  }
+
+public:
+  IndicatorStyleEditControl(wxWindow *Parent,
+                            IndicatorStyle const &WithStyle,
+                            wxString const &DisplayName)
+  : wxPanel(Parent),
+    m_Style(WithStyle)
+  {
+    std::unique_ptr<wxBoxSizer> TheSizer (new wxBoxSizer(wxHORIZONTAL));
+    
+    auto const ColourSchemesTable = Resource("TraceViewer")["ColourSchemes"];
+    auto const IndicKindTable = ColourSchemesTable["IndicatorKindNames"];
+    auto const TextTable = ColourSchemesTable["SettingsPanel"]
+                            ["IndicatorStylePicker"];
+
+    auto const DefaultLabel = new wxStaticText(this, wxID_ANY, DisplayName);
+    DefaultLabel->SetBackgroundStyle(wxBG_STYLE_COLOUR);
+
+    std::array<bool const, 3> KindHasOutlineOpacity = {
+      false, // Plain
+      false, // Box
+      true   // StraightBox
+    };
+
+    std::array<wxString const, 3> KindNames = {
+      towxString(IndicKindTable[to_string(IndicatorStyle::EKind::Plain)]),
+      towxString(IndicKindTable[to_string(IndicatorStyle::EKind::Box)]),
+      towxString(IndicKindTable[to_string(IndicatorStyle::EKind::StraightBox)])
+    };
+    
+    auto const DefaultFGColourPicker = new wxColourPickerCtrl(this, wxID_ANY);
+    DefaultFGColourPicker->
+      SetToolTip(towxString(TextTable["ForegroundPickerToolTip"]));
+    DefaultFGColourPicker->Bind(wxEVT_COLOURPICKER_CHANGED,
+                                make_function([=](wxColourPickerEvent &Ev){
+                                  m_Style.SetForeground(Ev.GetColour());
+                                  raiseIndicatorStyleModifiedEvent();
+                                  Ev.Skip();
+                                }));
+
+    DefaultFGColourPicker->SetColour(m_Style.GetForeground());
+    
+    auto const AlphaLabel =
+      new wxStaticText(this, wxID_ANY,
+                       towxString(TextTable["OpacityPickerLabel"]));
+    AlphaLabel->SetBackgroundStyle(wxBG_STYLE_COLOUR);
+    
+    auto const AlphaSpin =
+      new wxSpinCtrl(this, wxID_ANY,
+                     std::to_string(m_Style.GetAlpha()),
+                     wxDefaultPosition,
+                     wxDefaultSize,
+                     wxSP_ARROW_KEYS,
+                     /* min */ 0,
+                     /* max */ 255,
+                     m_Style.GetAlpha(),
+                     /* name */ "blah");
+    
+    AlphaSpin->SetToolTip(towxString(TextTable["OpacityPickerToolTip"]));
+    AlphaSpin->Bind(wxEVT_SPINCTRL,
+                    make_function([=](wxSpinEvent &Ev){
+                      m_Style.SetAlpha(Ev.GetPosition());
+                      raiseIndicatorStyleModifiedEvent();
+                      Ev.Skip();
+                    }));
+
+    auto const OutlineAlphaLabel =
+      new wxStaticText(this, wxID_ANY,
+                       towxString(TextTable["OutlineOpacityPickerLabel"]));
+    OutlineAlphaLabel->SetBackgroundStyle(wxBG_STYLE_COLOUR);
+
+    auto const OutlineAlphaSpin =
+      new wxSpinCtrl(this, wxID_ANY,
+                     std::to_string(m_Style.GetOutlineAlpha()),
+                     wxDefaultPosition,
+                     wxDefaultSize,
+                     wxSP_ARROW_KEYS,
+                     /* min */ 0,
+                     /* max */ 255,
+                     m_Style.GetOutlineAlpha(),
+                     /* name */ "blah");
+    
+    OutlineAlphaSpin->Enable(
+      KindHasOutlineOpacity[static_cast<int>(m_Style.GetKind())]);
+    OutlineAlphaSpin->
+      SetToolTip(towxString(TextTable["OutlineOpacityPickerToolTip"]));
+    OutlineAlphaSpin->Bind(wxEVT_SPINCTRL,
+                            make_function([=](wxSpinEvent &Ev){
+                              m_Style.SetOutlineAlpha(Ev.GetPosition());
+                              raiseIndicatorStyleModifiedEvent();
+                              Ev.Skip();
+                            }));
+    
+    auto const KindChoice = new wxChoice(this, wxID_ANY,
+                                         wxDefaultPosition,
+                                         wxDefaultSize,
+                                         KindNames.size(),
+                                         KindNames.data());
+    
+    KindChoice->SetToolTip(towxString(TextTable["KindPickerToolTip"]));
+    KindChoice->SetSelection(static_cast<int>(m_Style.GetKind()));
+    KindChoice->Bind(wxEVT_CHOICE,
+       make_function([=](wxCommandEvent &Ev){
+         auto const Value = Ev.GetInt();
+         if (Value < 0 ||
+             Value > static_cast<int>(IndicatorStyle::EKind::StraightBox)) {
+           wxLogDebug("Invalid indicator kind choice.");
+           return;
+         }
+         
+         m_Style.SetKind(static_cast<IndicatorStyle::EKind>(Value));
+
+         OutlineAlphaSpin->Enable(KindHasOutlineOpacity[Value]);
+
+         raiseIndicatorStyleModifiedEvent();
+         Ev.Skip();
+       }));
+    
+    TheSizer->Add(DefaultLabel,
+                  wxSizerFlags().Proportion(1)
+                    .Align(wxALIGN_CENTRE_VERTICAL));
+
+    TheSizer->Add(KindChoice,
+                  wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Expand());
+    
+    TheSizer->AddSpacer(15);
+    TheSizer->Add(DefaultFGColourPicker,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
+    
+    TheSizer->AddSpacer(15);
+    TheSizer->Add(AlphaLabel,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+    TheSizer->Add(AlphaSpin,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+    
+    TheSizer->AddSpacer(15);
+    TheSizer->Add(OutlineAlphaLabel,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+    TheSizer->Add(OutlineAlphaSpin,
+                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
+
+    SetSizerAndFit(TheSizer.release());
+  }
+
+  IndicatorStyle const &getStyle() const { return m_Style; }
 };
 
 ColourScheme::ColourScheme()
@@ -461,7 +789,11 @@ ColourScheme::ColourScheme()
   m_StringEOL(         wxColour( 38,139,210), wxColour(253,246,227),
                        m_Default.GetFont()),
   m_Keyword2(          wxColour( 88,110,117), wxColour(253,246,227),
-                       m_Default.GetFont())
+                       m_Default.GetFont()),
+  m_ActiveCode(IndicatorStyle::EKind::Plain, wxColour(181,137,  0), 100, 0),
+  m_ErrorCode(IndicatorStyle::EKind::Box, wxColour(220, 50, 47), 100, 0),
+  m_HighlightCode(IndicatorStyle::EKind::Box, wxColour(108,113,196), 100, 0),
+  m_InteractiveText(IndicatorStyle::EKind::Plain, wxColour( 38,139,210), 100, 0)
 {}
 
 ColourSchemeSettings::ColourSchemeSettings()
@@ -578,8 +910,10 @@ bool ColourSchemeSettingsWindow::Create(wxWindow *Parent,
   m_Scheme = std::make_shared<ColourScheme>(*m_PreviousScheme);
   m_Settings = &ForSettings;
 
-  auto const TextStyleNameTable =
-    Resource("TraceViewer")["ColourSchemes"]["TextStyleNames"];
+  auto const ColourSchemesTable = Resource("TraceViewer")["ColourSchemes"];
+  auto const TextStyleNameTable = ColourSchemesTable["TextStyleNames"];
+  auto const IndicatorStyleNameTable =
+    ColourSchemesTable["IndicatorStyleNames"];
 
   auto const ScrolledControlPanel = new wxScrolled<wxPanel>(this);
 
@@ -617,6 +951,28 @@ bool ColourSchemeSettingsWindow::Create(wxWindow *Parent,
   SEEC_ADD_EDIT_CONTROL(StringEOL)
   SEEC_ADD_EDIT_CONTROL(Keyword2)
 
+#undef SEEC_ADD_EDIT_CONTROL
+
+  // Now add IndicatorStyle editing controls.
+#define SEEC_ADD_EDIT_CONTROL(INDIC_NAME)                                      \
+  auto const INDIC_NAME##Control =                                             \
+    new IndicatorStyleEditControl(ScrolledControlPanel,                        \
+                                  m_Scheme->get##INDIC_NAME(),                 \
+           towxString(IndicatorStyleNameTable[#INDIC_NAME]));                  \
+  INDIC_NAME##Control->Bind(SEEC_EV_INDICATORSTYLE_MODIFIED,                   \
+    make_function([=](IndicatorStyleModifiedEvent &Ev){                        \
+      m_Scheme->set##INDIC_NAME(INDIC_NAME##Control->getStyle());              \
+      OnColourSchemeUpdated();                                                 \
+      Ev.Skip(); }));                                                          \
+  TextStyleListSizer->Add(INDIC_NAME##Control,                                 \
+                          wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT, 5));\
+  TextStyleListSizer->AddSpacer(3);
+
+  SEEC_ADD_EDIT_CONTROL(ActiveCode)
+  SEEC_ADD_EDIT_CONTROL(ErrorCode)
+  SEEC_ADD_EDIT_CONTROL(HighlightCode)
+  SEEC_ADD_EDIT_CONTROL(InteractiveText)
+  
 #undef SEEC_ADD_EDIT_CONTROL
 
   ScrolledControlPanel->SetScrollRate(5,5);

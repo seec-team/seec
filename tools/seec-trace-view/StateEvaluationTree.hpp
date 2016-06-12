@@ -43,6 +43,7 @@ class ActionReplayFrame;
 class ColourScheme;
 class ContextEvent;
 class ContextNotifier;
+class IndicatorStyle;
 class OpenTrace;
 class StateAccessToken;
 
@@ -133,11 +134,6 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
       Error(WithError)
     {}
   };
-  
-  enum class IndicatorStyle {
-    Plain,
-    Box
-  };
 
   /// \brief Contains settings that control the display of the evaluation tree.
   ///
@@ -157,29 +153,7 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
     
     int PenWidth;
     
-    wxColour Background;
-
-    wxColour Text;
-    
-    wxColour NodeBackground;
-    
-    wxColour NodeBorder;
-
-    wxColour NodeText;
-    
-    wxColour NodeActiveBackground;
-    
-    wxColour NodeActiveBorder;
-
-    wxColour NodeActiveText;
-    
-    wxColour NodeHighlightedBackground;
-    
-    wxColour NodeHighlightedBorder;
-
-    wxColour NodeHighlightedText;
-    
-    wxColour NodeErrorBorder;
+    ColourScheme const *m_ColourScheme;
     
     /// \brief Constructor.
     ///
@@ -247,9 +221,16 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
   ///
   void setupColourScheme(ColourScheme const &Scheme);
 
+  /// \brief Draw the indicator decoration for a given area.
+  ///
+  void drawIndicatorAtArea(wxDC &DC, IndicatorStyle const &Style,
+                           wxCoord X, wxCoord Y,
+                           wxCoord W, wxCoord H);
+  
   /// \brief Draw a single node using the given \c wxDC.
   ///
   void drawNode(wxDC &DC,
+                ColourScheme const &Scheme,
                 NodeInfo const &Node,
                 NodeDecoration const Decoration);
 

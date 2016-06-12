@@ -68,6 +68,7 @@ SEEC_SCI_COMMON_TYPE(CallTip,     wxSTC_STYLE_CALLTIP)
 // SeeC Indicators
 
 SEEC_SCI_INDICATOR(CodeActive)
+SEEC_SCI_INDICATOR(CodeError)
 SEEC_SCI_INDICATOR(CodeHighlight)
 SEEC_SCI_INDICATOR(TextInteractive)
 

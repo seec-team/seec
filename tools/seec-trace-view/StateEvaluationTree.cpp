@@ -97,47 +97,61 @@ StateEvaluationTreePanel::DisplaySettings::DisplaySettings()
   NodeBorderVertical(0.5),
   CodeFontSize(12),
   PenWidth(1),
-  Background(253, 246, 227), // base3
-  Text(101, 123, 131), // base00
-  NodeBackground(253, 246, 227), // base3
-  NodeBorder(147, 161, 161), // base1
-  NodeText(101, 123, 131), // base00
-  NodeActiveBackground(238, 232, 213), // base2
-  NodeActiveBorder(181, 137, 0), // yellow
-  NodeActiveText(88, 110, 117), // base01
-  NodeHighlightedBackground(238, 232, 213), // base2
-  NodeHighlightedBorder(108, 113, 196), // magenta
-  NodeHighlightedText(88, 110, 117), // base01
-  NodeErrorBorder(220, 50, 47) // red
+  m_ColourScheme(nullptr)
 {}
 
 void StateEvaluationTreePanel::setupColourScheme(ColourScheme const &Scheme)
 {
   CodeFont = Scheme.getDefault().GetFont();
-
   Settings.CodeFontSize = Scheme.getDefault().GetFont().GetPointSize();
+  Settings.m_ColourScheme = &Scheme;
+}
 
-  Settings.Background = Scheme.getDefault().GetBackground();
-  Settings.Text = Scheme.getDefault().GetForeground();
-
-  Settings.NodeBackground = Scheme.getDefault().GetBackground();
-  Settings.NodeBorder = Scheme.getDefault().GetForeground();
-  Settings.NodeText = Scheme.getDefault().GetForeground();
-
-  Settings.NodeActiveBackground = Scheme.getRuntimeValue().GetBackground();
-  Settings.NodeActiveBorder = Scheme.getRuntimeValue().GetForeground();
-  Settings.NodeActiveText = Scheme.getRuntimeValue().GetForeground();
-
-  Settings.NodeHighlightedBackground =
-    Scheme.getRuntimeInformation().GetBackground();
-  Settings.NodeHighlightedBorder =
-    Scheme.getRuntimeInformation().GetForeground();
-  Settings.NodeHighlightedText = Scheme.getRuntimeInformation().GetForeground();
-
-  Settings.NodeErrorBorder = Scheme.getRuntimeError().GetForeground();
+void StateEvaluationTreePanel::drawIndicatorAtArea(wxDC &DC,
+                                                   IndicatorStyle const &Style,
+                                                   wxCoord X, wxCoord Y,
+                                                   wxCoord W, wxCoord H)
+{
+  auto const Kind = Style.GetKind();
+  auto const FG   = Style.GetForeground();
+  
+  wxPen const PrevPen = DC.GetPen();
+  wxBrush const PrevBrush = DC.GetBrush();
+  
+  switch (Kind) {
+    case IndicatorStyle::EKind::Plain:
+      DC.SetPen(wxPen{FG, Settings.PenWidth});
+      DC.DrawLine(X, Y+H, X+W, Y+H);
+      break;
+    case IndicatorStyle::EKind::Box:
+      DC.SetPen(wxPen{FG, Settings.PenWidth});
+      DC.DrawRectangle(X, Y, W, H);
+      break;
+    case IndicatorStyle::EKind::StraightBox:
+      // Many DCs don't support alpha at all, so manually calculate an alpha
+      // against the background colour.
+      auto const BG = PrevBrush.GetColour();
+      double const Alpha        = (double)Style.GetAlpha() / 255;
+      double const OutlineAlpha = (double)Style.GetOutlineAlpha() / 255;
+      DC.SetPen(wxPen{
+        wxColour(wxColour::AlphaBlend(FG.Red(), BG.Red(), OutlineAlpha),
+                 wxColour::AlphaBlend(FG.Green(), BG.Green(), OutlineAlpha),
+                 wxColour::AlphaBlend(FG.Blue(), BG.Blue(), OutlineAlpha)),
+        Settings.PenWidth});
+      DC.SetBrush(wxBrush{
+        wxColour(wxColour::AlphaBlend(FG.Red(), BG.Red(), Alpha),
+                 wxColour::AlphaBlend(FG.Green(), BG.Green(), Alpha),
+                 wxColour::AlphaBlend(FG.Blue(), BG.Blue(), Alpha))});
+      DC.DrawRectangle(X, Y, W, H);
+      break;
+  }
+  
+  DC.SetPen(PrevPen);
+  DC.SetBrush(PrevBrush);
 }
 
 void StateEvaluationTreePanel::drawNode(wxDC &DC,
+                                        ColourScheme const &Scheme,
                                         NodeInfo const &Node,
                                         NodeDecoration const Decoration)
 {
@@ -146,31 +160,29 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   
   wxCoord const PageBorderV = CharHeight * Settings.PageBorderVertical;
   
-  // Set the background colour.
+  // Determine the indicator (if any).
+  IndicatorStyle const *Indicator = nullptr;
   switch (Decoration) {
     case NodeDecoration::None:
-      DC.SetPen(wxPen{Settings.NodeBorder, Settings.PenWidth});
-      DC.SetBrush(wxBrush{Settings.NodeBackground});
-      DC.SetTextForeground(Settings.NodeText);
       break;
     case NodeDecoration::Active:
-      DC.SetPen(wxPen{Settings.NodeActiveBorder, Settings.PenWidth});
-      DC.SetBrush(wxBrush{Settings.NodeActiveBackground});
-      DC.SetTextForeground(Settings.NodeActiveText);
+      Indicator = &(Scheme.getActiveCode());
       break;
     case NodeDecoration::Highlighted:
-      DC.SetPen(wxPen{Settings.NodeHighlightedBorder, Settings.PenWidth});
-      DC.SetBrush(wxBrush{Settings.NodeHighlightedBackground});
-      DC.SetTextForeground(Settings.NodeHighlightedText);
+      Indicator = &(Scheme.getHighlightCode());
       break;
   }
   
+  // Set the background colour.
+  DC.SetPen(wxPen{Scheme.getDefault().GetForeground(), Settings.PenWidth});
+  DC.SetBrush(wxBrush{Scheme.getDefault().GetBackground()});
+  DC.SetTextForeground(Scheme.getDefault().GetForeground());
+  
   // Also highlight this node's area in the pretty-printed Stmt.
-  if (Decoration == NodeDecoration::Active
-      || Decoration == NodeDecoration::Highlighted)
-  {
-    DC.DrawRectangle(Node.XStart, PageBorderV,
-                     Node.XEnd - Node.XStart, CharHeight);
+  if (Indicator) {
+    drawIndicatorAtArea(DC, *Indicator,
+                        Node.XStart, PageBorderV,
+                        Node.XEnd - Node.XStart, CharHeight);
   }
   
   // Draw the background.
@@ -183,15 +195,18 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
   // Draw the line over the node.
   DC.DrawLine(Node.XStart, Node.YStart, Node.XEnd + 1, Node.YStart);
   
-  // Draw borders around the node if it has an error.
+  // Draw the base indicator on the node (if any).
+  if (Indicator) {
+    drawIndicatorAtArea(DC, *Indicator,
+                        Node.XStart, Node.YStart,
+                        Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
+  }
+  
+  // Draw the error indicator if the node has an error.
   if (Node.Error == NodeError::Error) {
-    DC.SetPen(wxPen{Settings.NodeErrorBorder,
-                    Settings.PenWidth,
-                    wxPENSTYLE_DOT});
-
-    DC.DrawLine(Node.XStart, Node.YEnd,   Node.XEnd + 1, Node.YEnd);
-    DC.DrawLine(Node.XStart, Node.YStart, Node.XStart,   Node.YEnd + 1);
-    DC.DrawLine(Node.XEnd,   Node.YStart, Node.XEnd,     Node.YEnd + 1);
+    drawIndicatorAtArea(DC, Scheme.getErrorCode(),
+                        Node.XStart, Node.YStart,
+                        Node.XEnd - Node.XStart, Node.YEnd - Node.YStart);
   }
 
   // Draw the node's value string.
@@ -206,10 +221,15 @@ void StateEvaluationTreePanel::drawNode(wxDC &DC,
 
 void StateEvaluationTreePanel::render(wxDC &dc)
 {
-  PrepareDC(dc);
+  if (Settings.m_ColourScheme == nullptr)
+    return;
   
-  dc.SetBackground(wxBrush{Settings.Background});
+  PrepareDC(dc);
+  auto const &Scheme = *(Settings.m_ColourScheme);
+  
+  dc.SetBackground(wxBrush{Scheme.getDefault().GetBackground()});
   dc.Clear();
+  
   if (Statement.empty())
     return;
   
@@ -230,21 +250,21 @@ void StateEvaluationTreePanel::render(wxDC &dc)
       || (HighlightedValue && Node.Value.get() == HighlightedValue);
 
     if (DoHighlight)
-      drawNode(dc, Node, NodeDecoration::Highlighted);
+      drawNode(dc, Scheme, Node, NodeDecoration::Highlighted);
     else if (Node.Statement == ActiveStmt)
-      drawNode(dc, Node, NodeDecoration::Active);
+      drawNode(dc, Scheme, Node, NodeDecoration::Active);
     else
-      drawNode(dc, Node, NodeDecoration::None);
+      drawNode(dc, Scheme, Node, NodeDecoration::None);
   }
   
   // Redraw the hovered nodes, so that they outrank active node highlighting.
   if (HoverNodeIt != Nodes.end())
-    drawNode(dc, *HoverNodeIt, NodeDecoration::Highlighted);
+    drawNode(dc, Scheme, *HoverNodeIt, NodeDecoration::Highlighted);
   if (ReplayHoverNodeIt != Nodes.end())
-    drawNode(dc, *ReplayHoverNodeIt, NodeDecoration::Highlighted);
+    drawNode(dc, Scheme, *ReplayHoverNodeIt, NodeDecoration::Highlighted);
   
   // Draw the pretty-printed Stmt's string.
-  dc.SetTextForeground(Settings.NodeText);
+  dc.SetTextForeground(Scheme.getDefault().GetForeground());
   wxCoord const PageBorderH = dc.GetCharWidth() * Settings.PageBorderHorizontal;
   wxCoord const PageBorderV = dc.GetCharHeight() * Settings.PageBorderVertical;
   dc.DrawText(Statement, PageBorderH, PageBorderV);
@@ -761,15 +781,13 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
 
   // Recalculate the data here.
   if (!CurrentThread) {
-    wxClientDC dc(this);
-    render(dc);
+    redraw();
     return;
   }
   
   auto &Stack = CurrentThread->getCallStack();
   if (Stack.empty()) {
-    wxClientDC dc(this);
-    render(dc);
+    redraw();
     return;
   }
   
@@ -778,15 +796,13 @@ void StateEvaluationTreePanel::show(std::shared_ptr<StateAccessToken> Access,
   auto const &RunErrors = ActiveFn->getRuntimeErrors();
   auto const ActiveStmt = ActiveFn->getActiveStmt();
   if (!ActiveStmt) {
-    wxClientDC dc(this);
-    render(dc);
+    redraw();
     return;
   }
   
   auto const TopStmt = getEvaluationRoot(ActiveStmt, *MappedAST);
   if (!TopStmt) {
-    wxClientDC dc(this);
-    render(dc);
+    redraw();
     return;
   }
   
