@@ -77,10 +77,10 @@ install:
 #
   - |
     if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
-      if [ ! -e "${DEPS_INSTALL}/bin/icu-config" ]; then
+      ICU_INSTALL_DIR="${DEPS_INSTALL}"
+      if [ ! -e "${ICU_INSTALL}/bin/icu-config" ]; then
         cd ${DEPS_SRC}
         ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
-        ICU_INSTALL_DIR="${DEPS_INSTALL}"
         travis_retry wget --no-check-certificate --quiet -O - ${ICU_SOURCE_URL} | tar -x
         cd icu/source
         chmod +x runConfigureICU configure install-sh
