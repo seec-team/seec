@@ -15,7 +15,7 @@
 
     a:hover { cursor: context-menu; z-index:100; }
     a:hover > path { z-index:105; }
-    a:hover > polygon { fill-opacity:1; z-index:100; }
+    a:hover > polygon { z-index:100; }
     a:hover > text { z-index:110; }
 
     polygon.uninitialized ~ polygon { fill: none; }
@@ -224,6 +224,15 @@
         }
       });
 
+      // for each text element, take the inner text and put it into a tspan.
+      // this allows us to style decorations (underlining) differently to the text.
+      $('text').each(function(index, element) {
+        var tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.textContent = element.textContent;
+        element.textContent = "";
+        element.appendChild(tspan);
+      });
+
       StateExists = true;
 
       for (var i = 0; i < HighlightedValues.length; ++i)
@@ -299,24 +308,40 @@
 
     // Called from seec-view to set the ColourScheme.
     //
-    function SetColourScheme(Scheme) {
-      ColourScheme = Scheme;
+    function SetColourScheme(ColourScheme) {
       var CSSTemplate = 
         "body { background-color:$BODY_BG; }\n"
       + "text { fill:$TEXT_FILL; }\n"
       + "g.graph > polygon { stroke:none; fill:$GRAPH_POLY_FILL; }\n"
       + "polygon { stroke:$POLY_STROKE; fill:$POLY_FILL; }\n"
       + "path { stroke:$PATH_STROKE; }\n"
-      + "polygon.uninitialized { fill:$UNINITIALIZED_POLY_FILL; }\n"
-      + ".activestmtvalue > path { stroke:$ACTIVESTMTVALUE_PATH_STROKE; }\n"
-      + ".activestmtvalue > polygon { stroke:$ACTIVESTMTVALUE_POLY_STROKE; fill:$ACTIVESTMTVALUE_POLY_FILL; }\n"
-      + ".activestmtvalue > text { fill:$ACTIVESTMTVALUE_TEXT_FILL; }\n"
-      + ".valuehighlight > path { stroke:$VALUEHIGHLIGHT_PATH_STROKE; }\n"
-      + ".valuehighlight > polygon { stroke:$VALUEHIGHLIGHT_POLY_STROKE; fill:$VALUEHIGHLIGHT_POLY_FILL; }\n"
-      + ".valuehighlight > text { fill:$VALUEHIGHLIGHT_TEXT_FILL; }\n"
-      + "a:hover > path { stroke:$ANCHORHOVER_PATH_STROKE; }\n"
-      + "a:hover > polygon { stroke:$ANCHORHOVER_POLY_STROKE; fill:$ANCHORHOVER_POLY_FILL; }\n"
-      + "a:hover > text { fill:$ANCHORHOVER_TEXT_FILL; }\n";
+      + "polygon.uninitialized { fill:$UNINITIALIZED_POLY_FILL; }\n";
+
+      var SetupSchemeForSelector = function(Scheme, Default, Selector) {
+        if (Scheme.Kind == "PLAIN") {
+          // We have to handle g.edge descendents separately, so that pointers get some useful highlighting.
+          CSSTemplate += Selector + " text { text-decoration: underline; fill: " + Scheme.Foreground + "; }\n"
+                       + Selector + " tspan { fill: " + Default.Foreground + "; }\n"
+                       + "g.edge " + Selector + " > path { stroke:" + Scheme.Foreground + "; }\n"
+                       + "g.edge " + Selector + " > polygon { stroke:" + Scheme.Foreground + "; }\n";
+        }
+        else if (Scheme.Kind == "BOX") {
+          CSSTemplate += Selector + " > path { stroke:" + Scheme.Foreground + "; stroke-opacity:1; }\n"
+                       + Selector + " > polygon { stroke:" + Scheme.Foreground + "; stroke-opacity:1; fill-opacity:0; }\n";
+        }
+        else if (Scheme.Kind == "STRAIGHTBOX") {
+          StrokeOpacity = Scheme.OutlineAlpha / 255.0;
+          FillOpacity = Scheme.Alpha / 255.0;
+          
+          CSSTemplate += Selector + " > path { stroke:" + Scheme.Foreground + "; stroke-opacity:" + StrokeOpacity + "; }\n"
+                       + Selector + " > polygon { stroke:" + Scheme.Foreground + "; stroke-opacity:" + StrokeOpacity + "; fill:" + Scheme.Foreground + "; fill-opacity:" + FillOpacity + "; }\n";  
+        }
+      };
+      
+      // Later entries take preference.
+      SetupSchemeForSelector(ColourScheme.ActiveCode,    ColourScheme.Default, ".activestmtvalue");
+      SetupSchemeForSelector(ColourScheme.HighlightCode, ColourScheme.Default, "a:hover");
+      SetupSchemeForSelector(ColourScheme.HighlightCode, ColourScheme.Default, ".valuehighlight");
 
       // Transform the CSSTemplate according to the ColourScheme.
       var SchemedCSS = CSSTemplate
@@ -326,19 +351,9 @@
         .replace("$PATH_STROKE", ColourScheme.Default.Foreground)
         .replace("$BODY_BG",     ColourScheme.Default.Background)
         .replace("$TEXT_FILL",   ColourScheme.Default.Foreground)
-        .replace("$UNINITIALIZED_POLY_FILL", "#aaaaaa")
-        .replace("$ACTIVESTMTVALUE_PATH_STROKE", ColourScheme.RuntimeValue.Foreground)
-        .replace("$ACTIVESTMTVALUE_POLY_STROKE", ColourScheme.RuntimeValue.Foreground)
-        .replace("$ACTIVESTMTVALUE_POLY_FILL",   ColourScheme.RuntimeValue.Background)
-        .replace("$ACTIVESTMTVALUE_TEXT_FILL",   ColourScheme.RuntimeValue.Foreground)
-        .replace("$VALUEHIGHLIGHT_PATH_STROKE", ColourScheme.RuntimeInformation.Foreground)
-        .replace("$VALUEHIGHLIGHT_POLY_STROKE", ColourScheme.RuntimeInformation.Foreground)
-        .replace("$VALUEHIGHLIGHT_POLY_FILL",   ColourScheme.RuntimeInformation.Background)
-        .replace("$VALUEHIGHLIGHT_TEXT_FILL",   ColourScheme.RuntimeInformation.Foreground)
-        .replace("$ANCHORHOVER_PATH_STROKE", ColourScheme.RuntimeInformation.Foreground)
-        .replace("$ANCHORHOVER_POLY_STROKE", ColourScheme.RuntimeInformation.Foreground)
-        .replace("$ANCHORHOVER_POLY_FILL",   ColourScheme.RuntimeInformation.Background)
-        .replace("$ANCHORHOVER_TEXT_FILL",   ColourScheme.RuntimeInformation.Foreground);
+        .replace("$UNINITIALIZED_POLY_FILL", "#aaaaaa");
+
+      Log(SchemedCSS);
 
       var theStyle = document.getElementById('theStyle');
       theStyle.innerHTML = SchemedCSS;

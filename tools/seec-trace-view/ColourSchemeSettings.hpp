@@ -71,6 +71,74 @@ public:
   static seec::Maybe<TextStyle, seec::Error> fromXML(wxXmlNode const &Node);
 };
 
+/// \brief Defines an indicator style.
+///
+class IndicatorStyle
+{
+public:
+  enum class EKind {
+    Plain,
+    Box,
+    StraightBox
+  };
+  
+private:
+  EKind m_Kind;
+  
+  wxColour m_Foreground;
+  
+  int m_Alpha;
+  
+  int m_OutlineAlpha;
+
+public:
+  IndicatorStyle()
+  : m_Kind(EKind::Plain),
+    m_Foreground(*wxBLACK),
+    m_Alpha(255),
+    m_OutlineAlpha(0)
+  {}
+
+  IndicatorStyle(EKind Kind,
+                 wxColour Foreground,
+                 int Alpha,
+                 int OutlineAlpha)
+  : m_Kind(Kind),
+    m_Foreground(Foreground),
+    m_Alpha(Alpha),
+    m_OutlineAlpha(OutlineAlpha)
+  {}
+  
+  void SetKind(EKind const Kind) {
+    m_Kind = Kind;
+  }
+  
+  EKind GetKind() const { return m_Kind; }
+
+  void SetForeground(wxColour Foreground) {
+    m_Foreground = Foreground;
+  }
+
+  wxColour GetForeground() const { return m_Foreground; }
+
+  void SetAlpha(int const Alpha) {
+    m_Alpha = std::max(std::min(Alpha, 255), 0);
+  }
+  
+  int GetAlpha() const { return m_Alpha; }
+
+  void SetOutlineAlpha(int const OutlineAlpha) {
+    m_OutlineAlpha = std::max(std::min(OutlineAlpha, 255), 0);
+  }
+  
+  int GetOutlineAlpha() const { return m_OutlineAlpha; }
+
+  static seec::Maybe<IndicatorStyle, seec::Error> fromXML(wxXmlNode const &Node);
+};
+
+char const * const to_string(IndicatorStyle::EKind const Kind);
+
+
 /// \brief Defines a complete colour scheme.
 ///
 class ColourScheme
@@ -95,6 +163,11 @@ private:
   TextStyle m_StringEOL;
   TextStyle m_Keyword2;
 
+  IndicatorStyle m_ActiveCode;
+  IndicatorStyle m_ErrorCode;
+  IndicatorStyle m_HighlightCode;
+  IndicatorStyle m_InteractiveText;
+  
 public:
   ColourScheme();
 
@@ -118,6 +191,13 @@ public:
   void setStringEOL(TextStyle const &Value) { m_StringEOL = Value; }
   void setKeyword2(TextStyle const &Value) { m_Keyword2 = Value; }
 
+  void setActiveCode(IndicatorStyle const &Value) { m_ActiveCode = Value; }
+  void setErrorCode(IndicatorStyle const &Value) { m_ErrorCode = Value; }
+  void setHighlightCode(IndicatorStyle const &Value) {
+    m_HighlightCode = Value; }
+  void setInteractiveText(IndicatorStyle const &Value) {
+    m_InteractiveText = Value; }
+  
   TextStyle const &getDefault() const { return m_Default; }
   TextStyle const &getLineNumber() const { return m_LineNumber; }
 
@@ -136,6 +216,11 @@ public:
   TextStyle const &getIdentifier() const { return m_Identifier; }
   TextStyle const &getStringEOL() const { return m_StringEOL; }
   TextStyle const &getKeyword2() const { return m_Keyword2; }
+  
+  IndicatorStyle const &getActiveCode() const { return m_ActiveCode; }
+  IndicatorStyle const &getErrorCode() const { return m_ErrorCode; }
+  IndicatorStyle const &getHighlightCode() const { return m_HighlightCode; }
+  IndicatorStyle const &getInteractiveText() const { return m_InteractiveText; }
 };
 
 /// \brief Holds the application's colour scheme settings.

@@ -718,8 +718,10 @@ root:table {
     FontInfoNodeMissing:string {"FontInfo node is missing from TextStyle definition for '{value}'."}
     XMLLoadError:string {"Failed to read colour scheme XML document '{filename}'."}
     TextStylesMissing:string {"Text styles node is missing from colour scheme."}
+    IndicatorStylesMissing:string {"Indicator styles node is missing from colour scheme."}
     SchemeInvalidError:string {"Colour scheme definition is invalid."}
     ReadErrorTitle:string {"Error reading colour scheme"}
+    IndicatorKindIncorrect:string {"Indicator kind is invalid: '{value}'."}
 
     TextStyleNames:table {
       Default:string            {"Default"}
@@ -741,360 +743,41 @@ root:table {
       StringEOL:string          {"String (EOL)"}
       Keyword2:string           {"Keywords (2)"}
     }
+    
+    IndicatorStyleNames:table {
+      ActiveCode:string {"Active code"}
+      ErrorCode:string {"Active code (with runtime error)"}
+      HighlightCode:string {"Highlighted code"}
+      InteractiveText:string {"Interactive text"}
+    }
+    
+    IndicatorKindNames:table {
+      PLAIN:string       {"Underlined"}
+      BOX:string         {"Outlined"}
+      STRAIGHTBOX:string {"Highlighted"}
+    }
 
     SettingsPanel:table {
       Title:string {"Colour Scheme"}
       SaveErrorTitle:string {"Error saving colour scheme"}
       SaveErrorMessage:string {"Error saving colour scheme"}
+      
+      TextStylePicker:table {
+        FontPickerToolTip:string {"Font style"}
+        ForegroundPickerLabel:string {"Foreground:"}
+        ForegroundPickerToolTip:string {"Foreground colour"}
+        BackgroundPickerLabel:string {"Background:"}
+        BackgroundPickerToolTip:string {"Background colour"}
+      }
+      
+      IndicatorStylePicker:table {
+        KindPickerToolTip:string {"Indication"}
+        ForegroundPickerToolTip:string {"Colour"}
+        OpacityPickerLabel:string {"Opacity:"}
+        OpacityPickerToolTip:string {"Opacity"}
+        OutlineOpacityPickerLabel:string {"Outline opacity:"}
+        OutlineOpacityPickerToolTip:string {"Outline opacity"}
+      }
     }
   }
-
-  //
-  // Default style settings for Scintilla
-  //
-  ScintillaStyles:table {
-    //
-    // Common styles
-    //
-    
-    Default:table {
-      Name:string {"Default"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    LineNumber:table {
-      Name:string {"Line number"}
-      Foreground:string {"rgb(147,161,161)"}
-      Background:string {"rgb(238,232,213)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    BraceLight:table {
-      Name:string {"Brace light"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(238,232,213)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    BraceBad:table {
-      Name:string {"Brace bad"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(238,232,213)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    ControlChar:table {
-      Name:string {"Control character"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    IndentGuide:table {
-      Name:string {"Indent guide"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    CallTip:table {
-      Name:string {"Call tip"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    //
-    // SeeC-specific styles
-    //
-
-    SeeCRuntimeError:table {
-      Name:string {"Runtime error"}
-      Foreground:string {"rgb(220, 50, 47)"} // red
-      Background:string {"rgb(238,232,213)"} // base2
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    SeeCRuntimeValue:table {
-      Name:string {"Runtime value"}
-      Foreground:string {"rgb(133,153,  0)"} // green
-      Background:string {"rgb(238,232,213)"} // base2
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    SeeCRuntimeInformation:table {
-      Name:string {"Runtime information"}
-      Foreground:string {"rgb(181,137,  0)"} // yellow
-      Background:string {"rgb(238,232,213)"} // base2
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    //
-    // Lexer-specific styles
-    //
-    
-    Comment:table {
-      Name:string {"Comment"}
-      Foreground:string {"rgb(147,161,161)"} // base1
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    CommentLine:table {
-      Name:string {"Comment line"}
-      Foreground:string {"rgb(147,161,161)"} // base1
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    CommentDoc:table {
-      Name:string {"Comment (Doxygen)"}
-      Foreground:string {"rgb(147,161,161)"} // base1
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    Number:table {
-      Name:string {"Number"}
-      Foreground:string {"rgb(203, 75, 22)"} // orange
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    Keyword1:table {
-      Name:string {"Keyword1"}
-      Foreground:string {"rgb( 88,110,117)"} // base01
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {"Bold"}
-      LetterCase:int {0}
-    }
-    
-    String:table {
-      Name:string {"String"}
-      Foreground:string {"rgb( 38,139,210)"} // blue
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    Character:table {
-      Name:string {"Character"}
-      Foreground:string {"rgb( 42,161,152)"} // cyan
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    UUID:table {
-      Name:string {"UUID"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    Preprocessor:table {
-      Name:string {"Preprocessor"}
-      Foreground:string {"rgb(211, 54,130)"} // magenta
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    Operator:table {
-      Name:string {"Operator"}
-      Foreground:string {"rgb( 88,110,117)"} // base01
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    Identifier:table {
-      Name:string {"Identifier"}
-      Foreground:string {"rgb( 88,110,117)"} // base01
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    StringEOL:table {
-      Name:string {"String (EOL)"}
-      Foreground:string {"rgb( 38,139,210)"} // blue
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    Verbatim:table {
-      Name:string {"Verbatim"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    RegEx:table {
-      Name:string {"Regular expression"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    CommentLineDoc:table {
-      Name:string {"Comment line (Doxygen)"}
-      Foreground:string {"rgb(147,161,161)"} // base1
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    Keyword2:table {
-      Name:string {"Keyword2"}
-      Foreground:string {"rgb( 88,110,117)"} // base01
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    CommentDocKeyword:table {
-      Name:string {"Comment (Doxygen keyword)"}
-      Foreground:string {"rgb(211, 54,130)"} // magenta
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-
-    CommentDocKeywordError:table {
-      Name:string {"Comment (Doxygen keyword error)"}
-      Foreground:string {"rgb(220, 50, 47)"} // red
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-    
-    GlobalClass:table {
-      Name:string {"Global class"}
-      Foreground:string {"rgb(101,123,131)"}
-      Background:string {"rgb(253,246,227)"}
-      FontName:string {""}
-      FontSize:int {12}
-      FontStyle:string {""}
-      LetterCase:int {0}
-    }
-  }
-
-
-  //
-  // Default style settings for Scintilla
-  //
-  ScintillaIndicatorStyles:table {
-    //
-    // Currently/last active code.
-    //
-    CodeActive:table {
-      Name:string {"Active code"}
-      Style:string {"PLAIN"}
-      Foreground:string {"rgb(181,137,  0)"} // yellow
-      Alpha:int {100}
-      OutlineAlpha:int {0}
-      Under:string {"False"}
-    }
-
-    //
-    // Highlight code.
-    //
-    CodeHighlight:table {
-      Name:string {"Highlight code"}
-      Style:string {"BOX"}
-      Foreground:string {"rgb(108,113,196)"} // violet
-      Alpha:int {100}
-      OutlineAlpha:int {0}
-      Under:string {"False"}
-    }
-
-    //
-    // Interactive text (e.g. node links in explanations).
-    //
-    TextInteractive:table {
-      Name:string {"Interactive text"}
-      Style:string {"PLAIN"}
-      Foreground:string {"rgb( 38,139,210)"} // blue
-      Alpha:int {100}
-      OutlineAlpha: int {0}
-      Under:string {"False"}
-    }
-  } // End ScintillaIndicatorStyles
 }
