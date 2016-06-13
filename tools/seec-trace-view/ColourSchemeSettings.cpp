@@ -30,6 +30,8 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
 
+#include <array>
+
 #include "ColourSchemeSettings.hpp"
 
 using namespace seec;
