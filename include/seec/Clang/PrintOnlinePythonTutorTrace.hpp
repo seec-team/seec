@@ -11,8 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
-#define SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
+#ifndef SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP
+#define SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP
 
 #include "llvm/ADT/StringRef.h"
 
@@ -61,4 +61,4 @@ public:
 void PrintOnlinePythonTutor(seec::cm::ProcessTrace const &Trace,
                             OPTSettings const &Settings);
 
-#endif // SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
+#endif // SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP

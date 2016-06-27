@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/PrintOnlinePythonTutorTrace.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/FunctionState.hpp"
@@ -32,8 +33,6 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "OnlinePythonTutor.hpp"
 
 using namespace seec;
 using namespace seec::cm;

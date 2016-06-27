@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/Clang/PrintOnlinePythonTutorTrace.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -53,7 +54,6 @@
 
 #include "unicode/unistr.h"
 
-#include "OnlinePythonTutor.hpp"
 #include "Unmapped.hpp"
 
 #include <array>
