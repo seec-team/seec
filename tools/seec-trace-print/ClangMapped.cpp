@@ -219,7 +219,7 @@ void PrintClangMapped(seec::AugmentationCollection const &Augmentations,
   }
   else if (OnlinePythonTutor) {
     PrintOnlinePythonTutor(*CMProcessTrace,
-                           OPTSettings{Augmentations}
+                           seec::cm::OPTSettings{Augmentations}
                             .setPyCrazyMode(false)
                             .setVariableName(OPTVariableName));
   }

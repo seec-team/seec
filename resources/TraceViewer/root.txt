@@ -56,9 +56,12 @@ root:table {
       SaveBMP:string {"Save evaluation tree as bitmap"}
       BMPFiles:string {"Bitmap files (*.bmp)|*.bmp"}
 
-      ExportGraphSVG:string {"&Export graph"}
+      ExportGraphSVG:string {"Export &graph"}
       SaveGraphSVG:string {"Save graph as SVG"}
       SVGFiles:string {"SVG files (*.svg)|*.svg"}
+
+      ExportTraceOPT:string {"Export trace for OnlinePythonTutor"}
+      SaveTraceOPT:string {"Save trace in OnlinePythonTutor format"}
     }
 
 
