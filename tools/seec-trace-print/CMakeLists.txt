@@ -1,7 +1,6 @@
 add_executable(seec-print
  ClangMapped.cpp
  main.cpp
- OnlinePythonTutor.cpp
  Unmapped.cpp
 )
 

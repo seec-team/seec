@@ -52,6 +52,7 @@ set(SEEC_CLANG_MAPPED_TRACE_HEADERS
   ../../include/seec/Clang/MappedStreamState.hpp
   ../../include/seec/Clang/MappedThreadState.hpp
   ../../include/seec/Clang/MappedValue.hpp
+  ../../include/seec/Clang/PrintOnlinePythonTutorTrace.hpp
   ../../include/seec/Clang/TypeMatch.hpp
 )
 
@@ -69,6 +70,7 @@ set(SEEC_CLANG_MAPPED_TRACE_SOURCES
   MappedStreamState.cpp
   MappedThreadState.cpp
   MappedValue.cpp
+  PrintOnlinePythonTutorTrace.cpp
   TypeMatch.cpp
 )
 

@@ -52,7 +52,6 @@
 
 #include "unicode/unistr.h"
 
-#include "OnlinePythonTutor.hpp"
 #include "Unmapped.hpp"
 
 #include <array>
@@ -80,8 +79,6 @@ namespace seec {
     extern cl::opt<bool> ShowStates;
 
     extern cl::opt<bool> ShowErrors;
-
-    extern cl::opt<bool> OnlinePythonTutor;
 
     extern cl::opt<bool> ReverseStates;
 

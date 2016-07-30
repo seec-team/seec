@@ -11,19 +11,21 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
-#define SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
+#ifndef SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP
+#define SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 
 namespace seec {
-  namespace cm {
-    class ProcessTrace;
-  }
-  class AugmentationCollection;
-}
+
+class AugmentationCollection;
+
+namespace cm {
+
+class ProcessTrace;
 
 class OPTSettings {
   seec::AugmentationCollection const &Augmentations;
@@ -59,6 +61,14 @@ public:
 };
 
 void PrintOnlinePythonTutor(seec::cm::ProcessTrace const &Trace,
+                            OPTSettings const &Settings,
+                            llvm::raw_ostream &Out);
+
+void PrintOnlinePythonTutor(seec::cm::ProcessTrace const &Trace,
                             OPTSettings const &Settings);
 
-#endif // SEEC_TRACE_PRINT_ONLINEPYTHONTUTOR_HPP
+} // namespace cm (in seec)
+
+} // namespace seec
+
+#endif // SEEC_CLANG_PRINTONLINEPYTHONTUTORTRACE_HPP

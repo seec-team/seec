@@ -19,6 +19,7 @@
 #include "seec/Clang/MappedRuntimeErrorState.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/PrintOnlinePythonTutorTrace.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/FunctionState.hpp"
@@ -33,10 +34,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "OnlinePythonTutor.hpp"
-
-using namespace seec;
-using namespace seec::cm;
 using namespace seec::runtime_errors;
 using namespace seec::util;
 
@@ -55,6 +52,10 @@ std::string makeAddressString(seec::trace::stateptr_ty const Address)
 }
 
 }
+
+namespace seec {
+
+namespace cm {
 
 llvm::StringRef GetSingularMainFileContents(ProcessTrace const &Trace)
 {
@@ -848,7 +849,18 @@ bool OPTPrinter::printAllStates()
 }
 
 void PrintOnlinePythonTutor(ProcessTrace const &Trace,
+                            OPTSettings const &Settings,
+                            llvm::raw_ostream &Out)
+{
+  OPTPrinter::print(Settings, Out, Trace);
+}
+
+void PrintOnlinePythonTutor(ProcessTrace const &Trace,
                             OPTSettings const &Settings)
 {
   OPTPrinter::print(Settings, llvm::outs(), Trace);
 }
+
+} // namespace cm (in seec)
+
+} // namespace seec

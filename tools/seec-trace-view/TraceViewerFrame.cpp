@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
+#include "seec/Clang/PrintOnlinePythonTutorTrace.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
@@ -159,6 +160,31 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
         return;
       GraphViewer->renderToSVG(Dlg.GetPath());
     });
+
+  BindMenuItem(
+  Menu->Append(wxID_ANY,
+               seec::towxString(Text["ExportTraceOPT"])),
+  [this, Text] (wxEvent &) {
+    wxFileDialog Dlg(this,
+                     seec::towxString(Text["SaveTraceOPT"]),
+                     "", "",
+                     /* file extensions */ "",
+                     wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (Dlg.ShowModal() == wxID_CANCEL)
+      return;
+
+    std::error_code FErr{};
+    llvm::raw_fd_ostream FOut{Dlg.GetPath().ToStdString(), FErr,
+                              llvm::sys::fs::OpenFlags::F_Text};
+    if (FErr) {
+      return;
+    }
+    
+    seec::cm::PrintOnlinePythonTutor(Trace->getTrace(),
+      seec::cm::OPTSettings{wxGetApp().getAugmentations()}
+        .setVariableName("trace"),
+      FOut);
+  });
 
   return std::make_pair(std::move(Menu),
                         seec::towxString(Text["Title"].asString()));
