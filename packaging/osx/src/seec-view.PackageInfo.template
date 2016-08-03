@@ -1,0 +1,8 @@
+
+<pkg-info format-version="2" identifier="au.edu.uwa.csse.seec.viewer.pkg" version="SEEC_VERSION" install-location="/Applications" relocatable="true" auth="root">
+    <payload installKBytes="SEEC_VIEWER_INSTALL_KBYTES" numberOfFiles="SEEC_VIEWER_NUM_FILES"/>
+    <bundle id="au.edu.uwa.csse.seec" CFBundleIdentifier="au.edu.uwa.csse.seec" path="./seec-view.app" CFBundleVersion="SEEC_VERSION"/>
+    <bundle-version>
+        <bundle id="au.edu.uwa.csse.seec"/>
+    </bundle-version>
+</pkg-info>
