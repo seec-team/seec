@@ -9,6 +9,7 @@ set(TEST_PRINT  ${TEST_ROOT}/print_trace.sh)
 set(TEST_PRINT_COMPARE ${TEST_ROOT}/print_compare_trace.sh)
 
 enable_testing()
+INCLUDE(CTest)
 
 set(SEEC_CC_FLAGS "")
 if(NOT "${CMAKE_OSX_SYSROOT}" STREQUAL "")
