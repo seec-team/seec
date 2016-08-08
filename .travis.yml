@@ -138,7 +138,7 @@ after_success:
     make install
     cd ${HOME}/seec-test
     cmake -DSEEC_INSTALL=${HOME}/seec-install ${TRAVIS_BUILD_DIR}/tests
-    make && make test
+    make && ctest -D Continuous
 
   - |
     if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
