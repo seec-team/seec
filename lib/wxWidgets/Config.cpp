@@ -109,7 +109,7 @@ std::string getUserLocalDataPath()
   }
 
   if (!ConfigPath.DirExists()) {
-    ConfigPath.AssignDir(StdPaths.GetUserLocalDataDir());
+    ConfigPath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());
   }
 #else
   ConfigPath.AssignDir(wxStandardPaths::Get().GetUserLocalDataDir());

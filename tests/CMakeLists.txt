@@ -10,9 +10,14 @@ set(TEST_PRINT_COMPARE ${TEST_ROOT}/print_compare_trace.sh)
 
 enable_testing()
 
+set(SEEC_CC_FLAGS "")
+if(NOT "${CMAKE_OSX_SYSROOT}" STREQUAL "")
+  set(SEEC_CC_FLAGS "${SEEC_CC_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
+endif(NOT "${CMAKE_OSX_SYSROOT}" STREQUAL "")
+
 macro(seec_test_build BINARY SOURCE ARGS)
  add_test(NAME ${SEEC_TEST_PREFIX}build-${BINARY}
-          COMMAND ${TEST_SCRIPT} SEEC_WRITE_INSTRUMENTED=${BINARY}.instrumented.ll ${SEEC_INSTALL}/bin/seec-cc -std=c99 -fvisibility=hidden ${ARGS} -o ${BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE})
+          COMMAND ${TEST_SCRIPT} SEEC_WRITE_INSTRUMENTED=${BINARY}.instrumented.ll ${SEEC_INSTALL}/bin/seec-cc ${SEEC_CC_FLAGS} -std=c99 -fvisibility=hidden ${ARGS} -o ${BINARY} ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE})
 endmacro(seec_test_build)
 
 macro(seec_test_print_trace BINARY TEST)

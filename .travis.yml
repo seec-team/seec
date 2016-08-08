@@ -38,7 +38,7 @@ before_install:
   - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
   - CMAKE_URL="http://www.cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz"
   - WXWIDGETS_VERSION_TAG="v3.0.2"
-  - SEEC_VERSION_STRING="0.27.0"
+  - SEEC_VERSION_STRING="0.30.0"
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 
 install:
