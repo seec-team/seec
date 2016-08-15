@@ -548,13 +548,13 @@ public:
     TheSizer->Add(FGLabel,
                   wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
     TheSizer->Add(DefaultFGColourPicker,
-                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
+                  wxSizerFlags().Expand());
 
     TheSizer->AddSpacer(15);
     TheSizer->Add(BGLabel,
                   wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL));
     TheSizer->Add(DefaultBGColourPicker,
-                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
+                  wxSizerFlags().Expand());
 
     SetSizerAndFit(TheSizer.release());
   }
@@ -735,11 +735,11 @@ public:
                     .Align(wxALIGN_CENTRE_VERTICAL));
 
     TheSizer->Add(KindChoice,
-                  wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL).Expand());
+                  wxSizerFlags().Expand());
     
     TheSizer->AddSpacer(15);
     TheSizer->Add(DefaultFGColourPicker,
-                  wxSizerFlags().Align(wxALIGN_CENTRE_VERTICAL).Expand());
+                  wxSizerFlags().Expand());
     
     TheSizer->AddSpacer(15);
     TheSizer->Add(AlphaLabel,
