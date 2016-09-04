@@ -364,11 +364,7 @@ void TraceThreadListener::recordUntypedState(char const *Data,
   
   // Update the process' memory trace with the new state.
   auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->add(Address,
-                   Size,
-                   ThreadID,
-                   EventsOut.offset(),
-                   ProcessTime);
+  MemoryState->add(Address, Size);
   
   if (Size <= EventRecord<EventType::StateUntypedSmall>::sizeofData()) {
     EventRecord<EventType::StateUntypedSmall>::typeofData DataStore;
@@ -435,11 +431,7 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   ProcessListener.copyInMemoryPointerObjects(Source, Destination, Size);
   
   auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->memmove(Source,
-                       Destination,
-                       Size,
-                       EventLocation(ThreadID, EventsOut.offset()),
-                       ProcessTime);
+  MemoryState->memmove(Source, Destination, Size);
   
   EventsOut.write<EventType::StateMemmove>(ProcessTime,
                                            Source,

@@ -19,10 +19,7 @@ namespace seec {
 namespace trace {
 
 void TraceMemoryState::add(uintptr_t Address,
-                           std::size_t Length,
-                           uint32_t ThreadID,
-                           offset_uint StateRecordOffset,
-                           uint64_t ProcessTime)
+                           std::size_t Length)
 {
   // Make room for the fragment.
   clear(Address, Length);
@@ -31,17 +28,12 @@ void TraceMemoryState::add(uintptr_t Address,
   // TODO: get an iterator from clear() to hint to insert.
   Fragments.insert(std::make_pair(Address,
                                   TraceMemoryFragment(Address,
-                                                      Length,
-                                                      ThreadID,
-                                                      StateRecordOffset,
-                                                      ProcessTime)));
+                                                      Length)));
 }
 
 void TraceMemoryState::memmove(uintptr_t const Source,
                                uintptr_t const Destination,
-                               std::size_t const Size,
-                               EventLocation const &Event,
-                               uint64_t const ProcessTime)
+                               std::size_t const Size)
 {
   auto const SourceEnd = Source + Size;
   
@@ -65,10 +57,7 @@ void TraceMemoryState::memmove(uintptr_t const Source,
             Moved.insert(MovedInsert,
                          std::make_pair(Destination,
                                         TraceMemoryFragment(Destination,
-                                                            Size,
-                                                            Event.getThreadID(),
-                                                            Event.getOffset(),
-                                                            ProcessTime)));
+                                                            Size)));
       }
       else {
         // Copy the right-hand side of the fragment.
@@ -78,10 +67,7 @@ void TraceMemoryState::memmove(uintptr_t const Source,
             Moved.insert(MovedInsert,
                          std::make_pair(Destination,
                                         TraceMemoryFragment(Destination,
-                                                            NewSize,
-                                                            Event.getThreadID(),
-                                                            Event.getOffset(),
-                                                            ProcessTime)));
+                                                            NewSize)));
       }
     }
     
@@ -101,10 +87,7 @@ void TraceMemoryState::memmove(uintptr_t const Source,
           Moved.insert(MovedInsert,
                        std::make_pair(NewAddress,
                                       TraceMemoryFragment(NewAddress,
-                                                          NewSize,
-                                                          Event.getThreadID(),
-                                                          Event.getOffset(),
-                                                          ProcessTime)));
+                                                          NewSize)));
     
     ++It;
   }

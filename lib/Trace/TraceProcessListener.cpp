@@ -498,11 +498,7 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   }
 
   // Set the initial memory state appropriately.
-  TraceMemory.add(Start,
-                  Length,
-                  initialDataThreadID(),
-                  Index, // StateRecordOffset (overloaded for GV index).
-                  initialDataProcessTime());
+  TraceMemory.add(Start, Length);
   
   auto Offset = recordData(reinterpret_cast<char const *>(Address), Length);
   
