@@ -12,282 +12,146 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/TraceMemory.hpp"
-#include "seec/Util/Maybe.hpp"
+
+#include "llvm/Support/raw_ostream.h"
+
+#include <algorithm>
+#include <cstring>
+#include <utility>
 
 namespace seec {
 
 namespace trace {
 
-void TraceMemoryState::add(uintptr_t Address,
-                           std::size_t Length,
-                           uint32_t ThreadID,
-                           offset_uint StateRecordOffset,
-                           uint64_t ProcessTime)
+TraceMemoryAllocation *
+TraceMemoryState::getAllocationAtOrPreceding(uintptr_t const Address)
 {
-  // Make room for the fragment.
-  clear(Address, Length);
+  // Find the first allocation starting at a higher address.
+  auto It = m_Allocations.upper_bound(Address);
+  if (It == m_Allocations.begin())
+    return nullptr;
+  
+  // Rewind to the first allocation starting at an equal or lower address.
+  --It;
+  return &(It->second);
+}
 
-  // Add the new fragment.
-  // TODO: get an iterator from clear() to hint to insert.
-  Fragments.insert(std::make_pair(Address,
-                                  TraceMemoryFragment(Address,
-                                                      Length,
-                                                      ThreadID,
-                                                      StateRecordOffset,
-                                                      ProcessTime)));
+TraceMemoryAllocation const *
+TraceMemoryState::getAllocationAtOrPreceding(uintptr_t const Address) const
+{
+  // Find the first allocation starting at a higher address.
+  auto It = m_Allocations.upper_bound(Address);
+  if (It == m_Allocations.begin())
+    return nullptr;
+  
+  // Rewind to the first allocation starting at an equal or lower address.
+  --It;
+  return &(It->second);
+}
+
+TraceMemoryAllocation &
+TraceMemoryState::getAllocationContaining(uintptr_t const Address,
+                                          std::size_t const Length)
+{
+  auto AllocPtr = getAllocationAtOrPreceding(Address);
+  assert(AllocPtr->getArea().contains(MemoryArea(Address, Length)));
+  return *AllocPtr;
+}
+
+TraceMemoryAllocation const &
+TraceMemoryState::getAllocationContaining(uintptr_t const Address,
+                                          std::size_t const Length) const
+{
+  auto AllocPtr = getAllocationAtOrPreceding(Address);
+  assert(AllocPtr->getArea().contains(MemoryArea(Address, Length)));
+  return *AllocPtr;
+}
+
+void TraceMemoryState::add(uintptr_t Address,
+                           std::size_t Length)
+{
+  auto &Alloc = getAllocationContaining(Address, Length);
+  std::fill_n(Alloc.getShadowAt(Address), Length, getInitializedByte());
 }
 
 void TraceMemoryState::memmove(uintptr_t const Source,
                                uintptr_t const Destination,
-                               std::size_t const Size,
-                               EventLocation const &Event,
-                               uint64_t const ProcessTime)
+                               std::size_t const Size)
 {
-  auto const SourceEnd = Source + Size;
+  auto &SrcAlloc = getAllocationContaining(Source, Size);
+  auto &DstAlloc = getAllocationContaining(Destination, Size);
   
-  // Create the new fragments.
-  decltype(Fragments) Moved;
-  auto MovedInsert = Moved.end();
-  
-  // Get the first source fragment starting >= Source.
-  auto It = Fragments.lower_bound(Source);
-  
-  // Check if the previous fragment overlaps.
-  if (It != Fragments.begin()
-      && (It == Fragments.end() || It->first > Source)) {
-    --It;
-    
-    if (It->second.area().lastAddress() >= Source) {
-      // Previous fragment overlaps with our start.
-      if (It->second.area().end() >= SourceEnd) {
-        // Fragment completely covers the move area.
-        MovedInsert =
-            Moved.insert(MovedInsert,
-                         std::make_pair(Destination,
-                                        TraceMemoryFragment(Destination,
-                                                            Size,
-                                                            Event.getThreadID(),
-                                                            Event.getOffset(),
-                                                            ProcessTime)));
-      }
-      else {
-        // Copy the right-hand side of the fragment.
-        auto const NewSize = It->second.area().withStart(Source).length();
-        
-        MovedInsert =
-            Moved.insert(MovedInsert,
-                         std::make_pair(Destination,
-                                        TraceMemoryFragment(Destination,
-                                                            NewSize,
-                                                            Event.getThreadID(),
-                                                            Event.getOffset(),
-                                                            ProcessTime)));
-      }
-    }
-    
-    ++It;
-  }
-  
-  // Find remaining overlapping fragments.  
-  while (It != Fragments.end() && It->first < SourceEnd) {
-    auto const NewAddress = Destination + (It->first - Source);
-    
-    // If this fragment exceeds the move's source range, trim the size.
-    auto const NewSize = It->second.area().end() <= SourceEnd
-                       ? It->second.area().length()
-                       : It->second.area().withEnd(Source + Size).length();
-    
-    MovedInsert =
-          Moved.insert(MovedInsert,
-                       std::make_pair(NewAddress,
-                                      TraceMemoryFragment(NewAddress,
-                                                          NewSize,
-                                                          Event.getThreadID(),
-                                                          Event.getOffset(),
-                                                          ProcessTime)));
-    
-    ++It;
-  }
-  
-  // Make room for the fragments.
-  clear(Destination, Size);
-  
-  // Add the fragments (it would be better if we could move them).
-  Fragments.insert(Moved.begin(), Moved.end());
+  std::memcpy(DstAlloc.getShadowAt(Destination),
+              SrcAlloc.getShadowAt(Source),
+              Size);
 }
 
 void TraceMemoryState::clear(uintptr_t Address,  std::size_t Length)
 {
-  auto LastAddress = Address + (Length - 1);
-  
-  // Get the first fragment starting >= Address.
-  auto It = Fragments.lower_bound(Address);
-
-  // Best-case scenario: perfect removal of a previous state.
-  if (It != Fragments.end()
-      && It->first == Address
-      && It->second.area().lastAddress() == LastAddress)
-  {
-    Fragments.erase(It);
-    return;
-  }
-
-  // Check if the previous fragment overlaps.
-  if (It != Fragments.begin()
-      && (It == Fragments.end() || It->first > Address))
-  {
-    if ((--It)->second.area().lastAddress() >= Address) {
-      // Previous fragment overlaps with our start. Check if we are splitting
-      // the fragment or performing a right-trim.
-      if (It->second.area().lastAddress() > LastAddress) { // Split
-        // Create a new fragment to use on the right-hand side.
-        auto RightFragment = It->second;
-        RightFragment.area().setStart(LastAddress + 1);
-        
-        // Resize the fragment to remove the right-hand side and overlap.
-        It->second.area().setEnd(Address);
-        
-        // Add the right-hand side fragment.
-        // TODO: Hint this insertion.
-        Fragments.insert(std::make_pair(LastAddress + 1,
-                                        std::move(RightFragment)));
-      }
-      else { // Right-Trim
-        // Resize the fragment to remove the overlapping area.
-        It->second.area().setEnd(Address);
-      }
-    }
-    
-    ++It;
-  }
-
-  // Find remaining overlapping fragments.
-  while (It != Fragments.end() && It->first <= LastAddress) {
-    if (It->second.area().lastAddress() <= LastAddress) {
-      // Remove internally overlapping fragment.
-      Fragments.erase(It++);
-    }
-    else {
-      // Reposition right-overlapping fragment.
-      auto Fragment = std::move(It->second);
-      Fragments.erase(It++);
-      Fragment.area().setStart(LastAddress + 1);
-      Fragments.insert(std::make_pair(LastAddress + 1, std::move(Fragment)));
-      
-      break;
-    }
-  }
+  auto &Alloc = getAllocationContaining(Address, Length);
+  std::fill_n(Alloc.getShadowAt(Address), Length, getUninitializedByte());
 }
 
 bool TraceMemoryState::hasKnownState(uintptr_t Address,
                                      std::size_t Length) const
 {
-  auto AreaEnd = Address + Length;
+  auto &Alloc = getAllocationContaining(Address, Length);
+  auto const Start = Alloc.getShadowAt(Address);
+  auto const End   = Start + Length;
   
-  // Get the first fragment starting >= Address.
-  auto It = Fragments.lower_bound(Address);
-  
-  // If there was no fragment, we only have to check the last fragment in the
-  // map (if there isn't one, then the state can't possibly be known).
-  if (It == Fragments.end()) {
-    if (It == Fragments.begin())
-      return false;
-    
-    --It;
-    
-    return It->second.area().end() >= AreaEnd;
-  }
-  
-  // If necessary, rewind to the previous fragment.
-  if (It->first > Address) {
-    // The left-hand side of the area (at least) is uninitialized.
-    if (It == Fragments.begin())
-      return false;
-    
-    --It;
-    
-    // The left-hand side of the area (at least) is uninitialized.
-    if (It->second.area().lastAddress() < Address)
-      return false;
-  }
-  
-  // This single fragment covers the entire area.
-  if (It->second.area().end() >= AreaEnd)
-    return true;
-  
-  // Next address after the end of the previous fragment. If the next fragment
-  // doesn't start here, there's an uninitialized gap in the area.
-  auto NextAddress = It->second.area().end();
-  
-  while (++It != Fragments.end()) {
-    if (It->first != NextAddress)
-      return false;
-    
-    // This fragment covers the remainder of the area!
-    if (It->second.area().end() >= AreaEnd)
-      return true;
-    
-    NextAddress = It->second.area().end();
-  }
-  
-  // The right-hand side of the area is uninitialized.
-  return false;
+  return std::all_of(Start, End,
+                     [=](char const C) {
+                       return C == getInitializedByte();
+                     });
 }
 
 size_t TraceMemoryState::getLengthOfKnownState(uintptr_t Address,
                                                std::size_t MaxLength)
 const
 {
-  auto const AreaEnd = Address + MaxLength;
-  
-  // Get the first fragment starting >= Address.
-  auto It = Fragments.lower_bound(Address);
-  
-  // If there was no fragment, we only have to check the last fragment in the
-  // map (if there isn't one, then the state can't possibly be known).
-  if (It == Fragments.end()) {
-    if (It == Fragments.begin())
-      return 0;
-    
-    --It;
-    
-    return It->second.area().end() - Address;
-  }
-  
-  // If necessary, rewind to the previous fragment.
-  if (It->first > Address) {
-    // The left-hand side of the area (at least) is uninitialized.
-    if (It == Fragments.begin())
-      return 0;
-    
-    --It;
-    
-    // The left-hand side of the area (at least) is uninitialized.
-    if (It->second.area().lastAddress() < Address)
-      return 0;
-  }
-  
-  // This single fragment covers the entire area.
-  if (It->second.area().end() >= AreaEnd)
-    return It->second.area().end() - Address;
-  
-  // Next address after the end of the previous fragment. If the next fragment
-  // doesn't start here, there's an uninitialized gap in the area.
-  auto NextAddress = It->second.area().end();
-  
-  while (++It != Fragments.end()) {
-    if (It->first != NextAddress)
-      return NextAddress - Address;
-    
-    // This fragment covers the remainder of the area!
-    if (It->second.area().end() >= AreaEnd)
-      return It->second.area().end() - Address;
-    
-    NextAddress = It->second.area().end();
-  }
-  
-  // The right-hand side of the area is uninitialized.
-  return NextAddress - Address;
+  auto &Alloc = getAllocationContaining(Address, MaxLength);
+  auto const Start = Alloc.getShadowAt(Address);
+  auto const End   = Start + MaxLength;
+  auto const Uninit = std::find_if_not(Start, End,
+                                       [=](char const C) {
+                                         return C == getInitializedByte();
+                                       });
+  return std::distance(Start, Uninit);
+}
+
+TraceMemoryAllocation const *
+TraceMemoryState::findAllocationContaining(uintptr_t const Address) const
+{
+  auto AllocPtr = getAllocationAtOrPreceding(Address);
+  if (AllocPtr && AllocPtr->getArea().contains(Address))
+    return AllocPtr;
+  return nullptr;
+}
+
+void TraceMemoryState::addAllocation(uintptr_t const Address,
+                                     std::size_t const Size)
+{
+  auto const Result =
+    m_Allocations.emplace(std::make_pair(Address,
+                                         TraceMemoryAllocation(Address,
+                                                               Size)));
+
+  assert(Result.second && "allocation already existed?");
+}
+
+void TraceMemoryState::removeAllocation(uintptr_t const Address)
+{
+  auto const It = m_Allocations.find(Address);
+  assert(It != m_Allocations.end() && "allocation doesn't exist?");
+  m_Allocations.erase(It);
+}
+
+void TraceMemoryState::resizeAllocation(uintptr_t const Address,
+                                        std::size_t const NewSize)
+{
+  auto const It = m_Allocations.find(Address);
+  assert(It != m_Allocations.end() && "allocation doesn't exist?");
+  It->second.resize(NewSize);
 }
 
 } // namespace trace (in seec)

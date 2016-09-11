@@ -194,6 +194,10 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   // Add the memory area of the argument. We must increment the region's ID
   // first, because addByValArg will associate it with the llvm::Argument *.
   ProcessListener.incrementRegionTemporalID(AddressInt);
+  if (PointeeSize > 0) {
+    ProcessListener.getTraceMemoryStateAccessor()->addAllocation(AddressInt,
+                                                                 PointeeSize);
+  }
   ActiveFunction->addByValArg(Arg, MemoryArea(AddressInt, PointeeSize));
   
   // We need to query the parent's FunctionRecord.
@@ -386,13 +390,28 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
 
     acquireGlobalMemoryWriteLock();
     auto UnlockGlobalMemory = scopeExit([=](){GlobalMemoryLock.unlock();});
-
-    auto StackArea = ActiveFunction->getStackArea();
-    recordStateClear(StackArea.address(), StackArea.length());
-
-    for (auto const &Arg : ActiveFunction->getByValArgs()) {
-      auto const &Area = Arg.getArea();
-      recordStateClear(Area.address(), Area.length());
+    
+    {
+      auto TraceMemory = ProcessListener.getTraceMemoryStateAccessor();
+      
+      // Clear the memory state of function allocations.
+      for (auto const &Alloca : ActiveFunction->getAllocas()) {
+        auto const Area = Alloca.area();
+        recordStateClear(Area.address(), Area.length());
+        TraceMemory->clear(Area.address(), Area.length());
+        if (Area.length() > 0) {
+          TraceMemory->removeAllocation(Alloca.address());
+        }
+      }
+      
+      for (auto const &Arg : ActiveFunction->getByValArgs()) {
+        auto const &Area = Arg.getArea();
+        recordStateClear(Area.address(), Area.length());
+        TraceMemory->clear(Area.address(), Area.length());
+        if (Area.length() > 0) {
+          TraceMemory->removeAllocation(Area.address());
+        }
+      }
     }
 
     FunctionStack.pop_back();
@@ -497,10 +516,8 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
       auto SaveRTV = getCurrentRuntimeValueAs<uintptr_t>(*this, SaveValue);
       assert(SaveRTV.assigned() && "Couldn't get stacksave run-time value.");
 
-      auto Cleared = ActiveFunc->stackRestore(SaveRTV.get<0>());
-      if (Cleared.length()) {
-        recordStateClear(Cleared.address(), Cleared.length());
-      }
+      ActiveFunc->stackRestore(SaveRTV.get<0>(),
+                               *(ProcessListener.getTraceMemoryStateAccessor()));
 
       ++Time;
       EventsOut.write<EventType::Instruction>(Index);
@@ -829,6 +846,17 @@ void TraceThreadListener::notifyValue(uint32_t Index,
                                            CountRTV.get<0>(),
                                            Offset));
 
+    acquireGlobalMemoryWriteLock();
+    auto UnlockGlobalMemory = scopeExit([=](){GlobalMemoryLock.unlock();});
+    
+    // Add the allocation to the global shadow memory.
+    auto const TotalSize = ElementSize * CountRTV.get<0>();
+    if (TotalSize > 0) {
+      ProcessListener.getTraceMemoryStateAccessor()->addAllocation(IntVal,
+                                                                   TotalSize);
+    }
+    
+    // Invalidate any old pointers to this region.
     ProcessListener.incrementRegionTemporalID(IntVal);
 
     // Origin of the pointer will be this alloca.

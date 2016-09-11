@@ -15,10 +15,10 @@
 #define SEEC_TRACE_TRACEMEMORY_HPP
 
 #include "seec/DSA/MemoryArea.hpp"
-#include "seec/Trace/TraceFormat.hpp"
-#include "seec/Util/Maybe.hpp"
 
+#include <cassert>
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace seec {
@@ -26,75 +26,47 @@ namespace seec {
 namespace trace {
 
 
-/// \brief Trace information for an area of memory with state set by a single
-///        event.
+static constexpr char getUninitializedByte() { return ~0; }
+static constexpr char getInitializedByte() { return 0; }
+
+/// \brief Holds the shadow state for a memory allocation.
 ///
-class TraceMemoryFragment {
-  /// The address and length of this fragment.
-  MemoryArea Area;
-
-  /// Holds the ThreadID and Offset of the relevant MemoryState record.
-  EventLocation StateRecord;
-
-  /// Process time for the MemoryState record that this fragment represents.
-  uint64_t ProcessTime;
-
+class TraceMemoryAllocation {
+  uintptr_t m_Address;
+  
+  std::vector<char> m_Shadow;
+  
 public:
-  /// Construct a new fragment for a state.
-  TraceMemoryFragment(uintptr_t Address,
-                      std::size_t Length,
-                      uint32_t ThreadID,
-                      offset_uint StateRecordOffset,
-                      uint64_t ProcessTime)
-  : Area(Address, Length),
-    StateRecord(ThreadID, StateRecordOffset),
-    ProcessTime(ProcessTime)
+  /// \brief Construct a new MemoryAllocation.
+  TraceMemoryAllocation(uintptr_t const Address,
+                        std::size_t const Length)
+  : m_Address(Address),
+    m_Shadow(/* count */ Length, /* value */ getUninitializedByte())
   {}
-
-  TraceMemoryFragment(TraceMemoryFragment const &) = default;
-
-  TraceMemoryFragment(TraceMemoryFragment &&Other)
-  : Area(std::move(Other.Area)),
-    StateRecord(std::move(Other.StateRecord)),
-    ProcessTime(std::move(Other.ProcessTime))
-  {}
-
-  TraceMemoryFragment &operator=(TraceMemoryFragment const &) = default;
-
-  TraceMemoryFragment &operator=(TraceMemoryFragment &&RHS) {
-    this->Area = std::move(RHS.Area);
-    this->StateRecord = std::move(RHS.StateRecord);
-    this->ProcessTime = std::move(RHS.ProcessTime);
-    return *this;
-  }
-
-
-  /// \name Accessors
-  /// @{
   
-  MemoryArea &area() { return Area; }
-
-  MemoryArea const &area() const { return Area; }
+  MemoryArea getArea() const { return MemoryArea(m_Address, getLength()); }
   
-  EventLocation const &stateRecord() const { return StateRecord; }
-
-  uint32_t threadID() const { return StateRecord.getThreadID(); }
-
-  offset_uint stateRecordOffset() const { return StateRecord.getOffset(); }
-
-  uint64_t processTime() const { return ProcessTime; }
-
-  /// @} (Accessors)
+  uintptr_t getAddress() const { return m_Address; }
   
+  std::size_t getLength() const { return m_Shadow.size(); }
   
-  /// \name Mutators
-  /// @{
+  char *getShadow() { return m_Shadow.data(); }
   
-  void reposition(MemoryArea NewArea) {
-    Area = NewArea;
+  char *getShadowAt(uintptr_t const Address) {
+    assert(Address >= m_Address);
+    assert((Address - m_Address) < m_Shadow.size());
+    return m_Shadow.data() + (Address - m_Address);
   }
   
-  /// @}
+  char const *getShadowAt(uintptr_t const Address) const {
+    assert(Address >= m_Address);
+    assert((Address - m_Address) < m_Shadow.size());
+    return m_Shadow.data() + (Address - m_Address);
+  }
+  
+  void resize(std::size_t const NewLength) {
+    m_Shadow.resize(NewLength, getUninitializedByte());
+  }
 };
 
 
@@ -105,60 +77,64 @@ class TraceMemoryState {
   TraceMemoryState(TraceMemoryState const &) = delete;
   TraceMemoryState &operator=(TraceMemoryState const &) = delete;
   
-  /// Map from start addresses to memory fragments.
-  std::map<uintptr_t, TraceMemoryFragment> Fragments;
+  /// Map from start addresses to allocations.
+  std::map<uintptr_t, TraceMemoryAllocation> m_Allocations;
+
+  TraceMemoryAllocation *
+  getAllocationAtOrPreceding(uintptr_t const Address);
+  
+  TraceMemoryAllocation const *
+  getAllocationAtOrPreceding(uintptr_t const Address) const;
+  
+  TraceMemoryAllocation &getAllocationContaining(uintptr_t const Address,
+                                                 std::size_t const Length);
+
+  TraceMemoryAllocation const &
+  getAllocationContaining(uintptr_t const Address,
+                          std::size_t const Length) const;
 
 public:
   /// Construct a new, empty TraceMemoryState.
   TraceMemoryState()
-  : Fragments()
+  : m_Allocations()
   {}
 
-  /// \brief Add a new state and return overwritten states.
-  ///
-  /// Add a new state record to the memory state, and return an ordered set
-  /// containing the offsets of all previous state records that were
-  /// overwritten (either partially or wholly). The offsets will be in
-  /// ascending order, which is equivalent to the order that the state events
-  /// occured in.
+  /// \brief Set all bytes in the given range to completely initialized.
   ///
   /// \param Address start address of the updated memory.
   /// \param Length number of bytes of updated memory.
-  /// \param ThreadID the thread in which this memory state occurred.
-  /// \param StateRecordOffset offset of the new memory state.
-  /// \param ProcessTime the process time associated with this state change.
-  /// \return information about all overwritten memory states.
-  void add(uintptr_t Address,
-           std::size_t Length,
-           uint32_t ThreadID,
-           offset_uint StateRecordOffset,
-           uint64_t ProcessTime);
+  void add(uintptr_t Address, std::size_t Length);
   
-  /// \brief Add a new memmove state and return overwritten states.
+  /// \brief Copy initialization of bytes in the given range.
   ///
   /// \param Source start address of the source of the memmove.
   /// \param Destination start address of the destination of the memmove.
   /// \param Size number of bytes to move.
-  /// \param Event location of the state event responsible for this memmove.
-  /// \param ProcessTime the process time associated with this state change.
-  /// \return information about all overwritten memory states.
   void memmove(uintptr_t const Source,
                uintptr_t const Destination,
-               std::size_t const Size,
-               EventLocation const &Event,
-               uint64_t const ProcessTime);
+               std::size_t const Size);
   
-  /// \brief Clear a section of memory and return the removed states.
+  /// \brief Set all bytes in the given range to be uninitialized.
   ///
   void clear(uintptr_t Address, std::size_t Length);
   
-  /// \brief 
+  /// \brief Check if all bytes in the range are completely initialized.
+  ///
   bool hasKnownState(uintptr_t Address, std::size_t Length) const;
   
   /// \brief Find the length of initialized memory beginning at \c Address and
   ///        to a maximum length of \c MaxLength
   ///
   size_t getLengthOfKnownState(uintptr_t Address, std::size_t MaxLength) const;
+  
+  TraceMemoryAllocation const *
+  findAllocationContaining(uintptr_t const Address) const;
+  
+  void addAllocation(uintptr_t const Address, std::size_t const Size);
+  
+  void removeAllocation(uintptr_t const Address);
+  
+  void resizeAllocation(uintptr_t const Address, std::size_t const NewSize);
 };
 
 

@@ -102,60 +102,6 @@ Process @6
     14 = 
     15 = (int64_t)-1, (uint64_t)4294967295
 
-Process @7
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=20
-  Function [Index=1]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x4]
-    4 =[1x8]
-    5 =[1x1]
-   Instruction values [Active=18]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    12 = 
-    13 = 
-    14 = 
-    15 = (int64_t)-1, (uint64_t)4294967295
-
-Process @6
- Dynamic Allocations: 0
- Open Streams: 3
- Open DIRs: 0
- Thread #1 @TT=19
-  Function [Index=1]
-   Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
-    3 =[1x4]
-    4 =[1x8]
-    5 =[1x1]
-   Instruction values [Active=18]:
-    0 = 
-    1 = 
-    2 = 
-    3 = 
-    4 = 
-    5 = 
-    12 = 
-    13 = 
-    14 = 
-    15 = (int64_t)-1, (uint64_t)4294967295
-  Function [Index=0]
-   Allocas:
-   Instruction values [Active=0]:
-    0 = 
-
 Process @5
  Dynamic Allocations: 0
  Open Streams: 3

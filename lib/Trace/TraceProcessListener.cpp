@@ -405,12 +405,14 @@ void TraceProcessListener::addKnownMemoryRegion(uintptr_t Address,
                                                 std::size_t Length,
                                                 MemoryPermission Access)
 {
+  TraceMemory.addAllocation(Address, Length);
   KnownMemory.insert(Address, Address + (Length - 1), Access);
   incrementRegionTemporalID(Address);
 }
 
 bool TraceProcessListener::removeKnownMemoryRegion(uintptr_t Address)
 {
+  TraceMemory.removeAllocation(Address);
   return KnownMemory.erase(Address) != 0;
 }
 
@@ -418,18 +420,6 @@ bool TraceProcessListener::removeKnownMemoryRegion(uintptr_t Address)
 //===----------------------------------------------------------------------===//
 // Dynamic memory allocation tracking
 //===----------------------------------------------------------------------===//
-
-DynamicAllocation *
-TraceProcessListener::getCurrentDynamicMemoryAllocation(uintptr_t const Address)
-{
-  std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
-
-  auto const It = DynamicMemoryAllocations.find(Address);
-  if (It != DynamicMemoryAllocations.end())
-    return &(It->second);
-
-  return nullptr;
-}
 
 /// \brief Get the \c DynamicAllocation at the given address.
 ///
@@ -456,15 +446,24 @@ void TraceProcessListener::setCurrentDynamicMemoryAllocation(uintptr_t Address,
   // if the address is already allocated, update its details (realloc)
   auto It = DynamicMemoryAllocations.find(Address);
   if (It != DynamicMemoryAllocations.end()) {
+    TraceMemory.resizeAllocation(Address, Size);
     It->second.update(Thread, Offset, Size);
     incrementRegionTemporalID(Address);
   }
   else {
+    TraceMemory.addAllocation(Address, Size);
     DynamicMemoryAllocations.insert(
       std::make_pair(Address,
                       DynamicAllocation(Thread, Offset, Address, Size)));
     incrementRegionTemporalID(Address);
   }
+}
+
+bool
+TraceProcessListener::removeCurrentDynamicMemoryAllocation(uintptr_t Address) {
+  std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
+  TraceMemory.removeAllocation(Address);
+  return DynamicMemoryAllocations.erase(Address);
 }
 
 
@@ -496,16 +495,25 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
       llvm_unreachable("overlapping global variables!");
     }
   }
-
-  // Set the initial memory state appropriately.
-  TraceMemory.add(Start,
-                  Length,
-                  initialDataThreadID(),
-                  Index, // StateRecordOffset (overloaded for GV index).
-                  initialDataProcessTime());
+  
+  // Create an allocation for this gv, and make it full initialized.
+  if (auto const ExistingAlloc = TraceMemory.findAllocationContaining(Start)) {
+    // We have to delete the existing allocation and make a new allocation
+    // that covers the full region.
+    auto const NewStart = std::min(Start, ExistingAlloc->getAddress());
+    auto const NewEnd   = std::max(Start + Length,
+                                   ExistingAlloc->getArea().end());
+    auto const NewLength = NewEnd - NewStart;
+    TraceMemory.removeAllocation(ExistingAlloc->getAddress());
+    TraceMemory.addAllocation(NewStart, NewLength);
+    TraceMemory.add(NewStart, NewLength);
+  }
+  else {
+    TraceMemory.addAllocation(Start, Length);
+    TraceMemory.add(Start, Length);
+  }
   
   auto Offset = recordData(reinterpret_cast<char const *>(Address), Length);
-  
   GlobalVariableInitialData[Index] = Offset;
 }
 

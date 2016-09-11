@@ -307,14 +307,20 @@ void TraceThreadListener::recordRealloc(uintptr_t const Address,
   ProcessTime = getCIProcessTime();
   EventsOut.write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
 
-  Alloc->update(Alloc->thread(), Alloc->offset(), NewSize);
-  ProcessListener.incrementRegionTemporalID(Address);
-
-  if (NewSize < OldSize) {
+  {
     auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-    MemoryState->clear(Address + NewSize,  // Start of cleared memory.
-                       OldSize - NewSize); // Length of cleared memory.
+    if (NewSize < OldSize) {
+      MemoryState->clear(Address + NewSize,  // Start of cleared memory.
+                         OldSize - NewSize); // Length of cleared memory.
+    }
+    MemoryState->resizeAllocation(Address, NewSize);
   }
+  
+  ProcessListener.setCurrentDynamicMemoryAllocation(Alloc->address(),
+                                                    Alloc->thread(),
+                                                    Alloc->offset(),
+                                                    NewSize);
+  ProcessListener.incrementRegionTemporalID(Address);
 }
 
 DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
@@ -364,11 +370,7 @@ void TraceThreadListener::recordUntypedState(char const *Data,
   
   // Update the process' memory trace with the new state.
   auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->add(Address,
-                   Size,
-                   ThreadID,
-                   EventsOut.offset(),
-                   ProcessTime);
+  MemoryState->add(Address, Size);
   
   if (Size <= EventRecord<EventType::StateUntypedSmall>::sizeofData()) {
     EventRecord<EventType::StateUntypedSmall>::typeofData DataStore;
@@ -409,9 +411,6 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
   
   ProcessTime = getCIProcessTime();
   
-  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->clear(Address, Size);
-  
   EventsOut.write<EventType::StateClear>(Address,
                                          ProcessTime,
                                          Size);
@@ -435,11 +434,7 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   ProcessListener.copyInMemoryPointerObjects(Source, Destination, Size);
   
   auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->memmove(Source,
-                       Destination,
-                       Size,
-                       EventLocation(ThreadID, EventsOut.offset()),
-                       ProcessTime);
+  MemoryState->memmove(Source, Destination, Size);
   
   EventsOut.write<EventType::StateMemmove>(ProcessTime,
                                            Source,
