@@ -520,11 +520,6 @@ public:
 
   /// \brief Get the \c DynamicAllocation at the given address.
   ///
-  DynamicAllocation *
-  getCurrentDynamicMemoryAllocation(uintptr_t const Address);
-
-  /// \brief Get the \c DynamicAllocation at the given address.
-  ///
   DynamicAllocation const *
   getCurrentDynamicMemoryAllocation(uintptr_t const Address) const;
 
@@ -538,11 +533,7 @@ public:
                                          std::size_t Size);
 
   /// Remove the dynamic memory allocation for an address.
-  bool removeCurrentDynamicMemoryAllocation(uintptr_t Address) {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
-
-    return DynamicMemoryAllocations.erase(Address);
-  }
+  bool removeCurrentDynamicMemoryAllocation(uintptr_t Address);
 
   /// @} (Dynamic memory allocation tracking)
   

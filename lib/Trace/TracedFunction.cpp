@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/TracedFunction.hpp"
+#include "seec/Trace/TraceMemory.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 
 #include "llvm/IR/Constants.h"
@@ -102,7 +103,7 @@ void TracedFunction::addByValArg(llvm::Argument const * const Arg,
 
   std::lock_guard<std::mutex> Lock(StackMutex);
   
-  ByValArgs.emplace_back(Arg, std::move(Area));
+  ByValArgs.emplace_back(Arg, Area);
 }
 
 seec::Maybe<seec::MemoryArea>
@@ -216,32 +217,40 @@ void TracedFunction::stackSave(uintptr_t Key) {
   StackSaves[Key] = Allocas;
 }
 
-MemoryArea TracedFunction::stackRestore(uintptr_t Key) {
+void TracedFunction::stackRestore(uintptr_t Key,
+                                  TraceMemoryState &TraceMemory)
+{
   std::lock_guard<std::mutex> Lock(StackMutex);
   
   auto const &RestoreAllocas = StackSaves[Key];
   
-  // Calculate invalidated memory area. This is the area occupied by all
-  // allocas that are currently active, but will be removed by the restore.
-  uintptr_t ClearLow = 0;
-  uintptr_t ClearHigh = 0;
-  
-  for (std::size_t i = 0; i < Allocas.size(); ++i) {
-    if (i >= RestoreAllocas.size() || Allocas[i] != RestoreAllocas[i]) {
-      auto FirstArea = Allocas[i].area();
-      auto FinalArea = Allocas.back().area();
-      
-      ClearLow = std::min(FirstArea.address(), FinalArea.address());
-      ClearHigh = std::max(FirstArea.lastAddress(), FinalArea.lastAddress());
-      
+  // Skip all matching allocas (those that are still valid after stackrestore).
+  std::size_t MismatchIdx = 0;
+  for (; MismatchIdx < Allocas.size(); ++MismatchIdx) {
+    if (MismatchIdx >= RestoreAllocas.size()
+        || Allocas[MismatchIdx] != RestoreAllocas[MismatchIdx])
+    {
       break;
     }
   }
+
+  // Remove all cleared allocas from memory.
+  for (auto i = MismatchIdx; i < Allocas.size(); ++i) {
+    if (Allocas[i].area().length() > 0) {
+      TraceMemory.removeAllocation(Allocas[i].address());
+    }
+  }
   
+  // Add allocations for all restored allocas.
+  for (auto i = MismatchIdx; i < RestoreAllocas.size(); ++i) {
+    if (RestoreAllocas[i].area().length() > 0) {
+      TraceMemory.addAllocation(RestoreAllocas[i].address(),
+                                RestoreAllocas[i].area().length());
+    }
+  }
+
   // Restore saved allocas.
   Allocas = RestoreAllocas;
-  
-  return MemoryArea(ClearLow, (ClearHigh - ClearLow) + 1);
 }
 
 

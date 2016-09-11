@@ -307,14 +307,20 @@ void TraceThreadListener::recordRealloc(uintptr_t const Address,
   ProcessTime = getCIProcessTime();
   EventsOut.write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
 
-  Alloc->update(Alloc->thread(), Alloc->offset(), NewSize);
-  ProcessListener.incrementRegionTemporalID(Address);
-
-  if (NewSize < OldSize) {
+  {
     auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-    MemoryState->clear(Address + NewSize,  // Start of cleared memory.
-                       OldSize - NewSize); // Length of cleared memory.
+    if (NewSize < OldSize) {
+      MemoryState->clear(Address + NewSize,  // Start of cleared memory.
+                         OldSize - NewSize); // Length of cleared memory.
+    }
+    MemoryState->resizeAllocation(Address, NewSize);
   }
+  
+  ProcessListener.setCurrentDynamicMemoryAllocation(Alloc->address(),
+                                                    Alloc->thread(),
+                                                    Alloc->offset(),
+                                                    NewSize);
+  ProcessListener.incrementRegionTemporalID(Address);
 }
 
 DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
@@ -404,9 +410,6 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
     return;
   
   ProcessTime = getCIProcessTime();
-  
-  auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
-  MemoryState->clear(Address, Size);
   
   EventsOut.write<EventType::StateClear>(Address,
                                          ProcessTime,

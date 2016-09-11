@@ -354,6 +354,8 @@ public:
 
   /// \brief Record a clear to a memory region.
   ///
+  /// Note this only records this clear, it does not perform it.
+  ///
   /// pre: GlobalMemoryLock acquired by this object.
   ///
   void recordStateClear(uintptr_t Address, std::size_t Size);

@@ -14,6 +14,10 @@ void foo(int b)
   for (int i = 1; i < b; ++i)
   {
     char buffer[i];
+    for (int j = 0; j < i; ++j)
+    {
+      buffer[j] = j;
+    }
     bar(i, buffer);
   }
 }

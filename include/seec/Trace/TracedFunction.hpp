@@ -43,6 +43,7 @@ namespace seec {
 
 namespace trace {
 
+class TraceMemoryState;
 class TraceThreadListener;
 
 
@@ -592,7 +593,7 @@ public:
   /// \brief Restore a previous stack state.
   /// \return area of memory that was invalidated by this stackrestore.
   ///
-  MemoryArea stackRestore(uintptr_t Key);
+  void stackRestore(uintptr_t Key, TraceMemoryState &TraceMemory);
 
   /// @} (Mutators)
 };
