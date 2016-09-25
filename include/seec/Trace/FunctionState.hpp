@@ -346,11 +346,11 @@ public:
   /// \name Access runtime values.
   /// @{
 
-  void setValueUInt64 (llvm::Instruction const *, offset_uint, uint64_t);
-  void setValuePtr    (llvm::Instruction const *, offset_uint, stateptr_ty);
-  void setValueFloat  (llvm::Instruction const *, offset_uint, float);
-  void setValueDouble (llvm::Instruction const *, offset_uint, double);
-  void setValueAPFloat(llvm::Instruction const *, offset_uint, llvm::APFloat);
+  void setValueUInt64 (llvm::Instruction const *, uint64_t);
+  void setValuePtr    (llvm::Instruction const *, stateptr_ty);
+  void setValueFloat  (llvm::Instruction const *, float);
+  void setValueDouble (llvm::Instruction const *, double);
+  void setValueAPFloat(llvm::Instruction const *, llvm::APFloat);
 
   void clearValue(llvm::Instruction const *);
 

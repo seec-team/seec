@@ -117,35 +117,30 @@ FunctionState::getContainingMemoryArea(stateptr_ty Address) const {
 }
 
 void FunctionState::setValueUInt64(llvm::Instruction const *ForInstruction,
-                                   offset_uint const Offset,
                                    uint64_t const Value)
 {
   ValuesUInt64[ForInstruction] = Value;
 }
 
 void FunctionState::setValuePtr(llvm::Instruction const *ForInstruction,
-                                offset_uint const Offset,
                                 stateptr_ty const Value)
 {
   ValuesPtr[ForInstruction] = Value;
 }
 
 void FunctionState::setValueFloat(llvm::Instruction const *ForInstruction,
-                                  offset_uint const Offset,
                                   float const Value)
 {
   ValuesFloat[ForInstruction] = Value;
 }
 
 void FunctionState::setValueDouble(llvm::Instruction const *ForInstruction,
-                                   offset_uint const Offset,
                                    double const Value)
 {
   ValuesDouble[ForInstruction] = Value;
 }
 
 void FunctionState::setValueAPFloat(llvm::Instruction const *ForInstruction,
-                                    offset_uint const Offset,
                                     llvm::APFloat Value)
 {
   auto It = ValuesAPFloat.find(ForInstruction);

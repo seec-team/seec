@@ -439,91 +439,83 @@ void ThreadState::readdEvent(EventRecord<EventType::Instruction> const &Ev) {
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithUInt8> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithUInt16> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithUInt32> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithUInt64> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithPtr> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValuePtr(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValuePtr(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithFloat> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueFloat(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueFloat(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithDouble> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   auto const Value = Ev.getValue();
 
   auto &FuncState = *(CallStack.back());
-  FuncState.setValueDouble(FuncState.getInstruction(Index), Offset, Value);
+  FuncState.setValueDouble(FuncState.getInstruction(Index), Value);
   FuncState.setActiveInstructionComplete(Index);
 }
 
 void ThreadState::readdEvent(
       EventRecord<EventType::InstructionWithLongDouble> const &Ev)
 {
-  auto const Offset = Trace.events().offsetOf(Ev);
   auto const Index = Ev.getIndex();
   uint64_t const Words[2] = { Ev.getValueWord1(), Ev.getValueWord2() };
 
@@ -532,7 +524,7 @@ void ThreadState::readdEvent(
   auto const Type = Instruction->getType();
 
   if (Type->isX86_FP80Ty()) {
-    FuncState.setValueAPFloat(Instruction, Offset,
+    FuncState.setValueAPFloat(Instruction,
                               llvm::APFloat(llvm::APFloat::x87DoubleExtended,
                                             llvm::APInt(80, Words)));
   }
