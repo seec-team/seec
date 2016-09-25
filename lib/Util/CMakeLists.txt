@@ -4,7 +4,6 @@ set(HEADERS
   ../../include/seec/Util/ConstExprMath.hpp
   ../../include/seec/Util/DefaultArgPromotion.hpp
   ../../include/seec/Util/Dispatch.hpp
-  ../../include/seec/Util/Endianness.hpp
   ../../include/seec/Util/Error.hpp
   ../../include/seec/Util/Fallthrough.hpp
   ../../include/seec/Util/FixedWidthIntTypes.hpp
