@@ -101,7 +101,8 @@ public:
 
   /// \brief Get special attributes for a cell.
   ///
-  virtual bool GetAttrByRow(unsigned, unsigned, wxDataViewItemAttr &) const;
+  virtual bool GetAttrByRow(unsigned, unsigned, wxDataViewItemAttr &) const
+    override;
 
   /// @}
 
@@ -110,17 +111,17 @@ public:
 
   /// \brief Called when a new \c Augmentation is added to the collection.
   ///
-  virtual void DocAppended(AugmentationCollection const &Collection);
+  virtual void DocAppended(AugmentationCollection const &Collection) override;
 
   /// \brief Called when an \c Augmentation is removed from the collection.
   ///
   virtual void DocDeleted(AugmentationCollection const &Collection,
-                          unsigned const Index);
+                          unsigned const Index) override;
 
   /// \brief Called when an \c Augmentation is updated.
   ///
   virtual void DocChanged(AugmentationCollection const &Collection,
-                          unsigned const Index);
+                          unsigned const Index) override;
 
   /// @}
 };

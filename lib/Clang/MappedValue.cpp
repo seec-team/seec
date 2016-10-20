@@ -1512,8 +1512,8 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
       return seec::Maybe<llvm::APSInt>();
 
 #define SEEC_UNHANDLED_OCLIMAGE(KIND)                                          \
-case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH                            \
-case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH;                           \
+case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH;                           \
 case clang::BuiltinType::KIND##RW:                                             \
   return seec::Maybe<llvm::APSInt>();
 
@@ -1723,8 +1723,8 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
       return std::string("<unhandled builtin \"" #KIND "\">");
 
 #define SEEC_UNHANDLED_OCLIMAGE(KIND)                                          \
-case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH                            \
-case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH;                           \
+case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH;                           \
 case clang::BuiltinType::KIND##RW:                                             \
   return std::string("<unhandled builtin \"" #KIND "\">");
 
