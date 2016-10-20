@@ -321,7 +321,7 @@ static void ReplaceUsesWithInterceptor(Function *Original,
 
     if (auto C = dyn_cast<Constant>(TheUser)) {
       if (!isa<GlobalValue>(C)) {
-        C->handleOperandChange(Original, Interceptor, &*Current);
+        C->handleOperandChange(Original, Interceptor);
       }
     }
     else if (auto I = dyn_cast<Instruction>(TheUser)) {

@@ -15,6 +15,7 @@
 #include "seec/ICU/Output.hpp"
 
 #include "llvm/Option/Arg.h"
+#include "clang/Basic/DebugInfoOptions.h"
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
@@ -98,7 +99,7 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
 
   // Emit debug information, as it assists SeeC.
   Clang->getCodeGenOpts()
-    .setDebugInfo(CodeGenOptions::DebugInfoKind::FullDebugInfo);
+    .setDebugInfo(codegenoptions::DebugInfoKind::FullDebugInfo);
 
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&
@@ -134,15 +135,9 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
 
   // When running with -disable-free, don't do any destruction or shutdown.
   if (Clang->getFrontendOpts().DisableFree) {
-    if (llvm::AreStatisticsEnabled() || Clang->getFrontendOpts().ShowStats)
-      llvm::PrintStatistics();
     BuryPointer(std::move(Clang));
     return !Success;
   }
-
-  // Managed static deconstruction. Useful for making things like
-  // -time-passes usable.
-  llvm::llvm_shutdown();
 
   return !Success;
 }

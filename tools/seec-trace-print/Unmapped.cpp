@@ -108,7 +108,7 @@ void PrintUnmappedState(seec::trace::ProcessState const &State)
 
 void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
 {
-  auto &Context = llvm::getGlobalContext();
+  llvm::LLVMContext Context{};
 
   // Attempt to setup the trace reader.
   auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(InputDirectory);

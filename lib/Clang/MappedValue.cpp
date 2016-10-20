@@ -1511,6 +1511,12 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     case clang::BuiltinType::KIND:                                             \
       return seec::Maybe<llvm::APSInt>();
 
+#define SEEC_UNHANDLED_OCLIMAGE(KIND)                                          \
+case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##RW:                                             \
+  return seec::Maybe<llvm::APSInt>();
+
     // Builtin types
     SEEC_UNHANDLED_BUILTIN(Void)
     
@@ -1542,24 +1548,27 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_BUILTIN(Float)
     SEEC_UNHANDLED_BUILTIN(Double)
     SEEC_UNHANDLED_BUILTIN(LongDouble)
+    SEEC_UNHANDLED_BUILTIN(Float128)
     
     // Language-specific types
     SEEC_UNHANDLED_BUILTIN(NullPtr)
     SEEC_UNHANDLED_BUILTIN(ObjCId)
     SEEC_UNHANDLED_BUILTIN(ObjCClass)
     SEEC_UNHANDLED_BUILTIN(ObjCSel)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dDepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayDepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAA)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAA)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAADepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAADepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1d)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1dArray)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1dBuffer)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2d)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArray)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dDepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayDepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dMSAA)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayMSAA)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dMSAADepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayMSAADepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage3d)
+
     SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
@@ -1578,6 +1587,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 #undef SEEC_HANDLE_BUILTIN_UNSIGNED
 #undef SEEC_HANDLE_BUILTIN_SIGNED
 #undef SEEC_UNHANDLED_BUILTIN
+#undef SEEC_UNHANDLED_OCLIMAGE
   }
   
   llvm_unreachable("unexpected builtin type");
@@ -1712,6 +1722,12 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     case clang::BuiltinType::KIND:                                             \
       return std::string("<unhandled builtin \"" #KIND "\">");
 
+#define SEEC_UNHANDLED_OCLIMAGE(KIND)                                          \
+case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH                            \
+case clang::BuiltinType::KIND##RW:                                             \
+  return std::string("<unhandled builtin \"" #KIND "\">");
+
     // Builtin types
     SEEC_HANDLE_BUILTIN(Void, void)
 
@@ -1743,24 +1759,27 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_HANDLE_BUILTIN(Float, float)
     SEEC_HANDLE_BUILTIN(Double, double)
     SEEC_HANDLE_BUILTIN(LongDouble, long double)
+    SEEC_UNHANDLED_BUILTIN(Float128)
 
     // Language-specific types
     SEEC_UNHANDLED_BUILTIN(NullPtr)
     SEEC_UNHANDLED_BUILTIN(ObjCId)
     SEEC_UNHANDLED_BUILTIN(ObjCClass)
     SEEC_UNHANDLED_BUILTIN(ObjCSel)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage1dBuffer)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2d)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArray)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dDepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayDepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAA)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAA)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dMSAADepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage2dArrayMSAADepth)
-    SEEC_UNHANDLED_BUILTIN(OCLImage3d)
+    
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1d)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1dArray)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage1dBuffer)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2d)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArray)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dDepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayDepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dMSAA)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayMSAA)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dMSAADepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage2dArrayMSAADepth)
+    SEEC_UNHANDLED_OCLIMAGE(OCLImage3d)
+    
     SEEC_UNHANDLED_BUILTIN(OCLSampler)
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
@@ -1778,6 +1797,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
 
 #undef SEEC_HANDLE_BUILTIN
 #undef SEEC_UNHANDLED_BUILTIN
+#undef SEEC_UNHANDLED_OCLIMAGE
   }
   
   llvm_unreachable("unexpected builtin type");

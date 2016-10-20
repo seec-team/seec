@@ -185,8 +185,8 @@ public:
 
   virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override;
 
-  virtual void HandleInlineMethodDefinition(clang::CXXMethodDecl *D) override {
-    Child->HandleInlineMethodDefinition(D);
+  virtual void HandleInlineFunctionDefinition(clang::FunctionDecl *D) override {
+    Child->HandleInlineFunctionDefinition(D);
   }
 
   virtual void HandleInterestingDecl(clang::DeclGroupRef D) override {
@@ -219,21 +219,12 @@ public:
     Child->HandleImplicitImportDecl(D);
   }
 
-  virtual void HandleLinkerOptionPragma(llvm::StringRef Opts) override {
-    Child->HandleLinkerOptionPragma(Opts);
-  }
-
-  virtual void HandleDetectMismatch(llvm::StringRef Name,
-                                    llvm::StringRef Value) override {
-    Child->HandleDetectMismatch(Name, Value);
-  }
-
-  virtual void HandleDependentLibrary(llvm::StringRef Lib) override {
-    Child->HandleDependentLibrary(Lib);
-  }
-
-  virtual void CompleteTentativeDefinition(clang::VarDecl *D) {
+  virtual void CompleteTentativeDefinition(clang::VarDecl *D) override {
     Child->CompleteTentativeDefinition(D);
+  }
+
+  virtual void AssignInheritanceModel(clang::CXXRecordDecl *RD) override {
+    Child->AssignInheritanceModel(RD);
   }
 
   virtual void HandleCXXStaticMemberVarInstantiation(clang::VarDecl *D) override
@@ -241,7 +232,7 @@ public:
     Child->HandleCXXStaticMemberVarInstantiation(D);
   }
 
-  virtual void HandleVTable(clang::CXXRecordDecl *D){
+  virtual void HandleVTable(clang::CXXRecordDecl *D) override {
     Child->HandleVTable(D);
   }
 

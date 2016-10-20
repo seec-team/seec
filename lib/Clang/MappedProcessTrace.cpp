@@ -14,6 +14,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Util/MakeUnique.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IRReader/IRReader.h"
 
@@ -31,9 +32,9 @@ Maybe<std::unique_ptr<ProcessTrace>, Error>
 ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
 {
   // Load the bitcode.
-  auto &Context = llvm::getGlobalContext();
+  auto Context = llvm::make_unique<llvm::LLVMContext>();
   
-  auto MaybeMod = Allocator->getModule(Context);
+  auto MaybeMod = Allocator->getModule(*Context);
   if (MaybeMod.assigned<Error>())
     return MaybeMod.move<Error>();
   
@@ -50,7 +51,8 @@ ProcessTrace::load(std::unique_ptr<trace::InputBufferAllocator> Allocator)
   assert(ProcTrace);
   
   return std::unique_ptr<ProcessTrace>
-                        (new ProcessTrace(std::move(Mod),
+                        (new ProcessTrace(std::move(Context),
+                                          std::move(Mod),
                                           std::move(ProcTrace),
                                           std::make_shared<seec::ModuleIndex>
                                                           (*ModRawPtr, true)));

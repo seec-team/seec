@@ -124,7 +124,7 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
 }
 
 int main(int argc, char **argv, char * const *envp) {
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
 
   atexit(llvm_shutdown);

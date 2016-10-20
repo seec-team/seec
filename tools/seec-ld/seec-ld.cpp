@@ -74,7 +74,6 @@ static void InitializeCodegen()
   initializeCodeGen(*Registry);
   initializeLoopStrengthReducePass(*Registry);
   initializeLowerIntrinsicsPass(*Registry);
-  initializeUnreachableBlockElimPass(*Registry);
 }
 
 static std::unique_ptr<llvm::Module> LoadFile(char const *ProgramName,
@@ -192,7 +191,7 @@ Compile(char const *ProgramName,
                                 /* cpu */ std::string{},
                                 /* features */ std::string{},
                                 Options,
-                                llvm::Reloc::Default,
+                                Optional<Reloc::Model>{},
                                 llvm::CodeModel::Default,
                                 llvm::CodeGenOpt::Default)
   };
@@ -260,7 +259,7 @@ static bool MaybeModule(char const *File)
 int main(int argc, char **argv)
 {
   llvm::llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
-  auto &Context = llvm::getGlobalContext();
+  llvm::LLVMContext Context{};
   
   // Setup the targets and passes required by codegen.
   InitializeCodegen();

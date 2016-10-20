@@ -33,6 +33,11 @@
 #include <memory>
 
 
+namespace llvm {
+  class LLVMContext;
+}
+
+
 namespace seec {
 
 /// Interfaces to SeeC-Clang mapped traces and states.
@@ -42,6 +47,9 @@ namespace cm {
 /// \brief A SeeC-Clang-mapped process trace.
 ///
 class ProcessTrace {
+  /// The \c LLVMContext for this trace's Module.
+  std::unique_ptr<llvm::LLVMContext> TheContext;
+  
   /// The \c Module for this process trace.
   std::unique_ptr<llvm::Module> TheModule;
 
@@ -65,10 +73,12 @@ class ProcessTrace {
   
   /// \brief Constructor.
   ///
-  ProcessTrace(std::unique_ptr<llvm::Module> WithModule,
+  ProcessTrace(std::unique_ptr<llvm::LLVMContext> WithContext,
+               std::unique_ptr<llvm::Module> WithModule,
                std::shared_ptr<seec::trace::ProcessTrace> Trace,
                std::shared_ptr<seec::ModuleIndex> Index)
-  : TheModule(std::move(WithModule)),
+  : TheContext(std::move(WithContext)),
+    TheModule(std::move(WithModule)),
     UnmappedTrace(std::move(Trace)),
     ModuleIndex(std::move(Index)),
     DiagOpts(new clang::DiagnosticOptions()),
