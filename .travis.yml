@@ -51,7 +51,8 @@ before_install:
   - SEEC_CLANG_RELEASE_TAG="v3.9.0_1.0"
   - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
   - CMAKE_URL="http://www.cmake.org/files/v3.4/cmake-3.4.3-Linux-x86_64.tar.gz"
-  - WXWIDGETS_VERSION_TAG="v3.0.2"
+  - WXWIDGETS_REPOSITORY="https://github.com/mheinsen/wxWidgets.git"
+  - WXWIDGETS_VERSION_TAG="master"
   - SEEC_VERSION_STRING="0.30.0"
 
 install:
@@ -114,7 +115,7 @@ install:
   - |
     if [ ! -e "${DEPS_INSTALL}/bin/wx-config" ]; then
       cd ${DEPS_SRC}
-      git clone https://github.com/wxWidgets/wxWidgets.git wxWidgets
+      git clone ${WXWIDGETS_REPOSITORY} wxWidgets
       cd wxWidgets
       git checkout ${WXWIDGETS_VERSION_TAG}
       cd ${DEPS_BUILD}
@@ -124,7 +125,7 @@ install:
       if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
         ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS}" --prefix=${DEPS_INSTALL}
       elif [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
-        ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" OBJCXXFLAGS="-std=c++11 -stdlib=libc++ -fPIC -fvisibility-inlines-hidden" LDFLAGS="-stdlib=libc++" --with-macosx-version-min=10.7 --prefix=${DEPS_INSTALL}
+        ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" OBJCXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" LDFLAGS="-stdlib=libc++" --with-macosx-version-min=10.7 --prefix=${DEPS_INSTALL}
       fi
       make -j2
       make install
