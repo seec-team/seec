@@ -90,10 +90,6 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   ThreadTime = Info.getThreadTimeExited();
 }
 
-void ThreadState::addEvent(EventRecord<EventType::BasicBlockStart> const &Ev) {
-  // TODO
-}
-
 void ThreadState::addEvent(EventRecord<EventType::NewProcessTime> const &Ev)
 {
   // Update this thread's view of ProcessTime.
@@ -734,11 +730,6 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
 
   // Set the thread time to the value that it had prior to this event.
   ThreadTime = Info.getThreadTimeExited() - 1;
-}
-
-void ThreadState::removeEvent(
-      EventRecord<EventType::BasicBlockStart> const &Ev) {
-  // TODO
 }
 
 void ThreadState::removeEvent(

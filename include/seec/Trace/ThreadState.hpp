@@ -86,7 +86,6 @@ class ThreadState {
   void addEvent(EventRecord<EventType::TraceEnd> const &);
   void addEvent(EventRecord<EventType::FunctionStart> const &);
   void addEvent(EventRecord<EventType::FunctionEnd> const &);
-  void addEvent(EventRecord<EventType::BasicBlockStart> const &);
   void addEvent(EventRecord<EventType::NewProcessTime> const &);
   void addEvent(EventRecord<EventType::NewThreadTime> const &);
   void addEvent(EventRecord<EventType::PreInstruction> const &);
@@ -162,7 +161,6 @@ private:
   void removeEvent(EventRecord<EventType::TraceEnd> const &);
   void removeEvent(EventRecord<EventType::FunctionStart> const &);
   void removeEvent(EventRecord<EventType::FunctionEnd> const &);
-  void removeEvent(EventRecord<EventType::BasicBlockStart> const &);
   void removeEvent(EventRecord<EventType::NewProcessTime> const &);
   void removeEvent(EventRecord<EventType::NewThreadTime> const &);
   void removeEvent(EventRecord<EventType::PreInstruction> const &);

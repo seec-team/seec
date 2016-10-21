@@ -57,17 +57,6 @@ SEEC_TRACE_EVENT(FunctionEnd,
     (FunctionEnd, is_block_start)
   ))
 
-SEEC_TRACE_EVENT(BasicBlockStart,
-  SEEC_PP_QUOTE(
-    (uint32_t, Index),
-    (offset_uint, PreviousAny),
-    (offset_uint, PreviousSame)
-  ),
-  SEEC_PP_QUOTE(
-    (BasicBlockStart, is_block_start),
-    (BasicBlockStart, is_function_level)
-  ))
-  
 SEEC_TRACE_EVENT(NewProcessTime,
   SEEC_PP_QUOTE(
     (uint64_t, ProcessTime)
