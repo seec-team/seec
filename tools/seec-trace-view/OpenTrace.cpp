@@ -12,8 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/LazyMessage.hpp"
-#include "seec/Util/MakeUnique.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/FileSystem.h"
@@ -78,8 +78,8 @@ OpenTrace::ReadTraceFromFilePath(wxString const &FilePath)
   
   // Attempt to load the SeeC-Clang Mapped process trace.
   auto IBAPtrTemp =
-    seec::makeUnique<seec::trace::InputBufferAllocator>
-                    (MaybeIBA.move<seec::trace::InputBufferAllocator>());
+    llvm::make_unique<seec::trace::InputBufferAllocator>
+                     (MaybeIBA.move<seec::trace::InputBufferAllocator>());
   
   return seec::cm::ProcessTrace::load(std::move(IBAPtrTemp));
 }
@@ -126,7 +126,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
       }
     }
     else if (Name == "annotations.xml") {
-      auto XmlDoc = seec::makeUnique<wxXmlDocument>(Input);
+      auto XmlDoc = llvm::make_unique<wxXmlDocument>(Input);
       if (!XmlDoc->IsOk()) {
         return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
                             {"GUIText", "OpenTrace_Error_AnnotationXml"})};

@@ -26,7 +26,6 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
 #include "seec/Util/Error.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Resources.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"

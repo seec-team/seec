@@ -20,7 +20,6 @@
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/CallbackFSHandler.hpp"
@@ -44,6 +43,7 @@
 #include <wx/wfstream.h>
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -417,11 +417,11 @@ void StateGraphViewerPanel::workerTaskLoop()
 
     Script << "\");";
 
-    auto EvPtr = seec::makeUnique<GraphRenderedEvent>
-                                 (SEEC_EV_GRAPH_RENDERED,
-                                  this->GetId(),
-                                  std::move(SharedSVG),
-                                  std::move(SharedScript));
+    auto EvPtr = llvm::make_unique<GraphRenderedEvent>
+                                  (SEEC_EV_GRAPH_RENDERED,
+                                   this->GetId(),
+                                   std::move(SharedSVG),
+                                   std::move(SharedScript));
 
     EvPtr->SetEventObject(this);
 
@@ -868,7 +868,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     LockLayoutHandler.unlock();
     
     if (Engines.size() > 1) {
-      auto SM = seec::makeUnique<wxMenu>();
+      auto SM = llvm::make_unique<wxMenu>();
       
       for (auto const E : Engines) {
         auto const LazyName = E->getName();
@@ -963,7 +963,7 @@ void StateGraphViewerPanel::OnContextMenu(wxContextMenuEvent &Ev)
     LLH.unlock();
     
     if (Engines.size() > 1) {
-      auto SM = seec::makeUnique<wxMenu>();
+      auto SM = llvm::make_unique<wxMenu>();
       
       for (auto const E : Engines) {
         auto const LazyName = E->getName();

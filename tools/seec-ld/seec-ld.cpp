@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Transforms/RecordExternal/RecordExternal.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Resources.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -157,7 +157,7 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
     exit(EXIT_FAILURE);
   }
   
-  auto Out = seec::makeUnique<llvm::tool_output_file>(Path.c_str(), FD);
+  auto Out = llvm::make_unique<llvm::tool_output_file>(Path.c_str(), FD);
   if (!Out) {
     llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
     exit(EXIT_FAILURE);

@@ -10,7 +10,6 @@ set(HEADERS
   ../../include/seec/Util/FunctionTraits.hpp
   ../../include/seec/Util/LockedObjectAccessor.hpp
   ../../include/seec/Util/MakeFunction.hpp
-  ../../include/seec/Util/MakeUnique.hpp
   ../../include/seec/Util/Maybe.hpp
   ../../include/seec/Util/ModuleIndex.hpp
   ../../include/seec/Util/Printing.hpp

@@ -18,11 +18,12 @@
 #include "seec/ICU/Indexing.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/ThreadState.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
 
 #include <unicode/regex.h>
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/archive.h>
 #include <wx/log.h>
@@ -116,7 +117,7 @@ IndexedAnnotationText::create(cm::ProcessTrace const &WithTrace,
     return Maybe<IndexedAnnotationText>();
 
   return IndexedAnnotationText(WithTrace,
-                               makeUnique<IndexedString>
+                               llvm::make_unique<IndexedString>
                                          (MaybeIndexed.move<IndexedString>()));
 }
 
@@ -276,7 +277,7 @@ AnnotationCollection(std::unique_ptr<wxXmlDocument> XmlDocument)
 
 AnnotationCollection::AnnotationCollection()
 {
-  m_XmlDocument = makeUnique<wxXmlDocument>();
+  m_XmlDocument = llvm::make_unique<wxXmlDocument>();
 
   auto const Root = new wxXmlNode(wxXML_ELEMENT_NODE, "annotations");
 
@@ -339,7 +340,7 @@ AnnotationCollection::getOrCreatePointForThreadState(cm::ThreadState const &S)
   if (Existing.assigned<AnnotationPoint>())
     return Existing.move<AnnotationPoint>();
 
-  auto Node = seec::makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, "threadState");
+  auto Node = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, "threadState");
   Node->AddAttribute("thread", std::to_string(S.getThreadID()));
 
   Node->AddAttribute("time",
@@ -419,7 +420,7 @@ AnnotationPoint getOrCreatePointForNode(wxXmlNode &Root,
   if (Existing.assigned<AnnotationPoint>())
     return Existing.move<AnnotationPoint>();
 
-  auto Node = seec::makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, NodeType);
+  auto Node = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, NodeType);
   Node->AddAttribute("ASTIndex",  std::to_string(ForASTIndex));
   Node->AddAttribute("nodeIndex", std::to_string(ForNodeIndex));
 

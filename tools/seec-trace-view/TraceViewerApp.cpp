@@ -12,12 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Resources.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/Config.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
@@ -420,7 +420,7 @@ bool TraceViewerApp::OnInit() {
   if (!ICUResources->loadResources(ResourceList))
     HandleFatalError("Couldn't load resources!");
   
-  Augmentations = seec::makeUnique<seec::AugmentationCollection>();
+  Augmentations = llvm::make_unique<seec::AugmentationCollection>();
 
   // Call default behaviour.
   if (!wxApp::OnInit())
@@ -458,7 +458,7 @@ bool TraceViewerApp::OnInit() {
   Augmentations->loadFromUserLocalDataDir();
 
   // Setup the colour scheme.
-  ColourScheme = seec::makeUnique<ColourSchemeSettings>();
+  ColourScheme = llvm::make_unique<ColourSchemeSettings>();
   ColourScheme->loadUserScheme();
 
 

@@ -16,8 +16,9 @@
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/wx.h>
 #include <wx/event.h>
@@ -102,7 +103,7 @@ createFileMenu(std::vector<wxStandardID> const &AdditionalIDs)
   auto const Title = seec::towxString(seec::Resource("TraceViewer")
                                       ["GUIText"]["Menu_File"]);
   
-  auto Menu = seec::makeUnique<wxMenu>();
+  auto Menu = llvm::make_unique<wxMenu>();
   
   Menu->Append(wxID_OPEN);
   Menu->Append(wxID_CLOSE);
@@ -126,7 +127,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> createEditMenu()
   auto const Res = seec::Resource("TraceViewer")["GUIText"]["MenuEdit"];
   auto const Title = seec::towxString(Res["Title"]);
 
-  auto Menu = seec::makeUnique<wxMenu>();
+  auto Menu = llvm::make_unique<wxMenu>();
   Menu->Append(wxID_PREFERENCES);
 
   return std::make_pair(std::move(Menu), Title);
@@ -158,7 +159,7 @@ createRecordingMenu(wxEvtHandler &EvtHandler)
   auto const Title = seec::getwxStringExOrEmpty("TraceViewer",
                         (char const * []){"GUIText", "MenuRecord", "Title"});
   
-  auto Menu = seec::makeUnique<wxMenu>();
+  auto Menu = llvm::make_unique<wxMenu>();
   
   // Item for opening the recording settings menu.
   BindMenuItem(

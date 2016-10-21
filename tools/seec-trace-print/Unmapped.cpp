@@ -26,7 +26,6 @@
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
 #include "seec/Util/Error.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Resources.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
@@ -37,6 +36,7 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
@@ -119,8 +119,8 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
     exit(EXIT_FAILURE);
   }
 
-  auto IBA = seec::makeUnique<trace::InputBufferAllocator>
-                             (MaybeIBA.move<trace::InputBufferAllocator>());
+  auto IBA = llvm::make_unique<trace::InputBufferAllocator>
+                              (MaybeIBA.move<trace::InputBufferAllocator>());
 
   // Load the bitcode.
   auto MaybeMod = IBA->getModule(Context);

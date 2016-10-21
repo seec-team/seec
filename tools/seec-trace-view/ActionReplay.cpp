@@ -12,13 +12,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Parsing.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
 
 #include "ActionReplay.hpp"
 #include "LocaleSettings.hpp"
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/gauge.h>
 #include <wx/listctrl.h>
@@ -237,7 +238,7 @@ ActionReplayFrame::ActionReplayFrame()
   GaugeEventProgress(nullptr),
   EventList(nullptr),
   Handlers(),
-  RecordDocument(seec::makeUnique<wxXmlDocument>()),
+  RecordDocument(llvm::make_unique<wxXmlDocument>()),
   NextEvent(nullptr),
   LastEventTime(0),
   EventTimer()
@@ -343,7 +344,7 @@ bool ActionReplayFrame::LoadRecording(wxXmlDocument const &Recording)
   assert(U_SUCCESS(Status));
   
   // Copy the recording.
-  RecordDocument = seec::makeUnique<wxXmlDocument>(Recording);
+  RecordDocument = llvm::make_unique<wxXmlDocument>(Recording);
   
   auto const Root = RecordDocument->GetRoot();
   if (!Root || Root->GetName() != "recording") {

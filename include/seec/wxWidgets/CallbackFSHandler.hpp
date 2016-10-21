@@ -15,9 +15,9 @@
 #define SEEC_WXWIDGETS_CALLBACKFSHANDLER_HPP
 
 #include "seec/Util/Fallthrough.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <wx/filesys.h>
@@ -369,7 +369,7 @@ public:
     typedef seec::callbackfs::CallbackImpl<ResultT, ArgTs...> ImplTy;
     
     return addCallback(Identifier,
-                       seec::makeUnique<ImplTy>(std::move(Callback)));
+                       llvm::make_unique<ImplTy>(std::move(Callback)));
   }
   
   /// \brief Check if this handler can open a file location.

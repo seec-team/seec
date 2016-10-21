@@ -27,10 +27,10 @@
 #include "seec/ICU/Output.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/Fallthrough.hpp"
-#include "seec/Util/MakeUnique.hpp"
 
 #include "clang/AST/Decl.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "unicode/locid.h"
@@ -2213,15 +2213,15 @@ doLayout(LayoutHandler const &Handler,
 
 void LayoutHandler::addBuiltinLayoutEngines() {
   // LayoutEngineForValue:
-  addLayoutEngine(seec::makeUnique<LEVCString>(*this));
-  addLayoutEngine(seec::makeUnique<LEVElideEmptyUnreferencedStrings>(*this));
-  addLayoutEngine(seec::makeUnique<LEVElideUninitOrZeroElements>(*this));
-  addLayoutEngine(seec::makeUnique<LEVStandard>(*this));
-  // addLayoutEngine(seec::makeUnique<LEVElideUnreferenced>(*this));
+  addLayoutEngine(llvm::make_unique<LEVCString>(*this));
+  addLayoutEngine(llvm::make_unique<LEVElideEmptyUnreferencedStrings>(*this));
+  addLayoutEngine(llvm::make_unique<LEVElideUninitOrZeroElements>(*this));
+  addLayoutEngine(llvm::make_unique<LEVStandard>(*this));
+  // addLayoutEngine(llvm::make_unique<LEVElideUnreferenced>(*this));
   
   // LayoutEngineForArea:
-  addLayoutEngine(seec::makeUnique<LEACString>(*this));
-  addLayoutEngine(seec::makeUnique<LEAStandard>(*this));
+  addLayoutEngine(llvm::make_unique<LEACString>(*this));
+  addLayoutEngine(llvm::make_unique<LEAStandard>(*this));
 }
 
 void

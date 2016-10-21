@@ -13,12 +13,12 @@
 
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/AugmentationCollectionDataViewModel.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include <llvm/Support/FileSystem.h>
 
 #include <wx/button.h>
@@ -212,7 +212,7 @@ void AugmentationSettingsWindow::OnDownloadClick(wxCommandEvent &Ev)
 
   auto const &DocData = DlDlg.getData();
   wxMemoryInputStream DocStream(DocData.data(), DocData.size());
-  auto DocXml = seec::makeUnique<wxXmlDocument>(DocStream);
+  auto DocXml = llvm::make_unique<wxXmlDocument>(DocStream);
 
   if (!DocXml || !seec::isAugmentation(*DocXml)) {
     wxMessageDialog Dlg(this,

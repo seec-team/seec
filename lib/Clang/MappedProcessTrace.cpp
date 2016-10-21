@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedProcessTrace.hpp"
-#include "seec/Util/MakeUnique.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/LLVMContext.h"

@@ -19,7 +19,6 @@
 #include "seec/Clang/MappedParam.hpp"
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MDNames.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -27,6 +26,7 @@
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Preprocessor.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/Debug.h"
@@ -270,7 +270,7 @@ MappedCompileInfo::createCompilerInvocation(DiagnosticsEngine &Diags) const
     for (auto &Arg : InvocationArguments)
       Args.emplace_back(Arg.c_str());
 
-    CI = seec::makeUnique<CompilerInvocation>();
+    CI = llvm::make_unique<CompilerInvocation>();
     bool Created = CompilerInvocation::CreateFromArgs(*CI,
                                                       Args.data(),
                                                       Args.data() + Args.size(),

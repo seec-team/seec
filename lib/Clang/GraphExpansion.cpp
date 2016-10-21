@@ -22,7 +22,6 @@
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StateCommon.hpp"
 #include "seec/Util/Fallthrough.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
 
 #include "llvm/ADT/DenseMap.h"

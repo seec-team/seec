@@ -19,6 +19,8 @@
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
+#include "llvm/ADT/STLExtras.h"
+
 #include "clang/AST/Decl.h"
 #include "clang/AST/Stmt.h"
 
@@ -82,8 +84,8 @@ void ExplanationViewer::setAnnotationText(wxString const &Value)
   if (!MaybeIndexed.assigned<IndexedAnnotationText>())
     return;
 
-  Annotation = seec::makeUnique<IndexedAnnotationText>
-                               (MaybeIndexed.move<IndexedAnnotationText>());
+  Annotation = llvm::make_unique<IndexedAnnotationText>
+                                (MaybeIndexed.move<IndexedAnnotationText>());
 
   this->SetEditable(true);
   auto const ExplanationLength = GetLength() - AnnotationLength;

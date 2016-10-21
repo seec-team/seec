@@ -15,8 +15,9 @@
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Range.hpp"
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/config.h>
 #include <wx/dataview.h>
@@ -164,7 +165,7 @@ bool AugmentationCollection::loadFromDoc(std::unique_ptr<wxXmlDocument> Doc,
 void AugmentationCollection::loadFromFile(wxString const &Path,
                                           Augmentation::EKind const Kind)
 {
-  auto Doc = seec::makeUnique<wxXmlDocument>(Path);
+  auto Doc = llvm::make_unique<wxXmlDocument>(Path);
   if (!Doc || !Doc->IsOk())
     return;
 

@@ -15,11 +15,11 @@
 #define SEEC_TRACE_VIEW_ACTIONREPLAY_HPP
 
 #include "seec/Util/Error.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/wx.h>
 #include <wx/timer.h>
@@ -105,9 +105,9 @@ class EventHandler : public IEventHandler
   : Trace(WithTrace),
     Values(),
     Attributes{{
-      seec::makeUnique<Attribute<typename std::add_lvalue_reference<Ts>::type>>
-                      (std::move(std::get<Idxs>(AttributeNames)),
-                       std::get<Idxs>(Values))...}},
+      llvm::make_unique<Attribute<typename std::add_lvalue_reference<Ts>::type>>
+                       (std::move(std::get<Idxs>(AttributeNames)),
+                        std::get<Idxs>(Values))...}},
     Callback(std::move(WithCallback))
   {}
   
@@ -254,10 +254,10 @@ public:
                        std::function<void (Ts...)> Callback)
   {
     return RegisterHandler(std::move(Name),
-                           seec::makeUnique<EventHandler<Ts...>>
-                                           (*Trace,
-                                            std::move(Attributes),
-                                            std::move(Callback)));
+                           llvm::make_unique<EventHandler<Ts...>>
+                                            (*Trace,
+                                             std::move(Attributes),
+                                             std::move(Callback)));
   }
 };
 

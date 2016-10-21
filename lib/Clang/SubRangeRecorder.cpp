@@ -14,7 +14,6 @@
 #include "seec/Clang/MappedAST.hpp"
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/SubRangeRecorder.hpp"
-#include "seec/Util/MakeUnique.hpp"
 
 #include "clang/AST/Expr.h"
 #include "clang/AST/Stmt.h"
@@ -27,6 +26,7 @@
 #include "clang/Lex/Preprocessor.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace seec {
@@ -331,9 +331,9 @@ public:
 static std::unique_ptr<clang::CompilerInstance>
 makeCompilerInstance(seec::seec_clang::MappedAST const &MappedAST)
 {
-  auto Diags = seec::makeUnique<clang::IgnoringDiagConsumer>();
+  auto Diags = llvm::make_unique<clang::IgnoringDiagConsumer>();
 
-  auto Clang = seec::makeUnique<clang::CompilerInstance>();
+  auto Clang = llvm::make_unique<clang::CompilerInstance>();
   Clang->createDiagnostics(Diags.release(), /* ShouldOwnClient */ true);
 
   auto &CompileInfo = MappedAST.getCompileInfo();

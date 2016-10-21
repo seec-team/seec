@@ -15,7 +15,6 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Serialization.hpp"
 
 #include "llvm/Support/ErrorHandling.h"

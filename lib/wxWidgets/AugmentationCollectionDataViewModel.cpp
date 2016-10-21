@@ -14,7 +14,8 @@
 #include "seec/ICU/Resources.hpp"
 #include "seec/wxWidgets/AugmentationCollectionDataViewModel.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
-#include "seec/Util/MakeUnique.hpp"
+
+#include "llvm/ADT/STLExtras.h"
 
 #include <wx/log.h>
 #include <wx/settings.h>
@@ -33,12 +34,12 @@ AugmentationCollectionDataViewModel::getIDColumn()
   auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
   auto const Col = static_cast<unsigned>(EColumnKind::ID);
 
-  return seec::makeUnique<wxDataViewColumn>
-                         (towxString(Res["Columns"]["ID"]),
-                          new wxDataViewTextRenderer(),
-                          Col,
-                          wxDVC_DEFAULT_WIDTH,
-                          wxALIGN_LEFT);
+  return llvm::make_unique<wxDataViewColumn>
+                          (towxString(Res["Columns"]["ID"]),
+                           new wxDataViewTextRenderer(),
+                           Col,
+                           wxDVC_DEFAULT_WIDTH,
+                           wxALIGN_LEFT);
 }
 
 std::unique_ptr<wxDataViewColumn>
@@ -49,7 +50,7 @@ AugmentationCollectionDataViewModel::getEnabledColumn()
   auto const Renderer =
     new wxDataViewToggleRenderer("bool", wxDATAVIEW_CELL_ACTIVATABLE);
 
-  return seec::makeUnique<wxDataViewColumn>
+  return llvm::make_unique<wxDataViewColumn>
                          (towxString(Res["Columns"]["Enabled"]), Renderer, Col);
 }
 
@@ -59,12 +60,12 @@ AugmentationCollectionDataViewModel::getNameColumn()
   auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
   auto const Col = static_cast<unsigned>(EColumnKind::Name);
 
-  return seec::makeUnique<wxDataViewColumn>
-                         (towxString(Res["Columns"]["Name"]),
-                          new wxDataViewTextRenderer(),
-                          Col,
-                          wxDVC_DEFAULT_WIDTH,
-                          wxALIGN_LEFT);
+  return llvm::make_unique<wxDataViewColumn>
+                          (towxString(Res["Columns"]["Name"]),
+                           new wxDataViewTextRenderer(),
+                           Col,
+                           wxDVC_DEFAULT_WIDTH,
+                           wxALIGN_LEFT);
 }
 
 std::unique_ptr<wxDataViewColumn>
@@ -73,12 +74,12 @@ AugmentationCollectionDataViewModel::getSourceColumn()
   auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
   auto const Col = static_cast<unsigned>(EColumnKind::Source);
 
-  return seec::makeUnique<wxDataViewColumn>
-                         (towxString(Res["Columns"]["Source"]),
-                          new wxDataViewTextRenderer(),
-                          Col,
-                          wxDVC_DEFAULT_WIDTH,
-                          wxALIGN_LEFT);
+  return llvm::make_unique<wxDataViewColumn>
+                          (towxString(Res["Columns"]["Source"]),
+                           new wxDataViewTextRenderer(),
+                           Col,
+                           wxDVC_DEFAULT_WIDTH,
+                           wxALIGN_LEFT);
 }
 
 std::unique_ptr<wxDataViewColumn>
@@ -87,7 +88,7 @@ AugmentationCollectionDataViewModel::getVersionColumn()
   auto const Res = Resource("TraceViewer")["GUIText"]["AugmentationSettings"];
   auto const Col = static_cast<unsigned>(EColumnKind::Version);
 
-  return seec::makeUnique<wxDataViewColumn>
+  return llvm::make_unique<wxDataViewColumn>
                          (towxString(Res["Columns"]["Version"]),
                           new wxDataViewTextRenderer(),
                           Col,

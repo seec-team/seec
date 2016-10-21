@@ -16,11 +16,11 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
 #include "seec/Util/Fallthrough.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -115,10 +115,10 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   }
 
   RecordedFunctions.emplace_back(
-    seec::makeUnique<RecordedFunction>(RecordOffset,
-                                       Index,
-                                       StartOffset,
-                                       Entered));
+    llvm::make_unique<RecordedFunction>(RecordOffset,
+                                        Index,
+                                        StartOffset,
+                                        Entered));
 
   // Add a TracedFunction to the stack and make it the ActiveFunction.
   {

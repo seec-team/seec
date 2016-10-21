@@ -16,9 +16,9 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/Util/Printing.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 
@@ -44,7 +44,7 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
   Dirs{}
 {
   for (auto &StatePtr : UnmappedState->getThreadStates())
-    ThreadStates.emplace_back(makeUnique<ThreadState>(*this, *StatePtr));
+    ThreadStates.emplace_back(llvm::make_unique<ThreadState>(*this, *StatePtr));
   
   auto const &Mapping = Trace.getMapping();
   auto const &Module = UnmappedState->getModule().getModule();
@@ -60,7 +60,7 @@ ProcessState::ProcessState(seec::cm::ProcessTrace const &ForTrace)
       if (!TheDecl)
         continue;
       
-      GlobalVariableStates.emplace_back(makeUnique<GlobalVariable>
+      GlobalVariableStates.emplace_back(llvm::make_unique<GlobalVariable>
                                                   (*this,
                                                    *Mapped,
                                                    Address));

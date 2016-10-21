@@ -18,9 +18,9 @@
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/Path.h"
 
@@ -113,7 +113,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createViewMenu()
   if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
   
-  auto Menu = seec::makeUnique<wxMenu>();
+  auto Menu = llvm::make_unique<wxMenu>();
   
   createViewButton(*Menu, ExplanationCtrl, Text, "Explanation");
   createViewButton(*Menu, GraphViewer,     Text, "Graph");
@@ -131,7 +131,7 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
   if (U_FAILURE(Text.status()))
     return std::make_pair(nullptr, wxEmptyString);
 
-  auto Menu = seec::makeUnique<wxMenu>();
+  auto Menu = llvm::make_unique<wxMenu>();
 
   BindMenuItem(
     Menu->Append(wxID_ANY,
@@ -266,13 +266,13 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   Trace = std::move(TracePtr);
   
   // Create a new state at the beginning of the trace.
-  State = seec::makeUnique<seec::cm::ProcessState>(Trace->getTrace());
+  State = llvm::make_unique<seec::cm::ProcessState>(Trace->getTrace());
   
   // Create a new accessor token for this state.
   StateAccess = std::make_shared<StateAccessToken>();
   
   // Setup the action record.
-  Recording = seec::makeUnique<ActionRecord>(Trace->getTrace());
+  Recording = llvm::make_unique<ActionRecord>(Trace->getTrace());
   Recording->enable();
   
   // Setup the action replay frame.
@@ -283,7 +283,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   }
   
   // Setup the context notifier.
-  Notifier = seec::makeUnique<ContextNotifier>();
+  Notifier = llvm::make_unique<ContextNotifier>();
 
   // Get the GUIText from the TraceViewer ICU resources.
   auto const ResViewer = seec::Resource("TraceViewer", getLocale());

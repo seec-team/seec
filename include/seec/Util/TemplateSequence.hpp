@@ -14,6 +14,8 @@
 #ifndef SEEC_UTIL_TEMPLATESEQUENCE_HPP
 #define SEEC_UTIL_TEMPLATESEQUENCE_HPP
 
+#include <type_traits>
+
 namespace seec {
 
 /// Compile-time utilities.

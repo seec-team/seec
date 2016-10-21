@@ -23,9 +23,10 @@
 #include <wx/textctrl.h>
 #include <wx/xml/xml.h>
 
+#include "llvm/ADT/STLExtras.h"
+
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
-#include "seec/Util/MakeUnique.hpp"
 #include "seec/wxWidgets/Config.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 #include "seec/wxWidgets/XmlNodeIterator.hpp"
@@ -116,8 +117,8 @@ char const * const to_string(wxFontFamily const Family)
 
 std::unique_ptr<wxXmlNode> FontToXML(wxFont const &Info)
 {
-  std::unique_ptr<wxXmlNode> Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE,
-                                                          "FontInfo");
+  std::unique_ptr<wxXmlNode> Node =
+    llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, "FontInfo");
 
   Node->AddAttribute("PointSize", std::to_string(Info.GetPointSize()));
 
@@ -167,7 +168,7 @@ std::unique_ptr<wxXmlNode> FontToXML(wxFont const &Info)
 std::unique_ptr<wxXmlNode> TextStyleToXML(TextStyle const &Style,
                                           wxString const &Name)
 {
-  auto Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
+  auto Node = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
 
   auto FontInfo = FontToXML(Style.GetFont());
   if (FontInfo)
@@ -203,7 +204,7 @@ IndicatorStyleKindFromString(wxString const &String)
 std::unique_ptr<wxXmlNode> IndicatorStyleToXML(IndicatorStyle const &Style,
                                                wxString const &Name)
 {
-  auto Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
+  auto Node = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
   
   Node->AddAttribute("Kind", to_string(Style.GetKind()));
   
@@ -219,10 +220,11 @@ std::unique_ptr<wxXmlNode> IndicatorStyleToXML(IndicatorStyle const &Style,
 std::unique_ptr<wxXmlNode> ColourSchemeToXml(ColourScheme const &Scheme,
                                              wxString const &Name)
 {
-  auto Node = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
-  auto TextStyles = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE, "TextStyles");
-  auto IndicatorStyles = makeUnique<wxXmlNode>(wxXML_ELEMENT_NODE,
-                                               "IndicatorStyles");
+  auto Node = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE, Name);
+  auto TextStyles = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE,
+                                                 "TextStyles");
+  auto IndicatorStyles = llvm::make_unique<wxXmlNode>(wxXML_ELEMENT_NODE,
+                                                      "IndicatorStyles");
 
   // Create nodes for all TextStyles.
 #define SEEC_SERIALIZE_TEXTSTYLE(NAME)                                         \
