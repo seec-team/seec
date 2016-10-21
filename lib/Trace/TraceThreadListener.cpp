@@ -335,9 +335,7 @@ DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
   ProcessTime = getCIProcessTime();
 
   // Write Free event.
-  EventsOut.write<EventType::Free>(Malloc.thread(),
-                                   Malloc.offset(),
-                                   ProcessTime);
+  EventsOut.write<EventType::Free>(Address, ProcessTime);
 
   // Update dynamic allocation lookup.
   ProcessListener.removeCurrentDynamicMemoryAllocation(Address);

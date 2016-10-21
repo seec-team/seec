@@ -220,8 +220,7 @@ SEEC_TRACE_EVENT(Malloc,
 
 SEEC_TRACE_EVENT(Free,
   SEEC_PP_QUOTE(
-    (uint32_t, MallocThread),
-    (offset_uint, MallocOffset),
+    (uint64_t, Address),
     (uint64_t, ProcessTime)
   ),
   SEEC_PP_QUOTE(

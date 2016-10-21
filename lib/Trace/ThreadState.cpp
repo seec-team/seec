@@ -222,27 +222,7 @@ void ThreadState::addEvent(EventRecord<EventType::Malloc> const &Ev) {
 
 void ThreadState::addEvent(EventRecord<EventType::Free> const &Ev) {
   // Find the original Malloc event.
-  auto const MallocThreadID = Ev.getMallocThread();
-  auto const MallocOffset = Ev.getMallocOffset();
-
-  auto const &ProcTrace = Parent.getTrace();
-  assert(MallocThreadID && MallocThreadID <= ProcTrace.getNumThreads() &&
-         "Invalid MallocThread in Free record.");
-
-  auto const &MallocThread = ProcTrace.getThreadTrace(MallocThreadID);
-
-  auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
-
-  // Find the Instruction that the Malloc was attached to.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
-                                  (rangeBeforeIncluding(MallocThread.events(),
-                                                        MallocRef));
-  assert(MaybeInstrRef.assigned() && "Malformed event trace");
-
-  auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
-
-  auto const Address = Instr.getValue();
+  auto const Address = Ev.getAddress();
   auto const Size = Parent.Mallocs.find(Address)->second.getSize();
 
   // Update the shared ProcessState.
@@ -913,28 +893,8 @@ void ThreadState::removeEvent(EventRecord<EventType::Malloc> const &Ev) {
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::Free> const &Ev) {
-  // Find the original Malloc event.
-  auto const MallocThreadID = Ev.getMallocThread();
-  auto const MallocOffset = Ev.getMallocOffset();
-
-  auto const &ProcTrace = Parent.getTrace();
-  assert(MallocThreadID && MallocThreadID <= ProcTrace.getNumThreads() &&
-         "Invalid MallocThread in Free record.");
-
-  auto const &MallocThread = ProcTrace.getThreadTrace(MallocThreadID);
-  auto const MallocRef = MallocThread.events().referenceToOffset(MallocOffset);
-
-  // Find the Instruction that the Malloc was attached to.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>
-                                  (rangeBeforeIncluding(MallocThread.events(),
-                                                        MallocRef));
-  assert(MaybeInstrRef.assigned() && "Malformed event trace");
-
-  auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &InstrEv = InstrRef.get<EventType::InstructionWithPtr>();
-
   // Information required to recreate the dynamic memory allocation.
-  auto const Address = InstrEv.getValue();
+  auto const Address = Ev.getAddress();
 
   // Restore the dynamic memory allocation.
   Parent.unremoveMalloc(Address);
