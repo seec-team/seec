@@ -15,6 +15,10 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
+if (WIN32)
+  set(CLANG_LIB_DEPS "${CLANG_LIB_DEPS};version.lib")
+endif (WIN32)
+
 target_link_libraries(seec-cc
  # SeeC libraries
  SeeCClang
@@ -44,6 +48,8 @@ target_link_libraries(seec-cc
  ${REQ_ICU_LIBRARIES}
 
  ${LLVM_LIB_DEPS}
+ 
+ ${CLANG_LIB_DEPS}
 )
 
 INSTALL(TARGETS seec-cc
