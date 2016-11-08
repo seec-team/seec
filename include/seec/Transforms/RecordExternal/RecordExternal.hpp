@@ -162,6 +162,8 @@ public:
   void visitPHINode(PHINode &I);
   SIMPLE_RECORD_UPDATE_FOR_VALUE(SelectInst)
   void visitCallInst(CallInst &I);
+  
+  SIMPLE_RECORD_UPDATE_FOR_VALUE(UnaryInstruction)
 
 #undef SIMPLE_RECORD_UPDATE_FOR_VALUE
   
