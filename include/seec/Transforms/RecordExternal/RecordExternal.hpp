@@ -148,6 +148,7 @@ public:
 
   SIMPLE_RECORD_UPDATE_FOR_VALUE(CmpInst)
   SIMPLE_RECORD_UPDATE_FOR_VALUE(CastInst)
+  SIMPLE_RECORD_UPDATE_FOR_VALUE(ExtractElementInst)
 
   // Terminator instructions
   void visitReturnInst(ReturnInst &I);
