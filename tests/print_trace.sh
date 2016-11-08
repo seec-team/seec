@@ -16,6 +16,6 @@ done
 program=$1
 shift
 
-"$program" -R    $* 1>/dev/null
-"$program" -S    $* 1>/dev/null
-"$program" -C -S $* 1>/dev/null
+"$program"    -R          $* 1>/dev/null
+"$program"    -S -reverse $* 1>/dev/null
+"$program" -C -S -reverse $* 1>/dev/null
