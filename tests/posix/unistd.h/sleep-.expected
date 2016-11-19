@@ -1,0 +1,135 @@
+Recreating states:
+Process @0
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=0
+
+Process @2
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=1
+  Function [Index=0]
+   Allocas:
+   Instruction values [Active=unassigned]:
+
+Process @3
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=5
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=3]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @4
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=6
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=4]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @5
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=7
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=6]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @6
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=11
+
+Process @5
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=10
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=10]:
+    0 = 
+    1 = 
+    2 = 
+    8 = (int64_t)1, (uint64_t)1
+    10 = (int64_t)0, (uint64_t)0
+
+Process @4
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=6
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=4]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @3
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=5
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=3]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @2
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=4
+  Function [Index=0]
+   Allocas:
+    0 =[1x4]
+    1 =[1x4]
+    2 =[1x8]
+   Instruction values [Active=2]:
+    0 = 
+    1 = 
+    2 = 
+
+Process @0
+ Dynamic Allocations: 0
+ Open Streams: 3
+ Open DIRs: 0
+ Thread #1 @TT=0
+
