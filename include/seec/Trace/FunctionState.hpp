@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Instructions.h"
 
 #include <cstdint>
@@ -48,6 +49,11 @@ namespace trace {
 class FunctionState;
 class ThreadState;
 
+namespace value_store {
+  class BasicBlockStore;
+  class FunctionInfo;
+  class ModuleInfo;
+}
 
 /// \brief Represents the result of a single alloca instruction.
 ///
@@ -219,6 +225,29 @@ public:
 };
 
 
+/// \brief Records BasicBlocks effected by a backwards jump.
+/// This is used to correctly rewind changes to the runtime values when we
+/// rewind over a backwards jump.
+///
+struct BasicBlockBackwardsJumpRecord {
+  /// The \c llvm::BasicBlock that was jumped from.
+  llvm::BasicBlock const *FromBlock;
+
+  /// The number of BasicBlocks cleared by the jump.
+  std::size_t NumCleared;
+  
+  /// \brief Constructor.
+  /// \param From The \c llvm::BasicBlock that was jumped from.
+  /// \param Cleared The number of BasicBlocks cleared by the jump.
+  ///
+  BasicBlockBackwardsJumpRecord(llvm::BasicBlock const *From,
+                                std::size_t Cleared)
+  : FromBlock(From),
+    NumCleared(Cleared)
+  {}
+};
+
+
 /// \brief State of a function invocation at a specific point in time.
 ///
 class FunctionState {
@@ -227,6 +256,9 @@ class FunctionState {
 
   /// Indexed view of the llvm::Function.
   FunctionIndex const *FunctionLookup;
+  
+  /// Information by the run-time value store.
+  value_store::FunctionInfo const &ValueStoreInfo;
 
   /// Index of the llvm::Function in the llvm::Module.
   uint32_t Index;
@@ -240,13 +272,6 @@ class FunctionState {
   /// true iff the active \llvm::Instruction has completed execution.
   bool ActiveInstructionComplete;
 
-  // Runtime values for Instructions.
-  llvm::DenseMap<llvm::Instruction const *, uint64_t>      ValuesUInt64;
-  llvm::DenseMap<llvm::Instruction const *, stateptr_ty>   ValuesPtr;
-  llvm::DenseMap<llvm::Instruction const *, float>         ValuesFloat;
-  llvm::DenseMap<llvm::Instruction const *, double>        ValuesDouble;
-  llvm::DenseMap<llvm::Instruction const *, llvm::APFloat> ValuesAPFloat;
-
   /// All active stack allocations for this function.
   std::vector<AllocaState> Allocas;
   
@@ -255,16 +280,36 @@ class FunctionState {
   
   /// All runtime errors seen in this function.
   std::vector<RuntimeErrorState> RuntimeErrors;
+  
+  /// Currently active BasicBlocks and the RTValues they contain.
+  llvm::DenseMap<llvm::BasicBlock const *,
+                 std::unique_ptr<value_store::BasicBlockStore>>
+    ActiveBlocks;
+  
+  /// History of backwards BasicBlock jumps.
+  std::vector<BasicBlockBackwardsJumpRecord> BackwardsJumps;
+  
+  /// Information about BasicBlocks cleared by backwards jumps.
+  std::vector<std::pair<llvm::BasicBlock const *,
+                        std::unique_ptr<value_store::BasicBlockStore>>>
+    ClearedBlocks;
 
 public:
   /// \brief Constructor.
-  /// \param Index Index of this llvm::Function in the llvm::Module.
-  /// \param Function Indexed view of the llvm::Function.
+  /// \param Index Index of this \c llvm::Function in the \c llvm::Module.
+  /// \param Function Indexed view of the \c llvm::Function.
+  /// \param ModuleStoreInfo Runtime value storage information for the
+  ///        \c llvm::Module.
+  /// \param Trace Trace information for this function invocation.
   FunctionState(ThreadState &Parent,
                 uint32_t Index,
                 FunctionIndex const &Function,
+                value_store::ModuleInfo const &ModuleStoreInfo,
                 FunctionTrace Trace);
 
+  /// \brief Destructor.
+  ///
+  ~FunctionState();
 
   /// \name Accessors.
   /// @{
@@ -316,6 +361,16 @@ public:
   /// \name Mutators.
   /// @{
 
+  /// \brief Notify that we are moving forward to the given Instruction index.
+  /// \param Index index of the \c llvm::Instruction we are moving to.
+  ///
+  void forwardingToInstruction(uint32_t const Index);
+  
+  /// \brief Notify that we are moving backward to the given Instruction index.
+  /// \param Index index of the \c llvm::Instruction we are moving to.
+  ///
+  void rewindingToInstruction(uint32_t const Index);
+  
   /// \brief Set the index of the active \c llvm::Instruction and mark it as
   ///        having completed execution.
   /// \param Index the index for the new active \c llvm::Instruction.
@@ -351,8 +406,6 @@ public:
   void setValueFloat  (llvm::Instruction const *, float);
   void setValueDouble (llvm::Instruction const *, double);
   void setValueAPFloat(llvm::Instruction const *, llvm::APFloat);
-
-  void clearValue(llvm::Instruction const *);
 
   bool isDominatedByActive(llvm::Instruction const *) const;
   bool hasValue(llvm::Instruction const *) const;

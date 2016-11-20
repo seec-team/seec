@@ -42,6 +42,10 @@ class ModuleIndex;
 
 namespace trace {
 
+namespace value_store {
+  class ModuleInfo;
+}
+
 
 /// \brief State of a single dynamic memory allocation.
 ///
@@ -115,6 +119,9 @@ class ProcessState {
   /// Indexed view of the llvm::Module that this trace was created from.
   std::shared_ptr<ModuleIndex const> Module;
   
+  /// Value store information for the llvm::Module.
+  std::unique_ptr<value_store::ModuleInfo const> ValueStoreModuleInfo;
+  
   /// DataLayout for the llvm::Module that this trace was created from.
   llvm::DataLayout DL;
 
@@ -180,6 +187,11 @@ public:
   /// \brief Get a ModuleIndex for the llvm::Module.
   ///
   ModuleIndex const &getModule() const { return *Module; }
+  
+  /// \brief Get the \c value_store::ModuleInfo for the llvm::Module.
+  ///
+  value_store::ModuleInfo const &getValueStoreModuleInfo() const
+  { return *ValueStoreModuleInfo; }
   
   /// \brief Get the DataLayout for the llvm::Module.
   ///

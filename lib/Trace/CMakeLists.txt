@@ -12,18 +12,21 @@ endif ()
 
 set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
+  ../../include/seec/Trace/IsRecordableType.hpp
   ../../include/seec/Trace/TraceFormat.hpp
   ../../include/seec/Trace/TracePointer.hpp
   ../../include/seec/Trace/TraceStorage.hpp
   )
 
 set(TRACE_SOURCES
+  IsRecordableType.cpp
   TraceFormat.cpp
   TracePointer.cpp
   TraceStorage.cpp
 )
 
 set(TRACE_READER_HEADERS
+  ../../include/seec/Trace/BlockValueStore.hpp
   ../../include/seec/Trace/FunctionState.hpp
   ../../include/seec/Trace/GetRecreatedValue.hpp
   ../../include/seec/Trace/MemoryState.hpp
@@ -36,6 +39,7 @@ set(TRACE_READER_HEADERS
   )
 
 set(TRACE_READER_SOURCES
+  BlockValueStore.cpp
   FunctionState.cpp
   GetRecreatedValue.cpp
   MemoryState.cpp

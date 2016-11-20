@@ -38,6 +38,7 @@ class ProcessState; // forward-declare for ThreadState
 ///
 class ThreadState {
   friend class ProcessState; // Allow ProcessStates to construct ThreadStates.
+  friend class ThreadMovementDispatcher;
 
 
   /// \name Constants
@@ -119,11 +120,6 @@ class ThreadState {
   void addEvent(EventRecord<EventType::DirClose> const &);
   void addEvent(EventRecord<EventType::RuntimeError> const &);
 
-  /// Swallows unmatched calls to addEvent. This allows us to restrict calls to
-  /// addEvent using an if statement when switching over types that do not have
-  /// a defined addEvent (i.e. types with the trait is_subservient). Calling
-  /// this function at runtime is an error.
-  void addEvent(...) { llvm_unreachable("addEvent(...) called!"); }
 
   /// Special handling when re-adding the following, so that they do not set
   /// the thread time.
@@ -144,9 +140,6 @@ class ThreadState {
   void readdEvent(EventRecord<EventType::StackRestore> const &);
   void readdEvent(EventRecord<EventType::Alloca> const &);
   void readdEvent(EventRecord<EventType::ByValRegionAdd> const &);
-
-  template<EventType ET>
-  void readdEvent(EventRecord<ET> const &Ev, ...) { addEvent(Ev); }
 
 public:
   /// Add the event referenced by NextEvent to the state, and then increment
@@ -193,12 +186,6 @@ private:
   void removeEvent(EventRecord<EventType::DirOpen> const &);
   void removeEvent(EventRecord<EventType::DirClose> const &);
   void removeEvent(EventRecord<EventType::RuntimeError> const &);
-
-  /// Swallows unmatched calls to removeEvent. This allows us to restrict calls
-  /// to removeEvent using an if statement when switching over types that do
-  /// not have a defined removeEvent (i.e. types with the trait is_subservient).
-  /// Calling this function at runtime is an error.
-  void removeEvent(...) { llvm_unreachable("removeEvent(...) called!"); }
 
 public:
   /// Decrement NextEvent, and then remove the event it references from the

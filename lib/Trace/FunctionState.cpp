@@ -11,7 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Trace/BlockValueStore.hpp"
 #include "seec/Trace/FunctionState.hpp"
+#include "seec/Trace/IsRecordableType.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
@@ -62,27 +64,37 @@ bool RuntimeErrorState::isActive() const {
 // FunctionState
 //===------------------------------------------------------------------------===
 
+namespace {
+value_store::FunctionInfo const &
+getFunctionStoreInfo(value_store::ModuleInfo const &MI, llvm::Function const &F)
+{
+  auto const Info = MI.getFunctionInfo(&F);
+  assert(Info);
+  return *Info;
+}
+}
+
 FunctionState::FunctionState(ThreadState &Parent,
                              uint32_t Index,
                              FunctionIndex const &Function,
+                             value_store::ModuleInfo const &ModuleStoreInfo,
                              FunctionTrace Trace)
 : Parent(&Parent),
-  FunctionLookup(Parent.getParent().getModule().getFunctionIndex(Index)),
+  FunctionLookup(&Function),
+  ValueStoreInfo(getFunctionStoreInfo(ModuleStoreInfo, Function.getFunction())),
   Index(Index),
   Trace(Trace),
   ActiveInstruction(),
   ActiveInstructionComplete(false),
-  ValuesUInt64(),
-  ValuesPtr(),
-  ValuesFloat(),
-  ValuesDouble(),
-  ValuesAPFloat(),
   Allocas(),
   ParamByVals(),
-  RuntimeErrors()
-{
-  assert(FunctionLookup);
-}
+  RuntimeErrors(),
+  ActiveBlocks(),
+  BackwardsJumps(),
+  ClearedBlocks()
+{}
+
+FunctionState::~FunctionState() = default;
 
 llvm::Function const *FunctionState::getFunction() const {
   return Parent->getParent().getModule().getFunction(Index);
@@ -116,59 +128,129 @@ FunctionState::getContainingMemoryArea(stateptr_ty Address) const {
   return seec::Maybe<MemoryArea>();
 }
 
+void FunctionState::forwardingToInstruction(uint32_t const Index)
+{
+  auto const Current = getActiveInstruction();
+  auto const I = FunctionLookup->getInstruction(Index);
+  auto const IBB = I->getParent();
+  
+  if (Current) {
+    auto const CBB = Current->getParent();
+    
+    // If we jump backwards, clear all BBs that we jump over,
+    // including the current BB.
+    if (Index < ActiveInstruction.get<uint32_t>()) {
+      std::size_t ClearCount = 0;
+      
+      for (auto BB = IBB; true; BB = BB->getNextNode()) {
+        auto It = ActiveBlocks.find(BB);
+        if (It != ActiveBlocks.end()) {
+          ClearedBlocks.emplace_back(It->first, std::move(It->second));
+          ++ClearCount;
+          ActiveBlocks.erase(It);
+        }
+        
+        if (BB == CBB) {
+          break;
+        }
+      }
+      
+      BackwardsJumps.emplace_back(CBB, ClearCount);
+    }
+  }
+  
+  if (!ActiveBlocks.count(IBB)) {
+    // Make the new Instruction's BasicBlock active.
+    auto const BBInfo = ValueStoreInfo.getBasicBlockInfo(IBB);
+    assert(BBInfo && "no basic block info for block?");
+    ActiveBlocks[IBB] = llvm::make_unique<value_store::BasicBlockStore>
+                                         (*BBInfo);
+    assert(ActiveBlocks[IBB] && "null BasicBlockStore");
+  }
+}
+
+void FunctionState::rewindingToInstruction(uint32_t const Index)
+{
+  auto const I = FunctionLookup->getInstruction(Index);
+  auto const IBB = I->getParent();
+  
+  // If we jumped from a succeeding BB, unclear those that were jumped over.
+  if (ActiveInstruction.get<uint32_t>() < Index) {
+    assert(IBB == BackwardsJumps.back().FromBlock);
+    
+    for (std::size_t i = 0; i < BackwardsJumps.back().NumCleared; ++i) {
+      auto &Record = ClearedBlocks.back();
+      ActiveBlocks[Record.first] = std::move(Record.second);
+      ClearedBlocks.pop_back();
+    }
+    
+    BackwardsJumps.pop_back();
+  }
+}
+
 void FunctionState::setValueUInt64(llvm::Instruction const *ForInstruction,
                                    uint64_t const Value)
 {
-  ValuesUInt64[ForInstruction] = Value;
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  assert(ActiveBBIter != ActiveBlocks.end());
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+  Store->setUInt64(*Info, Index.get<uint32_t>(), Value);
 }
 
 void FunctionState::setValuePtr(llvm::Instruction const *ForInstruction,
                                 stateptr_ty const Value)
 {
-  ValuesPtr[ForInstruction] = Value;
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  assert(ActiveBBIter != ActiveBlocks.end());
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+  Store->setPtr(*Info, Index.get<uint32_t>(), Value);
 }
 
 void FunctionState::setValueFloat(llvm::Instruction const *ForInstruction,
                                   float const Value)
 {
-  ValuesFloat[ForInstruction] = Value;
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  assert(ActiveBBIter != ActiveBlocks.end());
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+  Store->setFloat(*Info, Index.get<uint32_t>(), Value);
 }
 
 void FunctionState::setValueDouble(llvm::Instruction const *ForInstruction,
                                    double const Value)
 {
-  ValuesDouble[ForInstruction] = Value;
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  assert(ActiveBBIter != ActiveBlocks.end());
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+  Store->setDouble(*Info, Index.get<uint32_t>(), Value);
 }
 
 void FunctionState::setValueAPFloat(llvm::Instruction const *ForInstruction,
                                     llvm::APFloat Value)
 {
-  auto It = ValuesAPFloat.find(ForInstruction);
-  if (It != ValuesAPFloat.end())
-    It->second = std::move(Value);
-  else
-    ValuesAPFloat.insert(std::make_pair(ForInstruction, std::move(Value)));
-}
-
-void FunctionState::clearValue(llvm::Instruction const *ForInstruction)
-{
-  auto const Type = ForInstruction->getType();
-
-  if (Type->isIntegerTy()) {
-    ValuesUInt64.erase(ForInstruction);
-  }
-  else if (Type->isPointerTy()) {
-    ValuesPtr.erase(ForInstruction);
-  }
-  else if (Type->isFloatTy()) {
-    ValuesFloat.erase(ForInstruction);
-  }
-  else if (Type->isDoubleTy()) {
-    ValuesDouble.erase(ForInstruction);
-  }
-  else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty()) {
-    ValuesAPFloat.erase(ForInstruction);
-  }
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  assert(ActiveBBIter != ActiveBlocks.end());
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+  Store->setAPFloat(*Info, Index.get<uint32_t>(), std::move(Value));
 }
 
 bool FunctionState::isDominatedByActive(llvm::Instruction const *Inst) const
@@ -183,6 +265,10 @@ bool FunctionState::isDominatedByActive(llvm::Instruction const *Inst) const
   if (ActiveInstruction.get<uint32_t>() < MaybeIndex.get<uint32_t>())
     return false;
 
+  if (ActiveInstruction.get<uint32_t>() == MaybeIndex.get<uint32_t>())
+    if (!ActiveInstructionComplete)
+      return false;
+
   return true;
 }
 
@@ -192,39 +278,32 @@ bool FunctionState::hasValue(llvm::Instruction const *ForInstruction) const
     return false;
 
   auto const Type = ForInstruction->getType();
-
-  if (Type->isIntegerTy()) {
-    return ValuesUInt64.count(ForInstruction);
-  }
-  else if (Type->isPointerTy()) {
-    return ValuesPtr.count(ForInstruction);
-  }
-  else if (Type->isFloatTy()) {
-    return ValuesFloat.count(ForInstruction);
-  }
-  else if (Type->isDoubleTy()) {
-    return ValuesDouble.count(ForInstruction);
-  }
-  else if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty()) {
-    return ValuesAPFloat.count(ForInstruction);
-  }
-  else {
+  if (!isRecordableType(Type))
     return false;
-  }
+
+  auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+  auto const BB = ForInstruction->getParent();
+  auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+  auto const ActiveBBIter = ActiveBlocks.find(BB);
+  if (ActiveBBIter == ActiveBlocks.end())
+    return false;
+  
+  auto &Store = ActiveBBIter->second;
+  assert(Index.assigned<uint32_t>() && Info && Store);
+
+  return Store->hasValue(*Info, Index.get<uint32_t>());
 }
 
 Maybe<int64_t>
 FunctionState::getValueInt64(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<int64_t>();
+  auto const MaybeUInt64 = getValueUInt64(ForInstruction);
 
-  auto const It = ValuesUInt64.find(ForInstruction);
-  if (It != ValuesUInt64.end()) {
+  if (MaybeUInt64.assigned<uint64_t>()) {
     auto const IntTy = llvm::dyn_cast<llvm::IntegerType>
                                      (ForInstruction->getType());
 
-    auto const Value = It->second;
+    auto const Value = MaybeUInt64.get<uint64_t>();
 
     // If the integer has its sign bit set, then set all higher bits.
     if (Value & IntTy->getSignBit()) {
@@ -240,51 +319,121 @@ FunctionState::getValueInt64(llvm::Instruction const *ForInstruction) const
 Maybe<uint64_t>
 FunctionState::getValueUInt64(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<uint64_t>();
-
-  auto const It = ValuesUInt64.find(ForInstruction);
-  return It != ValuesUInt64.end() ? It->second : Maybe<uint64_t>();
+  auto RetVal = Maybe<uint64_t>();
+  
+  if (isDominatedByActive(ForInstruction)) {
+    auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+    auto const BB = ForInstruction->getParent();
+    auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+    auto const ActiveBBIter = ActiveBlocks.find(BB);
+    if (ActiveBBIter != ActiveBlocks.end()) {
+      auto &Store = ActiveBBIter->second;
+      assert(Index.assigned<uint32_t>() && Info && Store);
+      
+      auto Value = Store->getUInt64(*Info, Index.get<uint32_t>());
+      if (Value) {
+        RetVal = *Value;
+      }
+    }
+  }
+  
+  return RetVal;
 }
 
 Maybe<stateptr_ty>
 FunctionState::getValuePtr(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<stateptr_ty>();
-
-  auto const It = ValuesPtr.find(ForInstruction);
-  return It != ValuesPtr.end() ? It->second : Maybe<stateptr_ty>();
+  auto RetVal = Maybe<stateptr_ty>();
+  
+  if (isDominatedByActive(ForInstruction)) {
+    auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+    auto const BB = ForInstruction->getParent();
+    auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+    auto const ActiveBBIter = ActiveBlocks.find(BB);
+    if (ActiveBBIter != ActiveBlocks.end()) {
+      auto &Store = ActiveBBIter->second;
+      assert(Index.assigned<uint32_t>() && Info && Store);
+      
+      auto Value = Store->getPtr(*Info, Index.get<uint32_t>());
+      if (Value) {
+        RetVal = *Value;
+      }
+    }
+  }
+  
+  return RetVal;
 }
 
 Maybe<float>
 FunctionState::getValueFloat(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<float>();
-
-  auto const It = ValuesFloat.find(ForInstruction);
-  return It != ValuesFloat.end() ? It->second : Maybe<float>();
+  auto RetVal = Maybe<float>();
+  
+  if (isDominatedByActive(ForInstruction)) {
+    auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+    auto const BB = ForInstruction->getParent();
+    auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+    auto const ActiveBBIter = ActiveBlocks.find(BB);
+    if (ActiveBBIter != ActiveBlocks.end()) {
+      auto &Store = ActiveBBIter->second;
+      assert(Index.assigned<uint32_t>() && Info && Store);
+      
+      auto Value = Store->getFloat(*Info, Index.get<uint32_t>());
+      if (Value) {
+        RetVal = *Value;
+      }
+    }
+  }
+  
+  return RetVal;
 }
 
 Maybe<double>
 FunctionState::getValueDouble(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<double>();
-
-  auto const It = ValuesDouble.find(ForInstruction);
-  return It != ValuesDouble.end() ? It->second : Maybe<double>();
+  auto RetVal = Maybe<double>();
+  
+  if (isDominatedByActive(ForInstruction)) {
+    auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+    auto const BB = ForInstruction->getParent();
+    auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+    auto const ActiveBBIter = ActiveBlocks.find(BB);
+    if (ActiveBBIter != ActiveBlocks.end()) {
+      auto &Store = ActiveBBIter->second;
+      assert(Index.assigned<uint32_t>() && Info && Store);
+      
+      auto Value = Store->getDouble(*Info, Index.get<uint32_t>());
+      if (Value) {
+        RetVal = *Value;
+      }
+    }
+  }
+  
+  return RetVal;
 }
 
 Maybe<llvm::APFloat>
 FunctionState::getValueAPFloat(llvm::Instruction const *ForInstruction) const
 {
-  if (!isDominatedByActive(ForInstruction))
-    return Maybe<llvm::APFloat>();
-
-  auto const It = ValuesAPFloat.find(ForInstruction);
-  return It != ValuesAPFloat.end() ? It->second : Maybe<llvm::APFloat>();
+  auto RetVal = Maybe<llvm::APFloat>();
+  
+  if (isDominatedByActive(ForInstruction)) {
+    auto const Index = FunctionLookup->getIndexOfInstruction(ForInstruction);
+    auto const BB = ForInstruction->getParent();
+    auto const Info = ValueStoreInfo.getBasicBlockInfo(BB);
+    auto const ActiveBBIter = ActiveBlocks.find(BB);
+    if (ActiveBBIter != ActiveBlocks.end()) {
+      auto &Store = ActiveBBIter->second;
+      assert(Index.assigned<uint32_t>() && Info && Store);
+      
+      auto Value = Store->getAPFloat(*Info, Index.get<uint32_t>());
+      if (Value) {
+        RetVal = *Value;
+      }
+    }
+  }
+  
+  return RetVal;
 }
 
 std::vector<std::reference_wrapper<AllocaState const>>

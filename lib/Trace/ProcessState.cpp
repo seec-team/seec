@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Trace/BlockValueStore.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ModuleIndex.hpp"
@@ -33,6 +34,8 @@ ProcessState::ProcessState(std::shared_ptr<ProcessTrace const> TracePtr,
                            std::shared_ptr<ModuleIndex const> ModIndexPtr)
 : Trace(std::move(TracePtr)),
   Module(std::move(ModIndexPtr)),
+  ValueStoreModuleInfo(llvm::make_unique<value_store::ModuleInfo>
+                                        (Module->getModule(), *Module)),
   DL(&(Module->getModule())),
   ProcessTime(0),
   ThreadStates(Trace->getNumThreads()),

@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/Preprocessor/MakeMemberFnChecker.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
@@ -25,6 +26,102 @@
 namespace seec {
 
 namespace trace {
+
+/// \brief This friend of ThreadState handles dispatching to the various
+/// addEvent / removeEvent methods, using SFINAE to avoid attempting to
+/// call adders or removers for subservient events.
+///
+class ThreadMovementDispatcher {
+  SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_readd_event, readdEvent)
+  
+public:
+  /// \brief Adder for non-subservient events (forwards to Thread.addEvent).
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< !is_subservient<ET>::value >::type
+  addNextEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {
+    assert(!is_function_level<ET>::value || !Thread.getCallStack().empty());
+    Thread.addEvent(Event.get<ET>());
+  }
+  
+  /// \brief Added for subservient events (adds nothing).
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< is_subservient<ET>::value >::type
+  addNextEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {
+    assert(!is_function_level<ET>::value || !Thread.getCallStack().empty());
+  }
+  
+  /// \brief Remover for non-subservient events.
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< !is_subservient<ET>::value >::type
+  removePreviousEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {
+    Thread.removeEvent(Event.get<ET>());
+  }
+  
+  /// \brief Remover for subservient events (removes nothing).
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< is_subservient<ET>::value >::type
+  removePreviousEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {}
+  
+  /// \brief For events that have a defined readdEvent(), call that.
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if<
+    has_readd_event<
+      ThreadState,
+      void(ThreadState::*)(EventRecord<ET> const &)>::value >::type
+  readdOrAddEvent(ThreadState &Thread, EventRecord<ET> const &Ev) {
+    Thread.readdEvent(Ev);
+  }
+  
+  /// \brief For events that have no defined readdEvent(), call addEvent().
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if<
+    !has_readd_event<
+      ThreadState,
+      void(ThreadState::*)(EventRecord<ET> const &)>::value >::type
+  readdOrAddEvent(ThreadState &Thread, EventRecord<ET> const &Ev) {
+    Thread.addEvent(Ev);
+  }
+  
+  /// \brief Restore non-subservient events.
+  /// This is used when rewinding a FunctionEnd.
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< !is_subservient<ET>::value >::type
+  restoreEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {
+    if (is_instruction<ET>::value) {
+      Thread.addEvent(Event.get<ET>());
+    }
+    else if (is_function_level<ET>::value) {
+      readdOrAddEvent<ET>(Thread, Event.get<ET>());
+    }
+  }
+  
+  /// \brief Restore non-subservient events (does nothing).
+  ///
+  template<EventType ET>
+  static
+  typename std::enable_if< is_subservient<ET>::value >::type
+  restoreEventForwarder(ThreadState &Thread, EventReference const &Event)
+  {}
+};
 
 //------------------------------------------------------------------------------
 // ThreadState
@@ -59,7 +156,11 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  auto State = new FunctionState(*this, Index, *MappedFunction, Info);
+  auto State = new FunctionState(*this,
+                                 Index,
+                                 *MappedFunction,
+                                 Parent.getValueStoreModuleInfo(),
+                                 Info);
   assert(State);
   
   CallStack.emplace_back(State);
@@ -107,6 +208,7 @@ void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -114,6 +216,7 @@ void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt8> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -121,6 +224,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt16> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -128,6 +232,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt32> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -135,6 +240,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt64> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -142,6 +248,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithPtr> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -149,6 +256,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithFloat> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -156,6 +264,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithDouble> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -163,6 +272,7 @@ void ThreadState::addEvent(
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithLongDouble> const &Ev)
 {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
@@ -563,10 +673,8 @@ void ThreadState::addNextEvent() {
   switch (NextEvent->getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
-      assert(!is_function_level<EventType::NAME>::value || !CallStack.empty());\
-      if (!is_subservient<EventType::NAME>::value) {                           \
-        addEvent(NextEvent.get<EventType::NAME>());                            \
-      }                                                                        \
+      ThreadMovementDispatcher::addNextEventForwarder<EventType::NAME>         \
+        (*this, NextEvent);                                                    \
       break;
 #include "seec/Trace/Events.def"
     default: llvm_unreachable("Reference to unknown event type!");
@@ -600,6 +708,9 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   auto MaybeIndex = MaybeRef.get<0>()->getIndex();
   assert(MaybeIndex.assigned());
 
+  // Set the correct BasicBlocks to be active.
+  FuncState.rewindingToInstruction(MaybeIndex.get<uint32_t>());
+  
   if (MaybeRef.get<0>()->getType() != EventType::PreInstruction)
     FuncState.setActiveInstructionComplete(MaybeIndex.get<0>());
   else
@@ -613,7 +724,7 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
     if (Ev.getType() != EventType::RuntimeError)
       continue;
     
-    readdEvent(Ev.as<EventType::RuntimeError>());
+    addEvent(Ev.as<EventType::RuntimeError>());
   }
 }
 
@@ -657,7 +768,11 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
   assert(MappedFunction && "Couldn't get FunctionIndex");
 
-  auto State = new FunctionState(*this, Index, *MappedFunction, Info);
+  auto State = new FunctionState(*this,
+                                 Index,
+                                 *MappedFunction,
+                                 Parent.getValueStoreModuleInfo(),
+                                 Info);
   assert(State);
   
   CallStack.emplace_back(State);
@@ -688,10 +803,8 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
     switch (RestoreRef->getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
       case EventType::NAME:                                                    \
-        if (!is_subservient<EventType::NAME>::value                            \
-            && is_function_level<EventType::NAME>::value) {                    \
-          readdEvent(RestoreRef.get<EventType::NAME>());                       \
-        }                                                                      \
+        ThreadMovementDispatcher::restoreEventForwarder<EventType::NAME>       \
+          (*this, RestoreRef);                                                 \
         break;
 #include "seec/Trace/Events.def"
       default: llvm_unreachable("Reference to unknown event type!");
@@ -755,13 +868,6 @@ EventRecord<ET> const *getPreviousSame(ThreadTrace const &Trace,
 #define SEEC_IMPLEMENT_REMOVE_INSTRUCTION(TYPE)                                \
 void ThreadState::removeEvent(                                                 \
       EventRecord<EventType::InstructionWith##TYPE> const &Ev) {               \
-  if (auto const Prev = getPreviousSame(Trace, Ev)) {                          \
-    readdEvent(*Prev);                                                         \
-  }                                                                            \
-  else {                                                                       \
-    auto &FuncState = *(CallStack.back());                                     \
-    FuncState.clearValue(FuncState.getInstruction(Ev.getIndex()));             \
-  }                                                                            \
   makePreviousInstructionActive(EventReference(Ev));                           \
   --ThreadTime;                                                                \
 }
@@ -1053,8 +1159,8 @@ void ThreadState::removePreviousEvent() {
   switch (NextEvent->getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
-      if (!is_subservient<EventType::NAME>::value)                             \
-        removeEvent(NextEvent.get<EventType::NAME>());                         \
+      ThreadMovementDispatcher::removePreviousEventForwarder<EventType::NAME>  \
+        (*this, NextEvent);                                                    \
       break;
 #include "seec/Trace/Events.def"
     default: llvm_unreachable("Reference to unknown event type!");
