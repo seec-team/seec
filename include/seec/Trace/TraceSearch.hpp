@@ -232,12 +232,12 @@ firstSuccessfulApply(EventRange Range, PredT Predicate) {
 }
 
 /// For the last Event in a range for which the given predicate returns an
-/// assigned Maybe, return that Maybe. Otherwise, return an empty Maybe. The
-/// type of the returned value is equal to the return type of the supplied
-/// predicate, but must contain an assigned() method.
+/// assigned llvm::Optional, return that llvm::Optional. Otherwise, return an
+/// unassigned llvm::Optional.
 /// \tparam PredT the type of the predicate.
 /// \param Range the event range to search in.
 /// \param Predicate the predicate to apply to the events.
+///
 template<typename PredT>
 typename seec::FunctionTraits<PredT>::ReturnType
 lastSuccessfulApply(EventRange Range, PredT Predicate) {
@@ -248,7 +248,7 @@ lastSuccessfulApply(EventRange Range, PredT Predicate) {
   
   for (auto It = --(Range.end()); ; --It) {
     auto Value = Predicate(*It);
-    if (Value.assigned())
+    if (Value)
       return Value;
     
     if (It == Range.begin())

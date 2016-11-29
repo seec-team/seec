@@ -346,7 +346,7 @@ void TraceThreadListener::notifyEnv(char **EnvP) {
 
 void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
                                             llvm::Function const *F,
-                                            uint32_t const InstructionIndex,
+                                            InstrIndexInFn const InstrIndex,
                                             llvm::Instruction const *Terminator)
 {
   // It's OK to check this without owning FunctionStackMutex, because the
@@ -422,7 +422,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   Record.setCompletion(EndOffset, Exited);
 }
 
-void TraceThreadListener::notifyPreCall(uint32_t Index,
+void TraceThreadListener::notifyPreCall(InstrIndexInFn Index,
                                         llvm::CallInst const *CallInst,
                                         void const *Address) {
   using namespace seec::trace::detect_calls;
@@ -439,7 +439,7 @@ void TraceThreadListener::notifyPreCall(uint32_t Index,
   EventsOut.write<EventType::PreInstruction>(Index);
 }
 
-void TraceThreadListener::notifyPostCall(uint32_t Index,
+void TraceThreadListener::notifyPostCall(InstrIndexInFn Index,
                                          llvm::CallInst const *CallInst,
                                          void const *Address) {
   using namespace seec::trace::detect_calls;
@@ -451,7 +451,7 @@ void TraceThreadListener::notifyPostCall(uint32_t Index,
   detectPostCall(CallInst, Index, Address);
 }
 
-void TraceThreadListener::notifyPreCallIntrinsic(uint32_t Index,
+void TraceThreadListener::notifyPreCallIntrinsic(InstrIndexInFn Index,
                                                  llvm::CallInst const *CI) {
   using namespace seec::trace::detect_calls;
 
@@ -477,7 +477,7 @@ void TraceThreadListener::notifyPreCallIntrinsic(uint32_t Index,
   }
 }
 
-void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
+void TraceThreadListener::notifyPostCallIntrinsic(InstrIndexInFn Index,
                                                   llvm::CallInst const *CI) {
   using namespace seec::trace::detect_calls;
 
@@ -516,8 +516,9 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
       auto SaveRTV = getCurrentRuntimeValueAs<uintptr_t>(*this, SaveValue);
       assert(SaveRTV.assigned() && "Couldn't get stacksave run-time value.");
 
-      ActiveFunc->stackRestore(SaveRTV.get<0>(),
-                               *(ProcessListener.getTraceMemoryStateAccessor()));
+      ActiveFunc->stackRestore(
+        SaveRTV.get<0>(),
+        *(ProcessListener.getTraceMemoryStateAccessor()));
 
       ++Time;
       EventsOut.write<EventType::Instruction>(Index);
@@ -539,7 +540,7 @@ void TraceThreadListener::notifyPostCallIntrinsic(uint32_t Index,
   }
 }
 
-void TraceThreadListener::notifyPreAlloca(uint32_t const Index,
+void TraceThreadListener::notifyPreAlloca(InstrIndexInFn const Index,
                                           llvm::AllocaInst const &Alloca,
                                           uint64_t const ElemSize,
                                           uint64_t const ElemCount)
@@ -554,7 +555,7 @@ void TraceThreadListener::notifyPreAlloca(uint32_t const Index,
   }
 }
 
-void TraceThreadListener::notifyPreLoad(uint32_t Index,
+void TraceThreadListener::notifyPreLoad(InstrIndexInFn Index,
                                         llvm::LoadInst const *Load,
                                         void const *Data,
                                         std::size_t Size)
@@ -608,7 +609,7 @@ void TraceThreadListener::notifyPreLoad(uint32_t Index,
   }
 }
 
-void TraceThreadListener::notifyPostLoad(uint32_t Index,
+void TraceThreadListener::notifyPostLoad(InstrIndexInFn Index,
                                          llvm::LoadInst const *Load,
                                          void const *Address,
                                          std::size_t Size) {
@@ -624,7 +625,7 @@ void TraceThreadListener::notifyPostLoad(uint32_t Index,
   }
 }
 
-void TraceThreadListener::notifyPreStore(uint32_t Index,
+void TraceThreadListener::notifyPreStore(InstrIndexInFn Index,
                                          llvm::StoreInst const *Store,
                                          void const *Data,
                                          std::size_t Size) {
@@ -647,7 +648,7 @@ void TraceThreadListener::notifyPreStore(uint32_t Index,
   Checker.checkMemoryAccess(Address, Size, Access, MaybeArea.get<0>());
 }
 
-void TraceThreadListener::notifyPostStore(uint32_t Index,
+void TraceThreadListener::notifyPostStore(InstrIndexInFn Index,
                                           llvm::StoreInst const *Store,
                                           void const *Address,
                                           std::size_t Size) {
@@ -682,7 +683,7 @@ void TraceThreadListener::notifyPostStore(uint32_t Index,
 template<bool Signed, typename DivisorType>
 void checkIntegerDivisor(TraceThreadListener &Listener,
                          llvm::BinaryOperator const *Instruction,
-                         uint32_t InstructionIndex,
+                         InstrIndexInFn InstructionIndex,
                          llvm::Value const *Divisor) {
   auto DivisorRTV = getCurrentRuntimeValueAs<DivisorType>(Listener, Divisor);
   if (!DivisorRTV.assigned())
@@ -707,7 +708,7 @@ void checkIntegerDivisor(TraceThreadListener &Listener,
 template<bool Signed>
 void checkIntegerDivision(TraceThreadListener &Listener,
                           llvm::BinaryOperator const *Instruction,
-                          uint32_t InstructionIndex) {
+                          InstrIndexInFn InstructionIndex) {
   auto Divisor = Instruction->getOperand(1);
   auto DivisorTy = llvm::dyn_cast<llvm::IntegerType>(Divisor->getType());
 
@@ -734,7 +735,7 @@ void checkIntegerDivision(TraceThreadListener &Listener,
 template<typename DivisorType>
 void checkFloatDivisor(TraceThreadListener &Listener,
                        llvm::BinaryOperator const *Instruction,
-                       uint32_t InstructionIndex,
+                       InstrIndexInFn InstructionIndex,
                        llvm::Value const *Divisor) {
   auto DivisorRTV = getCurrentRuntimeValueAs<DivisorType>(Listener, Divisor);
   if (!DivisorRTV.assigned())
@@ -753,7 +754,7 @@ void checkFloatDivisor(TraceThreadListener &Listener,
 
 void checkFloatDivision(TraceThreadListener &Listener,
                         llvm::BinaryOperator const *Instruction,
-                        uint32_t InstructionIndex) {
+                        InstrIndexInFn InstructionIndex) {
   auto Divisor = Instruction->getOperand(1);
   auto DivisorType = Divisor->getType();
 
@@ -766,7 +767,7 @@ void checkFloatDivision(TraceThreadListener &Listener,
 }
 
 void TraceThreadListener::notifyPreDivide(
-                            uint32_t Index,
+                            InstrIndexInFn Index,
                             llvm::BinaryOperator const *Instruction) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
@@ -791,7 +792,7 @@ void TraceThreadListener::notifyPreDivide(
   }
 }
 
-void TraceThreadListener::notifyValue(uint32_t const Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn const Index,
                                       llvm::Instruction const * const Instr)
 {
   enterNotification();
@@ -803,14 +804,15 @@ void TraceThreadListener::notifyValue(uint32_t const Index,
   EventsOut.write<EventType::Instruction>(Index);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       void *Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *(ActiveFunction->getCurrentRuntimeValue(Index));
+  auto &RTValue =
+    *(ActiveFunction->getCurrentRuntimeValue(InstrIndexInFn{Index}));
   ActiveFunction->setActiveInstruction(Instruction);
 
   ++Time;
@@ -938,14 +940,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   }
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       uint64_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt64>
@@ -958,14 +961,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       uint32_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt32>
@@ -978,14 +982,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       uint16_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt16>
@@ -998,14 +1003,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       uint8_t Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithUInt8>
@@ -1018,14 +1024,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       float Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithFloat>
@@ -1038,14 +1045,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       double Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
   auto Offset = EventsOut.write<EventType::InstructionWithDouble>
@@ -1058,14 +1066,15 @@ void TraceThreadListener::notifyValue(uint32_t Index,
   RTValue.set(Offset, Value);
 }
 
-void TraceThreadListener::notifyValue(uint32_t Index,
+void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                       llvm::Instruction const *Instruction,
                                       long double Value) {
   // Handle common behaviour when entering and exiting notifications.
   enterNotification();
   auto OnExit = scopeExit([=](){exitNotification();});
 
-  auto &RTValue = *getActiveFunction()->getCurrentRuntimeValue(Index);
+  auto &RTValue =
+    *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   uint64_t Words[2] = {0, 0};
 

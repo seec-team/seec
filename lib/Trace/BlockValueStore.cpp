@@ -21,6 +21,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <type_safe/narrow_cast.hpp>
+
 
 namespace seec {
 
@@ -35,9 +37,10 @@ namespace {
 /// particular, we currently store all integers as uint64_t. Pointers
 /// are also stored as \c stateptr_ty.
 ///
-llvm::Optional<int32_t> getRecreatedStoreSizeForType(llvm::Type const *Type)
+llvm::Optional<type_safe::size_t>
+getRecreatedStoreSizeForType(llvm::Type const *Type)
 {
-  llvm::Optional<int32_t> RetVal;
+  llvm::Optional<type_safe::size_t> RetVal;
   
   if (auto IT = llvm::dyn_cast<llvm::IntegerType>(Type)) {
     if (IT->getBitWidth() <= 64) {
@@ -61,33 +64,38 @@ llvm::Optional<int32_t> getRecreatedStoreSizeForType(llvm::Type const *Type)
 
 BasicBlockInfo::BasicBlockInfo(llvm::BasicBlock const &BB,
                                FunctionIndex const &FnIndex)
-: m_InstrIndexBase(0),
-  m_InstrCount(0),
-  m_LongDoubleInstrCount(0),
-  m_TotalDataSize(0),
+: m_InstrIndexBase(0u),
+  m_InstrCount(0u),
+  m_LongDoubleInstrCount(0u),
+  m_TotalDataSize(0u),
   m_IndicesAndOffsets(nullptr)
 {
   if (BB.size() == 0) {
     return;
   }
 
-  m_InstrIndexBase =
-    int32_t(FnIndex.getIndexOfInstruction(&*(BB.begin())).get<uint32_t>());
+  m_InstrIndexBase = *FnIndex.getIndexOfInstruction(&*(BB.begin()));
+
   m_IndicesAndOffsets.reset(new IndexOrOffsetRecord[BB.size()]);
 
   for (auto const &I : range(BB.begin(), BB.end())) {
     auto const Type = I.getType();
 
     if (isRecordableType(Type)) {
+      auto const RawIndex = static_cast<uint32_t>(m_InstrCount);
+      
       if (Type->isX86_FP80Ty() || Type->isFP128Ty() || Type->isPPC_FP128Ty()) {
-        m_IndicesAndOffsets[m_InstrCount].m_IsAPFloatIndex = true;
-        m_IndicesAndOffsets[m_InstrCount].m_Value = m_LongDoubleInstrCount;
+        m_IndicesAndOffsets[RawIndex].m_IsAPFloatIndex = true;
+        m_IndicesAndOffsets[RawIndex].m_Value =
+          static_cast<uint32_t>(m_LongDoubleInstrCount);
         ++m_LongDoubleInstrCount;
       }
       else if (auto const Size = getRecreatedStoreSizeForType(Type)) {
-        m_IndicesAndOffsets[m_InstrCount].m_IsDataOffset = true;
-        m_IndicesAndOffsets[m_InstrCount].m_Value = m_TotalDataSize;
-        m_TotalDataSize += *Size;
+        m_IndicesAndOffsets[RawIndex].m_IsDataOffset = true;
+        m_IndicesAndOffsets[RawIndex].m_Value =
+          static_cast<uint32_t>(m_TotalDataSize);
+        
+        m_TotalDataSize += type_safe::narrow_cast<type_safe::uint32_t>(*Size);
       }
       else {
         llvm_unreachable("not sure what to do with this recordable type");
@@ -98,55 +106,58 @@ BasicBlockInfo::BasicBlockInfo(llvm::BasicBlock const &BB,
   }
 }
 
-int32_t BasicBlockInfo::getInstructionIndexBase() const
+InstrIndexInFn BasicBlockInfo::getInstructionIndexBase() const
 {
   return m_InstrIndexBase;
 }
 
-int32_t BasicBlockInfo::getInstructionCount() const
+type_safe::uint32_t BasicBlockInfo::getInstructionCount() const
 {
   return m_InstrCount;
 }
 
-int32_t BasicBlockInfo::getLongDoubleInstructionCount() const
+type_safe::uint32_t BasicBlockInfo::getLongDoubleInstructionCount() const
 {
   return m_LongDoubleInstrCount;
 }
 
-int32_t BasicBlockInfo::getTotalDataSize() const
+type_safe::uint32_t BasicBlockInfo::getTotalDataSize() const
 {
   return m_TotalDataSize;
 }
 
-int64_t BasicBlockInfo::getAdjustedIndex(uint32_t const InstrIndex)
+InstrIndexInBB BasicBlockInfo::getAdjustedIndex(InstrIndexInFn const InstrIndex)
 const
 {
-  assert(int64_t(InstrIndex) >= int64_t(m_InstrIndexBase));
-  auto const Index = int64_t(InstrIndex) - int64_t(m_InstrIndexBase);
+  assert(InstrIndex >= m_InstrIndexBase);
+  auto const Index = static_cast<uint32_t>(InstrIndex)
+                   - static_cast<uint32_t>(m_InstrIndexBase);
   assert(Index < getInstructionCount());
-  return Index;
+  return InstrIndexInBB{Index};
 }
 
-llvm::Optional<int32_t>
-BasicBlockInfo::getDataOffset(uint32_t const InstrIndex) const
+llvm::Optional<uint32_t>
+BasicBlockInfo::getDataOffset(InstrIndexInFn const InstrIndex) const
 {
-  auto RetVal = llvm::Optional<int32_t>();
-  auto const AdjustedInstrIndex = getAdjustedIndex(InstrIndex);
-  auto const &Record = m_IndicesAndOffsets[AdjustedInstrIndex];
+  auto RetVal = llvm::Optional<uint32_t>();
+  auto const BBIndex = getAdjustedIndex(InstrIndex);
+  auto const BBIndexRaw = static_cast<uint32_t>(BBIndex);
+  auto const &Record = m_IndicesAndOffsets[BBIndexRaw];
   if (Record.m_IsDataOffset) {
-    RetVal = int32_t(Record.m_Value);
+    RetVal = uint32_t(Record.m_Value);
   }
   return RetVal;
 }
 
-llvm::Optional<int32_t>
-BasicBlockInfo::getAPFloatIndex(uint32_t const InstrIndex) const
+llvm::Optional<uint32_t>
+BasicBlockInfo::getAPFloatIndex(InstrIndexInFn const InstrIndex) const
 {
-  auto RetVal = llvm::Optional<int32_t>();
-  auto const AdjustedInstrIndex = getAdjustedIndex(InstrIndex);
-  auto const &Record = m_IndicesAndOffsets[AdjustedInstrIndex];
+  auto RetVal = llvm::Optional<uint32_t>();
+  auto const BBIndex = getAdjustedIndex(InstrIndex);
+  auto const BBIndexRaw = static_cast<uint32_t>(BBIndex);
+  auto const &Record = m_IndicesAndOffsets[BBIndexRaw];
   if (Record.m_IsAPFloatIndex) {
-    RetVal = int32_t(Record.m_Value);
+    RetVal = uint32_t(Record.m_Value);
   }
   return RetVal;
 }
@@ -195,27 +206,30 @@ const
 }
 
 BasicBlockStore::BasicBlockStore(BasicBlockInfo const &Info)
-: m_Data(new char[Info.getTotalDataSize()]),
-  m_ValuesSet(Info.getInstructionCount(), false),
-  m_LongDoubles(Info.getLongDoubleInstructionCount(), llvm::APFloat(0.0f))
+: m_Data(new char[static_cast<uint32_t>(Info.getTotalDataSize())]),
+  m_ValuesSet(static_cast<uint32_t>(Info.getInstructionCount()), false),
+  m_LongDoubles(static_cast<uint32_t>(Info.getLongDoubleInstructionCount()),
+                llvm::APFloat(0.0f))
 {}
 
 bool
 BasicBlockStore::hasValue(BasicBlockInfo const &Info,
-                          uint32_t const InstrIndex)
+                          InstrIndexInFn const InstrIndex)
 const
 {
-  return m_ValuesSet[Info.getAdjustedIndex(InstrIndex)];
+  auto const IndexInBB = Info.getAdjustedIndex(InstrIndex);
+  return m_ValuesSet[static_cast<uint32_t>(IndexInBB)];
 }
 
 void BasicBlockStore::setHasValue(BasicBlockInfo const &Info,
-                                  uint32_t const InstrIndex)
+                                  InstrIndexInFn const InstrIndex)
 {
-  m_ValuesSet[Info.getAdjustedIndex(InstrIndex)] = true;
+  auto const IndexInBB = Info.getAdjustedIndex(InstrIndex);
+  m_ValuesSet[static_cast<uint32_t>(IndexInBB)] = true;
 }
 
 void BasicBlockStore::setUInt64(BasicBlockInfo const &Info,
-                                uint32_t const InstrIndex,
+                                InstrIndexInFn const InstrIndex,
                                 uint64_t const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
@@ -227,7 +241,7 @@ void BasicBlockStore::setUInt64(BasicBlockInfo const &Info,
 }
 
 void BasicBlockStore::setPtr(BasicBlockInfo const &Info,
-                             uint32_t const InstrIndex,
+                             InstrIndexInFn const InstrIndex,
                              stateptr_ty const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
@@ -239,7 +253,7 @@ void BasicBlockStore::setPtr(BasicBlockInfo const &Info,
 }
 
 void BasicBlockStore::setFloat(BasicBlockInfo const &Info,
-                               uint32_t const InstrIndex,
+                               InstrIndexInFn const InstrIndex,
                                float const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
@@ -251,7 +265,7 @@ void BasicBlockStore::setFloat(BasicBlockInfo const &Info,
 }
 
 void BasicBlockStore::setDouble(BasicBlockInfo const &Info,
-                                uint32_t const InstrIndex,
+                                InstrIndexInFn const InstrIndex,
                                 double const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
@@ -263,7 +277,7 @@ void BasicBlockStore::setDouble(BasicBlockInfo const &Info,
 }
 
 void BasicBlockStore::setAPFloat(BasicBlockInfo const &Info,
-                                 uint32_t const InstrIndex,
+                                 InstrIndexInFn const InstrIndex,
                                  llvm::APFloat Value)
 {
   if (auto const Index = Info.getAPFloatIndex(InstrIndex)) {
@@ -276,14 +290,16 @@ namespace {
 template<typename T>
 llvm::Optional<T> getValue(BasicBlockStore const &Store,
                            BasicBlockInfo const &Info,
-                           uint32_t const InstrIndex,
+                           InstrIndexInFn const InstrIndex,
                            std::unique_ptr<char []> const &Data)
 {
   auto RetVal = llvm::Optional<T>();
   
   if (Store.hasValue(Info, InstrIndex)) {
     if (auto const Offset = Info.getDataOffset(InstrIndex)) {
-      assert(int32_t(sizeof(uint64_t)) <= Info.getTotalDataSize() - *Offset);
+      auto const AvailableBytes = Info.getTotalDataSize() - *Offset;
+      assert(AvailableBytes >= sizeof(T));
+
       char * const RawData = Data.get() + *Offset;
       RetVal = *reinterpret_cast<T *>(RawData);
     }
@@ -295,7 +311,7 @@ llvm::Optional<T> getValue(BasicBlockStore const &Store,
 
 llvm::Optional<uint64_t>
 BasicBlockStore::getUInt64(BasicBlockInfo const &Info,
-                           uint32_t const InstrIndex)
+                           InstrIndexInFn const InstrIndex)
 const
 {
   return getValue<uint64_t>(*this, Info, InstrIndex, m_Data);
@@ -303,7 +319,7 @@ const
 
 llvm::Optional<stateptr_ty>
 BasicBlockStore::getPtr(BasicBlockInfo const &Info,
-                        uint32_t const InstrIndex)
+                        InstrIndexInFn const InstrIndex)
 const
 {
   return getValue<stateptr_ty>(*this, Info, InstrIndex, m_Data);
@@ -311,7 +327,7 @@ const
 
 llvm::Optional<float>
 BasicBlockStore::getFloat(BasicBlockInfo const &Info,
-                          uint32_t const InstrIndex)
+                          InstrIndexInFn const InstrIndex)
 const
 {
   return getValue<float>(*this, Info, InstrIndex, m_Data);
@@ -319,7 +335,7 @@ const
 
 llvm::Optional<double>
 BasicBlockStore::getDouble(BasicBlockInfo const &Info,
-                           uint32_t const InstrIndex)
+                           InstrIndexInFn const InstrIndex)
 const
 {
   return getValue<double>(*this, Info, InstrIndex, m_Data);
@@ -327,7 +343,7 @@ const
 
 llvm::Optional<llvm::APFloat>
 BasicBlockStore::getAPFloat(BasicBlockInfo const &Info,
-                            uint32_t const InstrIndex)
+                            InstrIndexInFn const InstrIndex)
 const
 {
   auto RetVal = llvm::Optional<llvm::APFloat>();

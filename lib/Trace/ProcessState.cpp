@@ -297,15 +297,15 @@ DIRState const *ProcessState::getDir(stateptr_ty const Address) const
 
 stateptr_ty ProcessState::getRuntimeAddress(llvm::Function const *F) const {
   auto const MaybeIndex = Module->getIndexOfFunction(F);
-  assert(MaybeIndex.assigned());
-  return Trace->getFunctionAddress(MaybeIndex.get<0>());
+  assert(MaybeIndex);
+  return Trace->getFunctionAddress(*MaybeIndex);
 }
 
 stateptr_ty
 ProcessState::getRuntimeAddress(llvm::GlobalVariable const *GV) const {
   auto const MaybeIndex = Module->getIndexOfGlobal(GV);
-  assert(MaybeIndex.assigned());
-  return Trace->getGlobalVariableAddress(MaybeIndex.get<0>());
+  assert(MaybeIndex);
+  return Trace->getGlobalVariableAddress(*MaybeIndex);
 }
 
 void printComparable(llvm::raw_ostream &Out, ProcessState const &State)

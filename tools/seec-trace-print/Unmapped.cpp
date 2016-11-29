@@ -321,13 +321,15 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
           // Find the Instruction responsible for this error.
           auto const MaybeInstrIndex = trace::lastSuccessfulApply(
             rangeBefore(Thread.events(), Ev),
-            [] (trace::EventRecordBase const &Event) -> seec::Maybe<uint32_t> {
+            [] (trace::EventRecordBase const &Event)
+              -> llvm::Optional<InstrIndexInFn>
+            {
               if (Event.isInstruction())
                 return Event.getIndex();
-              return seec::Maybe<uint32_t>();
+              return llvm::Optional<InstrIndexInFn>();
             });
 
-          auto const InstrIndex = MaybeInstrIndex.get<uint32_t>();
+          auto const InstrIndex = *MaybeInstrIndex;
           auto const FunIndex =
             ModIndexPtr->getFunctionIndex(FunctionStack.back());
           assert(FunIndex);

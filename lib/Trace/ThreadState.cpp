@@ -706,15 +706,15 @@ void ThreadState::makePreviousInstructionActive(EventReference PriorTo) {
   
   // Set the previous instruction as active.
   auto MaybeIndex = MaybeRef.get<0>()->getIndex();
-  assert(MaybeIndex.assigned());
+  assert(MaybeIndex.hasValue());
 
   // Set the correct BasicBlocks to be active.
-  FuncState.rewindingToInstruction(MaybeIndex.get<uint32_t>());
+  FuncState.rewindingToInstruction(*MaybeIndex);
   
   if (MaybeRef.get<0>()->getType() != EventType::PreInstruction)
-    FuncState.setActiveInstructionComplete(MaybeIndex.get<0>());
+    FuncState.setActiveInstructionComplete(*MaybeIndex);
   else
-    FuncState.setActiveInstructionIncomplete(MaybeIndex.get<0>());
+    FuncState.setActiveInstructionIncomplete(*MaybeIndex);
   
   // Find all runtime errors attached to the previous instruction, and make
   // them active.
@@ -732,13 +732,13 @@ void ThreadState::setPreviousViewOfProcessTime(EventReference PriorTo) {
   // Find the previous event that sets the process time, if there is one.
   auto MaybeRef = rfind(rangeBefore(Trace.events(), PriorTo),
                         [](EventRecordBase const &Ev) -> bool {
-                          return Ev.getProcessTime().assigned();
+                          return Ev.getProcessTime().hasValue();
                         });
   
   if (!MaybeRef.assigned())
     ProcessTime = 0;
   else
-    ProcessTime = MaybeRef.get<0>()->getProcessTime().get<0>();
+    ProcessTime = *(MaybeRef.get<0>()->getProcessTime());
 }
 
 void ThreadState::removeEvent(EventRecord<EventType::None> const &Ev) {}

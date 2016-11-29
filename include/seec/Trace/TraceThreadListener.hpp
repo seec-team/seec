@@ -565,8 +565,10 @@ public:
   ///                            this error.
   void handleRunError(seec::runtime_errors::RunError const &Error,
                       RunErrorSeverity Severity,
-                      seec::Maybe<uint32_t> PreInstructionIndex
-                        = seec::Maybe<uint32_t>());
+                      llvm::Optional<InstrIndexInFn> PreInstructionIndex);
+
+  void handleRunError(seec::runtime_errors::RunError const &Error,
+                      RunErrorSeverity Severity);
 
   /// @} (Mutators)
 
@@ -600,7 +602,7 @@ public:
 
   void notifyFunctionEnd(uint32_t const Index,
                          llvm::Function const *F,
-                         uint32_t const TerminatorIndex,
+                         InstrIndexInFn const TerminatorIndex,
                          llvm::Instruction const *Terminator);
   
   /// \brief Notify of a byval argument.
@@ -617,76 +619,77 @@ public:
   /// \brief Receive the contents of envp.
   void notifyEnv(char **EnvP);
 
-  void notifyPreCall(uint32_t Index, llvm::CallInst const *Call,
+  void notifyPreCall(InstrIndexInFn Index, llvm::CallInst const *Call,
                      void const *Address);
 
-  void notifyPostCall(uint32_t Index, llvm::CallInst const *Call,
+  void notifyPostCall(InstrIndexInFn Index, llvm::CallInst const *Call,
                       void const *Address);
 
-  void notifyPreCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
+  void notifyPreCallIntrinsic(InstrIndexInFn Index, llvm::CallInst const *Call);
 
-  void notifyPostCallIntrinsic(uint32_t Index, llvm::CallInst const *Call);
+  void notifyPostCallIntrinsic(InstrIndexInFn Index,
+                               llvm::CallInst const *Call);
 
-  void notifyPreAlloca(uint32_t const Index,
+  void notifyPreAlloca(InstrIndexInFn const Index,
                        llvm::AllocaInst const &Alloca,
                        uint64_t const ElemSize,
                        uint64_t const ElemCount);
 
-  void notifyPreLoad(uint32_t Index,
+  void notifyPreLoad(InstrIndexInFn Index,
                      llvm::LoadInst const *Load,
                      void const *Address,
                      std::size_t Size);
 
-  void notifyPostLoad(uint32_t Index,
+  void notifyPostLoad(InstrIndexInFn Index,
                       llvm::LoadInst const *Load,
                       void const *Address,
                       std::size_t Size);
 
-  void notifyPreStore(uint32_t Index,
+  void notifyPreStore(InstrIndexInFn Index,
                       llvm::StoreInst const *Store,
                       void const *Address,
                       std::size_t Size);
 
-  void notifyPostStore(uint32_t Index,
+  void notifyPostStore(InstrIndexInFn Index,
                        llvm::StoreInst const *Store,
                        void const *Address,
                        std::size_t Size);
 
-  void notifyPreDivide(uint32_t Index,
+  void notifyPreDivide(InstrIndexInFn Index,
                        llvm::BinaryOperator const *Instruction);
 
-  void notifyValue(uint32_t const Index,
+  void notifyValue(InstrIndexInFn const Index,
                    llvm::Instruction const * const Instruction);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    void *Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    uint64_t Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    uint32_t Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    uint16_t Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    uint8_t Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    float Value);
 
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    double Value);
   
-  void notifyValue(uint32_t Index,
+  void notifyValue(InstrIndexInFn Index,
                    llvm::Instruction const *Instruction,
                    long double Value);
 
@@ -696,11 +699,13 @@ public:
   /// \name Detect Calls - ctype.h
   /// @{
   
-  void postLINUX__ctype_b_loc(llvm::CallInst const *Call, uint32_t Index);
+  void postLINUX__ctype_b_loc(llvm::CallInst const *Call, InstrIndexInFn Index);
   
-  void postLINUX__ctype_tolower_loc(llvm::CallInst const *Call, uint32_t Index);
+  void postLINUX__ctype_tolower_loc(llvm::CallInst const *Call,
+                                    InstrIndexInFn Index);
   
-  void postLINUX__ctype_toupper_loc(llvm::CallInst const *Call, uint32_t Index);
+  void postLINUX__ctype_toupper_loc(llvm::CallInst const *Call,
+                                    InstrIndexInFn Index);
   
   /// @}
 
@@ -709,26 +714,29 @@ public:
   /// @{
   
   // fopen
-  void preCfopen(llvm::CallInst const *Call, uint32_t Index,
+  void preCfopen(llvm::CallInst const *Call, InstrIndexInFn Index,
                  char const *Filename, char const *Mode);
-  void postCfopen(llvm::CallInst const *Call, uint32_t Index,
+  void postCfopen(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Filename, char const *Mode);
   
   // freopen
-  void preCfreopen(llvm::CallInst const *Call, uint32_t Index,
+  void preCfreopen(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Filename, char const *Mode, FILE *Stream);
-  void postCfreopen(llvm::CallInst const *Call, uint32_t Index,
+  void postCfreopen(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char const *Filename, char const *Mode, FILE *Stream);
   
   // fclose
-  void preCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
-  void postCfclose(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  void preCfclose(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  FILE *Stream);
+  void postCfclose(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   FILE *Stream);
   
   // fflush
-  void preCfflush(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  void preCfflush(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  FILE *Stream);
   
   // fwide
-  void preCfwide(llvm::CallInst const *Call, uint32_t Index, FILE *Stream,
+  void preCfwide(llvm::CallInst const *Call, InstrIndexInFn Index, FILE *Stream,
                  int Mode);
   
   /// @}
@@ -744,41 +752,44 @@ public:
   /// @{
   
   // fgetc
-  void preCfgetc(llvm::CallInst const *Call, uint32_t Index, FILE *Stream);
+  void preCfgetc(llvm::CallInst const *Call, InstrIndexInFn Index,
+                 FILE *Stream);
   
   // fgets
-  void preCfgets(llvm::CallInst const *Call, uint32_t Index, char *Str,
+  void preCfgets(llvm::CallInst const *Call, InstrIndexInFn Index, char *Str,
                  int Count, FILE *Stream);
-  void postCfgets(llvm::CallInst const *Call, uint32_t Index, char *Str,
+  void postCfgets(llvm::CallInst const *Call, InstrIndexInFn Index, char *Str,
                   int Count, FILE *Stream);
   
   // fputc
-  void preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+  void preCfputc(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch,
                  FILE *Stream);
-  void postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+  void postCfputc(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch,
                   FILE *Stream);
   
   // fputs
-  void preCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                 FILE *Stream);
-  void postCfputs(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  FILE *Stream);
+  void preCfputs(llvm::CallInst const *Call, InstrIndexInFn Index,
+                 char const *Str, FILE *Stream);
+  void postCfputs(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  char const *Str, FILE *Stream);
   
   // getchar
-  void preCgetchar(llvm::CallInst const *Call, uint32_t Index);
+  void preCgetchar(llvm::CallInst const *Call, InstrIndexInFn Index);
   
   // gets - should never be used.
   
   // putchar
-  void preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
-  void postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch);
+  void preCputchar(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch);
+  void postCputchar(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch);
   
   // puts
-  void preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
-  void postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  void preCputs(llvm::CallInst const *Call, InstrIndexInFn Index,
+                char const *Str);
+  void postCputs(llvm::CallInst const *Call, InstrIndexInFn Index,
+                 char const *Str);
   
   // ungetc
-  void preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch,
+  void preCungetc(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch,
                   FILE *Stream);
   
   /// @}
@@ -788,11 +799,11 @@ public:
   /// @{
   
   // snprintf
-  void preCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                    std::size_t BufSize, char const *Str,
+  void preCsnprintf(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    char *Buffer, std::size_t BufSize, char const *Str,
                     detect_calls::VarArgList<TraceThreadListener> const &Args);
-  void postCsnprintf(llvm::CallInst const *Call, uint32_t Index, char *Buffer,
-                     std::size_t BufSize, char const *Str,
+  void postCsnprintf(llvm::CallInst const *Call, InstrIndexInFn Index,
+                     char *Buffer, std::size_t BufSize, char const *Str,
                      detect_calls::VarArgList<TraceThreadListener> const &Args);
   
   /// @}
@@ -801,64 +812,68 @@ public:
   /// \name Detect Calls - stdlib.h string
   /// @{
   
-  void preCatof(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  void preCatof(llvm::CallInst const *Call, InstrIndexInFn Index,
+                char const *Str);
   
-  void preCatoi(llvm::CallInst const *Call, uint32_t Index, char const *Str);
-  void preCatol(llvm::CallInst const *Call, uint32_t Index, char const *Str);
-  void preCatoll(llvm::CallInst const *Call, uint32_t Index, char const *Str);
+  void preCatoi(llvm::CallInst const *Call, InstrIndexInFn Index,
+                char const *Str);
+  void preCatol(llvm::CallInst const *Call, InstrIndexInFn Index,
+                char const *Str);
+  void preCatoll(llvm::CallInst const *Call, InstrIndexInFn Index,
+                 char const *Str);
   
   // strtol
-  void preCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  char **EndPtr, int Base);
-  void postCstrtol(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr, int Base);
+  void preCstrtol(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  char const *Str, char **EndPtr, int Base);
+  void postCstrtol(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr, int Base);
   
   // strtoll
-  void preCstrtoll(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr, int Base);
-  void postCstrtoll(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                    char **EndPtr, int Base);
+  void preCstrtoll(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr, int Base);
+  void postCstrtoll(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    char const *Str, char **EndPtr, int Base);
 
   // strtoul
-  void preCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr, int Base);
-  void postCstrtoul(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                    char **EndPtr, int Base);
+  void preCstrtoul(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr, int Base);
+  void postCstrtoul(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    char const *Str, char **EndPtr, int Base);
   
   // strtoull
-  void preCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                    char **EndPtr, int Base);
-  void postCstrtoull(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                     char **EndPtr, int Base);
+  void preCstrtoull(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    char const *Str, char **EndPtr, int Base);
+  void postCstrtoull(llvm::CallInst const *Call, InstrIndexInFn Index,
+                     char const *Str, char **EndPtr, int Base);
 
   // strtof
-  void preCstrtof(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  char **EndPtr);
-  void postCstrtof(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr);
+  void preCstrtof(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  char const *Str, char **EndPtr);
+  void postCstrtof(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr);
   
   // strtod
-  void preCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                  char **EndPtr);
-  void postCstrtod(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr);
+  void preCstrtod(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  char const *Str, char **EndPtr);
+  void postCstrtod(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr);
   
   // strtold
-  void preCstrtold(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                   char **EndPtr);
-  void postCstrtold(llvm::CallInst const *Call, uint32_t Index, char const *Str,
-                    char **EndPtr);
+  void preCstrtold(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   char const *Str, char **EndPtr);
+  void postCstrtold(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    char const *Str, char **EndPtr);
 
   // strtoimax
-  void preCstrtoimax(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrtoimax(llvm::CallInst const *Call, InstrIndexInFn Index,
                      char const *Str, char **EndPtr);
-  void postCstrtoimax(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrtoimax(llvm::CallInst const *Call, InstrIndexInFn Index,
                       char const *Str, char **EndPtr);
   
   // strtoumax
-  void preCstrtoumax(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrtoumax(llvm::CallInst const *Call, InstrIndexInFn Index,
                      char const *Str, char **EndPtr);
-  void postCstrtoumax(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrtoumax(llvm::CallInst const *Call, InstrIndexInFn Index,
                       char const *Str, char **EndPtr);
 
   /// @}
@@ -867,25 +882,29 @@ public:
   /// \name Detect Calls - stdlib.h memory
   /// @{
   
-  void preCcalloc(llvm::CallInst const *Call, uint32_t Index, size_t Num,
+  void preCcalloc(llvm::CallInst const *Call, InstrIndexInFn Index, size_t Num,
                   size_t Size);
 
-  void postCcalloc(llvm::CallInst const *Call, uint32_t Index, size_t Num,
+  void postCcalloc(llvm::CallInst const *Call, InstrIndexInFn Index, size_t Num,
                    size_t Size);
 
-  void preCfree(llvm::CallInst const *Call, uint32_t Index, void *Address);
+  void preCfree(llvm::CallInst const *Call, InstrIndexInFn Index,
+                void *Address);
 
-  void postCfree(llvm::CallInst const *Call, uint32_t Index, void *Address);
+  void postCfree(llvm::CallInst const *Call, InstrIndexInFn Index,
+                 void *Address);
 
-  void preCmalloc(llvm::CallInst const *Call, uint32_t Index, size_t Size);
+  void preCmalloc(llvm::CallInst const *Call, InstrIndexInFn Index,
+                  size_t Size);
 
-  void postCmalloc(llvm::CallInst const *Call, uint32_t Index, size_t Size);
-
-  void preCrealloc(llvm::CallInst const *Call, uint32_t Index, void *Address,
+  void postCmalloc(llvm::CallInst const *Call, InstrIndexInFn Index,
                    size_t Size);
 
-  void postCrealloc(llvm::CallInst const *Call, uint32_t Index, void *Address,
-                    size_t Size);
+  void preCrealloc(llvm::CallInst const *Call, InstrIndexInFn Index,
+                   void *Address, size_t Size);
+
+  void postCrealloc(llvm::CallInst const *Call, InstrIndexInFn Index,
+                    void *Address, size_t Size);
   
   /// @}
   
@@ -893,13 +912,13 @@ public:
   /// \name Detect Calls - stdlib.h environment
   /// @{
   
-  void preCgetenv(llvm::CallInst const *Call, uint32_t Index,
+  void preCgetenv(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Name);
   
-  void postCgetenv(llvm::CallInst const *Call, uint32_t Index,
+  void postCgetenv(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Name);
   
-  void preCsystem(llvm::CallInst const *Call, uint32_t Index,
+  void preCsystem(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Command);
   
   /// @}
@@ -908,110 +927,114 @@ public:
   /// \name Detect Calls - string.h
   /// @{
 
-  void preCmemchr(llvm::CallInst const *Call, uint32_t Index,
+  void preCmemchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                   void const *Ptr, int Value, size_t Num);
 
-  void postCmemchr(llvm::CallInst const *Call, uint32_t Index,
+  void postCmemchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                    void const *Ptr, int Value, size_t Num);
 
-  void preCmemcmp(llvm::CallInst const *Call, uint32_t Index,
+  void preCmemcmp(llvm::CallInst const *Call, InstrIndexInFn Index,
                   void const *Address1, void const *Address2, size_t Size);
 
-  void postCmemcmp(llvm::CallInst const *Call, uint32_t Index,
+  void postCmemcmp(llvm::CallInst const *Call, InstrIndexInFn Index,
                    void const *Address1, void const *Address2, size_t Size);
 
-  void preCmemcpy(llvm::CallInst const *Call, uint32_t Index,
+  void preCmemcpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                   void *Destination, void const *Source, size_t Size);
 
-  void postCmemcpy(llvm::CallInst const *Call, uint32_t Index,
+  void postCmemcpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                    void *Destination, void const *Source, size_t Size);
 
-  void preCmemmove(llvm::CallInst const *Call, uint32_t Index,
+  void preCmemmove(llvm::CallInst const *Call, InstrIndexInFn Index,
                    void *Destination, void const *Source, size_t Size);
 
-  void postCmemmove(llvm::CallInst const *Call, uint32_t Index,
+  void postCmemmove(llvm::CallInst const *Call, InstrIndexInFn Index,
                     void *Destination, void const *Source, size_t Size);
 
-  void preCmemset(llvm::CallInst const *Call, uint32_t Index,
+  void preCmemset(llvm::CallInst const *Call, InstrIndexInFn Index,
                   void *Destination, int Value, size_t Size);
 
-  void postCmemset(llvm::CallInst const *Call, uint32_t Index,
+  void postCmemset(llvm::CallInst const *Call, InstrIndexInFn Index,
                    void *Destination, int Value, size_t Size);
 
-  void preCstrcat(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrcat(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char *Destination, char const *Source);
 
-  void postCstrcat(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrcat(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char *Destination, char const *Source);
 
-  void preCstrchr(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Str, int Character);
 
-  void postCstrchr(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str, int Character);
 
-  void preCstrcmp(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrcmp(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Str1, char const *Str2);
 
-  void preCstrcoll(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrcoll(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str1, char const *Str2);
 
-  void preCstrcpy(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrcpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char *Destination, char const *Source);
 
-  void postCstrcpy(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrcpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char *Destination, char const *Source);
 
-  void preCstrcspn(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrcspn(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str1, char const *Str2);
 
-  void preCstrerror(llvm::CallInst const *Call, uint32_t Index, int Errnum);
+  void preCstrerror(llvm::CallInst const *Call,
+                    InstrIndexInFn Index,
+                    int Errnum);
   
-  void postCstrerror(llvm::CallInst const *Call, uint32_t Index, int Errnum);
+  void postCstrerror(llvm::CallInst const *Call,
+                     InstrIndexInFn Index,
+                     int Errnum);
 
-  void preCstrlen(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrlen(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Str);
 
-  void preCstrncat(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrncat(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char *Destination, char const *Source, size_t Size);
 
-  void postCstrncat(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrncat(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char *Destination, char const *Source, size_t Size);
 
-  void preCstrncmp(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrncmp(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str1, char const *Str2, size_t Num);
 
-  void preCstrncpy(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrncpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char *Destination, char const *Source, size_t Size);
 
-  void postCstrncpy(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrncpy(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char *Destination, char const *Source, size_t Size);
 
-  void preCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrpbrk(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str1, char const *Str2);
 
-  void postCstrpbrk(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrpbrk(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char const *Str1, char const *Str2);
 
-  void preCstrrchr(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrrchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str, int Character);
 
-  void postCstrrchr(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrrchr(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char const *Str, int Character);
 
-  void preCstrspn(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrspn(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Str1, char const *Str2);
 
-  void preCstrstr(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrstr(llvm::CallInst const *Call, InstrIndexInFn Index,
                   char const *Str1, char const *Str2);
 
-  void postCstrstr(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrstr(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char const *Str1, char const *Str2);
 
-  void preCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
+  void preCstrxfrm(llvm::CallInst const *Call, InstrIndexInFn Index,
                    char *Destination, char const *Source, size_t Num);
   
-  void postCstrxfrm(llvm::CallInst const *Call, uint32_t Index,
+  void postCstrxfrm(llvm::CallInst const *Call, InstrIndexInFn Index,
                     char *Destination, char const *Source, size_t Num);
   
   /// @}

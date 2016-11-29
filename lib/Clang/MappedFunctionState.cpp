@@ -416,10 +416,10 @@ FunctionState::FunctionState(ThreadState &WithParent,
     }
     
     auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
-    if (!MaybeAddress.assigned<llvm::APInt>())
+    if (!MaybeAddress)
       continue;
     
-    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
+    auto const Address = MaybeAddress->getLimitedValue();
     Parameters.emplace_back(*this, Address, MP.getDecl());
   }
   
@@ -442,10 +442,10 @@ FunctionState::FunctionState(ThreadState &WithParent,
     }
     
     auto const MaybeAddress = seec::trace::getAPInt(UnmappedState, Value);
-    if (!MaybeAddress.assigned<llvm::APInt>())
+    if (!MaybeAddress)
       continue;
 
-    auto const Address = MaybeAddress.get<llvm::APInt>().getLimitedValue();
+    auto const Address = MaybeAddress->getLimitedValue();
     
     Variables.emplace_back(*this, Address, ML.getDecl());
   }

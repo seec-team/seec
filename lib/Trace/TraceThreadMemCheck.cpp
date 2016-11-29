@@ -395,15 +395,15 @@ std::size_t CStdLibChecker::checkCStringRead(unsigned Parameter,
 }
 
 CStdLibChecker::CStdLibChecker(TraceThreadListener &InThread,
-                               uint32_t const InstructionIndex,
+                               InstrIndexInFn const InstrIndex,
                                format_selects::CStdFunction const WithFunction)
-: RuntimeErrorChecker(InThread, InstructionIndex),
+: RuntimeErrorChecker(InThread, InstrIndex),
   Function(WithFunction),
   CallerIdx(InThread.FunctionStack.size() - 1),
   Call(llvm::dyn_cast<llvm::CallInst>
                      (InThread.getActiveFunction()
                               ->getFunctionIndex()
-                              .getInstruction(InstructionIndex)))
+                              .getInstruction(InstrIndexInFn{InstrIndex})))
 {
   addPermanentNote(createRunError<RunErrorType::InfoCStdFunction>(Function));
 }

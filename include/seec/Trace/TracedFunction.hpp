@@ -18,6 +18,7 @@
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TracePointer.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
@@ -478,17 +479,17 @@ public:
   /// Get a reference to the current RuntimeValue for an Instruction.
   /// \param Idx the index of the Instruction in the Function.
   /// \return a reference to the RuntimeValue for the Instruction at Idx.
-  RuntimeValue *getCurrentRuntimeValue(uint32_t Idx) {
+  RuntimeValue *getCurrentRuntimeValue(InstrIndexInFn Idx) {
     assert(Idx < CurrentValues.size() && "Bad Idx!");
-    return &CurrentValues[Idx];
+    return &CurrentValues[Idx.raw()];
   }
   
   /// Get a const reference to the current RuntimeValue for an Instruction.
   /// \param Idx the index of the Instruction in the Function.
   /// \return a const reference to the RuntimeValue for the Instruction at Idx.
-  RuntimeValue const *getCurrentRuntimeValue(uint32_t Idx) const {
+  RuntimeValue const *getCurrentRuntimeValue(InstrIndexInFn Idx) const {
     assert(Idx < CurrentValues.size() && "Bad Idx!");
-    return &CurrentValues[Idx];
+    return &CurrentValues[Idx.raw()];
   }
 
   /// Get a reference to the current RuntimeValue for an Instruction.
@@ -496,7 +497,7 @@ public:
   /// \return a reference to the RuntimeValue for Instr.
   RuntimeValue *getCurrentRuntimeValue(llvm::Instruction const *Instr) {
     assert(FIndex && "Incorrect usage of TracedFunction shim!");
-    auto const Idx = FIndex->getIndexOfInstruction(Instr).get<uint32_t>();
+    auto const Idx = FIndex->getIndexOfInstruction(Instr)->raw();
     return &CurrentValues[Idx];
   }
   
@@ -506,7 +507,7 @@ public:
   RuntimeValue const *
   getCurrentRuntimeValue(llvm::Instruction const *Instr) const {
     assert(FIndex && "Incorrect usage of TracedFunction shim!");
-    auto const Idx = FIndex->getIndexOfInstruction(Instr).get<uint32_t>();
+    auto const Idx = FIndex->getIndexOfInstruction(Instr)->raw();
     return &CurrentValues[Idx];
   }
   

@@ -37,7 +37,7 @@ namespace trace {
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::postLINUX__ctype_b_loc(llvm::CallInst const *Call,
-                                                 uint32_t Index)
+                                                 InstrIndexInFn Index)
 {
   // Get the pointer returned.
   auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -86,7 +86,7 @@ void TraceThreadListener::postLINUX__ctype_b_loc(llvm::CallInst const *Call,
 
 void
 TraceThreadListener::postLINUX__ctype_tolower_loc(llvm::CallInst const *Call,
-                                                  uint32_t Index)
+                                                  InstrIndexInFn Index)
 {
   // Get the pointer returned.
   auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -135,7 +135,7 @@ TraceThreadListener::postLINUX__ctype_tolower_loc(llvm::CallInst const *Call,
 
 void
 TraceThreadListener::postLINUX__ctype_toupper_loc(llvm::CallInst const *Call,
-                                                  uint32_t Index)
+                                                  InstrIndexInFn Index)
 {
   // Get the pointer returned.
   auto const RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -183,7 +183,7 @@ TraceThreadListener::postLINUX__ctype_toupper_loc(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfopen(llvm::CallInst const *Call,
-                                    uint32_t Index,
+                                    InstrIndexInFn Index,
                                     char const *Filename,
                                     char const *Mode) {
   using namespace seec::runtime_errors::format_selects;
@@ -196,7 +196,7 @@ void TraceThreadListener::preCfopen(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Filename,
                                      char const *Mode) {
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -218,7 +218,7 @@ void TraceThreadListener::postCfopen(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfreopen(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Filename,
                                       char const *Mode,
                                       FILE *Stream) {
@@ -236,7 +236,7 @@ void TraceThreadListener::preCfreopen(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Filename,
                                        char const *Mode,
                                        FILE *Stream) {
@@ -259,7 +259,7 @@ void TraceThreadListener::postCfreopen(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      FILE *Stream) {
   using namespace seec::runtime_errors::format_selects;
   
@@ -272,7 +272,7 @@ void TraceThreadListener::preCfclose(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       FILE *Stream)
 {
   recordStreamClose(Stream);
@@ -284,7 +284,7 @@ void TraceThreadListener::postCfclose(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfflush(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      FILE *Stream) {
   using namespace seec::runtime_errors::format_selects;
   
@@ -302,7 +302,7 @@ void TraceThreadListener::preCfflush(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
-                                    uint32_t Index,
+                                    InstrIndexInFn Index,
                                     FILE *Stream,
                                     int Mode) {
   using namespace seec::runtime_errors::format_selects;
@@ -322,7 +322,7 @@ void TraceThreadListener::preCfwide(llvm::CallInst const *Call,
 
 void
 TraceThreadListener::
-preCfgetc(llvm::CallInst const *Call, uint32_t Index, FILE *Stream)
+preCfgetc(llvm::CallInst const *Call, InstrIndexInFn Index, FILE *Stream)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -342,7 +342,7 @@ preCfgetc(llvm::CallInst const *Call, uint32_t Index, FILE *Stream)
 void
 TraceThreadListener::
 preCfgets(llvm::CallInst const *Call,
-          uint32_t Index,
+          InstrIndexInFn Index,
           char *Str,
           int Count,
           FILE *Stream)
@@ -363,7 +363,7 @@ preCfgets(llvm::CallInst const *Call,
 void
 TraceThreadListener::
 postCfgets(llvm::CallInst const *Call,
-           uint32_t Index,
+           InstrIndexInFn Index,
            char *Str,
            int Count,
            FILE *Stream)
@@ -387,8 +387,10 @@ postCfgets(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void
-TraceThreadListener::
-preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+TraceThreadListener::preCfputc(llvm::CallInst const *Call,
+                               InstrIndexInFn const Index,
+                               int const Ch,
+                               FILE *Stream)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -401,8 +403,10 @@ preCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
 }
 
 void
-TraceThreadListener::
-postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+TraceThreadListener::postCfputc(llvm::CallInst const *Call,
+                                InstrIndexInFn const Index,
+                                int const Ch,
+                                FILE *Stream)
 {
   char C = Ch;
   recordStreamWrite(Stream, llvm::ArrayRef<char>(&C, 1));
@@ -416,7 +420,7 @@ postCfputc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
 void
 TraceThreadListener::
 preCfputs(llvm::CallInst const *Call,
-          uint32_t Index,
+          InstrIndexInFn Index,
           char const *Str,
           FILE *Stream)
 {
@@ -435,7 +439,7 @@ preCfputs(llvm::CallInst const *Call,
 void
 TraceThreadListener::
 postCfputs(llvm::CallInst const *Call,
-           uint32_t Index,
+           InstrIndexInFn Index,
            char const *Str,
            FILE *Stream)
 {
@@ -450,7 +454,7 @@ postCfputs(llvm::CallInst const *Call,
 
 void
 TraceThreadListener::
-preCgetchar(llvm::CallInst const *Call, uint32_t Index)
+preCgetchar(llvm::CallInst const *Call, InstrIndexInFn Index)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -469,7 +473,7 @@ preCgetchar(llvm::CallInst const *Call, uint32_t Index)
 
 void
 TraceThreadListener::
-preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
+preCputchar(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -483,7 +487,7 @@ preCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
 
 void
 TraceThreadListener::
-postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
+postCputchar(llvm::CallInst const *Call, InstrIndexInFn Index, int Ch)
 {
   char C = Ch;
   recordStreamWrite(stdout, llvm::ArrayRef<char>(&C, 1));
@@ -496,7 +500,7 @@ postCputchar(llvm::CallInst const *Call, uint32_t Index, int Ch)
 
 void
 TraceThreadListener::
-preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
+preCputs(llvm::CallInst const *Call, InstrIndexInFn Index, char const *Str)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -512,7 +516,7 @@ preCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
 
 void
 TraceThreadListener::
-postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
+postCputs(llvm::CallInst const *Call, InstrIndexInFn Index, char const *Str)
 {
   auto const Length = std::strlen(Str);
   recordStreamWriteFromMemory(stdout, MemoryArea(Str, Length));
@@ -527,8 +531,10 @@ postCputs(llvm::CallInst const *Call, uint32_t Index, char const *Str)
 //===------------------------------------------------------------------------===
 
 void
-TraceThreadListener::
-preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
+TraceThreadListener::preCungetc(llvm::CallInst const * const Call,
+                                InstrIndexInFn const Index,
+                                int const Ch,
+                                FILE * const Stream)
 {
   using namespace seec::runtime_errors::format_selects;
   
@@ -548,7 +554,7 @@ preCungetc(llvm::CallInst const *Call, uint32_t Index, int Ch, FILE *Stream)
 void
 TraceThreadListener::
 preCsnprintf(llvm::CallInst const *Call,
-             uint32_t Index,
+             InstrIndexInFn Index,
              char *Buffer,
              std::size_t BufSize,
              char const *Str,
@@ -577,7 +583,7 @@ preCsnprintf(llvm::CallInst const *Call,
 void
 TraceThreadListener::
 postCsnprintf(llvm::CallInst const *Call,
-              uint32_t Index,
+              InstrIndexInFn Index,
               char *Buffer,
               std::size_t BufSize,
               char const *Str,
@@ -593,7 +599,7 @@ postCsnprintf(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCatof(llvm::CallInst const *Call,
-                                   uint32_t Index,
+                                   InstrIndexInFn Index,
                                    char const *Str) {
   acquireGlobalMemoryReadLock();
   
@@ -608,7 +614,7 @@ void TraceThreadListener::preCatof(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCatoi(llvm::CallInst const *Call,
-                                   uint32_t Index,
+                                   InstrIndexInFn Index,
                                    char const *Str) {
   acquireGlobalMemoryReadLock();
   
@@ -623,7 +629,7 @@ void TraceThreadListener::preCatoi(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCatol(llvm::CallInst const *Call,
-                                   uint32_t Index,
+                                   InstrIndexInFn Index,
                                    char const *Str) {
   acquireGlobalMemoryReadLock();
 
@@ -638,7 +644,7 @@ void TraceThreadListener::preCatol(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCatoll(llvm::CallInst const *Call,
-                                    uint32_t Index,
+                                    InstrIndexInFn Index,
                                     char const *Str) {
   acquireGlobalMemoryReadLock();
 
@@ -653,7 +659,7 @@ void TraceThreadListener::preCatoll(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str,
                                      char **EndPtr,
                                      int Base) {
@@ -675,7 +681,7 @@ void TraceThreadListener::preCstrtol(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtol(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr,
                                       int Base) {
@@ -694,7 +700,7 @@ void TraceThreadListener::postCstrtol(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtoll(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr,
                                       int Base) {
@@ -716,7 +722,7 @@ void TraceThreadListener::preCstrtoll(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtoll(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str,
                                        char **EndPtr,
                                        int Base) {
@@ -735,7 +741,7 @@ void TraceThreadListener::postCstrtoll(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr,
                                       int Base) {
@@ -757,7 +763,7 @@ void TraceThreadListener::preCstrtoul(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtoul(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str,
                                        char **EndPtr,
                                        int Base) {
@@ -776,7 +782,7 @@ void TraceThreadListener::postCstrtoul(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtoull(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str,
                                        char **EndPtr,
                                        int Base) {
@@ -798,7 +804,7 @@ void TraceThreadListener::preCstrtoull(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtoull(llvm::CallInst const *Call,
-                                        uint32_t Index,
+                                        InstrIndexInFn Index,
                                         char const *Str,
                                         char **EndPtr,
                                         int Base) {
@@ -817,7 +823,7 @@ void TraceThreadListener::postCstrtoull(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtof(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str,
                                      char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
@@ -838,7 +844,7 @@ void TraceThreadListener::preCstrtof(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtof(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr) {
   if (EndPtr) {
@@ -856,7 +862,7 @@ void TraceThreadListener::postCstrtof(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str,
                                      char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
@@ -877,7 +883,7 @@ void TraceThreadListener::preCstrtod(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtod(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr) {
   if (EndPtr) {
@@ -895,7 +901,7 @@ void TraceThreadListener::postCstrtod(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtold(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
@@ -916,7 +922,7 @@ void TraceThreadListener::preCstrtold(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtold(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str,
                                        char **EndPtr) {
   if (EndPtr) {
@@ -934,7 +940,7 @@ void TraceThreadListener::postCstrtold(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtoimax(llvm::CallInst const *Call,
-                                        uint32_t Index,
+                                        InstrIndexInFn Index,
                                         char const *Str,
                                         char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
@@ -955,7 +961,7 @@ void TraceThreadListener::preCstrtoimax(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtoimax(llvm::CallInst const *Call,
-                                         uint32_t Index,
+                                         InstrIndexInFn Index,
                                          char const *Str,
                                          char **EndPtr) {
   if (EndPtr) {
@@ -973,7 +979,7 @@ void TraceThreadListener::postCstrtoimax(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrtoumax(llvm::CallInst const *Call,
-                                        uint32_t Index,
+                                        InstrIndexInFn Index,
                                         char const *Str,
                                         char **EndPtr) {
   using namespace seec::runtime_errors::format_selects;
@@ -994,7 +1000,7 @@ void TraceThreadListener::preCstrtoumax(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrtoumax(llvm::CallInst const *Call,
-                                         uint32_t Index,
+                                         InstrIndexInFn Index,
                                          char const *Str,
                                          char **EndPtr) {
   if (EndPtr) {
@@ -1012,7 +1018,7 @@ void TraceThreadListener::postCstrtoumax(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCcalloc(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      size_t Num,
                                      size_t Size) {
   acquireGlobalMemoryWriteLock();
@@ -1020,7 +1026,7 @@ void TraceThreadListener::preCcalloc(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCcalloc(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       size_t Num,
                                       size_t Size) {
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -1047,7 +1053,7 @@ void TraceThreadListener::postCcalloc(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCfree(llvm::CallInst const *Call,
-                                   uint32_t Index,
+                                   InstrIndexInFn Index,
                                    void *Address) {
   acquireGlobalMemoryWriteLock();
   acquireDynamicMemoryLock();
@@ -1067,7 +1073,7 @@ void TraceThreadListener::preCfree(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCfree(llvm::CallInst const *Call,
-                                    uint32_t Index,
+                                    InstrIndexInFn Index,
                                     void *Address)
 {
   ++Time;
@@ -1084,13 +1090,13 @@ void TraceThreadListener::postCfree(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmalloc(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      size_t Size) {
   acquireDynamicMemoryLock();
 }
 
 void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       size_t Size) {
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
   assert(RTValue && RTValue->assigned() && "Expected assigned RTValue.");
@@ -1110,7 +1116,7 @@ void TraceThreadListener::postCmalloc(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void *Address,
                                       size_t Size) {
   acquireGlobalMemoryWriteLock();
@@ -1132,7 +1138,7 @@ void TraceThreadListener::preCrealloc(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        void *Address,
                                        size_t Size) {
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -1185,7 +1191,7 @@ void TraceThreadListener::postCrealloc(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCgetenv(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Name) {
   acquireGlobalMemoryReadLock();
   
@@ -1195,7 +1201,7 @@ void TraceThreadListener::preCgetenv(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Name) {
   // Get the pointer returned by getenv.
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -1228,7 +1234,7 @@ void TraceThreadListener::postCgetenv(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCsystem(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Command) {
   acquireGlobalMemoryReadLock();
 
@@ -1246,7 +1252,7 @@ void TraceThreadListener::preCsystem(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      void const *Ptr,
                                      int Value,
                                      size_t Num) {
@@ -1261,7 +1267,7 @@ void TraceThreadListener::preCmemchr(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCmemchr(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void const *Ptr,
                                       int Value,
                                       size_t Num)
@@ -1282,7 +1288,7 @@ void TraceThreadListener::postCmemchr(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      void const *Address1,
                                      void const *Address2,
                                      size_t Size) {
@@ -1299,7 +1305,7 @@ void TraceThreadListener::preCmemcmp(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCmemcmp(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void const *Address1,
                                       void const *Address2,
                                       size_t Size) {
@@ -1311,7 +1317,7 @@ void TraceThreadListener::postCmemcmp(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      void *Destination,
                                      void const *Source,
                                      size_t Size) {
@@ -1335,7 +1341,7 @@ void TraceThreadListener::preCmemcpy(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void *Destination,
                                       void const *Source,
                                       size_t Size) {
@@ -1357,7 +1363,7 @@ void TraceThreadListener::postCmemcpy(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void *Destination,
                                       void const *Source,
                                       size_t Size) {
@@ -1378,7 +1384,7 @@ void TraceThreadListener::preCmemmove(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCmemmove(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        void *Destination,
                                        void const *Source,
                                        size_t Size) {
@@ -1395,7 +1401,7 @@ void TraceThreadListener::postCmemmove(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCmemset(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      void *Destination,
                                      int Value,
                                      size_t Size) {
@@ -1412,7 +1418,7 @@ void TraceThreadListener::preCmemset(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCmemset(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       void *Destination,
                                       int Value,
                                       size_t Size) {
@@ -1427,7 +1433,7 @@ void TraceThreadListener::postCmemset(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char *Destination,
                                      char const *Source) {
   using namespace seec::runtime_errors::format_selects;
@@ -1455,7 +1461,7 @@ void TraceThreadListener::preCstrcat(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrcat(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char *Destination,
                                       char const *Source) {
   ActiveFunction->transferArgPointerObjectToCall(0);
@@ -1473,7 +1479,7 @@ void TraceThreadListener::postCstrcat(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrchr(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str,
                                      int Character) {
   acquireGlobalMemoryReadLock();
@@ -1484,7 +1490,7 @@ void TraceThreadListener::preCstrchr(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrchr(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       int Character)
 {
@@ -1504,7 +1510,7 @@ void TraceThreadListener::postCstrchr(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrcmp(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str1,
                                      char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1521,7 +1527,7 @@ void TraceThreadListener::preCstrcmp(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrcoll(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str1,
                                       char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1538,7 +1544,7 @@ void TraceThreadListener::preCstrcoll(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char *Destination,
                                      char const *Source) {
   using namespace seec::runtime_errors::format_selects;
@@ -1565,7 +1571,7 @@ void TraceThreadListener::preCstrcpy(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrcpy(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char *Destination,
                                       char const *Source) {
   ActiveFunction->transferArgPointerObjectToCall(0);
@@ -1581,7 +1587,7 @@ void TraceThreadListener::postCstrcpy(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrcspn(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str1,
                                       char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1598,13 +1604,13 @@ void TraceThreadListener::preCstrcspn(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrerror(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        int Errnum) {
   acquireGlobalMemoryWriteLock();
 }
 
 void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
-                                        uint32_t Index,
+                                        InstrIndexInFn Index,
                                         int Errnum) {
   // Get the pointer returned by strerror.
   auto RTValue = getActiveFunction()->getCurrentRuntimeValue(Call);
@@ -1635,7 +1641,7 @@ void TraceThreadListener::postCstrerror(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrlen(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str) {
   acquireGlobalMemoryReadLock();
   
@@ -1650,7 +1656,7 @@ void TraceThreadListener::preCstrlen(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrncat(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char *Destination,
                                       char const *Source,
                                       size_t Size) {
@@ -1679,7 +1685,7 @@ void TraceThreadListener::preCstrncat(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
@@ -1702,7 +1708,7 @@ void TraceThreadListener::postCstrncat(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrncmp(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str1,
                                       char const *Str2,
                                       size_t Num) {
@@ -1720,7 +1726,7 @@ void TraceThreadListener::preCstrncmp(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrncpy(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char *Destination,
                                       char const *Source,
                                       size_t Size) {
@@ -1746,7 +1752,7 @@ void TraceThreadListener::preCstrncpy(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char *Destination,
                                        char const *Source,
                                        size_t Size) {
@@ -1761,7 +1767,7 @@ void TraceThreadListener::postCstrncpy(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrpbrk(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str1,
                                       char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1773,7 +1779,7 @@ void TraceThreadListener::preCstrpbrk(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrpbrk(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str1,
                                        char const *Str2)
 {
@@ -1793,7 +1799,7 @@ void TraceThreadListener::postCstrpbrk(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrrchr(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str,
                                       int Character) {
   acquireGlobalMemoryReadLock();
@@ -1804,7 +1810,7 @@ void TraceThreadListener::preCstrrchr(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrrchr(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char const *Str,
                                        int Character)
 {
@@ -1824,7 +1830,7 @@ void TraceThreadListener::postCstrrchr(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrspn(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str1,
                                      char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1841,7 +1847,7 @@ void TraceThreadListener::preCstrspn(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
-                                     uint32_t Index,
+                                     InstrIndexInFn Index,
                                      char const *Str1,
                                      char const *Str2) {
   acquireGlobalMemoryReadLock();
@@ -1853,7 +1859,7 @@ void TraceThreadListener::preCstrstr(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrstr(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char const *Str1,
                                       char const *Str2)
 {
@@ -1873,7 +1879,7 @@ void TraceThreadListener::postCstrstr(llvm::CallInst const *Call,
 //===------------------------------------------------------------------------===
 
 void TraceThreadListener::preCstrxfrm(llvm::CallInst const *Call,
-                                      uint32_t Index,
+                                      InstrIndexInFn Index,
                                       char *Destination,
                                       char const *Source,
                                       size_t Num) {
@@ -1898,7 +1904,7 @@ void TraceThreadListener::preCstrxfrm(llvm::CallInst const *Call,
 }
 
 void TraceThreadListener::postCstrxfrm(llvm::CallInst const *Call,
-                                       uint32_t Index,
+                                       InstrIndexInFn Index,
                                        char *Destination,
                                        char const *Source,
                                        size_t Num) {

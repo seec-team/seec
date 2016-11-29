@@ -54,7 +54,7 @@ bool MemoryAllocation::isCompletelyInitialized() const
     return false;
 
   return std::all_of(Init.cbegin(), Init.cend(),
-                     [=] (unsigned char const Byte) { return Byte == Complete;});
+                     [=](unsigned char const Byte) { return Byte == Complete;});
 }
 
 bool MemoryAllocation::isPartiallyInitialized() const
@@ -256,7 +256,7 @@ bool MemoryStateRegion::isCompletelyInitialized() const
     return false;
 
   return std::all_of(Initialization.begin(), Initialization.end(),
-                     [=] (unsigned char const Byte) { return Byte == Complete;});
+                     [=](unsigned char const Byte) { return Byte == Complete;});
 }
 
 bool MemoryStateRegion::isPartiallyInitialized() const

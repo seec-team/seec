@@ -474,12 +474,12 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
   auto const FirstIn = FunctionInstructions.front();
 
   // Get a constant int for the index of this function
-  auto const FunctionIndex (ModIndex->getIndexOfFunction(&F));
-  if (!FunctionIndex.assigned())
+  auto const FunctionIndex = ModIndex->getIndexOfFunction(&F);
+  if (!FunctionIndex)
     return false;
 
   Value *Args[] = {
-    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false)
+    ConstantInt::get(Int32Ty, *FunctionIndex, false)
   };
 
   // Pass the index to the function begin notification
@@ -596,13 +596,13 @@ void InsertExternalRecording::visitBinaryOperator(BinaryOperator &I) {
 /// \param I a reference to the return instruction
 void InsertExternalRecording::visitReturnInst(ReturnInst &I) {
   // Get a constant int for the index of this function
-  auto FunctionIndex (ModIndex->getIndexOfFunction(I.getParent()->getParent()));
-  if (!FunctionIndex.assigned()) {
+  auto FunctionIndex = ModIndex->getIndexOfFunction(I.getParent()->getParent());
+  if (!FunctionIndex) {
     return;
   }
 
   Value *Args[] = {
-    ConstantInt::get(Int32Ty, (uint32_t) FunctionIndex.get<0>(), false),
+    ConstantInt::get(Int32Ty, *FunctionIndex, false),
     ConstantInt::get(Int32Ty, InstructionIndex, false),
   };
 

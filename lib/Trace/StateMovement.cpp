@@ -74,11 +74,11 @@ public:
       // is at the time immediately prior to this new time.
       if (!UpdateLock) {
         auto MaybeNewProcessTime = NextEvent->getProcessTime();
-        if (MaybeNewProcessTime.assigned()) {
+        if (MaybeNewProcessTime) {
           auto const &ProcState = State.getParent();
           auto const WaitUntil = NextEvent->modifiesSharedState()
-                               ? MaybeNewProcessTime.get<0>() - 1
-                               : MaybeNewProcessTime.get<0>();
+                               ? *MaybeNewProcessTime - 1
+                               : *MaybeNewProcessTime;
           
           UpdateLock.lock();
           ProcessStateCV.wait(UpdateLock,
@@ -137,11 +137,11 @@ public:
       // will then cause the ProcessState to go to the next earliest time).
       if (!UpdateLock) {
         auto MaybeNewProcessTime = PreviousEvent->getProcessTime();
-        if (MaybeNewProcessTime.assigned()) {
+        if (MaybeNewProcessTime) {
           auto const &ProcState = State.getParent();
           auto const WaitUntil = PreviousEvent->modifiesSharedState()
-                               ? MaybeNewProcessTime.get<0>()
-                               : MaybeNewProcessTime.get<0>() - 1;
+                               ? *MaybeNewProcessTime
+                               : *MaybeNewProcessTime - 1;
           
           UpdateLock.lock();
           ProcessStateCV.wait(UpdateLock,
@@ -508,10 +508,10 @@ getNextInstructionInActiveFunction(ThreadState const &State) {
     return nullptr;
 
   auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
-  if (!MaybeIdx.assigned(0))
+  if (!MaybeIdx)
     return nullptr;
   
-  return ActiveFunction->getInstruction(MaybeIdx.get<0>());
+  return ActiveFunction->getInstruction(*MaybeIdx);
 }
 
 llvm::Instruction const *
@@ -535,10 +535,10 @@ getPreviousInstructionInActiveFunction(ThreadState const &State) {
     return nullptr;
 
   auto const MaybeIdx = MaybeRef.get<EventReference>()->getIndex();
-  if (!MaybeIdx.assigned(0))
+  if (!MaybeIdx)
     return nullptr;
 
-  return ActiveFunction->getInstruction(MaybeIdx.get<0>());
+  return ActiveFunction->getInstruction(*MaybeIdx);
 }
 
 bool
@@ -559,10 +559,10 @@ findPreviousInstructionInActiveFunctionIf(ThreadState const &State,
                         return false;
                       
                       auto const MaybeIdx = Ev.getIndex();
-                      if (!MaybeIdx.assigned(0))
+                      if (!MaybeIdx)
                         return false;
                       
-                      auto const Idx = MaybeIdx.get<0>();
+                      auto const Idx = *MaybeIdx;
                       auto const Inst = ActiveFunction->getInstruction(Idx);
                       if (!Inst)
                         return false;

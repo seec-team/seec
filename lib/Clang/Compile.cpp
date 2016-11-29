@@ -303,7 +303,7 @@ llvm::Metadata *MakeValueMapSerializable(llvm::Metadata *ValueMap,
                                      (ValueMapMD->getOperand(2u).get());
     auto Instr = GetPointerFromMetadata<llvm::Instruction>(InstrAddrMD);
     auto InstrIndex = FuncIndex->getIndexOfInstruction(Instr);
-    if (!InstrIndex.assigned())
+    if (!InstrIndex)
       return nullptr;
     
     auto Int64Ty = llvm::Type::getInt64Ty(ModContext);
@@ -311,7 +311,7 @@ llvm::Metadata *MakeValueMapSerializable(llvm::Metadata *ValueMap,
     llvm::Metadata *Ops[] = {
       Type,
       FuncMD,
-      ConstantAsMetadata::get(ConstantInt::get(Int64Ty, InstrIndex.get<0>()))
+      ConstantAsMetadata::get(ConstantInt::get(Int64Ty, InstrIndex->raw()))
     };
     
     return llvm::MDNode::get(ModContext, Ops);

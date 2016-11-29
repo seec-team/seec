@@ -17,6 +17,7 @@
 
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/ADT/DenseSet.h"
@@ -41,14 +42,14 @@ class ProcessEnvironment;
 struct FunctionEnvironment {
   llvm::Function *Function;
   
-  uint32_t InstructionIndex;
+  InstrIndexInFn InstructionIndex;
   
   /// Is the current instruction an intercepted call?
   bool InstructionIsInterceptedCall;
   
   FunctionEnvironment(llvm::Function *Function)
   : Function(Function),
-    InstructionIndex(0),
+    InstructionIndex(0u),
     InstructionIsInterceptedCall(false)
   {}
 };
@@ -128,7 +129,7 @@ public:
   
   /// \brief Set the current instruction index.
   ///
-  void setInstructionIndex(uint32_t Value) {
+  void setInstructionIndex(InstrIndexInFn Value) {
     // If the instruction index is the same then avoid resetting the value of
     // InstructionIsInterceptedCall, because this is happening in a value
     // update notification, but that notification depends on the correct value
@@ -142,7 +143,7 @@ public:
   
   /// \brief Get the current instruction index.
   ///
-  uint32_t getInstructionIndex() const {
+  InstrIndexInFn getInstructionIndex() const {
     return Stack.back().InstructionIndex;
   }
   

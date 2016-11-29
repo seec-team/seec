@@ -34,9 +34,9 @@ using namespace llvm;
 
 namespace {
 
-Maybe<APInt> getAPIntForPointerGlobal(FunctionState const &State,
-                                      unsigned const BitWidth,
-                                      GlobalValue const *GV)
+llvm::Optional<APInt> getAPIntForPointerGlobal(FunctionState const &State,
+                                               unsigned const BitWidth,
+                                               GlobalValue const *GV)
 {
   auto const &Process = State.getParent().getParent();
 
@@ -45,41 +45,41 @@ Maybe<APInt> getAPIntForPointerGlobal(FunctionState const &State,
       return APInt(BitWidth, Addr, false);
 
     llvm::errs() << "don't know address of Function: " << *Fn << "\n";
-    return Maybe<APInt>();
+    return llvm::Optional<APInt>();
   }
   else if (auto GVar = dyn_cast<GlobalVariable>(GV)) {
     if (auto const Addr = Process.getRuntimeAddress(GVar))
       return APInt(BitWidth, Addr, false);
 
     llvm::errs() << "don't know address of Global: " << *GVar << "\n";
-    return Maybe<APInt>();
+    return llvm::Optional<APInt>();
   }
 
   llvm::errs() << "GlobalValue: " << *GV << "\n";
   llvm_unreachable("can't get pointer value for GlobalValue");
-  return Maybe<APInt>();
+  return llvm::Optional<APInt>();
 }
 
-Maybe<APInt> getAPIntForPointerArg(FunctionState const &State,
-                                   unsigned const BitWidth,
-                                   Argument const *Arg)
+llvm::Optional<APInt> getAPIntForPointerArg(FunctionState const &State,
+                                            unsigned const BitWidth,
+                                            Argument const *Arg)
 {
   if (Arg->hasByValAttr()) {
     auto const MaybeArea = State.getParamByValArea(Arg);
     if (MaybeArea.assigned<MemoryArea>())
       return APInt(BitWidth, MaybeArea.get<MemoryArea>().start(), false);
 
-    return Maybe<APInt>();
+    return llvm::Optional<APInt>();
   }
 
   llvm::errs() << "Argument: " << *Arg << "\n";
   llvm_unreachable("can't get pointer value for Argument");
-  return Maybe<APInt>();
+  return llvm::Optional<APInt>();
 }
 
-Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
-                                            unsigned const BitWidth,
-                                            ConstantExpr const *CE)
+llvm::Optional<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
+                                                     unsigned const BitWidth,
+                                                     ConstantExpr const *CE)
 {
   // Handle some ConstantExpr operations. A better way to do this, if we
   // can, would be to replace the used values that are runtime constants
@@ -91,12 +91,12 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
     auto const Base = CE->getOperand(0);
 
     auto MaybeElemAddress = getAPInt(State, Base);
-    if (!MaybeElemAddress.assigned<APInt>()) {
+    if (!MaybeElemAddress) {
       llvm::errs() << "no value for: " << *Base << "\n";
-      return Maybe<APInt>();
+      return llvm::Optional<APInt>();
     }
 
-    llvm::APInt ElemAddress = MaybeElemAddress.move<APInt>();
+    llvm::APInt ElemAddress = std::move(*MaybeElemAddress);
     llvm::Type *ElemType = Base->getType();
     auto const NumOperands = CE->getNumOperands();
 
@@ -105,12 +105,12 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
         // SequentialType indices are signed and can have any width, but
         // practically speaking are limited to i64.
         auto const MaybeValue = getAPSIntSigned(State, CE->getOperand(i));
-        if (!MaybeValue.assigned<APSInt>()) {
+        if (!MaybeValue) {
           llvm::errs() << "no value for: " << *(CE->getOperand(i)) << "\n";
-          return Maybe<APInt>();
+          return llvm::Optional<APInt>();
         }
 
-        auto const Index = MaybeValue.get<APSInt>().getSExtValue();
+        auto const Index = MaybeValue->getSExtValue();
 
         ElemType = ST->getElementType();
         auto const ElemSize = DL.getTypeAllocSize(ElemType);
@@ -123,12 +123,12 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
       else if (auto const ST = dyn_cast<StructType>(ElemType)) {
         // All struct indices are i32 unsigned.
         auto const MaybeValue = getAPInt(State, CE->getOperand(i));
-        if (!MaybeValue.assigned<APInt>()) {
+        if (!MaybeValue) {
           llvm::errs() << "no value for: " << *(CE->getOperand(i)) << "\n";
-          return Maybe<APInt>();
+          return llvm::Optional<APInt>();
         }
 
-        auto const Elem = MaybeValue.get<APInt>().getZExtValue();
+        auto const Elem = MaybeValue->getZExtValue();
         auto const Layout = DL.getStructLayout(ST);
         ElemType = ST->getElementType(Elem);
         ElemAddress = ElemAddress + Layout->getElementOffset(Elem);
@@ -139,22 +139,22 @@ Maybe<APInt> getAPIntForPointerConstantExpr(FunctionState const &State,
   }
 
   llvm::errs() << "can't get value for " << *CE << "\n";
-  return Maybe<APInt>();
+  return llvm::Optional<APInt>();
 }
 
 } // anonymous namespace
 
-Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
+llvm::Optional<APInt> getAPInt(FunctionState const &State, Value const *V)
 {
   if (auto const IntTy = dyn_cast<IntegerType>(V->getType()))
   {
     if (auto const I = dyn_cast<Instruction>(V)) {
       auto const Value = State.getValueUInt64(I);
-      if (Value.assigned<uint64_t>()) {
-        return APInt(IntTy->getBitWidth(), Value.get<uint64_t>());
+      if (Value) {
+        return APInt(IntTy->getBitWidth(), *Value);
       }
 
-      return Maybe<APInt>();
+      return llvm::Optional<APInt>();
     }
     else if (auto const CI = dyn_cast<ConstantInt>(V)) {
       return CI->getValue();
@@ -168,11 +168,11 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
     // If this is an Instruction, get the recorded runtime value.
     if (auto const I = dyn_cast<Instruction>(V)) {
       auto const Value = State.getValuePtr(I);
-      if (Value.assigned<stateptr_ty>()) {
-        return APInt(BitWidth, Value.get<stateptr_ty>());
+      if (Value) {
+        return APInt(BitWidth, *Value);
       }
 
-      return Maybe<APInt>();
+      return llvm::Optional<APInt>();
     }
 
     auto const StrippedValue = V->stripPointerCasts();
@@ -190,62 +190,64 @@ Maybe<APInt> getAPInt(FunctionState const &State, Value const *V)
   }
   else
   {
-    return Maybe<APInt>();
+    return llvm::Optional<APInt>();
   }
 
   llvm_unreachable("don't know how to extract APInt");
-  return Maybe<APInt>();
+  return llvm::Optional<APInt>();
 }
 
-Maybe<APSInt> getAPSIntUnsigned(FunctionState const &State, Value const *V)
+llvm::Optional<APSInt> getAPSIntUnsigned(FunctionState const &State,
+                                         Value const *V)
 {
   auto MaybeValue = getAPInt(State, V);
-  if (MaybeValue.assigned<APInt>())
-    return APSInt(MaybeValue.move<APInt>(), /* isUnsigned */ true);
+  if (MaybeValue)
+    return APSInt(std::move(*MaybeValue), /* isUnsigned */ true);
 
-  return Maybe<APSInt>();
+  return llvm::Optional<APSInt>();
 }
 
-Maybe<APSInt> getAPSIntSigned(FunctionState const &State, Value const *V)
+llvm::Optional<APSInt> getAPSIntSigned(FunctionState const &State,
+                                       Value const *V)
 {
   auto const IntTy = dyn_cast<IntegerType>(V->getType());
   if (!IntTy)
-    return Maybe<APSInt>();
+    return llvm::Optional<APSInt>();
 
   if (auto const I = dyn_cast<Instruction>(V)) {
     auto const MaybeValue = State.getValueUInt64(I);
-    if (MaybeValue.assigned<uint64_t>()) {
-      return APSInt(APInt(IntTy->getBitWidth(), MaybeValue.get<uint64_t>()),
+    if (MaybeValue) {
+      return APSInt(APInt(IntTy->getBitWidth(), *MaybeValue),
                     /* isUnsigned*/ false);
     }
 
-    return Maybe<APSInt>();
+    return llvm::Optional<APSInt>();
   }
   else if (auto const CI = dyn_cast<ConstantInt>(V)) {
     return APSInt(CI->getValue(), /* isUnsigned */ false);
   }
 
   llvm_unreachable("don't know how to extract APSInt");
-  return Maybe<APSInt>();
+  return llvm::Optional<APSInt>();
 }
 
-Maybe<APFloat> getAPFloat(FunctionState const &State, Value const *V)
+llvm::Optional<APFloat> getAPFloat(FunctionState const &State, Value const *V)
 {
   auto const TheType = V->getType();
   if (!TheType->isFloatingPointTy())
-    return Maybe<APFloat>();
+    return llvm::Optional<APFloat>();
 
   if (auto const I = dyn_cast<Instruction>(V)) {
     if (TheType->isFloatTy()) {
       auto const MaybeValue = State.getValueFloat(I);
-      if (MaybeValue.assigned<float>()) {
-        return APFloat(MaybeValue.get<float>());
+      if (MaybeValue) {
+        return APFloat(*MaybeValue);
       }
     }
     else if (TheType->isDoubleTy()) {
       auto const MaybeValue = State.getValueDouble(I);
-      if (MaybeValue.assigned<double>()) {
-        return APFloat(MaybeValue.get<double>());
+      if (MaybeValue) {
+        return APFloat(*MaybeValue);
       }
     }
     else if (TheType->isX86_FP80Ty() || TheType->isFP128Ty()
@@ -254,13 +256,13 @@ Maybe<APFloat> getAPFloat(FunctionState const &State, Value const *V)
       return State.getValueAPFloat(I);
     }
 
-    return Maybe<APFloat>();
+    return llvm::Optional<APFloat>();
   }
   else if (auto const CF = dyn_cast<ConstantFP>(V)) {
     return CF->getValueAPF();
   }
 
-  return Maybe<APFloat>();
+  return llvm::Optional<APFloat>();
 }
 
 } // namespace trace (in seec)

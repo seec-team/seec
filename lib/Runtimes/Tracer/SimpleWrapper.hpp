@@ -18,6 +18,7 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/FixedWidthIntTypes.hpp"
 #include "seec/Util/FunctionTraits.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 
@@ -75,7 +76,7 @@ struct ListenerNotifier
 <T, typename std::enable_if<std::is_integral<T>::value>::type>
 {
   void operator()(seec::trace::TraceThreadListener &Listener,
-                  uint32_t InstructionIndex,
+                  InstrIndexInFn InstructionIndex,
                   llvm::Instruction const *Instruction,
                   T Value) {
     // Convert to an unsigned, fixed-width integer type, because that is what
@@ -95,7 +96,7 @@ struct ListenerNotifier
 <T, typename std::enable_if<std::is_floating_point<T>::value>::type>
 {
   void operator()(seec::trace::TraceThreadListener &Listener,
-                  uint32_t InstructionIndex,
+                  InstrIndexInFn InstructionIndex,
                   llvm::Instruction const *Instruction,
                   T Value) {
     Listener.notifyValue(InstructionIndex, Instruction, Value);
@@ -107,7 +108,7 @@ struct ListenerNotifier
 <T, typename std::enable_if<std::is_pointer<T>::value>::type>
 {
   void operator()(seec::trace::TraceThreadListener &Listener,
-                  uint32_t InstructionIndex,
+                  InstrIndexInFn InstructionIndex,
                   llvm::Instruction const *Instruction,
                   T Value) {
     Listener.notifyValue(InstructionIndex, Instruction, Value);
@@ -1179,7 +1180,7 @@ struct ArgumentCheckerHandlerImpl<false, false, false, seec::ct::sequence_int<>>
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
-                   uint32_t const Instruction,
+                   InstrIndexInFn const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn)
   {}
 };
@@ -1192,7 +1193,7 @@ struct ArgumentCheckerHandlerImpl
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
-                   uint32_t const Instruction,
+                   InstrIndexInFn const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {
@@ -1225,7 +1226,7 @@ struct ArgumentCheckerHandlerImpl
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
-                   uint32_t const Instruction,
+                   InstrIndexInFn const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {
@@ -1256,7 +1257,7 @@ struct ArgumentCheckerHandlerImpl
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
-                   uint32_t const Instruction,
+                   InstrIndexInFn const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {
@@ -1285,7 +1286,7 @@ struct ArgumentCheckerHandlerImpl
 {
   static void impl(seec::trace::TraceProcessListener &Process,
                    seec::trace::TraceThreadListener &Thread,
-                   uint32_t const Instruction,
+                   InstrIndexInFn const Instruction,
                    seec::runtime_errors::format_selects::CStdFunction const Fn,
                    ArgTs &... Args)
   {

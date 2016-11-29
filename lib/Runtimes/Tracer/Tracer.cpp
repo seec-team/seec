@@ -20,6 +20,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/SynchronizedExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
@@ -133,7 +134,8 @@ llvm::Function *ThreadEnvironment::popFunction() {
 }
 
 llvm::Instruction *ThreadEnvironment::getInstruction() const {
-  return getFunctionIndex().getInstruction(Stack.back().InstructionIndex);
+  return getFunctionIndex()
+         .getInstruction(InstrIndexInFn{Stack.back().InstructionIndex});
 }
 
 
@@ -524,7 +526,8 @@ void SeeCRecordFunctionBegin(uint32_t Index) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const InstructionIndex) {
+void SeeCRecordFunctionEnd(uint32_t Index, uint32_t const RawIndex) {
+  auto const InstructionIndex = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   auto &Listener = ThreadEnv.getThreadListener();
 
@@ -571,15 +574,17 @@ void SeeCRecordEnv(char **EnvP) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordSetInstruction(uint32_t Index) {
+void SeeCRecordSetInstruction(uint32_t const RawIndex) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
 }
 
-void SeeCRecordPreAlloca(uint32_t const Index,
+void SeeCRecordPreAlloca(uint32_t const RawIndex,
                          uint64_t const ElemSize,
                          uint64_t const ElemCount)
 {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
   auto const Alloca = llvm::cast<llvm::AllocaInst>(ThreadEnv.getInstruction());
@@ -587,7 +592,8 @@ void SeeCRecordPreAlloca(uint32_t const Index,
   Listener.notifyPreAlloca(Index, *Alloca, ElemSize, ElemCount);
 }
 
-void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
+void SeeCRecordPreLoad(uint32_t RawIndex, void *Address, uint64_t Size) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
 
@@ -598,7 +604,8 @@ void SeeCRecordPreLoad(uint32_t Index, void *Address, uint64_t Size) {
   Listener.notifyPreLoad(Index, Load, Address, Size);
 }
 
-void SeeCRecordPostLoad(uint32_t Index, void *Address, uint64_t Size) {
+void SeeCRecordPostLoad(uint32_t RawIndex, void *Address, uint64_t Size) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
 
   auto Load = llvm::dyn_cast<llvm::LoadInst>(ThreadEnv.getInstruction());
@@ -610,7 +617,8 @@ void SeeCRecordPostLoad(uint32_t Index, void *Address, uint64_t Size) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
+void SeeCRecordPreStore(uint32_t RawIndex, void *Address, uint64_t Size) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
   
@@ -623,7 +631,8 @@ void SeeCRecordPreStore(uint32_t Index, void *Address, uint64_t Size) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
+void SeeCRecordPostStore(uint32_t RawIndex, void *Address, uint64_t Size) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   
   auto Store = llvm::dyn_cast<llvm::StoreInst>(ThreadEnv.getInstruction());
@@ -635,7 +644,8 @@ void SeeCRecordPostStore(uint32_t Index, void *Address, uint64_t Size) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordPreCall(uint32_t Index, void *Address) {
+void SeeCRecordPreCall(uint32_t RawIndex, void *Address) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
   
@@ -652,7 +662,8 @@ void SeeCRecordPreCall(uint32_t Index, void *Address) {
   }
 }
 
-void SeeCRecordPostCall(uint32_t Index, void *Address) {
+void SeeCRecordPostCall(uint32_t RawIndex, void *Address) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   if (!ThreadEnv.getInstructionIsInterceptedCall()) {
     auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
@@ -665,7 +676,8 @@ void SeeCRecordPostCall(uint32_t Index, void *Address) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordPreCallIntrinsic(uint32_t Index) {
+void SeeCRecordPreCallIntrinsic(uint32_t RawIndex) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
 
@@ -676,7 +688,8 @@ void SeeCRecordPreCallIntrinsic(uint32_t Index) {
   Listener.notifyPreCallIntrinsic(Index, Call);
 }
 
-void SeeCRecordPostCallIntrinsic(uint32_t Index) {
+void SeeCRecordPostCallIntrinsic(uint32_t RawIndex) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
 
   auto Call = llvm::dyn_cast<llvm::CallInst>(ThreadEnv.getInstruction());
@@ -688,7 +701,8 @@ void SeeCRecordPostCallIntrinsic(uint32_t Index) {
   ThreadEnv.checkOutputSize();
 }
 
-void SeeCRecordPreDivide(uint32_t Index) {
+void SeeCRecordPreDivide(uint32_t RawIndex) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
 
@@ -699,7 +713,8 @@ void SeeCRecordPreDivide(uint32_t Index) {
   Listener.notifyPreDivide(Index, BinOp);
 }
 
-void SeeCRecordUpdateVoid(uint32_t Index) {
+void SeeCRecordUpdateVoid(uint32_t RawIndex) {
+  auto const Index = seec::InstrIndexInFn{RawIndex};
   auto &ThreadEnv = seec::trace::getThreadEnvironment();
   ThreadEnv.setInstructionIndex(Index);
 
@@ -713,7 +728,8 @@ void SeeCRecordUpdateVoid(uint32_t Index) {
 }
 
 #define SEEC_RECORD_TYPED(NAME, TYPE)                                          \
-void SeeCRecordUpdate##NAME(uint32_t Index, TYPE Value) {                      \
+void SeeCRecordUpdate##NAME(uint32_t RawIndex, TYPE Value) {                   \
+  auto const Index = seec::InstrIndexInFn{RawIndex};                           \
   auto &ThreadEnv = seec::trace::getThreadEnvironment();                       \
   ThreadEnv.setInstructionIndex(Index);                                        \
   if (ThreadEnv.getInstructionIsInterceptedCall())                             \

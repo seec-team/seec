@@ -300,14 +300,13 @@ public:
   /// \return the run-time address of GV, or 0 if it is not known.
   uintptr_t getRuntimeAddress(llvm::GlobalVariable const *GV) const {
     auto MaybeIndex = MIndex.getIndexOfGlobal(GV);
-    if (!MaybeIndex.assigned())
+    if (!MaybeIndex)
       return 0;
 
-    auto Index = MaybeIndex.get<0>();
-    if (Index >= GlobalVariableAddresses.size())
+    if (*MaybeIndex >= GlobalVariableAddresses.size())
       return 0;
 
-    return GlobalVariableAddresses[Index];
+    return GlobalVariableAddresses[*MaybeIndex];
   }
 
   /// \brief Get the run-time address of a Function.
@@ -315,14 +314,13 @@ public:
   /// \return the run-time address of F, or 0 if it is not known.
   uintptr_t getRuntimeAddress(llvm::Function const *F) const {
     auto MaybeIndex = MIndex.getIndexOfFunction(F);
-    if (!MaybeIndex.assigned())
+    if (!MaybeIndex)
       return 0;
 
-    auto Index = MaybeIndex.get<0>();
-    if (Index >= FunctionAddresses.size())
+    if (*MaybeIndex >= FunctionAddresses.size())
       return 0;
 
-    return FunctionAddresses[Index];
+    return FunctionAddresses[*MaybeIndex];
   }
 
   /// \brief Find the \c llvm::Function at the given address.

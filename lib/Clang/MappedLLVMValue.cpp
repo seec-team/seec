@@ -64,7 +64,7 @@ getMappedValueFromMD(llvm::Metadata const *ValueMapMD,
     assert(FuncIndex);
 
     auto IdxValue = static_cast<uint32_t>(Idx->getZExtValue());
-    return FuncIndex->getInstruction(IdxValue);
+    return FuncIndex->getInstruction(InstrIndexInFn{IdxValue});
   }
   else if (TypeStr.equals("value")) {
     assert(ValueMap->getNumOperands() == 2);

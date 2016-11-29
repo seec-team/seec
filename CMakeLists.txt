@@ -232,6 +232,8 @@ endmacro(icu_resources)
 # Setup the build for the various SeeC components
 #--------------------------------------------------------------------------------
 include_directories( BEFORE ${PROJECT_SOURCE_DIR}/include )
+include_directories( ${PROJECT_SOURCE_DIR}/external/type_safe/include )
+include_directories( ${PROJECT_SOURCE_DIR}/external/type_safe/external/debug_assert )
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   message(STATUS "Build: Debug")

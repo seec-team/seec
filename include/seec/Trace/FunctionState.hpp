@@ -18,6 +18,7 @@
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/TraceReader.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
 
@@ -62,7 +63,7 @@ class AllocaState {
   FunctionState const *Parent;
 
   /// Index of the llvm::AllocaInst.
-  uint32_t InstructionIndex;
+  InstrIndexInFn InstructionIndex;
 
   /// Runtime address for this allocation.
   stateptr_ty Address;
@@ -76,7 +77,7 @@ class AllocaState {
 public:
   /// Construct a new AllocaState with the specified values.
   AllocaState(FunctionState const &Parent,
-              uint32_t InstructionIndex,
+              InstrIndexInFn InstructionIndex,
               stateptr_ty Address,
               std::size_t ElementSize,
               std::size_t ElementCount)
@@ -95,7 +96,7 @@ public:
   FunctionState const &getParent() const { return *Parent; }
 
   /// \brief Get the index of the llvm::AllocaInst that produced this state.
-  uint32_t getInstructionIndex() const { return InstructionIndex; }
+  InstrIndexInFn getInstructionIndex() const { return InstructionIndex; }
 
   /// \brief Get the runtime address for this allocation.
   stateptr_ty getAddress() const { return Address; }
@@ -172,7 +173,7 @@ class RuntimeErrorState {
   FunctionState const &Parent;
   
   /// The index of the Instruction that caused this error.
-  uint32_t InstructionIndex;
+  InstrIndexInFn InstructionIndex;
   
   /// The runtime error.
   std::unique_ptr<seec::runtime_errors::RunError> Error;
@@ -184,7 +185,7 @@ public:
   /// \brief Constructor.
   ///
   RuntimeErrorState(FunctionState const &WithParent,
-                    uint32_t WithInstructionIndex,
+                    InstrIndexInFn WithInstructionIndex,
                     std::unique_ptr<seec::runtime_errors::RunError> WithError,
                     uint64_t AtThreadTime)
   : Parent(WithParent),
@@ -199,7 +200,7 @@ public:
   
   /// \brief Get the index of the instruction that produced this error.
   ///
-  uint32_t getInstructionIndex() const { return InstructionIndex; }
+  InstrIndexInFn getInstructionIndex() const { return InstructionIndex; }
   
   /// \brief Get the Instruction that produced this error.
   ///
@@ -267,7 +268,7 @@ class FunctionState {
   FunctionTrace Trace;
 
   /// Index of the currently active llvm::Instruction.
-  seec::Maybe<uint32_t> ActiveInstruction;
+  llvm::Optional<InstrIndexInFn> ActiveInstruction;
 
   /// true iff the active \llvm::Instruction has completed execution.
   bool ActiveInstructionComplete;
@@ -338,10 +339,10 @@ public:
   std::size_t getInstructionCount() const;
   
   /// \brief Get the llvm::Instruction at the specified index.
-  llvm::Instruction const *getInstruction(uint32_t Index) const;
+  llvm::Instruction const *getInstruction(InstrIndexInFn Index) const;
 
   /// \brief Get the index of the active llvm::Instruction, if there is one.
-  seec::Maybe<uint32_t> getActiveInstructionIndex() const {
+  llvm::Optional<InstrIndexInFn> getActiveInstructionIndex() const {
     return ActiveInstruction;
   }
 
@@ -364,18 +365,18 @@ public:
   /// \brief Notify that we are moving forward to the given Instruction index.
   /// \param Index index of the \c llvm::Instruction we are moving to.
   ///
-  void forwardingToInstruction(uint32_t const Index);
+  void forwardingToInstruction(InstrIndexInFn const Index);
   
   /// \brief Notify that we are moving backward to the given Instruction index.
   /// \param Index index of the \c llvm::Instruction we are moving to.
   ///
-  void rewindingToInstruction(uint32_t const Index);
+  void rewindingToInstruction(InstrIndexInFn const Index);
   
   /// \brief Set the index of the active \c llvm::Instruction and mark it as
   ///        having completed execution.
   /// \param Index the index for the new active \c llvm::Instruction.
   ///
-  void setActiveInstructionComplete(uint32_t Index) {
+  void setActiveInstructionComplete(InstrIndexInFn Index) {
     ActiveInstruction = Index;
     ActiveInstructionComplete = true;
   }
@@ -384,7 +385,7 @@ public:
   ///        having not yet completed execution.
   /// \param Index the index for the new active \c llvm::Instruction.
   ///
-  void setActiveInstructionIncomplete(uint32_t Index) {
+  void setActiveInstructionIncomplete(InstrIndexInFn Index) {
     ActiveInstruction = Index;
     ActiveInstructionComplete = false;
   }
@@ -410,12 +411,12 @@ public:
   bool isDominatedByActive(llvm::Instruction const *) const;
   bool hasValue(llvm::Instruction const *) const;
 
-  Maybe<int64_t>       getValueInt64  (llvm::Instruction const *) const;
-  Maybe<uint64_t>      getValueUInt64 (llvm::Instruction const *) const;
-  Maybe<stateptr_ty>   getValuePtr    (llvm::Instruction const *) const;
-  Maybe<float>         getValueFloat  (llvm::Instruction const *) const;
-  Maybe<double>        getValueDouble (llvm::Instruction const *) const;
-  Maybe<llvm::APFloat> getValueAPFloat(llvm::Instruction const *) const;
+  llvm::Optional<int64_t>       getValueInt64  (llvm::Instruction const*) const;
+  llvm::Optional<uint64_t>      getValueUInt64 (llvm::Instruction const*) const;
+  llvm::Optional<stateptr_ty>   getValuePtr    (llvm::Instruction const*) const;
+  llvm::Optional<float>         getValueFloat  (llvm::Instruction const*) const;
+  llvm::Optional<double>        getValueDouble (llvm::Instruction const*) const;
+  llvm::Optional<llvm::APFloat> getValueAPFloat(llvm::Instruction const*) const;
 
   /// @}
 

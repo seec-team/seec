@@ -350,7 +350,8 @@ const
           Group = clang::frontend::IncludeDirGroup::ExternCSystem;
           break;
         default:
-          llvm::errs() << "system include path with unknown CharacteristicKind.\n";
+          llvm::errs()
+            << "system include path with unknown CharacteristicKind.\n";
           Group = clang::frontend::IncludeDirGroup::System;
       }
     }

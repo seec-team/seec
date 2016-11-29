@@ -147,7 +147,7 @@ struct ExtractAndNotifyImpl {
   template<typename LT, int... ArgIs>
   static bool impl(LT &Listener,
                    llvm::CallInst const *I,
-                   uint32_t Index,
+                   InstrIndexInFn Index,
                    seec::ct::sequence_int<ArgIs...>) {
     NotifyImpl<Pre, C>
       ::impl(Listener,
@@ -169,7 +169,10 @@ struct ExtractAndNotifyForward {
           SeqTy;
   
   template<typename LT>
-  static bool impl(LT &Listener, llvm::CallInst const *Instr, uint32_t Index) {
+  static bool impl(LT &Listener,
+                   llvm::CallInst const *Instr,
+                   InstrIndexInFn Index)
+  {
     return ExtractAndNotifyImpl<Pre, C, ArgTs...>::impl(Listener,
                                                         Instr,
                                                         Index,
@@ -182,7 +185,10 @@ struct ExtractAndNotifyForward {
 template<bool Pre, Call C>
 struct ExtractAndNotify {
   template<typename LT>
-  static bool impl(LT &Listener, llvm::CallInst const *I, uint32_t Index) {
+  static bool impl(LT &Listener,
+                   llvm::CallInst const *I,
+                   InstrIndexInFn const Index)
+  {
     return false;
   }
 };
@@ -196,7 +202,7 @@ template<bool Pre, typename LT, llvm::Intrinsic::ID Intr>
 struct DetectAndForwardIntrinsicImpl {
   static bool impl(LT &Lstn,
                    llvm::CallInst const *I,
-                   uint32_t Index,
+                   InstrIndexInFn Index,
                    unsigned ID) {
     return false;
   }
@@ -210,7 +216,7 @@ struct DetectAndForwardIntrinsicImpl {
 template<bool Pre, typename LT>
 bool detectAndForwardIntrinsics(LT &Listener,
                                 llvm::CallInst const *I,
-                                uint32_t Index,
+                                InstrIndexInFn Index,
                                 unsigned ID) {
   return false;
 }
@@ -222,7 +228,7 @@ template<bool Pre,
          >
 bool detectAndForwardIntrinsics(LT &Listener,
                                 llvm::CallInst const *I,
-                                uint32_t Index,
+                                InstrIndexInFn Index,
                                 unsigned ID) {
   if (DetectAndForwardIntrinsicImpl<Pre, LT, Intr>::impl(Listener, 
                                                          I, 
@@ -236,7 +242,7 @@ bool detectAndForwardIntrinsics(LT &Listener,
 template<typename LT, llvm::Intrinsic::ID... Intrs>
 bool detectAndForwardPreIntrinsics(LT &Listener,
                                    llvm::CallInst const *I,
-                                   uint32_t Index,
+                                   InstrIndexInFn Index,
                                    unsigned ID) {
   return detectAndForwardIntrinsics<true, LT, Intrs...>(Listener, I, Index, ID);
 }
@@ -244,7 +250,7 @@ bool detectAndForwardPreIntrinsics(LT &Listener,
 template<typename LT, llvm::Intrinsic::ID... Intrs>
 bool detectAndForwardPostIntrinsics(LT &Listener,
                                     llvm::CallInst const *I,
-                                    uint32_t Index,
+                                    InstrIndexInFn Index,
                                     unsigned ID) {
   return detectAndForwardIntrinsics<false, LT, Intrs...>(Listener,
                                                          I,
@@ -265,7 +271,7 @@ struct NotifyImpl<true, Call::PREFIX ## NAME> {                                \
   template<typename LT, typename... PTs>                                       \
   static void impl(LT &Listener,                                               \
                    llvm::CallInst const *I,                                    \
-                   uint32_t Index,                                             \
+                   InstrIndexInFn Index,                                       \
                    PTs&&... Params) {                                          \
     Listener.pre ## PREFIX ## NAME (I, Index, std::forward<PTs>(Params)...);   \
   }                                                                            \
@@ -275,7 +281,7 @@ struct NotifyImpl<false, Call::PREFIX ## NAME> {                               \
   template<typename LT, typename... PTs>                                       \
   static void impl(LT &Listener,                                               \
                    llvm::CallInst const *I,                                    \
-                   uint32_t Index,                                             \
+                   InstrIndexInFn Index,                                       \
                    PTs&&... Params) {                                          \
     Listener.post ## PREFIX ## NAME (I, Index, std::forward<PTs>(Params)...);  \
   }                                                                            \
@@ -283,7 +289,9 @@ struct NotifyImpl<false, Call::PREFIX ## NAME> {                               \
 template<bool Pre>                                                             \
 struct ExtractAndNotify<Pre, Call::PREFIX##NAME> {                             \
   template<typename LT>                                                        \
-  static bool impl(LT &Listener, llvm::CallInst const *I, uint32_t Index) {    \
+  static bool impl(LT &Listener,                                               \
+                   llvm::CallInst const *I,                                    \
+                   InstrIndexInFn Index) {                                     \
     return ExtractAndNotifyForward                                             \
            <Pre, Call::PREFIX##NAME                                            \
             SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)>                      \
@@ -297,7 +305,7 @@ template<bool Pre, typename LT>                                                \
 struct DetectAndForwardIntrinsicImpl<Pre, LT, llvm::Intrinsic::ID::INTRINSIC> {\
   static bool impl(LT &Lstn,                                                   \
                    llvm::CallInst const *I,                                    \
-                   uint32_t Index,                                             \
+                   InstrIndexInFn Index,                                       \
                    unsigned ID) {                                              \
     if (llvm::Intrinsic::ID::INTRINSIC != ID)                                  \
       return false;                                                            \
@@ -327,7 +335,7 @@ public:
   {}
   
   bool detectPreCall(llvm::CallInst const *Instruction,
-                     uint32_t Index,
+                     InstrIndexInFn Index,
                      void const *Address) {
     using namespace seec::trace::detect_calls;
     
@@ -351,7 +359,7 @@ public:
   }
   
   bool detectPostCall(llvm::CallInst const *Instruction,
-                      uint32_t Index,
+                      InstrIndexInFn Index,
                       void const *Address) {
     using namespace seec::trace::detect_calls;
     
@@ -377,9 +385,9 @@ public:
   // Define empty notification functions that will be called if SubclassT does
   // not implement a notification function.
 #define DETECT_CALL(PREFIX, NAME, ARGTYPES)                                    \
-  void pre##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index     \
+  void pre##PREFIX##NAME(llvm::CallInst const *Instruction, InstrIndexInFn Idx \
                          SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)) {}      \
-  void post##PREFIX##NAME(llvm::CallInst const *Instruction, uint32_t Index    \
+  void post##PREFIX##NAME(llvm::CallInst const *Instruction, InstrIndexInFn Idx\
                           SEEC_PP_PREPEND_COMMA_IF_NOT_EMPTY(ARGTYPES)) {}
 /// \cond
 #include "DetectCallsAll.def"

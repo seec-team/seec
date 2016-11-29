@@ -1243,13 +1243,13 @@ class ValueByMemoryForArray final : public ValueOfArray {
     auto const MaybeSize =
       seec::trace::getAPInt(State, MappedStmt->getValue());
 
-    if (!MaybeSize.assigned<llvm::APInt>()) {
+    if (!MaybeSize) {
       llvm::errs() << "VariableArrayType size expr unresolvable.\n";
       llvm::errs() << *(MappedStmt->getValue()) << "\n";
       return Maybe<uint64_t>();
     }
 
-    return MaybeSize.get<llvm::APInt>().getZExtValue();
+    return MaybeSize->getZExtValue();
   }
 
   static Maybe<uint64_t>
@@ -1493,7 +1493,7 @@ public:
 // getScalarValueAsAPSInt() - from llvm::Value
 //===----------------------------------------------------------------------===//
 
-seec::Maybe<llvm::APSInt>
+llvm::Optional<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::BuiltinType const *Type,
                        ::llvm::Value const *Value)
@@ -1509,13 +1509,13 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
 
 #define SEEC_UNHANDLED_BUILTIN(KIND)                                           \
     case clang::BuiltinType::KIND:                                             \
-      return seec::Maybe<llvm::APSInt>();
+      return llvm::Optional<llvm::APSInt>();
 
 #define SEEC_UNHANDLED_OCLIMAGE(KIND)                                          \
 case clang::BuiltinType::KIND##RO: SEEC_FALLTHROUGH;                           \
 case clang::BuiltinType::KIND##WO: SEEC_FALLTHROUGH;                           \
 case clang::BuiltinType::KIND##RW:                                             \
-  return seec::Maybe<llvm::APSInt>();
+  return llvm::Optional<llvm::APSInt>();
 
     // Builtin types
     SEEC_UNHANDLED_BUILTIN(Void)
@@ -1591,10 +1591,10 @@ case clang::BuiltinType::KIND##RW:                                             \
   }
   
   llvm_unreachable("unexpected builtin type");
-  return seec::Maybe<llvm::APSInt>();
+  return llvm::Optional<llvm::APSInt>();
 }
 
-seec::Maybe<llvm::APSInt>
+llvm::Optional<llvm::APSInt>
 getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
                        ::clang::Type const *Type,
                        ::llvm::Value const *Value)
@@ -1626,7 +1626,7 @@ getScalarValueAsAPSInt(seec::trace::FunctionState const &State,
     
     // No other types are supported.
     default:
-      return seec::Maybe<llvm::APSInt>();
+      return llvm::Optional<llvm::APSInt>();
   }
 }
 
@@ -1646,8 +1646,8 @@ struct GetValueOfBuiltinAsString
                           ::llvm::Value const *Value)
   {
     auto const MaybeValue = seec::trace::getAPSIntSigned(State, Value);
-    if (MaybeValue.assigned())
-      return MaybeValue.get<llvm::APSInt>().toString(10);
+    if (MaybeValue)
+      return MaybeValue->toString(10);
     else
       return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
   }
@@ -1661,8 +1661,8 @@ struct GetValueOfBuiltinAsString
                           ::llvm::Value const *Value)
   {
     auto const MaybeValue = seec::trace::getAPInt(State, Value);
-    if (MaybeValue.assigned())
-      return MaybeValue.get<llvm::APInt>().toString(10, false);
+    if (MaybeValue)
+      return MaybeValue->toString(10, false);
     else
       return std::string("<") + __PRETTY_FUNCTION__ + ": failed>";
   }
@@ -1676,9 +1676,9 @@ struct GetValueOfBuiltinAsString
                           ::llvm::Value const *Value)
   {
     auto const MaybeValue = seec::trace::getAPFloat(State, Value);
-    if (MaybeValue.assigned()) {
+    if (MaybeValue) {
       llvm::SmallString<32> Buffer;
-      MaybeValue.get<llvm::APFloat>().toString(Buffer);
+      MaybeValue->toString(Buffer);
       return Buffer.str().str();
     }
     else
@@ -1692,11 +1692,10 @@ struct GetValueOfBuiltinAsString<void const *> {
                           ::llvm::Value const *Value)
   {
     auto const MaybeValue = seec::trace::getAPInt(State, Value);
-    if (!MaybeValue.assigned())
+    if (!MaybeValue)
       return std::string("<void const *: couldn't get current runtime value>");
 
-    return std::string{"0x"}
-           + MaybeValue.get<llvm::APInt>().toString(16, false);
+    return std::string{"0x"} + MaybeValue->toString(16, false);
   }
 };
 
@@ -1840,8 +1839,8 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
                                                         UnderlyingTy,
                                                         Value);
         
-        if (MaybeIntVal.assigned<llvm::APSInt>()) {
-          auto const &IntVal = MaybeIntVal.get<llvm::APSInt>();
+        if (MaybeIntVal) {
+          auto const &IntVal = *MaybeIntVal;
           std::string StringVal;
           
           for (auto const Decl : seec::range(EnumDef->enumerator_begin(),
@@ -1877,11 +1876,10 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     case ::clang::Type::Pointer:
     {
       auto const MaybeInt = seec::trace::getAPInt(State, Value);
-      if (!MaybeInt.assigned<llvm::APInt>())
+      if (!MaybeInt)
         return std::string("<pointer: couldn't get value>");
       
-      auto const Value = MaybeInt.get<llvm::APInt>();
-      return std::string("0x") + Value.toString(16, false);
+      return std::string("0x") + MaybeInt->toString(16, false);
     }
     
 #define SEEC_UNHANDLED_TYPE_CLASS(CLASS)                                       \
@@ -1980,10 +1978,10 @@ class ValueByRuntimeValueForScalar final : public ValueOfScalar {
     auto const CanonTy = ExprTy->getCanonicalTypeUnqualified()->getTypePtr();
     auto const Val = getScalarValueAsAPSInt(FunctionState, CanonTy, LLVMValue);
     
-    if (!Val.assigned<llvm::APSInt>())
+    if (!Val)
       return false;
     
-    return Val.get<llvm::APSInt>() == 0;
+    return *Val == 0;
   }
   
 public:
@@ -2127,15 +2125,15 @@ public:
   ///
   virtual std::string getValueAsStringShort() const override {
     auto const MaybeReal = getAPFloat(m_FunctionState, m_Real);
-    if (!MaybeReal.assigned<llvm::APFloat>())
+    if (!MaybeReal)
       return "<real part not found>";
 
     auto const MaybeImag = getAPFloat(m_FunctionState, m_Imag);
-    if (!MaybeImag.assigned<llvm::APFloat>())
+    if (!MaybeImag)
       return "<imaginary part not found>";
 
-    auto const &Real = MaybeReal.get<llvm::APFloat>();
-    auto const &Imag = MaybeImag.get<llvm::APFloat>();
+    auto const &Real = *MaybeReal;
+    auto const &Imag = *MaybeImag;
 
     llvm::SmallString<32> TheString;
     Real.toString(TheString);
@@ -2240,10 +2238,10 @@ public:
   {
     // Get the raw runtime value of the pointer.
     auto const MaybeValue = seec::trace::getAPInt(FunctionState, LLVMValue);
-    if (!MaybeValue.assigned())
+    if (!MaybeValue)
       return std::shared_ptr<ValueByRuntimeValueForPointer>();
     
-    auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
+    auto const PtrValue = MaybeValue->getLimitedValue();
     
     // Get the MappedAST and ASTContext.
     auto const &MappedAST = SMap.getAST();
@@ -2619,11 +2617,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
       auto const MaybeValue = seec::trace::getAPInt(FunctionState,
                                                     SMap.getValue());
 
-      if (!MaybeValue.assigned()) {
+      if (!MaybeValue) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
+      auto const PtrValue = MaybeValue->getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,
@@ -2702,11 +2700,11 @@ getValue(std::shared_ptr<ValueStore const> Store,
       auto const MaybeValue = seec::trace::getAPInt(FunctionState,
                                                     SMap.getValue());
 
-      if (!MaybeValue.assigned()) {
+      if (!MaybeValue) {
         return std::shared_ptr<Value const>();
       }
       
-      auto const PtrValue = MaybeValue.get<llvm::APInt>().getLimitedValue();
+      auto const PtrValue = MaybeValue->getLimitedValue();
       
       // Get the in-memory value at the given address.
       return getValue(Store,

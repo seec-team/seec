@@ -408,7 +408,8 @@ bool matchImpl(::clang::ASTContext const &AContext,
   auto AHistIt = find(AHistory.begin(), AHistory.end(), AType);
   auto BHistIt = find(BHistory.begin(), BHistory.end(), BType);
 
-  if (distance(AHistory.begin(), AHistIt) != distance(BHistory.begin(), BHistIt))
+  if (distance(AHistory.begin(), AHistIt)
+      != distance(BHistory.begin(), BHistIt))
     return false;
   else if (AHistIt != AHistory.end())
     return true;

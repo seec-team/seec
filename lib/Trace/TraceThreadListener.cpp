@@ -153,7 +153,7 @@ std::uintptr_t TraceThreadListener::getRemainingStack() const
   auto const Used = StackHigh - StackLow;
   auto const Remaining = lim.rlim_cur - Used;
 
-  // Reserve 100KiB for SeeC's stack (and general inaccuracy in the measurement).
+  // Reserve 100KiB for SeeC's stack (and general inaccuracy in measurement).
   constexpr std::uintptr_t SeeCReserved = 100 * 1024;
 
   return (Remaining > SeeCReserved) ? (Remaining - SeeCReserved) : 0;
@@ -655,17 +655,16 @@ void TraceThreadListener::traceOpen()
 RuntimeValue const *
 TraceThreadListener::getCurrentRuntimeValue(llvm::Instruction const *I) const
 {
-  auto const ActiveFunc = ActiveFunction;
-  if (!ActiveFunc)
+  if (!ActiveFunction)
     return nullptr;
 
-  auto &FIndex = ActiveFunc->getFunctionIndex();
+  auto &FIndex = ActiveFunction->getFunctionIndex();
 
   auto MaybeIndex = FIndex.getIndexOfInstruction(I);
-  if (!MaybeIndex.assigned())
+  if (!MaybeIndex)
     return nullptr;
 
-  return ActiveFunc->getCurrentRuntimeValue(MaybeIndex.get<0>());
+  return ActiveFunction->getCurrentRuntimeValue(*MaybeIndex);
 }
 
 seec::Maybe<seec::MemoryArea>
@@ -712,12 +711,12 @@ void
 TraceThreadListener
 ::handleRunError(seec::runtime_errors::RunError const &Error,
                  RunErrorSeverity Severity,
-                 seec::Maybe<uint32_t> PreInstructionIndex)
+                 llvm::Optional<InstrIndexInFn> PreInstructionIndex)
 {
   // PreInstruction event precedes the RuntimeError
-  if (PreInstructionIndex.assigned()) {
+  if (PreInstructionIndex) {
     ++Time;
-    EventsOut.write<EventType::PreInstruction>(PreInstructionIndex.get<0>());
+    EventsOut.write<EventType::PreInstruction>(*PreInstructionIndex);
   }
   
   writeError(EventsOut, Error, true);
@@ -729,8 +728,8 @@ TraceThreadListener
 
     if (!ActiveFunction->isShim()) {
       TheInstruction = ActiveFunction->getActiveInstruction();
-      if (PreInstructionIndex.assigned<uint32_t>()) {
-        auto const Idx = PreInstructionIndex.get<uint32_t>();
+      if (PreInstructionIndex) {
+        auto const Idx = *PreInstructionIndex;
         TheInstruction = ActiveFunction->getFunctionIndex().getInstruction(Idx);
       }
     }
@@ -743,8 +742,8 @@ TraceThreadListener
       assert(FnIt != FunctionStack.rend() && "Shim with no non-shim parent?");
 
       TheInstruction = FnIt->getActiveInstruction();
-      if (PreInstructionIndex.assigned<uint32_t>()) {
-        auto const Idx = PreInstructionIndex.get<uint32_t>();
+      if (PreInstructionIndex) {
+        auto const Idx = *PreInstructionIndex;
         TheInstruction = FnIt->getFunctionIndex().getInstruction(Idx);
       }
     }
@@ -774,6 +773,13 @@ TraceThreadListener
       
       break;
   }
+}
+
+void
+TraceThreadListener::handleRunError(seec::runtime_errors::RunError const &Error,
+                                    RunErrorSeverity Severity)
+{
+  handleRunError(Error, Severity, llvm::Optional<InstrIndexInFn>());
 }
 
 

@@ -8,6 +8,7 @@ set(HEADERS
   ../../include/seec/Util/Fallthrough.hpp
   ../../include/seec/Util/FixedWidthIntTypes.hpp
   ../../include/seec/Util/FunctionTraits.hpp
+  ../../include/seec/Util/IndexTypesForLLVMObjects.hpp
   ../../include/seec/Util/LockedObjectAccessor.hpp
   ../../include/seec/Util/MakeFunction.hpp
   ../../include/seec/Util/Maybe.hpp

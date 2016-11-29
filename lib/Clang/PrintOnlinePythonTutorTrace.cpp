@@ -281,7 +281,8 @@ void OPTPrinter::printValue(Value const &V)
           auto const Str = V.getValueAsStringFull();
 
           int (*IsDigitPtr)(int) = &std::isdigit;
-          auto const IsNumeric = std::all_of(Str.begin(), Str.end(), IsDigitPtr);
+          auto const IsNumeric =
+            std::all_of(Str.begin(), Str.end(), IsDigitPtr);
 
           if (IsNumeric)
             Out << Str;

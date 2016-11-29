@@ -44,7 +44,7 @@ protected:
   TraceThreadListener &Thread;
   
   /// The index of the llvm::Instruction we are checking.
-  uint32_t const Instruction;
+  InstrIndexInFn const Instruction;
 
   /// These will be attached to any produced RunError.
   std::vector<std::unique_ptr<runtime_errors::RunError>> PermanentNotes;
@@ -81,7 +81,7 @@ public:
   /// \param ForInstruction Index of the llvm::Instruction we are checking.
   ///
   RuntimeErrorChecker(TraceThreadListener &ForThread,
-                      uint32_t ForInstruction)
+                      InstrIndexInFn ForInstruction)
   : Thread(ForThread),
     Instruction(ForInstruction),
     PermanentNotes(),
@@ -215,7 +215,7 @@ public:
   /// \param InstructionIndex Index of the llvm::Instruction we are checking.
   /// \param Function the function we are checking.
   CStdLibChecker(TraceThreadListener &InThread,
-                 uint32_t InstructionIndex,
+                 InstrIndexInFn InstructionIndex,
                  seec::runtime_errors::format_selects::CStdFunction Function);
 
   /// \brief Check if memory is known and accessible.
@@ -274,7 +274,7 @@ class CIOChecker : public CStdLibChecker {
 
 public:
   CIOChecker(TraceThreadListener &InThread,
-             uint32_t InstructionIndex,
+             InstrIndexInFn InstructionIndex,
              seec::runtime_errors::format_selects::CStdFunction Function,
              TraceStreams const &StreamsInfo)
   : CStdLibChecker(InThread, InstructionIndex, Function),
@@ -299,7 +299,7 @@ public:
 class DIRChecker {
   TraceThreadListener &Thread;
   
-  uint32_t const InstructionIndex;
+  InstrIndexInFn const InstructionIndex;
   
   seec::runtime_errors::format_selects::CStdFunction const Function;
   
@@ -307,7 +307,7 @@ class DIRChecker {
   
 public:
   DIRChecker(TraceThreadListener &InThread,
-             uint32_t WithInstructionIndex,
+             InstrIndexInFn WithInstructionIndex,
              seec::runtime_errors::format_selects::CStdFunction ForFunction,
              TraceDirs const &WithDirs)
   : Thread(InThread),

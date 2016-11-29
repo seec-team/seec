@@ -14,12 +14,13 @@
 #ifndef SEEC_UTIL_MODULEINDEX_HPP
 #define SEEC_UTIL_MODULEINDEX_HPP
 
-#include "seec/Util/Maybe.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Range.hpp"
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 
 #include <vector>
 
@@ -36,7 +37,7 @@ class FunctionIndex {
   std::vector<llvm::Instruction *> InstructionPtrByIdx;
   
   /// Map Instruction pointers to their indices.
-  llvm::DenseMap<llvm::Instruction const *, uint32_t> InstructionIdxByPtr;
+  llvm::DenseMap<llvm::Instruction const *, InstrIndexInFn> InstructionIdxByPtr;
   
   /// Lookup Argument pointers by their index.
   std::vector<llvm::Argument *> ArgumentPtrByIdx;
@@ -45,7 +46,7 @@ class FunctionIndex {
   std::vector<llvm::DbgDeclareInst const *> DbgDeclareInstList;
   
   /// Map allocas to the llvm.dbg.declare instructions that reference them.
-  llvm::DenseMap<llvm::AllocaInst const *, uint32_t>
+  llvm::DenseMap<llvm::AllocaInst const *, InstrIndexInFn>
     AllocaToDbgDeclareIdx;
 
 public:
@@ -61,7 +62,7 @@ public:
     for (auto &BasicBlock: Function) {
       for (auto &Instruction: BasicBlock) {
         uint32_t Idx = static_cast<uint32_t>(InstructionPtrByIdx.size());
-        InstructionIdxByPtr[&Instruction] = Idx;
+        InstructionIdxByPtr[&Instruction] = InstrIndexInFn{Idx};
         InstructionPtrByIdx.push_back(&Instruction);
         
         if (llvm::isa<llvm::DbgDeclareInst>(&Instruction)) {
@@ -70,7 +71,8 @@ public:
           
           auto const Addr = llvm::dyn_cast<llvm::AllocaInst>(Dbg->getAddress());
           if (Addr)
-            AllocaToDbgDeclareIdx.insert(std::make_pair(Addr, Idx));
+            AllocaToDbgDeclareIdx.insert(std::make_pair(Addr,
+                                                        InstrIndexInFn{Idx}));
         }
       }
     }
@@ -93,9 +95,9 @@ public:
   size_t getInstructionCount() const { return InstructionPtrByIdx.size(); }
 
   /// \brief Get the Instruction at the given Index in the indexed Function.
-  llvm::Instruction *getInstruction(uint32_t Index) const {
+  llvm::Instruction *getInstruction(InstrIndexInFn Index) const {
     if (Index < InstructionPtrByIdx.size())
-      return InstructionPtrByIdx[Index];
+      return InstructionPtrByIdx[Index.raw()];
     return nullptr;
   }
 
@@ -103,12 +105,14 @@ public:
   ///
   /// If the Instruction does not exist in the Function, then the Maybe returned
   /// will be unassigned.
-  Maybe<uint32_t>
+  llvm::Optional<InstrIndexInFn>
   getIndexOfInstruction(llvm::Instruction const *Instruction) const {
+    auto RetVal = llvm::Optional<InstrIndexInFn>();
     auto It = InstructionIdxByPtr.find(Instruction);
-    if (It != InstructionIdxByPtr.end())
-      return Maybe<uint32_t>(It->second);
-    return Maybe<uint32_t>();
+    if (It != InstructionIdxByPtr.end()) {
+      RetVal = It->second;
+    }
+    return RetVal;
   }
   
   /// @}
@@ -119,22 +123,22 @@ public:
   
   /// \brief Get the index of the llvm.dbg.declare associated with an alloca.
   ///
-  seec::Maybe<uint32_t>
+  llvm::Optional<InstrIndexInFn>
   getIndexOfDbgDeclareFor(llvm::AllocaInst const *Alloca) const {
+    auto RetVal = llvm::Optional<InstrIndexInFn>();
     auto const It = AllocaToDbgDeclareIdx.find(Alloca);
-    if (It != AllocaToDbgDeclareIdx.end())
-      return It->second;
-    return seec::Maybe<uint32_t>();
+    if (It != AllocaToDbgDeclareIdx.end()) {
+      RetVal = It->second;
+    }
+    return RetVal;
   }
   
   /// \brief Get the llvm.dbg.declare associated with an alloca.
   ///
   llvm::DbgDeclareInst const *
   getDbgDeclareFor(llvm::AllocaInst const *Alloca) const {
-    auto const MaybeIdx = getIndexOfDbgDeclareFor(Alloca);
-    
-    if (MaybeIdx.assigned<uint32_t>()) {
-      auto const Idx = MaybeIdx.get<uint32_t>();
+    if (auto const MaybeIdx = getIndexOfDbgDeclareFor(Alloca)) {
+      auto const Idx = MaybeIdx->raw();
       return llvm::dyn_cast<llvm::DbgDeclareInst>(InstructionPtrByIdx[Idx]);
     }
     
@@ -234,12 +238,14 @@ public:
   }
 
   /// \brief Get the Index of the given llvm::GlobalVariable.
-  Maybe<uint32_t>
+  llvm::Optional<uint32_t>
   getIndexOfGlobal(llvm::GlobalVariable const *Global) const {
+    auto RetVal = llvm::Optional<uint32_t>();
     auto It = GlobalIdxByPtr.find(Global);
-    if (It != GlobalIdxByPtr.end())
-      return Maybe<uint32_t>(It->second);
-    return Maybe<uint32_t>();
+    if (It != GlobalIdxByPtr.end()) {
+      RetVal = It->second;
+    }
+    return RetVal;
   }
   
   /// \brief Get the number of functions in the indexed Module.
@@ -254,11 +260,14 @@ public:
   }
 
   /// \brief Get the Index of the given llvm::Function.
-  Maybe<uint32_t> getIndexOfFunction(llvm::Function const *Function) const {
+  llvm::Optional<uint32_t>
+  getIndexOfFunction(llvm::Function const *Function) const {
+    auto RetVal = llvm::Optional<uint32_t>();
     auto It = FunctionIdxByPtr.find(Function);
-    if (It != FunctionIdxByPtr.end())
-      return Maybe<uint32_t>(It->second);
-    return Maybe<uint32_t>();
+    if (It != FunctionIdxByPtr.end()) {
+      RetVal = It->second;
+    }
+    return RetVal;
   }
 
   /// \brief Generate the FunctionIndex for all llvm::Functions.
@@ -287,10 +296,10 @@ public:
 
   /// \brief Get the FunctionIndex for the given llvm::Function.
   FunctionIndex *getFunctionIndex(llvm::Function const *Function) const {
-    auto Idx = getIndexOfFunction(Function);
-    if (!Idx.assigned())
-      return nullptr;
-    return getFunctionIndex(Idx.get<0>());
+    if (auto Idx = getIndexOfFunction(Function)) {
+      return getFunctionIndex(*Idx);
+    }
+    return nullptr;
   }
 };
 

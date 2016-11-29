@@ -14,11 +14,10 @@
 #ifndef SEEC_TRACE_GETRECREATEDVALUE_HPP
 #define SEEC_TRACE_GETRECREATEDVALUE_HPP
 
-#include "seec/Util/Maybe.hpp"
-
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/Optional.h"
 
 namespace llvm {
   class Value;
@@ -30,16 +29,16 @@ namespace trace {
 
 class FunctionState;
 
-Maybe<llvm::APInt>
+llvm::Optional<llvm::APInt>
 getAPInt(FunctionState const &State, llvm::Value const *Value);
 
-Maybe<llvm::APSInt>
+llvm::Optional<llvm::APSInt>
 getAPSIntUnsigned(FunctionState const &State, llvm::Value const *Value);
 
-Maybe<llvm::APSInt>
+llvm::Optional<llvm::APSInt>
 getAPSIntSigned(FunctionState const &State, llvm::Value const *Value);
 
-Maybe<llvm::APFloat>
+llvm::Optional<llvm::APFloat>
 getAPFloat(FunctionState const &State, llvm::Value const *Value);
 
 } // namespace trace (in seec)

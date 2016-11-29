@@ -15,8 +15,9 @@
 #define SEEC_TRACE_TRACEFORMAT_HPP
 
 #include "seec/Preprocessor/Apply.h"
-#include "seec/Util/Maybe.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -186,10 +187,10 @@ public:
   std::size_t getEventSize() const;
   
   /// Get the value of this event's ProcessTime, if it has one.
-  seec::Maybe<uint64_t> getProcessTime() const;
+  llvm::Optional<uint64_t> getProcessTime() const;
   
   /// Get the value of this event's Index member, if it has one.
-  seec::Maybe<uint32_t> getIndex() const;
+  llvm::Optional<seec::InstrIndexInFn> getIndex() const;
   
   /// Check if this event has the is_block_start trait.
   bool isBlockStart() const {

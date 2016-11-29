@@ -69,6 +69,12 @@ public:
     return *this;
   }
   
+  /// \brief Print instruction indexes as their raw value.
+  EventPrinterBase &operator<<(seec::InstrIndexInFn const Value) {
+    Out << Value.raw();
+    return *this;
+  }
+  
   /// \brief Wrap llvm::raw_ostream::changeColor().
   EventPrinterBase &changeColor(llvm::raw_ostream::Colors Color,
                                 bool Bold = false,
@@ -189,7 +195,7 @@ template<typename RecordT>
 typename std::enable_if<
   has_get_process_time<RecordT,
                        uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
+  llvm::Optional<uint64_t>>::type
 getProcessTime(RecordT const &Record) {
   return Record.getProcessTime();
 }
@@ -198,12 +204,12 @@ template<typename RecordT>
 typename std::enable_if<
   !has_get_process_time<RecordT,
                         uint64_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint64_t>>::type
+  llvm::Optional<uint64_t>>::type
 getProcessTime(RecordT const &Record) {
-  return seec::Maybe<uint64_t>();
+  return llvm::Optional<uint64_t>();
 }
 
-seec::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
+llvm::Optional<uint64_t> EventRecordBase::getProcessTime() const {
   switch (getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
@@ -213,7 +219,7 @@ seec::Maybe<uint64_t> EventRecordBase::getProcessTime() const {
     default: llvm_unreachable("Reference to unknown event type!");
   }
   
-  return seec::Maybe<uint64_t>();
+  return llvm::Optional<uint64_t>();
 }
 
 
@@ -225,21 +231,23 @@ SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_get_index, getIndex)
 
 template<typename RecordT>
 typename std::enable_if<
-  has_get_index<RecordT, uint32_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint32_t>>::type
+  has_get_index<RecordT,
+                seec::InstrIndexInFn const &(RecordT::*)() const>::value,
+  llvm::Optional<seec::InstrIndexInFn>>::type
 getIndex(RecordT const &Record) {
   return Record.getIndex();
 }
 
 template<typename RecordT>
 typename std::enable_if<
-  !has_get_index<RecordT, uint32_t const &(RecordT::*)() const>::value,
-  seec::Maybe<uint32_t>>::type
+  !has_get_index<RecordT,
+                 seec::InstrIndexInFn const &(RecordT::*)() const>::value,
+  llvm::Optional<seec::InstrIndexInFn>>::type
 getIndex(RecordT const &Record) {
-  return seec::Maybe<uint32_t>();
+  return llvm::Optional<seec::InstrIndexInFn>();
 }
 
-seec::Maybe<uint32_t> EventRecordBase::getIndex() const {
+llvm::Optional<seec::InstrIndexInFn> EventRecordBase::getIndex() const {
   switch (getType()) {
 #define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
     case EventType::NAME:                                                      \
@@ -249,7 +257,7 @@ seec::Maybe<uint32_t> EventRecordBase::getIndex() const {
     default: llvm_unreachable("Reference to unknown event type!");
   }
   
-  return seec::Maybe<uint32_t>();
+  return llvm::Optional<seec::InstrIndexInFn>();
 }
 
 
