@@ -30,7 +30,6 @@ set(SEEC_TRACE_VIEW_HEADERS
   FunctionStateViewer.hpp
   InternationalizedButton.hpp
   LocaleSettings.hpp
-  MallocViewer.hpp
   NotifyContext.hpp
   OpenTrace.hpp
   Preferences.hpp
@@ -74,7 +73,6 @@ set(SEEC_TRACE_VIEW_SRCS
   FunctionStateViewer.cpp
   InternationalizedButton.cpp
   LocaleSettings.cpp
-  MallocViewer.cpp
   NotifyContext.cpp
   OpenTrace.cpp
   Preferences.cpp
