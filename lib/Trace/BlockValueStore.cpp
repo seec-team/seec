@@ -129,10 +129,10 @@ type_safe::uint32_t BasicBlockInfo::getTotalDataSize() const
 InstrIndexInBB BasicBlockInfo::getAdjustedIndex(InstrIndexInFn const InstrIndex)
 const
 {
-  assert(InstrIndex >= m_InstrIndexBase);
+  assert(InstrIndex >= m_InstrIndexBase && "Instruction not in BasicBlock");
   auto const Index = static_cast<uint32_t>(InstrIndex)
                    - static_cast<uint32_t>(m_InstrIndexBase);
-  assert(Index < getInstructionCount());
+  assert(Index < getInstructionCount() && "Instruction not in BasicBlock");
   return InstrIndexInBB{Index};
 }
 
@@ -298,7 +298,7 @@ llvm::Optional<T> getValue(BasicBlockStore const &Store,
   if (Store.hasValue(Info, InstrIndex)) {
     if (auto const Offset = Info.getDataOffset(InstrIndex)) {
       auto const AvailableBytes = Info.getTotalDataSize() - *Offset;
-      assert(AvailableBytes >= sizeof(T));
+      assert(AvailableBytes >= sizeof(T) && "value exceeds store size?");
 
       char * const RawData = Data.get() + *Offset;
       RetVal = *reinterpret_cast<T *>(RawData);
