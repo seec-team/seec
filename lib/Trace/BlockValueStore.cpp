@@ -233,7 +233,10 @@ void BasicBlockStore::setUInt64(BasicBlockInfo const &Info,
                                 uint64_t const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
-    assert(!hasValue(Info, InstrIndex) && "value already exists");
+    if (hasValue(Info, InstrIndex)) {
+      assert(*getUInt64(Info, InstrIndex) == Value && "value mismatch?");
+      return;
+    }
     char * const RawData = m_Data.get() + *Offset;
     *reinterpret_cast<uint64_t *>(RawData) = Value;
     setHasValue(Info, InstrIndex);
@@ -245,7 +248,10 @@ void BasicBlockStore::setPtr(BasicBlockInfo const &Info,
                              stateptr_ty const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
-    assert(!hasValue(Info, InstrIndex) && "value already exists");
+    if (hasValue(Info, InstrIndex)) {
+      assert(*getPtr(Info, InstrIndex) == Value && "value mismatch?");
+      return;
+    }
     char * const RawData = m_Data.get() + *Offset;
     *reinterpret_cast<stateptr_ty *>(RawData) = Value;
     setHasValue(Info, InstrIndex);
@@ -257,7 +263,10 @@ void BasicBlockStore::setFloat(BasicBlockInfo const &Info,
                                float const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
-    assert(!hasValue(Info, InstrIndex) && "value already exists");
+    if (hasValue(Info, InstrIndex)) {
+      assert(*getFloat(Info, InstrIndex) == Value && "value mismatch?");
+      return;
+    }
     char * const RawData = m_Data.get() + *Offset;
     *reinterpret_cast<float *>(RawData) = Value;
     setHasValue(Info, InstrIndex);
@@ -269,7 +278,10 @@ void BasicBlockStore::setDouble(BasicBlockInfo const &Info,
                                 double const Value)
 {
   if (auto const Offset = Info.getDataOffset(InstrIndex)) {
-    assert(!hasValue(Info, InstrIndex) && "value already exists");
+    if (hasValue(Info, InstrIndex)) {
+      assert(*getDouble(Info, InstrIndex) == Value && "value mismatch?");
+      return;
+    }
     char * const RawData = m_Data.get() + *Offset;
     *reinterpret_cast<double *>(RawData) = Value;
     setHasValue(Info, InstrIndex);
