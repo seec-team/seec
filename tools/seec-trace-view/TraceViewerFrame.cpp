@@ -60,8 +60,11 @@
 
 
 char const * const cConfigKeyForPerspective = "/TraceViewerFrame/Perspective";
+char const * const cConfigKeyForViewVersion = "/TraceViewerFrame/ViewVersion";
 char const * const cConfigKeyForWidth       = "/TraceViewerFrame/Width";
 char const * const cConfigKeyForHeight      = "/TraceViewerFrame/Height";
+
+constexpr int32_t getViewVersion() { return 1; }
 
 
 void TraceViewerFrame::createViewButton(wxMenu &Menu,
@@ -259,6 +262,7 @@ TraceViewerFrame::~TraceViewerFrame() {
   // Save the user's perspective.
   auto const Perspective = Manager->SavePerspective();
   Config->Write(cConfigKeyForPerspective, Perspective);
+  Config->Write(cConfigKeyForViewVersion, getViewVersion());
 
   Config->Flush();
 
@@ -331,16 +335,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Movable(false)
                                     .Top());
 
-    // Create the action recording control.
-    RecordingControl = new ActionRecordingControl(this, *Recording);
-    auto const RecordingControlTitle =
-      seec::towxString(ResViewer["RecordingToolbar"]["Title"].asString());
-    Manager->AddPane(RecordingControl,
-                     wxAuiPaneInfo().Name("RecordingControl")
-                                    .Caption(RecordingControlTitle)
-                                    .Top()
-                                    .ToolbarPane());
-
     // Create the thread time movement control.
     ThreadTime = new ThreadTimeControl(this, *Recording, Replay);
     auto const ThreadTimeTitle =
@@ -350,6 +344,24 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Caption(ThreadTimeTitle)
                                     .Top()
                                     .ToolbarPane());
+
+    // Create the action recording control.
+#if defined(SEEC_USER_ACTION_RECORDING)
+    constexpr bool ActionRecording = true;
+#else
+    constexpr bool ActionRecording = false;
+#endif
+
+    if (ActionRecording) {
+      RecordingControl = new ActionRecordingControl(this, *Recording);
+      auto const RecordingControlTitle =
+        seec::towxString(ResViewer["RecordingToolbar"]["Title"].asString());
+      Manager->AddPane(RecordingControl,
+                       wxAuiPaneInfo().Name("RecordingControl")
+                                      .Caption(RecordingControlTitle)
+                                      .Top()
+                                      .ToolbarPane());
+    }
 
     // Create the source code viewer.
     SourceViewer = new SourceViewerPanel(this,
@@ -383,6 +395,22 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Caption(ExplanationCtrlTitle)
                                     .Bottom());
 
+    // Create the stream viewer.
+    StreamState = new StreamStatePanel(this,
+                                       *Notifier,
+                                       *Recording,
+                                       *Replay,
+                                       wxID_ANY,
+                                       wxDefaultPosition,
+                                       wxSize(100, 100));
+    auto const StreamStateTitle =
+      seec::towxString(ResText["StreamState"]["Title"].asString());
+    Manager->AddPane(StreamState,
+                     wxAuiPaneInfo{}.Name("StreamState")
+                                    .Caption(StreamStateTitle)
+                                    .Bottom()
+                                    .MaximizeButton(true));
+
     // Create the evaluation tree.
     EvaluationTree = new StateEvaluationTreePanel(this,
                                                   *Trace,
@@ -397,22 +425,6 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
     Manager->AddPane(EvaluationTree,
                      wxAuiPaneInfo{}.Name("EvaluationTree")
                                     .Caption(EvaluationTreeTitle)
-                                    .Right()
-                                    .MaximizeButton(true));
-
-    // Create the stream viewer.
-    StreamState = new StreamStatePanel(this,
-                                       *Notifier,
-                                       *Recording,
-                                       *Replay,
-                                       wxID_ANY,
-                                       wxDefaultPosition,
-                                       wxSize(100, 100));
-    auto const StreamStateTitle =
-      seec::towxString(ResText["StreamState"]["Title"].asString());
-    Manager->AddPane(StreamState,
-                     wxAuiPaneInfo{}.Name("StreamState")
-                                    .Caption(StreamStateTitle)
                                     .Right()
                                     .MaximizeButton(true));
 
@@ -450,15 +462,23 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
       }});
 
   // Load the user's last-used perspective.
-  wxString Perspective;
-  if (Config->Read(cConfigKeyForPerspective, &Perspective))
-    Manager->LoadPerspective(Perspective, false);
+  int32_t ViewVersion = 0;
+  if (Config->Read(cConfigKeyForViewVersion, &ViewVersion)
+      && ViewVersion == getViewVersion())
+  {
+    wxString Perspective;
+    if (Config->Read(cConfigKeyForPerspective, &Perspective)) {
+      Manager->LoadPerspective(Perspective, false);
+    }
+  }
 
   // Ensure that the unclosable frames are shown.
   if (RecordingControl)
     Manager->GetPane(RecordingControl).Show();
   if (ThreadTime)
     Manager->GetPane(ThreadTime).Show();
+  if (m_ProcessTimeGauge)
+    Manager->GetPane(m_ProcessTimeGauge).Show();
   Manager->GetPane(SourceViewer).Show();
 
   Manager->Update();
