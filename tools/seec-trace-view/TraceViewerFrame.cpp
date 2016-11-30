@@ -47,6 +47,7 @@
 #include "NotifyContext.hpp"
 #include "OpenTrace.hpp"
 #include "ProcessMoveEvent.hpp"
+#include "ProcessTimeGauge.hpp"
 #include "SourceViewer.hpp"
 #include "StateAccessToken.hpp"
 #include "StateEvaluationTree.hpp"
@@ -190,11 +191,34 @@ std::pair<std::unique_ptr<wxMenu>, wxString> TraceViewerFrame::createToolsMenu()
                         seec::towxString(Text["Title"].asString()));
 }
 
+void TraceViewerFrame::showState(size_t const ThreadID,
+                                 type_safe::boolean const Initial)
+{
+  // Call SourceViewer's show() last, as it may produce highlight event
+  // notifications that the other controls react to.
+  auto const &ThreadState = State->getThread(ThreadID);
+  m_ProcessTimeGauge->show(StateAccess, *State, ThreadState, ThreadID);
+  ThreadTime->show(StateAccess, *State, ThreadState, ThreadID);
+  ExplanationCtrl->show(StateAccess, *State, ThreadState);
+  EvaluationTree->show(StateAccess, *State, ThreadState);
+  
+  // For the initial state, don't attempt to show anything in the graph viewer
+  // - the underlying wxWebView most likely isn't ready to run any scripts.
+  if (!Initial) {
+    GraphViewer->show(StateAccess, *State, ThreadState);
+  }
+  
+  SourceViewer->show(StateAccess, *State, ThreadState);
+  StreamState->show(StateAccess, *State, ThreadState);
+}
+
 TraceViewerFrame::TraceViewerFrame()
 : Trace(),
   State(),
   StateAccess(),
   Notifier(),
+  Manager(nullptr),
+  m_ProcessTimeGauge(nullptr),
   SourceViewer(nullptr),
   ExplanationCtrl(nullptr),
   GraphViewer(nullptr),
@@ -295,6 +319,17 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
 
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.
+    
+    // Create the process-time gauge.
+    m_ProcessTimeGauge = new ProcessTimeGauge(this);
+    Manager->AddPane(m_ProcessTimeGauge,
+                     wxAuiPaneInfo().Name("ProcessTimeGauge")
+                                    .CaptionVisible(false)
+                                    .CloseButton(false)
+                                    .DockFixed()
+                                    .Layer(1)
+                                    .Movable(false)
+                                    .Top());
 
     // Create the action recording control.
     RecordingControl = new ActionRecordingControl(this, *Recording);
@@ -397,15 +432,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
                                     .Right()
                                     .MaximizeButton(true));
 
-    // Display the initial state. Call SourceViewer's show() last, as it may
-    // produce highlight event notifications that the other controls react to.
-    auto const &ThreadState = State->getThread(0);
-    ThreadTime->show(StateAccess, *State, ThreadState, 0);
-    ExplanationCtrl->show(StateAccess, *State, ThreadState);
-    EvaluationTree->show(StateAccess, *State, ThreadState);
-    // GraphViewer->show(StateAccess, *State, ThreadState);
-    SourceViewer->show(StateAccess, *State, ThreadState);
-    StreamState->show(StateAccess, *State, ThreadState);
+    showState(/* thread */ 0, /* initial */ true);
   }
   else {
     // TODO: Setup the view for a multi-threaded trace.
@@ -637,16 +664,9 @@ void TraceViewerFrame::OnProcessMove(ProcessMoveEvent &Event) {
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
   
-  // Display the new state. Call SourceViewer's show() last, as it may produce
-  // highlight event notifications that the other controls react to.
+  // Display the new state.
   if (State->getThreadCount() == 1) {
-    auto const &ThreadState = State->getThread(0);
-    ThreadTime->show(StateAccess, *State, ThreadState, 0);
-    ExplanationCtrl->show(StateAccess, *State, ThreadState);
-    EvaluationTree->show(StateAccess, *State, ThreadState);
-    GraphViewer->show(StateAccess, *State, ThreadState);
-    SourceViewer->show(StateAccess, *State, ThreadState);
-    StreamState->show(StateAccess, *State, ThreadState);
+    showState(0);
   }
   else {
     // TODO: Show the state for a multi-threaded trace.
@@ -672,15 +692,8 @@ void TraceViewerFrame::OnThreadMove(ThreadMoveEvent &Event) {
   // Create a new access token for the state.
   StateAccess = std::make_shared<StateAccessToken>();
   
-  // Display the new state. Call SourceViewer's show() last, as it may produce
-  // highlight event notifications that the other controls react to.
-  auto const &ThreadState = State->getThread(Index);
-  ThreadTime->show(StateAccess, *State, ThreadState, Index);
-  ExplanationCtrl->show(StateAccess, *State, ThreadState);
-  EvaluationTree->show(StateAccess, *State, ThreadState);
-  GraphViewer->show(StateAccess, *State, ThreadState);
-  SourceViewer->show(StateAccess, *State, ThreadState);
-  StreamState->show(StateAccess, *State, ThreadState);
+  // Display the new state.
+  showState(Index);
 }
 
 void TraceViewerFrame::editThreadTimeAnnotation()

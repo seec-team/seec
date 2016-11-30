@@ -19,6 +19,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 
+#include <type_safe/boolean.hpp>
+
 #include <unicode/resbund.h>
 
 #include <memory>
@@ -40,6 +42,7 @@ class ContextNotifier;
 class ExplanationViewer;
 class OpenTrace;
 class ProcessMoveEvent;
+class ProcessTimeGauge;
 class SourceViewerPanel;
 class StateAccessToken;
 class StateEvaluationTreePanel;
@@ -69,6 +72,9 @@ class TraceViewerFrame : public wxFrame
 
   /// Manages the layout of the individual panels.
   wxAuiManager *Manager;
+  
+  /// Shows current position in the process-time.
+  ProcessTimeGauge *m_ProcessTimeGauge;
   
   /// Shows source code.
   SourceViewerPanel *SourceViewer;
@@ -129,6 +135,11 @@ class TraceViewerFrame : public wxFrame
   /// \brief Create the tools menu.
   ///
   std::pair<std::unique_ptr<wxMenu>, wxString> createToolsMenu();
+  
+  /// \brief Show the current state.
+  ///
+  void showState(size_t const ThreadID,
+                 type_safe::boolean const Initial = false);
 
 public:
   /// \brief Constructor (without creation).

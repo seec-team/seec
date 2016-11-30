@@ -34,6 +34,7 @@ set(SEEC_TRACE_VIEW_HEADERS
   OpenTrace.hpp
   Preferences.hpp
   ProcessMoveEvent.hpp
+  ProcessTimeGauge.hpp
   RuntimeValueLookup.hpp
   SourceViewer.hpp
   SourceViewerSettings.hpp
@@ -77,6 +78,7 @@ set(SEEC_TRACE_VIEW_SRCS
   OpenTrace.cpp
   Preferences.cpp
   ProcessMoveEvent.cpp
+  ProcessTimeGauge.cpp
   RuntimeValueLookup.cpp
   SourceViewer.cpp
   SourceViewerSettings.cpp
