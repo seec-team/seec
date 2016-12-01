@@ -84,9 +84,9 @@ root:table {
     // Open trace dialog
     //
 
-    OpenTrace_Title:string {"Choose a trace file to open"}
+    OpenTrace_Title:string {"Choose a file to open"}
 
-    OpenTrace_FileType:string {"SeeC Process Trace (*.seec;*.spt)|*.seec;*.spt"}
+    OpenTrace_FileType:string {"SeeC Trace or Source Code (*.seec;*.c;*.h;*.spt)|*.seec;*.c;*.h;*.spt"}
 
     OpenTrace_Error_FailIsDirectory:string {"Couldn't check if path was a directory."}
 
@@ -97,6 +97,16 @@ root:table {
     OpenTrace_Error_AnnotationBad:string {"Annotation file is invalid."}
 
 
+    //
+    // Save source dialog
+    //
+    
+    SaveSource:table {
+      Title:string {"Save source code as..."}
+      FileType:string {"C source code (*.c;*.h)|*.c;*.h"}
+    }
+    
+    
     //
     // Save trace dialog
     //
@@ -782,5 +792,9 @@ root:table {
         OutlineOpacityPickerToolTip:string {"Outline opacity"}
       }
     }
+  }
+  
+  SourceEditor:table {
+    SaveClosingModifiedFile {"The file that you are closing has been modified. Would you like to save it now?"}
   }
 }

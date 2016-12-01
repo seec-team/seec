@@ -119,6 +119,10 @@ public:
   /// \name Handle application-wide events.
   /// @{
 
+  /// \brief Open a new source code editor.
+  ///
+  void OnCommandNew(wxCommandEvent &Event);
+  
   /// \brief Allow the user to open a file.
   /// At this time, the only files supported are pre-recorded SeeC traces,
   /// which are selected by opening the SeeC Process Trace (.spt) file.
@@ -150,9 +154,7 @@ public:
   void HandleFatalError(wxString Description);
   
   /// \brief Notify that a top-level window is being added.
-  void addTopLevelWindow(wxWindow *Window) {
-    TopLevelWindows.insert(Window);
-  }
+  void addTopLevelWindow(wxWindow *Window);
 
   /// \brief Notify that the welcome window is being destroyed.
   void removeTopLevelWindow(WelcomeFrame *Window) {

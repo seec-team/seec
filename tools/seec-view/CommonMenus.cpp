@@ -48,11 +48,6 @@ void BindMenuItem(wxMenuItem *Item,
   Menu->Bind(wxEVT_MENU, Handler, Item->GetId());
 }
 
-template<typename ContainerT, typename T>
-bool contains(ContainerT const &Container, T const &Item) {
-  return std::find(begin(Container), end(Container), Item) != end(Container);
-}
-
 namespace {
 
 char const *getKeyForMovementResult(seec::cm::MovementResult const Result)
@@ -105,11 +100,13 @@ createFileMenu(std::vector<wxStandardID> const &AdditionalIDs)
   
   auto Menu = llvm::make_unique<wxMenu>();
   
+  Menu->Append(wxID_NEW);
   Menu->Append(wxID_OPEN);
   Menu->Append(wxID_CLOSE);
 
-  if (contains(AdditionalIDs, wxID_SAVEAS))
-    Menu->Append(wxID_SAVEAS);
+  for (auto const AdditionalID : AdditionalIDs) {
+    Menu->Append(AdditionalID);
+  }
 
   Menu->AppendSeparator();
   Menu->Append(wxID_EXIT);
@@ -142,8 +139,8 @@ createEditMenu(TraceViewerFrame &TheFrame)
     auto const Res = seec::Resource("TraceViewer")["GUIText"]["MenuEdit"];
 
     BindMenuItem(
-      TheMenu.first->Append(wxID_ANY,
-                            seec::towxString(Res["ThreadTimeAnnotation"])),
+      TheMenu.first->Prepend(wxID_ANY,
+                             seec::towxString(Res["ThreadTimeAnnotation"])),
       [&TheFrame] (wxEvent &) -> void {
         TheFrame.editThreadTimeAnnotation();
       });

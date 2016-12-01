@@ -44,6 +44,7 @@
 #include <memory>
 #include <set>
 
+#include "SourceEditor/SourceEditor.hpp"
 #include "ActionRecord.hpp"
 #include "ActionRecordSettings.hpp"
 #include "ColourSchemeSettings.hpp"
@@ -283,6 +284,7 @@ void setWebBrowserEmulationMode()
 
 // Define the event table for TraceViewerApp.
 BEGIN_EVENT_TABLE(TraceViewerApp, wxApp)
+  EVT_MENU(wxID_NEW, TraceViewerApp::OnCommandNew)
   EVT_MENU(wxID_OPEN, TraceViewerApp::OnCommandOpen)
   EVT_MENU(wxID_EXIT, TraceViewerApp::OnCommandExit)
   EVT_MENU(wxID_PREFERENCES, TraceViewerApp::OnCommandPreferences)
@@ -333,6 +335,13 @@ void TraceViewerApp::deferToExistingInstance()
 }
 
 void TraceViewerApp::OpenFile(wxString const &FileName) {
+  if (!FileName.EndsWith(".seec") && !FileName.EndsWith(".spt")) {
+    auto const SourceEditor = new SourceEditorFrame();
+    SourceEditor->Open(FileName);
+    SourceEditor->Show();
+    return;
+  }
+
   // Attempt to read the trace, which should either return the newly read trace
   // (in Maybe slot 0), or an error message (in Maybe slot 1).
   auto NewTrace = OpenTrace::FromFilePath(FileName);
@@ -346,19 +355,8 @@ void TraceViewerApp::OpenFile(wxString const &FileName) {
                            wxID_ANY,
                            wxFileNameFromPath(FileName));
     
-    TopLevelWindows.insert(TraceViewer);
+    addTopLevelWindow(TraceViewer);
     TraceViewer->Show(true);
-
-    // Hide the Welcome frame (on Mac OS X), or destroy it (all others).
-#ifdef __WXMAC__
-    if (Welcome)
-      Welcome->Show(false);
-#else
-    if (Welcome) {
-      Welcome->Close(true);
-      Welcome = nullptr;
-    }
-#endif
   }
   else if (NewTrace.assigned<seec::Error>()) {
     UErrorCode Status = U_ZERO_ERROR;
@@ -493,6 +491,7 @@ bool TraceViewerApp::OnInit() {
 
   // Setup common menus.
   auto menuFile = new wxMenu();
+  menuFile->Append(wxID_NEW);
   menuFile->Append(wxID_OPEN);
   menuFile->AppendSeparator();
   menuFile->Append(wxID_EXIT);
@@ -584,6 +583,11 @@ void TraceViewerApp::MacReopenApp() {
     if (Welcome)
       Welcome->Show(true);
   }
+}
+
+void TraceViewerApp::OnCommandNew(wxCommandEvent &WXUNUSED(Event)) {
+  auto const SourceEditor = new SourceEditorFrame();
+  SourceEditor->Show();
 }
 
 void TraceViewerApp::OnCommandOpen(wxCommandEvent &WXUNUSED(Event)) {
@@ -682,6 +686,25 @@ void TraceViewerApp::HandleFatalError(wxString Description) {
   ErrorDialog->ShowModal();
 
   std::exit(EXIT_FAILURE);
+}
+
+void TraceViewerApp::addTopLevelWindow(wxWindow *Window)
+{
+  if (TopLevelWindows.empty()) {
+    // Hide the Welcome frame (on Mac OS X), or destroy it (all others).
+#ifdef __WXMAC__
+    if (Welcome) {
+      Welcome->Show(false);
+    }
+#else
+    if (Welcome) {
+      Welcome->Close(true);
+      Welcome = nullptr;
+    }
+#endif
+  }
+
+  TopLevelWindows.insert(Window);
 }
 
 ActionRecordingSubmitter *TraceViewerApp::getActionRecordingSubmitter() const
