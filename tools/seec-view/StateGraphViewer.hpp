@@ -15,6 +15,7 @@
 #define SEEC_TRACE_VIEW_STATEGRAPHVIEWER_HPP
 
 #include "seec/Clang/MappedStateCommon.hpp"
+#include "seec/Util/Observer.hpp"
 
 #include <wx/wx.h>
 #include <wx/panel.h>
@@ -251,6 +252,9 @@ class StateGraphViewerPanel final : public wxPanel
 {
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Registration to ColourSchemeSettings changes.
+  seec::observer::registration m_ColourSchemeSettingsRegistration;
   
   /// Used to record user interactions.
   ActionRecord *Recording;

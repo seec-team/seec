@@ -16,6 +16,7 @@
 
 #include "seec/Clang/MappedValue.hpp"
 #include "seec/ClangEPV/ClangEPV.hpp"
+#include "seec/Util/Observer.hpp"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
@@ -59,6 +60,9 @@ class ExplanationViewer final : public wxStyledTextCtrl
 
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Registration to ColourSchemeSettings changes.
+  seec::observer::registration m_ColourSchemeSettingsRegistration;
   
   /// Used to record user interactions.
   ActionRecord *Recording;
@@ -138,6 +142,7 @@ public:
   : wxStyledTextCtrl(),
     Trace(nullptr),
     Notifier(nullptr),
+    m_ColourSchemeSettingsRegistration(),
     Recording(nullptr),
     Annotation(nullptr),
     AnnotationLength(0),

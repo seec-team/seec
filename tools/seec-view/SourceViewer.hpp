@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 #define SEEC_TRACE_VIEW_SOURCEVIEWER_HPP
 
+#include "seec/Util/Observer.hpp"
+
 #include "llvm/ADT/StringRef.h"
 
 #include <wx/wx.h>
@@ -66,6 +68,9 @@ class SourceViewerPanel : public wxPanel
   
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Registration to ColourSchemeSettings changes.
+  seec::observer::registration m_ColourSchemeSettingsRegistration;
 
   /// Used to record user interactions.
   ActionRecord *Recording;

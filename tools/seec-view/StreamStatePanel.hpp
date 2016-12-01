@@ -15,6 +15,7 @@
 #define SEEC_TRACE_VIEW_STREAMSTATEPANEL_HPP
 
 #include "seec/Clang/MappedStateCommon.hpp"
+#include "seec/Util/Observer.hpp"
 
 #include <wx/wx.h>
 
@@ -48,6 +49,9 @@ class StreamStatePanel final : public wxPanel
 
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Registration to ColourSchemeSettings changes.
+  seec::observer::registration m_ColourSchemeSettingsRegistration;
 
   /// Used to record user interactions.
   ActionRecord *Recording;

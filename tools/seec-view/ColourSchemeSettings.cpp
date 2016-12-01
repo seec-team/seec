@@ -802,24 +802,15 @@ ColourScheme::ColourScheme()
 
 ColourSchemeSettings::ColourSchemeSettings()
 : m_Scheme(std::make_shared<ColourScheme>()),
-  m_Listeners()
+  m_Subject()
 {}
-
-void
-ColourSchemeSettings
-::addListener(std::function<void (ColourSchemeSettings const &)> Listener)
-{
-  m_Listeners.emplace_back(std::move(Listener));
-}
 
 void
 ColourSchemeSettings
 ::setColourScheme(std::shared_ptr<ColourScheme> NewScheme)
 {
   m_Scheme = std::move(NewScheme);
-
-  for (auto &Listener : m_Listeners)
-    Listener(*this);
+  m_Subject.notifyObservers(*this);
 }
 
 void ColourSchemeSettings::loadUserScheme()

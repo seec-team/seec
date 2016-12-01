@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_STATEEVALUATIONTREE_HPP
 #define SEEC_TRACE_VIEW_STATEEVALUATIONTREE_HPP
 
+#include "seec/Util/Observer.hpp"
+
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include <wx/timer.h>
@@ -168,6 +170,9 @@ class StateEvaluationTreePanel final : public wxScrolled<wxPanel>
 
   /// The central handler for context notifications.
   ContextNotifier *Notifier;
+  
+  /// Registration to ColourSchemeSettings changes.
+  seec::observer::registration m_ColourSchemeSettingsRegistration;
   
   /// Used to record user interactions.
   ActionRecord *Recording;

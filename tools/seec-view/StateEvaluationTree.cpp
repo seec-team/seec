@@ -502,6 +502,7 @@ ReplayNodeHover(decltype(Nodes)::difference_type const NodeIndex,
 StateEvaluationTreePanel::StateEvaluationTreePanel()
 : Settings(),
   Notifier(nullptr),
+  m_ColourSchemeSettingsRegistration(),
   Recording(nullptr),
   CurrentAccess(),
   CurrentProcess(nullptr),
@@ -560,12 +561,13 @@ bool StateEvaluationTreePanel::Create(wxWindow *Parent,
   setupColourScheme(*SchemeSettings.getColourScheme());
 
   // Handle ColourScheme updates.
-  SchemeSettings.addListener(
-    [this] (ColourSchemeSettings const &Settings) {
-      setupColourScheme(*Settings.getColourScheme());
-      recalculateNodePositions();
-      redraw();
-    });
+  m_ColourSchemeSettingsRegistration =
+    SchemeSettings.addListener(
+      [this] (ColourSchemeSettings const &Settings) {
+        setupColourScheme(*Settings.getColourScheme());
+        recalculateNodePositions();
+        redraw();
+      });
 
   HoverTimer.Bind(wxEVT_TIMER, &StateEvaluationTreePanel::OnHover, this);
   

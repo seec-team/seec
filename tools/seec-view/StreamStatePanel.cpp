@@ -380,6 +380,7 @@ StreamStatePanel::StreamStatePanel()
 : Book(nullptr),
   Pages(),
   Notifier(nullptr),
+  m_ColourSchemeSettingsRegistration(),
   Recording(nullptr),
   CurrentAccess()
 {}
@@ -419,12 +420,13 @@ bool StreamStatePanel::Create(wxWindow *Parent,
   SetSizerAndFit(Sizer);
 
   // Handle ColourSchemeSettings changes.
-  wxGetApp().getColourSchemeSettings().addListener(
-    [this] (ColourSchemeSettings const &Settings) {
-      for (auto &Entry : Pages) {
-        Entry.second->updateColourScheme(*Settings.getColourScheme());
-      }
-    });
+  m_ColourSchemeSettingsRegistration =
+    wxGetApp().getColourSchemeSettings().addListener(
+      [this] (ColourSchemeSettings const &Settings) {
+        for (auto &Entry : Pages) {
+          Entry.second->updateColourScheme(*Settings.getColourScheme());
+        }
+      });
 
   return true;
 }

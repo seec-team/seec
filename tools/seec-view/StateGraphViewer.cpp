@@ -491,6 +491,7 @@ void StateGraphViewerPanel::replayMouseOverValue(seec::cm::stateptr_ty Address,
 StateGraphViewerPanel::StateGraphViewerPanel()
 : wxPanel(),
   Notifier(nullptr),
+  m_ColourSchemeSettingsRegistration(),
   Recording(nullptr),
   PathToDot(),
   PathToGraphvizLibraries(),
@@ -663,10 +664,11 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
       this->handleContextEvent(Ev); });
 
     // Handle future changes to the ColourScheme.
-    wxGetApp().getColourSchemeSettings().addListener(
-      [this] (ColourSchemeSettings const &Settings) {
-        setupColourScheme(*Settings.getColourScheme());
-      });
+    m_ColourSchemeSettingsRegistration =
+      wxGetApp().getColourSchemeSettings().addListener(
+        [this] (ColourSchemeSettings const &Settings) {
+          setupColourScheme(*Settings.getColourScheme());
+        });
 
     // Handle UAR replay.
     WithReplay.RegisterHandler("StateGraphViewer.MouseOverValue",

@@ -16,6 +16,7 @@
 
 #include "seec/Util/Error.hpp"
 #include "seec/Util/Maybe.hpp"
+#include "seec/Util/Observer.hpp"
 
 #include "Preferences.hpp"
 
@@ -227,15 +228,19 @@ public:
 ///
 class ColourSchemeSettings final
 {
+  using ListenerFnTy = std::function<void (ColourSchemeSettings const &)>;
+
 private:
   std::shared_ptr<ColourScheme> m_Scheme;
 
-  std::vector<std::function<void (ColourSchemeSettings const &)>> m_Listeners;
+  seec::observer::subject<ColourSchemeSettings const &> m_Subject;
 
 public:
   ColourSchemeSettings();
 
-  void addListener(std::function<void (ColourSchemeSettings const &)>);
+  seec::observer::registration addListener(ListenerFnTy ListenerFn) {
+    return m_Subject.registerObserver(std::move(ListenerFn));
+  }
 
   std::shared_ptr<ColourScheme> const &getColourScheme() const {
     return m_Scheme;

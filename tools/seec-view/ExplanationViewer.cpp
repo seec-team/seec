@@ -226,10 +226,11 @@ bool ExplanationViewer::Create(wxWindow *Parent,
   updateColourScheme(*(wxGetApp().getColourSchemeSettings().getColourScheme()));
 
   // Handle ColourSchemeSettings changes.
-  wxGetApp().getColourSchemeSettings().addListener(
-    [this] (ColourSchemeSettings const &Settings) {
-      updateColourScheme(*Settings.getColourScheme());
-    });
+  m_ColourSchemeSettingsRegistration =
+    wxGetApp().getColourSchemeSettings().addListener(
+      [this] (ColourSchemeSettings const &Settings) {
+        updateColourScheme(*Settings.getColourScheme());
+      });
   
   SetEditable(false);
   SetWrapMode(wxSTC_WRAP_WORD);

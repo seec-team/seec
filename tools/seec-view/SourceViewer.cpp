@@ -1380,6 +1380,7 @@ SourceViewerPanel::SourceViewerPanel()
   Notebook(nullptr),
   Trace(nullptr),
   Notifier(nullptr),
+  m_ColourSchemeSettingsRegistration(),
   Recording(nullptr),
   Pages(),
   CurrentAccess()
@@ -1440,11 +1441,12 @@ bool SourceViewerPanel::Create(wxWindow *Parent,
   SetSizerAndFit(TopSizer);
 
   // Handle ColourSchemeSettings changes.
-  wxGetApp().getColourSchemeSettings().addListener(
-    [this] (ColourSchemeSettings const &Settings) {
-      OnColourSchemeSettingsChanged(Settings);
-    }
-  );
+  m_ColourSchemeSettingsRegistration =
+    wxGetApp().getColourSchemeSettings().addListener(
+      [this] (ColourSchemeSettings const &Settings) {
+        OnColourSchemeSettingsChanged(Settings);
+      }
+    );
   
   // Setup notebook event recording.
   Notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,

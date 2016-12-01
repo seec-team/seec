@@ -12,6 +12,7 @@ set(HEADERS
   ../../include/seec/Util/MakeFunction.hpp
   ../../include/seec/Util/Maybe.hpp
   ../../include/seec/Util/ModuleIndex.hpp
+  ../../include/seec/Util/Observer.hpp
   ../../include/seec/Util/Printing.hpp
   ../../include/seec/Util/Range.hpp
   ../../include/seec/Util/Resources.hpp
