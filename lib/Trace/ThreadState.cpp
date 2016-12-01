@@ -17,7 +17,6 @@
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceSearch.hpp"
-#include "seec/Util/Dispatch.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Reverse.hpp"
 

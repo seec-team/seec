@@ -18,7 +18,6 @@
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/Maybe.hpp"
-#include "seec/Util/Dispatch.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ErrorHandling.h"

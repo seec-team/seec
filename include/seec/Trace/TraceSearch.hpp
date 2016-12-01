@@ -16,6 +16,7 @@
 
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
+#include "seec/Util/FunctionTraits.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
