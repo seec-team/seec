@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/Resources.hpp"
+#include "seec/Util/MakeFunction.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "../ColourSchemeSettings.hpp"
@@ -107,7 +108,7 @@ SourceEditorFrame::SourceEditorFrame()
   
   // Setup the event handling.
   Bind(wxEVT_COMMAND_MENU_SELECTED,
-       [this] (wxCommandEvent &) { this->Close(); },
+       seec::make_function([this] (wxCommandEvent &Ev) { this->Close(); }),
        wxID_CLOSE);
   Bind(wxEVT_COMMAND_MENU_SELECTED,
        &SourceEditorFrame::OnSave, this, wxID_SAVE);
@@ -117,7 +118,8 @@ SourceEditorFrame::SourceEditorFrame()
   
 #define SEEC_FORWARD_COMMAND_TO_SCINTILLA(CMDID, METHOD)                       \
   Bind(wxEVT_COMMAND_MENU_SELECTED,                                            \
-       [=] (wxCommandEvent &) { m_Scintilla->METHOD(); }, CMDID)
+       seec::make_function([=] (wxCommandEvent &) { m_Scintilla->METHOD(); }), \
+       CMDID)
 
   SEEC_FORWARD_COMMAND_TO_SCINTILLA(wxID_UNDO, Undo);
   SEEC_FORWARD_COMMAND_TO_SCINTILLA(wxID_REDO, Redo);
