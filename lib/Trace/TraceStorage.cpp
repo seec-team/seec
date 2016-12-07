@@ -353,16 +353,11 @@ Maybe<std::string, Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
   wxString const ArchivePath =
     getArchivePath(TraceLocation, TraceDirectoryName, TraceArchiveName, Path);
   
-  wxFileOutputStream RawOutput{ArchivePath};
+  wxTempFileOutputStream RawOutput{ArchivePath};
   if (!RawOutput.IsOk())
     return Error{
       LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
                                std::make_pair("path", ArchivePath.c_str()))};
-  
-  // If we exit early because the archive creation failed, delete the file.
-  auto DeleteFailedArchive = seec::scopeExit([&]()->void{
-    wxRemoveFile(ArchivePath);
-  });
   
   wxZipOutputStream Output{RawOutput};
   if (!Output.IsOk())
@@ -399,8 +394,8 @@ Maybe<std::string, Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
       LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
                                std::make_pair("path", ArchivePath.c_str()))};
   
-  // The archive creation was successful, so don't delete it when we exit.
-  DeleteFailedArchive.disable();
+  // Creating the archive was successful, so commit it.
+  RawOutput.Commit();
   
   // Attempt to delete the uncompressed trace files and directory.
   if (!deleteAll())
