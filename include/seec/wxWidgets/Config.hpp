@@ -14,6 +14,8 @@
 #ifndef SEEC_WXWIDGETS_CONFIG_HPP
 #define SEEC_WXWIDGETS_CONFIG_HPP
 
+#include "llvm/ADT/Optional.h"
+
 #include <string>
 
 namespace seec {
@@ -29,6 +31,8 @@ void setupDummyAppConsole();
 bool setupCommonConfig();
 
 std::string getUserLocalDataPath();
+
+llvm::Optional<std::string> getPathToSeeCCC();
 
 } // namespace seec
 

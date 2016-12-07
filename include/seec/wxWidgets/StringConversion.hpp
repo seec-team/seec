@@ -26,8 +26,14 @@ namespace seec {
 class Error;
 class Resource;
 
-/// \brief Convert a UnicodeString into a wxString.
+/// \brief Convert a \c UnicodeString into a \c std::string.
+std::string toUTF8String(UnicodeString const &icu);
+
+/// \brief Convert a \c UnicodeString into a wxString.
 wxString towxString(UnicodeString const &icu);
+
+/// \brief Convert a \c seec::Resource into a \c std::string.
+std::string toUTF8String(Resource const &R);
 
 /// \brief Convert a \c seec::Resource into a \c wxString.
 wxString towxString(Resource const &R);

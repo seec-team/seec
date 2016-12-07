@@ -795,6 +795,22 @@ root:table {
   }
   
   SourceEditor:table {
-    SaveClosingModifiedFile {"The file that you are closing has been modified. Would you like to save it now?"}
+    SaveClosingModifiedFile:string {"The file that you are closing has been modified. Would you like to save it now?"}
+    SaveBeforeCompile:string {"This file must be saved before it can be compiled. Would you like to save it now?"}
+    CompileBeforeRun:string {"This file must be compiled before it can be run."}
+    UnsavedFileName:string {"unsaved file"}
+    PressAnyKeyToClose:string {"Press any key to close this window..."}
+    CompileOutputCaption:string {"Compiler output"}
+    
+    ErrorCCNotFound:string {"seec-cc not found"}
+    ErrorAlreadyCompiling:string {"already compiling"}
+    ErrorMustSave:string {"file must be saved before compiling"}
+    ErrorExecuteFailed:string {"failed to execute seec-cc"}
+    
+    ProjectMenu:table {
+      Title:string {"Project"}
+      Compile:string {"Compile"}
+      Run:string {"Run"}
+    }
   }
 }

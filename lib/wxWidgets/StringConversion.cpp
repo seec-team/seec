@@ -22,10 +22,20 @@
 
 namespace seec {
 
-wxString towxString(UnicodeString const &icu) {
+std::string toUTF8String(UnicodeString const &icu) {
   std::string Buffer;
   icu.toUTF8String(Buffer);
+  return Buffer;
+}
+
+wxString towxString(UnicodeString const &icu) {
+  auto Buffer = toUTF8String(icu);
   return wxString(Buffer.c_str(), wxConvUTF8);
+}
+
+std::string toUTF8String(Resource const &R)
+{
+  return toUTF8String(R.asString());
 }
 
 wxString towxString(Resource const &R)

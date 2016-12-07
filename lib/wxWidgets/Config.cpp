@@ -21,6 +21,8 @@
 #include <wx/log.h>
 #include <wx/stdpaths.h>
 
+#include "llvm/Support/Program.h"
+
 #include <cstdlib>
 #include <memory>
 
@@ -116,6 +118,28 @@ std::string getUserLocalDataPath()
 #endif
 
   return ConfigPath.GetFullPath().ToStdString();
+}
+
+llvm::Optional<std::string> getPathToSeeCCC()
+{
+  llvm::Optional<std::string> RetVal;
+  
+  wxFileName Path = wxStandardPaths::Get().GetExecutablePath();
+  Path.SetName("seec-cc");
+  // Extension *should* match whatever the current executable's extension is.
+  
+  if (Path.FileExists()) {
+    RetVal = Path.GetFullPath().ToStdString();
+  }
+  else {
+    // Try searching for seec-cc in the PATH.
+    auto const Name = Path.GetFullName().ToStdString();
+    if (auto SearchEnvPath = llvm::sys::findProgramByName(Name)) {
+      RetVal = std::move(*SearchEnvPath);
+    }
+  }
+  
+  return RetVal;
 }
 
 }
