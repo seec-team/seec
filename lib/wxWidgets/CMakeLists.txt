@@ -49,10 +49,12 @@ INSTALL(TARGETS SeeCwxWidgets
 
 set(GUI_HEADERS
   ../../include/seec/wxWidgets/AugmentationCollectionDataViewModel.hpp
+  ../../include/seec/wxWidgets/AuiManagerHandle.hpp
   )
 
 set(GUI_SOURCES
   AugmentationCollectionDataViewModel.cpp
+  AuiManagerHandle.cpp
   )
 
 add_library(SeeCwxWidgetsGUI ${GUI_HEADERS} ${GUI_SOURCES})

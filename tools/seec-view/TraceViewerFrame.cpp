@@ -220,7 +220,7 @@ TraceViewerFrame::TraceViewerFrame()
   State(),
   StateAccess(),
   Notifier(),
-  Manager(nullptr),
+  Manager(),
   m_ProcessTimeGauge(nullptr),
   SourceViewer(nullptr),
   ExplanationCtrl(nullptr),
@@ -265,9 +265,6 @@ TraceViewerFrame::~TraceViewerFrame() {
   Config->Write(cConfigKeyForViewVersion, getViewVersion());
 
   Config->Flush();
-
-  // Shutdown the AUI manager.
-  Manager->UnInit();
 
   // Notify the TraceViewerApp that we have been destroyed.
   auto &App = wxGetApp();
@@ -319,7 +316,7 @@ bool TraceViewerFrame::Create(wxWindow *Parent,
   assert(U_SUCCESS(ResText.status()));
   
   // Setup the layout manager.
-  Manager = new wxAuiManager(this);
+  Manager = seec::wxAuiManagerHandle(new wxAuiManager(this));
 
   if (State->getThreadCount() == 1) {
     // Setup the view for a single-threaded trace.

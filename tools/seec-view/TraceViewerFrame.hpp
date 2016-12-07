@@ -14,6 +14,8 @@
 #ifndef SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 #define SEEC_TRACE_VIEW_TRACEVIEWERFRAME_HPP
 
+#include "seec/wxWidgets/AuiManagerHandle.hpp"
+
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
 
@@ -71,7 +73,7 @@ class TraceViewerFrame : public wxFrame
   std::unique_ptr<ContextNotifier> Notifier;
 
   /// Manages the layout of the individual panels.
-  wxAuiManager *Manager;
+  seec::wxAuiManagerHandle Manager;
   
   /// Shows current position in the process-time.
   ProcessTimeGauge *m_ProcessTimeGauge;
