@@ -24,6 +24,7 @@ set(HEADERS
   ../../include/seec/wxWidgets/ConfigTracing.hpp
   ../../include/seec/wxWidgets/ICUBundleFSHandler.hpp
   ../../include/seec/wxWidgets/ImageResources.hpp
+  ../../include/seec/wxWidgets/QueueEvent.hpp
   ../../include/seec/wxWidgets/StringConversion.hpp
   ../../include/seec/wxWidgets/XmlNodeIterator.hpp
   )

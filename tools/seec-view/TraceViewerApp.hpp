@@ -32,6 +32,7 @@ namespace seec {
 
 class ActionRecordingSubmitter;
 class ColourSchemeSettings;
+class QueuedFileOpenEvent;
 class SingleInstanceServer;
 class WelcomeFrame;
 class wxSingleInstanceChecker;
@@ -134,6 +135,10 @@ public:
   /// \brief Open the preferences menu.
   ///
   void OnCommandPreferences(wxCommandEvent &Event);
+  
+  /// \brief Open a file specified on the command line.
+  ///
+  void OnQueuedFileOpen(QueuedFileOpenEvent &Event);
 
   /// @}
 

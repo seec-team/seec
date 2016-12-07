@@ -16,6 +16,7 @@
 #include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/Config.hpp"
+#include "seec/wxWidgets/QueueEvent.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_os_ostream.h"
@@ -278,6 +279,40 @@ void setWebBrowserEmulationMode()
 #endif
 
 
+/// \brief This event is used to queue up file opening for files that are
+///        specified on the command line (for non-OS X platforms).
+///
+class QueuedFileOpenEvent : public wxEvent
+{
+  std::string m_FileName;
+
+public:
+  // Make this class known to wxWidgets' class hierarchy.
+  wxDECLARE_CLASS(QueuedFileOpenEvent);
+  
+  /// \brief Constructor.
+  ///
+  QueuedFileOpenEvent(wxEventType EventType, int WinID, std::string FileName)
+  : wxEvent(WinID, EventType),
+    m_FileName(std::move(FileName))
+  {
+    this->m_propagationLevel = wxEVENT_PROPAGATE_MAX;
+  }
+
+  /// \brief wxEvent::Clone().
+  ///
+  virtual wxEvent *Clone() const {
+    return new QueuedFileOpenEvent(*this);
+  }
+  
+  std::string const &getFileName() const { return m_FileName; }
+};
+
+wxIMPLEMENT_CLASS(QueuedFileOpenEvent, wxEvent)
+
+wxDEFINE_EVENT(SEEC_EV_QUEUED_FILE_OPEN, QueuedFileOpenEvent);
+
+
 //------------------------------------------------------------------------------
 // TraceViewerApp
 //------------------------------------------------------------------------------
@@ -447,6 +482,9 @@ bool TraceViewerApp::OnInit() {
     HandleFatalError("Failed to setup configuration.");
   }
   
+  // Wire up event handling.
+  Bind(SEEC_EV_QUEUED_FILE_OPEN, &TraceViewerApp::OnQueuedFileOpen, this);
+  
   // Set ICU's default Locale according to the user's preferences.
   UErrorCode Status = U_ZERO_ERROR;
   icu::Locale::setDefault(getLocale(), Status);
@@ -522,7 +560,8 @@ bool TraceViewerApp::OnInit() {
   // open any files that the user passed on the command line.
 #ifndef __WXMAC__
   for (auto const &File : CLFiles) {
-    OpenFile(File);
+    queueEvent<QueuedFileOpenEvent>(*this, SEEC_EV_QUEUED_FILE_OPEN,
+                                    wxID_ANY, File);
   }
 #endif
 
@@ -561,13 +600,10 @@ bool TraceViewerApp::OnCmdLineParsed(wxCmdLineParser &Parser) {
 }
 
 void TraceViewerApp::MacNewFile() {
-  // TODO
+  // TODO: open a new source editor.
 }
 
 void TraceViewerApp::MacOpenFiles(wxArrayString const &FileNames) {
-  // TODO: In the future we could check if the files are source files, in which
-  // case we might compile them for the user (and possibly automatically
-  // generate a trace file).
   for (wxString const &FileName : FileNames) {
     OpenFile(FileName);
   }
@@ -661,6 +697,11 @@ void TraceViewerApp::OnCommandExit(wxCommandEvent &WXUNUSED(Event)) {
 void TraceViewerApp::OnCommandPreferences(wxCommandEvent &Event)
 {
   showPreferenceDialog();
+}
+
+void TraceViewerApp::OnQueuedFileOpen(QueuedFileOpenEvent &Event)
+{
+  OpenFile(Event.getFileName());
 }
 
 void TraceViewerApp::Raise()
