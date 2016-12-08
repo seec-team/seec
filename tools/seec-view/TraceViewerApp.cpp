@@ -284,7 +284,7 @@ void setWebBrowserEmulationMode()
 ///
 class QueuedFileOpenEvent : public wxEvent
 {
-  std::string m_FileName;
+  wxString m_FileName;
 
 public:
   // Make this class known to wxWidgets' class hierarchy.
@@ -292,7 +292,7 @@ public:
   
   /// \brief Constructor.
   ///
-  QueuedFileOpenEvent(wxEventType EventType, int WinID, std::string FileName)
+  QueuedFileOpenEvent(wxEventType EventType, int WinID, wxString FileName)
   : wxEvent(WinID, EventType),
     m_FileName(std::move(FileName))
   {
@@ -305,7 +305,7 @@ public:
     return new QueuedFileOpenEvent(*this);
   }
   
-  std::string const &getFileName() const { return m_FileName; }
+  wxString const &getFileName() const { return m_FileName; }
 };
 
 wxIMPLEMENT_CLASS(QueuedFileOpenEvent, wxEvent)
