@@ -18,6 +18,7 @@
 #include <wx/filepicker.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
+#include <wx/platinfo.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -117,38 +118,38 @@ bool GlobalCompilerPreferencesWindow::Create(wxWindow *Parent)
   }
 
   auto const Res = Resource("TraceViewer")["GlobalCompilerPreferences"];
-
-  // TODO: only add on MSW
-  auto const MinGWGCCFilePickerLabel =
-    new wxStaticText(this, wxID_ANY, towxString(Res["MinGWGCCLocationLabel"]));
-
-  // TODO: only add on MSW
-  m_MinGWGCCPathCtrl =
-    new wxFilePickerCtrl(this, wxID_ANY,
-      /* path */ getPathForMinGWGCC().GetFullPath(),
-      /* message */ towxString(Res["MinGWGCCLocationPrompt"]),
-      wxFileSelectorDefaultWildcardStr,
-      wxDefaultPosition,
-      wxDefaultSize,
-      wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL | wxFLP_FILE_MUST_EXIST);
+  auto const &Platform = wxPlatformInfo::Get();
 
   // Vertical sizer to hold each row of input.
   auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
 
   int const BorderDir = wxLEFT | wxRIGHT;
   int const BorderSize = 5;
+  
+  if (Platform.GetOperatingSystemId() & wxOS_WINDOWS) {
+    auto const MinGWGCCFilePickerLabel =
+      new wxStaticText(this, wxID_ANY,
+                       towxString(Res["MinGWGCCLocationLabel"]));
 
-  ParentSizer->AddSpacer(BorderSize);
+    m_MinGWGCCPathCtrl =
+      new wxFilePickerCtrl(this, wxID_ANY,
+        /* path */ getPathForMinGWGCC().GetFullPath(),
+        /* message */ towxString(Res["MinGWGCCLocationPrompt"]),
+        wxFileSelectorDefaultWildcardStr,
+        wxDefaultPosition,
+        wxDefaultSize,
+        wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL | wxFLP_FILE_MUST_EXIST);
 
-  // TODO: only add on MSW
-  ParentSizer->Add(MinGWGCCFilePickerLabel,
-                   wxSizerFlags().Border(BorderDir, BorderSize));
+    ParentSizer->AddSpacer(BorderSize);
 
-  // TODO: only add on MSW
-  ParentSizer->Add(m_MinGWGCCPathCtrl,
-                   wxSizerFlags().Expand().Border(BorderDir, BorderSize));
+    ParentSizer->Add(MinGWGCCFilePickerLabel,
+                     wxSizerFlags().Border(BorderDir, BorderSize));
 
-  ParentSizer->AddSpacer(BorderSize);
+    ParentSizer->Add(m_MinGWGCCPathCtrl,
+                     wxSizerFlags().Expand().Border(BorderDir, BorderSize));
+
+    ParentSizer->AddSpacer(BorderSize);
+  }
 
   SetSizerAndFit(ParentSizer);
 
