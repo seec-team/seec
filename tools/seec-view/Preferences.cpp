@@ -29,6 +29,7 @@
 #include "StateGraphViewerPreferences.hpp"
 #include "TraceViewerApp.hpp"
 #include "TracingPreferences.hpp"
+#include "SourceEditor/GlobalCompilerPreferences.hpp"
 
 class PreferenceDialog final : public wxDialog
 {
@@ -73,6 +74,7 @@ public:
     AddPage(new AugmentationSettingsWindow(m_Book));
     AddPage(new StateGraphViewerPreferencesWindow(m_Book));
     AddPage(new TracingPreferencesWindow(m_Book));
+    AddPage(new GlobalCompilerPreferencesWindow(m_Book));
 
     // Create accept/cancel buttons.
     auto const Buttons = wxDialog::CreateStdDialogButtonSizer(wxOK | wxCANCEL);

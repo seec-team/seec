@@ -13,17 +13,20 @@
 
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
+#include "seec/Util/Range.hpp"
 #include "seec/wxWidgets/Config.hpp"
 #include "seec/wxWidgets/QueueEvent.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "../ColourSchemeSettings.hpp"
 #include "../CommonMenus.hpp"
 #include "../LocaleSettings.hpp"
 #include "../SourceViewerSettings.hpp"
 #include "../TraceViewerApp.hpp"
+#include "GlobalCompilerPreferences.hpp"
 #include "SourceEditor.hpp"
 
 #include <wx/wx.h>
@@ -33,9 +36,11 @@
 #include <wx/sizer.h>
 #include <wx/event.h>
 #include <wx/menu.h>
+#include <wx/platinfo.h>
 #include <wx/process.h>
 #include <wx/wfstream.h>
 #include <wx/sstream.h>
+#include <wx/stdpaths.h>
 #include <wx/textctrl.h>
 #include <wx/stc/stc.h>
 #include <wx/aui/aui.h>
@@ -79,7 +84,12 @@ void setSTCPreferences(wxStyledTextCtrl &Text)
 wxFileName getBinaryNameForSource(wxFileName const &Source)
 {
   wxFileName BinaryName = Source;
-  BinaryName.SetExt("");
+
+  // Copy the binary extension from the current binary.
+  BinaryName.SetExt(
+    wxFileName{wxStandardPaths::Get().GetExecutablePath()}
+      .GetExt());
+
   return BinaryName;
 }
 
@@ -135,6 +145,82 @@ public:
     return m_ArgPointers.data();
   }
 };
+
+type_safe::boolean setupWindowsCompileEnv(std::string const &PathToCC,
+                                          wxExecuteEnv &Env)
+{
+  // Setup the PATH variable.
+  auto const MinGWGCCPath = getPathForMinGWGCC();
+  if (!MinGWGCCPath.Exists()) {
+    auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+    wxMessageBox(towxString(Res["ErrorMinGWGCCNotFound"]));
+    return false;
+  }
+  
+  auto MinGWBinPath = MinGWGCCPath.GetPath();
+  auto SeeCBinPath = wxFileName{PathToCC}.GetPath();
+  
+  Env.env["PATH"] = MinGWBinPath + ";" + SeeCBinPath;
+  
+  // Copy over some other useful variables. We could copy the entire environment
+  // block, but this caused trouble during testing under MSW.
+  char const *EnvVarsToCopy[] = {
+    "OS",
+    "USERDOMAIN_ROAMINGPROFILE",
+    "LANG",
+    "temp",
+    "HOME",
+    "USER",
+    "COMSPEC",
+    "USERPROFILE",
+    "ProgramW6432",
+    "COMMONPROGRAMFILES",
+    "PATHEXT",
+    "ProgramFiles(x86)",
+    "PUBLIC",
+    "PROGRAMFILES",
+    "WD",
+    "HOMEDRIVE",
+    "PSModulePath",
+    "COMPUTERNAME",
+    "HOSTNAME",
+    "PWD",
+    "SYSTEMROOT",
+    "CommonProgramFiles(x86)",
+    "LOCALAPPDATA",
+    "SYSTEMDRIVE",
+    "ORIGINAL_PATH",
+    "ProgramData",
+    "CHARSET",
+    "WINDIR"
+  };
+  
+  wxString VarValue;
+  for (auto const Var : seec::range(EnvVarsToCopy)) {
+    if (wxGetEnv(Var, &VarValue)) {
+      Env.env[Var] = VarValue;
+    }
+  }
+  
+  return true;
+}
+
+llvm::Optional<wxExecuteEnv> setupCompileEnv(std::string const &PathToCC,
+                                             wxFileName const &SourceFile)
+{
+  llvm::Optional<wxExecuteEnv> RetVal = wxExecuteEnv{};
+  RetVal->cwd = SourceFile.GetPath();
+
+  auto const &Platform = wxPlatformInfo::Get();
+  
+  if (Platform.GetOperatingSystemId() & wxOS_WINDOWS) {
+    if (!setupWindowsCompileEnv(PathToCC, *RetVal)) {
+      RetVal.reset();
+    }
+  }
+  
+  return RetVal;
+}
 
 } // anonymous namespace
 
@@ -238,7 +324,6 @@ SourceEditorFrame::createProjectMenu()
 type_safe::boolean SourceEditorFrame::DoCompile()
 {
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
-  queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_STARTED);
   
   auto const PathToCC = seec::getPathToSeeCCC();
   if (!PathToCC) {
@@ -266,8 +351,7 @@ type_safe::boolean SourceEditorFrame::DoCompile()
   
   auto const Output = getBinaryNameForSource(m_FileName);
   
-  m_CompileProcess = new wxProcess(this);
-  m_CompileProcess->Redirect();
+  queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_STARTED);
 
   wxExecuteArgBuilder Args;
   Args.add(*PathToCC)
@@ -279,19 +363,28 @@ type_safe::boolean SourceEditorFrame::DoCompile()
       .add(Output.GetFullName().ToUTF8())
       .add(m_FileName.GetFullName().ToUTF8());
 
-  wxExecuteEnv Env;
-  Env.cwd = m_FileName.GetPath();
-  
+  auto Env = setupCompileEnv(*PathToCC, m_FileName);
+  if (!Env) {
+    return false;
+  }
+
+  auto CompileProcess = llvm::make_unique<wxProcess>(this);
+  CompileProcess->Redirect();
+
+  m_CompileProcess = CompileProcess.get();
   auto const PID = wxExecute(Args.getArguments(),
-                             wxEXEC_ASYNC, m_CompileProcess, &Env);
+                             wxEXEC_ASYNC, m_CompileProcess, &*Env);
 
   if (PID == 0) {
     queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_OUTPUT,
                                      Res["ErrorExecuteFailed"]);
     queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_FAILED);
+    
+    m_CompileProcess = nullptr;
     return false;
   }
   else {
+    CompileProcess.release();
     return true;
   }
 }

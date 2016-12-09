@@ -1,0 +1,156 @@
+//===- tools/seec-view/SourceEditor/GlobalCompilerPreferences.cpp ---------===//
+//
+//                                    SeeC
+//
+// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
+// details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+///
+//===----------------------------------------------------------------------===//
+
+#include "seec/ICU/Resources.hpp"
+#include "seec/wxWidgets/StringConversion.hpp"
+
+#include <wx/config.h>
+#include <wx/filepicker.h>
+#include <wx/log.h>
+#include <wx/msgdlg.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
+
+
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
+
+#include "GlobalCompilerPreferences.hpp"
+
+using namespace seec;
+
+char const * const cConfigKeyForMinGWGCCPath = "/Compiler/MinGW/GCCPath";
+
+wxFileName getPathForMinGWGCC()
+{
+  auto const Config = wxConfig::Get();
+  wxString GCCPath;
+  if (Config->Read(cConfigKeyForMinGWGCCPath, &GCCPath)) {
+    return wxFileName{GCCPath};
+  }
+
+#if defined(_WIN32)
+  auto const GCCName = "gcc.exe";
+#else
+  auto const GCCName = "gcc";
+#endif
+
+  auto SearchEnvPath = llvm::sys::findProgramByName(GCCName);
+  if (SearchEnvPath)
+    return wxFileName{std::move(*SearchEnvPath)};
+
+  return wxFileName{};
+}
+
+namespace {
+
+bool setPathForMinGWGCC(wxFileName const &Path)
+{
+  auto const Config = wxConfig::Get();
+  if (!Config->Write(cConfigKeyForMinGWGCCPath, Path.GetFullPath()))
+    return false;
+  Config->Flush();
+  return true;
+}
+
+}
+
+bool GlobalCompilerPreferencesWindow::SaveValuesImpl()
+{
+  if (m_MinGWGCCPathCtrl) {
+    auto const Path = m_MinGWGCCPathCtrl->GetPath();
+    if (!llvm::sys::fs::can_execute(Path.ToStdString())) {
+      auto const ResText = Resource("TraceViewer")["GlobalCompilerPreferences"];
+
+      wxMessageDialog Dlg(this,
+                          towxString(ResText["GCCNotExecutableMessage"]),
+                          towxString(ResText["GCCNotExecutableCaption"]));
+      Dlg.ShowModal();
+      return false;
+    }
+    
+    if (!setPathForMinGWGCC(m_MinGWGCCPathCtrl->GetPath())) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+void GlobalCompilerPreferencesWindow::CancelChangesImpl() {}
+
+wxString GlobalCompilerPreferencesWindow::GetDisplayNameImpl()
+{
+  return towxString(Resource("TraceViewer")
+                    ["GlobalCompilerPreferences"]["Title"]);
+}
+
+GlobalCompilerPreferencesWindow::GlobalCompilerPreferencesWindow()
+: m_MinGWGCCPathCtrl(nullptr)
+{}
+
+GlobalCompilerPreferencesWindow
+::GlobalCompilerPreferencesWindow(wxWindow *Parent)
+: GlobalCompilerPreferencesWindow()
+{
+  Create(Parent);
+}
+
+GlobalCompilerPreferencesWindow::~GlobalCompilerPreferencesWindow()
+  = default;
+
+bool GlobalCompilerPreferencesWindow::Create(wxWindow *Parent)
+{
+  if (!wxWindow::Create(Parent, wxID_ANY)) {
+    return false;
+  }
+
+  auto const Res = Resource("TraceViewer")["GlobalCompilerPreferences"];
+
+  // TODO: only add on MSW
+  auto const MinGWGCCFilePickerLabel =
+    new wxStaticText(this, wxID_ANY, towxString(Res["MinGWGCCLocationLabel"]));
+
+  // TODO: only add on MSW
+  m_MinGWGCCPathCtrl =
+    new wxFilePickerCtrl(this, wxID_ANY,
+      /* path */ getPathForMinGWGCC().GetFullPath(),
+      /* message */ towxString(Res["MinGWGCCLocationPrompt"]),
+      wxFileSelectorDefaultWildcardStr,
+      wxDefaultPosition,
+      wxDefaultSize,
+      wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL | wxFLP_FILE_MUST_EXIST);
+
+  // Vertical sizer to hold each row of input.
+  auto const ParentSizer = new wxBoxSizer(wxVERTICAL);
+
+  int const BorderDir = wxLEFT | wxRIGHT;
+  int const BorderSize = 5;
+
+  ParentSizer->AddSpacer(BorderSize);
+
+  // TODO: only add on MSW
+  ParentSizer->Add(MinGWGCCFilePickerLabel,
+                   wxSizerFlags().Border(BorderDir, BorderSize));
+
+  // TODO: only add on MSW
+  ParentSizer->Add(m_MinGWGCCPathCtrl,
+                   wxSizerFlags().Expand().Border(BorderDir, BorderSize));
+
+  ParentSizer->AddSpacer(BorderSize);
+
+  SetSizerAndFit(ParentSizer);
+
+  return true;
+}

@@ -18,6 +18,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 set(SEEC_TRACE_VIEW_HEADERS
+  SourceEditor/GlobalCompilerPreferences.hpp
   SourceEditor/SourceEditor.hpp
   ActionRecord.hpp
   ActionRecordSettings.hpp
@@ -63,6 +64,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 set(SEEC_TRACE_VIEW_SRCS
+  SourceEditor/GlobalCompilerPreferences.cpp
   SourceEditor/SourceEditor.cpp
   ActionRecord.cpp
   ActionRecordSettings.cpp

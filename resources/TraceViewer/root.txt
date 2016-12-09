@@ -806,11 +806,20 @@ root:table {
     ErrorAlreadyCompiling:string {"already compiling"}
     ErrorMustSave:string {"file must be saved before compiling"}
     ErrorExecuteFailed:string {"failed to execute seec-cc"}
+    ErrorMinGWGCCNotFound:string {"Couldn't find the location of MinGW's gcc.exe. You can set the location in the Compiler section of the Preferences menu."}
     
     ProjectMenu:table {
       Title:string {"Project"}
       Compile:string {"Compile"}
       Run:string {"Run"}
     }
+  }
+  
+  GlobalCompilerPreferences:table {
+    Title:string {"Compiler"}
+    MinGWGCCLocationLabel:string {"Location of MinGW's gcc.exe:"}
+    MinGWGCCLocationPrompt:string {"Select MinGW's gcc.exe"}
+    GCCNotExecutableCaption:string {"gcc not executable"}
+    GCCNotExecutableMessage:string {"The selected file does not appear to be executable. Please select the gcc.exe executable provided by MinGW."}
   }
 }
