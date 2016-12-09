@@ -46,6 +46,10 @@
 #include <wx/aui/aui.h>
 #include <wx/aui/framemanager.h>
 
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+
 namespace {
 
 void setSTCPreferences(wxStyledTextCtrl &Text)
@@ -156,12 +160,12 @@ type_safe::boolean setupWindowsCompileEnv(std::string const &PathToCC,
     wxMessageBox(towxString(Res["ErrorMinGWGCCNotFound"]));
     return false;
   }
-  
+
   auto MinGWBinPath = MinGWGCCPath.GetPath();
   auto SeeCBinPath = wxFileName{PathToCC}.GetPath();
-  
+
   Env.env["PATH"] = MinGWBinPath + ";" + SeeCBinPath;
-  
+
   // Copy over some other useful variables. We could copy the entire environment
   // block, but this caused trouble during testing under MSW.
   char const *EnvVarsToCopy[] = {
@@ -194,14 +198,14 @@ type_safe::boolean setupWindowsCompileEnv(std::string const &PathToCC,
     "CHARSET",
     "WINDIR"
   };
-  
+
   wxString VarValue;
   for (auto const Var : seec::range(EnvVarsToCopy)) {
     if (wxGetEnv(Var, &VarValue)) {
       Env.env[Var] = VarValue;
     }
   }
-  
+
   return true;
 }
 
@@ -220,6 +224,94 @@ llvm::Optional<wxExecuteEnv> setupCompileEnv(std::string const &PathToCC,
   }
   
   return RetVal;
+}
+
+type_safe::boolean setupRunLinux(wxFileName const &Output,
+                                 wxExecuteArgBuilder &Args,
+                                 wxExecuteEnv &Env)
+{
+  auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+
+  // TODO: allow the user to configure which terminal is used.
+  // xterm -e
+  // gnome-terminal -x
+  Args.add("gnome-terminal")
+      .add("-x")
+      .add("bash")
+      .add("-c");
+
+  std::string BashCmd = "\"";
+  BashCmd += Output.GetFullName().Prepend("./").ToUTF8();
+  BashCmd += "\" ";
+  // TODO: allow user-configurable arguments to the process.
+  // TODO: localize the below message.
+  BashCmd += "; echo \"\"";
+  BashCmd += "; read -rsp \"";
+  BashCmd += seec::toUTF8String(Res["PressAnyKeyToClose"]);
+  BashCmd += "\" -n 1";
+  Args.add(BashCmd);
+
+  return true;
+}
+
+type_safe::boolean setupRunMSW(wxFileName const &Output,
+                               wxExecuteArgBuilder &Args,
+                               wxExecuteEnv &Env)
+{
+  Args.add(Output.GetFullPath());
+
+  auto const PathToCC = seec::getPathToSeeCCC();
+  if (!PathToCC) {
+    auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+    wxMessageBox(towxString(Res["ErrorCCNotFound"]));
+    return false;
+  }
+
+  auto SeeCBinPath = wxFileName{*PathToCC}.GetPath();
+
+#if defined(_WIN32)
+  if (!SetDllDirectory(SeeCBinPath)) {
+    wxMessageBox("SetDllDirectory failed!");
+  }
+#endif
+
+  return true;
+}
+
+type_safe::boolean setupRun(wxFileName const &Output,
+                            wxExecuteArgBuilder &Args,
+                            wxExecuteEnv &Env)
+{
+  auto const &Platform = wxPlatformInfo::Get();
+
+  Env.cwd = Output.GetPath();
+
+  // Setup basic environment variables now, so they can be overriden by
+  // platform-specific code later.
+  if (!wxGetEnvMap(&Env.env)) {
+    return false;
+  }
+
+  // .seec is automatically appended, so just use the executable's name.
+  Env.env["SEEC_TRACE_NAME"] = Output.GetFullName();
+
+  // TODO: run on OS X.
+
+  if (Platform.GetOperatingSystemId() & wxOS_UNIX) {
+    if (!setupRunLinux(Output, Args, Env)) {
+      return false;
+    }
+  }
+  else if (Platform.GetOperatingSystemId() & wxOS_WINDOWS) {
+    if (!setupRunMSW(Output, Args, Env)) {
+      return false;
+    }
+  }
+  else {
+    // TODO: report an error to the user.
+  }
+
+  return true;
 }
 
 } // anonymous namespace
@@ -426,47 +518,27 @@ type_safe::boolean SourceEditorFrame::DoRun()
     wxMessageBox(Message);
     return false;
   }
-  
-  auto TheProcess = llvm::make_unique<wxProcess>(this);
 
-  // TODO: allow the user to configure which terminal is used.
-  // xterm -e
-  // gnome-terminal -x
   wxExecuteArgBuilder Args;
-  Args.add("gnome-terminal")
-      .add("-x")
-      .add("bash")
-      .add("-c");
-
-  std::string BashCmd = "\"";
-  BashCmd += Output.GetFullName().Prepend("./").ToUTF8();
-  BashCmd += "\" ";
-  // TODO: allow user-configurable arguments to the process.
-  // TODO: localize the below message.
-  BashCmd += "; echo \"\"";
-  BashCmd += "; read -rsp \"";
-  BashCmd += seec::toUTF8String(Res["PressAnyKeyToClose"]);
-  BashCmd += "\" -n 1";
-  Args.add(BashCmd);
-
   wxExecuteEnv Env;
-  Env.cwd = m_FileName.GetPath();
-  if (!wxGetEnvMap(&Env.env)) {
+
+  if (!setupRun(Output, Args, Env)) {
     return false;
   }
-  
-  // .seec is automatically appended, so just use the executable's name.
-  Env.env["SEEC_TRACE_NAME"] = Output.GetFullName();
-  
-  auto const PID = wxExecute(Args.getArguments(), wxEXEC_ASYNC,
-                             TheProcess.release(), &Env);
-  
+
+  auto TheProcess = llvm::make_unique<wxProcess>(this);
+
+  auto const PID = wxExecute(Args.getArguments(),
+                             wxEXEC_ASYNC | wxEXEC_SHOW_CONSOLE,
+                             TheProcess.get(), &Env);
+
   if (PID == 0) {
     // TODO: notify the user.
-    wxLogDebug("failed to execute terminal process");
+    wxLogDebug("failed to execute child process");
     return false;
   }
   else {
+    TheProcess.release();
     return true;
   }
 }
@@ -520,26 +592,28 @@ void SourceEditorFrame::OnModified(wxStyledTextEvent &Event)
 
 void SourceEditorFrame::OnEndProcess(wxProcessEvent &Event)
 {
-  if (m_CompileProcess && m_CompileProcess->GetPid() == Event.GetPid()) {
-    // Show the compiler's error output (if any).
-    if (m_CompileProcess->IsRedirected()) {
-      wxStringOutputStream Output;
-      m_CompileProcess->GetErrorStream()->Read(Output);
-      if (!Output.GetString().empty()) {
-        queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_OUTPUT,
-                                         Output.GetString().ToStdString());
+  if (m_CompileProcess) {
+    if (m_CompileProcess->GetPid() == Event.GetPid()) {
+      // Show the compiler's error output (if any).
+      if (m_CompileProcess->IsRedirected()) {
+        wxStringOutputStream Output;
+        m_CompileProcess->GetErrorStream()->Read(Output);
+        if (!Output.GetString().empty()) {
+          queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_OUTPUT,
+                                           Output.GetString().ToStdString());
+        }
       }
-    }
 
-    if (Event.GetExitCode() == 0) {
-      queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_COMPLETE);
+      if (Event.GetExitCode() == 0) {
+        queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_COMPLETE);
+      }
+      else {
+        queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_FAILED);
+      }
+
+      // Since we skip the event (below), the wxProcess will delete itself.
+      m_CompileProcess = nullptr;
     }
-    else {
-      queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_FAILED);
-    }
-    
-    // Since we're skipping the event (below), the wxProcess will delete itself.
-    m_CompileProcess = nullptr;
   }
   
   Event.Skip();
