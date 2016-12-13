@@ -258,7 +258,7 @@ type_safe::boolean setupRunMSW(wxFileName const &Output,
                                wxExecuteArgBuilder &Args,
                                wxExecuteEnv &Env)
 {
-  Args.add(Output.GetFullPath());
+  Args.add(Output.GetFullPath().ToStdString());
 
   auto const PathToCC = seec::getPathToSeeCCC();
   if (!PathToCC) {
