@@ -50,6 +50,8 @@
 #include <Windows.h>
 #endif
 
+#include <utility>
+
 namespace {
 
 void setSTCPreferences(wxStyledTextCtrl &Text)
@@ -371,25 +373,77 @@ wxDEFINE_EVENT(SEEC_EV_COMPILE_COMPLETE, ExternalCompileEvent);
 wxDEFINE_EVENT(SEEC_EV_COMPILE_FAILED, ExternalCompileEvent);
 
 
+namespace {
+void cleanupScratchPadTemporaries(wxFileName const &SourceFile)
+{
+  auto const BinaryFile = getBinaryNameForSource(SourceFile);
+  auto const TraceFile = wxFileName{BinaryFile.GetFullPath() + ".seec"};
+  
+  if (BinaryFile.FileExists()) {
+    wxRemoveFile(BinaryFile.GetFullPath());
+  }
+  
+  if (TraceFile.FileExists()) {
+    wxRemoveFile(TraceFile.GetFullPath());
+  }
+  
+  if (SourceFile.FileExists()) {
+    wxRemoveFile(SourceFile.GetFullPath());
+  }
+}
+} // anonymous namespace
+
+SourceEditorFile::SourceEditorFile()
+: m_BufferKind(EBufferKind::ScratchPad),
+  m_FileName()
+{
+  m_FileName = wxFileName::CreateTempFileName("seec");
+  m_FileName.SetExt("c");
+}
+
+SourceEditorFile::~SourceEditorFile()
+{
+  if (m_BufferKind == EBufferKind::ScratchPad) {
+    cleanupScratchPadTemporaries(m_FileName);
+  }
+}
+
+SourceEditorFile::SourceEditorFile(SourceEditorFile &&RHS)
+: SourceEditorFile()
+{
+  std::swap(m_BufferKind, RHS.m_BufferKind);
+  std::swap(m_FileName, RHS.m_FileName);
+}
+
+SourceEditorFile &SourceEditorFile::operator=(SourceEditorFile &&RHS)
+{
+  std::swap(m_BufferKind, RHS.m_BufferKind);
+  std::swap(m_FileName, RHS.m_FileName);
+  return *this;
+}
+
+
 void SourceEditorFrame::SetFileName(wxFileName NewName)
 {
   NewName.MakeAbsolute();
-  m_FileName = std::move(NewName);
+  m_File = SourceEditorFile(NewName);
   m_FSWatcher->RemoveAll();
-  m_FSWatcher->Add(m_FileName.GetPathWithSep());
+  m_FSWatcher->Add(m_File.getFileName().GetPathWithSep());
   SetTitleFromFileName();
 }
 
 void SourceEditorFrame::SetTitleFromFileName()
 {
-  wxString Title = m_FileName.GetFullName();
+  wxString Title = m_File.getPermanentFileName().GetFullName();
 
   if (Title.empty()) {
     Title = seec::towxString(seec::Resource("TraceViewer")["SourceEditor"]
                                                           ["UnsavedFileName"]);
   }
 
-  if (m_Scintilla->IsModified()) {
+  if (m_File.getBufferKind() == SourceEditorFile::EBufferKind::ScratchPad
+      || m_Scintilla->IsModified())
+  {
     Title.Append("*");
   }
 
@@ -430,18 +484,12 @@ type_safe::boolean SourceEditorFrame::DoCompile()
     return false;
   }
   
-  // If the file doesn't have a name, or if it has been modified,
-  // ask the user to save it now.
-  if (!m_FileName.HasName() || m_Scintilla->IsModified()) {
-    auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
-    auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
-    
-    if (Choice != wxYES || !DoSave()) {
-      return false;
-    }
+  if (!DoEnsureBufferIsWritten()) {
+    return false;
   }
   
-  auto const Output = getBinaryNameForSource(m_FileName);
+  auto const FilePath = m_File.getFileName();
+  auto const Output = getBinaryNameForSource(FilePath);
   
   queueEvent<ExternalCompileEvent>(*this, SEEC_EV_COMPILE_STARTED);
 
@@ -453,9 +501,9 @@ type_safe::boolean SourceEditorFrame::DoCompile()
       .add("-pedantic")
       .add("-o")
       .add(Output.GetFullName().ToUTF8())
-      .add(m_FileName.GetFullName().ToUTF8());
+      .add(FilePath.GetFullName().ToUTF8());
 
-  auto Env = setupCompileEnv(*PathToCC, m_FileName);
+  auto Env = setupCompileEnv(*PathToCC, FilePath);
   if (!Env) {
     return false;
   }
@@ -483,29 +531,13 @@ type_safe::boolean SourceEditorFrame::DoCompile()
 
 type_safe::boolean SourceEditorFrame::DoRun()
 {
+  if (!DoEnsureBufferIsWritten()) {
+    return false;
+  }
+  
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
-  
-  // If the file doesn't have a name, ask the user to save it now.
-  if (!m_FileName.HasName()) {
-    auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
-    auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
-    
-    if (Choice != wxYES || !DoSave()) {
-      return false;
-    }
-  }
-  
-  // If the file has been modified, ask the user to save it now.
-  if (m_Scintilla->IsModified()) {
-    auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
-    auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
-    
-    if (Choice != wxYES || !DoSave()) {
-      return false;
-    }
-  }
-  
-  auto const Output = getBinaryNameForSource(m_FileName);
+  auto const FilePath = m_File.getFileName();
+  auto const Output = getBinaryNameForSource(FilePath);
   
   if (!Output.FileExists()) {
     auto const Message = seec::towxString(Res["CompileBeforeRun"]);
@@ -513,7 +545,7 @@ type_safe::boolean SourceEditorFrame::DoRun()
     return false;
   }
   
-  if (Output.GetModificationTime() < m_FileName.GetModificationTime()) {
+  if (Output.GetModificationTime() < FilePath.GetModificationTime()) {
     auto const Message = seec::towxString(Res["CompileBeforeRun"]);
     wxMessageBox(Message);
     return false;
@@ -545,8 +577,9 @@ type_safe::boolean SourceEditorFrame::DoRun()
 
 type_safe::boolean SourceEditorFrame::DoSave()
 {
-  if (m_FileName.HasName()) {
-    auto const Result = m_Scintilla->SaveFile(m_FileName.GetFullPath());
+  if (m_File.getBufferKind() != SourceEditorFile::EBufferKind::ScratchPad) {
+    auto const Result =
+      m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
     SetTitleFromFileName();
     return Result;
   }
@@ -572,6 +605,32 @@ type_safe::boolean SourceEditorFrame::DoSaveAs()
   SetFileName(wxFileName(SaveDlg.GetDirectory(), SaveDlg.GetFilename()));
 
   return DoSave();
+}
+
+type_safe::boolean SourceEditorFrame::DoEnsureBufferIsWritten()
+{
+  switch (m_File.getBufferKind()) {
+  // If this is just a scratch buffer, don't ask the user - just save into the
+  // temporary file and use that.
+  case SourceEditorFile::EBufferKind::ScratchPad:
+    m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
+    return true;
+
+  // If this buffer is for a file that has been modified, ask the user to save.
+  case SourceEditorFile::EBufferKind::File:
+    if (m_Scintilla->IsModified()) {
+      auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+      auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
+      auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
+
+      if (Choice != wxYES || !DoSave()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
 }
 
 void SourceEditorFrame::OnFSEvent(wxFileSystemWatcherEvent &Event)
@@ -645,7 +704,7 @@ SourceEditorFrame::SourceEditorFrame()
 : m_ColourSchemeSettingsRegistration(),
   m_FSWatcher(llvm::make_unique<wxFileSystemWatcher>()),
   m_Manager(),
-  m_FileName(),
+  m_File(),
   m_Scintilla(nullptr),
   m_CompileOutputCtrl(),
   m_CompileProcess(nullptr)
@@ -746,6 +805,10 @@ SourceEditorFrame::SourceEditorFrame()
   // Notify the TraceViewerApp that we have been created.
   auto &App = wxGetApp();
   App.addTopLevelWindow(this);
+  
+  // Setup initial FS watch.
+  m_FSWatcher->RemoveAll();
+  m_FSWatcher->Add(m_File.getFileName().GetPathWithSep());
 }
 
 SourceEditorFrame::~SourceEditorFrame()
@@ -774,7 +837,9 @@ void SourceEditorFrame::OnSaveAs(wxCommandEvent &Event)
 
 void SourceEditorFrame::OnClose(wxCloseEvent &Ev)
 {
-  if (m_Scintilla->IsModified()) {
+  if (m_File.getBufferKind() == SourceEditorFile::EBufferKind::ScratchPad
+      || m_Scintilla->IsModified())
+  {
     auto const Choices = Ev.CanVeto() ? (wxYES_NO | wxCANCEL)
                                       : (wxYES_NO);
     
