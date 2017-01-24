@@ -1,0 +1,27 @@
+version: '0.30.0.{build}'
+
+environment:
+  SEEC_LLVM_VERSION: '3.9.0'
+  SEEC_LLVM_BRANCH: 'release_39_appveyor'
+  SEEC_CLANG_BRANCH: 'sc_release_39_appveyor'
+  WXWIDGETS_REPOSITORY: 'https://github.com/mheinsen/wxWidgets.git'
+  WXWIDGETS_VERSION_TAG: 'master'
+  SEEC_VERSION_STRING: '0.30.0'
+
+  matrix:
+  - COMPILER: msys2
+    PLATFORM: x64
+    MSYS2_DIR: msys64
+    MSYSTEM: MINGW64
+
+install:
+  - '%APPVEYOR_BUILD_FOLDER%\scripts\appveyor\install.bat'
+
+build_script:
+  - '%APPVEYOR_BUILD_FOLDER%\scripts\appveyor\build.bat'
+
+cache:
+  - c:\projects\depinstall
+
+artifacts:
+  - path: seec_install_$(SEEC_VERSION_STRING).zip
