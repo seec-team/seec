@@ -30,6 +30,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
 
 #include <algorithm>
 
@@ -256,10 +257,10 @@ MappedCompileInfo::get(llvm::MDNode *CompileInfo) {
                                   SystemIdx->getZExtValue()));
 }
 
-std::unique_ptr<CompilerInvocation>
+std::shared_ptr<CompilerInvocation>
 MappedCompileInfo::createCompilerInvocation(DiagnosticsEngine &Diags) const
 {
-  std::unique_ptr<CompilerInvocation> CI;
+  std::shared_ptr<CompilerInvocation> CI {};
   llvm::SmallString<256> FilePath {MainDirectory};
   llvm::sys::path::append(FilePath, MainFileName);
 
@@ -270,7 +271,7 @@ MappedCompileInfo::createCompilerInvocation(DiagnosticsEngine &Diags) const
     for (auto &Arg : InvocationArguments)
       Args.emplace_back(Arg.c_str());
 
-    CI = llvm::make_unique<CompilerInvocation>();
+    CI = std::make_shared<CompilerInvocation>();
     bool Created = CompilerInvocation::CreateFromArgs(*CI,
                                                       Args.data(),
                                                       Args.data() + Args.size(),
@@ -413,17 +414,15 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   auto &HSOpts = CI->getHeaderSearchOpts();
   FileCompileInfo->setHeaderSearchOpts(HSOpts);
 
-  auto const Invocation = CI.release();
-
   // Create PCHContainerOperations for the ASTUnit load.
   auto PCHContainerOps = std::make_shared<PCHContainerOperations>();
   
   // Create a new ASTUnit.
-  std::unique_ptr<ASTUnit> ASTUnit {
-    ASTUnit::create(Invocation,
+  auto ASTUnit =
+    ASTUnit::create(CI,
                     Diags,
                     false /* CaptureDiagnostics */,
-                    false /* UserFilesAreVolatile */)};
+                    false /* UserFilesAreVolatile */);
   
   if (!ASTUnit) {
     ASTLookup[FileNode] = nullptr;
@@ -436,7 +435,7 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   
   // Load the ASTUnit.
   auto const LoadedASTUnit =
-    ::clang::ASTUnit::LoadFromCompilerInvocationAction(Invocation,
+    ::clang::ASTUnit::LoadFromCompilerInvocationAction(CI,
                                                        PCHContainerOps,
                                                        Diags,
                                                        nullptr /* Action */,

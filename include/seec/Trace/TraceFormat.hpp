@@ -46,7 +46,7 @@ inline offset_uint noOffset() {
 }
 
 /// Version of the trace storage format.
-constexpr inline uint64_t formatVersion() { return 6; }
+constexpr inline uint64_t formatVersion() { return 7; }
 
 /// ThreadID used to indicate that an event location refers to the initial
 /// state of the process.

@@ -14,7 +14,7 @@
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -606,12 +606,18 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
   auto MaybeMod = llvm::parseBitcodeFile(Buffer->getMemBufferRef(), Context);
   
   if (!MaybeMod) {
-    auto ParseError = MaybeMod.getError().message();
+    std::string ErrMsg;
+    
+    handleAllErrors(MaybeMod.takeError(),
+      [&](llvm::ErrorInfoBase &EIB){
+        ErrMsg = EIB.message();
+      });
+    
     return Error(LazyMessageByRef::create("Trace",
                                           {"errors",
                                            "ParseBitcodeFileFail"},
                                           std::make_pair("error",
-                                                         ParseError.c_str())));
+                                                         ErrMsg.c_str())));
   }
   
   return std::move(*MaybeMod);

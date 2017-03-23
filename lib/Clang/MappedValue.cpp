@@ -35,6 +35,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTUnit.h"
 
+#include "llvm/ADT/APFloat.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
@@ -295,7 +296,7 @@ getScalarValueAsString(clang::ASTContext const &AST,
   else if (Type->isFloatingPoint()) {
     auto const &Semantics = AST.getFloatTypeSemantics(clang::QualType(Type, 0));
 
-    if (&Semantics == &llvm::APFloat::IEEEsingle) {
+    if (&Semantics == &llvm::APFloat::IEEEsingle()) {
       auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(float)));
       if (!Region.isAllocated() || !Region.isCompletelyInitialized())
         return std::string{"<unallocated or uninitialized>"};
@@ -304,7 +305,7 @@ getScalarValueAsString(clang::ASTContext const &AST,
       auto const Value = *reinterpret_cast<float const *>(RawBytes.data());
       return std::to_string(Value);
     }
-    else if (&Semantics == &llvm::APFloat::IEEEdouble) {
+    else if (&Semantics == &llvm::APFloat::IEEEdouble()) {
       auto const Region = Memory.getRegion(MemoryArea(Address, sizeof(double)));
       if (!Region.isAllocated() || !Region.isCompletelyInitialized())
         return std::string{"<unallocated or uninitialized>"};
@@ -313,7 +314,7 @@ getScalarValueAsString(clang::ASTContext const &AST,
       auto const Value = *reinterpret_cast<double const *>(RawBytes.data());
       return std::to_string(Value);
     }
-    else if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+    else if (&Semantics == &llvm::APFloat::x87DoubleExtended()) {
       auto const Region = Memory.getRegion(MemoryArea(Address, 10));
       if (!Region.isAllocated() || !Region.isCompletelyInitialized())
         return std::string{"<unallocated or uninitialized>"};
@@ -326,13 +327,13 @@ getScalarValueAsString(clang::ASTContext const &AST,
       APF.toString(Buffer);
       return Buffer.str().str();
     }
-    else if (&Semantics == &llvm::APFloat::IEEEhalf) {
+    else if (&Semantics == &llvm::APFloat::IEEEhalf()) {
       return std::string{"<IEEEhalf unsupported>"};
     }
-    else if (&Semantics == &llvm::APFloat::IEEEquad) {
+    else if (&Semantics == &llvm::APFloat::IEEEquad()) {
       return std::string{"<IEEEquad unsupported>"};
     }
-    else if (&Semantics == &llvm::APFloat::PPCDoubleDouble) {
+    else if (&Semantics == &llvm::APFloat::PPCDoubleDouble()) {
       return std::string{"<PPCDoubleDouble unsupported>"};
     }
   }
@@ -2398,7 +2399,7 @@ createValue(std::shared_ptr<ValueStore const> Store,
       auto const BT = llvm::dyn_cast< ::clang::BuiltinType >(CanonicalType);
       if (BT->getKind() == clang::BuiltinType::LongDouble) {
         auto const &Semantics = ASTContext.getFloatTypeSemantics(CanonicalType);
-        if (&Semantics == &llvm::APFloat::x87DoubleExtended) {
+        if (&Semantics == &llvm::APFloat::x87DoubleExtended()) {
           TypeSize = ::clang::CharUnits::fromQuantity(10);
         }
       }

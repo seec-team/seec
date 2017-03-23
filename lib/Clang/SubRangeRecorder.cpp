@@ -341,7 +341,7 @@ makeCompilerInstance(seec::seec_clang::MappedAST const &MappedAST)
   if (!CI)
     return nullptr;
 
-  Clang->setInvocation(CI.release());
+  Clang->setInvocation(CI);
 
   Clang->setTarget(
     clang::TargetInfo::CreateTargetInfo(

@@ -379,7 +379,7 @@ public:
 
   /// \brief Create a \c CompilerInvocation for this compilation.
   ///
-  std::unique_ptr<clang::CompilerInvocation>
+  std::shared_ptr<clang::CompilerInvocation>
   createCompilerInvocation(clang::DiagnosticsEngine &Diags) const;
 
   /// \brief Create virtual files for all source files in this compilation.

@@ -902,7 +902,7 @@ public:
 
   /// \brief Get the name of the source file displayed by this panel.
   ///
-  char const *getFileName() const {
+  llvm::StringRef getFileName() const {
     return File->getName();
   }
 
@@ -1294,7 +1294,7 @@ void SourceViewerPanel::OnPageChanged(wxAuiNotebookEvent &Ev)
 
   Recording->recordEventL("SourceViewerPanel.PageChanged",
                           make_attribute("page", Selection),
-                          make_attribute("file", Page->getFileName()));
+                          make_attribute("file", Page->getFileName().str()));
 }
 
 void SourceViewerPanel::OnMouseEnter(SourceFilePanel &Page)
@@ -1305,7 +1305,7 @@ void SourceViewerPanel::OnMouseEnter(SourceFilePanel &Page)
 
   Recording->recordEventL("SourceViewerPanel.MouseEnter",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()));
+                          make_attribute("file", Page.getFileName().str()));
 }
 
 void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
@@ -1316,7 +1316,7 @@ void SourceViewerPanel::OnMouseLeave(SourceFilePanel &Page)
 
   Recording->recordEventL("SourceViewerPanel.MouseLeave",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()));
+                          make_attribute("file", Page.getFileName().str()));
 }
 
 void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
@@ -1330,7 +1330,7 @@ void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
 
   Recording->recordEventL("SourceViewerPanel.MouseOverDecl",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()),
+                          make_attribute("file", Page.getFileName().str()),
                           make_attribute("decl", Decl));
 }
 
@@ -1345,7 +1345,7 @@ void SourceViewerPanel::OnMouseOver(SourceFilePanel &Page,
 
   Recording->recordEventL("SourceViewerPanel.MouseOverStmt",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()),
+                          make_attribute("file", Page.getFileName().str()),
                           make_attribute("stmt", Stmt));
 }
 
@@ -1358,7 +1358,7 @@ void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
 
   Recording->recordEventL("SourceViewerPanel.MouseRightClickDecl",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()),
+                          make_attribute("file", Page.getFileName().str()),
                           make_attribute("decl", Decl));
 }
 
@@ -1371,7 +1371,7 @@ void SourceViewerPanel::OnRightClick(SourceFilePanel &Page,
 
   Recording->recordEventL("SourceViewerPanel.MouseRightClickStmt",
                           make_attribute("page", PageIndex),
-                          make_attribute("file", Page.getFileName()),
+                          make_attribute("file", Page.getFileName().str()),
                           make_attribute("stmt", Stmt));
 }
 
@@ -1650,7 +1650,7 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
   auto const Panel = loadAndShowFile(Range.File, *MappedAST);
   if (!Panel) {
     wxLogDebug("Couldn't show source panel for file %s.",
-               Range.File->getName());
+               Range.File->getName().str());
     return;
   }
   
@@ -1695,7 +1695,7 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
   auto const Panel = loadAndShowFile(Range.File, *MappedAST);
   if (!Panel) {
     wxLogDebug("Couldn't show source panel for file %s.",
-               Range.File->getName());
+               Range.File->getName().str());
     return;
   }
   
@@ -1728,7 +1728,7 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
   
   if (Invalid) {
     wxLogDebug("loadAndShowFile %s: MemoryBuffer is invalid!",
-               wxString{File->getName()});
+               File->getName().str());
     return nullptr;
   }
 
@@ -1738,7 +1738,7 @@ SourceViewerPanel::loadAndShowFile(clang::FileEntry const *File,
                                                File,
                                                *Buffer);
   Pages.insert(std::make_pair(File, SourcePanel));
-  Notebook->AddPage(SourcePanel, File->getName());
+  Notebook->AddPage(SourcePanel, File->getName().str());
   
   return SourcePanel;
 }

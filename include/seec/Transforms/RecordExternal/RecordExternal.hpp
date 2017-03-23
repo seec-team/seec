@@ -114,22 +114,22 @@ public:
   /// \brief Get a string containing the name of this pass.
   /// \return A string containing the name of this pass.
   ///
-  const char *getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "Insert SeeC External Execution Tracing";
   }
 
-  virtual bool doInitialization(Module &M);
+  virtual bool doInitialization(Module &M) override;
 
   /// \brief Instrument a single function.
   ///
   /// \param F the function to instrument.
   /// \return true if the function was modified.
   ///
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
 
   /// \brief Determine whether or not this pass will invalidate any analyses.
   ///
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override;
   
   /// \brief Get all encountered unhandled functions.
   ///

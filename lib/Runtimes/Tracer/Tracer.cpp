@@ -33,7 +33,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -295,8 +295,13 @@ ProcessEnvironment::ProcessEnvironment()
                                          Context);
 
   if (!MaybeMod) {
-    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n"
-                 << MaybeMod.getError().message() << "\n";
+    llvm::errs() << "\nSeeC: Failed to parse module bitcode.\n";
+    
+    handleAllErrors(MaybeMod.takeError(),
+      [](llvm::ErrorInfoBase &EIB) {
+        llvm::errs() << EIB.message() << "\n";
+      });
+    
     exit(EXIT_FAILURE);
   }
 
