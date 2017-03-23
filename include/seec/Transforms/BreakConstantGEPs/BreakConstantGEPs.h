@@ -41,8 +41,8 @@ struct BreakConstantGEPs : public FunctionPass {
     StringRef getPassName() const override {
       return "Remove Constant GEP Expressions";
     }
-    virtual bool runOnFunction (Function & F);
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual bool runOnFunction (Function & F) override;
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // This pass does not modify the control-flow graph of the function
       AU.setPreservesCFG();
     }
