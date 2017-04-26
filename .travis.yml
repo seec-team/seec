@@ -145,7 +145,7 @@ before_script:
 #
 script:
   - cd ${HOME}/seec-build
-  - make -j4
+  - make
 
 #
 # If the build is successful, install SeeC and run the tests.
