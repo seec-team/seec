@@ -370,6 +370,9 @@ const
 //===----------------------------------------------------------------------===//
 
 static std::string getPathFromFileNode(llvm::MDNode const *FileNode) {
+  if (!FileNode)
+    return std::string();
+  
   auto FilenameStr = dyn_cast<MDString>(FileNode->getOperand(0u));
   if (!FilenameStr)
     return std::string();
@@ -463,6 +466,14 @@ MappedModule::createASTForFile(llvm::MDNode const *FileNode) {
   return ASTRaw;
 }
 
+std::string const &
+MappedModule::getFilePathStringReference(llvm::MDNode const *FileNode) const
+{
+  auto It = FilePathStrings.find(FileNode);
+  assert(It != FilePathStrings.end());
+  return It->second;
+}
+
 MappedModule::MappedModule(
                 ModuleIndex const &ModIndex,
                 llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> Diags)
@@ -480,9 +491,12 @@ MappedModule::MappedModule(
   GlobalVariableLookup(),
   CompileInfo(),
   StmtToMappedStmt(),
-  ValueToMappedStmt()
+  ValueToMappedStmt(),
+  FilePathStrings()
 {
   auto const &Module = ModIndex.getModule();
+  
+  FilePathStrings.emplace(nullptr, std::string());
   
   // Load compile information from the Module.
   auto GlobalCompileInfo = Module.getNamedMetadata(MDCompileInfo);
@@ -507,6 +521,9 @@ MappedModule::MappedModule(
 
       auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
       assert(FileNode);
+
+      FilePathStrings.emplace(FileNode,
+                              std::move(getPathFromFileNode(FileNode)));
 
       auto AST = createASTForFile(FileNode);
       assert(AST);
@@ -558,7 +575,7 @@ MappedModule::MappedModule(
       auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
       auto AST = getASTForFile(FileNode);
       
-      auto FilePath = getPathFromFileNode(FileNode);
+      auto FilePath = getFilePathStringReference(FileNode);
       assert(!FilePath.empty());
       
       auto const Global = llvm::cast<llvm::ConstantAsMetadata>
@@ -615,7 +632,7 @@ MappedModule::MappedModule(
         
         FunctionLookup.insert(
           std::make_pair(Func,
-                         MappedFunctionDecl(std::move(FilePath),
+                         MappedFunctionDecl(FilePath,
                                             *AST,
                                             Decl,
                                             Func,
@@ -834,23 +851,21 @@ MappedInstruction MappedModule::getMapping(llvm::Instruction const *I) const {
   
   // Find the file path from either the Decl or the Stmt mapping. If there is
   // no mapping, return an empty path.
-  std::string FilePath;
+  llvm::MDNode const *FileNode = nullptr;
   
   if (DeclMap.first) {
     auto DeclIdxNode = I->getMetadata(MDDeclIdxKind);
     auto FileNode = dyn_cast<MDNode>(DeclIdxNode->getOperand(0));
     assert(FileNode);
-    FilePath = getPathFromFileNode(FileNode);
   }
   else if (StmtMap.first) {
     auto StmtIdxNode = I->getMetadata(MDStmtIdxKind);
     auto FileNode = dyn_cast<MDNode>(StmtIdxNode->getOperand(0));
     assert(FileNode);
-    FilePath = getPathFromFileNode(FileNode);
   }
   
   return MappedInstruction(I,
-                           FilePath,
+                           getFilePathStringReference(FileNode),
                            DeclMap.second ? DeclMap.second : StmtMap.second,
                            DeclMap.first,
                            StmtMap.first);
