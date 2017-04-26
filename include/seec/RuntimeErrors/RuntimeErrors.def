@@ -189,6 +189,14 @@ SEEC_RUNERR(PointerArithmeticOperandOutdated,
   ))
 
 //
+// Return a pointer to locally-allocated memory.
+//
+SEEC_RUNERR(ReturnPointerToLocalAllocation,
+  SEEC_PP_QUOTE(
+    (object, seec::runtime_errors::ArgAddress)
+  ))
+
+//
 // Passing a pointer to unowned memory to a function.
 //
 SEEC_RUNERR(PassPointerToUnowned,

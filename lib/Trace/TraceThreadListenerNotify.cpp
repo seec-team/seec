@@ -367,15 +367,38 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
 
   // If the terminated Function returned a pointer, then transfer the correct
   // pointer object information to the parent Function's CallInst.
-  if (ParentFunction
-      && F->getReturnType()->isPointerTy()
-      && !ParentFunction->isShim())
-  {
+  if (ParentFunction && F->getReturnType()->isPointerTy()) {
     if (auto const Ret = llvm::dyn_cast<llvm::ReturnInst>(Terminator)) {
       if (auto const RetVal = Ret->getReturnValue()) {
         auto const RetPtrObj = ActiveFunction->getPointerObject(RetVal);
-        ParentFunction->setPointerObject(ParentFunction->getActiveInstruction(),
-                                         RetPtrObj);
+        auto const FunctionStackArea = ActiveFunction->getStackArea();
+        
+        // Check if the pointer references locally-allocated memory (which is
+        // going to be deallocated).
+        if (FunctionStackArea.contains(RetPtrObj.getBase())) {
+          auto BlameIndex = InstrIndex;
+          if (auto const RVInstr = llvm::dyn_cast<llvm::Instruction>(RetVal)) {
+            auto const MaybeIndex =
+              FunctionStack.back().getFunctionIndex()
+                                  .getIndexOfInstruction(RVInstr);
+            if (MaybeIndex) {
+              BlameIndex = *MaybeIndex;
+            }
+          }
+          
+          
+          using namespace seec::runtime_errors;
+          handleRunError(
+            *createRunError<RunErrorType::ReturnPointerToLocalAllocation>
+                           (RetPtrObj.getBase()),
+            RunErrorSeverity::Fatal,
+            BlameIndex);
+        }
+        
+        if (!ParentFunction->isShim()) {
+          auto const ParentCallInstr = ParentFunction->getActiveInstruction();
+          ParentFunction->setPointerObject(ParentCallInstr, RetPtrObj);
+        }
       }
     }
   }

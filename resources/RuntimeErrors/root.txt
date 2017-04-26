@@ -168,6 +168,12 @@ root:table {
       "\n$[runerr:PointerArithmeticOperandOutdated]"
     }
 
+    // object
+    ReturnPointerToLocalAllocation:string {
+      "Attempting to return a pointer whose target object is locally allocated in the current function. This pointer would become invalid after the function returns."
+      "\n$[runerr:ReturnPointerToLocalAllocation]"
+    }
+
     // function
     // address
     // parameter
