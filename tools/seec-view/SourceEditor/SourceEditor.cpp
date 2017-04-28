@@ -246,7 +246,6 @@ type_safe::boolean setupRunLinux(wxFileName const &Output,
   BashCmd += Output.GetFullName().Prepend("./").ToUTF8();
   BashCmd += "\" ";
   // TODO: allow user-configurable arguments to the process.
-  // TODO: localize the below message.
   BashCmd += "; echo \"\"";
   BashCmd += "; read -rsp \"";
   BashCmd += seec::toUTF8String(Res["PressAnyKeyToClose"]);
@@ -485,6 +484,7 @@ type_safe::boolean SourceEditorFrame::DoCompile()
   }
   
   if (!DoEnsureBufferIsWritten()) {
+    wxLogDebug("couldn't write buffer for compilation");
     return false;
   }
   
@@ -505,6 +505,7 @@ type_safe::boolean SourceEditorFrame::DoCompile()
 
   auto Env = setupCompileEnv(*PathToCC, FilePath);
   if (!Env) {
+    wxLogDebug("couldn't setup environment for compilation");
     return false;
   }
 
@@ -540,12 +541,14 @@ type_safe::boolean SourceEditorFrame::DoRun()
   auto const Output = getBinaryNameForSource(FilePath);
   
   if (!Output.FileExists()) {
+    wxLogDebug("output file %s does not exist", Output.GetFullPath());
     auto const Message = seec::towxString(Res["CompileBeforeRun"]);
     wxMessageBox(Message);
     return false;
   }
   
   if (Output.GetModificationTime() < FilePath.GetModificationTime()) {
+    wxLogDebug("output file %s is outdated", Output.GetFullPath());
     auto const Message = seec::towxString(Res["CompileBeforeRun"]);
     wxMessageBox(Message);
     return false;
@@ -613,7 +616,9 @@ type_safe::boolean SourceEditorFrame::DoEnsureBufferIsWritten()
   // If this is just a scratch buffer, don't ask the user - just save into the
   // temporary file and use that.
   case SourceEditorFile::EBufferKind::ScratchPad:
-    m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
+    if (m_Scintilla->IsModified()) {
+      m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
+    }
     return true;
 
   // If this buffer is for a file that has been modified, ask the user to save.
@@ -693,11 +698,13 @@ void SourceEditorFrame::OnCompileOutput(ExternalCompileEvent &Event)
 void SourceEditorFrame::OnCompileComplete(ExternalCompileEvent &Event)
 {
   // TODO: notify the user.
+  wxLogDebug("compile complete");
 }
 
 void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
 {
   // TODO: notify the user.
+  wxLogDebug("compile failed: %s", Event.getMessage());
 }
 
 SourceEditorFrame::SourceEditorFrame()
