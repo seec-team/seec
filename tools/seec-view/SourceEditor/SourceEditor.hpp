@@ -84,6 +84,12 @@ public:
 
 class SourceEditorFrame : public wxFrame
 {
+  enum class ETask {
+    Nothing,
+    Compile,
+    Run
+  };
+  
   /// Registration to ColourSchemeSettings changes.
   seec::observer::registration m_ColourSchemeSettingsRegistration;
   
@@ -98,6 +104,8 @@ class SourceEditorFrame : public wxFrame
   wxTextCtrl *m_CompileOutputCtrl;
   
   wxProcess *m_CompileProcess;
+  
+  ETask m_CurrentTask;
   
   std::pair<std::unique_ptr<wxMenu>, wxString> createProjectMenu();
   

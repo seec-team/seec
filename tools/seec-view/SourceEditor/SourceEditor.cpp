@@ -14,6 +14,7 @@
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
+#include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/Config.hpp"
 #include "seec/wxWidgets/QueueEvent.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -468,6 +469,12 @@ SourceEditorFrame::createProjectMenu()
 
 type_safe::boolean SourceEditorFrame::DoCompile()
 {
+  // We may be called to compile a preparation before running, in which case
+  // the task is Run. If the compilation preparation fails, reset the task:
+  auto ScopeClearTask = seec::scopeExit([this](){
+    this->m_CurrentTask = ETask::Nothing;
+  });
+  
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
   
   auto const PathToCC = seec::getPathToSeeCCC();
@@ -526,12 +533,18 @@ type_safe::boolean SourceEditorFrame::DoCompile()
   }
   else {
     CompileProcess.release();
+    ScopeClearTask.disable();
     return true;
   }
 }
 
 type_safe::boolean SourceEditorFrame::DoRun()
 {
+  // Sometimes we are called automatically after a compilation succeeds, if the
+  // current task is Run. In most cases when this methods ends we want the task
+  // to be Nothing, so reset it here.
+  m_CurrentTask = ETask::Nothing;
+  
   if (!DoEnsureBufferIsWritten()) {
     return false;
   }
@@ -542,16 +555,14 @@ type_safe::boolean SourceEditorFrame::DoRun()
   
   if (!Output.FileExists()) {
     wxLogDebug("output file %s does not exist", Output.GetFullPath());
-    auto const Message = seec::towxString(Res["CompileBeforeRun"]);
-    wxMessageBox(Message);
-    return false;
+    m_CurrentTask = ETask::Run;
+    return DoCompile();
   }
   
   if (Output.GetModificationTime() < FilePath.GetModificationTime()) {
     wxLogDebug("output file %s is outdated", Output.GetFullPath());
-    auto const Message = seec::towxString(Res["CompileBeforeRun"]);
-    wxMessageBox(Message);
-    return false;
+    m_CurrentTask = ETask::Run;
+    return DoCompile();
   }
 
   wxExecuteArgBuilder Args;
@@ -612,10 +623,17 @@ type_safe::boolean SourceEditorFrame::DoSaveAs()
 
 type_safe::boolean SourceEditorFrame::DoEnsureBufferIsWritten()
 {
+  auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+  
   switch (m_File.getBufferKind()) {
   // If this is just a scratch buffer, don't ask the user - just save into the
   // temporary file and use that.
   case SourceEditorFile::EBufferKind::ScratchPad:
+    if (m_Scintilla->IsEmpty()) {
+      auto const Message = seec::towxString(Res["ErrorUsingEmptyScratch"]);
+      wxMessageBox(Message, wxEmptyString, wxOK);
+      return false;
+    }
     if (m_Scintilla->IsModified()) {
       m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
     }
@@ -624,7 +642,6 @@ type_safe::boolean SourceEditorFrame::DoEnsureBufferIsWritten()
   // If this buffer is for a file that has been modified, ask the user to save.
   case SourceEditorFile::EBufferKind::File:
     if (m_Scintilla->IsModified()) {
-      auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
       auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
       auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
 
@@ -699,12 +716,26 @@ void SourceEditorFrame::OnCompileComplete(ExternalCompileEvent &Event)
 {
   // TODO: notify the user.
   wxLogDebug("compile complete");
+  
+  switch (m_CurrentTask) {
+  case ETask::Nothing:
+    break;
+  case ETask::Compile:
+    m_CurrentTask = ETask::Nothing;
+    break;
+  case ETask::Run:
+    m_CurrentTask = ETask::Nothing;
+    DoRun();
+    break;
+  }
 }
 
 void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
 {
   // TODO: notify the user.
   wxLogDebug("compile failed: %s", Event.getMessage());
+  
+  m_CurrentTask = ETask::Nothing;
 }
 
 SourceEditorFrame::SourceEditorFrame()
@@ -714,7 +745,8 @@ SourceEditorFrame::SourceEditorFrame()
   m_File(),
   m_Scintilla(nullptr),
   m_CompileOutputCtrl(),
-  m_CompileProcess(nullptr)
+  m_CompileProcess(nullptr),
+  m_CurrentTask(ETask::Nothing)
 {
   if (!wxFrame::Create(nullptr, wxID_ANY, wxString()))
     return;
