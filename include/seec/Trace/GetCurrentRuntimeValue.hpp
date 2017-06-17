@@ -345,13 +345,13 @@ struct GetCurrentRuntimeValueAsImpl<long double, void> {
       auto const APF = ConstantFloat->getValueAPF();
       auto const SemanticsPtr = &(APF.getSemantics());
 
-      if (SemanticsPtr == &llvm::APFloat::IEEEsingle) {
+      if (SemanticsPtr == &llvm::APFloat::IEEEsingle()) {
         return static_cast<long double>(APF.convertToFloat());
       }
-      else if (SemanticsPtr == &llvm::APFloat::IEEEdouble) {
+      else if (SemanticsPtr == &llvm::APFloat::IEEEdouble()) {
         return static_cast<long double>(APF.convertToDouble());
       }
-      else if (SemanticsPtr == &llvm::APFloat::x87DoubleExtended) {
+      else if (SemanticsPtr == &llvm::APFloat::x87DoubleExtended()) {
         assert(LDBL_MANT_DIG == 64);
         long double Result = 0;
         auto const API = APF.bitcastToAPInt();

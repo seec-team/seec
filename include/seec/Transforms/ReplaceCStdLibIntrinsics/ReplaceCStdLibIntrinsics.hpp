@@ -44,17 +44,17 @@ public:
 
   /// Get the name of this pass.
   /// \return A string containing the name of this pass.
-  const char *getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "Replace LLVM Intrinsics with calls to C Standard Library";
   }
 
-  virtual bool doInitialization(Module &M);
+  virtual bool doInitialization(Module &M) override;
 
-  virtual bool doFinalization(Module &M);
+  virtual bool doFinalization(Module &M) override;
 
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   bool visitCallInst(CallInst &I);
 

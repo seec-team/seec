@@ -56,7 +56,7 @@ class MappedStmt;
 /// \brief Represents a mapping from an llvm::Function to a clang::Decl.
 ///
 class MappedFunctionDecl {
-  std::string FilePath;
+  std::string const &FilePath;
   
   MappedAST const &AST;
 
@@ -71,13 +71,13 @@ class MappedFunctionDecl {
 public:
   /// \brief Constructor.
   ///
-  MappedFunctionDecl(std::string WithFilePath,
+  MappedFunctionDecl(std::string const &WithFilePath,
                      MappedAST const &WithAST,
                      clang::Decl const *WithDecl,
                      llvm::Function const *WithFunction,
                      std::vector<seec::cm::MappedParam> WithMappedParameters,
                      std::vector<seec::cm::MappedLocal> WithMappedLocals)
-  : FilePath(std::move(WithFilePath)),
+  : FilePath(WithFilePath),
     AST(WithAST),
     Decl(WithDecl),
     Function(WithFunction),
@@ -193,7 +193,7 @@ public:
 class MappedInstruction {
   llvm::Instruction const *Instruction;
   
-  std::string FilePath;
+  std::string const &FilePath;
   
   MappedAST const *AST;
   
@@ -204,12 +204,12 @@ class MappedInstruction {
 public:
   /// \brief Constructor.
   MappedInstruction(llvm::Instruction const *Instruction,
-                    std::string SourceFilePath,
+                    std::string const &SourceFilePath,
                     MappedAST const *AST,
                     clang::Decl const *Decl,
                     clang::Stmt const *Stmt)
   : Instruction(Instruction),
-    FilePath(std::move(SourceFilePath)),
+    FilePath(SourceFilePath),
     AST(AST),
     Decl(Decl),
     Stmt(Stmt)
@@ -379,7 +379,7 @@ public:
 
   /// \brief Create a \c CompilerInvocation for this compilation.
   ///
-  std::unique_ptr<clang::CompilerInvocation>
+  std::shared_ptr<clang::CompilerInvocation>
   createCompilerInvocation(clang::DiagnosticsEngine &Diags) const;
 
   /// \brief Create virtual files for all source files in this compilation.
@@ -437,6 +437,9 @@ class MappedModule {
   
   /// Lookup from llvm::Value pointer to MappedStmt objects.
   std::multimap<llvm::Value const *, MappedStmt const *> ValueToMappedStmt;
+  
+  /// Stores file path strings used by MappedInstruction, MappedFunctionDecl.
+  std::map<llvm::MDNode const *, std::string const> FilePathStrings;
 
   // Don't allow copying.
   MappedModule(MappedModule const &Other) = delete;
@@ -445,6 +448,11 @@ class MappedModule {
   /// \brief Get or create the AST for the given file.
   ///
   MappedAST const *createASTForFile(llvm::MDNode const *FileNode);
+  
+  /// \brief Get a reference to a path string stored in \c FilePathStrings.
+  ///
+  std::string const &
+  getFilePathStringReference(llvm::MDNode const *FileNode) const;
 
 public:
   /// \brief Constructor.

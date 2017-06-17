@@ -4,7 +4,7 @@ add_executable(seec-cc
                SeeCExecuteCompilerInvocation.cpp)
 
 # Determine the LLVM libraries that we need
-llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} analysis codegen core ipo instcombine instrumentation mc mcparser objcarcopts option scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata coverage)
+llvm_map_components_to_libnames(REQ_LLVM_LIBRARIES ${LLVM_TARGETS_TO_BUILD} analysis codegen core coroutines ipo instcombine instrumentation lto mc mcparser objcarcopts option passes scalaropts support transformutils vectorize asmparser bitreader bitwriter irreader linker profiledata coverage)
 
 # Determine ICU libraries that we need
 EXEC_PROGRAM(sh

@@ -610,7 +610,7 @@ void ThreadState::readdEvent(
 
   if (Type->isX86_FP80Ty()) {
     FuncState.setValueAPFloat(Instruction,
-                              llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+                              llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                                             llvm::APInt(80, Words)));
   }
   else {

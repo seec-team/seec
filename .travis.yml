@@ -47,8 +47,8 @@ cache:
 
 before_install:
   - export CXX="${COMPILER_CXX}" CC="${COMPILER_CC}"
-  - SEEC_LLVM_RELEASE_TAG="v3.9.0"
-  - SEEC_CLANG_RELEASE_TAG="v3.9.0_1.0"
+  - SEEC_LLVM_RELEASE_TAG="v4.0.0"
+  - SEEC_CLANG_RELEASE_TAG="v4.0.0_1.0"
   - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
   - CMAKE_URL="http://www.cmake.org/files/v3.4/cmake-3.4.3-Linux-x86_64.tar.gz"
   - WXWIDGETS_REPOSITORY="https://github.com/mheinsen/wxWidgets.git"
@@ -104,7 +104,7 @@ install:
         cd icu/source
         chmod +x runConfigureICU configure install-sh
         ./runConfigureICU MacOSX --enable-static --disable-shared --prefix=${ICU_INSTALL_DIR} CXXFLAGS="-std=c++11"
-        make -j2 && make install
+        make -j4 && make install
       fi
     else
       ICU_INSTALL_DIR="/usr"
@@ -127,7 +127,7 @@ install:
       elif [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
         ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" OBJCXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" LDFLAGS="-stdlib=libc++" --with-macosx-version-min=10.7 --prefix=${DEPS_INSTALL}
       fi
-      make -j2
+      make -j4
       make install
     fi
 

@@ -46,7 +46,7 @@ IF %COMPILER%==msys2 (
     cd c:\projects\depbuild
     mkdir wxWidgets
     cd wxWidgets
-    bash -lc "c:/projects/depsrc/wxWidgets/configure --build=x86_64-w64-mingw32 --disable-shared --enable-debug --enable-webview --disable-precomp-headers --enable-no_rtti --prefix=c:/projects/depinstall CXXFLAGS=\"-std=gnu++11 -fvisibility-inlines-hidden\""
+    bash -lc "c:/projects/depsrc/wxWidgets/configure --build=x86_64-w64-mingw32 --disable-shared --enable-debug --enable-webview --disable-precomp-headers --enable-no_rtti --prefix=c:/projects/depinstall CXXFLAGS=\"-std=gnu++11 -fvisibility-inlines-hidden\" LDFLAGS=-Wl,--allow-multiple-definition"
     bash -lc "make"
     bash -lc "make install"
   )

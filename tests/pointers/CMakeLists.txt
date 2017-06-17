@@ -33,6 +33,9 @@ seec_test_run_fail(ptr_to_literal "fail-one-past" "10")
 seec_test_run_fail(ptr_to_literal "fail-low"     "-1" )
 seec_test_run_fail(ptr_to_literal "fail-high"     "11")
 
+seec_test_build(return_pointer_to_local return_pointer_to_local.c "")
+seec_test_run_fail(return_pointer_to_local "fail" "")
+
 seec_test_build(struct_byval struct_byval.c "")
 seec_test_run_pass(struct_byval "valid" "valid")
 

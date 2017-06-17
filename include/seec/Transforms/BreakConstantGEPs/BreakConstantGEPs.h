@@ -15,6 +15,7 @@
 #ifndef BREAKCONSTANTGEPS_H
 #define BREAKCONSTANTGEPS_H
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -37,9 +38,11 @@ struct BreakConstantGEPs : public FunctionPass {
   public:
     static char ID;
     BreakConstantGEPs() : FunctionPass(ID) {}
-    const char *getPassName() const {return "Remove Constant GEP Expressions";}
-    virtual bool runOnFunction (Function & F);
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    StringRef getPassName() const override {
+      return "Remove Constant GEP Expressions";
+    }
+    virtual bool runOnFunction (Function & F) override;
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // This pass does not modify the control-flow graph of the function
       AU.setPreservesCFG();
     }
