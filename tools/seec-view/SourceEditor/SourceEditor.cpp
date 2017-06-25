@@ -11,6 +11,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
@@ -50,6 +51,9 @@
 #if defined(_WIN32)
 #include <Windows.h>
 #endif
+
+#include <unicode/calendar.h>
+#include <unicode/datefmt.h>
 
 #include <utility>
 
@@ -450,6 +454,16 @@ void SourceEditorFrame::SetTitleFromFileName()
   SetTitle(Title);
 }
 
+void SourceEditorFrame::SetStatusMessage(EStatusField const Field,
+                                         wxString const &Message)
+{
+  auto const FieldNum = static_cast<int>(Field);
+  assert(FieldNum >= 0
+         && FieldNum < static_cast<int>(EStatusField::NumberOfFields));
+  
+  m_StatusBar->SetStatusText(Message, FieldNum);
+}
+
 std::pair<std::unique_ptr<wxMenu>, wxString>
 SourceEditorFrame::createProjectMenu()
 {
@@ -700,9 +714,35 @@ void SourceEditorFrame::OnEndProcess(wxProcessEvent &Event)
   Event.Skip();
 }
 
+void SourceEditorFrame::ShowStatusActionMessage(char const * const MessageKey)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+  
+  std::unique_ptr<icu::Calendar> Calendar {
+    icu::Calendar::createInstance(Status) };
+  
+  if (!Calendar) {
+    return;
+  }
+  
+  auto const Date = Calendar->getNow();
+  
+  auto Message = format(
+    Res[MessageKey].asString(),
+    seec::icu::FormatArgumentsWithNames()
+      .add("time", icu::Formattable(Date, icu::Formattable::kIsDate)),
+    Status);
+  
+  if (U_SUCCESS(Status)) {
+    SetStatusMessage(EStatusField::Action, seec::towxString(Message));
+  }
+}
+
 void SourceEditorFrame::OnCompileStarted(ExternalCompileEvent &Event)
 {
   m_CompileOutputCtrl->Clear();
+  ShowStatusActionMessage("StatusCompileActive");
 }
 
 void SourceEditorFrame::OnCompileOutput(ExternalCompileEvent &Event)
@@ -714,9 +754,8 @@ void SourceEditorFrame::OnCompileOutput(ExternalCompileEvent &Event)
 
 void SourceEditorFrame::OnCompileComplete(ExternalCompileEvent &Event)
 {
-  // TODO: notify the user.
-  wxLogDebug("compile complete");
-  
+  ShowStatusActionMessage("StatusCompileSuccess");
+    
   switch (m_CurrentTask) {
   case ETask::Nothing:
     break;
@@ -732,8 +771,7 @@ void SourceEditorFrame::OnCompileComplete(ExternalCompileEvent &Event)
 
 void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
 {
-  // TODO: notify the user.
-  wxLogDebug("compile failed: %s", Event.getMessage());
+  ShowStatusActionMessage("StatusCompileFail");
   
   m_CurrentTask = ETask::Nothing;
 }
@@ -746,7 +784,8 @@ SourceEditorFrame::SourceEditorFrame()
   m_Scintilla(nullptr),
   m_CompileOutputCtrl(),
   m_CompileProcess(nullptr),
-  m_CurrentTask(ETask::Nothing)
+  m_CurrentTask(ETask::Nothing),
+  m_StatusBar(nullptr)
 {
   if (!wxFrame::Create(nullptr, wxID_ANY, wxString()))
     return;
@@ -778,6 +817,39 @@ SourceEditorFrame::SourceEditorFrame()
                    .Bottom()
                    .MinimizeButton(true)
                    .Hide());
+  
+  m_StatusBar = new wxStatusBar(this, wxID_ANY,
+                                wxSTB_SHOW_TIPS | wxSTB_ELLIPSIZE_END
+                                | wxFULL_REPAINT_ON_RESIZE);
+  
+  auto const StatusBarFieldCount =
+    static_cast<int>(EStatusField::NumberOfFields);
+  
+  m_StatusBar->SetFieldsCount(StatusBarFieldCount);
+  int const StatusBarFieldWidths[] = { -2, -1 };
+  m_StatusBar->SetStatusWidths(StatusBarFieldCount, StatusBarFieldWidths);
+  // m_StatusBar->SetStatusText("STATUS", 0);
+  
+  m_Scintilla->Bind(wxEVT_STC_UPDATEUI,
+    seec::make_function([this] (wxStyledTextEvent &Ev) {
+      auto const Point = m_Scintilla->GetInsertionPoint();
+      
+      wxString StatusString;
+      StatusString << m_Scintilla->LineFromPosition(Point)
+                   << ':'
+                   << m_Scintilla->GetColumn(Point);
+      
+      m_StatusBar->SetStatusText(StatusString, 0);
+    }));
+  
+  m_Manager->AddPane(m_StatusBar,
+    wxAuiPaneInfo().Name("StatusBar")
+                   .Bottom()
+                   .DockFixed()
+                   .Movable(false)
+                   .CaptionVisible(false)
+                   .CloseButton(false)
+                   .Layer(1));
   
   // Listen for colour scheme changes.
   m_ColourSchemeSettingsRegistration =

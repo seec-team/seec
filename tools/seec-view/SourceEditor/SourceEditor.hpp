@@ -31,6 +31,7 @@ class wxStyledTextEvent;
 class wxAuiManager;
 class wxProcess;
 class wxProcessEvent;
+class wxStatusBar;
 
 class SourceEditorFile
 {
@@ -90,6 +91,12 @@ class SourceEditorFrame : public wxFrame
     Run
   };
   
+  enum class EStatusField : int {
+    Dummy = 0,
+    Action,
+    NumberOfFields
+  };
+  
   /// Registration to ColourSchemeSettings changes.
   seec::observer::registration m_ColourSchemeSettingsRegistration;
   
@@ -107,11 +114,15 @@ class SourceEditorFrame : public wxFrame
   
   ETask m_CurrentTask;
   
+  wxStatusBar *m_StatusBar;
+  
   std::pair<std::unique_ptr<wxMenu>, wxString> createProjectMenu();
   
   void SetFileName(wxFileName NewName);
   
   void SetTitleFromFileName();
+  
+  void SetStatusMessage(EStatusField const Field, wxString const &Message);
   
   type_safe::boolean DoCompile();
   
@@ -128,6 +139,8 @@ class SourceEditorFrame : public wxFrame
   void OnModified(wxStyledTextEvent &Event);
   
   void OnEndProcess(wxProcessEvent &Event);
+  
+  void ShowStatusActionMessage(char const * const MessageKey);
   
   void OnCompileStarted(ExternalCompileEvent &Event);
   

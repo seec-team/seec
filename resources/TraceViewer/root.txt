@@ -809,6 +809,10 @@ root:table {
     ErrorMinGWGCCNotFound:string {"Couldn't find the location of MinGW's gcc.exe. You can set the location in the Compiler section of the Preferences menu."}
     ErrorUsingEmptyScratch:string {"I'm not going to use this file, because it is empty."}
     
+    StatusCompileActive:string {"{time,time}: Compiling"}
+    StatusCompileSuccess:string {"{time,time}: Compile successful"}
+    StatusCompileFail:string {"{time,time}: Compile failed"}
+    
     ProjectMenu:table {
       Title:string {"Project"}
       Compile:string {"Compile"}
