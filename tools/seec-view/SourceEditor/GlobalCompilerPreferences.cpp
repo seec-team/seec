@@ -56,11 +56,18 @@ wxFileName getPathForMinGWGCC()
 
 namespace {
 
-bool setPathForMinGWGCC(wxFileName const &Path)
+bool setPathForMinGWGCC(wxString const &Path)
 {
   auto const Config = wxConfig::Get();
-  if (!Config->Write(cConfigKeyForMinGWGCCPath, Path.GetFullPath()))
-    return false;
+  
+  if (Path.empty()) {
+    Config->DeleteEntry(cConfigKeyForMinGWGCCPath);
+  }
+  else {
+    if (!Config->Write(cConfigKeyForMinGWGCCPath, Path))
+      return false;
+  }
+  
   Config->Flush();
   return true;
 }
@@ -71,7 +78,8 @@ bool GlobalCompilerPreferencesWindow::SaveValuesImpl()
 {
   if (m_MinGWGCCPathCtrl) {
     auto const Path = m_MinGWGCCPathCtrl->GetPath();
-    if (!llvm::sys::fs::can_execute(Path.ToStdString())) {
+    
+    if (!Path.empty() && !llvm::sys::fs::can_execute(Path.ToStdString())) {
       auto const ResText = Resource("TraceViewer")["GlobalCompilerPreferences"];
 
       wxMessageDialog Dlg(this,

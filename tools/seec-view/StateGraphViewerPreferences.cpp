@@ -58,8 +58,15 @@ namespace {
 bool setPathForDotExecutable(wxString const &Path)
 {
   auto const Config = wxConfig::Get();
-  if (!Config->Write(cConfigKeyForDotPath, Path))
-    return false;
+  
+  if (Path.empty()) {
+    Config->DeleteEntry(cConfigKeyForDotPath);
+  }
+  else {
+    if (!Config->Write(cConfigKeyForDotPath, Path))
+      return false;
+  }
+  
   Config->Flush();
   return true;
 }
@@ -72,7 +79,7 @@ bool StateGraphViewerPreferencesWindow::SaveValuesImpl()
     return true;
 
   auto const Path = m_DotFilePicker->GetPath();
-  if (!llvm::sys::fs::can_execute(Path.ToStdString())) {
+  if (!Path.empty() && !llvm::sys::fs::can_execute(Path.ToStdString())) {
     auto const ResText =
       Resource("TraceViewer")["GUIText"]["StateGraphViewerPreferences"];
 
