@@ -107,7 +107,12 @@ public:
   {
     for (auto const Page : m_Pages) {
       if (!Page->SaveValues()) {
-        // TODO: Ensure page is selected.
+        auto const Idx = m_Book->FindPage(Page);
+        
+        if (Idx != wxNOT_FOUND) {
+          m_Book->SetSelection(Idx);
+        }
+        
         return false;
       }
     }
