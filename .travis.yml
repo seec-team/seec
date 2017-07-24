@@ -13,6 +13,58 @@ matrix:
       env: 
         - COMPILER_CXX=clang++
         - COMPILER_CC=clang
+    - os: linux
+      dist: trusty
+      compiler: clang
+      addons:
+        apt:
+          sources:
+          - llvm-toolchain-trusty-4.0
+          packages:
+          - clang-4.0
+      env: 
+        - COMPILER_CXX=clang++-4.0
+        - COMPILER_CC=clang-4.0
+    - os: linux
+      dist: trusty
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-6
+          - g++-6
+      env:
+        - COMPILER_CXX=g++-6
+        - COMPILER_CC=gcc-6
+    - os: linux
+      dist: trusty
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-7
+          - g++-7
+      env:
+        - COMPILER_CXX=g++-7
+        - COMPILER_CC=gcc-7
+    - os: osx
+      osx_image: xcode7.3
+      compiler: clang
+      env: 
+        - THE_OSX_IMAGE=xcode7.3
+        - COMPILER_CXX=clang++
+        - COMPILER_CC=clang
+    - os: osx
+      osx_image: xcode9
+      compiler: clang
+      env: 
+        - THE_OSX_IMAGE=xcode9
+        - COMPILER_CXX=clang++
+        - COMPILER_CC=clang
 
 #
 # Cache dependency installations.
