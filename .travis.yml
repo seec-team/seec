@@ -8,8 +8,8 @@ matrix:
       addons:
         apt:
           packages:
-            libgtk-3-dev
-            libwebkitgtk-3.0-dev
+          - libgtk-3-dev
+          - libwebkitgtk-3.0-dev
       env: 
         - COMPILER_CXX=clang++
         - COMPILER_CC=clang
@@ -22,6 +22,8 @@ matrix:
           - llvm-toolchain-trusty-4.0
           packages:
           - clang-4.0
+          - libgtk-3-dev
+          - libwebkitgtk-3.0-dev
       env: 
         - COMPILER_CXX=clang++-4.0
         - COMPILER_CC=clang-4.0
@@ -35,6 +37,8 @@ matrix:
           packages:
           - gcc-6
           - g++-6
+          - libgtk-3-dev
+          - libwebkitgtk-3.0-dev
       env:
         - COMPILER_CXX=g++-6
         - COMPILER_CC=gcc-6
@@ -48,6 +52,8 @@ matrix:
           packages:
           - gcc-7
           - g++-7
+          - libgtk-3-dev
+          - libwebkitgtk-3.0-dev
       env:
         - COMPILER_CXX=g++-7
         - COMPILER_CC=gcc-7
