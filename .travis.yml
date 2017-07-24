@@ -1,40 +1,63 @@
 language: cpp
 
-# Get more modern versions of GCC and Clang to build with on Linux.
-# c.f. http://genbattle.bitbucket.org/blog/2016/01/17/c++-travis-ci/
 matrix:
   include:
     - os: linux
+      dist: trusty
+      compiler: clang
+      env: 
+        - COMPILER_CXX=clang++
+        - COMPILER_CC=clang
+    - os: linux
+      dist: trusty
       compiler: clang
       addons:
         apt:
           sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-precise-3.6
+          - llvm-toolchain-trusty-4.0
           packages:
-            - clang-3.6
-            - libicu-dev
-            - libwebkitgtk-dev
+          - clang-4.0
       env: 
-        - COMPILER_CXX=clang++-3.6
-        - COMPILER_CC=clang-3.6
+        - COMPILER_CXX=clang++-4.0
+        - COMPILER_CC=clang-4.0
     - os: linux
+      dist: trusty
       compiler: gcc
       addons:
         apt:
           sources:
-            - ubuntu-toolchain-r-test
+          - ubuntu-toolchain-r-test
           packages:
-            - gcc-4.8
-            - g++-4.8
-            - libicu-dev
-            - libwebkitgtk-dev
-      env: 
-        - COMPILER_CXX=g++-4.8
-        - COMPILER_CC=gcc-4.8
+          - gcc-6
+          - g++-6
+      env:
+        - COMPILER_CXX=g++-6
+        - COMPILER_CC=gcc-6
+    - os: linux
+      dist: trusty
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+          - ubuntu-toolchain-r-test
+          packages:
+          - gcc-7
+          - g++-7
+      env:
+        - COMPILER_CXX=g++-7
+        - COMPILER_CC=gcc-7
     - os: osx
+      osx_image: xcode7.3
       compiler: clang
       env: 
+        - THE_OSX_IMAGE=xcode7.3
+        - COMPILER_CXX=clang++
+        - COMPILER_CC=clang
+    - os: osx
+      osx_image: xcode9
+      compiler: clang
+      env: 
+        - THE_OSX_IMAGE=xcode9
         - COMPILER_CXX=clang++
         - COMPILER_CC=clang
 
@@ -83,12 +106,17 @@ install:
 #
   - |
     cd ${DEPS_INSTALL}
-    if [ ! -d "include/llvm" ]; then
+    if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+      SEEC_LLVM_BUILT_XZ_FILENAME="seec_llvm_travis_build_${TRAVIS_OS_NAME}_${THE_OSX_IMAGE}_${CC}.tar.xz"
+      SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${THE_OSX_IMAGE}_${CC}.tar.xz"
+    else
       SEEC_LLVM_BUILT_XZ_FILENAME="seec_llvm_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
+      SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
+    fi
+    if [ ! -d "include/llvm" ]; then
       travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/llvm-with-seec-clang/releases/download/${SEEC_LLVM_RELEASE_TAG}/${SEEC_LLVM_BUILT_XZ_FILENAME} | tar -xJ
     fi
     if [ ! -d "include/clang" ]; then
-      SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
       travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/seec-clang/releases/download/${SEEC_CLANG_RELEASE_TAG}/${SEEC_CLANG_BUILT_XZ_FILENAME} | tar -xJ
     fi
 #
