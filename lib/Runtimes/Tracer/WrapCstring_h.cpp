@@ -25,7 +25,6 @@
 #include <atomic>
 #include <cstring>
 
-
 extern "C" {
 
 
@@ -77,8 +76,10 @@ char *
 SEEC_MANGLE_FUNCTION(strcasestr)
 (char const * const haystack, char const * const needle)
 {
+#if (defined(__APPLE__) && defined(__MACH__))
   extern char *strcasestr(char const *, char const *) __attribute__((weak));
   assert(strcasestr);
+#endif
 
   return seec::SimpleWrapper
           <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
