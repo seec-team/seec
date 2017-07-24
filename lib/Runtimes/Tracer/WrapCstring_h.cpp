@@ -76,15 +76,23 @@ char *
 SEEC_MANGLE_FUNCTION(strcasestr)
 (char const * const haystack, char const * const needle)
 {
-#if (defined(__APPLE__) && defined(__MACH__))
+#if (defined(__USE_GNU) && defined(__CORRECT_ISO_CPP_STRING_H_PROTO))
+  using StrictFnType = char const *(*)(char const *, char const *);
+  using EvilFnType   = char       *(*)(char const *, char const *);
+  
+  StrictFnType originalfnptr = strcasestr;
+  EvilFnType fnptr = reinterpret_cast<EvilFnType>(originalfnptr);
+#else
   extern char *strcasestr(char const *, char const *) __attribute__((weak));
   assert(strcasestr);
+  
+  auto const fnptr = strcasestr;
 #endif
 
   return seec::SimpleWrapper
           <seec::SimpleWrapperSetting::AcquireGlobalMemoryReadLock>
           {seec::runtime_errors::format_selects::CStdFunction::strcasestr}
-          (strcasestr,
+          (fnptr,
            [](char * const){ return true; },
            seec::ResultStateRecorderForNoOp(),
            seec::wrapInputCString(haystack),

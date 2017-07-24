@@ -179,6 +179,18 @@ struct FunctionTraits<R (*)(Args...)> {
   static constexpr size_t ArgumentCount = sizeof...(Args);
 };
 
+/// \brief Specialization to match const function pointers.
+/// \tparam R the return type of the function.
+/// \tparam Args the arguments accepted by the function.
+template<typename R, typename... Args>
+struct FunctionTraits<R (* const)(Args...)> {
+  /// The return type (R) of the function.
+  typedef R ReturnType;
+
+  /// The number of arguments (sizeof...(Args)) accepted by the function.
+  static constexpr size_t ArgumentCount = sizeof...(Args);
+};
+
 /// \brief Specialization to match functions.
 /// \tparam R the return type of the function.
 /// \tparam Args the arguments accepted by the function.
