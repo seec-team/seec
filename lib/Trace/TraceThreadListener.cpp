@@ -14,7 +14,7 @@
 #define _POSIX_C_SOURCE 199506L
 
 #if (defined(__APPLE__))
-#include <mutex>
+#define _DARWIN_C_SOURCE
 #endif
 
 #include "seec/ICU/Output.hpp"
