@@ -13,6 +13,10 @@
 
 #define _POSIX_C_SOURCE 199506L
 
+#if (defined(__APPLE__))
+#include <mutex>
+#endif
+
 #include "seec/ICU/Output.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/TraceFormat.hpp"
