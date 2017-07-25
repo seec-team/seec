@@ -21,6 +21,7 @@ set(HEADERS
   ../../include/seec/Util/Serialization.hpp
   ../../include/seec/Util/SynchronizedExit.hpp
   ../../include/seec/Util/TemplateSequence.hpp
+  ../../include/seec/Util/UpcomingStandardFeatures.hpp
   ../../include/seec/Util/ValueConversion.hpp
   )
 
