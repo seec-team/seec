@@ -1,53 +1,132 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="SeeC releases">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/guide.css">
-    <title>SeeC trace viewer</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
+    
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
+
+    <title>SeeC</title>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
   </head>
 
   <body>
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SeeC</a>
+        </div>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/seec-team/seec">View on GitHub</a>
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav">
+	    <li><a href="index.html">Home</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="releases.html">Releases</a></li>
+                <li><a href="install-ubuntu.html">For Ubuntu</a></li>
+                <li><a href="https://github.com/seec-team/seec/wiki/Building-SeeC">From Source</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li class="active"><a href="seec-cc.html">Compiling and executing programs <span class="sr-only">(current)</span></a></li>
+                <li><a href="seec-view.html">Viewing execution traces</a></li>
+              </ul>
+            </li>
+	    <li><a href="publications.html">Publications</a></li>
+	    <li><a href="https://github.com/seec-team/seec">GitHub</a></li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">More <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a href="https://travis-ci.org/seec-team/seec">Travis CI <img src="https://api.travis-ci.org/seec-team/seec.svg?branch=master" /></a>
+                </li>
+                <li>
+                  <a href="https://ci.appveyor.com/project/mheinsen/seec">Appveyor <img src="https://ci.appveyor.com/api/projects/status/39i488vngma1m8qw/branch/master?svg=true" /></a>
+                </li>
+                <li><a href="http://my.cdash.org/index.php?project=SeeC">CDash</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>
 
-          <h1 id="project_title">SeeC</h1>
-          <h2 id="project_tagline">Compiling and executing programs</h2>
-        </header>
+    <div class="container">
+      <h1>Compiling and executing programs <small>on the command line</small></h1>
+
+      <p class="text-justify">
+        This page describes how to compile and execute programs using SeeC on the command line.
+        If you are using SeeC to edit a program comprised of a single source code file, on either Linux or Windows, you can also compile and execute your program directly from the source code editor (via the <strong>Project</strong> menu).
+      </p>
+
+      <p class="text-justify">
+        Compiling programs with SeeC is achieved using the <code>seec-cc</code> program. <code>seec-cc</code> is a slightly modified version of the <code>clang</code> compiler driver, which is itself designed to act as a &quot;drop in&quot; replacement for <code>cc</code>. Thus if you are familiar with using <code>cc</code> (or <code>gcc</code>, <code>clang</code>), using <code>seec-cc</code> should be straightforward.
+      </p>
+
+      <p class="text-justify">Note that the screenshots in this guide were taken on a Linux system, but the use and behaviour of <code>seec-cc</code> should be identical on OS X or Windows.</p>
+
+      <hr />
+
+      <p class="text-justify">
+        We can compile a single C99 source code file into an executable program as follows:<br />
+        <kbd>seec-cc -std=c99 -o &lt;output filename&gt; &lt;input filename&gt;</kbd><br />
+        If the compilation is successful then an executable file will be generated. In the following image we can see that the executable file <code>hello</code> is generated by compiling <code>hello.c</code>:
+      </p>
+      <img src="img/compile-03.png" alt="Compiling a C99 source code file to a program" class="img-responsive" />
+      <br />
+
+      <p class="text-justify">
+        In general, <code>seec-cc</code> should handle the same options as the <code>cc</code> driver. For example, we can enable many warnings using <kbd>-Wall</kbd>, treat warnings as errors using <kbd>-Werror</kbd>, and warn about language extensions using <kbd>-pedantic</kbd>:
+      </p>
+      <img src="img/compile-04.png" alt="Compiling with additional options" class="img-responsive" />
+      <br />
+
+      <p class="text-justify">
+        We execute the compiled program just as we would expect:
+      </p>
+      <img src="img/execute-01.png" alt="Executing the compiled program" class="img-responsive" />
+      <br />
+
+      <p class="text-justify">
+        However, two additional things happen when we execute a program compiled by <code>seec-cc</code>: the program's execution is recorded into an <em>execution trace</em>, and the program automatically checks for runtime errors. In the following image we can see what happens when a runtime error is detected: the program prints a description of the error and the location of the source code responsible for the error. The program's execution is terminated.
+      </p>
+      <img src="img/execute-02.png" alt="Detecting a runtime error during execution" class="img-responsive" />
+      <br />
+
+      <p class="text-justify">
+        The error is also stored in the <em>execution trace</em>. This is useful for debugging more complicated errors, because the execution trace contains information about everything that occurred during the program's execution (and thus everything that may have contributed to the error). In the image below we can see the execution trace <code>hello.seec</code>:
+      </p>
+      <img src="img/execute-03.png" alt="The execution trace file" class="img-responsive" />
+      <br />
+
+      <p class="text-justify">
+        <a href="seec-view.html">Viewing execution traces</a> provides information about viewing such execution traces.
+      </p>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-
-<p>Compiling programs with SeeC is achieved using the <code>seec-cc</code> program. <code>seec-cc</code> is a slightly modified version of the <code>clang</code> compiler driver, which is itself designed to act as a &quot;drop in&quot; replacement for <code>cc</code>. Thus if you are familiar with using <code>cc</code>, then using <code>seec-cc</code> should be straightforward.</p>
-
-<p>Note that the screenshots in this guide were taken on a Linux system, but the use and behaviour of SeeC should be identical on OS X.</p>
-<p>We can compile a single C99 source code file into an executable program as follows:<br /><code>seec-cc</code> <code>-std=c99</code> <code>-o</code> <code>&lt;output filename&gt;</code> <code>&lt;input filename&gt;</code><br />If the compilation is successful then an executable file will be generated. In the following image we can see that the executable file <code>hello</code> is generated by compiling <code>hello.c</code>:<br /><img src="images/compile-03.png" alt="Compiling a C99 source code file to a program" /></p>
-<p>In general, <code>seec-cc</code> should handle the same options as the <code>cc</code> driver. For example, we can enable many warnings using <code>-Wall</code>, treat warnings as errors using <code>-Werror</code>, and warn about language extensions using <code>-pedantic</code>:<br /><img src="images/compile-04.png" alt="Compiling with additional options" /></p>
-<p>We execute the compiled program just as we would expect:<br /><img src="images/execute-01.png" alt="Executing the compiled program" /></p>
-<p>However, two additional things happen when we execute a program compiled by <code>seec-cc</code>: the program's execution is recorded into an <em>execution trace</em>, and the program automatically checks for runtime errors. In the following image we can see what happens when a runtime error is detected: the program prints a description of the error and the location of the source code responsible for the error. The program's execution is terminated.<br /><img src="images/execute-02.png" alt="Detecting a runtime error during execution" /></p>
-<p>The error is also stored in the <em>execution trace</em>. This is useful for debugging more complicated errors, because the execution trace contains information about everything that occurred during the program's execution (and thus everything that may have contributed to the error). In the image below we can see the execution trace <code>hello.seec</code>:<br /><img src="images/execute-03.png" alt="The execution trace file" /></p>
-<p><a href="seec-view.html">Viewing execution traces</a> provides information about viewing such execution traces.</p>
-
-      </section>
-    </div>
-
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">SeeC is maintained by <a href="https://github.com/seec-team">seec-team</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
   </body>
 </html>

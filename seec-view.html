@@ -1,168 +1,314 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="SeeC releases">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/guide.css">
-    <title>SeeC trace viewer</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
+    
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
+
+    <title>SeeC</title>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#nav-sidebar">
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SeeC</a>
+        </div>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/seec-team/seec">View on GitHub</a>
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav">
+	    <li><a href="index.html">Home</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="releases.html">Releases</a></li>
+                <li><a href="install-ubuntu.html">For Ubuntu</a></li>
+                <li><a href="https://github.com/seec-team/seec/wiki/Building-SeeC">From Source</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="seec-cc.html">Compiling and executing programs</a></li>
+                <li class="active"><a href="seec-view.html">Viewing execution traces <span class="sr-only">(current)</span></a></li>
+              </ul>
+            </li>
+	    <li><a href="publications.html">Publications</a></li>
+	    <li><a href="https://github.com/seec-team/seec">GitHub</a></li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">More <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a href="https://travis-ci.org/seec-team/seec">Travis CI <img src="https://api.travis-ci.org/seec-team/seec.svg?branch=master" /></a>
+                </li>
+                <li>
+                  <a href="https://ci.appveyor.com/project/mheinsen/seec">Appveyor <img src="https://ci.appveyor.com/api/projects/status/39i488vngma1m8qw/branch/master?svg=true" /></a>
+                </li>
+                <li><a href="http://my.cdash.org/index.php?project=SeeC">CDash</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>
 
-          <h1 id="project_title">SeeC</h1>
-          <h2 id="project_tagline">Viewing execution traces</kbd></h2>
-        </header>
-    </div>
+    <div class="container">
+     <div class="col-md-9">
+      <h1 id="navpt-viewing-execution-traces">Viewing execution traces</h1>
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
+      <p class="text-justify">This document describes SeeC's trace viewer, which is used to view <em>execution trace</em> files. An execution trace file is produced when executing a program that was compiled with <code>seec-cc</code> (for more information see <a href="seec-cc.html">Compiling and executing programs</a>).</p>
 
-<p>This document describes SeeC's trace viewer, which is used to view <em>execution trace</em> files. An execution trace file is produced when executing a program that was compiled with <code>seec-cc</code> (for more information see <a href="seec-cc.html">Compiling and executing programs</a>).</p>
-<p>
- <strong>Note</strong>: on the laboratory computers the <kbd>seec-view</kbd> program is at <kbd>/cslinux/adhoc/seec/seec-view</kbd>.
- If you have run the program previously, then you should be able to open trace files simply using the <kbd>open</kbd> command (e.g. for a trace file called "uniqfs.seec" we would run <kbd>open uniqfs.seec</kbd>), or by double clicking on the trace file in Finder.
-</p>
-<p>
- <strong>Note</strong>: if you have installed SeeC on your own machine running OS X, then <kbd>seec-view</kbd> is an Application.
- You should be able to open trace files simply using the <kbd>open</kbd> command (e.g. for a trace file called "uniqfs.seec" we would run <kbd>open uniqfs.seec</kbd>), or by double clicking on the trace file in Finder.
-</p>
-<p>
- Note that the screenshots in this guide were taken on a Linux system, but the use and behaviour of SeeC should be identical on OS X.
-</p>
-<h2 id="contents">Contents</h2>
-<ul>
-<li><a href="#moving-forwards-and-backwards">Moving forwards and backwards</a></li>
-<li><a href="#the-source-code-window">The source code window</a></li>
-<li><a href="#the-explanation-window">The explanation window</a></li>
-<li><a href="#the-graph-window">The graph window</a></li>
-<li><a href="#the-evaluation-tree-window">The evaluation tree window</a></li>
-<li><a href="#the-file-streams-window">The FILE streams window</a></li>
-</ul>
-<h2 id="moving-forwards-and-backwards"><a name="moving-forwards-and-backwards"></a> Moving forwards and backwards</h2>
-<p>An <em>execution trace</em> contains a record of your program's execution. SeeC's trace viewer shows us a single state at any given time, but allows us to move both forwards (simulating the original execution) and backwards (&quot;rewinding&quot;). Basic movement is performed by the backwards and forwards arrows at the top of the trace viewer:</p>
-<div class="figure">
-<img src="images/move-01.png" alt="The trace viewer window" /><p class="caption">The trace viewer window</p>
-</div>
-<p><img src="images/backward-arrow-to-block.png" alt="Move backward to the beginning of the trace" /> Move backward to the beginning of the trace.<br /><img src="images/backward-arrow.png" alt="Move backward to the previously completed statement" /> Move backward to the previously completed statement.<br /><img src="images/backward-arrow-short.png" alt="Move backward a single step" /> Move backward a single step.<br /><img src="images/forward-arrow-short.png" alt="Move forward a single step" /> Move forward a single step.<br /><img src="images/forward-arrow.png" alt="Move forward to the next completed statement" /> Move forward to the next completed statement.<br /><img src="images/forward-arrow-to-block.png" alt="Move forward to the end of the trace" /> Move forward to the end of the trace.</p>
-<p>If a runtime error was detected during a program's execution then the process is terminated, thus the runtime error will be at the end of the trace. We can move forward to the end of the trace, examine the runtime error, and then move backwards to review the events that contributed to the error. The ability to move backwards is sometimes referred to as &quot;reverse debugging&quot;.</p>
-<h2 id="the-source-code-window"><a name="the-source-code-window"></a> The source code window</h2>
-<p>This window shows the source code of your program. Each source code file has its own tab: when the state is moved, the <em>active</em> source code file's tab is automatically selected, and the file is scrolled to show the <em>currently active expression</em>. The currently active expression is underlined by a yellow line. If the expression produced a value, then it will be shown beneath the expression.</p>
-<div class="figure">
-<img src="images/move-01.png" alt="Value produced by active expression" /><p class="caption">Value produced by active expression</p>
-</div>
-<p>When you move the mouse cursor over the source code of your program, SeeC will highlight the statement or declaration that most precisely contains the character beneath your mouse cursor.</p>
-<div class="figure">
-<img src="images/source-highlight.png" alt="Highlight for statement under cursor" /><p class="caption">Highlight for statement under cursor</p>
-</div>
-<p>If a statement is highlighted then you can right click the mouse (or control click on OS X) to bring up a <em>navigation menu</em> that allows you to rewind to the previous time that this statement was completely executed, or to move forward to the next time that this statement was completely executed.</p>
-<div class="figure">
-<img src="images/source-stmt-navigation.png" alt="Navigation menu for statement" /><p class="caption">Navigation menu for statement</p>
-</div>
-<h2 id="the-explanation-window"><a name="the-explanation-window"></a> The explanation window</h2>
-<p>This window shows an explanation of the <em>currently active expression</em>. This currently active expression is highlighted in other windows in yellow (e.g. the source code window and the evaluation tree window). Note that the explanation refers only to the part of the expression that is currently active. For example, in the expression <code>a + (b * c)</code> if the <code>+</code> operator is active then the explanation will only refer to the <code>+</code> operator: the <code>*</code> operator would not be described. Moving forwards or backwards by single steps will change the active part of the expression, allowing you to view related explanations.</p>
-<div class="figure">
-<img src="images/explanation-window.png" alt="Explanation window" /><p class="caption">Explanation window</p>
-</div>
-<p>The explanation text may contain sections underlined in blue. These sections are interactive in some fashion: they might refer to a statement or declaration in the source code, in which case moving the mouse over them will cause the statement or declaration to be highlighted; or they might be a link to a webpage containing more information, in which case clicking on them will attempt to open the webpage in your default browser.</p>
-<div class="figure">
-<img src="images/explanation-hover-stmt.png" alt="Highlight for expression referenced by text under cursor" /><p class="caption">Highlight for expression referenced by text under cursor</p>
-</div>
-<h2 id="the-graph-window"><a name="the-graph-window"></a> The graph window</h2>
-<p>The graph window shows a visualization of the program's memory state.</p>
-<p><strong>Note</strong>: on OS X the graph window does not correctly detect mouse hovering. As a workaround you can single left click on an element to highlight it.</p>
-<p>Every active function call has a node in the graph. The top of the node is a blue rectangle containing the function's name. A dashed blue arrow links a calling function to its called function. A function node contains one row for each variable in the function's scope: the variable's name is in the left cell, and the variable's value is in the right cell. You can right click the mouse (or control click on OS X) on a function node's name to bring up a <em>navigation menu</em> for that function call, which allows you to rewind to the function call's entry or move forward until the function call is complete.</p>
-<div class="figure">
-<img src="images/graph-function-context.png" alt="Navigation based on function" /><p class="caption">Navigation based on function</p>
-</div>
-<p>Statically allocated variables (with either global scope or function scope) are displayed in their own node, which simply has the variable name on the left and the variable's value on the right. If the variable is declared in a function then the function's name is shown as well, e.g. <code>function_name :: variable_name</code>.</p>
-<div class="figure">
-<img src="images/graph-static-local-variable.png" alt="Static local variable" /><p class="caption">Static local variable</p>
-</div>
-<p>Primitive values, such as integers and floating point numbers, are simply represented by their current value (e.g. as we might expect if we were to print them using <code>printf</code>). If a value's memory is uninitialised, then no text will be shown and the value's cell will be grey.</p>
-<p>Pointers are represented by an arrow from the pointer's location to the pointee (the memory that the pointer references).</p>
-<p>Dynamic memory allocations are displayed in their own node. The values contained in these allocations are determined by the type of the pointers that reference the allocation. Memory that is statically allocated by the C standard library is also shown in this manner.</p>
-<div class="figure">
-<img src="images/graph-dynamic-allocation.png" alt="Dynamically allocated memory" /><p class="caption">Dynamically allocated memory</p>
-</div>
-<p>Arrays are represented by a table with indices on the left and the corresponding values on the right. SeeC typically elides elements that are uninitialized or have a zero value, to improve the visibility of large arrays that are only partially used. Arrays of <code>char</code>s are typically represented as a &quot;C string&quot;: each <code>char</code>'s value is shown horizontally, with no indices. You can change the display of a value by right clicking on the value's node and selecting the &quot;Display as...&quot; menu, which will give a list of possible display types. Note that if you force SeeC to completely display very large graphs (e.g. by not eliding large arrays) then the underlying graph generation software, Graphviz, may fail to produce a graph.</p>
-<div class="figure">
-<img src="images/graph-c-string.png" alt="C string display" /><p class="caption">C string display</p>
-</div>
-<p>Structures are represented by a table with member names on the left and the corresponding values on the right.</p>
-<div class="figure">
-<img src="images/graph-struct.png" alt="Structure display" /><p class="caption">Structure display</p>
-</div>
-<p>You can right click the mouse (or control click on OS X) on any value or allocation to bring up a <em>navigation menu</em> that allows you to:</p>
-<ul>
-<li>Move backward to the point at which the memory was allocated (for statically allocated memory, this will be the beginning of the trace).</li>
-<li>Move backward to the most recent time that the memory's value was changed.</li>
-<li>Move forward to the next time that the memory's value was changed.</li>
-<li>Move forward to the point at which the memory was deallocated (if the memory was never deallocated, this will be the end of the trace).</li>
-</ul>
-<div class="figure">
-<img src="images/graph-memory-context.png" alt="Navigation based on memory" /><p class="caption">Navigation based on memory</p>
-</div>
-<h2 id="the-evaluation-tree-window"><a name="the-evaluation-tree-window"></a> The evaluation tree window</h2>
-<p>The evaluation tree shows the evaluation of the current statement. The statement's source code is shown in a single line at the top of the evaluation tree.</p>
-<div class="figure">
-<img src="images/evaluation-window.png" alt="Evaluation window" /><p class="caption">Evaluation window</p>
-</div>
-<p>Any macros defined in your own code are expanded (macros defined in system headers are not expanded). In the following image we can see that the <code>SECTORS_PER_SEC</code> macro has expanded to the highlighted section of the evaluation tree (the node with value <code>5670.0</code>, and all nodes directly above it).</p>
-<div class="figure">
-<img src="images/evaluation-window-expanded-macro.png" alt="Macros expanded" /><p class="caption">Macros expanded</p>
-</div>
-<p>Each part of the expression's evaluation is shown by a <em>node</em> in the tree. For example, if we had an expression <code>3 + 5</code> there are three parts: the value <code>3</code>, the value <code>5</code>, and the <code>+</code> operator adding the two values together. If a value's text is too large to fit into the node then an ellipsis will be shown. In the following image we can see that a division expression's node is highlighted; the nodes directly above it represent the operands to the division operator.</p>
-<div class="figure">
-<img src="images/evaluation-window-tooltip.png" alt="Node highlighted with tooltip" /><p class="caption">Node highlighted with tooltip</p>
-</div>
-<p>If you move the mouse cursor over a node then the corresponding source code will be highlighted (both in the evaluation tree window and the source code window). If you hover the mouse cursor then a tooltip will appear with more information (as we can see in the above image):</p>
-<ul>
-<li>The value produced by the operation.</li>
-<li>The type of value produced by the operation.</li>
-<li>An explanation of the operation.</li>
-<li>An explanation for any runtime error caused by the operation (in this case there are none).</li>
-</ul>
-<p>You can right click (or control click on OS X) on a node to open a <em>navigation menu</em> containing the same movement options as if you had opened a <em>navigation menu</em> on the corresponding statement in the source code window.</p>
-<div class="figure">
-<img src="images/evaluation-window-stmt-navigation.png" alt="Navigation menu" /><p class="caption">Navigation menu</p>
-</div>
-<p>Some nodes refer to a value in memory. These are represented by the text <code>(lvalue)</code>. Moving your mouse cursor over these nodes will cause the corresponding value to be highlighted in the graph window. The <em>navigation menu</em> for an <code>(lvalue)</code> node also contains movement options as if you had opened the <em>navigation menu</em> on the corresponding value in the graph window.</p>
-<div class="figure">
-<img src="images/evaluation-window-lvalue-highlight.png" alt="Value in memory highlighted in graph window" /><p class="caption">Value in memory highlighted in graph window</p>
-</div>
-<p>If a node's value is a pointer then the node will show descriptive placeholder text rather than the pointer's value. Moving your mouse cursor over these nodes will cause the referenced object to be highlighted in the graph window.</p>
-<div class="figure">
-<img src="images/evaluation-window-pointer-highlight.png" alt="Pointee value highlighted in graph window" /><p class="caption">Pointee value highlighted in graph window</p>
-</div>
-<h2 id="the-file-streams-window"><a name="the-file-streams-window"></a> The FILE streams window</h2>
-<p>This windows shows data that the program has written to FILE streams, including <code>stdout</code> and <code>stderr</code>. You can move the mouse cursor over the text to see individual writes (the write that contains the text under the mouse cursor will be surrounded by a magenta rectangle). If you right-click on some text then you will be given the option to rewind to the point at which that text was written. Thus if you observe some output that appears to be faulty, you can quickly rewind the execution trace to the point at which that output was produced.</p>
-<p>If any write to a stream contains non-ASCII values then all writes to the stream will be displayed as &quot;raw data&quot;. In this case each individual write to the stream occupies a single line in the display. Each byte is shown as an ASCII representation of its value if one exists, or as the octal representation of its value. This is shown for the &quot;myvolume&quot; stream in the below image.</p>
-<div class="figure">
-<img src="images/stream-ascii-and-octal.png" alt="Mixed ASCII and Octal representation of file writes" /><p class="caption">Mixed ASCII and Octal representation of file writes</p>
-</div>
-<p><em>Note</em>: SeeC will not record movement of a <code>FILE</code> pointer (e.g. using <code>fseek</code>), so the stream representation does not show where data was written to in the file, rather it shows the data of each write in the order that the writes were performed.</p>
+      <!--
+      <p class="text-justify bg-info">
+        <strong>Note for UWA students</strong>: on the laboratory computers the <kbd>seec-view</kbd> program is at <kbd>/cslinux/adhoc/seec/seec-view</kbd>. If you have run the program previously, then you should be able to open trace files simply using the <kbd>open</kbd> command (e.g. for a trace file called "uniqfs.seec" we would run <kbd>open uniqfs.seec</kbd>), or by double clicking on the trace file in Finder.
+      </p>
+      -->
 
-      </section>
-    </div>
+      <p class="text-justify bg-info">
+        <strong>Note</strong>: if you have installed SeeC on your own machine running OS X, then <kbd>seec-view</kbd> is an Application.
+        You should be able to open trace files simply using the <kbd>open</kbd> command (e.g. for a trace file called "uniqfs.seec" we would run <kbd>open uniqfs.seec</kbd>), or by double clicking on the trace file in Finder.
+      </p>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">SeeC is maintained by <a href="https://github.com/seec-team">seec-team</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
+      <p class="text-justify bg-info">
+        <strong>Note</strong>: the screenshots in this guide were taken on a Linux system, but the use and behaviour of SeeC should be identical on OS X or Windows.
+      </p>
 
-    
+      <hr />
 
+      <!-- Moving forwards and backwards -->
+      <h2 id="navpt-moving-forwards-and-backwards">Moving forwards and backwards</h2>
+      <p class="text-justify">
+        An <em>execution trace</em> contains a record of your program's execution. SeeC's trace viewer shows us a single state at any given time, but allows us to move both forwards (simulating the original execution) and backwards (&quot;rewinding&quot;). Basic movement is performed by the backwards and forwards arrows at the top of the trace viewer:
+      </p>
+      <img src="img/move-01.png" alt="The trace viewer window" class="img-responsive" />
+      <p class="text-center"><em>The trace viewer window</em></p>
+
+      <p>
+        <img src="img/backward-arrow-to-block.png" alt="Move backward to the beginning of the trace" />
+        Move backward to the beginning of the trace.
+        <br />
+        <img src="img/backward-arrow.png" alt="Move backward to the previously completed statement" />
+        Move backward to the previously completed statement.
+        <br />
+        <img src="img/backward-arrow-short.png" alt="Move backward a single step" /> Move backward a single step.<br />
+        <img src="img/forward-arrow-short.png" alt="Move forward a single step" /> Move forward a single step.<br />
+        <img src="img/forward-arrow.png" alt="Move forward to the next completed statement" /> Move forward to the next completed statement.<br />
+        <img src="img/forward-arrow-to-block.png" alt="Move forward to the end of the trace" /> Move forward to the end of the trace.
+      </p>
+
+      <p class="text-justify">
+        If a runtime error was detected during a program's execution then the process is terminated, thus the runtime error will be at the end of the trace. We can move forward to the end of the trace, examine the runtime error, and then move backwards to review the events that contributed to the error. The ability to move backwards is sometimes referred to as &quot;reverse debugging&quot;.
+      </p>
+
+
+      <!-- The source code window -->
+      <h2 id="navpt-the-source-code-window">The source code window</h2>
+      <p class="text-justify">
+        This window shows the source code of your program. Each source code file has its own tab: when the state is moved, the <em>active</em> source code file's tab is automatically selected, and the file is scrolled to show the <em>currently active expression</em>. The currently active expression is underlined by a yellow line. If the expression produced a value, then it will be shown beneath the expression.
+      </p>
+      <img src="img/move-01.png" alt="Value produced by active expression" class="img-responsive" />
+      <p class="text-center"><em>Value produced by active expression</em></p>
+
+      <p class="text-justify">
+        When you move the mouse cursor over the source code of your program, SeeC will highlight the statement or declaration that most precisely contains the character beneath your mouse cursor.
+      </p>
+      <img src="img/source-highlight.png" alt="Highlight for statement under cursor" class="img-responsive" />
+      <p class="text-center"><em>Highlight for statement under cursor</em></p>
+
+      <p class="text-justify">
+        If a statement is highlighted then you can right click the mouse (or control click on OS X) to bring up a <em>navigation menu</em> that allows you to rewind to the previous time that this statement was completely executed, or to move forward to the next time that this statement was completely executed.
+      </p>
+      <img src="img/source-stmt-navigation.png" alt="Navigation menu for statement" class="img-responsive center-block" />
+      <p class="text-center"><em>Navigation menu for statement</em></p>
+
+
+      <!-- The explanation window -->
+      <h2 id="navpt-the-explanation-window">The explanation window</h2>
+      <p class="text-justify">
+        This window shows an explanation of the <em>currently active expression</em>. This currently active expression is highlighted in other windows in yellow (e.g. the source code window and the evaluation tree window). Note that the explanation refers only to the part of the expression that is currently active. For example, in the expression <code>a + (b * c)</code> if the <code>+</code> operator is active then the explanation will only refer to the <code>+</code> operator: the <code>*</code> operator would not be described. Moving forwards or backwards by single steps will change the active part of the expression, allowing you to view related explanations.
+      </p>
+      <img src="img/explanation-window.png" alt="Explanation window" class="img-responsive center-block" />
+      <p class="text-center"><em>Explanation window</em></p>
+
+      <p class="text-justify">
+        The explanation text may contain sections underlined in blue. These sections are interactive in some fashion: they might refer to a statement or declaration in the source code, in which case moving the mouse over them will cause the statement or declaration to be highlighted; or they might be a link to a webpage containing more information, in which case clicking on them will attempt to open the webpage in your default browser.
+      </p>
+      <img src="img/explanation-hover-stmt.png" alt="Highlight for expression referenced by text under cursor" class="img-responsive center-block" />
+      <p class="text-center"><em>Highlight for expression referenced by text under cursor</em></p>
+
+
+      <!-- The graph window -->
+      <h2 id="navpt-the-graph-window">The graph window</h2>
+      <p class="text-justify">
+        The graph window shows a visualization of the program's memory state.
+      </p>
+
+      <p class="text-justify bg-info">
+        <strong>Note</strong>: on OS X the graph window does not correctly detect mouse hovering. As a workaround you can single left click on an element to highlight it.
+      </p>
+
+      <p class="text-justify">
+        Every active function call has a node in the graph. The top of the node is a blue rectangle containing the function's name. A dashed blue arrow links a calling function to its called function. A function node contains one row for each variable in the function's scope: the variable's name is in the left cell, and the variable's value is in the right cell. You can right click the mouse (or control click on OS X) on a function node's name to bring up a <em>navigation menu</em> for that function call, which allows you to rewind to the function call's entry or move forward until the function call is complete.
+      </p>
+      <img src="img/graph-function-context.png" alt="Navigation based on function" class="img-responsive center-block" />
+      <p class="text-center"><em>Navigation based on function</em></p>
+
+      <p class="text-justify">
+        Statically allocated variables (with either global scope or function scope) are displayed in their own node, which simply has the variable name on the left and the variable's value on the right. If the variable is declared in a function then the function's name is shown as well, e.g. <code>function_name :: variable_name</code>.
+      </p>
+      <img src="img/graph-static-local-variable.png" alt="Static local variable" class="img-responsive center-block" />
+      <p class="text-center"><em>Static local variable</em></p>
+
+      <p class="text-justify">
+        Primitive values, such as integers and floating point numbers, are simply represented by their current value (e.g. as we might expect if we were to print them using <code>printf</code>). If a value's memory is uninitialised, then no text will be shown and the value's cell will be grey.
+      </p>
+
+      <p class="text-justify">
+        Pointers are represented by an arrow from the pointer's location to the pointee (the memory that the pointer references).
+      </p>
+
+      <p class="text-justify">
+        Dynamic memory allocations are displayed in their own node. The values contained in these allocations are determined by the type of the pointers that reference the allocation. Memory that is statically allocated by the C standard library is also shown in this manner.
+      </p>
+
+      <img src="img/graph-dynamic-allocation.png" alt="Dynamically allocated memory" class="img-responsive center-block" />
+      <p class="text-center"><em>Dynamically allocated memory</em></p>
+
+      <p class="text-justify">
+        Arrays are represented by a table with indices on the left and the corresponding values on the right. SeeC typically elides elements that are uninitialized or have a zero value, to improve the visibility of large arrays that are only partially used. Arrays of <code>char</code>s are typically represented as a &quot;C string&quot;: each <code>char</code>'s value is shown horizontally, with no indices. You can change the display of a value by right clicking on the value's node and selecting the &quot;Display as...&quot; menu, which will give a list of possible display types. Note that if you force SeeC to completely display very large graphs (e.g. by not eliding large arrays) then the underlying graph generation software, Graphviz, may fail to produce a graph.
+      </p>
+      <img src="img/graph-c-string.png" alt="C string display" class="img-responsive center-block" />
+      <p class="text-center"><em>C string display</em></p>
+
+      <p class="text-justify">
+        Structures are represented by a table with member names on the left and the corresponding values on the right.
+      </p>
+      <img src="img/graph-struct.png" alt="Structure display" class="img-responsive center-block" />
+      <p class="text-center"><em>Structure display</em></p>
+
+      <p class="text-justify">
+        You can right click the mouse (or control click on OS X) on any value or allocation to bring up a <em>navigation menu</em> that allows you to:
+      </p>
+      <ul>
+        <li>Move backward to the point at which the memory was allocated (for statically allocated memory, this will be the beginning of the trace).</li>
+        <li>Move backward to the most recent time that the memory's value was changed.</li>
+        <li>Move forward to the next time that the memory's value was changed.</li>
+        <li>Move forward to the point at which the memory was deallocated (if the memory was never deallocated, this will be the end of the trace).</li>
+      </ul>
+      <img src="img/graph-memory-context.png" alt="Navigation based on memory" class="img-responsive center-block" />
+      <p class="text-center"><em>Navigation based on memory</em></p>
+
+
+      <!-- The evaluation tree window -->
+      <h2 id="navpt-the-evaluation-tree-window">The evaluation tree window</h2>
+      <p class="text-justify">
+        The evaluation tree shows the evaluation of the current statement. The statement's source code is shown in a single line at the top of the evaluation tree.
+      </p>
+      <img src="img/evaluation-window.png" alt="Evaluation window" class="img-responsive center-block" />
+      <p class="text-center"><em>Evaluation window</em></p>
+
+      <p class="text-justify">
+        Any macros defined in your own code are expanded (macros defined in system headers are not expanded). In the following image we can see that the <code>SECTORS_PER_SEC</code> macro has expanded to the highlighted section of the evaluation tree (the node with value <code>5670.0</code>, and all nodes directly above it).
+      </p>
+      <img src="img/evaluation-window-expanded-macro.png" alt="Macros expanded" class="img-responsive center-block" />
+      <p class="text-center"><em>Macros expanded</em></p>
+
+      <p class="text-justify">
+        Each part of the expression's evaluation is shown by a <em>node</em> in the tree. For example, if we had an expression <code>3 + 5</code> there are three parts: the value <code>3</code>, the value <code>5</code>, and the <code>+</code> operator adding the two values together. If a value's text is too large to fit into the node then an ellipsis will be shown. In the following image we can see that a division expression's node is highlighted; the nodes directly above it represent the operands to the division operator.
+      </p>
+      <img src="img/evaluation-window-tooltip.png" alt="Node highlighted with tooltip" class="img-responsive center-block" />
+      <p class="text-center"><em>Node highlighted with tooltip</em></p>
+
+      <p class="text-justify">
+        If you move the mouse cursor over a node then the corresponding source code will be highlighted (both in the evaluation tree window and the source code window). If you hover the mouse cursor then a tooltip will appear with more information (as we can see in the above image):
+      </p>
+      <ul>
+        <li>The value produced by the operation.</li>
+        <li>The type of value produced by the operation.</li>
+        <li>An explanation of the operation.</li>
+        <li>An explanation for any runtime error caused by the operation (in this case there are none).</li>
+      </ul>
+
+      <p class="text-justify">
+        You can right click (or control click on OS X) on a node to open a <em>navigation menu</em> containing the same movement options as if you had opened a <em>navigation menu</em> on the corresponding statement in the source code window.
+      </p>
+      <img src="img/evaluation-window-stmt-navigation.png" alt="Navigation menu" class="img-responsive center-block" />
+      <p class="text-center"><em>Navigation menu</em></p>
+
+      <p class="text-justify">
+        Some nodes refer to a value in memory. These are represented by the text <code>(lvalue)</code>. Moving your mouse cursor over these nodes will cause the corresponding value to be highlighted in the graph window. The <em>navigation menu</em> for an <code>(lvalue)</code> node also contains movement options as if you had opened the <em>navigation menu</em> on the corresponding value in the graph window.
+      </p>
+      <img src="img/evaluation-window-lvalue-highlight.png" alt="Value in memory highlighted in graph window" class="img-responsive center-block" />
+      <p class="text-center"><em>Value in memory highlighted in graph window</em></p>
+
+      <p class="text-justify">
+        If a node's value is a pointer then the node will show descriptive placeholder text rather than the pointer's value. Moving your mouse cursor over these nodes will cause the referenced object to be highlighted in the graph window.
+      </p>
+      <img src="img/evaluation-window-pointer-highlight.png" alt="Pointee value highlighted in graph window" class="img-responsive center-block" />
+      <p class="text-center"><em>Pointee value highlighted in graph window</em></p>
+
+      <!-- The file streams window -->
+      <h2 id="navpt-the-file-streams-window">The FILE streams window</h2>
+      <p class="text-justify">
+        This windows shows data that the program has written to FILE streams, including <code>stdout</code> and <code>stderr</code>. You can move the mouse cursor over the text to see individual writes (the write that contains the text under the mouse cursor will be surrounded by a magenta rectangle). If you right-click on some text then you will be given the option to rewind to the point at which that text was written. Thus if you observe some output that appears to be faulty, you can quickly rewind the execution trace to the point at which that output was produced.
+      </p>
+
+      <p class="text-justify">
+        If any write to a stream contains non-ASCII values then all writes to the stream will be displayed as &quot;raw data&quot;. In this case each individual write to the stream occupies a single line in the display. Each byte is shown as an ASCII representation of its value if one exists, or as the octal representation of its value. This is shown for the &quot;myvolume&quot; stream in the below image.
+      </p>
+      <img src="img/stream-ascii-and-octal.png" alt="Mixed ASCII and Octal representation of file writes" class="img-responsive center-block" />
+      <p class="text-center"><em>Mixed ASCII and Octal representation of file writes</em></p>
+
+      <p class="text-justify bg-info">
+        <strong>Note</strong>: SeeC will not record movement of a <code>FILE</code> pointer (e.g. using <code>fseek</code>), so the stream representation does not show where data was written to in the file, rather it shows the data of each write in the order that the writes were performed.
+      </p>
+
+
+
+
+     </div> <!-- col-md-9 -->
+
+
+     <div class=col-md-3 role=complementary>
+       <nav id="nav-sidebar" class="seec-sidebar hidden-print hidden-sm hidden-xs" data-spy="affix" data-offset-top="80">
+         <ul class="nav nav-pills nav-stacked">
+           <li role="presentation"><a href="#navpt-viewing-execution-traces">Viewing execution traces</a></li>
+           <li role="presentation"><a href="#navpt-moving-forwards-and-backwards">Moving forwards and backwards</a></li>
+           <li role="presentation"><a href="#navpt-the-source-code-window">The source code window</a></li>
+           <li role="presentation"><a href="#navpt-the-explanation-window">The explanation window</a></li>
+           <li role="presentation"><a href="#navpt-the-graph-window">The graph window</a></li>
+           <li role="presentation"><a href="#navpt-the-evaluation-tree-window">The evaluation tree window</a></li>
+           <li role="presentation"><a href="#navpt-the-file-streams-window">The FILE streams window</a></li>
+         </ul>
+       </nav>
+     </div>
+
+
+    </div> <!-- container -->
+
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
   </body>
 </html>

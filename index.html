@@ -1,90 +1,134 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
-
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/guide.css">
+    
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
 
     <title>SeeC</title>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
   </head>
 
   <body>
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SeeC</a>
+        </div>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/seec-team/seec">View on GitHub</a>
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav">
+	    <li class="active"><a href="#">Home <span class="sr-only">(current)</span></a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="releases.html">Releases</a></li>
+                <li><a href="install-ubuntu.html">For Ubuntu</a></li>
+                <li><a href="https://github.com/seec-team/seec/wiki/Building-SeeC">From Source</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="seec-cc.html">Compiling and executing programs</a></li>
+                <li><a href="seec-view.html">Viewing execution traces</a></li>
+              </ul>
+            </li>
+	    <li><a href="publications.html">Publications</a></li>
+	    <li><a href="https://github.com/seec-team/seec">GitHub</a></li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">More <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a href="https://travis-ci.org/seec-team/seec">Travis CI <img src="https://api.travis-ci.org/seec-team/seec.svg?branch=master" /></a>
+                </li>
+                <li>
+                  <a href="https://ci.appveyor.com/project/mheinsen/seec">Appveyor <img src="https://ci.appveyor.com/api/projects/status/39i488vngma1m8qw/branch/master?svg=true" /></a>
+                </li>
+                <li><a href="http://my.cdash.org/index.php?project=SeeC">CDash</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>
 
-          <h1 id="project_title">SeeC</h1>
-          <h2 id="project_tagline">Program visualization and debugging for novice C programmers</h2>
-
-<!--
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/seec-team/seec/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/seec-team/seec/tarball/master">Download this project as a tar.gz file</a>
-            </section>
--->
-        </header>
+    <div class="container">
+      <h1>SeeC <small>program visualization and debugging for novice C programmers</small></h1>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <p>SeeC is a debugging tool for novice C programmers.</p>
+    <div class="container">
+      <p class="text-justify">
+        SeeC's design draws upon the literature on both programming language tools and Computer Science education.
+        It combines advanced debugging techniques,
+        such as trace-based debugging and runtime error detection,
+        with program visualization features which have been shown to effectively assist novice programmers with program comprehension and debugging tasks.
+        As far as we are aware,
+        SeeC contains the first implementation of a dynamic evaluation tree visualization,
+        and the first execution tracing system targeting LLVM's Intermediate Representation.
+        SeeC can be used as a traditional error detector,
+        a generic program visualization system,
+        a trace-based debugger,
+        a tutorial environment,
+        or as a tool to facilitate collaboration on multi-student projects.
+      </p>
 
+      <p class="text-center">
+        <a class="btn btn-primary btn-lg" href="releases.html">Get SeeC for Windows / OS X</a>
+        <a class="btn btn-primary btn-lg" href="install-ubuntu.html">Get SeeC on Ubuntu</a>
+      </p>
 
-<h3>Using SeeC</h3>
+      <hr />
 
-<ul>
-<li><span><a href="seec-cc.html">Compiling and executing programs</a>.</span></li>
-<li><span><a href="seec-view.html">Viewing execution traces</a>.</span></li>
-</ul>
+      <p>SeeC is open source software, distributed under The MIT License (MIT). See <code>LICENSE.TXT</code> for details.</p>
 
+      <p>
+        SeeC uses code from the <a href="http://safecode.cs.illinois.edu/">SAFECode project</a>, specifically:<br />
+        <code>include/seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h</code><br />
+        <code>lib/Transforms/BreakConstantGEPs/BreakConstantGEPs.cpp</code><br />
+        The SAFECode license is available in the <code>LICENSE.txt</code> in either of those directories.
+      </p>
 
-<h3>Getting SeeC</h3>
+      <p>SeeC uses and contains copies of the following libraries:</p>
+      <ul>
+        <li>The <a href="https://jquery.com/">jQuery</a> library, in <code>resources/TraceViewer/HTML/jquery-1.8.2.min.js</code>, which is distributed under The MIT License (MIT). See <a href="https://jquery.org/license/">https://jquery.org/license/</a> for more details.</li>
+      </ul>
 
-<ul>
-<li>Releases are available <a href="releases.html">here</a>.</li>
-<li><a href="install-ubuntu.html">Installing SeeC on Ubuntu</a>.</li>
-<li>To build SeeC from source, consult the Wiki <a href="https://github.com/seec-team/seec/wiki/Building-SeeC">here</a>.</li>
-</ul>
+      <p>SeeC uses the following libraries and tools:</p>
+      <ul>
+        <li><a href="http://llvm.org/">LLVM</a></li>
+        <li><a href="http://clang.llvm.org/">Clang</a></li>
+        <li><a href="http://www.wxwidgets.org/">wxWidgets</a></li>
+        <li><a href="http://www.graphviz.org/">Graphviz</a></li>
+      </ul>
 
+      <hr />
 
-<h3>Further information</h3>
-
-<p>Publications are available <a href="publications.html">here</a>.</p>
-
-<p>SeeC is open source software, distributed under The MIT License (MIT). See <code>LICENSE.TXT</code> for details.</p>
-
-<p>SeeC uses code from the SAFECode project, specifically:<br />
-<code>include/seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h</code><br />
-<code>lib/Transforms/BreakConstantGEPs/BreakConstantGEPs.cpp</code><br />
-The SAFECode license is available in the <code>LICENSE.txt</code> in either of those directories.</p>
-
-<p>SeeC uses and contains copies of the following libraries:</p>
-
-<ul>
-<li>The jQuery library, in <code>resources/TraceViewer/HTML/jquery-1.8.2.min.js</code>, which is distributed under The MIT License (MIT). See <a href="https://jquery.org/license/">https://jquery.org/license/</a> for more details.</li>
-</ul>
-
-          <p><img src="images/2015-iAWARDS-finalist-STUDENT-Postgraduate-400x100.png" alt="24th WAITTA Incite Awards National iAWARDS Finalist" style="display: block; margin-left: auto; margin-right:auto;" /></p>
-          <p><img src="images/Student-Postgraduate-Student.png" alt="24th WAITTA Incite Awards Finalist" style="display: block; margin-left: auto; margin-right:auto;" /></p>
-      </section>
+      <p class="text-center"><img src="img/2015-iAWARDS-finalist-STUDENT-Postgraduate-400x100.png" alt="24th WAITTA Incite Awards National iAWARDS Finalist" /></p>
+      <p class="text-center"><img src="img/Student-Postgraduate-Student.png" alt="24th WAITTA Incite Awards Finalist" /></p>
     </div>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">SeeC is maintained by <a href="https://github.com/seec-team">seec-team</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
   </body>
 </html>

@@ -1,62 +1,91 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="SeeC releases">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-    <title>SeeC releases</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
+    
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
+
+    <title>SeeC</title>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
   </head>
 
   <body>
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">SeeC</a>
+        </div>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/seec-team/seec">View on GitHub</a>
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav">
+	    <li><a href="index.html">Home</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li class="active"><a href="releases.html">Releases <span class="sr-only">(current)</span></a></li>
+                <li><a href="install-ubuntu.html">For Ubuntu</a></li>
+                <li><a href="https://github.com/seec-team/seec/wiki/Building-SeeC">From Source</a></li>
+              </ul>
+            </li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="seec-cc.html">Compiling and executing programs</a></li>
+                <li><a href="seec-view.html">Viewing execution traces</a></li>
+              </ul>
+            </li>
+	    <li><a href="publications.html">Publications</a></li>
+	    <li><a href="https://github.com/seec-team/seec">GitHub</a></li>
+            <li class="dropdown">
+	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">More <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a href="https://travis-ci.org/seec-team/seec">Travis CI <img src="https://api.travis-ci.org/seec-team/seec.svg?branch=master" /></a>
+                </li>
+                <li>
+                  <a href="https://ci.appveyor.com/project/mheinsen/seec">Appveyor <img src="https://ci.appveyor.com/api/projects/status/39i488vngma1m8qw/branch/master?svg=true" /></a>
+                </li>
+                <li><a href="http://my.cdash.org/index.php?project=SeeC">CDash</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>
 
-          <h1 id="project_title">SeeC</h1>
-          <h2 id="project_tagline">Releases</h2>
-        </header>
+    <div class="container">
+      <h1>Releases <small>for Windows and OS X</small></h1>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h2>0.30.0</h2>
-        <h4>Prebuilt packages</h4>
-        <ul>
-          <li><a href="install-ubuntu.html">Ubuntu installation instructions</a></li>
-          <li><a href="https://github.com/seec-team/seec/releases/download/v0.30.0-beta/seec-0.30.0.pkg">OS X PKG</a></li>
-          <li><a href="https://github.com/seec-team/seec/releases/download/v0.30.0-beta/seec_0.30.msi">Windows x64 MSI (experimental)</a></li>
-        </ul>
-
-        <br />
-        <br />
-
-        <h3>Older releases</h3>
-        <h4>0.26.0</h4>
-        <ul>
-          <li><a href="https://www.dropbox.com/s/nshxouau4d623uk/seec.msi?dl=1">Windows x64 MSI</a> (experimental)</li>
-        </ul>
-        
-        <h4>0.25.2</h4>
-        <ul>
-          <li><a href="releases/0.25/seec-0.25.2-10.9.5.pkg">OS X 10.9.5</a> (built Wed Oct 22 08:10:43 AWST 2014 on OS X 10.9.5)</li>
-        </ul>
-      </section>
+    <div class="container">
+      <h2>0.30.0</h2>
+      <ul>
+        <li><a href="https://github.com/seec-team/seec/releases/download/v0.30.0-beta/seec-0.30.0.pkg">OS X PKG</a></li>
+        <li><a href="https://github.com/seec-team/seec/releases/download/v0.30.0-beta/seec_0.30.msi">Windows x64 MSI (experimental)</a></li>
+      </ul>
     </div>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">SeeC is maintained by <a href="https://github.com/seec-team">seec-team</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
-    
-
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
   </body>
 </html>
