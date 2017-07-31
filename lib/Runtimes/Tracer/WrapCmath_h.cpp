@@ -26,10 +26,11 @@ extern "C" {
 
 #define SEEC_REMQUO(TYPE, SUFFIX) \
 TYPE SEEC_MANGLE_FUNCTION(remquo ## SUFFIX) (TYPE x, TYPE y, int *quo) {       \
+  decltype(SEEC_MANGLE_FUNCTION(remquo ## SUFFIX)) &TheFn = std::remquo;       \
   return seec::SimpleWrapper                                                   \
     <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>                 \
     {seec::runtime_errors::format_selects::CStdFunction::remquo ## SUFFIX}     \
-    (remquo ## SUFFIX,                                                         \
+    (TheFn,                                                                    \
      [](TYPE){ return true; }, seec::ResultStateRecorderForNoOp(),             \
      x, y, seec::wrapOutputPointer(quo));                                      \
 }
@@ -66,10 +67,11 @@ SEEC_NAN(long double, l)
 
 #define SEEC_FREXP(TYPE, SUFFIX) \
 TYPE SEEC_MANGLE_FUNCTION(frexp ## SUFFIX) (TYPE arg, int *exp) {              \
+  decltype(SEEC_MANGLE_FUNCTION(frexp ## SUFFIX)) &TheFn = std::frexp;         \
   return seec::SimpleWrapper                                                   \
     <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>                 \
     {seec::runtime_errors::format_selects::CStdFunction::frexp ## SUFFIX}      \
-    (frexp ## SUFFIX,                                                          \
+    (TheFn,                                                                    \
      [](TYPE){ return true; }, seec::ResultStateRecorderForNoOp(),             \
      arg, seec::wrapOutputPointer(exp));                                       \
 }
@@ -86,10 +88,11 @@ SEEC_FREXP(long double, l)
 
 #define SEEC_MODF(TYPE, SUFFIX) \
 TYPE SEEC_MANGLE_FUNCTION(modf ## SUFFIX) (TYPE arg, TYPE *iptr) {             \
+  decltype(SEEC_MANGLE_FUNCTION(modf ## SUFFIX)) &TheFn = std::modf;           \
   return seec::SimpleWrapper                                                   \
     <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>                 \
     {seec::runtime_errors::format_selects::CStdFunction::modf ## SUFFIX}       \
-    (modf ## SUFFIX,                                                           \
+    (TheFn,                                                                    \
      [](TYPE){ return true; }, seec::ResultStateRecorderForNoOp(),             \
      arg, seec::wrapOutputPointer(iptr));                                      \
 }

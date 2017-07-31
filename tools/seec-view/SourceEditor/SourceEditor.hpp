@@ -25,12 +25,14 @@
 #include <wx/fswatcher.h>
 #include <wx/string.h>
 
+class TraceDetectionNotifier;
 class ExternalCompileEvent;
 class wxStyledTextCtrl;
 class wxStyledTextEvent;
 class wxAuiManager;
 class wxProcess;
 class wxProcessEvent;
+class wxStatusBar;
 
 class SourceEditorFile
 {
@@ -84,6 +86,18 @@ public:
 
 class SourceEditorFrame : public wxFrame
 {
+  enum class ETask {
+    Nothing,
+    Compile,
+    Run
+  };
+  
+  enum class EStatusField : int {
+    Dummy = 0,
+    Action,
+    NumberOfFields
+  };
+  
   /// Registration to ColourSchemeSettings changes.
   seec::observer::registration m_ColourSchemeSettingsRegistration;
   
@@ -97,13 +111,21 @@ class SourceEditorFrame : public wxFrame
   
   wxTextCtrl *m_CompileOutputCtrl;
   
+  TraceDetectionNotifier *m_TraceDetected;
+  
   wxProcess *m_CompileProcess;
+  
+  ETask m_CurrentTask;
+  
+  wxStatusBar *m_StatusBar;
   
   std::pair<std::unique_ptr<wxMenu>, wxString> createProjectMenu();
   
   void SetFileName(wxFileName NewName);
   
   void SetTitleFromFileName();
+  
+  void SetStatusMessage(EStatusField const Field, wxString const &Message);
   
   type_safe::boolean DoCompile();
   
@@ -121,6 +143,8 @@ class SourceEditorFrame : public wxFrame
   
   void OnEndProcess(wxProcessEvent &Event);
   
+  void ShowStatusActionMessage(char const * const MessageKey);
+  
   void OnCompileStarted(ExternalCompileEvent &Event);
   
   void OnCompileOutput(ExternalCompileEvent &Event);
@@ -128,6 +152,8 @@ class SourceEditorFrame : public wxFrame
   void OnCompileComplete(ExternalCompileEvent &Event);
   
   void OnCompileFailed(ExternalCompileEvent &Event);
+  
+  void OnEscapePressed(wxKeyEvent &Event);
   
 public:
   SourceEditorFrame();

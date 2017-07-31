@@ -522,8 +522,7 @@ MappedModule::MappedModule(
       auto FileNode = dyn_cast<MDNode>(Node->getOperand(0u));
       assert(FileNode);
 
-      FilePathStrings.emplace(FileNode,
-                              std::move(getPathFromFileNode(FileNode)));
+      FilePathStrings.emplace(FileNode, getPathFromFileNode(FileNode));
 
       auto AST = createASTForFile(FileNode);
       assert(AST);

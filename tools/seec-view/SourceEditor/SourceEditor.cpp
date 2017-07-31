@@ -11,9 +11,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
+#include "seec/Util/ScopeExit.hpp"
 #include "seec/wxWidgets/Config.hpp"
 #include "seec/wxWidgets/QueueEvent.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
@@ -49,6 +51,9 @@
 #if defined(_WIN32)
 #include <Windows.h>
 #endif
+
+#include <unicode/calendar.h>
+#include <unicode/datefmt.h>
 
 #include <utility>
 
@@ -246,7 +251,6 @@ type_safe::boolean setupRunLinux(wxFileName const &Output,
   BashCmd += Output.GetFullName().Prepend("./").ToUTF8();
   BashCmd += "\" ";
   // TODO: allow user-configurable arguments to the process.
-  // TODO: localize the below message.
   BashCmd += "; echo \"\"";
   BashCmd += "; read -rsp \"";
   BashCmd += seec::toUTF8String(Res["PressAnyKeyToClose"]);
@@ -317,6 +321,111 @@ type_safe::boolean setupRun(wxFileName const &Output,
 }
 
 } // anonymous namespace
+
+
+/// \brief 
+///
+class TraceDetectionNotifier : public wxPanel
+{
+  SourceEditorFrame &m_Parent;
+  
+  wxAuiManager &m_ParentManager;
+  
+  wxStaticText *m_MessageLabel;
+  
+  wxButton *m_OpenButton;
+  
+  wxFileName m_MostRecentFile;
+  
+  void OnOpen(wxCommandEvent &Ev)
+  {
+    if (m_MostRecentFile.Exists()) {
+      wxGetApp().MacOpenFile(m_MostRecentFile.GetFullPath());
+    }
+    
+    m_ParentManager.GetPane(this).Hide();
+    m_ParentManager.Update();
+  }
+  
+  void OnClose(wxCommandEvent &Ev)
+  {
+    m_ParentManager.GetPane(this).Hide();
+    m_ParentManager.Update();
+  }
+  
+  type_safe::boolean SetTimedLabel(seec::Resource const &Res)
+  {
+    UErrorCode Status = U_ZERO_ERROR;
+    
+    std::unique_ptr<icu::Calendar> Calendar {
+      icu::Calendar::createInstance(Status) };
+    
+    if (!Calendar) {
+      return false;
+    }
+    
+    auto const Date = Calendar->getNow();
+      
+    auto Message = format(
+      Res["TraceDetectedMessage"].asString(),
+      seec::icu::FormatArgumentsWithNames()
+        .add("time", icu::Formattable(Date, icu::Formattable::kIsDate)),
+      Status);
+    
+    if (U_SUCCESS(Status)) {
+      m_MessageLabel->SetLabel(seec::towxString(Message));
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+  
+  
+public:
+  /// \brief Constructor.
+  ///
+  TraceDetectionNotifier(SourceEditorFrame &Parent,
+                         wxAuiManager &ParentManager)
+  : wxPanel(&Parent, wxID_ANY),
+    m_Parent(Parent),
+    m_ParentManager(ParentManager),
+    m_MostRecentFile()
+  {
+    auto TDSizer = new wxBoxSizer(wxHORIZONTAL);
+    
+    m_MessageLabel = new wxStaticText(this, wxID_ANY, wxString(""));
+    TDSizer->Add(m_MessageLabel,
+                 wxSizerFlags().Centre().Border(wxLEFT | wxRIGHT, 5));
+    
+    m_OpenButton = new wxButton(this, wxID_ANY, wxString("Open"));
+    m_OpenButton->Bind(wxEVT_BUTTON, &TraceDetectionNotifier::OnOpen, this);
+    TDSizer->Add(m_OpenButton);
+    
+    auto TDClose = new wxButton(this, wxID_ANY, wxString("Close"));
+    TDClose->Bind(wxEVT_BUTTON, &TraceDetectionNotifier::OnClose, this);
+    TDSizer->Add(TDClose);
+    
+    SetSizerAndFit(TDSizer);
+  }
+  
+  void OnTraceDetected(wxFileName const &TraceFile)
+  {
+    m_MostRecentFile = TraceFile;
+    
+    // Update the message label.
+    auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+    if (!SetTimedLabel(Res)) {
+      m_MessageLabel->SetLabel(
+        seec::towxString(Res["TraceDetectedMessageUnknownTime"]));
+    }
+    
+    m_ParentManager.GetPane(this).Show();
+    m_ParentManager.Update();
+    
+    m_OpenButton->SetFocus();
+  }
+};
 
 
 /// \brief 
@@ -450,6 +559,16 @@ void SourceEditorFrame::SetTitleFromFileName()
   SetTitle(Title);
 }
 
+void SourceEditorFrame::SetStatusMessage(EStatusField const Field,
+                                         wxString const &Message)
+{
+  auto const FieldNum = static_cast<int>(Field);
+  assert(FieldNum >= 0
+         && FieldNum < static_cast<int>(EStatusField::NumberOfFields));
+  
+  m_StatusBar->SetStatusText(Message, FieldNum);
+}
+
 std::pair<std::unique_ptr<wxMenu>, wxString>
 SourceEditorFrame::createProjectMenu()
 {
@@ -461,14 +580,28 @@ SourceEditorFrame::createProjectMenu()
                                       seec::towxString(Res["Compile"]));
   BindMenuItem(MICompile, [this] (wxEvent &) -> void { this->DoCompile(); });
   
+  wxAcceleratorEntry MICompileAccel(wxACCEL_CTRL | wxACCEL_SHIFT, WXK_RETURN,
+                                    MICompile->GetId(), MICompile);
+  MICompile->SetAccel(&MICompileAccel);
+  
   auto const MIRun = Menu->Append(wxID_ANY, seec::towxString(Res["Run"]));
   BindMenuItem(MIRun, [this] (wxEvent &) -> void { this->DoRun(); });
+  
+  wxAcceleratorEntry MICompileRun(wxACCEL_CTRL, WXK_RETURN,
+                                  MIRun->GetId(), MIRun);
+  MIRun->SetAccel(&MICompileRun);
   
   return std::make_pair(std::move(Menu), seec::towxString(Res["Title"]));
 }
 
 type_safe::boolean SourceEditorFrame::DoCompile()
 {
+  // We may be called to compile a preparation before running, in which case
+  // the task is Run. If the compilation preparation fails, reset the task:
+  auto ScopeClearTask = seec::scopeExit([this](){
+    this->m_CurrentTask = ETask::Nothing;
+  });
+  
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
   
   auto const PathToCC = seec::getPathToSeeCCC();
@@ -485,6 +618,7 @@ type_safe::boolean SourceEditorFrame::DoCompile()
   }
   
   if (!DoEnsureBufferIsWritten()) {
+    wxLogDebug("couldn't write buffer for compilation");
     return false;
   }
   
@@ -505,6 +639,7 @@ type_safe::boolean SourceEditorFrame::DoCompile()
 
   auto Env = setupCompileEnv(*PathToCC, FilePath);
   if (!Env) {
+    wxLogDebug("couldn't setup environment for compilation");
     return false;
   }
 
@@ -525,12 +660,18 @@ type_safe::boolean SourceEditorFrame::DoCompile()
   }
   else {
     CompileProcess.release();
+    ScopeClearTask.disable();
     return true;
   }
 }
 
 type_safe::boolean SourceEditorFrame::DoRun()
 {
+  // Sometimes we are called automatically after a compilation succeeds, if the
+  // current task is Run. In most cases when this methods ends we want the task
+  // to be Nothing, so reset it here.
+  m_CurrentTask = ETask::Nothing;
+  
   if (!DoEnsureBufferIsWritten()) {
     return false;
   }
@@ -540,15 +681,15 @@ type_safe::boolean SourceEditorFrame::DoRun()
   auto const Output = getBinaryNameForSource(FilePath);
   
   if (!Output.FileExists()) {
-    auto const Message = seec::towxString(Res["CompileBeforeRun"]);
-    wxMessageBox(Message);
-    return false;
+    wxLogDebug("output file %s does not exist", Output.GetFullPath());
+    m_CurrentTask = ETask::Run;
+    return DoCompile();
   }
   
   if (Output.GetModificationTime() < FilePath.GetModificationTime()) {
-    auto const Message = seec::towxString(Res["CompileBeforeRun"]);
-    wxMessageBox(Message);
-    return false;
+    wxLogDebug("output file %s is outdated", Output.GetFullPath());
+    m_CurrentTask = ETask::Run;
+    return DoCompile();
   }
 
   wxExecuteArgBuilder Args;
@@ -609,17 +750,25 @@ type_safe::boolean SourceEditorFrame::DoSaveAs()
 
 type_safe::boolean SourceEditorFrame::DoEnsureBufferIsWritten()
 {
+  auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+  
   switch (m_File.getBufferKind()) {
   // If this is just a scratch buffer, don't ask the user - just save into the
   // temporary file and use that.
   case SourceEditorFile::EBufferKind::ScratchPad:
-    m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
+    if (m_Scintilla->IsEmpty()) {
+      auto const Message = seec::towxString(Res["ErrorUsingEmptyScratch"]);
+      wxMessageBox(Message, wxEmptyString, wxOK);
+      return false;
+    }
+    if (m_Scintilla->IsModified()) {
+      m_Scintilla->SaveFile(m_File.getFileName().GetFullPath());
+    }
     return true;
 
   // If this buffer is for a file that has been modified, ask the user to save.
   case SourceEditorFile::EBufferKind::File:
     if (m_Scintilla->IsModified()) {
-      auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
       auto const Message = seec::towxString(Res["SaveBeforeCompile"]);
       auto const Choice = wxMessageBox(Message, wxEmptyString, wxYES_NO);
 
@@ -639,7 +788,8 @@ void SourceEditorFrame::OnFSEvent(wxFileSystemWatcherEvent &Event)
     if (Event.GetNewPath().GetExt() == "seec") {
       // TODO: instead of always opening this, we should notify the user and
       // give them the option to open it.
-      wxGetApp().MacOpenFile(Event.GetNewPath().GetFullPath());
+      
+      m_TraceDetected->OnTraceDetected(Event.GetNewPath());
     }
   }
 }
@@ -678,9 +828,35 @@ void SourceEditorFrame::OnEndProcess(wxProcessEvent &Event)
   Event.Skip();
 }
 
+void SourceEditorFrame::ShowStatusActionMessage(char const * const MessageKey)
+{
+  UErrorCode Status = U_ZERO_ERROR;
+  auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+  
+  std::unique_ptr<icu::Calendar> Calendar {
+    icu::Calendar::createInstance(Status) };
+  
+  if (!Calendar) {
+    return;
+  }
+  
+  auto const Date = Calendar->getNow();
+  
+  auto Message = format(
+    Res[MessageKey].asString(),
+    seec::icu::FormatArgumentsWithNames()
+      .add("time", icu::Formattable(Date, icu::Formattable::kIsDate)),
+    Status);
+  
+  if (U_SUCCESS(Status)) {
+    SetStatusMessage(EStatusField::Action, seec::towxString(Message));
+  }
+}
+
 void SourceEditorFrame::OnCompileStarted(ExternalCompileEvent &Event)
 {
   m_CompileOutputCtrl->Clear();
+  ShowStatusActionMessage("StatusCompileActive");
 }
 
 void SourceEditorFrame::OnCompileOutput(ExternalCompileEvent &Event)
@@ -692,12 +868,34 @@ void SourceEditorFrame::OnCompileOutput(ExternalCompileEvent &Event)
 
 void SourceEditorFrame::OnCompileComplete(ExternalCompileEvent &Event)
 {
-  // TODO: notify the user.
+  ShowStatusActionMessage("StatusCompileSuccess");
+    
+  switch (m_CurrentTask) {
+  case ETask::Nothing:
+    break;
+  case ETask::Compile:
+    m_CurrentTask = ETask::Nothing;
+    break;
+  case ETask::Run:
+    m_CurrentTask = ETask::Nothing;
+    DoRun();
+    break;
+  }
 }
 
 void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
 {
-  // TODO: notify the user.
+  ShowStatusActionMessage("StatusCompileFail");
+  
+  m_CurrentTask = ETask::Nothing;
+}
+
+void SourceEditorFrame::OnEscapePressed(wxKeyEvent &Event)
+{
+  m_Manager->GetPane(m_CompileOutputCtrl).Hide();
+  m_Manager->GetPane(m_TraceDetected).Hide();
+  m_Manager->Update();
+  m_Scintilla->SetFocus();
 }
 
 SourceEditorFrame::SourceEditorFrame()
@@ -706,10 +904,15 @@ SourceEditorFrame::SourceEditorFrame()
   m_Manager(),
   m_File(),
   m_Scintilla(nullptr),
-  m_CompileOutputCtrl(),
-  m_CompileProcess(nullptr)
+  m_CompileOutputCtrl(nullptr),
+  m_TraceDetected(nullptr),
+  m_CompileProcess(nullptr),
+  m_CurrentTask(ETask::Nothing),
+  m_StatusBar(nullptr)
 {
-  if (!wxFrame::Create(nullptr, wxID_ANY, wxString()))
+  if (!wxFrame::Create(nullptr, wxID_ANY, wxString(),
+                       wxDefaultPosition, wxDefaultSize,
+                       wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS))
     return;
   
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
@@ -724,6 +927,7 @@ SourceEditorFrame::SourceEditorFrame()
   m_Manager->AddPane(m_Scintilla,
                      wxAuiPaneInfo().Name("Scintilla").CentrePane());
   
+  // Compiler output text window.
   m_CompileOutputCtrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString,
                                        wxDefaultPosition, wxDefaultSize,
                                        wxTE_MULTILINE | wxTE_READONLY |
@@ -739,6 +943,53 @@ SourceEditorFrame::SourceEditorFrame()
                    .Bottom()
                    .MinimizeButton(true)
                    .Hide());
+  
+  // Frame shown when a new trace file is detected.
+  m_TraceDetected = new TraceDetectionNotifier(*this, *m_Manager);
+  
+  m_Manager->AddPane(m_TraceDetected,
+    wxAuiPaneInfo().Name("TraceDetected")
+    .Top()
+    .CaptionVisible(false)
+    .CloseButton(true)
+    .DockFixed()
+    .MinimizeButton(true)
+    .Movable(false)
+    .Hide());
+  
+  // The bottom status bar.
+  m_StatusBar = new wxStatusBar(this, wxID_ANY,
+                                wxSTB_SHOW_TIPS | wxSTB_ELLIPSIZE_END
+                                | wxFULL_REPAINT_ON_RESIZE);
+  
+  auto const StatusBarFieldCount =
+    static_cast<int>(EStatusField::NumberOfFields);
+  
+  m_StatusBar->SetFieldsCount(StatusBarFieldCount);
+  int const StatusBarFieldWidths[] = { -2, -1 };
+  m_StatusBar->SetStatusWidths(StatusBarFieldCount, StatusBarFieldWidths);
+  // m_StatusBar->SetStatusText("STATUS", 0);
+  
+  m_Scintilla->Bind(wxEVT_STC_UPDATEUI,
+    seec::make_function([this] (wxStyledTextEvent &Ev) {
+      auto const Point = m_Scintilla->GetInsertionPoint();
+      
+      wxString StatusString;
+      StatusString << m_Scintilla->LineFromPosition(Point)
+                   << ':'
+                   << m_Scintilla->GetColumn(Point);
+      
+      m_StatusBar->SetStatusText(StatusString, 0);
+    }));
+  
+  m_Manager->AddPane(m_StatusBar,
+    wxAuiPaneInfo().Name("StatusBar")
+                   .Bottom()
+                   .DockFixed()
+                   .Movable(false)
+                   .CaptionVisible(false)
+                   .CloseButton(false)
+                   .Layer(1));
   
   // Listen for colour scheme changes.
   m_ColourSchemeSettingsRegistration =
@@ -768,6 +1019,17 @@ SourceEditorFrame::SourceEditorFrame()
   append(menuBar, createProjectMenu());
   
   SetMenuBar(menuBar);
+  
+  // Catch and process Esc key presses.
+  Bind(wxEVT_CHAR_HOOK,
+       seec::make_function([this] (wxKeyEvent &Ev) {
+         if (Ev.GetKeyCode() == WXK_ESCAPE) {
+           this->OnEscapePressed(Ev);
+         }
+         else {
+           Ev.Skip();
+         }
+       }));
   
   // Setup the event handling.
   Bind(wxEVT_COMMAND_MENU_SELECTED,

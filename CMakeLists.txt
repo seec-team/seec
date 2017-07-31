@@ -180,48 +180,42 @@ macro(icu_resources package)
   # destination package (.dat file)
   set(${package}_icu_dat ${${package}_res_dir}/${package}.dat)
 
-  # create empty package if necessary
-  add_custom_command(OUTPUT ${${package}_icu_dat}
-                     COMMAND ${ICU_ICUPKG}
-                     ARGS -d ${${package}_res_dir} new ${package}.dat
-                     COMMENT "icupkg ${package}.dat"
-                     )
+  set(${package}_icu_commands "")
+  set(${package}_icu_depends "")
+  set(${package}_icu_byproducts "")
 
   # build individual resources using genrb
   foreach(resource ${ARGN})
     # destination resource (.res file)
     set(${package}_icu_${resource}_res ${${package}_res_dir}/${resource}.res)
 
-    # genrb command to build the resource
-    add_custom_command(OUTPUT ${${package}_icu_${resource}_res}
-                       COMMAND ${ICU_GENRB}
-                       ARGS -e UTF-8 -d ${${package}_res_dir} -s ${CMAKE_SOURCE_DIR}/resources/${package} ${resource}.txt
-                       DEPENDS ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt
-                       COMMENT "genrb ${resource} : -e UTF-8 -d ${${package}_res_dir} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt"
-                       )
+    set(${package}_icu_commands ${${package}_icu_commands}
+        COMMAND ${ICU_GENRB}
+        ARGS -e UTF-8 -d ${${package}_res_dir} -s ${CMAKE_SOURCE_DIR}/resources/${package} ${resource}.txt
+        COMMAND ${ICU_ICUPKG}
+        ARGS -d ${${package}_res_dir} -a ${resource}.res ${package}.dat ${package}.dat)
 
-    # resource stamp file (fake output for icupkg for dependencies)
-    set(${package}_icu_${resource}_stamp ${${package}_res_dir}/${resource}.stamp)
+    set(${package}_icu_depends ${${package}_icu_depends} ${CMAKE_SOURCE_DIR}/resources/${package}/${resource}.txt)
 
-    # icupkg command to add resource to package
-    add_custom_command(OUTPUT ${${package}_icu_${resource}_stamp}
-                       COMMAND ${ICU_ICUPKG}
-                       ARGS -d ${${package}_res_dir} -a ${resource}.res ${package}.dat ${package}.dat
-                       COMMAND "${CMAKE_COMMAND}" -E touch "${${package}_icu_${resource}_stamp}"
-                       DEPENDS ${${package}_icu_${resource}_res} ${${package}_icu_dat}
-                       COMMENT "icupkg ${resource} into ${package}"
-                       )
-
-    # add the resource stamp file to this package's list of stamps
-    list(APPEND ${package}_icu_stamps ${${package}_icu_${resource}_stamp})
+    set(${package}_icu_byproducts ${${package}_icu_byproducts} ${package}_icu_${resource}_res)
   endforeach(resource)
 
+  # create empty package if necessary
+  add_custom_command(OUTPUT ${${package}_icu_dat}
+                     COMMAND ${ICU_ICUPKG}
+                     ARGS -d ${${package}_res_dir} new ${package}.dat
+                     ${${package}_icu_commands}
+                     DEPENDS
+                     ${${package}_icu_depends}
+                     BYPRODUCTS
+                     ${${package}_icu_byproducts}
+                     COMMENT "Create ICU resources package ${package}.dat"
+                     )
+
   # custom target to require packaging each resource (depends on stamp files)
-  add_custom_target(icu_resources_${package} ALL DEPENDS ${${package}_icu_stamps})
+  add_custom_target(icu_resources_${package} ALL DEPENDS ${${package}_icu_dat})
 
   # add the package (.dat file) to the list of resource files.
-  # list(APPEND SEEC_RESOURCE_FILES ${${package}_icu_dat})
-
   set_property(GLOBAL APPEND PROPERTY SEEC_RESOURCE_FILES "${${package}_icu_dat}")
 
   # install the package (.dat file)

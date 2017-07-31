@@ -15,6 +15,8 @@
 #ifndef SEEC_UTIL_MAYBE_HPP
 #define SEEC_UTIL_MAYBE_HPP
 
+#include "seec/Util/UpcomingStandardFeatures.hpp"
+
 #include <cassert>
 #include <cstdint>
 #include <limits>
@@ -112,7 +114,12 @@ public:
 
   /// \brief Assign a newly constructed T object, using Value.
   template<typename T>
-  uint8_t assign(T &&Value) {
+  uint8_t assign(T &&Value,
+                 std::enable_if_t<
+                   !std::is_same<
+                     Head,
+                     typename std::remove_const<T>::type>::value> * = nullptr)
+  {
     return 1 + TailItems.assign(std::forward<T>(Value));
   }
 
@@ -296,14 +303,11 @@ private:
     return std::is_default_constructible<typename ValueAt<I>::type>::value;
   }
 
-  // Temporary until C++14's enable_if_t:
-  template<bool B, class T = void>
-  using EnableIfT = typename std::enable_if<B,T>::type;
-
   /// \brief Ensure that \c I is the active element. If there is no active
   ///        element, then default construct \c I to make it active.
   template<uint8_t I>
-  void EnsureActive(EnableIfT<IsDefaultConstructible<I>()> * = nullptr) {
+  void EnsureActive(std::enable_if_t<IsDefaultConstructible<I>()> * = nullptr)
+  {
     if (!Which) {
       ValueAt<I>::construct(Store);
       Which = I + 1;
@@ -315,7 +319,8 @@ private:
   /// \brief Ensure that \c I is the active element. This handles the case that
   ///        \c I is not default constructible.
   template<uint8_t I>
-  void EnsureActive(EnableIfT<!IsDefaultConstructible<I>()> * = nullptr) {
+  void EnsureActive(std::enable_if_t<!IsDefaultConstructible<I>()> * = nullptr)
+  {
     assert(Which == I + 1 && "Illegal access to Maybe.");
   }
 
