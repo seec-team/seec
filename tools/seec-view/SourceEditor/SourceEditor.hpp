@@ -25,6 +25,7 @@
 #include <wx/fswatcher.h>
 #include <wx/string.h>
 
+class TraceDetectionNotifier;
 class ExternalCompileEvent;
 class wxStyledTextCtrl;
 class wxStyledTextEvent;
@@ -109,6 +110,8 @@ class SourceEditorFrame : public wxFrame
   wxStyledTextCtrl *m_Scintilla;
   
   wxTextCtrl *m_CompileOutputCtrl;
+  
+  TraceDetectionNotifier *m_TraceDetected;
   
   wxProcess *m_CompileProcess;
   

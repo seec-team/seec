@@ -325,6 +325,111 @@ type_safe::boolean setupRun(wxFileName const &Output,
 
 /// \brief 
 ///
+class TraceDetectionNotifier : public wxPanel
+{
+  SourceEditorFrame &m_Parent;
+  
+  wxAuiManager &m_ParentManager;
+  
+  wxStaticText *m_MessageLabel;
+  
+  wxButton *m_OpenButton;
+  
+  wxFileName m_MostRecentFile;
+  
+  void OnOpen(wxCommandEvent &Ev)
+  {
+    if (m_MostRecentFile.Exists()) {
+      wxGetApp().MacOpenFile(m_MostRecentFile.GetFullPath());
+    }
+    
+    m_ParentManager.GetPane(this).Hide();
+    m_ParentManager.Update();
+  }
+  
+  void OnClose(wxCommandEvent &Ev)
+  {
+    m_ParentManager.GetPane(this).Hide();
+    m_ParentManager.Update();
+  }
+  
+  type_safe::boolean SetTimedLabel(seec::Resource const &Res)
+  {
+    UErrorCode Status = U_ZERO_ERROR;
+    
+    std::unique_ptr<icu::Calendar> Calendar {
+      icu::Calendar::createInstance(Status) };
+    
+    if (!Calendar) {
+      return false;
+    }
+    
+    auto const Date = Calendar->getNow();
+      
+    auto Message = format(
+      Res["TraceDetectedMessage"].asString(),
+      seec::icu::FormatArgumentsWithNames()
+        .add("time", icu::Formattable(Date, icu::Formattable::kIsDate)),
+      Status);
+    
+    if (U_SUCCESS(Status)) {
+      m_MessageLabel->SetLabel(seec::towxString(Message));
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+  
+  
+public:
+  /// \brief Constructor.
+  ///
+  TraceDetectionNotifier(SourceEditorFrame &Parent,
+                         wxAuiManager &ParentManager)
+  : wxPanel(&Parent, wxID_ANY),
+    m_Parent(Parent),
+    m_ParentManager(ParentManager),
+    m_MostRecentFile()
+  {
+    auto TDSizer = new wxBoxSizer(wxHORIZONTAL);
+    
+    m_MessageLabel = new wxStaticText(this, wxID_ANY, wxString(""));
+    TDSizer->Add(m_MessageLabel,
+                 wxSizerFlags().Centre().Border(wxLEFT | wxRIGHT, 5));
+    
+    m_OpenButton = new wxButton(this, wxID_ANY, wxString("Open"));
+    m_OpenButton->Bind(wxEVT_BUTTON, &TraceDetectionNotifier::OnOpen, this);
+    TDSizer->Add(m_OpenButton);
+    
+    auto TDClose = new wxButton(this, wxID_ANY, wxString("Close"));
+    TDClose->Bind(wxEVT_BUTTON, &TraceDetectionNotifier::OnClose, this);
+    TDSizer->Add(TDClose);
+    
+    SetSizerAndFit(TDSizer);
+  }
+  
+  void OnTraceDetected(wxFileName const &TraceFile)
+  {
+    m_MostRecentFile = TraceFile;
+    
+    // Update the message label.
+    auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
+    if (!SetTimedLabel(Res)) {
+      m_MessageLabel->SetLabel(
+        seec::towxString(Res["TraceDetectedMessageUnknownTime"]));
+    }
+    
+    m_ParentManager.GetPane(this).Show();
+    m_ParentManager.Update();
+    
+    m_OpenButton->SetFocus();
+  }
+};
+
+
+/// \brief 
+///
 class ExternalCompileEvent : public wxEvent
 {
   std::string m_Message;
@@ -683,7 +788,8 @@ void SourceEditorFrame::OnFSEvent(wxFileSystemWatcherEvent &Event)
     if (Event.GetNewPath().GetExt() == "seec") {
       // TODO: instead of always opening this, we should notify the user and
       // give them the option to open it.
-      wxGetApp().MacOpenFile(Event.GetNewPath().GetFullPath());
+      
+      m_TraceDetected->OnTraceDetected(Event.GetNewPath());
     }
   }
 }
@@ -787,7 +893,9 @@ void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
 void SourceEditorFrame::OnEscapePressed(wxKeyEvent &Event)
 {
   m_Manager->GetPane(m_CompileOutputCtrl).Hide();
+  m_Manager->GetPane(m_TraceDetected).Hide();
   m_Manager->Update();
+  m_Scintilla->SetFocus();
 }
 
 SourceEditorFrame::SourceEditorFrame()
@@ -796,7 +904,8 @@ SourceEditorFrame::SourceEditorFrame()
   m_Manager(),
   m_File(),
   m_Scintilla(nullptr),
-  m_CompileOutputCtrl(),
+  m_CompileOutputCtrl(nullptr),
+  m_TraceDetected(nullptr),
   m_CompileProcess(nullptr),
   m_CurrentTask(ETask::Nothing),
   m_StatusBar(nullptr)
@@ -818,6 +927,7 @@ SourceEditorFrame::SourceEditorFrame()
   m_Manager->AddPane(m_Scintilla,
                      wxAuiPaneInfo().Name("Scintilla").CentrePane());
   
+  // Compiler output text window.
   m_CompileOutputCtrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString,
                                        wxDefaultPosition, wxDefaultSize,
                                        wxTE_MULTILINE | wxTE_READONLY |
@@ -834,6 +944,20 @@ SourceEditorFrame::SourceEditorFrame()
                    .MinimizeButton(true)
                    .Hide());
   
+  // Frame shown when a new trace file is detected.
+  m_TraceDetected = new TraceDetectionNotifier(*this, *m_Manager);
+  
+  m_Manager->AddPane(m_TraceDetected,
+    wxAuiPaneInfo().Name("TraceDetected")
+    .Top()
+    .CaptionVisible(false)
+    .CloseButton(true)
+    .DockFixed()
+    .MinimizeButton(true)
+    .Movable(false)
+    .Hide());
+  
+  // The bottom status bar.
   m_StatusBar = new wxStatusBar(this, wxID_ANY,
                                 wxSTB_SHOW_TIPS | wxSTB_ELLIPSIZE_END
                                 | wxFULL_REPAINT_ON_RESIZE);

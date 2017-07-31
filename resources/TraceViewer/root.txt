@@ -813,6 +813,11 @@ root:table {
     StatusCompileSuccess:string {"{time,time}: Compile successful"}
     StatusCompileFail:string {"{time,time}: Compile failed"}
     
+    TraceDetectedMessage:string {"Detected a new trace file at {time,time}"}
+    TraceDetectedMessageUnknownTime:string {"Detected a new trace file"}
+    TraceDetectedOpen:string {"Open"}
+    TraceDetectedCancel:string {"Cancel"}
+    
     ProjectMenu:table {
       Title:string {"Project"}
       Compile:string {"Compile"}
