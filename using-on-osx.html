@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" xml:lang="en" dir="ltr">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
-    <meta http-equiv="Content-Language" content="en">
     
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
@@ -37,7 +36,7 @@
         <!-- Collect the nav links, forms, and other content for toggling -->
         <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
           <ul class="nav navbar-nav">
-	    <li class="active"><a href="#">Home <span class="sr-only">(current)</span></a></li>
+	    <li><a href="index.html">Home</a></li>
             <li class="dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
               <ul class="dropdown-menu">
@@ -49,7 +48,7 @@
             <li class="dropdown">
 	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
               <ul class="dropdown-menu">
-                <li><a href="using-on-osx.html">Using SeeC on OS X</a></li>
+                <li class="active"><a href="using-on-osx.html">Using SeeC on OS X <span class="sr-only">(current)</span></a></li>
                 <li><a href="using-on-windows.html">Using SeeC on Windows</a></li>
                 <li><a href="seec-cc.html">Compiling and executing programs</a></li>
                 <li><a href="seec-view.html">Viewing execution traces</a></li>
@@ -75,58 +74,25 @@
     </nav>
 
     <div class="container">
-      <h1>SeeC <small>program visualization and debugging for novice C programmers</small></h1>
-    </div>
+      <h1>Using SeeC on OS X</h1>
 
-    <div class="container">
       <p class="text-justify">
-        SeeC's design draws upon the literature on both programming language tools and Computer Science education.
-        It combines advanced debugging techniques,
-        such as trace-based debugging and runtime error detection,
-        with program visualization features which have been shown to effectively assist novice programmers with program comprehension and debugging tasks.
-        As far as we are aware,
-        SeeC contains the first implementation of a dynamic evaluation tree visualization,
-        and the first execution tracing system targeting LLVM's Intermediate Representation.
-        SeeC can be used as a traditional error detector,
-        a generic program visualization system,
-        a trace-based debugger,
-        a tutorial environment,
-        or as a tool to facilitate collaboration on multi-student projects.
-      </p>
-
-      <p class="text-center">
-        <a class="btn btn-primary btn-lg" href="releases.html">Get SeeC for Windows / OS X</a>
-        <a class="btn btn-primary btn-lg" href="install-ubuntu.html">Get SeeC on Ubuntu</a>
+        This page describes some extra steps needed to use the SeeC compiler on OS X.
       </p>
 
       <hr />
 
-      <p>SeeC is open source software, distributed under The MIT License (MIT). See <code>LICENSE.TXT</code> for details.</p>
-
-      <p>
-        SeeC uses code from the <a href="http://safecode.cs.illinois.edu/">SAFECode project</a>, specifically:<br />
-        <code>include/seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h</code><br />
-        <code>lib/Transforms/BreakConstantGEPs/BreakConstantGEPs.cpp</code><br />
-        The SAFECode license is available in the <code>LICENSE.txt</code> in either of those directories.
+      <p class="text-justify">
+        The C programs that you write are likely to require standard library header files or system header files. For OS X, the easiest way to get these is to install <a href="https://developer.apple.com/xcode/">XCode</a>.
       </p>
 
-      <p>SeeC uses and contains copies of the following libraries:</p>
-      <ul>
-        <li>The <a href="https://jquery.com/">jQuery</a> library, in <code>resources/TraceViewer/HTML/jquery-1.8.2.min.js</code>, which is distributed under The MIT License (MIT). See <a href="https://jquery.org/license/">https://jquery.org/license/</a> for more details.</li>
-      </ul>
+      <p class="text-justify">
+        When you are <a href="seec-cc.html">using SeeC's compiler</a>, you will need to provide it the location of the header files. The exact location will depend on which version of OS X you are compiling for, but it should be within <code>/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/</code>. We provide the location of the appropriate <em>SDK</em> using the <kbd>-isysroot</kbd> argument. For example:
+      </p>
 
-      <p>SeeC uses the following libraries and tools:</p>
-      <ul>
-        <li><a href="http://llvm.org/">LLVM</a></li>
-        <li><a href="http://clang.llvm.org/">Clang</a></li>
-        <li><a href="http://www.wxwidgets.org/">wxWidgets</a></li>
-        <li><a href="http://www.graphviz.org/">Graphviz</a></li>
-      </ul>
-
-      <hr />
-
-      <p class="text-center"><img src="img/2015-iAWARDS-finalist-STUDENT-Postgraduate-400x100.png" alt="24th WAITTA Incite Awards National iAWARDS Finalist" class="img-responsive center-block" /></p>
-      <p class="text-center"><img src="img/Student-Postgraduate-Student.png" alt="24th WAITTA Incite Awards Finalist" class="img-responsive center-block" /></p>
+      <blockquote>
+        <kbd>seec-cc -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk</kbd>
+      </blockquote>
     </div>
 
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->

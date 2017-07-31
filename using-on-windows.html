@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" xml:lang="en" dir="ltr">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Seec : Program visualization and debugging for novice C programmers">
-    <meta http-equiv="Content-Language" content="en">
     
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <!-- <link rel="stylesheet" type="text/css" href="stylesheets/guide.css"> -->
@@ -37,7 +36,7 @@
         <!-- Collect the nav links, forms, and other content for toggling -->
         <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
           <ul class="nav navbar-nav">
-	    <li class="active"><a href="#">Home <span class="sr-only">(current)</span></a></li>
+	    <li><a href="index.html">Home</a></li>
             <li class="dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Get <span class="caret"></span></a>
               <ul class="dropdown-menu">
@@ -50,7 +49,7 @@
 	      <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Use <span class="caret"></span></a>
               <ul class="dropdown-menu">
                 <li><a href="using-on-osx.html">Using SeeC on OS X</a></li>
-                <li><a href="using-on-windows.html">Using SeeC on Windows</a></li>
+                <li class="active"><a href="using-on-windows.html">Using SeeC on Windows <span class="sr-only">(current)</span></a></li>
                 <li><a href="seec-cc.html">Compiling and executing programs</a></li>
                 <li><a href="seec-view.html">Viewing execution traces</a></li>
               </ul>
@@ -75,58 +74,68 @@
     </nav>
 
     <div class="container">
-      <h1>SeeC <small>program visualization and debugging for novice C programmers</small></h1>
-    </div>
+      <h1>Using SeeC on Windows</h1>
 
-    <div class="container">
       <p class="text-justify">
-        SeeC's design draws upon the literature on both programming language tools and Computer Science education.
-        It combines advanced debugging techniques,
-        such as trace-based debugging and runtime error detection,
-        with program visualization features which have been shown to effectively assist novice programmers with program comprehension and debugging tasks.
-        As far as we are aware,
-        SeeC contains the first implementation of a dynamic evaluation tree visualization,
-        and the first execution tracing system targeting LLVM's Intermediate Representation.
-        SeeC can be used as a traditional error detector,
-        a generic program visualization system,
-        a trace-based debugger,
-        a tutorial environment,
-        or as a tool to facilitate collaboration on multi-student projects.
-      </p>
-
-      <p class="text-center">
-        <a class="btn btn-primary btn-lg" href="releases.html">Get SeeC for Windows / OS X</a>
-        <a class="btn btn-primary btn-lg" href="install-ubuntu.html">Get SeeC on Ubuntu</a>
+        This page describes some extra steps needed to use SeeC on Windows.
       </p>
 
       <hr />
 
-      <p>SeeC is open source software, distributed under The MIT License (MIT). See <code>LICENSE.TXT</code> for details.</p>
 
-      <p>
-        SeeC uses code from the <a href="http://safecode.cs.illinois.edu/">SAFECode project</a>, specifically:<br />
-        <code>include/seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h</code><br />
-        <code>lib/Transforms/BreakConstantGEPs/BreakConstantGEPs.cpp</code><br />
-        The SAFECode license is available in the <code>LICENSE.txt</code> in either of those directories.
+      <h2>Install MSYS2 and MinGW-w64</h2>
+
+      <p class="text-justify">
+        SeeC requires some other tools and header files in order to compile your C programs. For Windows, we recommend using <em>MSYS2</em> to install these files. The <a href="http://www.msys2.org/">MSYS2 website</a> contains an installer and instructions for setting up the basic msys2 environment.
       </p>
 
-      <p>SeeC uses and contains copies of the following libraries:</p>
-      <ul>
-        <li>The <a href="https://jquery.com/">jQuery</a> library, in <code>resources/TraceViewer/HTML/jquery-1.8.2.min.js</code>, which is distributed under The MIT License (MIT). See <a href="https://jquery.org/license/">https://jquery.org/license/</a> for more details.</li>
-      </ul>
+      <p class="text-justify">
+        After MSYS2 is installed according to the instructions, open the MSYS2 shell. Run the following command to install the development tools and header files that we need:
+      </p>
+      <blockquote>
+        <kbd>pacman -S mingw-w64-x86_64-toolchain</kbd>
+      </blockquote>
 
-      <p>SeeC uses the following libraries and tools:</p>
-      <ul>
-        <li><a href="http://llvm.org/">LLVM</a></li>
-        <li><a href="http://clang.llvm.org/">Clang</a></li>
-        <li><a href="http://www.wxwidgets.org/">wxWidgets</a></li>
-        <li><a href="http://www.graphviz.org/">Graphviz</a></li>
-      </ul>
 
-      <hr />
+      <h2>Install Graphviz</h2>
 
-      <p class="text-center"><img src="img/2015-iAWARDS-finalist-STUDENT-Postgraduate-400x100.png" alt="24th WAITTA Incite Awards National iAWARDS Finalist" class="img-responsive center-block" /></p>
-      <p class="text-center"><img src="img/Student-Postgraduate-Student.png" alt="24th WAITTA Incite Awards Finalist" class="img-responsive center-block" /></p>
+      <p class="text-justify">
+        SeeC uses <a href="http://www.graphviz.org/Download.php">Graphviz</a> to produce graph layouts of program memory. You can download <a href="http://www.graphviz.org/Download_windows.php">Graphviz for Windows here</a>.
+      </p>
+
+
+      <h2>Set SeeC preferences</h2>
+
+      <p class="text-justify">
+        After you have installed MinGW-w64 and Graphviz, we can set their location in SeeC's preferences menu.
+      </p>
+      <ol>
+        <li>Open <em>SeeC</em> from the start menu (the SeeC Trace Viewer welcome window should appear)</li>
+        <li>Go to the <strong>Edit</strong> menu, then select <strong>Preferences</strong>.</li>
+        <li>Click on <strong>Graph</strong> in the left-hand menu, then set the location of Graphviz's <code>dot.exe</code> file. If you installed Graphviz to <code>C:\graphviz</code>, then the location of this file will be <code>C:\graphviz\bin\dot.exe</code></li>
+        <li>Click on <strong>Compiler</strong> in the left-hand menu, then set the location of MinGW-w64's <code>gcc.exe</code> file. If you installed MSYS2 to <code>C:\msys64</code>, then the location of this file should be <code>C:\msys64\mingw64\bin\gcc.exe</code></li>
+        <li>Close SeeC and re-open it. Everything should be ready to go!</li>
+      </ol>
+
+
+      <h2>Using SeeC on the command line</h2>
+
+      <p class="text-justify">
+        The above steps are sufficient to use SeeC's trace viewer. If you edit a source code file with SeeC's trace viewer, you can also compile and run programs (from the <strong>Project</strong> menu). However, you may want to use <em>seec-cc</em> directly from the Windows Command Prompt. To do that, you must set the <code>PATH</code> environment variable so that Command Prompt knows where to find <em>seec-cc</em>, and so that <em>seec-cc</em> knows where to find MinGW-w64. If you have installed these in the default locations, you can do this by entering the following command into Command Prompt:
+      </p>
+      <blockquote>
+        <kbd>set PATH=C:\msys64\mingw64\bin;C:\Program Files (x86)\SeeC\SeeC\bin;%PATH%</kbd>
+      </blockquote>
+
+      <p class="text-justify">
+        If you are doing this often it can be a chore to set the <code>PATH</code> environment variable repeatedly. One approach to mitigate this is to create a batch (<code>.bat</code>) file that will set the <code>PATH</code> for you and leave the Command Prompt open. You can do this by creating a file with the <code>bat</code> extension and the following contents:
+      </p>
+      <blockquote>
+        <kbd>cmd /k set PATH=C:\msys64\mingw64\bin;C:\Program Files (x86)\SeeC\SeeC\bin;%PATH%</kbd>
+      </blockquote>
+      <p class="text-justify">
+        When you run this file (e.g. by double-clicking it within Windows' GUI), it will open a Command Prompt and set the <code>PATH</code> appropriately, after which you can <a href="seec-cc.html">use <em>seec-cc</em> as you would on any other platform</a>.
+      </p>
     </div>
 
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
