@@ -475,8 +475,16 @@ SourceEditorFrame::createProjectMenu()
                                       seec::towxString(Res["Compile"]));
   BindMenuItem(MICompile, [this] (wxEvent &) -> void { this->DoCompile(); });
   
+  wxAcceleratorEntry MICompileAccel(wxACCEL_CTRL | wxACCEL_SHIFT, WXK_RETURN,
+                                    MICompile->GetId(), MICompile);
+  MICompile->SetAccel(&MICompileAccel);
+  
   auto const MIRun = Menu->Append(wxID_ANY, seec::towxString(Res["Run"]));
   BindMenuItem(MIRun, [this] (wxEvent &) -> void { this->DoRun(); });
+  
+  wxAcceleratorEntry MICompileRun(wxACCEL_CTRL, WXK_RETURN,
+                                  MIRun->GetId(), MIRun);
+  MIRun->SetAccel(&MICompileRun);
   
   return std::make_pair(std::move(Menu), seec::towxString(Res["Title"]));
 }
