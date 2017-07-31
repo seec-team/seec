@@ -784,6 +784,12 @@ void SourceEditorFrame::OnCompileFailed(ExternalCompileEvent &Event)
   m_CurrentTask = ETask::Nothing;
 }
 
+void SourceEditorFrame::OnEscapePressed(wxKeyEvent &Event)
+{
+  m_Manager->GetPane(m_CompileOutputCtrl).Hide();
+  m_Manager->Update();
+}
+
 SourceEditorFrame::SourceEditorFrame()
 : m_ColourSchemeSettingsRegistration(),
   m_FSWatcher(llvm::make_unique<wxFileSystemWatcher>()),
@@ -795,7 +801,9 @@ SourceEditorFrame::SourceEditorFrame()
   m_CurrentTask(ETask::Nothing),
   m_StatusBar(nullptr)
 {
-  if (!wxFrame::Create(nullptr, wxID_ANY, wxString()))
+  if (!wxFrame::Create(nullptr, wxID_ANY, wxString(),
+                       wxDefaultPosition, wxDefaultSize,
+                       wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS))
     return;
   
   auto const Res = seec::Resource("TraceViewer")["SourceEditor"];
@@ -887,6 +895,17 @@ SourceEditorFrame::SourceEditorFrame()
   append(menuBar, createProjectMenu());
   
   SetMenuBar(menuBar);
+  
+  // Catch and process Esc key presses.
+  Bind(wxEVT_CHAR_HOOK,
+       seec::make_function([this] (wxKeyEvent &Ev) {
+         if (Ev.GetKeyCode() == WXK_ESCAPE) {
+           this->OnEscapePressed(Ev);
+         }
+         else {
+           Ev.Skip();
+         }
+       }));
   
   // Setup the event handling.
   Bind(wxEVT_COMMAND_MENU_SELECTED,

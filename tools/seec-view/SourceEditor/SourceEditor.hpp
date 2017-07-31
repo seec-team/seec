@@ -150,6 +150,8 @@ class SourceEditorFrame : public wxFrame
   
   void OnCompileFailed(ExternalCompileEvent &Event);
   
+  void OnEscapePressed(wxKeyEvent &Event);
+  
 public:
   SourceEditorFrame();
   
