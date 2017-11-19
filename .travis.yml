@@ -83,10 +83,9 @@ before_install:
   - export CXX="${COMPILER_CXX}" CC="${COMPILER_CC}"
   - SEEC_LLVM_RELEASE_TAG="v4.0.0"
   - SEEC_CLANG_RELEASE_TAG="v4.0.0_1.0"
+  - SEEC_WX_RELEASE_TAG="seec_travis_v3.0.3.1"
   - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
   - CMAKE_URL="http://www.cmake.org/files/v3.4/cmake-3.4.3-Linux-x86_64.tar.gz"
-  - WXWIDGETS_REPOSITORY="https://github.com/mheinsen/wxWidgets.git"
-  - WXWIDGETS_VERSION_TAG="master"
   - SEEC_VERSION_STRING="0.40.0"
 
 install:
@@ -113,22 +112,27 @@ install:
       export PATH=${DEPS_INSTALL}/cmake/bin:${PATH}
     fi
 #
-# Download pre-built LLVM and SeeC-Clang (separately).
+# Download pre-built LLVM, SeeC-Clang, and wxWidgets (separately).
 #
   - |
     cd ${DEPS_INSTALL}
     if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
       SEEC_LLVM_BUILT_XZ_FILENAME="seec_llvm_travis_build_${TRAVIS_OS_NAME}_${THE_OSX_IMAGE}_${CC}.tar.xz"
       SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${THE_OSX_IMAGE}_${CC}.tar.xz"
+      WX_BUILT_XZ_FILENAME="seec_wx_travis_build_${TRAVIS_OS_NAME}_${THE_OSX_IMAGE}_${CC}.tar.xz"
     else
       SEEC_LLVM_BUILT_XZ_FILENAME="seec_llvm_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
       SEEC_CLANG_BUILT_XZ_FILENAME="seec_clang_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
+      WX_BUILT_XZ_FILENAME="seec_wx_travis_build_${TRAVIS_OS_NAME}_${CC}.tar.xz"
     fi
     if [ ! -d "include/llvm" ]; then
       travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/llvm-with-seec-clang/releases/download/${SEEC_LLVM_RELEASE_TAG}/${SEEC_LLVM_BUILT_XZ_FILENAME} | tar -xJ
     fi
     if [ ! -d "include/clang" ]; then
       travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/seec-clang/releases/download/${SEEC_CLANG_RELEASE_TAG}/${SEEC_CLANG_BUILT_XZ_FILENAME} | tar -xJ
+    fi
+    if [ ! -e "bin/wx-config" ]; then
+      travis_retry wget --no-check-certificate --quiet -O - https://github.com/seec-team/wxWidgets/releases/download/${SEEC_WX_RELEASE_TAG}/${WX_BUILT_XZ_FILENAME} | tar -xJ
     fi
 #
 # For OS X, we also need to build and install ICU.
@@ -147,27 +151,6 @@ install:
       fi
     else
       ICU_INSTALL_DIR="/usr"
-    fi
-#
-# Download, build and install wxWidgets
-#
-  - |
-    if [ ! -e "${DEPS_INSTALL}/bin/wx-config" ]; then
-      cd ${DEPS_SRC}
-      git clone ${WXWIDGETS_REPOSITORY} wxWidgets
-      cd wxWidgets
-      git checkout ${WXWIDGETS_VERSION_TAG}
-      cd ${DEPS_BUILD}
-      mkdir wxWidgets && cd wxWidgets
-      WX_CFLAGS="-fPIC -Wno-potentially-evaluated-expression"
-      WX_CXXFLAGS="-std=c++11 -fPIC -fvisibility-inlines-hidden -Wno-potentially-evaluated-expression"
-      if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-        ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS}" --prefix=${DEPS_INSTALL}
-      elif [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
-        ${DEPS_SRC}/wxWidgets/configure --disable-shared --enable-webview --without-libtiff --without-regex --enable-stl CFLAGS="${WX_CFLAGS}" CXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" OBJCXXFLAGS="${WX_CXXFLAGS} -stdlib=libc++" LDFLAGS="-stdlib=libc++" --with-macosx-version-min=10.7 --prefix=${DEPS_INSTALL}
-      fi
-      make -j4
-      make install
     fi
 
 #
