@@ -6,7 +6,7 @@ environment:
   SEEC_CLANG_BRANCH: 'sc_release_40'
   WXWIDGETS_REPOSITORY: 'https://github.com/mheinsen/wxWidgets.git'
   WXWIDGETS_VERSION_TAG: 'mheinsen'
-  SEEC_VERSION_STRING: '0.30.0'
+  SEEC_VERSION_STRING: '0.40.0'
 
   matrix:
   - COMPILER: msys2
