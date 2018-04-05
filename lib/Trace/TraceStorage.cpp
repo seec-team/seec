@@ -18,7 +18,7 @@
 
 #if defined(__unix__)
   #include <unistd.h>
-#elif ((defined(__APPLE__) && defined(__MACH__))
+#elif (defined(__APPLE__) && defined(__MACH__))
   #include <sys/types.h>
   #include <sys/uio.h>
   #include <unistd.h>
