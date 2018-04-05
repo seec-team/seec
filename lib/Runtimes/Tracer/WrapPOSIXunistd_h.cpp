@@ -30,54 +30,6 @@
 #include <unistd.h>
 
 
-/// \brief Close a single-threaded trace on construction, but allows for
-///        reopening.
-///
-class SpeculativeTraceClose {
-  seec::trace::TraceProcessListener &Process;
-
-  seec::trace::TraceThreadListener &Thread;
-
-  bool const WasEnabled;
-
-  seec::trace::TraceArchiveResult ArchiveResult;
-
-public:
-  SpeculativeTraceClose(seec::trace::TraceProcessListener &WithProcess,
-                        seec::trace::TraceThreadListener &WithThread)
-  : Process(WithProcess),
-    Thread(WithThread),
-    WasEnabled(Process.traceEnabled()),
-    ArchiveResult{}
-  {
-    if (WasEnabled) {
-      Process.traceWrite();
-      Process.traceFlush();
-      Process.traceClose();
-      Thread.traceWrite();
-      Thread.traceFlush();
-      Thread.traceClose();
-
-      ArchiveResult = seec::trace::getProcessEnvironment().archive();
-    }
-  }
-
-  void reopen()
-  {
-    if (WasEnabled) {
-      if (ArchiveResult.getSuccess()) {
-        auto const ExtractResult =
-          seec::trace::getProcessEnvironment().unarchive(ArchiveResult);
-        // TODO: Check the extraction result!
-      }
-
-      Process.traceOpen();
-      Thread.traceOpen();
-    }
-  }
-};
-
-
 namespace seec {
 
 /// \brief Error check and record argv given to getopt.
@@ -380,10 +332,7 @@ SEEC_MANGLE_FUNCTION(execl)
     }
   }
 
-  // Closes trace and restores if destructed.
-  SpeculativeTraceClose STC(ProcessListener, Listener);
   auto const Result = execv(filename, ExtractedArgs.data());
-  STC.reopen();
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
@@ -488,10 +437,7 @@ SEEC_MANGLE_FUNCTION(execlp)
     }
   }
 
-  // Closes trace and restores if destructed.
-  SpeculativeTraceClose STC(ProcessListener, Listener);
   auto const Result = execvp(filename, ExtractedArgs.data());
-  STC.reopen();
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
@@ -624,10 +570,7 @@ SEEC_MANGLE_FUNCTION(execle)
       InstructionIndex);
   }
 
-  // Closes trace and restores if destructed.
-  SpeculativeTraceClose STC(ProcessListener, Listener);
   auto const Result = execve(filename, ExtractedArgs.data(), EnvP);
-  STC.reopen();
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
@@ -684,13 +627,8 @@ SEEC_MANGLE_FUNCTION(execv)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Handles closing and reopening the trace (if it is currently open).
-  SpeculativeTraceClose STC(ProcessListener, Listener);
-
   // Forward to the default implementation of execv.
   auto Result = execv(filename, argv);
-  
-  STC.reopen();
   
   Listener.notifyValue(InstructionIndex,
                        Instruction,
@@ -748,13 +686,8 @@ SEEC_MANGLE_FUNCTION(execvp)
   // Ensure that argv is accessible.
   Checker.checkCStringArray(1, argv);
   
-  // Handles closing and reopening the trace (if it is currently open).
-  SpeculativeTraceClose STC(ProcessListener, Listener);
-  
   // Forward to the default implementation of execvp.
   auto Result = execvp(filename, argv);
-  
-  STC.reopen();
   
   Listener.notifyValue(InstructionIndex,
                        Instruction,
@@ -816,14 +749,9 @@ SEEC_MANGLE_FUNCTION(execve)
   // Ensure that envp is accessible.
   Checker.checkCStringArray(2, envp);
   
-  // Handles closing and reopening the trace (if it is currently open).
-  SpeculativeTraceClose STC(ProcessListener, Listener);
-  
   // Forward to the default implementation of execve.
   auto Result = execve(filename, argv, envp);
   
-  STC.reopen();
-  
   Listener.notifyValue(InstructionIndex,
                        Instruction,
                        std::make_unsigned<decltype(Result)>::type(Result));
@@ -831,89 +759,6 @@ SEEC_MANGLE_FUNCTION(execve)
   
   return Result;
 }
-
-
-#if 0
-//===----------------------------------------------------------------------===//
-// execvpe
-//===----------------------------------------------------------------------===//
-
-int
-SEEC_MANGLE_FUNCTION(execvpe)
-(char const *filename, char * const argv[], char * const envp[])
-{
-  using namespace seec::trace;
-  
-  auto const FSFunction =
-    seec::runtime_errors::format_selects::CStdFunction::execvpe;
-  
-  auto &ThreadEnv = getThreadEnvironment();
-  auto &Listener = ThreadEnv.getThreadListener();
-  auto &ProcessListener = ThreadEnv.getProcessEnvironment()
-                                   .getProcessListener();
-  
-  auto const Instruction = ThreadEnv.getInstruction();
-  auto const InstructionIndex = ThreadEnv.getInstructionIndex();
-  
-  // Raise an error if there are multiple threads.
-  if (ProcessListener.countThreadListeners() > 1) {
-    using namespace seec::runtime_errors;
-    
-    Listener.handleRunError(
-      *createRunError<RunErrorType::UnsafeMultithreaded>(FSFunction),
-      RunErrorSeverity::Fatal,
-      InstructionIndex);
-  }
-  
-  // Interact with the thread listener's notification system.
-  Listener.enterNotification();
-  auto DoExit = seec::scopeExit([&](){ Listener.exitPostNotification(); });
-  
-  // Lock global memory.
-  Listener.acquireGlobalMemoryReadLock();
-  
-  // Use a CStdLibChecker to help check memory.
-  CStdLibChecker Checker{Listener, ThreadEnv.getInstructionIndex(), FSFunction};
-  
-  // Ensure that the filename string is accessible.
-  Checker.checkCStringRead(0, filename);
-  
-  // Ensure that argv is accessible.
-  Checker.checkCStringArray(1, argv);
-  
-  // Ensure that envp is accessible.
-  Checker.checkCStringArray(2, envp);
-  
-  // Write a complete trace before we call execvpe, because if it succeeds we
-  // will no longer control the process.
-  auto const TraceEnabled = ProcessListener.traceEnabled();
-  
-  if (TraceEnabled) {
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
-    ProcessListener.traceClose();
-    Listener.traceWrite();
-    Listener.traceFlush();
-    Listener.traceClose();
-  }
-  
-  // Forward to the default implementation of execvpe.
-  auto Result = execvpe(filename, argv, envp);
-  
-  // At this point the execvpe has failed, so restore tracing.
-  if (TraceEnabled) {
-    ProcessListener.traceOpen();
-    Listener.traceOpen();
-  }
-  
-  Listener.notifyValue(InstructionIndex,
-                       Instruction,
-                       std::make_unsigned<decltype(Result)>::type(Result));
-  seec::recordErrno(Listener, errno);
-  
-  return Result;
-}
-#endif
 
 
 //===----------------------------------------------------------------------===//
@@ -943,13 +788,7 @@ SEEC_MANGLE_FUNCTION(fork)
       ThreadEnv.getInstructionIndex());
   }
   
-  // Flush output streams prior to the fork, so that information isn't
-  // flushed from both processes following the fork.
   auto const TraceEnabled = ProcessListener.traceEnabled();
-  if (TraceEnabled) {
-    ProcessListener.traceFlush();
-    Listener.traceFlush();
-  }
   
   // Do the fork.
   auto Result = fork();

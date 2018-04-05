@@ -46,7 +46,7 @@ inline offset_uint noOffset() {
 }
 
 /// Version of the trace storage format.
-constexpr inline uint64_t formatVersion() { return 7; }
+constexpr inline uint64_t formatVersion() { return 8; }
 
 /// ThreadID used to indicate that an event location refers to the initial
 /// state of the process.
@@ -54,6 +54,16 @@ constexpr inline uint32_t initialDataThreadID() { return 0; }
 
 /// ProcessTime used to refer to the initial state of the process.
 constexpr inline uint64_t initialDataProcessTime() { return 0; }
+
+
+/// The large-blocks that make up a trace file.
+enum class BlockType : uint8_t {
+  Empty = 0,
+  ModuleBitcode = 1,
+  ProcessTrace = 2,
+  ProcessData = 3,
+  ThreadEvents = 4
+};
 
 
 /// Enumeration of possible event types.
@@ -106,39 +116,6 @@ SEEC_PP_APPLY(SEEC_PP_TRAIT, TRAITS)
 #include "seec/Trace/Events.def"
 
 #undef SEEC_PP_TRAIT
-
-
-//------------------------------------------------------------------------------
-// FunctionRecord
-//------------------------------------------------------------------------------
-
-/// \brief Record of a single Function execution.
-///
-struct FunctionRecord {
-  /// Index of the \c llvm::Function in the \c llvm::Module.
-  uint32_t Index;
-
-  /// Offset of the FunctionStart event in the thread's event trace.
-  offset_uint EventOffsetStart;
-
-  /// Offset of the FunctionEnd event in the thread's event trace, or noOffset()
-  /// if the Function was never completed.
-  offset_uint EventOffsetEnd;
-
-  /// Thread time at which the Function began.
-  uint64_t ThreadTimeEntered;
-
-  /// Thread time at which the Function completed (if it completed).
-  uint64_t ThreadTimeExited;
-
-  /// Offset of the list of FunctionRecords for Functions called during this
-  /// Function execution. This is unused and should be removed.
-  offset_uint ChildListOffset;
-
-  /// Offset of the list of non-local memory changes performed during this
-  /// Function's execution. This is unused and should be removed.
-  offset_uint NonLocalChangeListOffset;
-};
 
 
 //------------------------------------------------------------------------------

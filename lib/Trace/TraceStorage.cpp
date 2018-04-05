@@ -1,10 +1,3 @@
-//===- lib/Trace/TraceStorage.cpp -----------------------------------------===//
-//
-//                                    SeeC
-//
-// This file is distributed under The MIT License (MIT). See LICENSE.TXT for
-// details.
-//
 //===----------------------------------------------------------------------===//
 ///
 /// \file
@@ -14,16 +7,9 @@
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-
-#include <wx/file.h>
-#include <wx/filename.h>
-#include <wx/longlong.h>
-#include <wx/wfstream.h>
-#include <wx/zipstrm.h>
 
 #include <cstdlib>
 #include <memory>
@@ -36,70 +22,237 @@
 #include <process.h>
 #endif
 
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 namespace seec {
 
 namespace trace {
 
 
-static char const *getArchiveExtension()        { return "seec"; }
-static char const *getTraceDirectoryExtension() { return "seecd"; }
-static char const *getModuleFilename()          { return "module.bc"; }
+static char const *getTraceExtension() { return "seec"; }
 
-static char const *getProcessExtension(ProcessSegment Segment) {
-  switch (Segment) {
-    case ProcessSegment::Trace:
-      return "spt";
-    case ProcessSegment::Data:
-      return "spd";
+
+//------------------------------------------------------------------------------
+// OutputBlock
+//------------------------------------------------------------------------------
+
+llvm::Optional<off_t> OutputBlock::write(const void *buf, size_t nbyte)
+{
+  if (m_Offset < m_BlockEnd) {
+    off_t const DataOffset = m_Offset.fetch_add(nbyte);
+    
+    assert(nbyte <= std::numeric_limits<int64_t>::max());
+    
+    if (int64_t(nbyte) <= m_BlockEnd - DataOffset) {
+      auto const NWritten = pwrite(m_TraceFD, buf, nbyte, DataOffset);
+      if (NWritten >= 0 && uint64_t(NWritten) == nbyte) {
+        return DataOffset;
+      }
+      else if (NWritten < 0) {
+        perror("OutputBlock pwrite failed:");
+      }
+    }
   }
   
-  return nullptr;
+  return llvm::Optional<off_t>();
 }
 
-static char const *getThreadExtension(ThreadSegment Segment) {
-  switch (Segment) {
-    case ThreadSegment::Trace:
-      return "stt";
-    case ThreadSegment::Events:
-      return "ste";
+llvm::Optional<OutputBlock::WriteRecord>
+OutputBlock::rewritableWrite(const void * const buf, size_t const nbyte)
+{
+  llvm::Optional<WriteRecord> Ret;
+  
+  auto Off = write(buf, nbyte);
+  if (Off) {
+    Ret.emplace(m_TraceFD, *Off, nbyte);
   }
   
-  return nullptr;
+  return Ret;
 }
+
+type_safe::boolean OutputBlock::writeat(int const fd,
+                                        const void * const buf,
+                                        size_t const nbyte,
+                                        off_t const offset)
+{
+  auto const BytesWritten = pwrite(fd, buf, nbyte, offset);
+  return BytesWritten >= 0 && uint64_t(BytesWritten) == nbyte;
+}
+
+
+//------------------------------------------------------------------------------
+// OutputBlockBuilder
+//------------------------------------------------------------------------------
+
+llvm::Optional<OutputBlockBuilder::block_offset>
+OutputBlockBuilder::flush(std::unique_ptr<OutputBlockBuilder> Builder)
+{
+  return Builder->write();
+}
+
+llvm::Optional<OutputBlockBuilder::block_offset> OutputBlockBuilder::write()
+{
+  llvm::Optional<OutputBlockBuilder::block_offset> Ret;
+  
+  if (m_Written.try_set()) {
+    auto const TotalBlockSize = OutputBlock::getHeaderSize() + m_Buffer.size();
+    auto Block = m_Output.getOutputBlock(m_BlockType, TotalBlockSize);
+    
+    if (Block) {
+      auto Off = Block->write(m_Buffer.data(), m_Buffer.size());
+      if (Off) {
+        Ret = block_offset(*Off);
+      }
+      else {
+        fprintf(stderr, "couldn't write to block builder basic block.\n");
+      }
+    }
+  }
+  
+  return Ret;
+}
+
+//------------------------------------------------------------------------------
+// OutputBlockStream
+//------------------------------------------------------------------------------
+
+llvm::Optional<off_t> OutputBlockStream::write(void const * const Data,
+                                               size_t const Size)
+{
+  llvm::Optional<off_t> Ret;
+  
+  if (!m_Block) {
+    getNewBlock();
+  }
+  
+  if (m_Block) {
+    Ret = m_Block->write(Data, Size);
+    
+    if (!Ret) {
+      // Perhaps the old block was out of room, get a new one and try again.
+      getNewBlock();
+      Ret = m_Block->write(Data, Size);
+    }
+  }
+  
+  return Ret;
+}
+
+llvm::Optional<OutputBlock::WriteRecord>
+OutputBlockStream::rewritableWrite(const void *Data, size_t Size)
+{
+  llvm::Optional<OutputBlock::WriteRecord> Ret;
+  
+  if (!m_Block) {
+    getNewBlock();
+  }
+  
+  if (m_Block) {
+    if (auto Result = m_Block->rewritableWrite(Data, Size)) {
+      Ret.emplace(*Result);
+    }
+    else {
+      // Perhaps the old block was out of room, get a new one and try again.
+      getNewBlock();
+      if (auto Result = m_Block->rewritableWrite(Data, Size)) {
+        Ret.emplace(*Result);
+      }
+    }
+  }
+  
+  return Ret;
+}
+
+void OutputBlockStream::getNewBlock()
+{
+  m_Block.reset();
+  
+  auto NewBlock = m_Output.getOutputBlock(m_BlockType, m_BlockSize);
+  if (NewBlock) {
+    m_Block.emplace(std::move(*NewBlock));
+  }
+
+  if (m_Block && m_HeaderWriter) {
+    m_HeaderWriter(*m_Block);
+  }
+}
+
+
+//------------------------------------------------------------------------------
+// OutputBlockProcessDataStream
+//------------------------------------------------------------------------------
+
+llvm::Optional<off_t>
+OutputBlockProcessDataStream::write(const void * const Data,
+                                    size_t const Size)
+{
+  llvm::Optional<off_t> Ret;
+  
+  if (Size < getSingleBlockThreshold()) {
+    Ret = m_OutputStream.write(Data, Size);
+  }
+  else {
+    auto const TotalSize = OutputBlock::getHeaderSize() + Size;
+    auto SingleBlock = m_Output.getOutputBlock(BlockType::ProcessData,
+                                               TotalSize);
+    assert(SingleBlock);
+    Ret = SingleBlock->write(Data, Size);
+  }
+  
+  return Ret;
+}
+
+
+//------------------------------------------------------------------------------
+// OutputBlockThreadEventStream
+//------------------------------------------------------------------------------
+
+void OutputBlockThreadEventStream::writeHeader(OutputBlock &Block)
+{
+  auto const Off = Block.write(&m_ThreadID, sizeof(m_ThreadID));
+  assert(Off.hasValue() && "couldn't write thread event block header");
+  
+  // Prev Thread Block
+  // Next Thread Block
+}
+
 
 //------------------------------------------------------------------------------
 // OutputStreamAllocator
 //------------------------------------------------------------------------------
 
 OutputStreamAllocator::
-OutputStreamAllocator(llvm::StringRef WithTraceLocation,
-                      llvm::StringRef WithTraceDirectoryName,
-                      llvm::StringRef WithTraceDirectoryPath,
-                      llvm::StringRef WithTraceArchiveName)
-: TraceLocation(WithTraceLocation),
-  TraceDirectoryName(WithTraceDirectoryName),
-  TraceDirectoryPath(WithTraceDirectoryPath),
-  TraceArchiveName(WithTraceArchiveName),
-  TraceFiles()
-{}
+OutputStreamAllocator(llvm::StringRef WithTracePath,
+                      bool UserSpecifiedTraceName,
+                      int const TraceFD)
+: m_TracePath(WithTracePath),
+  m_UserSpecifiedTraceName(UserSpecifiedTraceName),
+  m_TraceFD(TraceFD),
+  m_TraceOffset(0)
+{
+  // Setup the file header.
+  auto const Written = write(m_TraceFD, "SEECSEEC", 8);
+  if (Written < 0) {
+    perror("writing magic failed:");
+    exit(EXIT_FAILURE);
+  }
+  
+  m_TraceOffset += 8;
+}
 
 bool OutputStreamAllocator::deleteAll()
 {
   bool Result = true;
   
-  wxString FullPath {TraceDirectoryPath};
-  FullPath += wxFileName::GetPathSeparator();
-  auto const FullPathDirLength = FullPath.size();
-  
-  for (auto const &File : TraceFiles) {
-    // Generate the complete path.
-    FullPath.Truncate(FullPathDirLength);
-    FullPath += File;
-    Result = Result && wxRemoveFile(FullPath);
+  if (close(m_TraceFD) == 0) {
+    m_TraceFD = -1;
   }
   
-  Result = Result && wxRmdir(TraceDirectoryPath);
+  if (unlink(m_TracePath.c_str())) {
+    Result = false;
+  }
   
   return Result;
 }
@@ -115,49 +268,12 @@ static void getDefaultTraceLocation(llvm::SmallVectorImpl<char> &Result)
   llvm::sys::path::system_temp_directory(true, Result);
 }
 
-/// \brief Check to see if the given path is a valid trace location.
-///
-static seec::Maybe<seec::Error> checkTraceLocation(llvm::StringRef Path)
-{
-  bool IsDirectory;
-  auto const ErrCode = llvm::sys::fs::is_directory(Path, IsDirectory);
-  
-  if (ErrCode)
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "IsDirectoryFail"},
-                               std::make_pair("path", Path.str().c_str()))};
-  
-  if (!IsDirectory)
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "PathIsNotDirectory"},
-                               std::make_pair("path", Path.str().c_str()))};
-  
-  return seec::Maybe<seec::Error>();
-}
-
-/// \brief Construct a new trace directory.
-/// \return An Error if the directory already existed.
-///
-static seec::Maybe<seec::Error> createTraceDirectory(llvm::StringRef Path)
-{
-  auto const ErrCode =
-    llvm::sys::fs::create_directory(Path, /* IgnoreExisting */ false);
-  
-  if (ErrCode)
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "CreateDirectoryFail"},
-                               std::make_pair("path", Path.str().c_str()))};
-  
-  return seec::Maybe<seec::Error>();
-}
-
 seec::Maybe<std::unique_ptr<OutputStreamAllocator>, seec::Error>
 OutputStreamAllocator::createOutputStreamAllocator()
 {
   llvm::SmallString<256> TraceLocation;
-  llvm::SmallString<256> TraceDirectoryName;
-  llvm::SmallString<256> TraceDirectoryPath;
-  llvm::SmallString<256> TraceArchiveName;
+  llvm::SmallString<256> TraceFileName;
+  bool UserSpecifiedTraceName = false;
   
   if (auto const UserPathEV = std::getenv("SEEC_TRACE_NAME")) {
     if (llvm::sys::path::is_absolute(UserPathEV)) {
@@ -170,542 +286,127 @@ OutputStreamAllocator::createOutputStreamAllocator()
     }
     
     if (llvm::sys::path::has_filename(UserPathEV)) {
-      TraceDirectoryName =
-        TraceArchiveName = llvm::sys::path::filename(UserPathEV);
-      
-      TraceDirectoryName += '.';
-      TraceDirectoryName += getTraceDirectoryExtension();
-      
-      TraceArchiveName += '.';
-      TraceArchiveName += getArchiveExtension();
+      TraceFileName = llvm::sys::path::filename(UserPathEV);
+      UserSpecifiedTraceName = true;
     }
   }
   else {
     getDefaultTraceLocation(TraceLocation);
   }
   
-  // Check that the trace location is OK.
-  auto MaybeTraceLocationError = checkTraceLocation(TraceLocation);
-  if (MaybeTraceLocationError.assigned<seec::Error>())
-    return MaybeTraceLocationError.move<seec::Error>();
-  
-  // Generate a name for the trace directory if the user didn't supply one.
-  if (TraceDirectoryName.empty()) {
-    TraceDirectoryName.append("p.");
+  // Generate a name for the trace file if the user didn't supply one.
+  if (TraceFileName.empty()) {
+    TraceFileName.append("p.");
 #if defined(__unix__)
-    TraceDirectoryName.append(std::to_string(getpid()));
+    TraceFileName.append(std::to_string(getpid()));
 #elif defined(_WIN32)
-	TraceDirectoryName.append(std::to_string(_getpid()));
+	TraceFileName.append(std::to_string(_getpid()));
 #endif
-    TraceDirectoryName.push_back('.');
-    TraceDirectoryName.append(getTraceDirectoryExtension());
+    TraceFileName.push_back('.');
+    TraceFileName.append(getTraceExtension());
   }
   
-  // Attempt to setup the trace directory.
-  TraceDirectoryPath = TraceLocation;
-  llvm::sys::path::append(TraceDirectoryPath, TraceDirectoryName.str());
+  // Create our file.
+  llvm::SmallString<256> FullPath = TraceLocation;
+  llvm::sys::path::append(FullPath, TraceFileName);
   
-  auto MaybeCreateDirError = createTraceDirectory(TraceDirectoryPath);
-  if (MaybeCreateDirError.assigned<seec::Error>())
-    return MaybeCreateDirError.move<seec::Error>();
+  mode_t const TraceMode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  int const TraceFD = open(FullPath.c_str(),
+                           O_WRONLY | O_CREAT | O_TRUNC,
+                           TraceMode);
+  
+  if (TraceFD == -1) {
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "OpenFileFail"},
+                               std::make_pair("error", strerror(errno)))};
+  }
   
   // Create the OutputStreamAllocator.
-  auto Allocator = new (std::nothrow)
-                   OutputStreamAllocator(TraceLocation,
-                                         TraceDirectoryName,
-                                         TraceDirectoryPath,
-                                         TraceArchiveName);
+  std::unique_ptr<OutputStreamAllocator> Allocator (
+    new (std::nothrow) OutputStreamAllocator(FullPath,
+                                             UserSpecifiedTraceName,
+                                             TraceFD));
   
-  if (Allocator == nullptr)
+  if (!Allocator)
     return Error{LazyMessageByRef::create("Trace",
                                           {"errors",
                                            "OutputStreamAllocatorFail"})};
   
-  return std::unique_ptr<OutputStreamAllocator>(Allocator);
+  // Setup the file header.
+  
+  return std::move(Allocator);
 }
 
-seec::Maybe<uint64_t, seec::Error>
-OutputStreamAllocator::getTotalSize() const
+uint64_t OutputStreamAllocator::getTotalSize() const
 {
-  uint64_t TotalSize = 0;
-  
-  wxString FullPath {TraceDirectoryPath};
-  FullPath += wxFileName::GetPathSeparator();
-  auto const FullPathDirLength = FullPath.size();
-  
-  for (auto const &File : TraceFiles) {
-    // Generate the complete path.
-    FullPath.Truncate(FullPathDirLength);
-    FullPath += File;
+  return m_TraceOffset;
+}
+
+void OutputStreamAllocator::updateTraceName(llvm::StringRef ProgramName)
+{
+  // Rename the file (if it wasn't a user-supplied name).
+  if (!m_UserSpecifiedTraceName) {
+    llvm::SmallString<256> NewName (m_TracePath);
+    llvm::sys::path::remove_filename(NewName);
+    llvm::sys::path::append(NewName, ProgramName);
+    llvm::sys::path::replace_extension(NewName, getTraceExtension());
     
-    auto const Size = wxFileName{FullPath}.GetSize();
-    if (Size == wxInvalidSize) {
-      return Error{
-        LazyMessageByRef::create("Trace", {"errors", "GetFileSizeFail"},
-                                 std::make_pair("path", File.c_str()))};
+    auto const Result = rename(m_TracePath.c_str(), NewName.c_str());
+    
+    if (!Result) {
+      m_TracePath = NewName.str();
     }
-    
-    TotalSize += Size.GetValue();
   }
-  
-  return TotalSize;
+}
+
+llvm::Optional<OutputBlock>
+OutputStreamAllocator::getOutputBlock(BlockType Type, off_t NBytes)
+{
+  off_t const Offset = m_TraceOffset.fetch_add(NBytes);
+  off_t const End = Offset + NBytes;
+  return OutputBlock(m_TraceFD, Type, End, Offset);
 }
 
 seec::Maybe<seec::Error>
 OutputStreamAllocator::writeModule(llvm::StringRef Bitcode)
 {
-  // Get a path for the bitcode file.
-  llvm::SmallString<256> Path {llvm::StringRef{TraceDirectoryPath}};
-  llvm::sys::path::append(Path, getModuleFilename());
+  // Header
+  off_t const Size = Bitcode.size();
   
-  // Attempt to open an output buffer for the bitcode file.
-  auto OutputOrErr = llvm::FileOutputBuffer::create(llvm::StringRef(Path),
-                                                    Bitcode.size());
-  if (!OutputOrErr) {
-    return Error{LazyMessageByRef::create("Trace",
-                                          {"errors", "FileOutputBufferFail"},
-                                          std::make_pair("path",
-                                                         Path.c_str()))};
+  auto Output = getOutputBlock(BlockType::ModuleBitcode,
+                               OutputBlock::getHeaderSize() + Size);
+  if (!Output) {
+    return Error(
+      LazyMessageByRef::create("Trace",
+                               {"errors", "OutputBlockFail"}));
   }
   
-  // Copy the bitcode into the output buffer and commit it.
-  std::memcpy((*OutputOrErr)->getBufferStart(), Bitcode.data(), Bitcode.size());
-  (*OutputOrErr)->commit();
-  
-  // Save the relative path to the module.
-  TraceFiles.emplace(getModuleFilename());
+  auto Result = Output->write(Bitcode.data(), Bitcode.size());
+  if (!Result) {
+    return Error(
+      LazyMessageByRef::create("Trace",
+                               {"errors", "OutputBlockFail"}));
+  }
   
   return seec::Maybe<seec::Error>();
 }
 
-std::unique_ptr<llvm::raw_ostream>
-OutputStreamAllocator::getProcessStream(ProcessSegment Segment,
-                                        llvm::sys::fs::OpenFlags Flags)
+std::unique_ptr<OutputBlockBuilder>
+OutputStreamAllocator::getProcessTraceStream()
 {
-  std::string File = std::string{"st."} + getProcessExtension(Segment);
-  
-  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
-  llvm::sys::path::append(Path, File);
-  
-  std::error_code EC;
-  auto Out = new llvm::raw_fd_ostream(Path.c_str(), EC, Flags);
-  if (!Out) {
-    llvm::errs() << "\nSeeC encountered a fatal error: "
-                 << EC.message() << "\n";
-    exit(EXIT_FAILURE);
-  }
-
-  // Save the relative path to the process segment.
-  TraceFiles.emplace(File);
-  
-  return std::unique_ptr<llvm::raw_ostream>(Out);
+  return llvm::make_unique<OutputBlockBuilder>(*this, BlockType::ProcessTrace);
 }
 
-std::unique_ptr<llvm::raw_ostream>
-OutputStreamAllocator::getThreadStream(uint32_t ThreadID,
-                                       ThreadSegment Segment,
-                                       llvm::sys::fs::OpenFlags Flags)
+std::unique_ptr<OutputBlockProcessDataStream>
+OutputStreamAllocator::getProcessDataStream()
 {
-  std::string File = std::string{"st.t"} + std::to_string(ThreadID)
-                   + "." + getThreadExtension(Segment);
-  
-  llvm::SmallString<256> Path {llvm::StringRef(TraceDirectoryPath)};
-  llvm::sys::path::append(Path, File);
-
-  std::error_code EC;
-  auto Out = new llvm::raw_fd_ostream(Path.c_str(), EC, Flags);
-  if (!Out) {
-    llvm::errs() << "\nSeeC encountered a fatal error: "
-                 << EC.message() << "\n";
-    exit(EXIT_FAILURE);
-  }
-  
-  // Save the relative path to the thread segment.
-  TraceFiles.emplace(File);
-
-  return std::unique_ptr<llvm::raw_ostream>(Out);
+  return llvm::make_unique<OutputBlockProcessDataStream>(*this);
 }
 
-wxString getArchivePath(std::string const &TraceLocation,
-                        std::string const &TraceDirectoryName,
-                        std::string const &TraceArchiveName,
-                        llvm::StringRef GivenPath)
+std::unique_ptr<OutputBlockThreadEventStream>
+OutputStreamAllocator::getThreadEventStream(uint32_t const ThreadID)
 {
-  // User-supplied archive name, with extension added previously.
-  if (!TraceArchiveName.empty())
-    return wxString{TraceLocation} + wxFileName::GetPathSeparator()
-           + TraceArchiveName;
-  
-  // Path given by the client (e.g. the executable name).
-  if (!GivenPath.empty())
-    return wxString{TraceLocation} + wxFileName::GetPathSeparator()
-           + GivenPath.str() + "." + getArchiveExtension();
-  
-  // Path based on the trace directory name.
-  wxFileName ArchiveName {TraceDirectoryName};
-  ArchiveName.SetExt(getArchiveExtension());
-  return wxString{TraceLocation} + wxFileName::GetPathSeparator()
-         + ArchiveName.GetFullPath();
-}
-
-Maybe<std::string, Error> OutputStreamAllocator::archiveTo(llvm::StringRef Path)
-{
-  wxString const ArchivePath =
-    getArchivePath(TraceLocation, TraceDirectoryName, TraceArchiveName, Path);
-  
-  wxTempFileOutputStream RawOutput{ArchivePath};
-  if (!RawOutput.IsOk())
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
-                               std::make_pair("path", ArchivePath.c_str()))};
-  
-  wxZipOutputStream Output{RawOutput};
-  if (!Output.IsOk())
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
-                               std::make_pair("path", ArchivePath.c_str()))};
-  
-  // Write all trace files into the archive.
-  Output.PutNextDirEntry("trace");
-  
-  wxString FullPath {TraceDirectoryPath};
-  FullPath += wxFileName::GetPathSeparator();
-  auto const FullPathDirLength = FullPath.size();
-  
-  for (auto const &File : TraceFiles) {
-    // Generate the complete path.
-    FullPath.Truncate(FullPathDirLength);
-    FullPath += File;
-    
-    // Attempt to open the file for reading.
-    wxFFileInputStream Input{FullPath};
-    if (!Input.IsOk())
-      return Error{
-        LazyMessageByRef::create("Trace", {"errors", "ReadFileForArchiveFail"},
-                                 std::make_pair("path", FullPath.c_str()))};
-    
-    // Create the archive entry.
-    Output.PutNextEntry(wxString{"trace/"} + File);
-    Output.Write(Input);
-  }
-  
-  if (!Output.Close())
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "CreateArchiveFail"},
-                               std::make_pair("path", ArchivePath.c_str()))};
-  
-  // Creating the archive was successful, so commit it.
-  RawOutput.Commit();
-  
-  // Attempt to delete the uncompressed trace files and directory.
-  if (!deleteAll())
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "DeleteFilesFail"})};
-  
-  // Maybe containing the archive path indicates success.
-  return ArchivePath.ToStdString();
-}
-
-Maybe<Error> OutputStreamAllocator::extractFrom(std::string const &ArchivePath)
-{
-  wxFileInputStream RawInput{ArchivePath};
-  if (!RawInput.IsOk())
-    return Error{
-      LazyMessageByRef::create("Trace", {"errors", "OpenArchiveFail"},
-                               std::make_pair("path", ArchivePath.c_str()))};
-
-  // Recreate the trace directory if needed.
-  wxMkdir(TraceDirectoryPath);
-  // TODO: Check that the directory does indeed exist.
-
-  // Attempt to read from the file.
-  wxZipInputStream Input{RawInput};
-  std::unique_ptr<wxZipEntry> Entry;
-
-  while (Entry.reset(Input.GetNextEntry()), Entry) {
-    // Skip dir entries, because file entries have the complete path.
-    if (Entry->IsDir())
-      continue;
-
-    auto const &Name = Entry->GetName();
-
-    if (Name.StartsWith("trace/")) {
-      wxFileName Path{Name};
-      Path.RemoveDir(0);
-
-      auto const FullPath = TraceDirectoryPath
-                          + wxFileName::GetPathSeparator()
-                          + Path.GetFullPath();
-
-      wxFFileOutputStream Out{FullPath};
-      if (!Out.IsOk())
-        return Error{LazyMessageByRef::create("TraceViewer",
-                     {"errors", "ExtractFileFail"},
-                     std::make_pair("archive", ArchivePath.c_str()),
-                     std::make_pair("file", FullPath.c_str()))};
-
-      Out.Write(Input);
-    }
-  }
-
-  return Maybe<Error>();
-}
-
-
-//------------------------------------------------------------------------------
-// InputBufferAllocator
-//------------------------------------------------------------------------------
-
-seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-InputBufferAllocator::getBuffer(llvm::StringRef Path) const
-{
-  auto MaybeBuffer =
-    llvm::MemoryBuffer::getFile(Path.str(),
-                                /* FileSize */ -1,
-                                /* RequiresNullTerminator */ false);
-  
-  if (!MaybeBuffer) {
-    auto Message = UnicodeString::fromUTF8(MaybeBuffer.getError().message());
-    
-    return Error(
-      LazyMessageByRef::create("Trace",
-                               {"errors", "InputBufferAllocationFail"},
-                                std::make_pair("file", Path.str().c_str()),
-                                std::make_pair("error", std::move(Message))));
-  }
-  
-  return std::move(*MaybeBuffer);
-}
-
-InputBufferAllocator::~InputBufferAllocator()
-{
-  // If this trace was expanded from an archive, delete the temporary files.
-  if (TempFiles.size()) {
-    for (auto const &File : TempFiles)
-      wxRemoveFile(File);
-    wxRmdir(TraceDirectory);
-  }
-}
-
-seec::Maybe<InputBufferAllocator, seec::Error>
-InputBufferAllocator::createForArchive(llvm::StringRef ArchivePath)
-{
-  // Attempt to open the file for reading.
-  wxFFileInputStream RawInput{wxString{ArchivePath.str()}};
-  if (!RawInput.IsOk())
-    return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
-                        {"errors", "ProcessTraceFailRead"})};
-
-  // Create a temporary directory to hold the extracted trace files.
-  // TODO: Delete this directory if the rest of the process fails.
-  auto const TempPath = wxFileName::CreateTempFileName("SeeC");
-  wxRemoveFile(TempPath);
-  if (!wxMkdir(TempPath))
-    return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
-                        {"errors", "ProcessTraceFailRead"})};
-
-  // Attempt to read from the file.
-  wxZipInputStream Input{RawInput};
-  std::unique_ptr<wxZipEntry> Entry;
-  std::vector<std::string> TempFiles;
-
-  while (Entry.reset(Input.GetNextEntry()), Entry) {
-    // Skip dir entries, because file entries have the complete path.
-    if (Entry->IsDir())
-      continue;
-
-    auto const &Name = Entry->GetName();
-    wxFileName Path{Name};
-
-    if (Path.GetDirCount() == 1 && Path.GetDirs()[0] == "trace") {
-      Path.RemoveDir(0);
-
-      auto const FullPath = TempPath
-                          + wxFileName::GetPathSeparator()
-                          + Path.GetFullPath();
-
-      wxFFileOutputStream Out{FullPath};
-      if (!Out.IsOk())
-        return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
-                            {"errors", "ProcessTraceFailRead"})};
-
-      Out.Write(Input);
-      TempFiles.emplace_back(FullPath.ToStdString());
-    }
-  }
-
-  return seec::Maybe<InputBufferAllocator, seec::Error>
-                    (InputBufferAllocator(TempPath.ToStdString(),
-                                          std::move(TempFiles)));
-}
-
-seec::Maybe<InputBufferAllocator, seec::Error>
-InputBufferAllocator::createForDirectory(llvm::StringRef Directory)
-{
-  std::error_code ErrCode;
-  llvm::SmallString<256> Path;
-
-  if (!Directory.empty()) {
-    Path = Directory;
-  }
-  else {
-    ErrCode = llvm::sys::fs::current_path(Path);
-    if (ErrCode) {
-      return Error(LazyMessageByRef::create("Trace",
-                                            {"errors", "CurrentPathFail"}));
-    }
-  }
-
-  bool IsDirectory;
-  ErrCode = llvm::sys::fs::is_directory(llvm::StringRef(Path), IsDirectory);
-  if (ErrCode) {
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "IsDirectoryFail"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
-  }
-
-  if (!IsDirectory) {
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors", "PathIsNotDirectory"},
-                                          std::make_pair("path",
-                                                         Path.c_str())));
-  }
-
-  return InputBufferAllocator{Path};
-}
-
-seec::Maybe<InputBufferAllocator, seec::Error>
-InputBufferAllocator::createFor(llvm::StringRef Path)
-{
-  // Check if the path is a SeeC archive type.
-  wxFileName FileName{wxString{Path.str()}};
-
-  if (FileName.FileExists() &&
-      (Path.endswith(".seecrecord") || Path.endswith(".seec")))
-    return createForArchive(Path);
-
-  // Otherwise attempt to open it as a trace folder.
-  return createForDirectory(Path);
-}
-
-seec::Maybe<std::unique_ptr<llvm::Module>, seec::Error>
-InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
-{
-  // Get the path to the bitcode file.
-  llvm::SmallString<256> Path {TraceDirectory};
-  llvm::sys::path::append(Path, getModuleFilename());
-  
-  // Create a MemoryBuffer for the file.
-  auto MaybeBuffer = getBuffer(Path);
-  if (MaybeBuffer.assigned<seec::Error>())
-    return MaybeBuffer.move<seec::Error>();
-  auto &Buffer = MaybeBuffer.get<std::unique_ptr<llvm::MemoryBuffer>>();
-  
-  // Parse the Module from the bitcode.
-  auto MaybeMod = llvm::parseBitcodeFile(Buffer->getMemBufferRef(), Context);
-  
-  if (!MaybeMod) {
-    std::string ErrMsg;
-    
-    handleAllErrors(MaybeMod.takeError(),
-      [&](llvm::ErrorInfoBase &EIB){
-        ErrMsg = EIB.message();
-      });
-    
-    return Error(LazyMessageByRef::create("Trace",
-                                          {"errors",
-                                           "ParseBitcodeFileFail"},
-                                          std::make_pair("error",
-                                                         ErrMsg.c_str())));
-  }
-  
-  return std::move(*MaybeMod);
-}
-
-seec::Maybe<TraceFile, seec::Error>
-InputBufferAllocator::getModuleFile() const
-{
-  // Get the path to the bitcode file.
-  llvm::SmallString<256> Path {TraceDirectory};
-  llvm::sys::path::append(Path, getModuleFilename());
-  
-  // Create a MemoryBuffer for the file.
-  auto MaybeBuffer = getBuffer(Path);
-  if (MaybeBuffer.assigned<seec::Error>())
-    return MaybeBuffer.move<seec::Error>();
-  
-  return TraceFile{getModuleFilename(),
-                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
-}
-
-seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-InputBufferAllocator::getProcessData(ProcessSegment Segment) const
-{
-  // Get the path to the file.
-  llvm::SmallString<256> Path {TraceDirectory};
-  llvm::sys::path::append(Path, llvm::Twine("st.")
-                                + getProcessExtension(Segment));
-
-  // Create a MemoryBuffer for the file.
-  auto MaybeBuffer = getBuffer(Path);
-  if (MaybeBuffer.assigned<seec::Error>())
-    return MaybeBuffer.move<seec::Error>();
-
-  return MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>();
-}
-
-seec::Maybe<TraceFile, seec::Error>
-InputBufferAllocator::getProcessFile(ProcessSegment Segment) const
-{
-  auto MaybeBuffer = getProcessData(Segment);
-  if (MaybeBuffer.assigned<seec::Error>())
-    return MaybeBuffer.move<seec::Error>();
-  
-  return TraceFile{std::string{"st."} + getProcessExtension(Segment),
-                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
-}
-
-seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>
-InputBufferAllocator::getThreadData(uint32_t ThreadID, ThreadSegment Segment)
-const
-{
-  auto MaybeFile = getThreadFile(ThreadID, Segment);
-  
-  if (MaybeFile.assigned<seec::Error>())
-    return MaybeFile.move<seec::Error>();
-  
-  if (MaybeFile.assigned<TraceFile>())
-    return std::move(MaybeFile.get<TraceFile>().getContents());
-  
-  return seec::Maybe<std::unique_ptr<llvm::MemoryBuffer>, seec::Error>();
-}
-
-seec::Maybe<TraceFile, seec::Error>
-InputBufferAllocator::getThreadFile(uint32_t ThreadID, ThreadSegment Segment)
-const
-{
-  // Get the name of the file.
-  std::string Filename;
-  
-  {
-    llvm::raw_string_ostream FilenameStream (Filename);
-    FilenameStream << "st.t" << ThreadID
-                   << "." << getThreadExtension(Segment);
-    FilenameStream.flush();
-  }
-  
-  // Get the path to the file.
-  llvm::SmallString<256> Path {TraceDirectory};
-  llvm::sys::path::append(Path, Filename);
-  
-  // Create a MemoryBuffer for the file.
-  auto MaybeBuffer = getBuffer(Path);
-  if (MaybeBuffer.assigned<seec::Error>())
-    return MaybeBuffer.move<seec::Error>();
-  
-  return TraceFile{std::move(Filename),
-                   MaybeBuffer.move<std::unique_ptr<llvm::MemoryBuffer>>()};
+  return llvm::make_unique<OutputBlockThreadEventStream>(*this, ThreadID);
 }
 
 

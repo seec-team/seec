@@ -20,7 +20,6 @@
 #include "seec/Clang/MappedModule.hpp"
 #include "seec/Clang/MappedStateCommon.hpp"
 #include "seec/ICU/LazyMessage.hpp"
-#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
@@ -39,6 +38,11 @@ namespace llvm {
 
 
 namespace seec {
+  
+namespace trace {
+  class ProcessTrace;
+  class InputBufferAllocator;
+}
 
 /// Interfaces to SeeC-Clang mapped traces and states.
 namespace cm {

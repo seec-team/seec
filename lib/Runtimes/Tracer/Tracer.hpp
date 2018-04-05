@@ -167,38 +167,6 @@ public:
 };
 
 
-/// \brief Holds the result of an attempt to archive (or unarchive) the trace.
-///
-class TraceArchiveResult {
-  bool Success;
-
-  std::string Filename;
-
-  std::string Error;
-
-public:
-  TraceArchiveResult()
-  : Success(false),
-    Filename(),
-    Error()
-  {}
-
-  TraceArchiveResult(bool const WithSuccess,
-                     std::string WithFilename,
-                     std::string WithError)
-  : Success(WithSuccess),
-    Filename(std::move(WithFilename)),
-    Error(std::move(WithError))
-  {}
-
-  bool getSuccess() const { return Success; }
-
-  std::string const &getFilename() const { return Filename; }
-
-  std::string const &getError() const { return Error; }
-};
-
-
 /// \brief ProcessEnvironment.
 ///
 class ProcessEnvironment {
@@ -235,11 +203,8 @@ class ProcessEnvironment {
   /// Interceptor function addresses.
   llvm::DenseSet<uintptr_t> InterceptorAddresses;
   
-  /// Size limit for thread event files.
-  offset_uint ThreadEventLimit;
-  
-  /// Size limit for archiving traces.
-  uint64_t ArchiveSizeLimit;
+  /// Size limit for trace files.
+  offset_uint TraceSizeLimit;
   
   /// The program name as found in argv[0], if we were notified of it.
   std::string ProgramName;
@@ -282,13 +247,9 @@ public:
   /// \name Accessors.
   /// @{
   
-  /// \brief Get the size limit for thread event files.
+  /// \brief Get the size limit for trace files.
   ///
-  offset_uint getThreadEventLimit() const { return ThreadEventLimit; }
-  
-  /// \brief Get the size limit for archiving traces.
-  ///
-  uint64_t getArchiveSizeLimit() const { return ArchiveSizeLimit; }
+  offset_uint getTraceSizeLimit() const { return TraceSizeLimit; }
   
   /// \brief Get the program name as found in argv[0] (may be empty).
   ///
@@ -308,20 +269,6 @@ public:
   ///
   void setProgramName(llvm::StringRef Name);
   
-  /// @}
-
-
-  /// \name Archiving
-  /// @{
-
-  /// \brief Attempt to archive the completed trace.
-  ///
-  TraceArchiveResult archive();
-
-  /// \brief Attempt to extract an archived trace (to continue tracing).
-  ///
-  TraceArchiveResult unarchive(TraceArchiveResult const &FromArchive);
-
   /// @}
 };
 

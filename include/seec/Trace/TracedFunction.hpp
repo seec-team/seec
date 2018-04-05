@@ -16,6 +16,7 @@
 
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
+#include "seec/Trace/TraceEventWriter.hpp"
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TracePointer.hpp"
 #include "seec/Util/IndexTypesForLLVMObjects.hpp"
@@ -164,9 +165,9 @@ public:
 ///
 ///
 class RecordedFunction {
-  /// Offset of the FunctionRecord for this function trace.
-  offset_uint RecordOffset;
-
+  /// Allows us to rewrite the FunctionStart event when we finish the fn.
+  EventWriter::EventWriteRecord<EventType::FunctionStart> StartEventWrite;
+  
   /// Index of the Function in the LLVM Module.
   uint32_t Index;
 
@@ -182,28 +183,21 @@ class RecordedFunction {
   /// Thread time at which this function was exited.
   uint64_t ThreadTimeExited;
 
-  /// List of offsets of FunctionRecords for the direct children of this
-  /// function trace.
-  std::vector<offset_uint> Children;
-
 public:
   /// \brief Constructor.
   ///
-  RecordedFunction(offset_uint const WithRecordOffset,
-                   uint32_t const WithIndex,
-                   offset_uint const WithEventOffsetStart,
-                   uint64_t const WithThreadTimeEntered)
-  : RecordOffset(WithRecordOffset),
+  RecordedFunction(
+    uint32_t const WithIndex,
+    EventWriter::EventWriteRecord<EventType::FunctionStart> Write,
+    uint64_t const WithThreadTimeEntered
+  )
+  : StartEventWrite(Write),
     Index(WithIndex),
-    EventOffsetStart(WithEventOffsetStart),
+    EventOffsetStart(Write.Offset),
     EventOffsetEnd(0),
     ThreadTimeEntered(WithThreadTimeEntered),
-    ThreadTimeExited(0),
-    Children()
+    ThreadTimeExited(0)
   {}
-
-  /// Get the offset of this FunctionRecord in the thread trace.
-  offset_uint getRecordOffset() const { return RecordOffset; }
 
   /// Get the index of the Function in the Module.
   uint32_t getIndex() const { return Index; }
@@ -220,16 +214,14 @@ public:
   /// Get the thread time at which this Function finished recording.
   uint64_t getThreadTimeExited() const { return ThreadTimeExited; }
 
-  /// Get the offsets of the child FunctionRecords.
-  std::vector<offset_uint> const &getChildren() const { return Children; }
-
   void addChild(RecordedFunction const &Child)
   {
+    // We don't record this anymore, but still use it as a sanity-check.
     assert(EventOffsetEnd == 0 && ThreadTimeExited == 0);
-    Children.push_back(Child.RecordOffset);
   }
 
-  void setCompletion(offset_uint const WithEventOffsetEnd,
+  void setCompletion(EventWriter &Writer,
+                     offset_uint const WithEventOffsetEnd,
                      uint64_t const WithThreadTimeExited);
 };
 

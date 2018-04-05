@@ -16,7 +16,6 @@
 
 #include "seec/DSA/MappedMemoryBlock.hpp"
 #include "seec/Trace/StateCommon.hpp"
-#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -25,6 +24,10 @@
 #include <thread>
 #include <map>
 #include <vector>
+
+namespace llvm {
+  class raw_ostream;
+}
 
 namespace seec {
 

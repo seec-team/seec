@@ -292,7 +292,8 @@ bool TraceThreadListener::recordDirClose(void const * const TheDIR)
 void TraceThreadListener::recordMalloc(uintptr_t Address, std::size_t Size) {
   ProcessTime = getCIProcessTime();
   
-  auto Offset = EventsOut.write<EventType::Malloc>(Size, ProcessTime);
+  auto Write = EventsOut.write<EventType::Malloc>(Size, ProcessTime);
+  auto const Offset = Write ? Write->Offset : 0;
 
   // update dynamic allocation lookup
   ProcessListener.setCurrentDynamicMemoryAllocation(Address,
@@ -523,14 +524,12 @@ bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
 //------------------------------------------------------------------------------
 
 TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
-                                         OutputStreamAllocator &StreamAllocator,
-                                         offset_uint const WithThreadEventLimit)
+                                         OutputStreamAllocator &StreamAllocator)
 : seec::trace::CallDetector<TraceThreadListener>
                            (ProcessListener.getDetectCallsLookup()),
   ProcessListener(ProcessListener),
   SupportSyncExit(ProcessListener.syncExit()),
   ThreadID(ProcessListener.registerThreadListener(this)),
-  ThreadEventLimit(WithThreadEventLimit),
   StreamAllocator(StreamAllocator),
   OutputEnabled(false),
   EventsOut(),
@@ -546,7 +545,8 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   StreamsLock(),
   DirsLock()
 {
-  traceOpen();
+  EventsOut.open(StreamAllocator.getThreadEventStream(ThreadID));
+  OutputEnabled = true;
   
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
   // Setup signal handling for this thread.
@@ -568,8 +568,6 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
 
 TraceThreadListener::~TraceThreadListener()
 {
-  traceWrite();
-  traceFlush();
   traceClose();
   
   ProcessListener.deregisterThreadListener(ThreadID);
@@ -580,78 +578,10 @@ TraceThreadListener::~TraceThreadListener()
 // Trace writing control.
 //------------------------------------------------------------------------------
 
-offset_uint TraceThreadListener::traceEventSize() const
-{
-  return EventsOut.offset();
-}
-
-void TraceThreadListener::traceWrite()
-{
-  if (!OutputEnabled)
-    return;
-  
-  // Terminate the event stream.
-  EventsOut.write<EventType::TraceEnd>(0);
-  
-  // Write the trace information.
-  auto TraceOut = StreamAllocator.getThreadStream(ThreadID,
-                                                  ThreadSegment::Trace);
-  assert(TraceOut && "Couldn't get thread trace stream.");
-  
-  offset_uint Written = 0;
-
-  // Calculate the offset position of the first (top-level functions) list.
-  offset_uint ListOffset = getNewFunctionRecordOffset();
-
-  // Write offset of top-level function list.
-  Written += writeBinary(*TraceOut, ListOffset);
-  
-  // Calculate offset of the next function list.
-  ListOffset += getWriteBinarySize(RecordedTopLevelFunctions);
-
-  // Write function information.
-  for (auto const &Function: RecordedFunctions) {
-    Written += writeBinary(*TraceOut, Function->getIndex());
-    Written += writeBinary(*TraceOut, Function->getEventOffsetStart());
-    Written += writeBinary(*TraceOut, Function->getEventOffsetEnd());
-    Written += writeBinary(*TraceOut, Function->getThreadTimeEntered());
-    Written += writeBinary(*TraceOut, Function->getThreadTimeExited());
-    
-    // Write offset of the child function list.
-    Written += writeBinary(*TraceOut, ListOffset);
-    
-    // Calculate offset of the next function list.
-    ListOffset += getWriteBinarySize(Function->getChildren());
-  }
-
-  // Write the top-level function list.
-  Written += writeBinary(*TraceOut, RecordedTopLevelFunctions);
-
-  // Write the child lists.
-  for (auto const &Function: RecordedFunctions) {
-    Written += writeBinary(*TraceOut, Function->getChildren());
-  }
-}
-
-void TraceThreadListener::traceFlush()
-{
-  EventsOut.flush();
-}
-
 void TraceThreadListener::traceClose()
 {
   EventsOut.close();
   OutputEnabled = false;
-}
-
-void TraceThreadListener::traceOpen()
-{
-  EventsOut.open(
-    StreamAllocator.getThreadStream(ThreadID,
-                                    ThreadSegment::Events,
-                                    llvm::sys::fs::OpenFlags::F_Append));
-  
-  OutputEnabled = true;
 }
 
 

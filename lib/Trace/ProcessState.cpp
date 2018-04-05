@@ -13,6 +13,7 @@
 
 #include "seec/Trace/BlockValueStore.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 

@@ -29,7 +29,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 
-// #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -86,9 +85,6 @@ class TraceThreadListener
 
   /// The unique integer identifier for this thread.
   uint32_t const ThreadID;
-  
-  /// Size limit for thread event output.
-  offset_uint const ThreadEventLimit;
 
   /// @} (Constant information)
 
@@ -172,19 +168,6 @@ class TraceThreadListener
   
   /// \name Helper methods
   /// @{
-
-  /// \brief Get the offset that a new FunctionRecord would be placed at.
-  offset_uint getNewFunctionRecordOffset() {
-    constexpr size_t SizeOfFunctionRecord
-      = sizeof(uint32_t)        // index
-      + (2*sizeof(offset_uint)) // event start, end
-      + (2*sizeof(uint64_t))    // thread entered, exited
-      + (1*sizeof(offset_uint)) // child list
-      ;
-
-    return sizeof(offset_uint) // For top-level function list offset
-      + (RecordedFunctions.size() * SizeOfFunctionRecord); // For functions
-  }
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
@@ -404,8 +387,7 @@ public:
   /// \brief Constructor.
   ///
   TraceThreadListener(TraceProcessListener &ProcessListener,
-                      OutputStreamAllocator &StreamAllocator,
-                      offset_uint const WithThreadEventLimit);
+                      OutputStreamAllocator &StreamAllocator);
 
   /// \brief Destructor.
   ///
@@ -419,25 +401,9 @@ public:
   ///
   bool traceEnabled() const { return OutputEnabled; }
   
-  /// \brief Get the size of the trace's event stream.
-  ///
-  offset_uint traceEventSize() const;
-
-  /// \brief Write out complete trace information.
-  ///
-  void traceWrite();
-  
-  /// \brief Flush all open trace streams.
-  ///
-  void traceFlush();
-  
   /// \brief Close all open trace streams and disable future writes.
   ///
   void traceClose();
-  
-  /// \brief Open all used trace streams and enable future writes.
-  ///
-  void traceOpen();
   
   /// @} (Trace writing control.)
 

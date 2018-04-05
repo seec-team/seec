@@ -17,7 +17,6 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/StateCommon.hpp"
-#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/Range.hpp"
@@ -48,6 +47,7 @@ class FunctionIndex;
 namespace trace {
 
 class FunctionState;
+class FunctionTrace;
 class ThreadState;
 
 namespace value_store {
@@ -265,7 +265,7 @@ class FunctionState {
   uint32_t Index;
 
   /// Function trace record.
-  FunctionTrace Trace;
+  std::unique_ptr<FunctionTrace> m_Trace;
 
   /// Index of the currently active llvm::Instruction.
   llvm::Optional<InstrIndexInFn> ActiveInstruction;
@@ -306,7 +306,7 @@ public:
                 uint32_t Index,
                 FunctionIndex const &Function,
                 value_store::ModuleInfo const &ModuleStoreInfo,
-                FunctionTrace Trace);
+                std::unique_ptr<FunctionTrace> Trace);
 
   /// \brief Destructor.
   ///
@@ -333,7 +333,7 @@ public:
   llvm::Function const *getFunction() const;
 
   /// \brief Get the function trace record for this function invocation.
-  FunctionTrace getTrace() const { return Trace; }
+  FunctionTrace const &getTrace() const { return *m_Trace; }
 
   /// \brief Get the number of llvm::Instructions in this llvm::Function.
   std::size_t getInstructionCount() const;
@@ -426,11 +426,11 @@ public:
 
   /// \brief Get the active stack allocations for this function.
   ///
-  decltype(Allocas) &getAllocas() { return Allocas; }
+  std::vector<AllocaState> &getAllocas() { return Allocas; }
 
   /// \brief Get the active stack allocations for this function.
   ///
-  decltype(Allocas) const &getAllocas() const { return Allocas; }
+  std::vector<AllocaState> const &getAllocas() const { return Allocas; }
   
   /// \brief Get the "visible" stack allocations for this function.
   ///

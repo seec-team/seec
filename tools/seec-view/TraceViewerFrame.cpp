@@ -17,6 +17,7 @@
 #include "seec/Clang/PrintOnlinePythonTutorTrace.hpp"
 #include "seec/ICU/Format.hpp"
 #include "seec/ICU/Resources.hpp"
+#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/wxWidgets/StringConversion.hpp"
 

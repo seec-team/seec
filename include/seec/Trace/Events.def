@@ -43,15 +43,19 @@ SEEC_TRACE_EVENT(TraceEnd,
 
 SEEC_TRACE_EVENT(FunctionStart,
   SEEC_PP_QUOTE(
-    (offset_uint, Record)
+    (uint32_t, FunctionIndex),
+    (offset_uint, EventOffsetStart),
+    (offset_uint, EventOffsetEnd),
+    (uint64_t, ThreadTimeEntered),
+    (uint64_t, ThreadTimeExited)
   ),
   SEEC_PP_QUOTE(
     (FunctionStart, is_block_start)
   ))
-  
+
 SEEC_TRACE_EVENT(FunctionEnd,
   SEEC_PP_QUOTE(
-    (offset_uint, Record)
+    (offset_uint, EventOffsetStart)
   ),
   SEEC_PP_QUOTE(
     (FunctionEnd, is_block_start)

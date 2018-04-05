@@ -169,7 +169,7 @@ class TraceProcessListener {
 
 
   /// Output stream for this process' data.
-  std::unique_ptr<llvm::raw_ostream> DataOut;
+  std::unique_ptr<OutputBlockProcessDataStream> DataOut;
 
   /// Number of bytes written to DataOut so far.
   offset_uint DataOutOffset;
@@ -190,6 +190,10 @@ class TraceProcessListener {
   
   /// Controls access to NextThreadID and ActiveThreadListeners.
   mutable std::mutex TraceThreadListenerMutex;
+  
+  
+  /// Synchronize setup of the environ table.
+  std::once_flag EnvironSetupOnceFlag;
 
 
   /// Global memory mutex.
@@ -261,21 +265,13 @@ public:
   ///
   bool traceEnabled() const { return OutputEnabled; }
   
-  /// \brief Write out complete trace information.
+  /// \brief Write out trace information (function addresses, etc.).
   ///
-  void traceWrite();
-  
-  /// \brief Flush all open trace streams.
-  ///
-  void traceFlush();
+  void traceWriteProcessData();
   
   /// \brief Close all open trace streams and disable future writes.
   ///
   void traceClose();
-  
-  /// \brief Open all used trace streams and enable future writes.
-  ///
-  void traceOpen();
   
   /// @}
 
@@ -344,6 +340,10 @@ public:
   /// \brief Get the detect calls Lookup.
   seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {
     return DetectCallsLookup;
+  }
+  
+  std::once_flag &getEnvironSetupOnceFlag() {
+    return EnvironSetupOnceFlag;
   }
 
   /// @} (Accessors)

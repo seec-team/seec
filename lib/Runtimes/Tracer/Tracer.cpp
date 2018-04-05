@@ -60,12 +60,8 @@ namespace seec {
 
 namespace trace {
 
-static constexpr char const *getThreadEventLimitEnvVar() {
-  return "SEEC_EVENT_LIMIT";
-}
-
-static constexpr char const *getArchiveSizeLimitEnvVar() {
-  return "SEEC_ARCHIVE_LIMIT";
+static constexpr char const *getTraceSizeLimitEnvVar() {
+  return "SEEC_TRACE_LIMIT";
 }
 
 
@@ -76,8 +72,7 @@ static constexpr char const *getArchiveSizeLimitEnvVar() {
 ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
 : Process(PE),
   ThreadTracer(PE.getProcessListener(),
-               PE.getStreamAllocator(),
-               PE.getThreadEventLimit()),
+               PE.getStreamAllocator()),
   FunIndex(nullptr),
   Stack()
 {}
@@ -90,10 +85,12 @@ void ThreadEnvironment::checkOutputSize()
   if (!ThreadTracer.traceEnabled())
     return;
 
-  if (ThreadTracer.traceEventSize() > Process.getThreadEventLimit()) {
-    llvm::errs() << "\nSeeC: Thread event limit reached!\n";
+  auto const TotalSize = Process.getStreamAllocator().getTotalSize();
+  
+  if (TotalSize > Process.getTraceSizeLimit()) {
+    llvm::errs() << "\nSeeC: Trace size limit reached!\n";
 
-    // Shut down the tracing and archive.
+    // Stop all threads, then close the tracing.
     auto const &SupportSyncExit = ThreadTracer.getSupportSynchronizedExit();
     auto StopCanceller = SupportSyncExit.getSynchronizedExit().stopAll();
     if (!StopCanceller.wasStopped())
@@ -102,16 +99,10 @@ void ThreadEnvironment::checkOutputSize()
     auto &ProcessListener = Process.getProcessListener();
 
     for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
-      ThreadListenerPtr->traceWrite();
-      ThreadListenerPtr->traceFlush();
       ThreadListenerPtr->traceClose();
     }
 
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
     ProcessListener.traceClose();
-
-    Process.archive();
 
     StopCanceller.cancelStop();
   }
@@ -214,26 +205,13 @@ uint64_t getByteSizeFromEnvVar(char const * const EnvVarName,
 ///
 /// NOTE: This function uses std::getenv() and thus is not thread-safe.
 ///
-static offset_uint getUserThreadEventLimit()
+static offset_uint getUserTraceSizeLimit()
 {
-  auto const EnvVarName = getThreadEventLimitEnvVar();
+  auto const EnvVarName = getTraceSizeLimitEnvVar();
   if (auto const EnvVar = std::getenv(EnvVarName))
     return getByteSizeFromEnvVar(EnvVarName, EnvVar);
 
   return seec::getThreadEventLimit() * (1024 * 1024);
-}
-
-/// \brief Get the size limit for archiving traces.
-///
-/// NOTE: This function uses std::getenv() and thus is not thread-safe.
-///
-static uint64_t getUserArchiveSizeLimit()
-{
-  auto const EnvVarName = getArchiveSizeLimitEnvVar();
-  if (auto const EnvVar = std::getenv(EnvVarName))
-    return getByteSizeFromEnvVar(EnvVarName, EnvVar);
-
-  return seec::getArchiveLimit() * (1024 * 1024);
 }
 
 ProcessEnvironment::ProcessEnvironment()
@@ -248,8 +226,7 @@ ProcessEnvironment::ProcessEnvironment()
   ThreadLookup(),
   ThreadLookupMutex(),
   InterceptorAddresses(),
-  ThreadEventLimit(0), // set after wxConfig is available.
-  ArchiveSizeLimit(0), // set after wxConfig is available.
+  TraceSizeLimit(0), // set after wxConfig is available.
   ProgramName()
 {
   // On windows, lookup the module's globals.
@@ -329,8 +306,7 @@ ProcessEnvironment::ProcessEnvironment()
   seec::setupCommonConfig();
 
   // Setup limits.
-  ThreadEventLimit = getUserThreadEventLimit();
-  ArchiveSizeLimit = getUserArchiveSizeLimit();
+  TraceSizeLimit = getUserTraceSizeLimit();
 
   // Attempt to load augmentations.
   Augmentations->loadFromResources(__SeeC_ResourcePath__);
@@ -380,6 +356,7 @@ ProcessEnvironment::ProcessEnvironment()
   }
 
   ProcessTracer->notifyGlobalVariablesComplete();
+  ProcessTracer->traceWriteProcessData();
 
 #define SEEC__STR2(NAME) #NAME
 #define SEEC__STR(NAME) SEEC__STR2(NAME)
@@ -410,11 +387,8 @@ ProcessEnvironment::ProcessEnvironment()
 ProcessEnvironment::~ProcessEnvironment()
 {
   // Finalize the trace.
-  auto const OutputEnabled = ProcessTracer->traceEnabled();
   ThreadLookup.clear();
   ProcessTracer.reset();
-  if (OutputEnabled)
-    archive();
 }
 
 ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
@@ -432,46 +406,7 @@ ThreadEnvironment *ProcessEnvironment::getOrCreateCurrentThreadEnvironment()
 void ProcessEnvironment::setProgramName(llvm::StringRef Name)
 {
   ProgramName = llvm::sys::path::filename(Name);
-}
-
-TraceArchiveResult ProcessEnvironment::archive()
-{
-  // Determine the size of the trace.
-  auto const MaybeSize = StreamAllocator->getTotalSize();
-  if (MaybeSize.assigned<Error>())
-    // TODO: Attempt to get an informative message from the Error.
-    return TraceArchiveResult{false, "", "Couldn't read trace file size."};
-
-  if (MaybeSize.get<uint64_t>() > ArchiveSizeLimit)
-    return TraceArchiveResult{false, "", "Trace exceeds archive limit."};
-
-  // Attempt to create the archive. If the ProgramName is empty, a name will
-  // be created based on the trace directory's name.
-  auto MaybeArchived = StreamAllocator->archiveTo(ProgramName);
-  if (MaybeArchived.assigned<std::string>())
-    return TraceArchiveResult{true, MaybeArchived.move<std::string>(), ""};
-  else if (MaybeArchived.assigned<Error>())
-    // TODO: Attempt to get an informative message from the Error.
-    return TraceArchiveResult{false, "", "Failed to archive the trace."};
-  else {
-    llvm_unreachable("No result from archiveTo()!");
-    return TraceArchiveResult{false, "", "Failed to archive the trace."};
-  }
-}
-
-TraceArchiveResult
-ProcessEnvironment::unarchive(TraceArchiveResult const &FromArchive)
-{
-  if (!FromArchive.getSuccess())
-    return TraceArchiveResult{false, FromArchive.getFilename(), ""};
-
-  auto const MaybeErr = StreamAllocator->extractFrom(FromArchive.getFilename());
-  if (MaybeErr.assigned<Error>())
-    // TODO: Attempt to get an informative message from the Error.
-    return TraceArchiveResult{false, FromArchive.getFilename(),
-                              "Couldn't extract trace file."};
-
-  return TraceArchiveResult{true, FromArchive.getFilename(), ""};
+  StreamAllocator->updateTraceName(ProgramName);
 }
 
 

@@ -524,9 +524,11 @@ getPreviousInstructionInActiveFunction(ThreadState const &State) {
   
   // Find the next instruction event that is part of the same function as the
   // currently active event, if there is one.
+  EventReference NextEvent = State.getNextEvent();
+  
   auto const MaybeRef = rfindInFunction(Trace,
                                         rangeBefore(Trace.events(),
-                                                    --State.getNextEvent()),
+                                                    --NextEvent),
                                         [](EventRecordBase const &Ev) {
                                           return Ev.isInstruction();
                                         });
@@ -551,9 +553,11 @@ findPreviousInstructionInActiveFunctionIf(ThreadState const &State,
   
   auto const &Trace = State.getTrace();
   
+  EventReference NextEvent = State.getNextEvent();
+  
   auto const MaybeRef =
     rfindInFunction(Trace,
-                    rangeBefore(Trace.events(), --State.getNextEvent()),
+                    rangeBefore(Trace.events(), --NextEvent),
                     [=] (EventRecordBase const &Ev) -> bool {
                       if (!Ev.isInstruction())
                         return false;

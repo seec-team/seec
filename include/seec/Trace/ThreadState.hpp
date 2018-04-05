@@ -17,7 +17,7 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/StateCommon.hpp"
-#include "seec/Trace/TraceReader.hpp"
+#include "seec/Trace/TraceFormat.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -31,7 +31,9 @@ namespace seec {
 
 namespace trace {
 
+class EventReference;
 class ProcessState; // forward-declare for ThreadState
+class ThreadTrace;
 
 
 /// \brief State of a thread at a specific point in time.
@@ -57,7 +59,7 @@ class ThreadState {
   /// @{
 
   /// The next event to process when moving forward through the trace.
-  EventReference NextEvent;
+  std::unique_ptr<EventReference> m_NextEvent;
 
   /// The synthetic process time that this ThreadState represents.
   uint64_t ProcessTime;
@@ -148,7 +150,9 @@ public:
 
 private:
   void makePreviousInstructionActive(EventReference PriorTo);
+  void makePreviousInstructionActive(EventRecordBase const &PriorTo);
   void setPreviousViewOfProcessTime(EventReference PriorTo);
+  void setPreviousViewOfProcessTime(EventRecordBase const &PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
   void removeEvent(EventRecord<EventType::TraceEnd> const &);
@@ -209,7 +213,7 @@ public:
   
   /// \brief Get the next event to process when moving forward through the
   /// trace.
-  EventReference getNextEvent() const { return NextEvent; }
+  EventReference const &getNextEvent() const { return *m_NextEvent; }
 
   /// \brief Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }
@@ -225,7 +229,7 @@ public:
   
   /// \brief Get the ID of this thread.
   ///
-  uint32_t getThreadID() const { return Trace.getThreadID(); }
+  uint32_t getThreadID() const;
   
   /// \brief Get a pointer to the active function's state, if there is one.
   ///
@@ -236,12 +240,12 @@ public:
   /// \brief Check if this thread is at the beginning of its trace.
   /// \return true iff this thread has not added any events.
   ///
-  bool isAtStart() const { return NextEvent == Trace.events().begin(); }
+  bool isAtStart() const;
   
   /// \brief Check if this thread is at the end of its trace.
   /// \return true iff this thread has no more events to add.
   ///
-  bool isAtEnd() const { return NextEvent == Trace.events().end(); }
+  bool isAtEnd() const;
   
   /// @} (Queries.)
   

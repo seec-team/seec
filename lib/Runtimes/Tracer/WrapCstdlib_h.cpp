@@ -31,41 +31,6 @@
 namespace seec {
 
 
-/// \brief Stop all other threads and write trace information.
-///
-/// This prepares us to safely terminate the process.
-///
-void stopThreadsAndWriteTrace() {
-  auto &ProcessEnv = seec::trace::getProcessEnvironment();
-  auto &ProcessListener = ProcessEnv.getProcessListener();
-  
-  auto &ThreadEnv = seec::trace::getThreadEnvironment();
-  auto &ThreadListener = ThreadEnv.getThreadListener();
-  
-  // Interact with the thread listener's notification system.
-  ThreadListener.enterNotification();
-  
-  // Stop all of the other threads.
-  auto const &SupportSyncExit = ThreadListener.getSupportSynchronizedExit();
-  SupportSyncExit.getSynchronizedExit().stopAll();
-  
-  // TODO: Write an event for this Instruction.
-  
-  // Write out the trace information (if tracing is enabled).
-  auto const TraceEnabled = ProcessListener.traceEnabled();
-  
-  if (TraceEnabled) {
-    ProcessListener.traceWrite();
-    ProcessListener.traceFlush();
-    
-    for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
-      ThreadListenerPtr->traceWrite();
-      ThreadListenerPtr->traceFlush();
-    }
-  }
-}
-
-
 /// Functions to call during exit().
 static std::stack<void (*)()> AtExitFunctions;
 
@@ -485,7 +450,6 @@ void
 SEEC_MANGLE_FUNCTION(abort)
 ()
 {
-  seec::stopThreadsAndWriteTrace();
   std::abort();
 }
 
@@ -509,7 +473,6 @@ SEEC_MANGLE_FUNCTION(exit)
     }
   }
   
-  seec::stopThreadsAndWriteTrace();
   std::exit(exit_code);
 }
 
@@ -533,7 +496,6 @@ SEEC_MANGLE_FUNCTION(quick_exit)
     }
   }
   
-  seec::stopThreadsAndWriteTrace();
   std::_Exit(exit_code);
 }
 
@@ -546,7 +508,6 @@ void
 SEEC_MANGLE_FUNCTION(_Exit)
 (int exit_code)
 {
-  seec::stopThreadsAndWriteTrace();
   std::_Exit(exit_code);
 }
 

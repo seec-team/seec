@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/ICU/LazyMessage.hpp"
+#include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
@@ -55,24 +56,13 @@ OpenTrace::OpenTrace(std::unique_ptr<seec::cm::ProcessTrace> WithTrace)
 seec::Maybe<std::unique_ptr<seec::cm::ProcessTrace>, seec::Error>
 OpenTrace::ReadTraceFromFilePath(wxString const &FilePath)
 {
-  // Create an InputBufferAllocator for the folder containing the trace file.
-  llvm::SmallString<256> DirPath {FilePath.ToStdString()};
+  using namespace seec;
+  using namespace seec::trace;
   
-  bool IsDirectory;
-  auto Err = llvm::sys::fs::is_directory(llvm::StringRef(DirPath), IsDirectory);
-  
-  if (Err)
-    return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
-                        {"GUIText", "OpenTrace_Error_FailIsDirectory"})};
-  
-  // If the FilePath is indeed a file, remove the filename.
-  if (!IsDirectory)
-    llvm::sys::path::remove_filename(DirPath);
-  
-  // Attempt to create an input allocator for the folder.
-  auto MaybeIBA = seec::trace::InputBufferAllocator::createFor(DirPath);
-  if (MaybeIBA.assigned<seec::Error>())
-    return MaybeIBA.move<seec::Error>();
+  // Attempt to create an input allocator for the file.
+  auto MaybeIBA = InputBufferAllocator::createFor(FilePath.ToStdString());
+  if (MaybeIBA.assigned<Error>())
+    return MaybeIBA.move<Error>();
   
   assert(MaybeIBA.assigned<seec::trace::InputBufferAllocator>());
   
@@ -109,6 +99,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
   std::unique_ptr<wxXmlDocument> Record;
   AnnotationCollection Annotations;
   std::vector<std::string> TempFiles;
+  wxString TracePath;
   
   while (Entry.reset(Input.GetNextEntry()), Entry) {
     // Skip dir entries, because file entries have the complete path.
@@ -155,6 +146,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
       
       Out.Write(Input);
       TempFiles.emplace_back(FullPath.ToStdString());
+      TracePath = FullPath;
     }
     else {
       wxLogDebug("Unknown entry: '%s'", Name);
@@ -163,7 +155,7 @@ OpenTrace::FromRecordingArchive(wxString const &FilePath)
     }
   }
   
-  auto MaybeTrace = ReadTraceFromFilePath(TempPath);
+  auto MaybeTrace = ReadTraceFromFilePath(TracePath);
   if (MaybeTrace.assigned<seec::Error>())
     return MaybeTrace.move<seec::Error>();
   
@@ -187,18 +179,24 @@ OpenTrace::~OpenTrace()
 seec::Maybe<std::unique_ptr<OpenTrace>, seec::Error>
 OpenTrace::FromFilePath(wxString const &FilePath)
 {
-  // Check if the path is a SeeC archive type.
   wxFileName FileName{FilePath};
   
-  if (FileName.FileExists() &&
-      (FilePath.EndsWith(".seecrecord") || FilePath.EndsWith(".seec")))
-    return FromRecordingArchive(FilePath);
+  if (FileName.FileExists()) {
+    if (FilePath.EndsWith(".seec") &&
+        seec::trace::doesLookLikeTraceFile(FilePath.c_str()))
+    {
+      auto MaybeTrace = ReadTraceFromFilePath(FilePath);
+      if (MaybeTrace.assigned<seec::Error>())
+        return MaybeTrace.move<seec::Error>();
+      
+      return std::unique_ptr<OpenTrace>{
+        new OpenTrace(MaybeTrace.move<std::unique_ptr<seec::cm::ProcessTrace>>())};
+    }
+    else {
+      return FromRecordingArchive(FilePath);
+    }
+  }
   
-  // Otherwise attempt to open it as a trace folder.
-  auto MaybeTrace = ReadTraceFromFilePath(FilePath);
-  if (MaybeTrace.assigned<seec::Error>())
-    return MaybeTrace.move<seec::Error>();
-
-  return std::unique_ptr<OpenTrace>{
-    new OpenTrace(MaybeTrace.move<std::unique_ptr<seec::cm::ProcessTrace>>())};
+  return seec::Error{seec::LazyMessageByRef::create("TraceViewer",
+    {"GUIText", "OpenTrace_Error_LoadProcessTrace"})};
 }

@@ -54,6 +54,7 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   NextThreadID(1),
   ActiveThreadListeners(),
   TraceThreadListenerMutex(),
+  EnvironSetupOnceFlag(),
   GlobalMemoryMutex(),
   TraceMemoryMutex(),
   TraceMemory(),
@@ -70,7 +71,14 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   Dirs()
 {
   // Open traces and enable output.
-  traceOpen();
+  {
+    std::lock_guard<std::mutex> Lock(DataOutMutex);
+    if (!DataOut) {
+      DataOut = StreamAllocator.getProcessDataStream();
+    }
+    
+    OutputEnabled = true;
+  }
   
   StreamsInitial.emplace_back(reinterpret_cast<uintptr_t>(stdin));
   Streams.streamOpened(stdin,
@@ -89,8 +97,6 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
 }
 
 TraceProcessListener::~TraceProcessListener() {
-  traceWrite();
-  traceFlush();
   traceClose();
 }
 
@@ -99,19 +105,18 @@ TraceProcessListener::~TraceProcessListener() {
 // Trace writing control.
 //===----------------------------------------------------------------------===//
 
-void TraceProcessListener::traceWrite() {
+void TraceProcessListener::traceWriteProcessData() {
   if (!OutputEnabled) {
     return;
   }
   
-  auto Out = StreamAllocator.getProcessStream(ProcessSegment::Trace);
+  auto Out = StreamAllocator.getProcessTraceStream();
   if (!Out) {
     assert(false && "couldn't get stream for process trace.");
     return;
   }
   
-  uint64_t Version = formatVersion();
-  uint32_t NumThreads = NextThreadID - 1;
+  uint64_t const Version = formatVersion();
 
   // Make these fixed-width for the trace file.
   std::vector<uint64_t> GlobalVariableAddresses64;
@@ -129,37 +134,22 @@ void TraceProcessListener::traceWrite() {
   StreamsInitial64.reserve(StreamsInitial.size());
   for (auto const Val : StreamsInitial)
     StreamsInitial64.push_back(Val);
-   
-  writeBinary(*Out, Version);
-  writeBinary(*Out, Module.getModuleIdentifier());
-  writeBinary(*Out, NumThreads);
-  writeBinary(*Out, Time);
-  writeBinary(*Out, GlobalVariableAddresses64);
-  writeBinary(*Out, GlobalVariableInitialData);
-  writeBinary(*Out, FunctionAddresses64);
-  writeBinary(*Out, StreamsInitial64);
-}
-
-void TraceProcessListener::traceFlush() {
-  std::lock_guard<std::mutex> Lock(DataOutMutex);
   
-  if (DataOut)
-    DataOut->flush();
+  auto &OutStream = Out->getOStream();
+  
+  writeBinary(OutStream, Version);
+  writeBinary(OutStream, Module.getModuleIdentifier());
+  writeBinary(OutStream, GlobalVariableAddresses64);
+  writeBinary(OutStream, GlobalVariableInitialData);
+  writeBinary(OutStream, FunctionAddresses64);
+  writeBinary(OutStream, StreamsInitial64);
+  
+  auto const BlockOffset = OutputBlockBuilder::flush(std::move(Out));
+  assert(BlockOffset && "Couldn't write process trace block?");
 }
 
 void TraceProcessListener::traceClose() {
-  std::lock_guard<std::mutex> Lock(DataOutMutex);
-  DataOut.reset(nullptr);
   OutputEnabled = false;
-}
-
-void TraceProcessListener::traceOpen() {
-  std::lock_guard<std::mutex> Lock(DataOutMutex);
-  assert(!OutputEnabled && "traceOpen() with OutputEnabled.");
-  DataOut =
-    StreamAllocator.getProcessStream(ProcessSegment::Data,
-                                     llvm::sys::fs::OpenFlags::F_Append);
-  OutputEnabled = true;
 }
 
 

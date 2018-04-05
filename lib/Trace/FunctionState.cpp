@@ -16,6 +16,7 @@
 #include "seec/Trace/IsRecordableType.hpp"
 #include "seec/Trace/MemoryState.hpp"
 #include "seec/Trace/ThreadState.hpp"
+#include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 
@@ -78,12 +79,12 @@ FunctionState::FunctionState(ThreadState &Parent,
                              uint32_t Index,
                              FunctionIndex const &Function,
                              value_store::ModuleInfo const &ModuleStoreInfo,
-                             FunctionTrace Trace)
+                             std::unique_ptr<FunctionTrace> Trace)
 : Parent(&Parent),
   FunctionLookup(&Function),
   ValueStoreInfo(getFunctionStoreInfo(ModuleStoreInfo, Function.getFunction())),
   Index(Index),
-  Trace(Trace),
+  m_Trace(std::move(Trace)),
   ActiveInstruction(),
   ActiveInstructionComplete(false),
   Allocas(),

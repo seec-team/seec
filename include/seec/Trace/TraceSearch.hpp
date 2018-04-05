@@ -56,7 +56,7 @@ template<EventType... SearchFor>
 seec::Maybe<EventReference> find(EventRange Range) {
   for (auto &&Ev : Range) {
     if (typeInList<SearchFor...>(Ev.getType())) {
-      return seec::Maybe<EventReference>(EventReference(Ev));
+      return seec::Maybe<EventReference>(Ev);
     }
   }
 
@@ -102,7 +102,7 @@ template<typename PredT>
 seec::Maybe<EventReference> find(EventRange Range, PredT Predicate) {
   for (auto &&Ev : Range) {
     if (Predicate(Ev)) {
-      return seec::Maybe<EventReference>(EventReference(Ev));
+      return seec::Maybe<EventReference>(Ev);
     }
   }
 
@@ -144,12 +144,11 @@ findInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
         // Skip any events belonging to child functions.
         {
           auto const &ChildStartEv = It.get<EventType::FunctionStart>();
-          auto const ChildRecordOffset = ChildStartEv.getRecord();
-          auto const Child = Trace.getFunctionTrace(ChildRecordOffset);
+          auto const ChildEndOffset = ChildStartEv.getEventOffsetEnd();
           
           /// Set It to the FunctionEnd (it will be incremented to the next
           /// event that is part of this function, by the loop).
-          It = Trace.events().referenceToOffset(Child.getEventEnd());
+          It = Trace.getReferenceToOffset(ChildEndOffset);
         }
         break;
         
@@ -185,12 +184,11 @@ rfindInFunction(ThreadTrace const &Trace, EventRange Range, PredT Predicate) {
         // Skip any events belonging to child functions.
         {
           auto const &ChildEndEv = It.get<EventType::FunctionEnd>();
-          auto const ChildRecordOffset = ChildEndEv.getRecord();
-          auto const Child = Trace.getFunctionTrace(ChildRecordOffset);
+          auto const ChildStartOffset = ChildEndEv.getEventOffsetStart();
           
           // Set It to the FunctionStart (it will be decremented to the
           // previous event that is part of this function, by the loop).
-          It = Trace.events().referenceToOffset(Child.getEventStart());
+          It = Trace.getReferenceToOffset(ChildStartOffset);
           
           // If the FunctionStart is outside of the Range, then no valid event
           // was found.

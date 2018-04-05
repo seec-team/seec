@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Clang/MappedProcessTrace.hpp"
+#include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/LLVMContext.h"

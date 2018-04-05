@@ -188,19 +188,20 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
       if (NumThreads > 1)
         outs() << "Thread #" << i << ":\n";
 
-      outs() << "Functions:\n";
-
-      for (auto Offset: Thread.topLevelFunctions()) {
-        outs() << " @" << Offset << "\n";
-        outs() << " " << Thread.getFunctionTrace(Offset) << "\n";
-      }
-
       outs() << "Events:\n";
 
-      for (auto &&Ev: Thread.events()) {
-        if (Ev.isBlockStart())
+      auto Range = Thread.events();
+      for (auto It = Range.begin(), End = Range.end(); ; ++It) {
+        if (It->isBlockStart())
           outs() << "\n";
-        outs() << Ev << " @" << Thread.events().offsetOf(Ev) << "\n";
+        outs() << *It << "\n";
+        
+        // TODO:
+        // " @" << Thread.events().offsetOf(Ev) <<
+        
+        if (It == End) {
+          break;
+        }
       }
     }
   }
@@ -271,10 +272,16 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
       if (NumThreads > 1)
         outs() << "Thread #" << i << ":\n";
 
-      for (auto &&Ev: Thread.events()) {
+      for (auto EvRef = Thread.events().begin(),
+                EvEnd = Thread.events().end();
+           EvRef != EvEnd;
+           ++EvRef)
+      {
+        auto const &Ev = *EvRef;
+        
         if (Ev.getType() == trace::EventType::FunctionStart) {
           auto const &Record = Ev.as<trace::EventType::FunctionStart>();
-          auto const Info = Thread.getFunctionTrace(Record.getRecord());
+          auto const Info = Thread.getFunctionTrace(Record);
           FunctionStack.push_back(Info.getIndex());
         }
         else if (Ev.getType() == trace::EventType::FunctionEnd) {
@@ -288,15 +295,17 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
             continue;
 
           assert(!FunctionStack.empty());
+          
+          auto MaybeEvRef = Thread.getThreadEventBlockSequence().getReferenceTo(Ev);
 
           // Print a textual description of the error.
-          auto ErrRange = rangeAfterIncluding(Thread.events(), Ev);
+          auto ErrRange = rangeAfterIncluding(Thread.events(), EvRef);
           auto RunErr = deserializeRuntimeError(ErrRange);
 
-          if (RunErr.first) {
+          if (RunErr) {
             using namespace seec::runtime_errors;
 
-            auto MaybeDesc = Description::create(*RunErr.first,
+            auto MaybeDesc = Description::create(*RunErr,
                                                  Augmentations.getCallbackFn());
 
             if (MaybeDesc.assigned(0)) {
@@ -319,7 +328,7 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
 
           // Find the Instruction responsible for this error.
           auto const MaybeInstrIndex = trace::lastSuccessfulApply(
-            rangeBefore(Thread.events(), Ev),
+            rangeBefore(Thread.events(), EvRef),
             [] (trace::EventRecordBase const &Event)
               -> llvm::Optional<InstrIndexInFn>
             {

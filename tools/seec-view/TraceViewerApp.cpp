@@ -370,7 +370,10 @@ void TraceViewerApp::deferToExistingInstance()
 }
 
 void TraceViewerApp::OpenFile(wxString const &FileName) {
-  if (!FileName.EndsWith(".seec") && !FileName.EndsWith(".spt")) {
+  if (!FileName.EndsWith(".seec") &&
+      !FileName.EndsWith(".spt") &&
+      !FileName.EndsWith(".seecrecord"))
+  {
     auto const SourceEditor = new SourceEditorFrame();
     SourceEditor->Open(FileName);
     SourceEditor->Show();

@@ -19,7 +19,6 @@
 #include "seec/Trace/StateCommon.hpp"
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
-#include "seec/Trace/TraceReader.hpp"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
@@ -41,6 +40,8 @@ namespace seec {
 class ModuleIndex;
 
 namespace trace {
+
+class ProcessTrace;
 
 namespace value_store {
   class ModuleInfo;

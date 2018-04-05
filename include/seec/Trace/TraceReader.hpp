@@ -15,11 +15,13 @@
 #define SEEC_TRACE_TRACEREADER_HPP
 
 #include "seec/Trace/TraceFormat.hpp"
-#include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/Error.hpp"
+#include "seec/Util/IndexTypes.hpp"
 #include "seec/Util/Maybe.hpp"
 
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 
@@ -37,6 +39,7 @@ namespace llvm {
 
 
 class wxArchiveOutputStream;
+class wxArchiveInputStream;
 
 
 namespace seec {
@@ -47,26 +50,287 @@ namespace runtime_errors {
 
 namespace trace {
 
-class ThreadTrace; // forward-declare for FunctionTrace
+class EventReference;
+class ProcessTrace;
+class ThreadTrace;
+
+
+/// Enumerates thread-level data segment types.
+///
+enum class ThreadSegment {
+  Trace = 1,
+  Events
+};
+
+
+/// \brief Represents a single block of the trace.
+///
+class InputBlock {
+public:
+  BlockType getType() const { return m_Type; }
+  
+  llvm::ArrayRef<char> getData() const {
+    return llvm::ArrayRef<char>(m_Start, m_End);
+  }
+  
+  InputBlock(BlockType Type, char const *Start, char const *End)
+  : m_Type(Type),
+    m_Start(Start),
+    m_End(End)
+  {}
+  
+private:
+  BlockType m_Type;
+  char const *m_Start;
+  char const *m_End;
+};
+
+
+/// \brief
+///
+class ThreadEventBlockSequence {
+public:
+  class ThreadEventBlock {
+  public:
+    type_safe::boolean isValid() const {
+      return m_Begin != nullptr && m_End != nullptr;
+    }
+    
+    // prev will immediately precede this in memory, if
+    // this is valid.
+    ThreadEventBlock const *getPrevious() const {
+      ThreadEventBlock const *Ret = nullptr;
+      
+      if (isValid()) {
+        auto const Prev = std::prev(this);
+        
+        if (Prev->isValid()) {
+          Ret = Prev;
+        }
+      }
+      
+      return Ret;
+    }
+    
+    // next will immediately follow this in memory, if
+    // this is valid.
+    ThreadEventBlock const *getNext() const {
+      ThreadEventBlock const *Ret = nullptr;
+      
+      if (isValid()) {
+        auto const Next = std::next(this);
+        
+        if (Next->isValid()) {
+          Ret = Next;
+        }
+      }
+      
+      return Ret;
+    }
+    
+    EventRecordBase const *begin() const { return m_Begin; }
+    
+    EventRecordBase const *end() const { return m_End; }
+    
+    ThreadEventBlock()
+    : m_Begin(nullptr),
+      m_End(nullptr)
+    {}
+    
+    ThreadEventBlock(EventRecordBase const &Begin, EventRecordBase const &End)
+    : m_Begin(&Begin),
+      m_End(&End)
+    {}
+    
+  private:
+    EventRecordBase const *m_Begin;
+    EventRecordBase const *m_End;
+  };
+  
+  ThreadEventBlockSequence(std::vector<InputBlock> const &Blocks);
+  
+  ThreadEventBlock const *begin() const {
+    // Skip the sentinel at the beginning.
+    return &(m_Sequence[1]);
+  }
+  
+  ThreadEventBlock const *end() const {
+    // Skip the sentinel at the beginning.
+    return &(m_Sequence[m_BlockCount]);
+  }
+  
+  llvm::Optional<EventReference>
+  getReferenceTo(EventRecordBase const &Ev) const;
+  
+private:
+  // [sentinel, real blocks ... , sentinel]
+  std::unique_ptr<ThreadEventBlock[]> m_Sequence;
+  
+  // Number of real (non-sentinel) blocks.
+  size_t m_BlockCount;
+};
+
+
+/// \brief Check if the file at the given path looks like a regular,
+///        uncompressed SeeC trace file.
+///
+type_safe::boolean doesLookLikeTraceFile(char const *Path);
+
+
+/// \brief Gets MemoryBuffers for the various sections of a trace.
+///
+class InputBufferAllocator {
+  /// Path to the directory containing the individual execution trace files.
+  std::unique_ptr<llvm::MemoryBuffer> m_TraceBuffer;
+
+  /// Paths for temporary files (if used).
+  std::vector<std::string> m_TempFiles;
+  
+  InputBlock m_BlockForModule;
+  
+  InputBlock m_BlockForProcessTrace;
+  
+  std::vector<ThreadEventBlockSequence> m_BlockSequencesForThreads;
+
+  /// \brief Constructor (no temporaries).
+  ///
+  InputBufferAllocator(std::unique_ptr<llvm::MemoryBuffer> TraceBuffer,
+                       InputBlock BlockForModule,
+                       InputBlock BlockForProcessTrace,
+                       std::vector<ThreadEventBlockSequence> BlockSequences,
+                       std::vector<std::string> TempFiles)
+  : m_TraceBuffer(std::move(TraceBuffer)),
+    m_TempFiles(std::move(TempFiles)),
+    m_BlockForModule(BlockForModule),
+    m_BlockForProcessTrace(BlockForProcessTrace),
+    m_BlockSequencesForThreads(std::move(BlockSequences))
+  {
+    assert(m_BlockForModule.getType() == BlockType::ModuleBitcode);
+    assert(m_BlockForProcessTrace.getType() == BlockType::ProcessTrace);
+  }
+
+public:
+  /// \brief Destructor. Deletes temporary files and directories.
+  ///
+  ~InputBufferAllocator();
+
+  /// \name Constructors.
+  /// @{
+
+  // No copying.
+  InputBufferAllocator(InputBufferAllocator const &) = delete;
+  InputBufferAllocator &operator=(InputBufferAllocator const &) = delete;
+
+  // Moving is OK.
+  InputBufferAllocator(InputBufferAllocator &&) = default;
+  InputBufferAllocator &operator=(InputBufferAllocator &&) = default;
+
+private:
+  /// \brief Create an \c InputBufferAllocator for a trace archive.
+  /// The trace in the archive will be extracted to a temporary file,
+  /// and be deleted by the destructor of the \c InputBufferAllocator.
+  /// \param Path the path to the trace archive.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
+  ///
+  static seec::Maybe<InputBufferAllocator, seec::Error>
+  createForArchive(std::unique_ptr<wxArchiveInputStream> Input);
+
+  /// \brief Create an \c InputBufferAllocator for a trace file.
+  /// \param Path the path to the trace file.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
+  ///
+  static seec::Maybe<InputBufferAllocator, seec::Error>
+  createForFile(llvm::StringRef Path, std::vector<std::string> TempFiles);
+
+public:
+  /// \brief Attempt to create an \c InputBufferAllocator.
+  /// \param Path the path to the trace archive or trace file.
+  /// \return The \c InputBufferAllocator or a \c seec::Error describing the
+  ///         reason why it could not be created.
+  ///
+  static
+  seec::Maybe<InputBufferAllocator, seec::Error>
+  createFor(llvm::StringRef Path);
+
+  /// @} (Constructors.)
+
+
+  /// \brief Get the original, uninstrumented Module.
+  ///
+  seec::Maybe<std::unique_ptr<llvm::Module>, seec::Error>
+  getModule(llvm::LLVMContext &Context) const;
+
+  /// \brief Get the block holding process trace information.
+  ///
+  InputBlock getProcessTrace() const {
+    return m_BlockForProcessTrace;
+  }
+  
+  ///
+  ///
+  size_t getNumberOfThreadSequences() const {
+    return m_BlockSequencesForThreads.size();
+  }
+  
+  /// \brief
+  ///
+  ThreadEventBlockSequence const *getThreadSequence(ThreadIDTy ID) const {
+    auto const Index = uint32_t(ID);
+    
+    if (Index < m_BlockSequencesForThreads.size()) {
+      return &(m_BlockSequencesForThreads[Index]);
+    }
+    
+    return nullptr;
+  }
+  
+  llvm::MemoryBuffer const &getRawTraceBuffer() const {
+    return *m_TraceBuffer;
+  }
+  
+  llvm::ArrayRef<char> getData(offset_uint Offset, size_t Size) {
+    return llvm::ArrayRef<char>(getDataRaw(Offset), Size);
+  }
+  
+  char const *getDataRaw(offset_uint Offset) {
+    assert(Offset < m_TraceBuffer->getBufferSize());
+    return m_TraceBuffer->getBufferStart() + Offset;
+  }
+};
 
 
 /// \brief A reference to a single event record in a thread trace.
 ///
 class EventReference {
+  enum class EState : unsigned {
+    Valid   = 0,
+    PastEnd = 1
+  };
+  
   /// Pointer to the event record.
   EventRecordBase const *Record;
+  
+  /// The event record's containing block, and state of this reference.
+  llvm::PointerIntPair<ThreadEventBlockSequence::ThreadEventBlock const *,
+                       /* bits for state */ 1, EState> m_BlockAndState;
 
 public:
   /// Construct an EventReference to the event at the position given by Data.
   /// \param Data a pointer to an event record.
-  EventReference(char const *Data)
-  : Record(reinterpret_cast<EventRecordBase const *>(Data))
+  EventReference(char const *Data,
+                 ThreadEventBlockSequence::ThreadEventBlock const &Block)
+  : Record(reinterpret_cast<EventRecordBase const *>(Data)),
+    m_BlockAndState(&Block, EState::Valid)
   {}
 
   /// Construct an EventReference to the given event record.
   /// \param Record a reference to an event record.
-  EventReference(EventRecordBase const &Record)
-  : Record(&Record)
+  EventReference(EventRecordBase const &Record,
+                 ThreadEventBlockSequence::ThreadEventBlock const &Block)
+  : Record(&Record),
+    m_BlockAndState(&Block, EState::Valid)
   {}
 
   /// Copy constructor.
@@ -99,27 +363,31 @@ public:
   /// @{
 
   bool operator==(EventReference const &RHS) const {
-    return Record == RHS.Record;
+    return Record == RHS.Record &&
+           m_BlockAndState.getInt() == RHS.m_BlockAndState.getInt();
   }
 
   bool operator!=(EventReference const &RHS) const {
-    return Record != RHS.Record;
+    return !(*this == RHS);
   }
 
   bool operator<(EventReference const &RHS) const {
-    return Record < RHS.Record;
+    return Record < RHS.Record ||
+      (Record == RHS.Record &&
+       m_BlockAndState.getInt() == EState::Valid &&
+       RHS.m_BlockAndState.getInt() == EState::PastEnd);
   }
 
   bool operator<=(EventReference const &RHS) const {
-    return Record <= RHS.Record;
+    return *this < RHS || *this == RHS;
   }
 
   bool operator>(EventReference const &RHS) const {
-    return Record > RHS.Record;
+    return !(*this <= RHS);
   }
 
   bool operator>=(EventReference const &RHS) const {
-    return Record >= RHS.Record;
+    return !(*this < RHS);
   }
 
   /// @} (Comparison operators)
@@ -129,9 +397,27 @@ public:
   /// @{
 
   EventReference &operator++() {
-    auto Data = reinterpret_cast<char const *>(Record);
-    Data += Record->getEventSize();
-    Record = reinterpret_cast<EventRecordBase const *>(Data);
+    assert(m_BlockAndState.getInt() != EState::PastEnd);
+    
+    auto const NextRaw = reinterpret_cast<char const *>(Record)
+                          + Record->getEventSize();
+
+    auto const NextRecord = reinterpret_cast<EventRecordBase const *>(NextRaw);
+    
+    if (NextRecord <= m_BlockAndState.getPointer()->end()) {
+      Record = NextRecord;
+    }
+    else {
+      auto const NextBlock = m_BlockAndState.getPointer()->getNext();
+      if (NextBlock) {
+        m_BlockAndState.setPointer(NextBlock);
+        Record = NextBlock->begin();
+      }
+      else {
+        m_BlockAndState.setInt(EState::PastEnd);
+      }
+    }
+    
     return *this;
   }
 
@@ -141,34 +427,35 @@ public:
     return Result;
   }
 
-  EventReference operator+(std::size_t Steps) {
-    auto Result = *this;
-
-    for (std::size_t i = 0; i < Steps; ++i)
-      ++Result;
-
-    return Result;
-  }
-
   EventReference &operator--() {
-    auto PreviousSize = Record->getPreviousEventSize();
-    auto Data = reinterpret_cast<char const *>(Record) - PreviousSize;
-    Record = reinterpret_cast<EventRecordBase const *>(Data);
+    if (m_BlockAndState.getInt() == EState::Valid) {
+      auto const PreviousSize = Record->getPreviousEventSize();
+      
+      auto const PrevRaw = reinterpret_cast<char const *>(Record) - PreviousSize;
+      
+      auto const PrevRecord = reinterpret_cast<EventRecordBase const *>(PrevRaw);
+      
+      if (PrevRecord >= m_BlockAndState.getPointer()->begin()) {
+        Record = PrevRecord;
+      }
+      else {
+        auto const PrevBlock = m_BlockAndState.getPointer()->getPrevious();
+        assert(PrevBlock);
+        
+        m_BlockAndState.setPointer(PrevBlock);
+        Record = PrevBlock->end();
+      }
+    }
+    else {
+      m_BlockAndState.setInt(EState::Valid);
+    }
+    
     return *this;
   }
 
   EventReference operator--(int Dummy) {
     auto Result = *this;
     --(*this);
-    return Result;
-  }
-
-  EventReference operator-(std::size_t Steps) {
-    auto Result = *this;
-
-    for (std::size_t i = 0; i < Steps; ++i)
-      --Result;
-
     return Result;
   }
 
@@ -186,13 +473,6 @@ class EventRange {
   EventReference End;
 
 public:
-  /// \brief Create an empty \c EventRange.
-  ///
-  EventRange()
-  : Begin(nullptr),
-    End(nullptr)
-  {}
-
   /// \brief Create a new \c EventRange from a pair of \c EventReference.
   /// \param Begin the first event in the range.
   /// \param End the first event following (not in) the range.
@@ -227,46 +507,31 @@ public:
   bool contains(EventReference Ev) const {
     return Begin <= Ev && Ev < End;
   }
-
-  /// \brief Get the raw offset of an event from the start of this range.
-  /// \param Ev the event to find the offset of.
-  /// \return the number of bytes from \c begin() to \c Ev.
-  ///
-  offset_uint offsetOf(EventReference Ev) const {
-    assert(Begin <= Ev && Ev <= End && "Ev not in EventRange");
-
-    auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
-    auto const EvPtr = reinterpret_cast<char const *>(&*Ev);
-
-    return static_cast<offset_uint>(EvPtr - BeginPtr);
-  }
-
-  /// \brief Get a reference to the event at the given offset in this range.
-  /// \param Offset the number of bytes from \c begin() to the event.
-  /// \return a reference to the event that is \c Offset bytes after \c begin().
-  ///
-  EventReference referenceToOffset(offset_uint Offset) const {
-    auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
-    return EventReference(BeginPtr + Offset);
-  }
-
-  /// \brief Get a typed reference to the event at the given offset in this
-  ///        range.
-  /// This differs from \c referenceToOffset in that it returns a reference
-  /// to an \c EventRecord<ET> rather than an \c EventReference.
-  /// \tparam ET the \c EventType of the \c EventRecord that will be
-  ///         retrieved. This *must* match the event that exists at the
-  ///         given \c Offset.
-  /// \param Offset the number of bytes from \c begin() to the event.
-  /// \return a reference to the \c EventRecord<ET> that is Offset bytes after
-  ///         \c begin().
-  ///
-  template<EventType ET>
-  EventRecord<ET> const &eventAtOffset(offset_uint Offset) const {
-    auto const BeginPtr = reinterpret_cast<char const *>(&*Begin);
-    return *reinterpret_cast<EventRecord<ET> const *>(BeginPtr + Offset);
-  }
 };
+
+
+inline
+llvm::Optional<EventRange>
+getRange(ThreadEventBlockSequence const &Sequence) {
+  llvm::Optional<EventRange> Ret;
+  
+  auto const FirstBlock = Sequence.begin();
+  auto const FinalBlock = Sequence.end();
+  
+  if (FirstBlock != nullptr && FinalBlock != nullptr
+      && FirstBlock->isValid() && FinalBlock->isValid())
+  {
+    auto const EvBegin = FirstBlock->begin();
+    auto const EvEnd = FinalBlock->end();
+    
+    if (EvBegin != nullptr && EvEnd != nullptr) {
+      Ret.emplace(EventReference(*EvBegin, *FirstBlock),
+                  ++EventReference(*EvEnd, *FinalBlock));
+    }
+  }
+  
+  return Ret;
+}
 
 
 /// \brief Deserialize a \c RunError from a \c RuntimeError event record.
@@ -274,11 +539,9 @@ public:
 ///                \c EventRecord<EventType::RuntimeError> and should contain
 ///                all subservient events.
 /// \return A \c std::unique_ptr holding the recreated \c RunError if
-///         deserialization was successful (otherwise holding nothing),
-///         and a reference to the first event that is not associated with
-///         this \c RunError.
+///         deserialization was successful (otherwise holding nothing).
 ///
-std::pair<std::unique_ptr<seec::runtime_errors::RunError>, EventReference>
+std::unique_ptr<seec::runtime_errors::RunError>
 deserializeRuntimeError(EventRange Records);
 
 
@@ -288,83 +551,48 @@ class FunctionTrace {
   friend class ThreadTrace;
 
   /// Trace of the thread that this Function invocation occured in.
-  ThreadTrace const *Thread;
-
-  char const *Data;
-
-  /// Get the offset of Index in a serialized FunctionTrace.
-  static constexpr std::size_t IndexOffset() {
-    return 0;
-  }
-
-  /// Get the offset of EventStart in a serialized FunctionTrace.
-  static constexpr std::size_t EventStartOffset() {
-    return IndexOffset() + sizeof(uint32_t);
-  }
-
-  /// Get the offset of EventEnd in a serialized FunctionTrace.
-  static constexpr std::size_t EventEndOffset() {
-    return EventStartOffset() + sizeof(offset_uint);
-  }
-
-  /// Get the offset of ThreadTimeEntered in a serialized FunctionTrace.
-  static constexpr std::size_t ThreadTimeEnteredOffset() {
-    return EventEndOffset() + sizeof(offset_uint);
-  }
-
-  /// Get the offset of ThreadTimeExited in a serialized FunctionTrace.
-  static constexpr std::size_t ThreadTimeExitedOffset() {
-    return ThreadTimeEnteredOffset() + sizeof(uint64_t);
-  }
-
-  /// Get the offset of ChildList in a serialized FunctionTrace.
-  static constexpr std::size_t ChildListOffset() {
-    return ThreadTimeExitedOffset() + sizeof(uint64_t);
-  }
+  ThreadTrace const &Thread;
+  
+  /// Start event for this Function invocation (contains all trace info).
+  EventRecord<EventType::FunctionStart> const &StartEv;
 
   /// Create a new FunctionTrace using the given trace data.
   /// \param Thread the ThreadTrace that this FunctionTrace belongs to.
-  /// \param Data pointer to the serialized FunctionTrace.
-  FunctionTrace(ThreadTrace const &Thread, char const *Data)
-  : Thread(&Thread),
-    Data(Data)
+  ///
+  FunctionTrace(ThreadTrace const &WithThread,
+                EventRecord<EventType::FunctionStart> const &WithStartEv)
+  : Thread(WithThread),
+    StartEv(WithStartEv)
   {}
 
 public:
-  /// Copy constructor.
   FunctionTrace(FunctionTrace const &Other) = default;
-
-  /// Copy assignment.
   FunctionTrace &operator=(FunctionTrace const &RHS) = default;
 
   /// Get the ThreadTrace that this FunctionTrace belongs to.
-  ThreadTrace const &getThread() const { return *Thread; }
+  ThreadTrace const &getThread() const { return Thread; }
 
   /// Get the Function's index.
-  uint32_t getIndex() const {
-    return *reinterpret_cast<uint32_t const *>(Data + IndexOffset());
-  }
+  uint32_t getIndex() const { return StartEv.getFunctionIndex(); }
 
   /// Get the offset of the start event.
   offset_uint getEventStart() const {
-    return *reinterpret_cast<offset_uint const *>(Data + EventStartOffset());
+    return StartEv.getEventOffsetStart();
   }
 
   /// Get the offset of the end event.
   offset_uint getEventEnd() const {
-    return *reinterpret_cast<offset_uint const *>(Data + EventEndOffset());
+    return StartEv.getEventOffsetEnd();
   }
 
   /// Get the thread time at which this Function was entered.
   uint64_t getThreadTimeEntered() const {
-    auto ValuePtr = Data + ThreadTimeEnteredOffset();
-    return *reinterpret_cast<uint64_t const *>(ValuePtr);
+    return StartEv.getThreadTimeEntered();
   }
 
   /// Get the thread time at which this Function was exited.
   uint64_t getThreadTimeExited() const {
-    auto ValuePtr = Data + ThreadTimeExitedOffset();
-    return *reinterpret_cast<uint64_t const *>(ValuePtr);
+    return StartEv.getThreadTimeExited();
   }
 };
 
@@ -376,38 +604,23 @@ llvm::raw_ostream &operator<< (llvm::raw_ostream &Out, FunctionTrace const &T);
 ///
 class ThreadTrace {
   friend class ProcessTrace;
+  
+  ProcessTrace const &m_ProcessTrace;
 
   /// A unique ID assigned to the thread at run-time.
-  uint32_t ThreadID;
+  ThreadIDTy m_ID;
 
-  /// Holds the thread's serialized trace information.
-  std::unique_ptr<llvm::MemoryBuffer> Trace;
-
-  /// Holds the thread's serialized events.
-  std::unique_ptr<llvm::MemoryBuffer> Events;
-
-  /// A list of offsets of top-level FunctionTraces.
-  llvm::ArrayRef<offset_uint> TopLevelFunctions;
-
-  /// \brief Get a list of offsets from this thread's trace information.
-  ///
-  llvm::ArrayRef<offset_uint> getOffsetList(offset_uint const AtOffset) const {
-    auto List = Trace->getBufferStart() + AtOffset;
-    auto Length = *reinterpret_cast<uint64_t const *>(List);
-    auto Data = reinterpret_cast<offset_uint const *>(List + sizeof(uint64_t));
-    return llvm::ArrayRef<offset_uint>(Data, static_cast<size_t>(Length));
-  }
+  /// Information about the thread's serialized events.
+  ThreadEventBlockSequence const &m_EventSequence;
  
   /// \brief Constructor
   ///
-  ThreadTrace(InputBufferAllocator &Allocator, uint32_t ID)
-  : ThreadID(ID),
-    Trace(std::move(Allocator.getThreadData(ID,
-                                            ThreadSegment::Trace).get<0>())),
-    Events(std::move(Allocator.getThreadData(ID,
-                                             ThreadSegment::Events).get<0>())),
-    TopLevelFunctions(getOffsetList(*reinterpret_cast<offset_uint const *>
-                                    (Trace->getBufferStart())))
+  ThreadTrace(ProcessTrace const &Parent,
+              ThreadIDTy ID,
+              ThreadEventBlockSequence const &EventBlockSequence)
+  : m_ProcessTrace(Parent),
+    m_ID(ID),
+    m_EventSequence(EventBlockSequence)
   {}
 
 public:
@@ -416,34 +629,37 @@ public:
 
   /// \brief Get the ID of the thread that this trace represents.
   ///
-  uint32_t getThreadID() const { return ThreadID; }
+  uint32_t getThreadID() const {
+    return uint32_t(m_ID);
+  }
 
   /// \brief Get a range containing all of the events in this thread.
   ///
   EventRange events() const {
-    auto LastEvent = Events->getBufferEnd()
-                     - sizeof(EventRecord<EventType::TraceEnd>);
-
-    return EventRange(EventReference(Events->getBufferStart()),
-                      EventReference(LastEvent));
+    auto Range = getRange(m_EventSequence);
+    assert(Range);
+    return *Range;
   }
-
-  /// @} (Accessors)
-
-
-  /// \name Function traces
-  /// @{
-
-  /// \brief Get a list of offsets of top-level \c FunctionTrace records.
+  
+  /// \brief Get the thread event blocks for this thread.
   ///
-  llvm::ArrayRef<offset_uint> topLevelFunctions() const {
-    return TopLevelFunctions;
+  ThreadEventBlockSequence const &getThreadEventBlockSequence() const {
+    return m_EventSequence;
   }
+  
+  /// \brief Get a reference to the event at the given offset in the trace.
+  /// \param Offset offset of the event record in the trace file.
+  /// \return a reference to the event at the specified offset.
+  ///
+  EventReference getReferenceToOffset(offset_uint Offset) const;
+  
+  /// @} (Accessors)
 
   /// \brief Get a \c FunctionTrace from a given offset.
   ///
-  FunctionTrace getFunctionTrace(offset_uint const AtOffset) const {
-    return FunctionTrace(*this, Trace->getBufferStart() + AtOffset);
+  FunctionTrace
+  getFunctionTrace(EventRecord<EventType::FunctionStart> const &Ev) const {
+    return FunctionTrace(*this, Ev);
   }
 
   /// @}
@@ -455,12 +671,6 @@ public:
 class ProcessTrace {
   /// The allocator used to initially read the trace.
   std::unique_ptr<InputBufferAllocator> const Allocator;
-  
-  /// Process-wide trace information.
-  std::unique_ptr<llvm::MemoryBuffer> const Trace;
-
-  /// Process-wide data.
-  std::unique_ptr<llvm::MemoryBuffer> const Data;
 
   /// Name of the recorded Module.
   std::string ModuleIdentifier;
@@ -489,16 +699,12 @@ class ProcessTrace {
   /// \brief Constructor.
   ///
   ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
-               std::unique_ptr<llvm::MemoryBuffer> Trace,
-               std::unique_ptr<llvm::MemoryBuffer> Data,
                std::string ModuleIdentifier,
                uint32_t NumThreads,
-               uint64_t FinalProcessTime,
                std::vector<uint64_t> GVAddresses,
                std::vector<offset_uint> GVInitialData,
                std::vector<uint64_t> FAddresses,
-               std::vector<uint64_t> WithStreamsInitial,
-               std::vector<std::unique_ptr<ThreadTrace>> TTraces);
+               std::vector<uint64_t> WithStreamsInitial);
 
 public:
   /// \brief Read a ProcessTrace using an InputBufferAllocator.
@@ -528,15 +734,22 @@ public:
   /// \param Size the number of bytes in the block.
   ///
   llvm::ArrayRef<char> getData(offset_uint Offset, std::size_t Size) const {
-    auto DataStart = Data->getBufferStart() + Offset;
-    auto DataPtr = reinterpret_cast<char const *>(DataStart);
-    return llvm::ArrayRef<char>(DataPtr, Size);
+    return Allocator->getData(Offset, Size);
   }
   
   /// \brief Get a raw pointer into the process' data record.
   ///
   char const *getDataRaw(offset_uint const Offset) const {
-    return Data->getBufferStart() + Offset;
+    return Allocator->getDataRaw(Offset);
+  }
+  
+  /// \brief Get a reference to the event record at the given offset.
+  ///
+  template<EventType ET>
+  EventRecord<ET> const &getEventAtOffset(offset_uint Offset) const {
+    auto const Raw = getDataRaw(Offset);
+    assert(Raw);
+    return *reinterpret_cast<EventRecord<ET> const *>(Raw);
   }
 
   /// \brief Get the process time at the end of this trace.
@@ -548,15 +761,10 @@ public:
   std::vector<uint64_t> const &getStreamsInitial() const {
     return StreamsInitial;
   }
-  
-  /// \brief Get all files used by this trace.
-  ///
-  seec::Maybe<std::vector<TraceFile>, seec::Error>
-  getAllFileData() const;
 
   /// \brief Get the combined size of all files.
   ///
-  Maybe<uint64_t, Error> getCombinedFileSize() const;
+  size_t getCombinedFileSize() const;
 
   /// @} (Accessors)
 

@@ -77,14 +77,17 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});
 
-  uint64_t Entered = ++Time;
-
-  // Find the location that the new FunctionRecord will be placed at.
-  auto RecordOffset = getNewFunctionRecordOffset();
+  uint64_t const Entered = ++Time;
 
   // Create function start event.
-  auto StartOffset = EventsOut.write<EventType::FunctionStart>(RecordOffset);
-
+  auto StartWrite = EventsOut.write<EventType::FunctionStart>
+                      (Index,
+                       /* EventOffsetStart */ offset_uint(0),
+                       /* EventOffsetEnd */ offset_uint(0),
+                       Entered,
+                       /* ThreadTimeExited */ uint64_t(0));
+  assert(StartWrite);
+  
   // Get the shared, indexed view of the function.
   auto const &FIndex = ProcessListener.moduleIndex().getFunctionIndex(Index);
 
@@ -115,9 +118,8 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   }
 
   RecordedFunctions.emplace_back(
-    llvm::make_unique<RecordedFunction>(RecordOffset,
-                                        Index,
-                                        StartOffset,
+    llvm::make_unique<RecordedFunction>(Index,
+                                        *StartWrite,
                                         Entered));
 
   // Add a TracedFunction to the stack and make it the ActiveFunction.
@@ -139,21 +141,23 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
     // otherwise record it as a new top-level function.
     if (Parent)
       Parent->addChild(*ActiveFunction);
-    else
-      RecordedTopLevelFunctions.emplace_back(RecordOffset);
 
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
-    if (!Parent && RecordedTopLevelFunctions.size() == 1 && environ) {
-      acquireGlobalMemoryWriteLock();
-
-      // Record the environ table (if it hasn't been done already).
-      setupEnvironTable(environ);
-      auto const EnvironValue = reinterpret_cast<uintptr_t>(environ);
-
-      // Update the GVIMPO.
-      ProcessListener.setInMemoryPointerObject(
-        reinterpret_cast<uintptr_t>(&environ),
-        ProcessListener.makePointerObject(EnvironValue));
+    if (!Parent && environ) {
+      std::call_once(
+        ProcessListener.getEnvironSetupOnceFlag(),
+        [this] () {
+          acquireGlobalMemoryWriteLock();
+          
+          // Record the environ table (if it hasn't been done already).
+          setupEnvironTable(environ);
+          auto const EnvironValue = reinterpret_cast<uintptr_t>(environ);
+          
+          // Update the GVIMPO.
+          ProcessListener.setInMemoryPointerObject(
+            reinterpret_cast<uintptr_t>(&environ),
+            ProcessListener.makePointerObject(EnvironValue));
+        });
     }
 #endif
   }
@@ -404,8 +408,9 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   }
 
   // Create function end event.
-  auto EndOffset =
-    EventsOut.write<EventType::FunctionEnd>(Record.getRecordOffset());
+  auto EndWrite =
+    EventsOut.write<EventType::FunctionEnd>(Record.getEventOffsetStart());
+  assert(EndWrite);
 
   // Clear stack allocations and pop the Function from the stack.
   {
@@ -442,7 +447,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   }
 
   // Update the function record with the end details.
-  Record.setCompletion(EndOffset, Exited);
+  Record.setCompletion(EventsOut, EndWrite->Offset, Exited);
 }
 
 void TraceThreadListener::notifyPreCall(InstrIndexInFn Index,
@@ -839,15 +844,19 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
   ActiveFunction->setActiveInstruction(Instruction);
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithPtr>
-                               (Index, reinterpret_cast<uintptr_t>(Value));
-
-  // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
+  auto Write = EventsOut.write<EventType::InstructionWithPtr>
+                              (Index, reinterpret_cast<uintptr_t>(Value));
 
   auto const IntVal = reinterpret_cast<uintptr_t>(Value);
-  RTValue.set(Offset, IntVal);
+  
+  // Ensure that RTValues are still valid when tracing is disabled.
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, IntVal);
+  }
+  else {
+    RTValue.set(0, IntVal);
+  }
 
   if (auto Alloca = llvm::dyn_cast<llvm::AllocaInst>(Instruction)) {
     // Add a record to this function's stack.
@@ -862,8 +871,10 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                                    Alloca->getArraySize());
     assert(CountRTV.assigned() && "Couldn't get Count run-time value.");
     
-    auto const Offset = EventsOut.write<EventType::Alloca>(ElementSize,
-                                                           CountRTV.get<0>());
+    auto const Write = EventsOut.write<EventType::Alloca>(ElementSize,
+                                                          CountRTV.get<0>());
+    
+    auto const Offset = Write ? Write->Offset : 0;
 
     ActiveFunction->addAlloca(TracedAlloca(Alloca,
                                            IntVal,
@@ -974,14 +985,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithUInt64>
-                               (Index, Value);
-
+  auto Write = EventsOut.write<EventType::InstructionWithUInt64>
+                              (Index, Value);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -995,14 +1009,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithUInt32>
-                               (Value, Index);
-
+  auto Write = EventsOut.write<EventType::InstructionWithUInt32>
+                              (Value, Index);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -1016,14 +1033,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithUInt16>
-                               (Value, Index);
-
+  auto Write = EventsOut.write<EventType::InstructionWithUInt16>
+                              (Value, Index);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -1037,14 +1057,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithUInt8>
-                               (Value, Index);
-
+  auto Write = EventsOut.write<EventType::InstructionWithUInt8>
+                              (Value, Index);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -1058,14 +1081,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithFloat>
-                               (Index, Value);
-
+  auto Write = EventsOut.write<EventType::InstructionWithFloat>
+                              (Index, Value);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -1079,14 +1105,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithDouble>
-                               (Index, Value);
-
+  auto Write = EventsOut.write<EventType::InstructionWithDouble>
+                              (Index, Value);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -1107,14 +1136,17 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
          sizeof(Value));
 
   ++Time;
-  auto Offset = EventsOut.write<EventType::InstructionWithLongDouble>
-                               (Index, Words[0], Words[1]);
-
+  auto Write = EventsOut.write<EventType::InstructionWithLongDouble>
+                              (Index, Words[0], Words[1]);
+  
   // Ensure that RTValues are still valid when tracing is disabled.
-  if (!OutputEnabled)
-    Offset = 0;
-
-  RTValue.set(Offset, Value);
+  if (OutputEnabled) {
+    assert(Write);
+    RTValue.set(Write->Offset, Value);
+  }
+  else {
+    RTValue.set(0, Value);
+  }
 }
 
 } // namespace trace (in seec)

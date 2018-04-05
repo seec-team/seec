@@ -13,6 +13,7 @@
 
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/TraceReader.hpp"
 
 #include <wx/gauge.h>
 #include <wx/sizer.h>

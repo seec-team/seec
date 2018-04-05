@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Trace/ProcessState.hpp"
+#include "seec/Trace/TraceReader.hpp"
 #include "seec/Util/Printing.hpp"
 
 #include "llvm/ADT/STLExtras.h"

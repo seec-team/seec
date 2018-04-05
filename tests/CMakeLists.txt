@@ -37,7 +37,7 @@ endmacro(seec_test_print_trace_compare)
 
 macro(seec_test_run_pass_without_comparison BINARY TEST ARG)
   add_test(NAME ${SEEC_TEST_PREFIX}run-${BINARY}-${TEST}
-           COMMAND ${TEST_SCRIPT} SEEC_TRACE_NAME=${BINARY}-${TEST} ${CMAKE_CURRENT_BINARY_DIR}/${BINARY} ${ARG})
+           COMMAND ${TEST_SCRIPT} SEEC_TRACE_NAME=${BINARY}-${TEST}.seec ${CMAKE_CURRENT_BINARY_DIR}/${BINARY} ${ARG})
   set_tests_properties(${SEEC_TEST_PREFIX}run-${BINARY}-${TEST} PROPERTIES
     DEPENDS ${SEEC_TEST_PREFIX}build-${BINARY})
   seec_test_print_trace(${BINARY} "${TEST}")
@@ -50,7 +50,7 @@ endmacro(seec_test_run_pass)
 
 macro(seec_test_run_fail_without_comparison BINARY TEST ARG)
   add_test(NAME ${SEEC_TEST_PREFIX}run-${BINARY}-${TEST}
-           COMMAND ${TEST_SCRIPT} SEEC_TRACE_NAME=${BINARY}-${TEST} ${CMAKE_CURRENT_BINARY_DIR}/${BINARY} ${ARG})
+           COMMAND ${TEST_SCRIPT} SEEC_TRACE_NAME=${BINARY}-${TEST}.seec ${CMAKE_CURRENT_BINARY_DIR}/${BINARY} ${ARG})
   set_tests_properties(${SEEC_TEST_PREFIX}run-${BINARY}-${TEST} PROPERTIES
     DEPENDS ${SEEC_TEST_PREFIX}build-${BINARY}
     WILL_FAIL TRUE)

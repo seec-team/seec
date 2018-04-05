@@ -10,6 +10,26 @@ root:table {
     ProcessTraceFailRead:string {
       "Failed to read process trace."
     }
+    
+    //
+    UnknownFileType:string {
+      "Don't know how to read file \"{file}\"."
+    }
+    
+    //
+    MalformedTraceFile:string {
+      "Trace file is malformed."
+    }
+    
+    //
+    OutputBlockFail:string {
+      "Couldn't create an output block."
+    }
+    
+    //
+    OpenFileFail:string {
+      "Failed to open trace file: \"{error}\"."
+    }
 
     //
     InputBufferAllocationFail:string {
