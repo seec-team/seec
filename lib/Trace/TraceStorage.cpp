@@ -16,10 +16,14 @@
 #include <string>
 #include <system_error>
 
-#ifdef __unix__
-#include <unistd.h>
+#if defined(__unix__)
+  #include <unistd.h>
+#elif ((defined(__APPLE__) && defined(__MACH__))
+  #include <sys/types.h>
+  #include <sys/uio.h>
+  #include <unistd.h>
 #elif defined(_WIN32)
-#include <process.h>
+  #include <process.h>
 #endif
 
 #include <sys/stat.h>
