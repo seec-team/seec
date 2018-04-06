@@ -22,7 +22,6 @@
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/ModuleIndex.hpp"
-#include "seec/Util/SynchronizedExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/Config.hpp"
 
@@ -85,25 +84,12 @@ void ThreadEnvironment::checkOutputSize()
     return;
 
   auto const TotalSize = Process.getStreamAllocator().getTotalSize();
-  
+
   if (TotalSize > Process.getTraceSizeLimit()) {
     llvm::errs() << "\nSeeC: Trace size limit reached!\n";
 
-    // Stop all threads, then close the tracing.
-    auto const &SupportSyncExit = ThreadTracer.getSupportSynchronizedExit();
-    auto StopCanceller = SupportSyncExit.getSynchronizedExit().stopAll();
-    if (!StopCanceller.wasStopped())
-      return;
-
     auto &ProcessListener = Process.getProcessListener();
-
-    for (auto const ThreadListenerPtr : ProcessListener.getThreadListeners()) {
-      ThreadListenerPtr->traceClose();
-    }
-
     ProcessListener.traceClose();
-
-    StopCanceller.cancelStop();
   }
 }
 

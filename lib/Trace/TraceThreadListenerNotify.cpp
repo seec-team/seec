@@ -43,7 +43,11 @@ void TraceThreadListener::enterNotification() {
   checkSignals();
 }
 
-void TraceThreadListener::exitNotification() {}
+void TraceThreadListener::exitNotification() {
+  if (!ProcessListener.traceEnabled()) {
+    traceClose();
+  }
+}
 
 void TraceThreadListener::exitPreNotification() {
   exitNotification();

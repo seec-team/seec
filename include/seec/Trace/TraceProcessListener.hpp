@@ -31,7 +31,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 
-// #include <atomic>
+#include <atomic>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -126,7 +126,7 @@ class TraceProcessListener {
   OutputStreamAllocator &StreamAllocator;
   
   /// Toggles trace output.
-  bool OutputEnabled;
+  std::atomic_bool OutputEnabled;
   
   /// Handles synchronized calls to std::exit().
   SynchronizedExit &SyncExit;
@@ -388,24 +388,6 @@ public:
     std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
     
     ActiveThreadListeners.erase(ThreadID);
-  }
-  
-  /// \brief Get a list of active TraceThreadListener objects.
-  ///
-  /// TODO: Deprecate this. Any of the listeners could become inactive as soon
-  /// as the list is retrieved and the Lock is released. Note: this is only
-  /// used by the runtime library after stopping all threads using the
-  /// SynchronizedExit, so its current use is safe.
-  ///
-  std::vector<TraceThreadListener *> getThreadListeners() {
-    std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
-    
-    std::vector<TraceThreadListener *> List;
-    
-    for (auto const &Pair : ActiveThreadListeners)
-      List.push_back(Pair.second);
-    
-    return List;
   }
   
   /// \brief Get the number of active TraceThreadListener objects.
