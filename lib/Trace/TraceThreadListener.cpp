@@ -144,7 +144,6 @@ std::uintptr_t TraceThreadListener::getRemainingStack() const
   std::uintptr_t StackHigh = 0;
 
   {
-    std::lock_guard<std::mutex> Lock{FunctionStackMutex};
     auto const FrontArea = FunctionStack.front().getStackArea();
     auto const BackArea = FunctionStack.back().getStackArea();
 
@@ -538,7 +537,6 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   RecordedFunctions(),
   RecordedTopLevelFunctions(),
   FunctionStack(),
-  FunctionStackMutex(),
   ActiveFunction(nullptr),
   GlobalMemoryLock(),
   DynamicMemoryLock(),
@@ -726,28 +724,18 @@ TraceThreadListener::handleRunError(seec::runtime_errors::RunError const &Error,
 
 void TraceThreadListener::pushShimFunction()
 {
-  // It's safe for us to read from the shadow stack without locking, because
-  // we are the only thread allowed to perform modifications.
-
   // A shim cannot be a top-level function.
   assert(!FunctionStack.empty());
 
   auto &ParentRecord = FunctionStack.back().getRecordedFunction();
-
-  std::lock_guard<std::mutex> Lock(FunctionStackMutex);
   FunctionStack.emplace_back(*this, ParentRecord);
   ActiveFunction = &FunctionStack.back();
 }
 
 void TraceThreadListener::popShimFunction()
 {
-  // It's safe for us to read from the shadow stack without locking, because
-  // we are the only thread allowed to perform modifications.
-
   // TODO: assert that the back of the stack is a shim.
   assert(!FunctionStack.empty());
-
-  std::lock_guard<std::mutex> Lock(FunctionStackMutex);
   FunctionStack.pop_back();
   ActiveFunction = FunctionStack.empty() ? nullptr : &FunctionStack.back();
 }

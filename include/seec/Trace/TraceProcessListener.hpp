@@ -326,16 +326,9 @@ public:
   llvm::Function const *getFunctionAt(uintptr_t const Address) const;
   
   /// \brief Find the allocated range that owns an address.
+  /// Requires access to TraceMemoryState.
   ///
-  /// This method will searches regions in the following order:
-  ///  - Global variables.
-  ///  - Dynamic memory allocations.
-  ///  - Readable/writable regions.
-  ///  - Thread stacks (other than the requesting thread).
-  /// This method is thread safe.
-  ///
-  seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address, uint32_t RequestingThreadID) const;
+  seec::Maybe<MemoryArea> getContainingMemoryArea(uintptr_t Address) const;
   
   /// \brief Get the detect calls Lookup.
   seec::trace::detect_calls::Lookup const &getDetectCallsLookup() const {

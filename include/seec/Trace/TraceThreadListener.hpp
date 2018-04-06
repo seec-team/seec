@@ -120,9 +120,6 @@ class TraceThreadListener
   /// The back of the vector is the currently active Function.
   std::vector<TracedFunction> FunctionStack;
 
-  /// Controls access to FunctionStack.
-  mutable std::mutex FunctionStackMutex;
-
   /// Pointer to the trace information for the currently active Function, or
   /// nullptr if no Function is currently active.
   TracedFunction *ActiveFunction;
@@ -483,25 +480,6 @@ public:
   ///
   seec::Maybe<seec::MemoryArea>
   getParamByValArea(llvm::Argument const *Arg) const;
-
-  /// \brief Find the allocated range that owns an address, if it belongs to
-  ///        this thread. This method is thread safe.
-  ///
-  seec::Maybe<MemoryArea>
-  getContainingMemoryArea(uintptr_t Address) const {
-    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
-
-    seec::Maybe<MemoryArea> Area;
-
-    for (auto const &TracedFunc : FunctionStack) {
-      Area = TracedFunc.getContainingMemoryArea(Address);
-      if (Area.assigned()) {
-        return Area;
-      }
-    }
-
-    return Area;
-  }
 
   /// @} (Accessors)
 

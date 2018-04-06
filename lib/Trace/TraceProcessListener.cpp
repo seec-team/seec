@@ -165,66 +165,15 @@ TraceProcessListener::getFunctionAt(uintptr_t const Address) const
 }
 
 seec::Maybe<MemoryArea>
-TraceProcessListener::getContainingMemoryArea(uintptr_t Address,
-                                              uint32_t RequestingThreadID
-                                              ) const {
-  // Check global variables.
-  {
-    auto GlobIt = GlobalVariableLookup.find(Address);
-    if (GlobIt != GlobalVariableLookup.end()) {
-      auto const Begin = GlobIt->Begin;
-      // Range of interval is inclusive: [Begin, End]
-      auto const Length = (GlobIt->End - GlobIt->Begin) + 1;
-      auto const Permission =
-        GlobIt->Value->isConstant() ? MemoryPermission::ReadOnly
-                                    : MemoryPermission::ReadWrite;
-      
-      return MemoryArea(Begin, Length, Permission);
-    }
+TraceProcessListener::getContainingMemoryArea(uintptr_t Address) const
+{
+  seec::Maybe<MemoryArea> Ret;
+
+  if (auto const Alloc = TraceMemory.findAllocationContaining(Address)) {
+    Ret = Alloc->getArea();
   }
-  
-  // Check dynamic memory allocations.
-  {
-    std::lock_guard<std::mutex> Lock(DynamicMemoryAllocationsMutex);
-      
-    auto DynIt = DynamicMemoryAllocations.upper_bound(Address);
-    if (DynIt != DynamicMemoryAllocations.begin()) {
-      --DynIt; // DynIt's allocation address is now <= Address.
-        
-      auto Area = DynIt->second.area();
-      if (Area.contains(Address)) {
-        return seec::Maybe<MemoryArea>(Area);
-      }
-    }
-  }
-  
-  // Check readable/writable regions.
-  {
-    auto KnownIt = KnownMemory.find(Address);
-    if (KnownIt != KnownMemory.end()) {
-      // Range of interval is inclusive: [Begin, End]
-      auto Length = (KnownIt->End - KnownIt->Begin) + 1;
-      return seec::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
-                                     Length,
-                                     KnownIt->Value));
-    }
-  }
-    
-  // Check other threads.
-  {
-    std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
-      
-    for (auto const &Lookup : ActiveThreadListeners) {
-      if (Lookup.first != RequestingThreadID) {
-        auto MaybeArea = Lookup.second->getContainingMemoryArea(Address);
-        if (MaybeArea.assigned()) {
-          return MaybeArea;
-        }
-      }
-    }
-  }
-    
-  return seec::Maybe<MemoryArea>();
+
+  return Ret;
 }
 
 

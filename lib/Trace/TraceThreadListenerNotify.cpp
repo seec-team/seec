@@ -124,7 +124,6 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
 
   // Add a TracedFunction to the stack and make it the ActiveFunction.
   {
-    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
     auto const PriorStackSize = FunctionStack.size();
 
     FunctionStack.emplace_back(*this,
@@ -208,7 +207,6 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   TracedFunction const *ParentFunction = nullptr;
   
   {
-    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
     if (FunctionStack.size() >= 2) {
       auto ParentIdx = FunctionStack.size() - 2;
       ParentFunction = &(FunctionStack[ParentIdx]);
@@ -353,8 +351,6 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
                                             InstrIndexInFn const InstrIndex,
                                             llvm::Instruction const *Terminator)
 {
-  // It's OK to check this without owning FunctionStackMutex, because the
-  // FunctionStack can only be changed by a single thread.
   assert(!FunctionStack.empty() && "notifyFunctionEnd with empty stack.");
 
   // Handle common behaviour when entering and exiting notifications.
@@ -414,8 +410,6 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
 
   // Clear stack allocations and pop the Function from the stack.
   {
-    std::lock_guard<std::mutex> Lock(FunctionStackMutex);
-
     acquireGlobalMemoryWriteLock();
     auto UnlockGlobalMemory = scopeExit([=](){GlobalMemoryLock.unlock();});
     

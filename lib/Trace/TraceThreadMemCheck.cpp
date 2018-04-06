@@ -33,18 +33,9 @@ using namespace seec::runtime_errors;
 //===------------------------------------------------------------------------===
 
 seec::Maybe<MemoryArea>
-getContainingMemoryArea(TraceThreadListener &Listener,
-                        uintptr_t Address) {
+getContainingMemoryArea(TraceThreadListener &Listener, uintptr_t Address) {
   auto const &ProcListener = Listener.getProcessListener();
-
-  // Find the memory area containing Address.
-  auto MaybeArea = Listener.getContainingMemoryArea(Address);
-  if (!MaybeArea.assigned()) {
-    auto ThreadID = Listener.getThreadID();
-    MaybeArea = ProcListener.getContainingMemoryArea(Address, ThreadID);
-  }
-
-  return MaybeArea;
+  return ProcListener.getContainingMemoryArea(Address);
 }
 
 
