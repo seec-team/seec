@@ -433,8 +433,11 @@ void OutputStreamAllocator::updateTraceName(llvm::StringRef ProgramName)
     llvm::sys::path::append(NewName, ProgramName);
     llvm::sys::path::replace_extension(NewName, getTraceExtension());
     
-    // Remove any existing trace with the new name.
+#if defined(_WIN32)
+    // Remove any existing trace with the new name. Usually rename() would do
+    // this automatically, but not under msys2-mingw64.
     unlink(NewName.c_str());
+#endif
     
     auto const Result = rename(m_TracePath.c_str(), NewName.c_str());
     
