@@ -18,7 +18,6 @@
 #include "seec/Util/Fallthrough.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ScopeExit.hpp"
-#include "seec/Util/SynchronizedExit.hpp"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Argument.h"
@@ -69,10 +68,6 @@ void TraceThreadListener::exitPostNotification() {
   clearCI();
   
   exitNotification();
-
-  // We can't hold any locks when we do a synchronized exit, so we only check
-  // for synchronized exits here (after any locks have been released).
-  SupportSyncExit.getSynchronizedExit().check();
 }
 
 void TraceThreadListener::notifyFunctionBegin(uint32_t Index,

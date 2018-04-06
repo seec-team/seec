@@ -25,7 +25,6 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Util/Fallthrough.hpp"
-#include "seec/Util/SynchronizedExit.hpp"
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -127,8 +126,7 @@ void TraceThreadListener::checkSignals() {
   // TODO: Write the signal into the trace.
   // Describe signal using strsignal().
   
-  // Perform a coordinated exit (traces will be finalized during destruction).
-  getSupportSynchronizedExit().getSynchronizedExit().exit(EXIT_FAILURE);
+  std::exit(EXIT_FAILURE);
 #endif
 }
 
@@ -527,7 +525,6 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
 : seec::trace::CallDetector<TraceThreadListener>
                            (ProcessListener.getDetectCallsLookup()),
   ProcessListener(ProcessListener),
-  SupportSyncExit(ProcessListener.syncExit()),
   ThreadID(ProcessListener.registerThreadListener(this)),
   StreamAllocator(StreamAllocator),
   OutputEnabled(false),
@@ -700,11 +697,7 @@ TraceThreadListener
                         " error occurred in a child process.\n";
       }
       
-      // Shut down the tracing. We must release all of our locks, because
-      // there might be other threads waiting to acquire a lock (before they
-      // can possibly join the synchronized exit).
-      exitPostNotification();
-      SupportSyncExit.getSynchronizedExit().exit(EXIT_FAILURE);
+      std::exit(EXIT_FAILURE);
       
       break;
   }

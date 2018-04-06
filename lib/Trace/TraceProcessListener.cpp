@@ -32,11 +32,9 @@ namespace trace {
 
 TraceProcessListener::TraceProcessListener(llvm::Module &Module,
                                            ModuleIndex &MIndex,
-                                           OutputStreamAllocator &StreamAlloc,
-                                           SynchronizedExit &SyncExit)
+                                           OutputStreamAllocator &StreamAlloc)
 : StreamAllocator(StreamAlloc),
   OutputEnabled(false),
-  SyncExit(SyncExit),
   Module(Module),
   DL(&Module),
   MIndex(MIndex),

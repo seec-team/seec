@@ -182,9 +182,6 @@ class ProcessEnvironment {
   /// Allocator for the trace's output streams.
   std::unique_ptr<OutputStreamAllocator> StreamAllocator;
   
-  /// Support synchronized exit of all threads.
-  seec::SynchronizedExit SyncExit;
-  
   /// Loads ICU resources.
   std::unique_ptr<ResourceLoader> ICUResourceLoader;
 
@@ -225,8 +222,6 @@ public:
   ModuleIndex &getModuleIndex() { return *ModIndex; }
   
   OutputStreamAllocator &getStreamAllocator() { return *StreamAllocator; }
-  
-  SynchronizedExit &getSynchronizedExit() { return SyncExit; }
   
   TraceProcessListener &getProcessListener() { return *ProcessTracer; }
   

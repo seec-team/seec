@@ -19,7 +19,6 @@ set(HEADERS
   ../../include/seec/Util/Reverse.hpp
   ../../include/seec/Util/ScopeExit.hpp
   ../../include/seec/Util/Serialization.hpp
-  ../../include/seec/Util/SynchronizedExit.hpp
   ../../include/seec/Util/TemplateSequence.hpp
   ../../include/seec/Util/UpcomingStandardFeatures.hpp
   ../../include/seec/Util/ValueConversion.hpp
@@ -29,7 +28,6 @@ set(SOURCES
   Error.cpp
   Printing.cpp
   Resources.cpp
-  SynchronizedExit.cpp
   )
 
 add_library(SeeCUtil ${HEADERS} ${SOURCES})

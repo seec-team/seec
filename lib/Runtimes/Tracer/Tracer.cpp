@@ -204,7 +204,6 @@ ProcessEnvironment::ProcessEnvironment()
   Mod(),
   ModIndex(),
   StreamAllocator(),
-  SyncExit(),
   ICUResourceLoader(),
   ProcessTracer(),
   ThreadLookup(),
@@ -291,8 +290,7 @@ ProcessEnvironment::ProcessEnvironment()
   // Create the process tracer.
   ProcessTracer.reset(new TraceProcessListener(*Mod, 
                                                *ModIndex, 
-                                               *StreamAllocator,
-                                               SyncExit));
+                                               *StreamAllocator));
 
   // Setup runtime error printing.
   ProcessTracer->setRunErrorCallback(

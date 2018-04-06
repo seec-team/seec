@@ -50,8 +50,6 @@ namespace runtime_errors {
   class RunError;
 }
 
-class SynchronizedExit;
-
 namespace trace {
   
 class TraceThreadListener;
@@ -127,9 +125,6 @@ class TraceProcessListener {
   
   /// Toggles trace output.
   std::atomic_bool OutputEnabled;
-  
-  /// Handles synchronized calls to std::exit().
-  SynchronizedExit &SyncExit;
 
   /// Original uninstrumented Module.
   llvm::Module &Module;
@@ -251,8 +246,7 @@ public:
   /// \param Module a copy of the original, uninstrumented Module.
   TraceProcessListener(llvm::Module &Module,
                        ModuleIndex &MIndex,
-                       OutputStreamAllocator &StreamAllocator,
-                       SynchronizedExit &SyncExit);
+                       OutputStreamAllocator &StreamAllocator);
 
   /// \brief Destructor.
   ~TraceProcessListener();
@@ -278,9 +272,6 @@ public:
 
   /// \name Accessors
   /// @{
-  
-  /// \brief Get the shared SynchronizedExit object.
-  SynchronizedExit &syncExit() const { return SyncExit; }
 
   /// \brief Get the uninstrumented Module.
   llvm::Module &module() const { return Module; }

@@ -25,7 +25,6 @@
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Serialization.hpp"
-#include "seec/Util/SynchronizedExit.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
 
@@ -79,9 +78,6 @@ class TraceThreadListener
 
   /// The process listener for this process.
   TraceProcessListener &ProcessListener;
-
-  /// Support this thread's participation in synchronized exits.
-  SupportSynchronizedExit const SupportSyncExit;
 
   /// The unique integer identifier for this thread.
   uint32_t const ThreadID;
@@ -416,12 +412,6 @@ public:
   ///
   TraceProcessListener const &getProcessListener() const {
     return ProcessListener;
-  }
-  
-  /// \brief Access the synchronized exit supporter for this thread.
-  ///
-  SupportSynchronizedExit const &getSupportSynchronizedExit() {
-    return SupportSyncExit;
   }
 
   /// \brief Get the unique ThreadID for this thread.
