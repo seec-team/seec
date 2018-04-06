@@ -65,14 +65,6 @@ string(STRIP ${REQ_ICU_LIBRARIES} REQ_ICU_LIBRARIES)
 string(REPLACE "-l" "" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 string(REPLACE " " ";" REQ_ICU_LIBRARIES ${REQ_ICU_LIBRARIES})
 
-#--------------------------------------------------------------------------------
-# Determine the libraries that we need to link against. (WX)
-#--------------------------------------------------------------------------------
-EXEC_PROGRAM(sh
- ARGS "${WX_CONFIG_BIN} --prefix=${WX_INSTALL} --libs base xml"
- OUTPUT_VARIABLE REQ_WX_LIBRARIES
-)
-string(STRIP ${REQ_WX_LIBRARIES} REQ_WX_LIBRARIES)
 
 target_link_libraries(seecRuntimeTracer
  SeeCClang
@@ -81,9 +73,6 @@ target_link_libraries(seecRuntimeTracer
  SeeCUtil
  SeeCRuntimeErrors
  SeeCICU
- SeeCwxWidgets
-
- ${REQ_WX_LIBRARIES}
 
  # Clang libraries
  ${LLVM_INSTALL}/lib/libclangFrontend.a

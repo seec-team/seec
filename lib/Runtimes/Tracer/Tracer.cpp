@@ -25,7 +25,6 @@
 #include "seec/Util/SynchronizedExit.hpp"
 #include "seec/wxWidgets/AugmentResources.hpp"
 #include "seec/wxWidgets/Config.hpp"
-#include "seec/wxWidgets/ConfigTracing.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -211,7 +210,7 @@ static offset_uint getUserTraceSizeLimit()
   if (auto const EnvVar = std::getenv(EnvVarName))
     return getByteSizeFromEnvVar(EnvVarName, EnvVar);
 
-  return seec::getThreadEventLimit() * (1024 * 1024);
+  return (1024 * 1024 * 1024); // 1GiB
 }
 
 ProcessEnvironment::ProcessEnvironment()
@@ -221,12 +220,11 @@ ProcessEnvironment::ProcessEnvironment()
   StreamAllocator(),
   SyncExit(),
   ICUResourceLoader(),
-  Augmentations(),
   ProcessTracer(),
   ThreadLookup(),
   ThreadLookupMutex(),
   InterceptorAddresses(),
-  TraceSizeLimit(0), // set after wxConfig is available.
+  TraceSizeLimit(getUserTraceSizeLimit()),
   ProgramName()
 {
   // On windows, lookup the module's globals.
@@ -257,7 +255,6 @@ ProcessEnvironment::ProcessEnvironment()
 #endif
   
   ICUResourceLoader.reset(new ResourceLoader(__SeeC_ResourcePath__));
-  Augmentations.reset(new AugmentationCollection());
 
   // Parse the Module bitcode, which is stored in a global variable.
   llvm::StringRef BitcodeRef {
@@ -299,17 +296,6 @@ ProcessEnvironment::ProcessEnvironment()
   ICUResourceLoader->loadResource("Trace");
   ICUResourceLoader->loadResource("RuntimeErrors");
 
-  // Setup a dummy wxApp to enable some wxWidgets functionality.
-  seec::setupDummyAppConsole();
-  seec::setupCommonConfig();
-
-  // Setup limits.
-  TraceSizeLimit = getUserTraceSizeLimit();
-
-  // Attempt to load augmentations.
-  Augmentations->loadFromResources(__SeeC_ResourcePath__);
-  Augmentations->loadFromUserLocalDataDir();
-
   // Write a copy of the Module's bitcode into the trace directory.
   StreamAllocator->writeModule(BitcodeRef);
   
@@ -327,7 +313,7 @@ ProcessEnvironment::ProcessEnvironment()
     [this] (seec::runtime_errors::RunError const &Error,
             llvm::Instruction const *Instruction)
     {
-      return PrintRunError(Error, Instruction, *ModIndex, *Augmentations);
+      return PrintRunError(Error, Instruction, *ModIndex);
     });
 
   // Give the listener the run-time locations of functions.

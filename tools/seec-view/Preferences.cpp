@@ -28,7 +28,6 @@
 #include "Preferences.hpp"
 #include "StateGraphViewerPreferences.hpp"
 #include "TraceViewerApp.hpp"
-#include "TracingPreferences.hpp"
 #include "SourceEditor/GlobalCompilerPreferences.hpp"
 
 class PreferenceDialog final : public wxDialog
@@ -73,7 +72,6 @@ public:
                                                    .getColourSchemeSettings()));
     AddPage(new AugmentationSettingsWindow(m_Book));
     AddPage(new StateGraphViewerPreferencesWindow(m_Book));
-    AddPage(new TracingPreferencesWindow(m_Book));
     AddPage(new GlobalCompilerPreferencesWindow(m_Book));
 
     // Create accept/cancel buttons.
