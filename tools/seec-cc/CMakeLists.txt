@@ -26,20 +26,11 @@ target_link_libraries(seec-cc
  SeeCICU
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangFrontendTool.a
- ${LLVM_INSTALL}/lib/libclangFrontend.a
- ${LLVM_INSTALL}/lib/libclangDriver.a
- ${LLVM_INSTALL}/lib/libclangSerialization.a
- ${LLVM_INSTALL}/lib/libclangCodeGen.a
- ${LLVM_INSTALL}/lib/libclangParse.a
- ${LLVM_INSTALL}/lib/libclangSema.a
- ${LLVM_INSTALL}/lib/libclangRewriteFrontend.a
- ${LLVM_INSTALL}/lib/libclangRewrite.a
- ${LLVM_INSTALL}/lib/libclangAnalysis.a
- ${LLVM_INSTALL}/lib/libclangEdit.a
- ${LLVM_INSTALL}/lib/libclangAST.a
- ${LLVM_INSTALL}/lib/libclangBasic.a
- ${LLVM_INSTALL}/lib/libclangLex.a
+ clangBasic
+ clangCodeGen
+ clangDriver
+ clangFrontend
+ clangFrontendTool
 
  # LLVM libraries
  ${REQ_LLVM_LIBRARIES}

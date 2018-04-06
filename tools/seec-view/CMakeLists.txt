@@ -161,16 +161,11 @@ target_link_libraries(seec-view
  ${REQ_WX_LIBRARIES}
 
  # Clang libraries
- ${LLVM_INSTALL}/lib/libclangFrontend.a
- ${LLVM_INSTALL}/lib/libclangDriver.a
- ${LLVM_INSTALL}/lib/libclangSerialization.a
- ${LLVM_INSTALL}/lib/libclangParse.a
- ${LLVM_INSTALL}/lib/libclangSema.a
- ${LLVM_INSTALL}/lib/libclangEdit.a
- ${LLVM_INSTALL}/lib/libclangAnalysis.a
- ${LLVM_INSTALL}/lib/libclangLex.a
- ${LLVM_INSTALL}/lib/libclangAST.a
- ${LLVM_INSTALL}/lib/libclangBasic.a
+ clangBasic
+ clangCodeGen
+ clangDriver
+ clangFrontend
+ clangFrontendTool
 
  # LLVM libraries
  ${REQ_LLVM_LIBRARIES}

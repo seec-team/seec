@@ -37,7 +37,10 @@ endif(MULTIARCH STREQUAL "")
 # find LLVM
 #--------------------------------------------------------------------------------
 
+set(Clang_DIR "${LLVM_DIR}/../clang")
+
 find_package(LLVM REQUIRED CONFIG)
+find_package(Clang REQUIRED)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
