@@ -249,9 +249,7 @@ ProcessEnvironment::ProcessEnvironment()
   SEEC_GET_INFO_PTR(char const *, SeeCInfoModuleBitcode)
   SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoModuleBitcodeLength)
   SEEC_GET_INFO_PTR(void **,      SeeCInfoFunctions)
-  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoFunctionsLength)
   SEEC_GET_INFO_PTR(void **,      SeeCInfoGlobals)
-  SEEC_GET_INFO_VAR(uint64_t,     SeeCInfoGlobalsLength)
   SEEC_GET_INFO_PTR(char const *, __SeeC_ResourcePath__)
 
 #undef SEEC_GET_INFO_VAR

@@ -24,6 +24,7 @@
   #include <unistd.h>
 #elif defined(_WIN32)
   #include <process.h>
+  #include <windows.h>
 #endif
 
 #include <sys/stat.h>
@@ -37,10 +38,60 @@ namespace trace {
 
 static char const *getTraceExtension() { return "seec"; }
 
+// MinGW doesn't implement pwrite. This is a simple workaround for SeeC, noting
+// that we never mix write() and pwrite() on the same file descriptor (this is
+// important because this workaround for pwrite() modifies the file pointer,
+// but the real pwrite() does not).
+//   See: https://gist.github.com/przemoc/fbf2bfb11af0d9cd58726c200e4d133e
+//        https://sourceforge.net/p/mingw/mailman/message/35742927/
+#if defined(__MINGW32__)
+namespace {
+
+ssize_t pwrite(int fd, const void *buf, size_t count, long long offset)
+{
+  OVERLAPPED o = {0,0,0,0,0};
+  HANDLE fh = (HANDLE)_get_osfhandle(fd);
+  uint64_t off = offset;
+  DWORD bytes;
+  BOOL ret;
+
+  if (fh == INVALID_HANDLE_VALUE) {
+    errno = EBADF;
+    return -1;
+  }
+
+  o.Offset = off & 0xffffffff;
+  o.OffsetHigh = (off >> 32) & 0xffffffff;
+  
+  ret = WriteFile(fh, buf, (DWORD)count, &bytes, &o);
+  if (!ret) {
+    errno = EIO;
+    return -1;
+  }
+  
+  return (ssize_t)bytes;
+}
+
+}
+#endif
 
 //------------------------------------------------------------------------------
 // OutputBlock
 //------------------------------------------------------------------------------
+
+OutputBlock::OutputBlock(int TraceFD,
+                         BlockType Type,
+                         off_t BlockEnd,
+                         off_t Offset)
+: m_TraceFD(TraceFD),
+  m_BlockEnd(BlockEnd),
+  m_Offset(Offset)
+{
+  write(&Type, sizeof(Type));
+  
+  uint64_t NextBlock = BlockEnd;
+  write(&NextBlock, sizeof(NextBlock));
+}
 
 llvm::Optional<off_t> OutputBlock::write(const void *buf, size_t nbyte)
 {
@@ -56,6 +107,9 @@ llvm::Optional<off_t> OutputBlock::write(const void *buf, size_t nbyte)
       }
       else if (NWritten < 0) {
         perror("OutputBlock pwrite failed:");
+      }
+      else {
+        perror("OutputBlock pwrite incomplete:");
       }
     }
   }
@@ -314,10 +368,34 @@ OutputStreamAllocator::createOutputStreamAllocator()
   llvm::SmallString<256> FullPath = TraceLocation;
   llvm::sys::path::append(FullPath, TraceFileName);
   
+#if defined(_WIN32)
+  // We have to create the file with FILE_SHARE_DELETE so that we can rename it
+  // later (if we are supplied the program name). see:
+  //   https://stackoverflow.com/questions/7147577/programmatically-rename-open-
+  //   file-on-windows
+  HANDLE const TraceHandle =
+    CreateFile(FullPath.c_str(),
+      GENERIC_READ | GENERIC_WRITE,
+      FILE_SHARE_DELETE, // Allow us to rename the file.
+      NULL,
+      CREATE_ALWAYS,
+      FILE_ATTRIBUTE_NORMAL,
+      NULL);
+  
+  if (TraceHandle == INVALID_HANDLE_VALUE) {
+    return Error{
+      LazyMessageByRef::create("Trace", {"errors", "OpenFileFail"},
+                               std::make_pair("error", strerror(errno)))};
+  }
+  
+  int const TraceFD = _open_osfhandle(reinterpret_cast<intptr_t>(TraceHandle),
+                                      _O_CREAT | _O_WRONLY | _O_TRUNC);
+#else
   mode_t const TraceMode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   int const TraceFD = open(FullPath.c_str(),
                            O_WRONLY | O_CREAT | O_TRUNC,
                            TraceMode);
+#endif
   
   if (TraceFD == -1) {
     return Error{
@@ -354,6 +432,9 @@ void OutputStreamAllocator::updateTraceName(llvm::StringRef ProgramName)
     llvm::sys::path::remove_filename(NewName);
     llvm::sys::path::append(NewName, ProgramName);
     llvm::sys::path::replace_extension(NewName, getTraceExtension());
+    
+    // Remove any existing trace with the new name.
+    unlink(NewName.c_str());
     
     auto const Result = rename(m_TracePath.c_str(), NewName.c_str());
     

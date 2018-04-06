@@ -217,7 +217,7 @@ InputBufferAllocator::
   }
   
   // Delete the temp directory also.
-  TempFiles.push_back(TempPath);
+  TempFiles.push_back(TempPath.ToStdString());
 
   return InputBufferAllocator::createForFile(TraceFilePath,
                                              std::move(TempFiles));
@@ -356,6 +356,7 @@ InputBufferAllocator::getModule(llvm::LLVMContext &Context) const
 {
   // Parse the Module from the bitcode.
   auto BitcodeArray = m_BlockForModule.getData();
+  
   auto MaybeMod =
     llvm::parseBitcodeFile(
       llvm::MemoryBufferRef(

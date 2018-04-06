@@ -95,16 +95,7 @@ public:
   OutputBlock(int TraceFD,
               BlockType Type,
               off_t BlockEnd,
-              off_t Offset)
-  : m_TraceFD(TraceFD),
-    m_BlockEnd(BlockEnd),
-    m_Offset(Offset)
-  {
-    write(&Type, sizeof(Type));
-    
-    uint64_t NextBlock = BlockEnd;
-    write(&NextBlock, sizeof(NextBlock));
-  }
+              off_t Offset);
   
   OutputBlock(OutputBlock &&Other)
   : m_TraceFD(Other.m_TraceFD),
