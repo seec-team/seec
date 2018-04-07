@@ -106,6 +106,22 @@ void WriteDotGraph(seec::cm::ProcessState const &State,
   Stream << DotString;
 }
 
+namespace {
+
+seec::cm::MovementResult moveForwardOneStep(seec::cm::ProcessState &State) {
+  return State.getThreadCount() == 1
+    ? seec::cm::moveForward(State.getThread(0))
+    : seec::cm::moveForward(State);
+}
+
+seec::cm::MovementResult moveBackwardOneStep(seec::cm::ProcessState &State) {
+  return State.getThreadCount() == 1
+    ? seec::cm::moveBackward(State.getThread(0))
+    : seec::cm::moveBackward(State);
+}
+
+}
+
 void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace,
                             seec::AugmentationCollection const &Augmentations)
 {
@@ -139,50 +155,41 @@ void PrintClangMappedStates(seec::cm::ProcessTrace const &Trace,
     LayoutHandler->addBuiltinLayoutEngines();
   }
 
-  if (State.getThreadCount() == 1) {
-    llvm::outs() << "Using thread-level iterator.\n";
-    auto const WriteGraphs = !OutputForDot.empty() || TestGraphGeneration;
-    seec::util::IndentationGuide Indent("  ");
-    auto Augmenter = Augmentations.getCallbackFn();
+  auto const WriteGraphs = !OutputForDot.empty() || TestGraphGeneration;
+  seec::util::IndentationGuide Indent("  ");
+  auto Augmenter = Augmentations.getCallbackFn();
 
-    do {
-      // Write textual description to stdout.
-      State.print(llvm::outs(), Indent, Augmenter);
-      llvm::outs() << "\n";
+  do {
+    // Write textual description to stdout.
+    State.print(llvm::outs(), Indent, Augmenter);
+    llvm::outs() << "\n";
 
-      // If enabled, write graphs in dot format.
-      if (WriteGraphs) {
-        auto const Layout = LayoutHandler->doLayout(State);
+    // If enabled, write graphs in dot format.
+    if (WriteGraphs) {
+      auto const Layout = LayoutHandler->doLayout(State);
 
-        if (!OutputForDot.empty()){
-          // Add filename for this state.
-          FilenameString.clear();
-          FilenameStream << "state." << StateNumber++ << ".dot";
-          FilenameStream.flush();
+      if (!OutputForDot.empty()){
+        // Add filename for this state.
+        FilenameString.clear();
+        FilenameStream << "state." << StateNumber++ << ".dot";
+        FilenameStream.flush();
 
-          llvm::sys::path::append(OutputForDot, FilenameString);
+        llvm::sys::path::append(OutputForDot, FilenameString);
 
-          // Write the graph.
-          WriteDotGraph(State, OutputForDot.c_str(), Layout.getDotString());
+        // Write the graph.
+        WriteDotGraph(State, OutputForDot.c_str(), Layout.getDotString());
 
-          // Remove filename for this state.
-          llvm::sys::path::remove_filename(OutputForDot);
-        }
-      }
-    } while (seec::cm::moveForward(State.getThread(0))
-             != seec::cm::MovementResult::Unmoved);
-
-    if (ReverseStates) {
-      while (seec::cm::moveBackward(State.getThread(0))
-             != seec::cm::MovementResult::Unmoved)
-      {
-        llvm::outs() << State << "\n";
+        // Remove filename for this state.
+        llvm::sys::path::remove_filename(OutputForDot);
       }
     }
-  }
-  else {
-    llvm::outs() << "Using process-level iteration.\n";
-    llvm::outs() << State;
+  } while (moveForwardOneStep(State) != seec::cm::MovementResult::Unmoved);
+
+  if (ReverseStates) {
+    while (moveBackwardOneStep(State) != seec::cm::MovementResult::Unmoved)
+    {
+      llvm::outs() << State << "\n";
+    }
   }
 }
 

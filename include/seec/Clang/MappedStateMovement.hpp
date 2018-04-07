@@ -95,6 +95,22 @@ MovementResult moveToFunctionFinished(FunctionState &Function);
 
 
 //===----------------------------------------------------------------------===//
+/// \name Process-level movement.
+/// @{
+
+/// \brief Move forwards to the next (raw) process time.
+///
+MovementResult moveForward(ProcessState &Process);
+
+/// \brief Move backwards to the next (raw) process time.
+///
+MovementResult moveBackward(ProcessState &Process);
+
+/// @} (Process-level movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
 /// \name Contextual movement for memory.
 /// @{
 

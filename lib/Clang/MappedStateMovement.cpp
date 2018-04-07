@@ -350,6 +350,30 @@ MovementResult moveToFunctionFinished(FunctionState &Function)
 
 
 //===----------------------------------------------------------------------===//
+/// \name Process-level movement.
+/// @{
+
+MovementResult moveForward(ProcessState &Process)
+{
+  auto &Unmapped = Process.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveForward(Unmapped);
+  Process.cacheClear();
+  return toCMResult(Moved);
+}
+
+MovementResult moveBackward(ProcessState &Process)
+{
+  auto &Unmapped = Process.getUnmappedProcessState();
+  auto const Moved = seec::trace::moveBackward(Unmapped);
+  Process.cacheClear();
+  return toCMResult(Moved);
+}
+
+/// @} (Process-level movement.)
+//===----------------------------------------------------------------------===//
+
+
+//===----------------------------------------------------------------------===//
 // Contextual movement for memory.
 
 MovementResult moveToAllocation(ProcessState &Process,
