@@ -178,13 +178,10 @@ class TraceProcessListener {
 
 
   /// Integer ID given to the next requesting thread.
-  uint32_t NextThreadID;
+  std::atomic<uint32_t> NextThreadID;
   
-  /// Lookup active TraceThreadListener objects.
-  llvm::DenseMap<uint32_t, TraceThreadListener *> ActiveThreadListeners;
-  
-  /// Controls access to NextThreadID and ActiveThreadListeners.
-  mutable std::mutex TraceThreadListenerMutex;
+  /// Number of active threads.
+  std::atomic<int> ActiveThreadCount;
   
   
   /// Synchronize setup of the environ table.
@@ -365,27 +362,20 @@ public:
   /// \brief Register a new TraceThreadListener with this process.
   /// \return a new integer ThreadID for the TraceThreadListener.
   uint32_t registerThreadListener(TraceThreadListener *Listener) {
-    std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
-    
-    auto ThreadID = NextThreadID++;
-    ActiveThreadListeners[ThreadID] = Listener;
-    
-    return ThreadID;
+    ActiveThreadCount++;
+    return NextThreadID++;
   }
   
   /// \brief Deregister the TraceThreadListener for ThreadID.
   /// \param ThreadID A ThreadID associated with an active TraceThreadListener.
   void deregisterThreadListener(uint32_t ThreadID) {
-    std::lock_guard<std::mutex> Lock(TraceThreadListenerMutex);
-    
-    ActiveThreadListeners.erase(ThreadID);
+    ActiveThreadCount--;
   }
   
   /// \brief Get the number of active TraceThreadListener objects.
   ///
-  std::size_t countThreadListeners() const {
-    std::lock_guard<std::mutex> Lock{TraceThreadListenerMutex};
-    return ActiveThreadListeners.size();
+  int countThreadListeners() const {
+    return ActiveThreadCount;
   }
   
   /// @}
