@@ -204,6 +204,7 @@ void ThreadState::addEvent(EventRecord<EventType::NewThreadTime> const &Ev)
 }
 
 void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
+  CallStack.back()->forwardingToInstruction(Ev.getIndex());
   readdEvent(Ev);
   ++ThreadTime;
 }
