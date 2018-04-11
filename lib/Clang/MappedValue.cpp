@@ -411,6 +411,7 @@ getScalarValueAsString(clang::ASTContext const &AST,
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
     SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
+    SEEC_UNHANDLED_TYPE_CLASS(DeducedTemplateSpecialization) // C++17
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
@@ -1549,6 +1550,7 @@ case clang::BuiltinType::KIND##RW:                                             \
     SEEC_UNHANDLED_BUILTIN(Float)
     SEEC_UNHANDLED_BUILTIN(Double)
     SEEC_UNHANDLED_BUILTIN(LongDouble)
+    SEEC_UNHANDLED_BUILTIN(Float16)
     SEEC_UNHANDLED_BUILTIN(Float128)
     
     // Language-specific types
@@ -1574,7 +1576,6 @@ case clang::BuiltinType::KIND##RW:                                             \
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
     SEEC_UNHANDLED_BUILTIN(OCLQueue)
-    SEEC_UNHANDLED_BUILTIN(OCLNDRange)
     SEEC_UNHANDLED_BUILTIN(OCLReserveID)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
@@ -1759,6 +1760,7 @@ case clang::BuiltinType::KIND##RW:                                             \
     SEEC_HANDLE_BUILTIN(Float, float)
     SEEC_HANDLE_BUILTIN(Double, double)
     SEEC_HANDLE_BUILTIN(LongDouble, long double)
+    SEEC_UNHANDLED_BUILTIN(Float16)
     SEEC_UNHANDLED_BUILTIN(Float128)
 
     // Language-specific types
@@ -1784,7 +1786,6 @@ case clang::BuiltinType::KIND##RW:                                             \
     SEEC_UNHANDLED_BUILTIN(OCLEvent)
     SEEC_UNHANDLED_BUILTIN(OCLClkEvent)
     SEEC_UNHANDLED_BUILTIN(OCLQueue)
-    SEEC_UNHANDLED_BUILTIN(OCLNDRange)
     SEEC_UNHANDLED_BUILTIN(OCLReserveID)
     SEEC_UNHANDLED_BUILTIN(Dependent)
     SEEC_UNHANDLED_BUILTIN(Overload)
@@ -1897,6 +1898,7 @@ std::string getScalarValueAsString(seec::trace::FunctionState const &State,
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
     SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
+    SEEC_UNHANDLED_TYPE_CLASS(DeducedTemplateSpecialization) // C++17
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC
@@ -2468,6 +2470,7 @@ createValue(std::shared_ptr<ValueStore const> Store,
     SEEC_UNHANDLED_TYPE_CLASS(RValueReference) // C++11
     SEEC_UNHANDLED_TYPE_CLASS(MemberPointer) // C++
     SEEC_UNHANDLED_TYPE_CLASS(Auto) // C++11
+    SEEC_UNHANDLED_TYPE_CLASS(DeducedTemplateSpecialization) // C++17
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObject) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCInterface) // ObjC
     SEEC_UNHANDLED_TYPE_CLASS(ObjCObjectPointer) //ObjC

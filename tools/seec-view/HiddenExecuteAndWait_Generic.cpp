@@ -22,6 +22,6 @@ int HiddenExecuteAndWait(llvm::StringRef Program,
                          bool *ExecFailed)
 {
   return llvm::sys::ExecuteAndWait(Program, Args, EnvPtr,
-                                   /* redirects */ nullptr, /* wait */ 0,
+                                   /* redirects */ {}, /* wait */ 0,
                                    /* mem */ 0, ErrorMsg, ExecFailed);
 }

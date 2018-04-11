@@ -516,7 +516,7 @@ bool InsertExternalRecording::runOnFunction(Function &F) {
     
     // Record env, if it is used.
     if (F.arg_size() >= 3) {
-      llvm::Value *ArgEnvPtr = &*++(++(F.arg_begin()));
+      llvm::Value *ArgEnvPtr = &*(F.arg_begin() + 2);
       
       if (ArgEnvPtr->getType() != Int8PtrTy) {
         auto Cast = new BitCastInst(ArgEnvPtr, Int8PtrTy, "", FirstIn);

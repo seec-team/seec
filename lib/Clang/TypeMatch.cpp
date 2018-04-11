@@ -335,6 +335,18 @@ static bool matchType(::clang::ASTContext const &AContext,
 
 static bool matchType(::clang::ASTContext const &AContext,
                       HistoryTy &AHistory,
+                      ::clang::DeducedTemplateSpecializationType const *A,
+                      ::clang::ASTContext const &BContext,
+                      HistoryTy &BHistory,
+                      ::clang::DeducedTemplateSpecializationType const *B)
+{
+  llvm_unreachable(
+    "matchType: DeducedTemplateSpecializationType not supported.");
+  return false;
+}
+
+static bool matchType(::clang::ASTContext const &AContext,
+                      HistoryTy &AHistory,
                       ::clang::ObjCObjectType const *A,
                       ::clang::ASTContext const &BContext,
                       HistoryTy &BHistory,

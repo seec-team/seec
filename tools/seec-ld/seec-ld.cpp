@@ -17,6 +17,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
 #include "llvm/IR/DataLayout.h"
@@ -142,7 +143,7 @@ static bool Instrument(char const *ProgramName, llvm::Module &Module)
   return true;
 }
 
-static std::unique_ptr<llvm::tool_output_file>
+static std::unique_ptr<llvm::ToolOutputFile>
 GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
 {
   // TODO: If we ever support Win32 then extension should be ".obj".
@@ -156,7 +157,7 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
     exit(EXIT_FAILURE);
   }
   
-  auto Out = llvm::make_unique<llvm::tool_output_file>(Path.c_str(), FD);
+  auto Out = llvm::make_unique<llvm::ToolOutputFile>(Path.c_str(), FD);
   if (!Out) {
     llvm::errs() << ProgramName << ": couldn't create temporary file.\n";
     exit(EXIT_FAILURE);
@@ -165,7 +166,7 @@ GetTemporaryObjectStream(char const *ProgramName, llvm::SmallString<256> &Path)
   return Out;
 }
 
-static std::unique_ptr<llvm::tool_output_file>
+static std::unique_ptr<llvm::ToolOutputFile>
 Compile(char const *ProgramName,
         llvm::Module &Module,
         llvm::SmallString<256> &TempObjPath)
@@ -191,7 +192,7 @@ Compile(char const *ProgramName,
                                 /* features */ std::string{},
                                 Options,
                                 Optional<Reloc::Model>{},
-                                llvm::CodeModel::Default,
+                                llvm::Optional<llvm::CodeModel::Model>(),
                                 llvm::CodeGenOpt::Default)
   };
   
@@ -236,17 +237,17 @@ static bool MaybeModule(char const *File)
   if (llvm::sys::fs::is_directory(Status))
     return false;
   
-  llvm::sys::fs::file_magic Magic;
-  if (llvm::sys::fs::identify_magic(File, Magic))
+  llvm::file_magic Magic;
+  if (llvm::identify_magic(File, Magic))
     return false;
   
   switch (Magic) {
     // We will attempt to read files as assembly iff they end with ".ll".
-    case llvm::sys::fs::file_magic::unknown:
+    case llvm::file_magic::unknown:
       return llvm::StringRef(File).endswith(".ll");
     
     // Accept LLVM bitcode files.
-    case llvm::sys::fs::file_magic::bitcode:
+    case llvm::file_magic::bitcode:
       return true;
     
     // Leave all other files for the real linker.
@@ -310,7 +311,7 @@ int main(int argc, char **argv)
   }
   
   llvm::SmallString<256> TempObjPath;
-  std::unique_ptr<llvm::tool_output_file> TempObj;
+  std::unique_ptr<llvm::ToolOutputFile> TempObj;
   
   if (Composite) {
     // Instrument the linked Module, if it exists.

@@ -11,9 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Clang/Compile.hpp"
-#include "seec/ICU/Output.hpp"
-
 #include "llvm/Option/Arg.h"
 #include "clang/Basic/DebugInfoOptions.h"
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"

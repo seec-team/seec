@@ -79,6 +79,7 @@ SEEC_OPCODE_STRINGIZE(BO_Add)
 SEEC_OPCODE_STRINGIZE(BO_Sub)
 SEEC_OPCODE_STRINGIZE(BO_Shl)
 SEEC_OPCODE_STRINGIZE(BO_Shr)
+SEEC_OPCODE_STRINGIZE(BO_Cmp)
 SEEC_OPCODE_STRINGIZE(BO_LT)
 SEEC_OPCODE_STRINGIZE(BO_GT)
 SEEC_OPCODE_STRINGIZE(BO_LE)
@@ -155,7 +156,10 @@ SEEC_KIND_STRINGIZE(UETT_OpenMPRequiredSimdAlign)
 }
 
 Formattable formatAsString(::clang::Type const *T) {
-  return formatAsString(::clang::QualType::getAsString(T, clang::Qualifiers()));
+  return formatAsString(
+    clang::QualType::getAsString(T,
+      clang::Qualifiers(),
+      clang::PrintingPolicy(clang::LangOptions())));
 }
 
 Formattable formatAsString(::clang::QualType QT) {

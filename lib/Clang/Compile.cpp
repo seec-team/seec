@@ -782,6 +782,10 @@ Metadata *getMDForCharacteristicKind(LLVMContext &Context,
       return llvm::MDString::get(Context, "C_System");
     case ::clang::SrcMgr::CharacteristicKind::C_ExternCSystem:
       return llvm::MDString::get(Context, "C_ExternCSystem");
+    case ::clang::SrcMgr::CharacteristicKind::C_User_ModuleMap:
+      return llvm::MDString::get(Context, "C_User_ModuleMap");
+    case ::clang::SrcMgr::CharacteristicKind::C_System_ModuleMap:
+      return llvm::MDString::get(Context, "C_System_ModuleMap");
   }
 
   return nullptr;

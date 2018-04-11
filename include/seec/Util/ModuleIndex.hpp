@@ -77,7 +77,7 @@ public:
       }
     }
     
-    for (auto &Argument : Function.getArgumentList()) {
+    for (auto &Argument : Function.args()) {
       ArgumentPtrByIdx.push_back(&Argument);
     }
   }

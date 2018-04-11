@@ -32,6 +32,7 @@
 namespace clang {
   class ASTContext;
   class Expr;
+  class FieldDecl;
   class Stmt;
 } // namespace clang
 

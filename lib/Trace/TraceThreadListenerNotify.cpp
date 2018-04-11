@@ -98,7 +98,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
       auto const Inst = ActiveFunction->getActiveInstruction();
       if (auto const Call = llvm::dyn_cast<llvm::CallInst>(Inst)) {
         // TODO: Ensure that the called Function is F.
-        for (auto const &Arg : F->getArgumentList()) {
+        for (auto const &Arg : F->args()) {
           if (Arg.getType()->isPointerTy()) {
             auto const Operand = Call->getArgOperand(Arg.getArgNo());
             auto const Object = ActiveFunction->getPointerObject(Operand);
@@ -110,7 +110,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
     else {
       // A shim's Argument lookup finds the called Function's argument pointer
       // objects, rather than the shim's argument pointer objects.
-      for (auto const &Arg : F->getArgumentList())
+      for (auto const &Arg : F->args())
         if (Arg.getType()->isPointerTy())
           PtrArgObjects[&Arg] = ActiveFunction->getPointerObject(&Arg);
     }
