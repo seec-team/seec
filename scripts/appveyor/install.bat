@@ -21,7 +21,7 @@ IF %COMPILER%==msys2 (
   @echo on
   SET "PATH=C:\%MSYS2_DIR%\%MSYSTEM%\bin;C:\%MSYS2_DIR%\usr\bin;%PATH%"
 
-  pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-icu mingw-w64-x86_64-curl mingw-w64-x86_64-webkitgtk3
+  pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-python2 mingw-w64-x86_64-icu mingw-w64-x86_64-curl mingw-w64-x86_64-webkitgtk3
 
   REM download and extract llvm, seec-clang build artifacts
   mkdir c:\projects\deps
