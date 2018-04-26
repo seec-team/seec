@@ -226,7 +226,7 @@ public:
 };
 
 
-/// \brief Records BasicBlocks effected by a backwards jump.
+/// \brief Records BasicBlocks affected by a backwards jump.
 /// This is used to correctly rewind changes to the runtime values when we
 /// rewind over a backwards jump.
 ///
