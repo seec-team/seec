@@ -72,54 +72,6 @@ public:
   typename std::enable_if< is_subservient<ET>::value >::type
   removePreviousEventForwarder(ThreadState &Thread, EventReference const &Event)
   {}
-  
-  /// \brief For events that have a defined readdEvent(), call that.
-  ///
-  template<EventType ET>
-  static
-  typename std::enable_if<
-    has_readd_event<
-      ThreadState,
-      void(ThreadState::*)(EventRecord<ET> const &)>::value >::type
-  readdOrAddEvent(ThreadState &Thread, EventRecord<ET> const &Ev) {
-    Thread.readdEvent(Ev);
-  }
-  
-  /// \brief For events that have no defined readdEvent(), call addEvent().
-  ///
-  template<EventType ET>
-  static
-  typename std::enable_if<
-    !has_readd_event<
-      ThreadState,
-      void(ThreadState::*)(EventRecord<ET> const &)>::value >::type
-  readdOrAddEvent(ThreadState &Thread, EventRecord<ET> const &Ev) {
-    Thread.addEvent(Ev);
-  }
-  
-  /// \brief Restore non-subservient events.
-  /// This is used when rewinding a FunctionEnd.
-  ///
-  template<EventType ET>
-  static
-  typename std::enable_if< !is_subservient<ET>::value >::type
-  restoreEventForwarder(ThreadState &Thread, EventReference const &Event)
-  {
-    if (is_instruction<ET>::value) {
-      Thread.addEvent(Event.get<ET>());
-    }
-    else if (is_function_level<ET>::value) {
-      readdOrAddEvent<ET>(Thread, Event.get<ET>());
-    }
-  }
-  
-  /// \brief Restore non-subservient events (does nothing).
-  ///
-  template<EventType ET>
-  static
-  typename std::enable_if< is_subservient<ET>::value >::type
-  restoreEventForwarder(ThreadState &Thread, EventReference const &Event)
-  {}
 };
 
 //------------------------------------------------------------------------------
