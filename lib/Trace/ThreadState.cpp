@@ -133,7 +133,8 @@ ThreadState::ThreadState(ProcessState &Parent,
   m_NextEvent(llvm::make_unique<EventReference>(Trace.events().begin())),
   ProcessTime(Parent.getProcessTime()),
   ThreadTime(0),
-  CallStack()
+  CallStack(),
+  m_CompletedFunctions()
 {}
 
 
@@ -188,7 +189,9 @@ void ThreadState::addEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
   for (auto const &Alloca : Allocas)
     Parent.Memory.allocationRemove(Alloca.getAddress(), Alloca.getTotalSize());
 
+  m_CompletedFunctions.emplace_back(std::move(CallStack.back()));
   CallStack.pop_back();
+  
   ThreadTime = StartEv.getThreadTimeExited();
 }
 
@@ -791,68 +794,13 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionStart> const &Ev) {
   ThreadTime = Info.getThreadTimeEntered() - 1;
 }
 
-void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
+void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev)
+{
+  CallStack.emplace_back(std::move(m_CompletedFunctions.back()));
+  m_CompletedFunctions.pop_back();
   
-  auto const &StartEv = Parent.getTrace()
-                              .getEventAtOffset<EventType::FunctionStart>
-                                               (Ev.getEventOffsetStart());
+  auto &StateRef = *(CallStack.back());
   
-  auto Info = llvm::make_unique<FunctionTrace>(Trace.getFunctionTrace(StartEv));
-  auto &TraceRef = *Info;
-  
-  auto const Index = TraceRef.getIndex();
-  
-  auto const MappedFunction = Parent.getModule().getFunctionIndex(Index);
-  assert(MappedFunction && "Couldn't get FunctionIndex");
-
-  auto State = llvm::make_unique<FunctionState>
-                (*this,
-                 Index,
-                 *MappedFunction,
-                 Parent.getValueStoreModuleInfo(),
-                 std::move(Info));
-  assert(State);
-  
-  auto &StateRef = *State;
-  
-  CallStack.emplace_back(std::move(State));
-  
-  // Now we need to restore all function-level events. For now, we use the
-  // naive method, which is to simply re-add all events from the start of the
-  // function to the end.
-  auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
-  assert(MaybeEvRef && "Malformed event trace");
-  auto const &EvRef = *MaybeEvRef;
-  
-  auto RestoreRef = ++(Trace.getReferenceToOffset(TraceRef.getEventStart()));
-
-  for (; RestoreRef != EvRef; ++RestoreRef) {
-    // Skip any events belonging to child functions.
-    if (RestoreRef->getType() == EventType::FunctionStart) {
-      auto const &ChildStartEv = RestoreRef.get<EventType::FunctionStart>();
-      auto const Child = Trace.getFunctionTrace(ChildStartEv);
-      
-      // Set the iterator to the FunctionEnd event for the child function. It
-      // will be incremented to the next event in this function, by the loop.
-      RestoreRef = Trace.getReferenceToOffset(Child.getEventEnd());
-      
-      // Set the thread time to the FunctionEnd event's thread time.
-      ThreadTime = Child.getThreadTimeExited();
-      
-      continue;
-    }
-
-    switch (RestoreRef->getType()) {
-#define SEEC_TRACE_EVENT(NAME, MEMBERS, TRAITS)                                \
-      case EventType::NAME:                                                    \
-        ThreadMovementDispatcher::restoreEventForwarder<EventType::NAME>       \
-          (*this, RestoreRef);                                                 \
-        break;
-#include "seec/Trace/Events.def"
-      default: llvm_unreachable("Reference to unknown event type!");
-    }
-  }
-
   // Restore alloca allocations (reverse order):
   for (auto const &Alloca : seec::reverse(StateRef.getAllocas()))
     Parent.Memory.allocationUnremove(Alloca.getAddress(),
@@ -864,7 +812,7 @@ void ThreadState::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev) {
                                      ByVal.getArea().length());
 
   // Set the thread time to the value that it had prior to this event.
-  ThreadTime = TraceRef.getThreadTimeExited() - 1;
+  ThreadTime = StateRef.getTrace().getThreadTimeExited() - 1;
 }
 
 void ThreadState::removeEvent(

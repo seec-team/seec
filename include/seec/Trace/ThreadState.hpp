@@ -26,6 +26,7 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include <deque>
 
 namespace seec {
 
@@ -69,6 +70,9 @@ class ThreadState {
 
   /// The stack of FunctionState objects.
   std::vector<std::unique_ptr<FunctionState>> CallStack;
+  
+  /// Completed functions.
+  std::deque<std::unique_ptr<FunctionState>> m_CompletedFunctions;
 
   /// @}
 
