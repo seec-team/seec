@@ -11,7 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "seec/Preprocessor/MakeMemberFnChecker.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StreamState.hpp"
 #include "seec/Trace/ThreadState.hpp"
@@ -33,8 +32,6 @@ namespace trace {
 /// call adders or removers for subservient events.
 ///
 class ThreadMovementDispatcher {
-  SEEC_PP_MAKE_MEMBER_FN_CHECKER(has_readd_event, readdEvent)
-  
 public:
   /// \brief Adder for non-subservient events (forwards to Thread.addEvent).
   ///
@@ -161,78 +158,139 @@ void ThreadState::addEvent(EventRecord<EventType::NewThreadTime> const &Ev)
 }
 
 void ThreadState::addEvent(EventRecord<EventType::PreInstruction> const &Ev) {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setActiveInstructionIncomplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Instruction> const &Ev) {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt8> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt16> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt32> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithUInt64> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithPtr> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValuePtr(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithFloat> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueFloat(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithDouble> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  FuncState.setValueDouble(FuncState.getInstruction(Index), Ev.getValue());
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
 void ThreadState::addEvent(
       EventRecord<EventType::InstructionWithLongDouble> const &Ev)
 {
-  CallStack.back()->forwardingToInstruction(Ev.getIndex());
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  
+  auto const Index = Ev.getIndex();
+  FuncState.forwardingToInstruction(Index);
+  
+  uint64_t const Words[2] = { Ev.getValueWord1(), Ev.getValueWord2() };
+  auto const Instruction = FuncState.getInstruction(Index);
+  auto const Type = Instruction->getType();
+  
+  if (Type->isX86_FP80Ty()) {
+    FuncState.setValueAPFloat(Instruction,
+                              llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
+                                            llvm::APInt(80, Words)));
+  }
+  else {
+    llvm_unreachable("unhandled long double type");
+  }
+  
+  FuncState.setActiveInstructionComplete(Index);
+  
   ++ThreadTime;
 }
 
@@ -246,9 +304,32 @@ void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
 }
 
 void ThreadState::addEvent(EventRecord<EventType::Alloca> const &Ev) {
-  readdEvent(Ev);
+  auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
+  assert(MaybeEvRef && "Malformed event trace");
+  auto const &EvRef = *MaybeEvRef;
+  
+  assert(EvRef != Trace.events().begin() && "Malformed event trace");
+  
+  // Find the preceding InstructionWithPtr event.
+  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>(
+                                rangeBeforeIncluding(Trace.events(), EvRef));
+  
+  assert(MaybeInstrRef.assigned() && "Malformed event trace");
+  
+  auto const &InstrRef = MaybeInstrRef.get<0>();
+  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
+  
+  // Add Alloca information.
+  FunctionState &FuncState = *(CallStack.back());
+  auto &Allocas = FuncState.getAllocas();
+  
+  Allocas.emplace_back(FuncState,
+                       Instr.getIndex(),
+                       Instr.getValue(),
+                       Ev.getElementSize(),
+                       Ev.getElementCount());
 
-  auto &Alloca = CallStack.back()->getAllocas().back();
+  auto &Alloca = Allocas.back();
   Parent.Memory.allocationAdd(Alloca.getAddress(), Alloca.getTotalSize());
 }
 
@@ -363,7 +444,8 @@ void ThreadState::addEvent(EventRecord<EventType::KnownRegionRemove> const &Ev)
 
 void ThreadState::addEvent(EventRecord<EventType::ByValRegionAdd> const &Ev)
 {
-  readdEvent(Ev);
+  auto &FuncState = *(CallStack.back());
+  FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
   Parent.Memory.allocationAdd(Ev.getAddress(), Ev.getSize());
 }
 
@@ -454,157 +536,6 @@ void ThreadState::addEvent(EventRecord<EventType::RuntimeError> const &Ev) {
   assert(ReadError && "Malformed trace file.");
   
   CallStack.back()->addRuntimeError(std::move(ReadError));
-}
-
-//------------------------------------------------------------------------------
-// readdEvent()
-//------------------------------------------------------------------------------
-
-void ThreadState::readdEvent(EventRecord<EventType::NewThreadTime> const &Ev) {}
-
-void ThreadState::readdEvent(EventRecord<EventType::PreInstruction> const &Ev) {
-  auto const Index = Ev.getIndex();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setActiveInstructionIncomplete(Index);
-}
-
-void ThreadState::readdEvent(EventRecord<EventType::Instruction> const &Ev) {
-  auto const Index = Ev.getIndex();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithUInt8> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithUInt16> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithUInt32> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithUInt64> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueUInt64(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithPtr> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValuePtr(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithFloat> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueFloat(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithDouble> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  auto const Value = Ev.getValue();
-
-  auto &FuncState = *(CallStack.back());
-  FuncState.setValueDouble(FuncState.getInstruction(Index), Value);
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(
-      EventRecord<EventType::InstructionWithLongDouble> const &Ev)
-{
-  auto const Index = Ev.getIndex();
-  uint64_t const Words[2] = { Ev.getValueWord1(), Ev.getValueWord2() };
-
-  auto &FuncState = *(CallStack.back());
-  auto const Instruction = FuncState.getInstruction(Index);
-  auto const Type = Instruction->getType();
-
-  if (Type->isX86_FP80Ty()) {
-    FuncState.setValueAPFloat(Instruction,
-                              llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
-                                            llvm::APInt(80, Words)));
-  }
-  else {
-    llvm_unreachable("unhandled long double type");
-  }
-
-  FuncState.setActiveInstructionComplete(Index);
-}
-
-void ThreadState::readdEvent(EventRecord<EventType::Alloca> const &Ev) {
-  auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
-  assert(MaybeEvRef && "Malformed event trace");
-  auto const &EvRef = *MaybeEvRef;
-
-  assert(EvRef != Trace.events().begin() && "Malformed event trace");
-
-  // Find the preceding InstructionWithPtr event.
-  auto const MaybeInstrRef = rfind<EventType::InstructionWithPtr>(
-                                rangeBeforeIncluding(Trace.events(), EvRef));
-
-  assert(MaybeInstrRef.assigned() && "Malformed event trace");
-
-  auto const &InstrRef = MaybeInstrRef.get<0>();
-  auto const &Instr = InstrRef.get<EventType::InstructionWithPtr>();
-
-  // Add Alloca information.
-  FunctionState &FuncState = *(CallStack.back());
-  auto &Allocas = FuncState.getAllocas();
-
-  Allocas.emplace_back(FuncState,
-                       Instr.getIndex(),
-                       Instr.getValue(),
-                       Ev.getElementSize(),
-                       Ev.getElementCount());
-}
-
-void ThreadState::readdEvent(EventRecord<EventType::ByValRegionAdd> const &Ev) {
-  auto &FuncState = *(CallStack.back());
-  FuncState.addByValArea(Ev.getArgument(), Ev.getAddress(), Ev.getSize());
 }
 
 void ThreadState::addNextEvent() {
