@@ -21,9 +21,9 @@ Process @3
  Thread #1 @TT=5
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=3]:
     0 = 
     1 = 
@@ -36,9 +36,9 @@ Process @4
  Thread #1 @TT=6
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=4]:
     0 = 
     1 = 
@@ -51,9 +51,9 @@ Process @5
  Thread #1 @TT=7
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=6]:
     0 = 
     1 = 
@@ -66,9 +66,9 @@ Process @6
  Thread #1 @TT=11
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=10]:
     0 = 
     1 = 
@@ -84,9 +84,9 @@ Process @7
  Thread #1 @TT=15
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=13]:
     0 = 
     1 = 
@@ -105,9 +105,9 @@ Process @8
  Thread #1 @TT=19
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=16]:
     0 = 
     1 = 
@@ -135,9 +135,9 @@ Process @8
  Thread #1 @TT=19
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=16]:
     0 = 
     1 = 
@@ -159,9 +159,9 @@ Process @7
  Thread #1 @TT=18
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=16]:
     0 = 
     1 = 
@@ -182,9 +182,9 @@ Process @6
  Thread #1 @TT=14
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=13]:
     0 = 
     1 = 
@@ -202,9 +202,9 @@ Process @5
  Thread #1 @TT=10
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=10]:
     0 = 
     1 = 
@@ -219,9 +219,9 @@ Process @4
  Thread #1 @TT=6
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=4]:
     0 = 
     1 = 
@@ -234,9 +234,9 @@ Process @3
  Thread #1 @TT=5
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=3]:
     0 = 
     1 = 
@@ -249,9 +249,9 @@ Process @2
  Thread #1 @TT=4
   Function [Index=0]
    Allocas:
-    0 =[1x4]
-    1 =[1x4]
-    2 =[1x8]
+    0 =[4]
+    1 =[4]
+    2 =[8]
    Instruction values [Active=2]:
     0 = 
     1 = 

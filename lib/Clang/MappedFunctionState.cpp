@@ -408,7 +408,7 @@ FunctionState::FunctionState(ThreadState &WithParent,
     if (llvm::isa<llvm::AllocaInst>(Value)) {
       auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
         [=] (seec::trace::AllocaState const &Alloca) {
-          return Alloca.getInstruction() == Value;
+          return Alloca.getInstruction(UnmappedState) == Value;
         });
       
       if (It == VisibleAllocas.end())
@@ -434,7 +434,7 @@ FunctionState::FunctionState(ThreadState &WithParent,
     if (llvm::isa<llvm::AllocaInst>(Value)) {
       auto const It = std::find_if(VisibleAllocas.begin(), VisibleAllocas.end(),
         [=] (seec::trace::AllocaState const &Alloca) {
-          return Alloca.getInstruction() == Value;
+          return Alloca.getInstruction(UnmappedState) == Value;
         });
       
       if (It == VisibleAllocas.end())

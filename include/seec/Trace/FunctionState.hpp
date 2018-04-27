@@ -60,20 +60,14 @@ namespace value_store {
 /// \brief Represents the result of a single alloca instruction.
 ///
 class AllocaState {
-  /// The FunctionState that this AllocaState belongs to.
-  FunctionState const *Parent;
-
   /// Index of the llvm::AllocaInst.
-  InstrIndexInFn InstructionIndex;
+  InstrIndexInFn m_InstructionIndex;
 
   /// Runtime address for this allocation.
-  stateptr_ty Address;
+  stateptr_ty m_Address;
 
-  /// Size of the element type that this allocation was for.
-  std::size_t ElementSize;
-
-  /// Number of elements that space was allocated for.
-  std::size_t ElementCount;
+  /// Total size of this allocation.
+  std::size_t m_TotalSize;
 
 public:
   /// Construct a new AllocaState with the specified values.
@@ -82,34 +76,23 @@ public:
               stateptr_ty Address,
               std::size_t ElementSize,
               std::size_t ElementCount)
-  : Parent(&Parent),
-    InstructionIndex(InstructionIndex),
-    Address(Address),
-    ElementSize(ElementSize),
-    ElementCount(ElementCount)
+  : m_InstructionIndex(InstructionIndex),
+    m_Address(Address),
+    m_TotalSize(ElementSize * ElementCount)
   {}
 
 
   /// \name Accessors
   /// @{
 
-  /// \brief Get the FunctionState that this AllocaState belongs to.
-  FunctionState const &getParent() const { return *Parent; }
-
   /// \brief Get the index of the llvm::AllocaInst that produced this state.
-  InstrIndexInFn getInstructionIndex() const { return InstructionIndex; }
+  InstrIndexInFn getInstructionIndex() const { return m_InstructionIndex; }
 
   /// \brief Get the runtime address for this allocation.
-  stateptr_ty getAddress() const { return Address; }
-
-  /// \brief Get the size of the element type that this allocation was for.
-  std::size_t getElementSize() const { return ElementSize; }
-
-  /// \brief Get the number of elements that space was allocated for.
-  std::size_t getElementCount() const { return ElementCount; }
+  stateptr_ty getAddress() const { return m_Address; }
 
   /// \brief Get the total size of this allocation.
-  std::size_t getTotalSize() const { return ElementSize * ElementCount; }
+  std::size_t getTotalSize() const { return m_TotalSize; }
 
   /// @} (Accessors)
 
@@ -118,10 +101,7 @@ public:
   /// @{
 
   /// \brief Get the llvm::AllocaInst that produced this state.
-  llvm::AllocaInst const *getInstruction() const;
-
-  /// \brief Get the region of memory belonging to this AllocaState.
-  MemoryStateRegion getMemoryRegion() const;
+  llvm::AllocaInst const *getInstruction(FunctionState const &Parent) const;
 
   /// @} (Queries)
 
@@ -130,12 +110,12 @@ public:
   /// @{
 
   bool operator==(AllocaState const &RHS) const {
-    return this->Parent == RHS.Parent
-        && this->InstructionIndex == RHS.InstructionIndex
-        && this->Address == RHS.Address
-        && this->ElementSize == RHS.ElementSize
-        && this->ElementCount == RHS.ElementCount;
+    return this->m_InstructionIndex == RHS.m_InstructionIndex
+        && this->m_Address == RHS.m_Address
+        && this->m_TotalSize == RHS.m_TotalSize;
   }
+
+  /// @} (Operators)
 };
 
 

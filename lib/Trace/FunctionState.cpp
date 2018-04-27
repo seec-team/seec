@@ -32,18 +32,13 @@ namespace trace {
 // AllocaState
 //===------------------------------------------------------------------------===
 
-llvm::AllocaInst const *AllocaState::getInstruction() const {
-  auto &Lookup = Parent->getFunctionLookup();
-  auto Inst = Lookup.getInstruction(InstructionIndex);
+llvm::AllocaInst const *
+AllocaState::getInstruction(FunctionState const &Parent) const
+{
+  auto &Lookup = Parent.getFunctionLookup();
+  auto Inst = Lookup.getInstruction(m_InstructionIndex);
   assert(Inst && llvm::isa<llvm::AllocaInst>(Inst));
   return llvm::cast<llvm::AllocaInst>(Inst);
-}
-
-MemoryStateRegion AllocaState::getMemoryRegion() const {
-  auto &Thread = Parent->getParent();
-  auto &Process = Thread.getParent();
-  auto &Memory = Process.getMemory();
-  return Memory.getRegion(MemoryArea(Address, getTotalSize()));
 }
 
 
@@ -433,7 +428,7 @@ FunctionState::getVisibleAllocas() const {
   auto const ActiveIdx = *ActiveInstruction;
   
   for (auto const &Alloca : Allocas) {
-    auto const Inst = Alloca.getInstruction();
+    auto const Inst = Alloca.getInstruction(*this);
     auto const MaybeIdx = FunctionLookup->getIndexOfDbgDeclareFor(Inst);
     
     // If the index of the llvm.dbg.declare is greater than our active index,
@@ -554,9 +549,7 @@ void printComparable(llvm::raw_ostream &Out, FunctionState const &State)
   Out << "   Allocas:\n";
   for (auto const &Alloca : State.getAllocas()) {
     Out << "    " << Alloca.getInstructionIndex().raw()
-        <<  " =[" << Alloca.getElementCount()
-        <<    "x" << Alloca.getElementSize()
-        <<  "]\n";
+        <<  " =[" << Alloca.getTotalSize() << "]\n";
   }
 
   Out << "   Instruction values [Active=";
@@ -623,8 +616,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
   Out << "   Allocas:\n";
   for (auto const &Alloca : State.getAllocas()) {
     Out << "    " << Alloca.getInstructionIndex().raw()
-        <<  " =[" << Alloca.getElementCount()
-        <<    "x" << Alloca.getElementSize()
+        <<  " =[" << Alloca.getTotalSize()
         <<  "] @" << Alloca.getAddress()
         << "\n";
   }
