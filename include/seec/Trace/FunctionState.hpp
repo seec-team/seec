@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
+#include <deque>
 
 
 namespace llvm {
@@ -276,6 +277,9 @@ class FunctionState {
   /// All active stack allocations for this function.
   std::vector<AllocaState> Allocas;
   
+  /// Stack allocatioins that have been cleared by stackrestore.
+  std::deque<AllocaState> m_ClearedAllocas;
+  
   /// All byval argument memory areas for this function.
   std::vector<ParamByValState> ParamByVals;
   
@@ -449,6 +453,16 @@ public:
     
     return nullptr;
   }
+  
+  /// \brief Remove the top \c Num stack allocations.
+  /// \return a range containing the removed allocations.
+  ///
+  seec::Range<decltype(m_ClearedAllocas.cbegin())> removeAllocas(size_t Num);
+  
+  /// \brief Unremove \c Num stack allocations.
+  /// \return a range containing the restored allocations.
+  ///
+  seec::Range<decltype(Allocas.cbegin())> unremoveAllocas(size_t Num);
 
   /// @}
   

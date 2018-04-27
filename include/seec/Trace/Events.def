@@ -198,19 +198,10 @@ SEEC_TRACE_EVENT(Alloca,
 
 SEEC_TRACE_EVENT(StackRestore,
   SEEC_PP_QUOTE(
-    (offset_uint, Previous)
+    (uint32_t, PopCount)
   ),
   SEEC_PP_QUOTE(
     (StackRestore, is_function_level)
-  ))
-
-SEEC_TRACE_EVENT(StackRestoreAlloca,
-  SEEC_PP_QUOTE(
-    (offset_uint, Alloca)
-  ),
-  SEEC_PP_QUOTE(
-    (StackRestoreAlloca, is_function_level),
-    (StackRestoreAlloca, is_subservient)
   ))
 
 SEEC_TRACE_EVENT(Malloc,

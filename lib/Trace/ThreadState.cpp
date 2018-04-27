@@ -22,6 +22,8 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include <iterator>
+
 namespace seec {
 
 namespace trace {
@@ -235,20 +237,11 @@ void ThreadState::addEvent(
 }
 
 void ThreadState::addEvent(EventRecord<EventType::StackRestore> const &Ev) {
-  // Save the pre-allocas (it's OK to move, because they will be cleared).
   auto &FuncState = *(CallStack.back());
-  auto const PreAllocas = std::move(FuncState.getAllocas());
+  auto const Removed = FuncState.removeAllocas(Ev.getPopCount());
 
-  // This clears the allocas and sets them to the post-stackrestore state.
-  readdEvent(Ev);
-
-  // Find the first alloca that was not restored.
-  auto const &PostAllocas = FuncState.getAllocas();
-  auto const Diff = std::mismatch(PostAllocas.begin(), PostAllocas.end(),
-                                  PreAllocas.begin());
-
-  // Remove all allocas that were not restored.
-  for (auto const &Alloca : seec::range(Diff.second, PreAllocas.end()))
+  // Remove allocations for all the cleared allocas.
+  for (auto const &Alloca : Removed)
     Parent.Memory.allocationRemove(Alloca.getAddress(), Alloca.getTotalSize());
 }
 
@@ -582,28 +575,6 @@ void ThreadState::readdEvent(
   FuncState.setActiveInstructionComplete(Index);
 }
 
-void ThreadState::readdEvent(EventRecord<EventType::StackRestore> const &Ev) {
-  // Clear the current allocas.
-  auto &FuncState = *(CallStack.back());
-  FuncState.getAllocas().clear();
-
-  // Get all of the StackRestoreAlloca records.
-  auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
-  assert(MaybeEvRef && "Malformed event trace");
-  auto const &EvRef = *MaybeEvRef;
-  
-  auto const Allocas = getLeadingBlock<EventType::StackRestoreAlloca>
-                                      (rangeAfter(Trace.events(), EvRef));
-
-  // Add the restored allocas.
-  for (auto const &RestoreAlloca : Allocas) {
-    auto const Offset = RestoreAlloca.getAlloca();
-    auto &Alloca = Parent.getTrace()
-                         .getEventAtOffset<EventType::Alloca>(Offset);
-    readdEvent(Alloca);
-  }
-}
-
 void ThreadState::readdEvent(EventRecord<EventType::Alloca> const &Ev) {
   auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
   assert(MaybeEvRef && "Malformed event trace");
@@ -827,89 +798,18 @@ SEEC_IMPLEMENT_REMOVE_INSTRUCTION(LongDouble)
 
 void ThreadState::removeEvent(EventRecord<EventType::StackRestore> const &Ev) {
   auto &FuncState = *(CallStack.back());
-  auto const PostAllocas = std::move(FuncState.getAllocas());
-
-  // Clear the current allocas.
-  FuncState.getAllocas().clear();
   
-  auto MaybeEvRef = Trace.getThreadEventBlockSequence().getReferenceTo(Ev);
-  assert(MaybeEvRef && "malformed thread trace");
-  auto const &EvRef = *MaybeEvRef;
-
-  // Attempt to find a previous StackRestore in this function.
-  auto const MaybePrevious =
-    rfindInFunction(Trace, rangeBefore(Trace.events(), EvRef),
-                    [] (EventRecordBase const &E) {
-                      return E.getType() == EventType::StackRestore;
-                    });
-
-  if (MaybePrevious.assigned<EventReference>()) {
-    // Add the Allocas that were valid after the previous StackRestore.
-    auto &RestoreEv = MaybePrevious.get<EventReference>()
-                                   .get<EventType::StackRestore>();
-    readdEvent(RestoreEv);
-
-    // Now add all Allocas that occured between the previous StackRestore and
-    // the current StackRestore.
-    auto PreviousEvRef = MaybePrevious.get<EventReference>();
-    EventReference CurrentEvRef(EvRef);
-
-    // Iterate through the events, skipping any child functions as we go.
-    for (EventReference It(PreviousEvRef); It != CurrentEvRef; ++It) {
-      if (It->getType() == EventType::FunctionStart) {
-        auto const &StartEv = It.get<EventType::FunctionStart>();
-        auto const EndOffset = StartEv.getEventOffsetEnd();
-        It = Trace.getReferenceToOffset(EndOffset);
-        // It will be incremented when we finish this iteration, so the
-        // FunctionEnd for this child will (correctly) not be seen.
-        assert(It < CurrentEvRef);
-      }
-      else if (It->getType() == EventType::Alloca) {
-        readdEvent(It.get<EventType::Alloca>());
-      }
-    }
-  }
-  else {
-    auto FunctionInfo = CallStack.back()->getTrace();
-    auto StartOffset = FunctionInfo.getEventStart();
-
-    // Iterate through the events, adding all Allocas until we find
-    // the StackRestore, skipping any child functions as we go.
-    auto ItEventRef = Trace.getReferenceToOffset(StartOffset);
-    EventReference EndEventRef(EvRef);
-
-    for (++ItEventRef; ItEventRef != EndEventRef; ++ItEventRef) {
-      if (ItEventRef->getType() == EventType::FunctionStart) {
-        auto const &StartEv = ItEventRef.get<EventType::FunctionStart>();
-        auto const EndOffset = StartEv.getEventOffsetEnd();
-        ItEventRef = Trace.getReferenceToOffset(EndOffset);
-        // It will be incremented when we finish this iteration, so the
-        // FunctionEnd for this child will (correctly) not be seen.
-      }
-      else if (ItEventRef->getType() == EventType::FunctionEnd) {
-        break;
-      }
-      else if (ItEventRef->getType() == EventType::Alloca) {
-        readdEvent(ItEventRef.get<EventType::Alloca>());
-      }
-    }
-  }
-
-  // Find the first alloca that was removed by this StackRestore (but has now
-  // been unremoved).
-  auto const &PreAllocas = FuncState.getAllocas();
-  auto const Diff = std::mismatch(PostAllocas.begin(), PostAllocas.end(),
-                                  PreAllocas.begin());
-
+  auto const ClearCount = Ev.getPopCount();
+  auto const Restored = FuncState.unremoveAllocas(ClearCount);
+  
+  auto ReverseRestored =
+    range(std::reverse_iterator<decltype(Restored.end())>(Restored.end()),
+          std::reverse_iterator<decltype(Restored.begin())>(Restored.begin()));
+  
   // Restore allocations that have been unremoved. We have to do this in
   // reverse order so that MemoryState retrieves the correct data.
-  typedef decltype(PreAllocas.rbegin()) CRIterTy;
-
-  for (auto const &Alloca : range(CRIterTy(PreAllocas.end()),
-                                  CRIterTy(Diff.second)))
-  {
-    Parent.Memory.allocationUnremove(Alloca.getAddress(),
-                                     Alloca.getTotalSize());
+  for (auto const &Alloca : ReverseRestored) {
+    Parent.Memory.allocationUnremove(Alloca.getAddress(), Alloca.getTotalSize());
   }
 }
 

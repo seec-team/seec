@@ -537,6 +537,8 @@ void TraceThreadListener::notifyPostCallIntrinsic(InstrIndexInFn Index,
       auto SaveRTV = getCurrentRuntimeValueAs<uintptr_t>(*this, SaveValue);
       assert(SaveRTV.assigned() && "Couldn't get stacksave run-time value.");
 
+      auto const PreCount = ActiveFunc->getAllocas().size();
+      
       ActiveFunc->stackRestore(
         SaveRTV.get<0>(),
         *(ProcessListener.getTraceMemoryStateAccessor()));
@@ -544,14 +546,11 @@ void TraceThreadListener::notifyPostCallIntrinsic(InstrIndexInFn Index,
       ++Time;
       EventsOut.write<EventType::Instruction>(Index);
       
-      // Write StackRestore event.
-      EventsOut.write<EventType::StackRestore>
-                     (EventsOut.getPreviousOffsetOf(EventType::StackRestore));
+      auto const PostCount = ActiveFunc->getAllocas().size();
+      assert(PostCount <= PreCount);
       
-      // Write StackRestoreAlloca events.
-      for (auto const &Alloca : ActiveFunc->getAllocas()) {
-        EventsOut.write<EventType::StackRestoreAlloca>(Alloca.eventOffset());
-      }
+      // Write StackRestore event.
+      EventsOut.write<EventType::StackRestore>(PreCount - PostCount);
 
       break;
     }

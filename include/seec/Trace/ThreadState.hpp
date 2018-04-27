@@ -143,7 +143,6 @@ class ThreadState {
 
   /// Special handling when re-adding Allocas during the implementation of
   /// another event (avoids adding the associated allocation to MemoryState).
-  void readdEvent(EventRecord<EventType::StackRestore> const &);
   void readdEvent(EventRecord<EventType::Alloca> const &);
   void readdEvent(EventRecord<EventType::ByValRegionAdd> const &);
 

@@ -88,6 +88,7 @@ FunctionState::FunctionState(ThreadState &Parent,
   ActiveInstruction(),
   ActiveInstructionComplete(false),
   Allocas(),
+  m_ClearedAllocas(),
   ParamByVals(),
   RuntimeErrors(),
   ActiveBlocks(),
@@ -446,6 +447,38 @@ FunctionState::getVisibleAllocas() const {
   }
   
   return RetVal;
+}
+
+auto FunctionState::removeAllocas(size_t Num)
+  -> seec::Range<decltype(m_ClearedAllocas.cbegin())>
+{
+  assert(Num <= Allocas.size());
+  
+  if (Num > 0) {
+    auto const PopBegin = Allocas.end() - Num;
+    auto const PopEnd   = Allocas.end();
+    
+    std::move(PopBegin, PopEnd, std::back_inserter(m_ClearedAllocas));
+    Allocas.erase(PopBegin, PopEnd);
+  }
+  
+  return range(m_ClearedAllocas.cend() - Num, m_ClearedAllocas.cend());
+}
+
+auto FunctionState::unremoveAllocas(size_t Num)
+  -> seec::Range<decltype(Allocas.cbegin())>
+{
+  assert(Num <= m_ClearedAllocas.size());
+  
+  if (Num > 0) {
+    auto const UnpopBegin = m_ClearedAllocas.end() - Num;
+    auto const UnpopEnd   = m_ClearedAllocas.end();
+    
+    std::move(UnpopBegin, UnpopEnd, std::back_inserter(Allocas));
+    m_ClearedAllocas.erase(UnpopBegin, UnpopEnd);
+  }
+  
+  return range(Allocas.cend() - Num, Allocas.cend());
 }
 
 auto
