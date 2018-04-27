@@ -60,6 +60,11 @@ enum class InitializationState {
   Complete
 };
 
+std::shared_ptr<Value const>
+getValueImpl(std::shared_ptr<ValueStore const> Store,
+             seec::seec_clang::MappedStmt const &SMap,
+             seec::trace::FunctionState const &FunctionState);
+
 
 //===----------------------------------------------------------------------===//
 // Value
@@ -110,6 +115,17 @@ public:
   }
 };
 
+struct StatementValueKey
+: std::pair<seec::seec_clang::MappedStmt const * const,
+            seec::trace::FunctionState const * const>
+{
+  StatementValueKey(seec::seec_clang::MappedStmt const *Stmt,
+                    seec::trace::FunctionState const *Func)
+  : std::pair<seec::seec_clang::MappedStmt const * const,
+              seec::trace::FunctionState const * const>(Stmt, Func)
+  {}
+};
+
 class ValueStoreImpl final {
   /// Control access to the Store variable.
   mutable std::mutex StoreAccess;
@@ -118,6 +134,10 @@ class ValueStoreImpl final {
   // The first stage is the in-memory address of the object.
   // The second stage is the canonical type of the object.
   mutable llvm::DenseMap<stateptr_ty, TypedValueSet> Store;
+  
+  mutable std::mutex m_StmtValuesMutex;
+  mutable std::map<StatementValueKey, std::shared_ptr<Value const>>
+    m_StmtValues;
 
   /// SeeC-Clang mapping information.
   seec::seec_clang::MappedModule const &Mapping;
@@ -133,6 +153,8 @@ public:
   ValueStoreImpl(seec::seec_clang::MappedModule const &WithMapping)
   : StoreAccess(),
     Store(),
+    m_StmtValuesMutex(),
+    m_StmtValues(),
     Mapping(WithMapping)
   {}
 
@@ -146,6 +168,24 @@ public:
            seec::trace::ProcessState const &ProcessState,
            seec::trace::FunctionState const *OwningFunction) const;
 
+  /// \brief Find or construct a Value from a runtime value.
+  ///
+  std::shared_ptr<Value const>
+  getValue(std::shared_ptr<ValueStore const> Store,
+           seec::seec_clang::MappedStmt const &SMap,
+           seec::trace::FunctionState const &FunctionState) const
+  {
+    std::lock_guard<std::mutex> Lock(m_StmtValuesMutex);
+    
+    auto &Value = m_StmtValues[StatementValueKey{&SMap, &FunctionState}];
+    
+    if (!Value) {
+      Value = getValueImpl(Store, SMap, FunctionState);
+    }
+    
+    return Value;
+  }
+  
   /// \brief Get SeeC-Clang mapping information.
   ///
   seec::seec_clang::MappedModule const &getMapping() const { return Mapping; }
@@ -2606,9 +2646,9 @@ getValue(std::shared_ptr<ValueStore const> Store,
 // Documented in MappedValue.hpp
 //
 std::shared_ptr<Value const>
-getValue(std::shared_ptr<ValueStore const> Store,
-         seec::seec_clang::MappedStmt const &SMap,
-         seec::trace::FunctionState const &FunctionState)
+getValueImpl(std::shared_ptr<ValueStore const> Store,
+             seec::seec_clang::MappedStmt const &SMap,
+             seec::trace::FunctionState const &FunctionState)
 {
   auto const Expression = llvm::dyn_cast< ::clang::Expr>(SMap.getStatement());
   if (!Expression)
@@ -2722,6 +2762,15 @@ getValue(std::shared_ptr<ValueStore const> Store,
   
   llvm_unreachable("Unhandled MappedStmt::Type!");
   return std::shared_ptr<Value const>();
+}
+
+std::shared_ptr<Value const>
+getValue(std::shared_ptr<ValueStore const> Store,
+         seec::seec_clang::MappedStmt const &SMap,
+         seec::trace::FunctionState const &FunctionState)
+{
+  auto &StoreImpl = Store->getImpl();
+  return StoreImpl.getValue(Store, SMap, FunctionState);
 }
 
 
