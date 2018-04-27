@@ -33,14 +33,6 @@
 
 #include "seec/Preprocessor/Quote.h"
 
-SEEC_TRACE_EVENT(TraceEnd,
-  SEEC_PP_QUOTE(
-    (uint64_t, Dummy)
-  ),
-  SEEC_PP_QUOTE(
-    (TraceEnd, is_block_start)
-  ))
-
 SEEC_TRACE_EVENT(FunctionStart,
   SEEC_PP_QUOTE(
     (uint32_t, FunctionIndex),

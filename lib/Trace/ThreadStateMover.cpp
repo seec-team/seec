@@ -40,7 +40,6 @@ struct ThreadStateMoverImpl {
   {}
   
   void addEvent(EventRecord<EventType::None> const &);
-  void addEvent(EventRecord<EventType::TraceEnd> const &);
   void addEvent(EventRecord<EventType::FunctionStart> const &);
   void addEvent(EventRecord<EventType::FunctionEnd> const &);
   void addEvent(EventRecord<EventType::NewProcessTime> const &);
@@ -80,7 +79,6 @@ struct ThreadStateMoverImpl {
   void setPreviousViewOfProcessTime(EventReference PriorTo);
 
   void removeEvent(EventRecord<EventType::None> const &);
-  void removeEvent(EventRecord<EventType::TraceEnd> const &);
   void removeEvent(EventRecord<EventType::FunctionStart> const &);
   void removeEvent(EventRecord<EventType::FunctionEnd> const &);
   void removeEvent(EventRecord<EventType::NewProcessTime> const &);
@@ -169,11 +167,6 @@ public:
 //------------------------------------------------------------------------------
 
 void ThreadStateMoverImpl::addEvent(EventRecord<EventType::None> const &Ev) {}
-
-// It's OK to find this Event in the middle of a trace, because the trace has
-// to be speculatively "ended" before calling exec functions.
-void ThreadStateMoverImpl::addEvent(EventRecord<EventType::TraceEnd> const &Ev)
-{}
 
 void
 ThreadStateMoverImpl::addEvent(EventRecord<EventType::FunctionStart> const &Ev)
@@ -749,12 +742,6 @@ ThreadStateMoverImpl::setPreviousViewOfProcessTime(EventReference PriorTo)
 }
 
 void ThreadStateMoverImpl::removeEvent(EventRecord<EventType::None> const &Ev)
-{}
-
-// It's OK to find this Event in the middle of a trace, because the trace has
-// to be speculatively "ended" before calling exec functions.
-void
-ThreadStateMoverImpl::removeEvent(EventRecord<EventType::TraceEnd> const &Ev)
 {}
 
 void
