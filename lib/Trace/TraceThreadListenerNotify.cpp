@@ -236,7 +236,7 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
 
 void TraceThreadListener::notifyArgs(uint64_t ArgC, char **ArgV) {
   // Handle common behaviour when entering and exiting notifications.
-  // Note thatnotifyArgs has the exit behaviour of a post-notification, because
+  // Note notifyArgs has the exit behaviour of a post-notification, because
   // it effectively ends the FunctionStart block for main().
   enterNotification();
   auto OnExit = scopeExit([=](){exitPostNotification();});

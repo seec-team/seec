@@ -46,7 +46,6 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   FunctionAddresses(MIndex.getFunctionCount()),
   FunctionLookup(),
   DataOut(),
-  DataOutOffset(0),
   DataOutMutex(),
   Time(0),
   NextThreadID(1),
@@ -320,7 +319,8 @@ void TraceProcessListener::copyInMemoryPointerObjects(uintptr_t const From,
 // Memory state tracking.
 //===----------------------------------------------------------------------===//
 
-offset_uint TraceProcessListener::recordData(char const *Data, size_t Size) {
+llvm::Optional<off_t>
+TraceProcessListener::recordData(char const *Data, size_t Size) {
   // Don't allow concurrent access to DataOut - multiple threads may wreck
   // the output (and the offsets returned).
   std::lock_guard<std::mutex> DataOutLock(DataOutMutex);
@@ -328,13 +328,7 @@ offset_uint TraceProcessListener::recordData(char const *Data, size_t Size) {
   if (!DataOut)
     return 0;
 
-  DataOut->write(Data, Size);
-
-  // Return the offset that the data was written at, which will be used by
-  // events to refer to the data.
-  auto const WrittenOffset = DataOutOffset;
-  DataOutOffset += Size;
-  return WrittenOffset;
+  return DataOut->write(Data, Size);
 }
 
 void TraceProcessListener::addKnownMemoryRegion(uintptr_t Address,
@@ -450,7 +444,9 @@ void TraceProcessListener::notifyGlobalVariable(uint32_t Index,
   }
   
   auto Offset = recordData(reinterpret_cast<char const *>(Address), Length);
-  GlobalVariableInitialData[Index] = Offset;
+  assert(Offset && "couldn't write gv initial data.");
+  
+  GlobalVariableInitialData[Index] = *Offset;
 }
 
 /// \brief Determine if an \c llvm::Type is a pointer type or contains a pointer

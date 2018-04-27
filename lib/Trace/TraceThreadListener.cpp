@@ -183,10 +183,12 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
   
   Streams.streamOpened(Stream, FilenameOffset, ModeOffset);
 
-  EventsOut.write<EventType::FileOpen>(ProcessTime,
-                                       reinterpret_cast<uintptr_t>(Stream),
-                                       FilenameOffset,
-                                       ModeOffset);
+  if (FilenameOffset && ModeOffset) {
+    EventsOut.write<EventType::FileOpen>(ProcessTime,
+                                         reinterpret_cast<uintptr_t>(Stream),
+                                         *FilenameOffset,
+                                         *ModeOffset);
+  }
 }
 
 void TraceThreadListener::recordStreamWrite(FILE *Stream,
@@ -195,11 +197,13 @@ void TraceThreadListener::recordStreamWrite(FILE *Stream,
   ProcessTime = getCIProcessTime();
 
   auto const DataOffset = ProcessListener.recordData(Data.data(), Data.size());
-
-  EventsOut.write<EventType::FileWrite>(ProcessTime,
-                                        reinterpret_cast<uintptr_t>(Stream),
-                                        DataOffset,
-                                        Data.size());
+  
+  if (DataOffset) {
+    EventsOut.write<EventType::FileWrite>(ProcessTime,
+                                          reinterpret_cast<uintptr_t>(Stream),
+                                          *DataOffset,
+                                          Data.size());
+  }
 }
 
 void TraceThreadListener::recordStreamWriteFromMemory(FILE *Stream,
@@ -226,10 +230,14 @@ bool TraceThreadListener::recordStreamClose(FILE *Stream)
   if (!Info)
     return false;
 
+  auto const FilenameOffset = Info->getFilenameOffset();
+  auto const ModeOffset = Info->getModeOffset();
+  assert(FilenameOffset && ModeOffset);
+  
   EventsOut.write<EventType::FileClose>(ProcessTime,
                                         reinterpret_cast<uintptr_t>(Stream),
-                                        Info->getFilenameOffset(),
-                                        Info->getModeOffset());
+                                        *FilenameOffset,
+                                        *ModeOffset);
 
   Streams.streamClosed(Stream);
   
@@ -255,9 +263,11 @@ void TraceThreadListener::recordDirOpen(void const * const TheDIR,
   
   Dirs.DIROpened(TheDIR, FilenameOffset);
   
-  EventsOut.write<EventType::DirOpen>(ProcessTime,
-                                      reinterpret_cast<uintptr_t>(TheDIR),
-                                      FilenameOffset);
+  if (FilenameOffset) {
+    EventsOut.write<EventType::DirOpen>(ProcessTime,
+                                        reinterpret_cast<uintptr_t>(TheDIR),
+                                        *FilenameOffset);
+  }
 }
 
 bool TraceThreadListener::recordDirClose(void const * const TheDIR)
@@ -272,9 +282,12 @@ bool TraceThreadListener::recordDirClose(void const * const TheDIR)
   if (!Info)
     return false;
   
+  auto const DirnameOffset = Info->getDirnameOffset();
+  assert(DirnameOffset);
+  
   EventsOut.write<EventType::DirClose>(ProcessTime,
                                        reinterpret_cast<uintptr_t>(TheDIR),
-                                       Info->getDirnameOffset());
+                                       *DirnameOffset);
   
   Dirs.DIRClosed(TheDIR);
   
@@ -390,13 +403,13 @@ void TraceThreadListener::recordUntypedState(char const *Data,
     auto DataOffset = ProcessListener.recordData(Data, Size);
 
     // Write the state information to the trace.
-    EventsOut.write<EventType::StateUntyped>(Address,
-                                             ProcessTime,
-                                             DataOffset,
-                                             Size);
+    if (DataOffset) {
+      EventsOut.write<EventType::StateUntyped>(Address,
+                                               ProcessTime,
+                                               *DataOffset,
+                                               Size);
+    }
   }
-  
-  // TODO: add non-local change records for all appropriate functions
 }
 
 void TraceThreadListener::recordTypedState(void const *Data,

@@ -29,18 +29,18 @@ namespace trace {
 ///
 class TraceStream {
   /// The offset of the filename string in the trace's data file.
-  offset_uint FilenameOffset;
+  llvm::Optional<off_t> m_FilenameOffset;
   
   /// The offset of the mode string in the trace's data file.
-  offset_uint ModeOffset;
+  llvm::Optional<off_t> m_ModeOffset;
   
 public:
   /// \brief Default constructor.
   ///
-  TraceStream(offset_uint const WithFilenameOffset,
-              offset_uint const WithModeOffset)
-  : FilenameOffset(WithFilenameOffset),
-    ModeOffset(WithModeOffset)
+  TraceStream(llvm::Optional<off_t> WithFilenameOffset,
+              llvm::Optional<off_t> WithModeOffset)
+  : m_FilenameOffset(WithFilenameOffset),
+    m_ModeOffset(WithModeOffset)
   {}
   
   /// \name Accessors.
@@ -48,11 +48,13 @@ public:
   
   /// \brief Get the offset of the filename string in the trace's data file.
   ///
-  offset_uint getFilenameOffset() const { return FilenameOffset; }
+  llvm::Optional<off_t> const &getFilenameOffset() const {
+    return m_FilenameOffset;
+  }
   
   /// \brief Get the offset of the mode string in the trace's data file.
   ///
-  offset_uint getModeOffset() const { return ModeOffset; }
+  llvm::Optional<off_t> const &getModeOffset() const { return m_ModeOffset; }
   
   /// @} (Accessors)
 };
@@ -62,13 +64,13 @@ public:
 ///
 class TraceDIR {
   /// The offset of the dirname string in the trace's data file.
-  offset_uint DirnameOffset;
+  llvm::Optional<off_t> m_DirnameOffset;
   
 public:
   /// \brief Default constructor.
   ///
-  TraceDIR(offset_uint const WithDirnameOffset)
-  : DirnameOffset(WithDirnameOffset)
+  TraceDIR(llvm::Optional<off_t> WithDirnameOffset)
+  : m_DirnameOffset(WithDirnameOffset)
   {}
   
   /// \name Accessors.
@@ -76,7 +78,9 @@ public:
   
   /// \brief Get the offset of the dirname string in the trace's data file.
   ///
-  offset_uint getDirnameOffset() const { return DirnameOffset; }
+  llvm::Optional<off_t> const &getDirnameOffset() const {
+    return m_DirnameOffset;
+  }
   
   /// @} (Accessors)
 };
@@ -102,8 +106,8 @@ public:
   /// \brief Notify that a stream has been opened.
   ///
   void streamOpened(FILE *Stream,
-                    offset_uint const FilenameOffset,
-                    offset_uint const ModeOffset);
+                    llvm::Optional<off_t> FilenameOffset,
+                    llvm::Optional<off_t> ModeOffset);
   
   /// \brief Notify that a stream will be closed.
   ///
@@ -143,7 +147,7 @@ public:
   /// \brief Notify that a DIR has been opened.
   ///
   void DIROpened(void const *TheDIR,
-                 offset_uint const DirnameOffset);
+                 llvm::Optional<off_t> DirnameOffset);
   
   /// \brief Notify that a DIR will be closed.
   ///
