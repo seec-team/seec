@@ -36,9 +36,6 @@ class EventWriter {
   /// Size of the last-written event (in bytes).
   uint8_t PreviousEventSize;
   
-  /// Offset of the last-written event for each EventType.
-  offset_uint PreviousOffsets[static_cast<std::size_t>(EventType::Highest)];
-  
   // Don't allow copying.
   EventWriter(EventWriter const &) = delete;
   EventWriter &operator=(EventWriter const &) = delete;
@@ -65,14 +62,8 @@ public:
   ///
   EventWriter()
   : Out(),
-    PreviousEventSize(0),
-    PreviousOffsets()
-  {
-    constexpr auto NumEventTypes = static_cast<std::size_t>(EventType::Highest);
-    for (std::size_t i = 0; i < NumEventTypes; ++i) {
-      PreviousOffsets[i] = noOffset();
-    }
-  }
+    PreviousEventSize(0)
+  {}
   
   
   /// \name Accessors
@@ -80,12 +71,6 @@ public:
   
   /// \brief Get the size of the last-written event.
   uint8_t previousEventSize() const { return PreviousEventSize; }
-
-  /// \brief Get the offset of the last-written event of type Type.
-  offset_uint getPreviousOffsetOf(EventType Type) const {
-    assert(Type != EventType::Highest);
-    return PreviousOffsets[static_cast<std::size_t>(Type)];
-  }
   
   /// @} (Accessors)
   
@@ -151,8 +136,6 @@ public:
         Ret.emplace(PreviousEventSize, *WriteRecord);
         
         PreviousEventSize = sizeof(Record);
-        PreviousOffsets[static_cast<std::size_t>(ET)] =
-          WriteRecord->getOffset();
       }
     }
     
