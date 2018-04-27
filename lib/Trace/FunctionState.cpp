@@ -113,19 +113,6 @@ llvm::Instruction const *FunctionState::getActiveInstruction() const {
   return FunctionLookup->getInstruction(*ActiveInstruction);
 }
 
-seec::Maybe<MemoryArea>
-FunctionState::getContainingMemoryArea(stateptr_ty Address) const {
-  auto const Alloca = getAllocaContaining(Address);
-  if (Alloca)
-    return MemoryArea(Alloca->getAddress(), Alloca->getTotalSize());
-  
-  for (auto const &ParamByVal : ParamByVals)
-    if (ParamByVal.getArea().contains(Address))
-      return ParamByVal.getArea();
-  
-  return seec::Maybe<MemoryArea>();
-}
-
 void FunctionState::forwardingToInstruction(InstrIndexInFn const Index)
 {
   auto const Current = getActiveInstruction();

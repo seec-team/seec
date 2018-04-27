@@ -62,24 +62,6 @@ bool ThreadState::isAtEnd() const {
 
 
 //------------------------------------------------------------------------------
-// Memory.
-//------------------------------------------------------------------------------
-
-seec::Maybe<MemoryArea>
-ThreadState::getContainingMemoryArea(stateptr_ty Address) const {
-  seec::Maybe<MemoryArea> Area;
-  
-  for (auto const &FunctionStatePtr : CallStack) {
-    Area = FunctionStatePtr->getContainingMemoryArea(Address);
-    if (Area.assigned())
-      break;
-  }
-  
-  return Area;
-}
-
-
-//------------------------------------------------------------------------------
 // Printing.
 //------------------------------------------------------------------------------
 

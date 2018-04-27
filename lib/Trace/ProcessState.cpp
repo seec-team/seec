@@ -168,60 +168,15 @@ bool ProcessState::isContainedByGlobalVariable(stateptr_ty const Address) const
 }
 
 seec::Maybe<MemoryArea>
-ProcessState::getContainingMemoryArea(stateptr_ty Address) const {
-  // Check global variables.
-  for (uint32_t Index = 0; Index < Module->getGlobalCount(); ++Index) {
-    auto const Begin = Trace->getGlobalVariableAddress(Index);
-    if (Address < Begin)
-      continue;
-    
-    auto const Global = Module->getGlobal(Index);
-    auto const Size = DL.getTypeStoreSize(Global->getType()->getElementType());
-    auto const Permission = Global->isConstant() ? MemoryPermission::ReadOnly
-                                                 : MemoryPermission::ReadWrite;
-    
-    auto const Area = MemoryArea(Begin, Size, Permission);
-    
-    if (Area.contains(Address))
-      return Area;
+ProcessState::getContainingMemoryArea(stateptr_ty const Address) const
+{
+  seec::Maybe<MemoryArea> Ret;
+  
+  if (auto Alloc = Memory.findAllocation(Address)) {
+    Ret = MemoryArea(Alloc->getAddress(), Alloc->getSize());
   }
   
-  // Check dynamic memory allocations.
-  {
-    auto DynIt = Mallocs.upper_bound(Address);
-    if (DynIt != Mallocs.begin()) {
-      --DynIt; // DynIt's allocation address is now <= Address.
-      
-      auto const Area = MemoryArea(DynIt->second.getAddress(),
-                                   DynIt->second.getSize());
-      
-      if (Area.contains(Address))
-        return Area;
-    }
-  }
-
-  // Check known readable/writable regions.
-  {
-    auto KnownIt = KnownMemory.find(Address);
-    if (KnownIt != KnownMemory.end()) {
-      // Range of interval is inclusive: [Begin, End]
-      auto Length = (KnownIt->End - KnownIt->Begin) + 1;
-      return seec::Maybe<MemoryArea>(MemoryArea(KnownIt->Begin,
-                                     Length,
-                                     KnownIt->Value));
-    }
-  }
-  
-  // Check other threads.
-  for (auto const &ThreadStatePtr : ThreadStates) {
-    auto MaybeArea = ThreadStatePtr->getContainingMemoryArea(Address);
-    if (!MaybeArea.assigned<MemoryArea>())
-      continue;
-    
-    return MaybeArea;
-  }
-    
-  return seec::Maybe<MemoryArea>();
+  return Ret;
 }
 
 bool ProcessState::addStream(StreamState Stream)

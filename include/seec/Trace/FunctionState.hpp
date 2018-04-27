@@ -332,13 +332,6 @@ public:
 
   /// \brief Get the active llvm::Instruction, if there is one.
   llvm::Instruction const *getActiveInstruction() const;
-  
-  /// \brief Get the stack-allocated area that contains an address.
-  ///
-  /// This method is thread safe.
-  ///
-  seec::Maybe<MemoryArea>
-  getContainingMemoryArea(stateptr_ty Address) const;
 
   /// @} (Accessors)
 
@@ -420,19 +413,6 @@ public:
   ///
   std::vector<std::reference_wrapper<AllocaState const>>
   getVisibleAllocas() const;
-  
-  /// \brief Find the Alloca that covers the given address, or nullptr if none
-  ///        exists.
-  ///
-  AllocaState const *getAllocaContaining(stateptr_ty Address) const {
-    for (auto const &Alloca : Allocas) {
-      auto const Area = MemoryArea(Alloca.getAddress(), Alloca.getTotalSize());
-      if (Area.contains(Address))
-        return &Alloca;
-    }
-    
-    return nullptr;
-  }
   
   /// \brief Remove the top \c Num stack allocations.
   /// \return a range containing the removed allocations.

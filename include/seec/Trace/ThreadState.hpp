@@ -142,20 +142,6 @@ public:
   bool isAtEnd() const;
   
   /// @} (Queries.)
-  
-  
-  /// \name Memory.
-  /// @{
-  
-  /// \brief Find the allocated range that owns an address.
-  ///
-  /// This method will search:
-  ///  - Functions' stack allocations.
-  ///
-  seec::Maybe<MemoryArea>
-  getContainingMemoryArea(stateptr_ty Address) const;
-  
-  /// @} (Memory.)
 };
 
 /// \brief Print a comparable textual description of a \c ThreadState.
