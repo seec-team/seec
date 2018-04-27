@@ -30,8 +30,8 @@ namespace trace {
 //===------------------------------------------------------------------------===
 
 void TraceStreams::streamOpened(FILE *Stream,
-                                offset_uint const FilenameOffset,
-                                offset_uint const ModeOffset)
+                                llvm::Optional<off_t> FilenameOffset,
+                                llvm::Optional<off_t> ModeOffset)
 {
   Streams.insert(std::make_pair(Stream,
                                 TraceStream{FilenameOffset, ModeOffset}));
@@ -65,7 +65,7 @@ void TraceStreams::streamClosed(FILE *Stream)
 //===------------------------------------------------------------------------===
 
 void TraceDirs::DIROpened(void const * const TheDIR,
-                          offset_uint const DirnameOffset)
+                          llvm::Optional<off_t> DirnameOffset)
 {
   Dirs.insert(std::make_pair(reinterpret_cast<uintptr_t>(TheDIR),
                              TraceDIR{DirnameOffset}));

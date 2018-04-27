@@ -166,9 +166,6 @@ class TraceProcessListener {
   /// Output stream for this process' data.
   std::unique_ptr<OutputBlockProcessDataStream> DataOut;
 
-  /// Number of bytes written to DataOut so far.
-  offset_uint DataOutOffset;
-
   /// Controls access to the DataOut stream.
   std::mutex DataOutMutex;
 
@@ -422,7 +419,7 @@ public:
   /// @{
 
   /// \brief Record a block of data, and return the offset of the record.
-  offset_uint recordData(char const *Data, size_t Size);
+  llvm::Optional<off_t> recordData(char const *Data, size_t Size);
 
   /// \brief Lock a region of memory.
   std::unique_lock<std::mutex> lockMemory() {
