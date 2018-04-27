@@ -15,6 +15,7 @@
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "ThreadStateMover.cpp"
 
 #include <condition_variable>
 #include <initializer_list>
@@ -96,14 +97,14 @@ public:
             
             // Rewind changes.
             while (State.getNextEvent() != RewindNextEvent)
-              State.removePreviousEvent();
+              removePreviousEvent(State);
             
             return false;
           }
         }
       }
       
-      State.addNextEvent();
+      addNextEvent(State);
       
       NextEvent = State.getNextEvent();
       if (NextEvent->isBlockStart() || NextEvent == LastEvent)
@@ -159,14 +160,14 @@ public:
             
             // Rewind changes.
             while (State.getNextEvent() != RewindNextEvent)
-              State.addNextEvent();
+              addNextEvent(State);
             
             return false;
           }
         }
       }
       
-      State.removePreviousEvent();
+      removePreviousEvent(State);
       
       if (PreviousEvent->isBlockStart() || PreviousEvent == FirstEvent)
         return true;

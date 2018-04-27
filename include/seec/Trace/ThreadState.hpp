@@ -15,9 +15,7 @@
 #define SEEC_TRACE_THREADSTATE_HPP
 
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
-#include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/StateCommon.hpp"
-#include "seec/Trace/TraceFormat.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -33,15 +31,16 @@ namespace seec {
 namespace trace {
 
 class EventReference;
+class FunctionState;
 class ProcessState; // forward-declare for ThreadState
 class ThreadTrace;
+struct ThreadStateMoverImpl;
 
 
 /// \brief State of a thread at a specific point in time.
 ///
 class ThreadState {
-  friend class ProcessState; // Allow ProcessStates to construct ThreadStates.
-  friend class ThreadMovementDispatcher;
+  friend struct seec::trace::ThreadStateMoverImpl;
 
 
   /// \name Constants
@@ -77,109 +76,17 @@ class ThreadState {
   /// @}
 
 
+public:
   /// \brief Constructor.
   ThreadState(ProcessState &Parent,
               ThreadTrace const &Trace);
+  
+  /// \brief Destructor.
+  ~ThreadState();
 
   // Don't allow copying
   ThreadState(ThreadState const &Other) = delete;
   ThreadState &operator=(ThreadState const &RHS) = delete;
-
-
-  /// \name Movement
-  /// @{
-
-  void addEvent(EventRecord<EventType::None> const &);
-  void addEvent(EventRecord<EventType::TraceEnd> const &);
-  void addEvent(EventRecord<EventType::FunctionStart> const &);
-  void addEvent(EventRecord<EventType::FunctionEnd> const &);
-  void addEvent(EventRecord<EventType::NewProcessTime> const &);
-  void addEvent(EventRecord<EventType::NewThreadTime> const &);
-  void addEvent(EventRecord<EventType::PreInstruction> const &);
-  void addEvent(EventRecord<EventType::Instruction> const &);
-  void addEvent(EventRecord<EventType::InstructionWithUInt8> const &);
-  void addEvent(EventRecord<EventType::InstructionWithUInt16> const &);
-  void addEvent(EventRecord<EventType::InstructionWithUInt32> const &);
-  void addEvent(EventRecord<EventType::InstructionWithUInt64> const &);
-  void addEvent(EventRecord<EventType::InstructionWithPtr> const &);
-  void addEvent(EventRecord<EventType::InstructionWithFloat> const &);
-  void addEvent(EventRecord<EventType::InstructionWithDouble> const &);
-  void addEvent(EventRecord<EventType::InstructionWithLongDouble> const &);
-  void addEvent(EventRecord<EventType::StackRestore> const &);
-  void addEvent(EventRecord<EventType::Alloca> const &);
-  void addEvent(EventRecord<EventType::Malloc> const &);
-  void addEvent(EventRecord<EventType::Free> const &);
-  void addEvent(EventRecord<EventType::Realloc> const &);
-  void addEvent(EventRecord<EventType::StateTyped> const &);
-  void addEvent(EventRecord<EventType::StateUntypedSmall> const &);
-  void addEvent(EventRecord<EventType::StateUntyped> const &);
-  void addEvent(EventRecord<EventType::StateMemmove> const &);
-  void addEvent(EventRecord<EventType::StateClear> const &);
-  void addEvent(EventRecord<EventType::KnownRegionAdd> const &);
-  void addEvent(EventRecord<EventType::KnownRegionRemove> const &);
-  void addEvent(EventRecord<EventType::ByValRegionAdd> const &);
-  void addEvent(EventRecord<EventType::FileOpen> const &);
-  void addEvent(EventRecord<EventType::FileWrite> const &);
-  void addEvent(EventRecord<EventType::FileWriteFromMemory> const &);
-  void addEvent(EventRecord<EventType::FileClose> const &);
-  void addEvent(EventRecord<EventType::DirOpen> const &);
-  void addEvent(EventRecord<EventType::DirClose> const &);
-  void addEvent(EventRecord<EventType::RuntimeError> const &);
-
-public:
-  /// Add the event referenced by NextEvent to the state, and then increment
-  /// NextEvent.
-  void addNextEvent();
-
-private:
-  void makePreviousInstructionActive(EventReference PriorTo);
-  void makePreviousInstructionActive(EventRecordBase const &PriorTo);
-  void setPreviousViewOfProcessTime(EventReference PriorTo);
-  void setPreviousViewOfProcessTime(EventRecordBase const &PriorTo);
-
-  void removeEvent(EventRecord<EventType::None> const &);
-  void removeEvent(EventRecord<EventType::TraceEnd> const &);
-  void removeEvent(EventRecord<EventType::FunctionStart> const &);
-  void removeEvent(EventRecord<EventType::FunctionEnd> const &);
-  void removeEvent(EventRecord<EventType::NewProcessTime> const &);
-  void removeEvent(EventRecord<EventType::NewThreadTime> const &);
-  void removeEvent(EventRecord<EventType::PreInstruction> const &);
-  void removeEvent(EventRecord<EventType::Instruction> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithUInt8> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithUInt16> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithUInt32> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithUInt64> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithPtr> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithFloat> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithDouble> const &);
-  void removeEvent(EventRecord<EventType::InstructionWithLongDouble> const &);
-  void removeEvent(EventRecord<EventType::StackRestore> const &);
-  void removeEvent(EventRecord<EventType::Alloca> const &);
-  void removeEvent(EventRecord<EventType::Malloc> const &);
-  void removeEvent(EventRecord<EventType::Free> const &);
-  void removeEvent(EventRecord<EventType::Realloc> const &);
-  void removeEvent(EventRecord<EventType::StateTyped> const &);
-  void removeEvent(EventRecord<EventType::StateUntypedSmall> const &);
-  void removeEvent(EventRecord<EventType::StateUntyped> const &);
-  void removeEvent(EventRecord<EventType::StateMemmove> const &);
-  void removeEvent(EventRecord<EventType::StateClear> const &);
-  void removeEvent(EventRecord<EventType::KnownRegionAdd> const &);
-  void removeEvent(EventRecord<EventType::KnownRegionRemove> const &);
-  void removeEvent(EventRecord<EventType::ByValRegionAdd> const &);
-  void removeEvent(EventRecord<EventType::FileOpen> const &);
-  void removeEvent(EventRecord<EventType::FileWrite> const &);
-  void removeEvent(EventRecord<EventType::FileWriteFromMemory> const &);
-  void removeEvent(EventRecord<EventType::FileClose> const &);
-  void removeEvent(EventRecord<EventType::DirOpen> const &);
-  void removeEvent(EventRecord<EventType::DirClose> const &);
-  void removeEvent(EventRecord<EventType::RuntimeError> const &);
-
-public:
-  /// Decrement NextEvent, and then remove the event it references from the
-  /// state.
-  void removePreviousEvent();
-
-  /// @} (Movement)
 
 
   /// \name Accessors
@@ -197,6 +104,10 @@ public:
   /// \brief Get the next event to process when moving forward through the
   /// trace.
   EventReference const &getNextEvent() const { return *m_NextEvent; }
+  
+  void incrementNextEvent();
+  
+  void decrementNextEvent();
 
   /// \brief Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }

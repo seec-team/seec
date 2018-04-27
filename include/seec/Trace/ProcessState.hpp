@@ -33,6 +33,7 @@
 
 namespace llvm {
   class raw_ostream; // Forward-declaration for operator<<.
+  class Instruction;
 }
 
 namespace seec {
@@ -109,7 +110,8 @@ public:
 /// \brief State of a process at a specific point in time.
 ///
 class ProcessState {
-  friend class ThreadState; // Allow child threads to update the shared state.
+  // Allow thread mover to update the shared state.
+  friend class ThreadStateMoverImpl;
 
   /// \name Constants
   /// @{

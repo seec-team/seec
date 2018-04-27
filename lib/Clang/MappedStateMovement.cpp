@@ -18,6 +18,7 @@
 #include "seec/Clang/MappedStmt.hpp"
 #include "seec/Clang/MappedThreadState.hpp"
 #include "seec/Clang/MappedValue.hpp"
+#include "seec/Trace/FunctionState.hpp"
 #include "seec/Trace/ProcessState.hpp"
 #include "seec/Trace/StateMovement.hpp"
 #include "seec/Trace/ThreadState.hpp"

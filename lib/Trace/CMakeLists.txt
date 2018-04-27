@@ -36,6 +36,7 @@ set(TRACE_READER_HEADERS
   ../../include/seec/Trace/ThreadState.hpp
   ../../include/seec/Trace/TraceReader.hpp
   ../../include/seec/Trace/TraceSearch.hpp
+  ThreadStateMover.hpp
   )
 
 set(TRACE_READER_SOURCES
@@ -47,6 +48,7 @@ set(TRACE_READER_SOURCES
   StateMovement.cpp
   StreamState.cpp
   ThreadState.cpp
+  ThreadStateMover.cpp
   TraceReader.cpp
 )
 
