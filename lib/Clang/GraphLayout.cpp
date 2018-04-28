@@ -2095,9 +2095,15 @@ doLayout(LayoutHandler const &Handler,
   
   // Generate layouts for unmapped static areas (unmapped globals).
   for (auto const &Area : State.getUnmappedStaticAreas()) {
-    AreaLayouts.emplace_back(
-      std::async([&, Area] () {
-        return doLayout(Handler, Area, Expansion, AreaType::Static); }));
+    auto const Container = State.getUnmappedProcessState()
+                                .getMemory()
+                                .findAllocation(Area.address());
+    
+    if (Container && Container->getAddress() == Area.address()) {
+      AreaLayouts.emplace_back(
+        std::async([&, Area] () {
+          return doLayout(Handler, Area, Expansion, AreaType::Static); }));
+    }
   }
   
   // Create tasks to generate malloc area layouts.
