@@ -225,17 +225,6 @@ SEEC_TRACE_EVENT(Realloc,
     (Realloc, modifies_shared_state)
   ))
 
-SEEC_TRACE_EVENT(StateTyped,
-  SEEC_PP_QUOTE(
-    (uintptr_t, Address),
-    (uint64_t, ProcessTime),
-    (offset_uint, ValueOffset)
-  ),
-  SEEC_PP_QUOTE(
-    (StateTyped, modifies_shared_state),
-    (StateTyped, is_memory_state)
-  ))
-
 SEEC_TRACE_EVENT(StateUntypedSmall,
   SEEC_PP_QUOTE(
     (uint8_t, Size),

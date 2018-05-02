@@ -59,7 +59,6 @@ struct ThreadStateMoverImpl {
   void addEvent(EventRecord<EventType::Malloc> const &);
   void addEvent(EventRecord<EventType::Free> const &);
   void addEvent(EventRecord<EventType::Realloc> const &);
-  void addEvent(EventRecord<EventType::StateTyped> const &);
   void addEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void addEvent(EventRecord<EventType::StateUntyped> const &);
   void addEvent(EventRecord<EventType::StateMemmove> const &);
@@ -98,7 +97,6 @@ struct ThreadStateMoverImpl {
   void removeEvent(EventRecord<EventType::Malloc> const &);
   void removeEvent(EventRecord<EventType::Free> const &);
   void removeEvent(EventRecord<EventType::Realloc> const &);
-  void removeEvent(EventRecord<EventType::StateTyped> const &);
   void removeEvent(EventRecord<EventType::StateUntypedSmall> const &);
   void removeEvent(EventRecord<EventType::StateUntyped> const &);
   void removeEvent(EventRecord<EventType::StateMemmove> const &);
@@ -476,12 +474,6 @@ void ThreadStateMoverImpl::addEvent(EventRecord<EventType::Realloc> const &Ev)
                                  Ev.getNewSize());
   Parent.ProcessTime = Ev.getProcessTime();
   m_State.ProcessTime = Ev.getProcessTime();
-}
-
-void
-ThreadStateMoverImpl::addEvent(EventRecord<EventType::StateTyped> const &Ev)
-{
-  llvm_unreachable("not yet implemented.");
 }
 
 void
@@ -938,12 +930,6 @@ ThreadStateMoverImpl::removeEvent(EventRecord<EventType::Realloc> const &Ev)
 
   Parent.ProcessTime = Ev.getProcessTime() - 1;
   setPreviousViewOfProcessTime(m_EvRef);
-}
-
-void
-ThreadStateMoverImpl::removeEvent(EventRecord<EventType::StateTyped> const &Ev)
-{
-  llvm_unreachable("not yet implemented!");
 }
 
 void
