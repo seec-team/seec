@@ -14,7 +14,7 @@
 #ifndef SEEC_TRACE_TRACESTORAGE_HPP
 #define SEEC_TRACE_TRACESTORAGE_HPP
 
-#include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceFormatBasic.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/Maybe.hpp"
 

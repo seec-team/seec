@@ -29,6 +29,7 @@
 #include "seec/Preprocessor/AddComma.h"
 #include "seec/Trace/DetectCallsLookup.hpp"
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Maybe.hpp"
 #include "seec/Util/TemplateSequence.hpp"
 

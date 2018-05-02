@@ -14,7 +14,7 @@
 #ifndef SEEC_TRACE_RUNTIMEVALUE_HPP
 #define SEEC_TRACE_RUNTIMEVALUE_HPP
 
-#include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceFormatBasic.hpp"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/APFloat.h"

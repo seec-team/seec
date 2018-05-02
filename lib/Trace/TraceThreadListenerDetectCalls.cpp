@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/GetCurrentRuntimeValue.hpp"
+#include "seec/Trace/TraceEventWriter.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 
@@ -1077,7 +1078,7 @@ void TraceThreadListener::postCfree(llvm::CallInst const *Call,
                                     void *Address)
 {
   ++Time;
-  EventsOut.write<EventType::Instruction>(Index);
+  EventsOut->write<EventType::Instruction>(Index);
   
   auto FreedMalloc = recordFree(reinterpret_cast<uintptr_t>(Address));
   

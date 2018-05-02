@@ -14,7 +14,7 @@
 #ifndef SEEC_TRACE_TRACESTREAMS_HPP
 #define SEEC_TRACE_TRACESTREAMS_HPP
 
-#include "seec/Trace/TraceFormat.hpp"
+#include "llvm/ADT/Optional.h"
 
 #include <cstdio>
 #include <map>

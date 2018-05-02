@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "seec/Trace/DetectCalls.hpp"
+#include "seec/Trace/TraceEventWriter.hpp"
+#include "seec/Trace/TraceRecordedFunction.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Trace/TraceThreadMemCheck.hpp"
 #include "seec/Util/CheckNew.hpp"
@@ -79,7 +81,7 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
   uint64_t const Entered = ++Time;
 
   // Create function start event.
-  auto StartWrite = EventsOut.write<EventType::FunctionStart>
+  auto StartWrite = EventsOut->write<EventType::FunctionStart>
                       (Index,
                        /* EventOffsetStart */ offset_uint(0),
                        /* EventOffsetEnd */ offset_uint(0),
@@ -130,18 +132,10 @@ void TraceThreadListener::notifyFunctionBegin(uint32_t Index,
                                *RecordedFunctions.back(),
                                std::move(PtrArgObjects));
 
-    auto const Parent = PriorStackSize ? &(FunctionStack[PriorStackSize-1])
-                                       : nullptr;
-
     ActiveFunction = &(FunctionStack.back());
 
-    // If there was already an active function, add the new function as a child,
-    // otherwise record it as a new top-level function.
-    if (Parent)
-      Parent->addChild(*ActiveFunction);
-
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
-    if (!Parent && environ) {
+    if (PriorStackSize == 0 && environ) {
       std::call_once(
         ProcessListener.getEnvironSetupOnceFlag(),
         [this] () {
@@ -185,9 +179,9 @@ void TraceThreadListener::notifyArgumentByVal(uint32_t Index,
   auto const PointeeSize = DataLayout.getTypeStoreSize(PointeeType);
   
   // Record this memory area in the trace.
-  EventsOut.write<EventType::ByValRegionAdd>(Arg->getArgNo(),
-                                             AddressInt,
-                                             PointeeSize);
+  EventsOut->write<EventType::ByValRegionAdd>(Arg->getArgNo(),
+                                              AddressInt,
+                                              PointeeSize);
   
   // Lock global memory, and release when we exit scope.
   acquireGlobalMemoryWriteLock();
@@ -404,7 +398,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
 
   // Create function end event.
   auto EndWrite =
-    EventsOut.write<EventType::FunctionEnd>(Record.getEventOffsetStart());
+    EventsOut->write<EventType::FunctionEnd>(Record.getEventOffsetStart());
   assert(EndWrite);
 
   // Clear stack allocations and pop the Function from the stack.
@@ -440,7 +434,7 @@ void TraceThreadListener::notifyFunctionEnd(uint32_t const Index,
   }
 
   // Update the function record with the end details.
-  Record.setCompletion(EventsOut, EndWrite->Offset, Exited);
+  Record.setCompletion(*EventsOut, EndWrite->Offset, Exited);
 }
 
 void TraceThreadListener::notifyPreCall(InstrIndexInFn Index,
@@ -457,7 +451,7 @@ void TraceThreadListener::notifyPreCall(InstrIndexInFn Index,
   
   // Emit a PreInstruction so that the call becomes active.
   ++Time;
-  EventsOut.write<EventType::PreInstruction>(Index);
+  EventsOut->write<EventType::PreInstruction>(Index);
 }
 
 void TraceThreadListener::notifyPostCall(InstrIndexInFn Index,
@@ -544,13 +538,13 @@ void TraceThreadListener::notifyPostCallIntrinsic(InstrIndexInFn Index,
         *(ProcessListener.getTraceMemoryStateAccessor()));
 
       ++Time;
-      EventsOut.write<EventType::Instruction>(Index);
+      EventsOut->write<EventType::Instruction>(Index);
       
       auto const PostCount = ActiveFunc->getAllocas().size();
       assert(PostCount <= PreCount);
       
       // Write StackRestore event.
-      EventsOut.write<EventType::StackRestore>(PreCount - PostCount);
+      EventsOut->write<EventType::StackRestore>(PreCount - PostCount);
 
       break;
     }
@@ -677,7 +671,7 @@ void TraceThreadListener::notifyPostStore(InstrIndexInFn Index,
   auto OnExit = scopeExit([=](){exitPostNotification();});
   
   ++Time;
-  EventsOut.write<EventType::Instruction>(Index);
+  EventsOut->write<EventType::Instruction>(Index);
 
   auto StoreValue = Store->getValueOperand();
 
@@ -821,7 +815,7 @@ void TraceThreadListener::notifyValue(InstrIndexInFn const Index,
   ActiveFunction->setActiveInstruction(Instr);
 
   ++Time;
-  EventsOut.write<EventType::Instruction>(Index);
+  EventsOut->write<EventType::Instruction>(Index);
 }
 
 void TraceThreadListener::notifyValue(InstrIndexInFn Index,
@@ -836,8 +830,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
   ActiveFunction->setActiveInstruction(Instruction);
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithPtr>
-                              (Index, reinterpret_cast<uintptr_t>(Value));
+  auto Write = EventsOut->write<EventType::InstructionWithPtr>
+                               (Index, reinterpret_cast<uintptr_t>(Value));
 
   auto const IntVal = reinterpret_cast<uintptr_t>(Value);
   
@@ -863,8 +857,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
                                                    Alloca->getArraySize());
     assert(CountRTV.assigned() && "Couldn't get Count run-time value.");
     
-    auto const Write = EventsOut.write<EventType::Alloca>(ElementSize,
-                                                          CountRTV.get<0>());
+    auto const Write = EventsOut->write<EventType::Alloca>(ElementSize,
+                                                           CountRTV.get<0>());
     
     auto const Offset = Write ? Write->Offset : 0;
 
@@ -977,8 +971,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithUInt64>
-                              (Index, Value);
+  auto Write = EventsOut->write<EventType::InstructionWithUInt64>
+                               (Index, Value);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1001,8 +995,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithUInt32>
-                              (Value, Index);
+  auto Write = EventsOut->write<EventType::InstructionWithUInt32>
+                               (Value, Index);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1025,8 +1019,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithUInt16>
-                              (Value, Index);
+  auto Write = EventsOut->write<EventType::InstructionWithUInt16>
+                               (Value, Index);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1049,8 +1043,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithUInt8>
-                              (Value, Index);
+  auto Write = EventsOut->write<EventType::InstructionWithUInt8>
+                               (Value, Index);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1073,8 +1067,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithFloat>
-                              (Index, Value);
+  auto Write = EventsOut->write<EventType::InstructionWithFloat>
+                               (Index, Value);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1097,8 +1091,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
     *getActiveFunction()->getCurrentRuntimeValue(InstrIndexInFn{Index});
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithDouble>
-                              (Index, Value);
+  auto Write = EventsOut->write<EventType::InstructionWithDouble>
+                               (Index, Value);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {
@@ -1128,8 +1122,8 @@ void TraceThreadListener::notifyValue(InstrIndexInFn Index,
          sizeof(Value));
 
   ++Time;
-  auto Write = EventsOut.write<EventType::InstructionWithLongDouble>
-                              (Index, Words[0], Words[1]);
+  auto Write = EventsOut->write<EventType::InstructionWithLongDouble>
+                               (Index, Words[0], Words[1]);
   
   // Ensure that RTValues are still valid when tracing is disabled.
   if (OutputEnabled) {

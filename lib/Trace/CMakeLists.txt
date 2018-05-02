@@ -14,6 +14,7 @@ set(TRACE_HEADERS
   ../../include/seec/Trace/Events.def
   ../../include/seec/Trace/IsRecordableType.hpp
   ../../include/seec/Trace/TraceFormat.hpp
+  ../../include/seec/Trace/TraceFormatBasic.hpp
   ../../include/seec/Trace/TracePointer.hpp
   ../../include/seec/Trace/TraceStorage.hpp
   )
@@ -70,6 +71,7 @@ set(EXECUTION_TRACER_HEADERS
   ../../include/seec/Trace/TraceEventWriter.hpp
   ../../include/seec/Trace/TraceMemory.hpp
   ../../include/seec/Trace/TraceProcessListener.hpp
+  ../../include/seec/Trace/TraceRecordedFunction.hpp
   ../../include/seec/Trace/TraceStreams.hpp
   ../../include/seec/Trace/TraceThreadListener.hpp
   ../../include/seec/Trace/TraceThreadMemCheck.hpp
@@ -87,6 +89,7 @@ set(EXECUTION_TRACER_SOURCES
   TracedFunction.cpp
   TraceMemory.cpp
   TraceProcessListener.cpp
+  TraceRecordedFunction.cpp
   TraceStreams.cpp
   TraceThreadListener.cpp
   TraceThreadListenerDetectCalls.cpp

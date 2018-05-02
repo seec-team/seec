@@ -23,6 +23,7 @@
 #include "seec/ICU/Output.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
 #include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceRecordedFunction.hpp"
 #include "seec/Trace/TraceThreadListener.hpp"
 #include "seec/Util/Fallthrough.hpp"
 
@@ -53,7 +54,7 @@ void TraceThreadListener::synchronizeProcessTime() {
   if (RealProcessTime != ProcessTime) {
     ProcessTime = RealProcessTime;
     
-    EventsOut.write<EventType::NewProcessTime>(ProcessTime);
+    EventsOut->write<EventType::NewProcessTime>(ProcessTime);
   }
 }
 
@@ -184,10 +185,10 @@ void TraceThreadListener::recordStreamOpen(FILE *Stream,
   Streams.streamOpened(Stream, FilenameOffset, ModeOffset);
 
   if (FilenameOffset && ModeOffset) {
-    EventsOut.write<EventType::FileOpen>(ProcessTime,
-                                         reinterpret_cast<uintptr_t>(Stream),
-                                         *FilenameOffset,
-                                         *ModeOffset);
+    EventsOut->write<EventType::FileOpen>(ProcessTime,
+                                          reinterpret_cast<uintptr_t>(Stream),
+                                          *FilenameOffset,
+                                          *ModeOffset);
   }
 }
 
@@ -199,10 +200,10 @@ void TraceThreadListener::recordStreamWrite(FILE *Stream,
   auto const DataOffset = ProcessListener.recordData(Data.data(), Data.size());
   
   if (DataOffset) {
-    EventsOut.write<EventType::FileWrite>(ProcessTime,
-                                          reinterpret_cast<uintptr_t>(Stream),
-                                          *DataOffset,
-                                          Data.size());
+    EventsOut->write<EventType::FileWrite>(ProcessTime,
+                                           reinterpret_cast<uintptr_t>(Stream),
+                                           *DataOffset,
+                                           Data.size());
   }
 }
 
@@ -211,11 +212,11 @@ void TraceThreadListener::recordStreamWriteFromMemory(FILE *Stream,
 {
   ProcessTime = getCIProcessTime();
 
-  EventsOut.write<EventType::FileWriteFromMemory>
-                 (ProcessTime,
-                  reinterpret_cast<uintptr_t>(Stream),
-                  Area.start(),
-                  Area.length());
+  EventsOut->write<EventType::FileWriteFromMemory>
+                  (ProcessTime,
+                   reinterpret_cast<uintptr_t>(Stream),
+                   Area.start(),
+                   Area.length());
 }
 
 bool TraceThreadListener::recordStreamClose(FILE *Stream)
@@ -234,10 +235,10 @@ bool TraceThreadListener::recordStreamClose(FILE *Stream)
   auto const ModeOffset = Info->getModeOffset();
   assert(FilenameOffset && ModeOffset);
   
-  EventsOut.write<EventType::FileClose>(ProcessTime,
-                                        reinterpret_cast<uintptr_t>(Stream),
-                                        *FilenameOffset,
-                                        *ModeOffset);
+  EventsOut->write<EventType::FileClose>(ProcessTime,
+                                         reinterpret_cast<uintptr_t>(Stream),
+                                         *FilenameOffset,
+                                         *ModeOffset);
 
   Streams.streamClosed(Stream);
   
@@ -264,9 +265,9 @@ void TraceThreadListener::recordDirOpen(void const * const TheDIR,
   Dirs.DIROpened(TheDIR, FilenameOffset);
   
   if (FilenameOffset) {
-    EventsOut.write<EventType::DirOpen>(ProcessTime,
-                                        reinterpret_cast<uintptr_t>(TheDIR),
-                                        *FilenameOffset);
+    EventsOut->write<EventType::DirOpen>(ProcessTime,
+                                         reinterpret_cast<uintptr_t>(TheDIR),
+                                         *FilenameOffset);
   }
 }
 
@@ -285,9 +286,9 @@ bool TraceThreadListener::recordDirClose(void const * const TheDIR)
   auto const DirnameOffset = Info->getDirnameOffset();
   assert(DirnameOffset);
   
-  EventsOut.write<EventType::DirClose>(ProcessTime,
-                                       reinterpret_cast<uintptr_t>(TheDIR),
-                                       *DirnameOffset);
+  EventsOut->write<EventType::DirClose>(ProcessTime,
+                                        reinterpret_cast<uintptr_t>(TheDIR),
+                                        *DirnameOffset);
   
   Dirs.DIRClosed(TheDIR);
   
@@ -302,7 +303,7 @@ bool TraceThreadListener::recordDirClose(void const * const TheDIR)
 void TraceThreadListener::recordMalloc(uintptr_t Address, std::size_t Size) {
   ProcessTime = getCIProcessTime();
   
-  auto Write = EventsOut.write<EventType::Malloc>(Size, ProcessTime);
+  auto Write = EventsOut->write<EventType::Malloc>(Size, ProcessTime);
   auto const Offset = Write ? Write->Offset : 0;
 
   // update dynamic allocation lookup
@@ -323,7 +324,7 @@ void TraceThreadListener::recordRealloc(uintptr_t const Address,
   auto const OldSize = Alloc->size();
 
   ProcessTime = getCIProcessTime();
-  EventsOut.write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
+  EventsOut->write<EventType::Realloc>(Address, OldSize, NewSize, ProcessTime);
 
   {
     auto MemoryState = ProcessListener.getTraceMemoryStateAccessor();
@@ -353,7 +354,7 @@ DynamicAllocation TraceThreadListener::recordFree(uintptr_t Address) {
   ProcessTime = getCIProcessTime();
 
   // Write Free event.
-  EventsOut.write<EventType::Free>(Address, ProcessTime);
+  EventsOut->write<EventType::Free>(Address, ProcessTime);
 
   // Update dynamic allocation lookup.
   ProcessListener.removeCurrentDynamicMemoryAllocation(Address);
@@ -394,20 +395,20 @@ void TraceThreadListener::recordUntypedState(char const *Data,
     memcpy(DataStorePtr, Data, Size);
     
     // Write the state information to the trace.
-    EventsOut.write<EventType::StateUntypedSmall>(static_cast<uint8_t>(Size),
-                                                  Address,
-                                                  ProcessTime,
-                                                  DataStore);
+    EventsOut->write<EventType::StateUntypedSmall>(static_cast<uint8_t>(Size),
+                                                   Address,
+                                                   ProcessTime,
+                                                   DataStore);
   }
   else {
     auto DataOffset = ProcessListener.recordData(Data, Size);
 
     // Write the state information to the trace.
     if (DataOffset) {
-      EventsOut.write<EventType::StateUntyped>(Address,
-                                               ProcessTime,
-                                               *DataOffset,
-                                               Size);
+      EventsOut->write<EventType::StateUntyped>(Address,
+                                                ProcessTime,
+                                                *DataOffset,
+                                                Size);
     }
   }
 }
@@ -427,9 +428,9 @@ void TraceThreadListener::recordStateClear(uintptr_t Address,
   
   ProcessTime = getCIProcessTime();
   
-  EventsOut.write<EventType::StateClear>(Address,
-                                         ProcessTime,
-                                         Size);
+  EventsOut->write<EventType::StateClear>(Address,
+                                          ProcessTime,
+                                          Size);
 }
 
 void TraceThreadListener::recordMemset() {
@@ -452,10 +453,10 @@ void TraceThreadListener::recordMemmove(uintptr_t Source,
   auto const MemoryState = ProcessListener.getTraceMemoryStateAccessor();
   MemoryState->memmove(Source, Destination, Size);
   
-  EventsOut.write<EventType::StateMemmove>(ProcessTime,
-                                           Source,
-                                           Destination,
-                                           Size);
+  EventsOut->write<EventType::StateMemmove>(ProcessTime,
+                                            Source,
+                                            Destination,
+                                            Size);
 }
 
 void TraceThreadListener::addKnownMemoryRegion(uintptr_t Address,
@@ -472,8 +473,8 @@ void TraceThreadListener::addKnownMemoryRegion(uintptr_t Address,
   auto const Writable = (Access == seec::MemoryPermission::WriteOnly) ||
                         (Access == seec::MemoryPermission::ReadWrite);
   
-  EventsOut.write<EventType::KnownRegionAdd>
-                 (Address, Length, Readable, Writable);
+  EventsOut->write<EventType::KnownRegionAdd>
+                  (Address, Length, Readable, Writable);
 }
 
 bool TraceThreadListener::isKnownMemoryRegionAt(uintptr_t Address) const
@@ -522,8 +523,8 @@ bool TraceThreadListener::removeKnownMemoryRegion(uintptr_t Address)
   auto const Writable = (Access == seec::MemoryPermission::WriteOnly) ||
                         (Access == seec::MemoryPermission::ReadWrite);
   
-  EventsOut.write<EventType::KnownRegionRemove>
-                 (KeyAddress, Length, Readable, Writable);
+  EventsOut->write<EventType::KnownRegionRemove>
+                  (KeyAddress, Length, Readable, Writable);
   
   return Result;
 }
@@ -541,11 +542,10 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   ThreadID(ProcessListener.registerThreadListener(this)),
   StreamAllocator(StreamAllocator),
   OutputEnabled(false),
-  EventsOut(),
+  EventsOut(llvm::make_unique<EventWriter>()),
   Time(0),
   ProcessTime(0),
   RecordedFunctions(),
-  RecordedTopLevelFunctions(),
   FunctionStack(),
   ActiveFunction(nullptr),
   GlobalMemoryLock(),
@@ -553,7 +553,7 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
   StreamsLock(),
   DirsLock()
 {
-  EventsOut.open(StreamAllocator.getThreadEventStream(ThreadID));
+  EventsOut->open(StreamAllocator.getThreadEventStream(ThreadID));
   OutputEnabled = true;
   
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
@@ -588,7 +588,7 @@ TraceThreadListener::~TraceThreadListener()
 
 void TraceThreadListener::traceClose()
 {
-  EventsOut.close();
+  EventsOut->close();
   OutputEnabled = false;
 }
 
@@ -627,6 +627,12 @@ TraceThreadListener::getParamByValArea(llvm::Argument const *Arg) const
 // Mutators
 //------------------------------------------------------------------------------
 
+uint64_t TraceThreadListener::incrementThreadTime() {
+  EventsOut->write<seec::trace::EventType::NewThreadTime>(++Time);
+  CIProcessTime.reset();
+  return Time;
+}
+
 static void writeError(EventWriter &EventsOut,
                        seec::runtime_errors::RunError const &Error,
                        bool IsTopLevel)
@@ -661,10 +667,10 @@ TraceThreadListener
   // PreInstruction event precedes the RuntimeError
   if (PreInstructionIndex) {
     ++Time;
-    EventsOut.write<EventType::PreInstruction>(*PreInstructionIndex);
+    EventsOut->write<EventType::PreInstruction>(*PreInstructionIndex);
   }
   
-  writeError(EventsOut, Error, true);
+  writeError(*EventsOut, Error, true);
 
   // Call the runtime error callback, if there is one.
   auto const &Callback = ProcessListener.getRunErrorCallback();

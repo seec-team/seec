@@ -16,8 +16,7 @@
 
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
-#include "seec/Trace/TraceEventWriter.hpp"
-#include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceFormatBasic.hpp"
 #include "seec/Trace/TracePointer.hpp"
 #include "seec/Util/IndexTypesForLLVMObjects.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -45,6 +44,7 @@ namespace seec {
 
 namespace trace {
 
+class RecordedFunction;
 class TraceMemoryState;
 class TraceThreadListener;
 
@@ -158,71 +158,6 @@ public:
   /// \brief Get the memory area occupied by the parameter.
   ///
   MemoryArea const &getArea() const { return Area; }
-};
-
-
-/// \brief Stores the record information for an executed Function.
-///
-///
-class RecordedFunction {
-  /// Allows us to rewrite the FunctionStart event when we finish the fn.
-  EventWriter::EventWriteRecord<EventType::FunctionStart> StartEventWrite;
-  
-  /// Index of the Function in the LLVM Module.
-  uint32_t Index;
-
-  /// Offset of the FunctionStart event for this function trace.
-  offset_uint EventOffsetStart;
-
-  /// Offset of the FunctionEnd event for this function trace.
-  offset_uint EventOffsetEnd;
-
-  /// Thread time at which this function was entered.
-  uint64_t ThreadTimeEntered;
-
-  /// Thread time at which this function was exited.
-  uint64_t ThreadTimeExited;
-
-public:
-  /// \brief Constructor.
-  ///
-  RecordedFunction(
-    uint32_t const WithIndex,
-    EventWriter::EventWriteRecord<EventType::FunctionStart> Write,
-    uint64_t const WithThreadTimeEntered
-  )
-  : StartEventWrite(Write),
-    Index(WithIndex),
-    EventOffsetStart(Write.Offset),
-    EventOffsetEnd(0),
-    ThreadTimeEntered(WithThreadTimeEntered),
-    ThreadTimeExited(0)
-  {}
-
-  /// Get the index of the Function in the Module.
-  uint32_t getIndex() const { return Index; }
-
-  /// Get the offset of the FunctionStart record in the thread's event trace.
-  offset_uint getEventOffsetStart() const { return EventOffsetStart; }
-
-  /// Get the offset of the FunctionEnd record in the thread's event trace.
-  offset_uint getEventOffsetEnd() const { return EventOffsetEnd; }
-
-  /// Get the thread time at which this Function started recording.
-  uint64_t getThreadTimeEntered() const { return ThreadTimeEntered; }
-
-  /// Get the thread time at which this Function finished recording.
-  uint64_t getThreadTimeExited() const { return ThreadTimeExited; }
-
-  void addChild(RecordedFunction const &Child)
-  {
-    // We don't record this anymore, but still use it as a sanity-check.
-    assert(EventOffsetEnd == 0 && ThreadTimeExited == 0);
-  }
-
-  void setCompletion(EventWriter &Writer,
-                     offset_uint const WithEventOffsetEnd,
-                     uint64_t const WithThreadTimeExited);
 };
 
 
@@ -569,10 +504,6 @@ public:
 
   /// \name Mutators
   /// @{
-
-  /// \brief Add a new child TracedFunction.
-  /// \param Child the child function call.
-  void addChild(TracedFunction &Child) { Record.addChild(Child.Record); }
   
   /// \brief Add a new TracedAlloca.
   /// \param Alloca the new TracedAlloca.

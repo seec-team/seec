@@ -17,7 +17,6 @@
 #include "seec/DSA/IntervalMapVector.hpp"
 #include "seec/DSA/MemoryArea.hpp"
 #include "seec/Trace/DetectCallsLookup.hpp"
-#include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceMemory.hpp"
 #include "seec/Trace/TracePointer.hpp"
 #include "seec/Trace/TraceStorage.hpp"

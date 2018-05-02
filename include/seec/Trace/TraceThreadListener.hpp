@@ -18,8 +18,7 @@
 #include "seec/Trace/DetectCalls.hpp"
 #include "seec/Trace/RuntimeValue.hpp"
 #include "seec/Trace/TracedFunction.hpp"
-#include "seec/Trace/TraceEventWriter.hpp"
-#include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceFormatBasic.hpp"
 #include "seec/Trace/TraceProcessListener.hpp"
 #include "seec/Trace/TraceStorage.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -52,6 +51,8 @@ namespace seec {
 
 namespace trace {
 
+
+class EventWriter;
 
 /// Describes the severity of a detected run-time error.
 enum class RunErrorSeverity {
@@ -95,7 +96,7 @@ class TraceThreadListener
   bool OutputEnabled;
   
   /// Handles writing event data.
-  EventWriter EventsOut;
+  std::unique_ptr<EventWriter> EventsOut;
 
   /// @} (Outputs)
 
@@ -108,9 +109,6 @@ class TraceThreadListener
 
   /// List of all traced Functions, in order.
   std::vector<std::unique_ptr<RecordedFunction>> RecordedFunctions;
-
-  /// Offset of all top-level traced Functions.
-  std::vector<offset_uint> RecordedTopLevelFunctions;
 
   /// Stack of trace information for still-executing Functions.
   /// The back of the vector is the currently active Function.
@@ -420,7 +418,7 @@ public:
   
   /// \brief Get access to the event output.
   ///
-  EventWriter &getEventsOut() { return EventsOut; }
+  EventWriter &getEventsOut() { return *EventsOut; }
 
   /// \brief Get the \c llvm::DataLayout for the \c llvm::Module.
   ///
@@ -482,13 +480,7 @@ public:
   /// This will also reset the process time associated with the current
   /// instruction.
   ///
-  uint64_t incrementThreadTime() {
-    EventsOut.write<seec::trace::EventType::NewThreadTime>(++Time);
-    
-    CIProcessTime.reset();
-    
-    return Time;
-  }
+  uint64_t incrementThreadTime();
 
   /// \brief Handle a run-time error.
   /// At this time, a run-time error is handled by writing it to the trace, and
