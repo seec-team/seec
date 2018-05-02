@@ -581,14 +581,7 @@ public:
   
   virtual bool isPartiallyInitialized() const override {
     auto Region = Memory.getRegion(MemoryArea(Address, Size.getQuantity()));
-    
-    // TODO: We should implement this in MemoryRegion, because it will be much
-    //       more efficient.
-    for (auto Value : Region.getByteInitialization())
-      if (Value)
-        return true;
-    
-    return false;
+    return Region.isPartiallyInitialized();
   }
   
   virtual std::string getValueAsStringShort() const override {
@@ -866,14 +859,7 @@ public:
   virtual bool isPartiallyInitialized() const override {
     auto const &Memory = ProcessState.getMemory();
     auto Region = Memory.getRegion(MemoryArea(Address, sizeof(void const *)));
-    
-    // TODO: We should implement this in MemoryRegion, because it will be much
-    //       more efficient.
-    for (auto Value : Region.getByteInitialization())
-      if (Value)
-        return true;
-    
-    return false;
+    return Region.isPartiallyInitialized();
   }
   
   /// \brief Get a string describing the value (which may be elided).
@@ -2061,13 +2047,13 @@ public:
   ///
   virtual stateptr_ty getAddress() const override { return 0; }
   
-  /// \brief Runtime values are always initialized (at the moment).
+  /// \brief Runtime values are always initialized.
   ///
   virtual bool isCompletelyInitialized() const override { return true; }
   
-  /// \brief Runtime values are never partially initialized (at the moment).
+  /// \brief Runtime values are always initialized.
   ///
-  virtual bool isPartiallyInitialized() const override { return false; }
+  virtual bool isPartiallyInitialized() const override { return true; }
   
   /// \brief Get a string describing the value (which may be elided).
   ///
@@ -2156,13 +2142,13 @@ public:
   ///
   virtual stateptr_ty getAddress() const override { return 0; }
 
-  /// \brief Runtime values are always initialized (at the moment).
+  /// \brief Runtime values are always initialized.
   ///
   virtual bool isCompletelyInitialized() const override { return true; }
 
-  /// \brief Runtime values are never partially initialized (at the moment).
+  /// \brief Runtime values are always initialized.
   ///
-  virtual bool isPartiallyInitialized() const override { return false; }
+  virtual bool isPartiallyInitialized() const override { return true; }
 
   /// \brief Get a string describing the value (which may be elided).
   ///
@@ -2330,13 +2316,13 @@ public:
   ///
   virtual stateptr_ty getAddress() const override { return 0; }
   
-  /// \brief Runtime values are always initialized (at the moment).
+  /// \brief Runtime values are always initialized.
   ///
   virtual bool isCompletelyInitialized() const override { return true; }
   
-  /// \brief Runtime values are never partially initialized (at the moment).
+  /// \brief Runtime values are always partially initialized.
   ///
-  virtual bool isPartiallyInitialized() const override { return false; }
+  virtual bool isPartiallyInitialized() const override { return true; }
   
   /// \brief Get a string describing the value (which may be elided).
   ///
