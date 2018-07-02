@@ -32,7 +32,6 @@
 
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
 #include <unistd.h>
-#include <signal.h>
 #include <sys/resource.h>
 #endif
 
@@ -56,79 +55,6 @@ void TraceThreadListener::synchronizeProcessTime() {
     
     EventsOut->write<EventType::NewProcessTime>(ProcessTime);
   }
-}
-
-void TraceThreadListener::checkSignals() {
-  // This function polls for blocked signals.
-
-#if defined(SEEC_SIGNAL_POLLED)
-#undef SEEC_SIGNAL_POLLED
-#endif
-
-#if defined(__APPLE__)
-#define SEEC_SIGNAL_POLLED
-  // Apple don't have sigtimedwait(), so we have to use a messy workaround.
-  
-  static std::mutex CheckSignalsMutex;
-  
-  int Success = 0;
-  int Caught = 0;
-  sigset_t Empty;
-  sigset_t Pending;
-  
-  Success = sigemptyset(&Empty);
-  assert(Success == 0 && "sigemptyset() failed.");
-  
-  {
-    std::lock_guard<std::mutex> Lock (CheckSignalsMutex);
-    
-    Success = sigpending(&Pending);
-    assert(Success == 0 && "sigpending() failed.");
-    
-    if (memcmp(&Empty, &Pending, sizeof(sigset_t)) == 0)
-      return;
-    
-    // There is a pending signal.
-    Success = sigwait(&Pending, &Caught);
-    assert(Success == 0 && "sigwait() failed.");
-  }
-
-#elif defined(_POSIX_VERSION) && _POSIX_VERSION >= 199309L
-#define SEEC_SIGNAL_POLLED
-  // Use sigtimedwait() if we possibly can.
-  
-  sigset_t FullSet;
-  auto const FillResult = sigfillset(&FullSet);
-  assert(FillResult == 0 && "sigfillset() failed.");
-  
-  siginfo_t Information;
-  struct timespec WaitTime = (struct timespec){.tv_sec = 0, .tv_nsec = 0};
-  int const Caught = sigtimedwait(&FullSet, &Information, &WaitTime);
-  
-  // If no signal is found then sigtimedwait() returns an error (-1).
-  if (Caught == -1)
-    return;
-#endif
-
-#if defined(SEEC_SIGNAL_POLLED)
-#undef SEEC_SIGNAL_POLLED
-  // Caught > 0 indicates the signal number of the caught signal.
-  switch (Caught) {
-    // The default disposition for these signals is to ignore them, so we will
-    // also ignore them.
-    case SIGCHLD: SEEC_FALLTHROUGH;
-    case SIGURG:
-      return;
-    
-    default:
-      break;
-  }
-
-  // TODO: Write the signal into the trace.
-  // Describe signal using strsignal().
-  
-  std::exit(EXIT_FAILURE);
-#endif
 }
 
 std::uintptr_t TraceThreadListener::getRemainingStack() const
@@ -555,23 +481,6 @@ TraceThreadListener::TraceThreadListener(TraceProcessListener &ProcessListener,
 {
   EventsOut->open(StreamAllocator.getThreadEventStream(ThreadID));
   OutputEnabled = true;
-  
-#if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)))
-  // Setup signal handling for this thread.
-  int Success = 0;
-  sigset_t BlockedSignals;
-  
-  Success |= sigfillset(&BlockedSignals);
-  
-  // Remove signals that cause undefined behaviour when blocked.
-  Success |= sigdelset(&BlockedSignals, SIGBUS);
-  Success |= sigdelset(&BlockedSignals, SIGFPE);
-  Success |= sigdelset(&BlockedSignals, SIGILL);
-  Success |= sigdelset(&BlockedSignals, SIGSEGV);
-  
-  Success |= sigprocmask(SIG_BLOCK, &BlockedSignals, NULL);
-  assert(Success == 0 && "Failed to setup signal blocking.");
-#endif
 }
 
 TraceThreadListener::~TraceThreadListener()

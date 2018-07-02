@@ -162,10 +162,6 @@ class TraceThreadListener
 
   /// \brief Synchronize this thread's view of the synthetic process time.
   void synchronizeProcessTime();
-  
-  /// \brief Check for any pending signals.
-  ///
-  void checkSignals();
 
   /// \brief Get (an estimate of) the remaining stack available.
   ///
