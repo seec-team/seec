@@ -30,6 +30,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <atomic>
 #include <thread>
 #include <memory>
 #include <vector>
@@ -102,7 +103,9 @@ class TraceThreadListener
 
 
   /// The synthetic ``thread time'' for this thread.
-  uint64_t Time;
+  // This is volatile because it may be read by the signal handler, if a signal
+  // is caught in this thread.
+  volatile std::atomic<uint64_t> Time;
 
   /// This thread's view of the synthetic ``process time'' for this process.
   uint64_t ProcessTime;
@@ -415,6 +418,10 @@ public:
   /// \brief Get access to the event output.
   ///
   EventWriter &getEventsOut() { return *EventsOut; }
+  
+  /// \brief Get access to the thread time.
+  ///
+  volatile std::atomic<uint64_t> const &getThreadTime() const { return Time; }
 
   /// \brief Get the \c llvm::DataLayout for the \c llvm::Module.
   ///

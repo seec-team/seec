@@ -15,6 +15,7 @@
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Trace/TraceSignalInfo.hpp"
 #include "seec/Util/Serialization.hpp"
 #include "seec/Util/ScopeExit.hpp"
 
@@ -254,6 +255,7 @@ InputBufferAllocator::createForFile(llvm::StringRef Path,
   llvm::Optional<InputBlock> BlockModuleBitcode;
   llvm::Optional<InputBlock> BlockProcessTrace;
   std::vector<std::vector<InputBlock>> BlocksThreadEvents;
+  std::vector<InputBlock> BlocksForCaughtSignals;
   
   // Find the blocks.
   auto const BlockHeaderSize = sizeof(BlockType) + sizeof(uint64_t);
@@ -296,6 +298,9 @@ InputBufferAllocator::createForFile(llvm::StringRef Path,
       
       BlocksThreadEvents[ID - 1].push_back(Block);
     }
+    else if (Type == BlockType::SignalInfo) {
+      BlocksForCaughtSignals.push_back(Block);
+    }
     else {
       return Error(
         LazyMessageByRef::create("Trace",
@@ -323,6 +328,7 @@ InputBufferAllocator::createForFile(llvm::StringRef Path,
                               *BlockModuleBitcode,
                               *BlockProcessTrace,
                               std::move(ThreadEventSequences),
+                              std::move(BlocksForCaughtSignals),
                               std::move(TempFiles));
 }
 
@@ -537,6 +543,21 @@ ProcessTrace::ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
   StreamsInitial(std::move(WithStreamsInitial)),
   ThreadTraces()
 {
+  std::vector<CaughtSignalInfo> CaughtSignalsWithoutThread;
+  std::map<ThreadIDTy, std::vector<CaughtSignalInfo>> CaughtSignalsByThread;
+  
+  for (auto &Block : Allocator->getBlocksForCaughtSignals()) {
+    auto SignalInfo = CaughtSignalInfo::readFrom(Block);
+    if (SignalInfo.hasValue()) {
+      if (auto ID = SignalInfo->getThreadID()) {
+        CaughtSignalsByThread[*ID].push_back(*SignalInfo);
+      }
+      else {
+        CaughtSignalsWithoutThread.push_back(*SignalInfo);
+      }
+    }
+  }
+  
   ThreadTraces.reserve(NumThreads);
   for (size_t i = 0; i < NumThreads; ++i) {
     ThreadIDTy ID(i);
@@ -544,7 +565,9 @@ ProcessTrace::ProcessTrace(std::unique_ptr<InputBufferAllocator> WithAllocator,
     auto const Blocks = Allocator->getThreadSequence(ID);
     assert(Blocks);
     
-    ThreadTraces.emplace_back(new ThreadTrace(*this, ID, *Blocks));
+    ThreadTraces.emplace_back(
+      new ThreadTrace(*this, ID, *Blocks,
+                      std::move(CaughtSignalsByThread[ID])));
   }
   
   FinalProcessTime = getHighestProcessTimeInThreads(ThreadTraces);

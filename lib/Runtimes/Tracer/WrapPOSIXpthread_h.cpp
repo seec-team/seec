@@ -60,7 +60,7 @@ SEEC_MANGLE_FUNCTION(pthread_join)
   // TODO: Check if *value_ptr has a determinable origin.
   return
     seec::SimpleWrapper
-      <seec::SimpleWrapperSetting::AcquireGlobalMemoryWriteLock>
+      <>
       {seec::runtime_errors::format_selects::CStdFunction::pthread_join}
       (pthread_join,
        [](int const Result){ return Result == 0; },

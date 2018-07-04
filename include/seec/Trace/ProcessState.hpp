@@ -26,10 +26,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <atomic>
-#include <condition_variable>
 #include <map>
 #include <memory>
-#include <thread>
 
 namespace llvm {
   class raw_ostream; // Forward-declaration for operator<<.

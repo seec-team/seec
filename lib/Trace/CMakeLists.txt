@@ -16,6 +16,7 @@ set(TRACE_HEADERS
   ../../include/seec/Trace/TraceFormat.hpp
   ../../include/seec/Trace/TraceFormatBasic.hpp
   ../../include/seec/Trace/TracePointer.hpp
+  ../../include/seec/Trace/TraceSignalInfo.hpp
   ../../include/seec/Trace/TraceStorage.hpp
   )
 
@@ -23,6 +24,7 @@ set(TRACE_SOURCES
   IsRecordableType.cpp
   TraceFormat.cpp
   TracePointer.cpp
+  TraceSignalInfo.cpp
   TraceStorage.cpp
 )
 

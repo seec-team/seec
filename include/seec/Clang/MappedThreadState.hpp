@@ -30,6 +30,7 @@ namespace llvm {
 namespace seec {
 
 namespace trace {
+  class CaughtSignalInfo;
   class ThreadState;
 } // namespace trace (in seec)
 
@@ -114,6 +115,10 @@ public:
   seec::trace::ThreadState const &getUnmappedState() const {
     return UnmappedState;
   }
+  
+  /// \brief Get signals caught in this thread at this time.
+  ///
+  std::vector<seec::trace::CaughtSignalInfo> const &getCaughtSignals() const;
   
   /// @} (Access underlying information.)
   

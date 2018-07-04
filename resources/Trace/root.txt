@@ -96,4 +96,13 @@ root:table {
       "Failed to delete unarchived trace files."
     }
   }
+  
+  descriptions:table {
+    CaughtSignal:string {
+      "{name, select, "
+        "NULL {Caught unnamed signal ({value}).}"
+        "other {Caught signal {name} ({value}): {message}.}"
+      "}"
+    }
+  }
 }

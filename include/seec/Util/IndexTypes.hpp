@@ -21,7 +21,8 @@ namespace seec {
 /// \brief A zero-based thread ID.
 struct ThreadIDTy
 : type_safe::strong_typedef<ThreadIDTy, uint32_t>,
-  type_safe::strong_typedef_op::equality_comparison<ThreadIDTy>
+  type_safe::strong_typedef_op::equality_comparison<ThreadIDTy>,
+  type_safe::strong_typedef_op::relational_comparison<ThreadIDTy>
 {
   using strong_typedef::strong_typedef;
 };

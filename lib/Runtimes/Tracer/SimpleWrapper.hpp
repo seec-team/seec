@@ -757,6 +757,7 @@ public:
 
     if (Success) {
       T const Ptr = Value;
+      Listener.acquireGlobalMemoryWriteLock();
       Listener.recordUntypedState(reinterpret_cast<char const *>(Ptr),
                                   Value.getSize());
 
@@ -817,6 +818,7 @@ public:
     
     if (Success) {
       auto const Ptr = reinterpret_cast<char const *>(Value.address());
+      Listener.acquireGlobalMemoryWriteLock();
       Listener.recordUntypedState(Ptr, Value.getSize());
     }
     
@@ -1074,6 +1076,7 @@ public:
     if (!Area.contains(MemoryArea(Address, Size)))
       return;
 
+    ThreadListener.acquireGlobalMemoryWriteLock();
     ThreadListener.recordUntypedState(Global, Size);
 
     if (IsPointerType) {

@@ -15,6 +15,7 @@
 #define SEEC_TRACE_TRACEREADER_HPP
 
 #include "seec/Trace/TraceFormat.hpp"
+#include "seec/Trace/TraceSignalInfo.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/IndexTypes.hpp"
 #include "seec/Util/Maybe.hpp"
@@ -24,6 +25,8 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+#include "type_safe/boolean.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -191,6 +194,8 @@ class InputBufferAllocator {
   InputBlock m_BlockForProcessTrace;
   
   std::vector<ThreadEventBlockSequence> m_BlockSequencesForThreads;
+  
+  std::vector<InputBlock> m_BlocksForCaughtSignals;
 
   /// \brief Constructor (no temporaries).
   ///
@@ -198,12 +203,14 @@ class InputBufferAllocator {
                        InputBlock BlockForModule,
                        InputBlock BlockForProcessTrace,
                        std::vector<ThreadEventBlockSequence> BlockSequences,
+                       std::vector<InputBlock> BlocksForCaughtSignals,
                        std::vector<std::string> TempFiles)
   : m_TraceBuffer(std::move(TraceBuffer)),
     m_TempFiles(std::move(TempFiles)),
     m_BlockForModule(BlockForModule),
     m_BlockForProcessTrace(BlockForProcessTrace),
-    m_BlockSequencesForThreads(std::move(BlockSequences))
+    m_BlockSequencesForThreads(std::move(BlockSequences)),
+    m_BlocksForCaughtSignals(std::move(BlocksForCaughtSignals))
   {
     assert(m_BlockForModule.getType() == BlockType::ModuleBitcode);
     assert(m_BlockForProcessTrace.getType() == BlockType::ProcessTrace);
@@ -266,6 +273,12 @@ public:
   ///
   InputBlock getProcessTrace() const {
     return m_BlockForProcessTrace;
+  }
+  
+  /// \brief Get blocks holding caught signal information.
+  ///
+  std::vector<InputBlock> const &getBlocksForCaughtSignals() const {
+    return m_BlocksForCaughtSignals;
   }
   
   ///
@@ -612,16 +625,32 @@ class ThreadTrace {
 
   /// Information about the thread's serialized events.
   ThreadEventBlockSequence const &m_EventSequence;
+  
+  /// Signals caught in this thread.
+  std::vector<CaughtSignalInfo> m_CaughtSignals;
+  
+  /// Lookup signals caught in this thread.
+  llvm::DenseSet<uint64_t> m_TimeHasCaughtSignals;
  
   /// \brief Constructor
   ///
   ThreadTrace(ProcessTrace const &Parent,
               ThreadIDTy ID,
-              ThreadEventBlockSequence const &EventBlockSequence)
+              ThreadEventBlockSequence const &EventBlockSequence,
+              std::vector<CaughtSignalInfo> CaughtSignals)
   : m_ProcessTrace(Parent),
     m_ID(ID),
-    m_EventSequence(EventBlockSequence)
-  {}
+    m_EventSequence(EventBlockSequence),
+    m_CaughtSignals(std::move(CaughtSignals)),
+    m_TimeHasCaughtSignals()
+  {
+    for (auto const &Signal : m_CaughtSignals) {
+      auto Time = Signal.getThreadTime();
+      assert(Time.hasValue());
+      
+      m_TimeHasCaughtSignals.insert(*Time);
+    }
+  }
 
 public:
   /// \name Accessors
@@ -645,6 +674,27 @@ public:
   ///
   ThreadEventBlockSequence const &getThreadEventBlockSequence() const {
     return m_EventSequence;
+  }
+  
+  /// \brief Get signals caught at the given time.
+  ///
+  llvm::Optional<std::vector<CaughtSignalInfo>>
+  getCaughtSignalsAtTime(uint64_t const Time) const {
+    llvm::Optional<std::vector<CaughtSignalInfo>> retVal;
+    
+    if (m_TimeHasCaughtSignals.count(Time)) {
+      retVal.emplace();
+
+      // Copy matching signals into the return.
+      std::copy_if(m_CaughtSignals.begin(), m_CaughtSignals.end(),
+                   std::back_inserter(*retVal),
+                   [Time] (CaughtSignalInfo const &CS) {
+                     auto CSTime = CS.getThreadTime();
+                     return CSTime && *CSTime == Time;
+                   });
+    }
+    
+    return retVal;
   }
   
   /// \brief Get a reference to the event at the given offset in the trace.

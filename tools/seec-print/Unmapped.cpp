@@ -16,6 +16,7 @@
 #include "seec/Clang/MappedProcessState.hpp"
 #include "seec/Clang/MappedProcessTrace.hpp"
 #include "seec/Clang/MappedStateMovement.hpp"
+#include "seec/ICU/Format.hpp"
 #include "seec/ICU/Output.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
@@ -25,6 +26,7 @@
 #include "seec/Trace/TraceFormat.hpp"
 #include "seec/Trace/TraceReader.hpp"
 #include "seec/Trace/TraceSearch.hpp"
+#include "seec/Trace/TraceSignalInfo.hpp"
 #include "seec/Util/Error.hpp"
 #include "seec/Util/ModuleIndex.hpp"
 #include "seec/Util/Resources.hpp"
@@ -86,6 +88,8 @@ namespace seec {
     extern cl::opt<bool> Quiet;
 
     extern cl::opt<bool> TestMovement;
+    
+    extern cl::opt<bool> ShowSignals;
   }
 }
 
@@ -121,6 +125,35 @@ void PrintUnmapped(seec::AugmentationCollection const &Augmentations)
   auto IBA = llvm::make_unique<trace::InputBufferAllocator>
                               (MaybeIBA.move<trace::InputBufferAllocator>());
 
+  // Print caught signals.
+  if (ShowSignals) {
+    auto MaybeFormat = seec::getString("Trace", {"descriptions", "CaughtSignal"});
+    if (!MaybeFormat.assigned<UnicodeString>()) {
+      llvm::errs() << "couldn't get CaughtSignal message.\n";
+      return;
+    }
+    
+    auto &Format = MaybeFormat.get<UnicodeString>();
+    
+    for (auto &Block : IBA->getBlocksForCaughtSignals()) {
+      auto Signal = seec::trace::CaughtSignalInfo::readFrom(Block);
+      if (Signal) {
+        UErrorCode ICUStatus = U_ZERO_ERROR;
+        
+        auto Name = Signal->getName() ? Signal->getName() : "NULL";
+        
+        auto Formatted = seec::icu::format(Format,
+                           seec::icu::FormatArgumentsWithNames()
+                             .add("name", Name)
+                             .add("value", Signal->getSignal())
+                             .add("message", Signal->getMessage()),
+                           ICUStatus);
+        
+        llvm::outs() << Formatted << "\n";
+      }
+    }
+  }
+  
   // Load the bitcode.
   auto MaybeMod = IBA->getModule(Context);
   if (MaybeMod.assigned<seec::Error>()) {

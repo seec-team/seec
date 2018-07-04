@@ -39,6 +39,10 @@ struct ThreadStateMoverImpl {
     m_EvRef(EvRef)
   {}
   
+  void setThreadTime(uint64_t const ThreadTime);
+  void incrementThreadTime();
+  void decrementThreadTime();
+  
   void addEvent(EventRecord<EventType::None> const &);
   void addEvent(EventRecord<EventType::FunctionStart> const &);
   void addEvent(EventRecord<EventType::FunctionEnd> const &);
@@ -164,6 +168,29 @@ public:
 // Adding events
 //------------------------------------------------------------------------------
 
+void ThreadStateMoverImpl::setThreadTime(uint64_t const ThreadTime)
+{
+  m_State.ThreadTime = ThreadTime;
+
+  auto Signals = m_State.getTrace().getCaughtSignalsAtTime(ThreadTime);
+  if (Signals) {
+    m_State.m_CaughtSignals = std::move(*Signals);
+  }
+  else {
+    m_State.m_CaughtSignals.clear();
+  }
+}
+
+void ThreadStateMoverImpl::incrementThreadTime()
+{
+  setThreadTime(m_State.ThreadTime + 1);
+}
+
+void ThreadStateMoverImpl::decrementThreadTime()
+{
+  setThreadTime(m_State.ThreadTime - 1);
+}
+
 void ThreadStateMoverImpl::addEvent(EventRecord<EventType::None> const &Ev) {}
 
 void
@@ -187,7 +214,7 @@ ThreadStateMoverImpl::addEvent(EventRecord<EventType::FunctionStart> const &Ev)
   
   m_State.CallStack.emplace_back(std::move(State));
   
-  m_State.ThreadTime = Ev.getThreadTimeEntered();
+  setThreadTime(Ev.getThreadTimeEntered());
 }
 
 void
@@ -219,7 +246,7 @@ ThreadStateMoverImpl::addEvent(EventRecord<EventType::FunctionEnd> const &Ev)
   m_State.m_CompletedFunctions.emplace_back(std::move(CallStack.back()));
   CallStack.pop_back();
   
-  m_State.ThreadTime = StartEv.getThreadTimeExited();
+  setThreadTime(StartEv.getThreadTimeExited());
 }
 
 void
@@ -232,7 +259,7 @@ ThreadStateMoverImpl::addEvent(EventRecord<EventType::NewProcessTime> const &Ev)
 void
 ThreadStateMoverImpl::addEvent(EventRecord<EventType::NewThreadTime> const &Ev)
 {
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void
@@ -244,7 +271,7 @@ ThreadStateMoverImpl::addEvent(EventRecord<EventType::PreInstruction> const &Ev)
   FuncState.forwardingToInstruction(Index);
   FuncState.setActiveInstructionIncomplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void
@@ -256,7 +283,7 @@ ThreadStateMoverImpl::addEvent(EventRecord<EventType::Instruction> const &Ev)
   FuncState.forwardingToInstruction(Index);
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -269,7 +296,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -282,7 +309,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -295,7 +322,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -308,7 +335,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueUInt64(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -321,7 +348,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValuePtr(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -334,7 +361,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueFloat(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -347,7 +374,7 @@ void ThreadStateMoverImpl::addEvent(
   FuncState.setValueDouble(FuncState.getInstruction(Index), Ev.getValue());
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void ThreadStateMoverImpl::addEvent(
@@ -373,7 +400,7 @@ void ThreadStateMoverImpl::addEvent(
   
   FuncState.setActiveInstructionComplete(Index);
   
-  ++m_State.ThreadTime;
+  incrementThreadTime();
 }
 
 void
@@ -750,7 +777,7 @@ ThreadStateMoverImpl::
          && "Removing FunctionStart does not match currently active function");
 
   CallStack.pop_back();
-  m_State.ThreadTime = Info.getThreadTimeEntered() - 1;
+  setThreadTime(Info.getThreadTimeEntered() - 1);
 }
 
 void
@@ -775,7 +802,7 @@ ThreadStateMoverImpl::removeEvent(EventRecord<EventType::FunctionEnd> const &Ev)
                                      ByVal.getArea().length());
 
   // Set the thread time to the value that it had prior to this event.
-  m_State.ThreadTime = StateRef.getTrace().getThreadTimeExited() - 1;
+  setThreadTime(StateRef.getTrace().getThreadTimeExited() - 1);
 }
 
 void
@@ -789,7 +816,7 @@ void
 ThreadStateMoverImpl::
   removeEvent(EventRecord<EventType::NewThreadTime> const &Ev)
 {
-  --m_State.ThreadTime;
+  decrementThreadTime();
 }
 
 void
@@ -797,14 +824,14 @@ ThreadStateMoverImpl::
   removeEvent(EventRecord<EventType::PreInstruction> const &Ev)
 {
   makePreviousInstructionActive(m_EvRef);
-  --m_State.ThreadTime;
+  decrementThreadTime();
 }
 
 void
 ThreadStateMoverImpl::removeEvent(EventRecord<EventType::Instruction> const &Ev)
 {
   makePreviousInstructionActive(m_EvRef);
-  --m_State.ThreadTime;
+  decrementThreadTime();
 }
 
 template<EventType ET>
@@ -830,7 +857,7 @@ ThreadStateMoverImpl::                                                         \
   removeEvent(EventRecord<EventType::InstructionWith##TYPE> const &Ev)         \
 {                                                                              \
   makePreviousInstructionActive(m_EvRef);                                      \
-  --m_State.ThreadTime;                                                        \
+  decrementThreadTime();                                                       \
 }
 
 SEEC_IMPLEMENT_REMOVE_INSTRUCTION(UInt8)

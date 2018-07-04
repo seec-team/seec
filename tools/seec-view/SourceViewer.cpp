@@ -23,6 +23,7 @@
 #include "seec/ICU/LineWrapper.hpp"
 #include "seec/ICU/Resources.hpp"
 #include "seec/RuntimeErrors/UnicodeFormatter.hpp"
+#include "seec/Trace/TraceSignalInfo.hpp"
 #include "seec/Util/MakeFunction.hpp"
 #include "seec/Util/Range.hpp"
 #include "seec/Util/ScopeExit.hpp"
@@ -1630,6 +1631,42 @@ SourceViewerPanel::showRuntimeError(seec::cm::RuntimeErrorState const &Error,
   }
 }
 
+void showCaughtSignals(SourceFilePanel *Panel,
+                       seec::cm::ThreadState const &Thread,
+                       unsigned int SciLine)
+{
+  auto const &Signals = Thread.getCaughtSignals();
+  if (Signals.empty()) {
+    return;
+  }
+  
+  auto MaybeFormat = seec::getString("Trace", {"descriptions", "CaughtSignal"});
+  if (!MaybeFormat.assigned<UnicodeString>()) {
+    llvm::errs() << "couldn't get CaughtSignal message.\n";
+    return;
+  }
+  
+  auto &Format = MaybeFormat.get<UnicodeString>();
+  
+  for (auto &Signal : Signals) {
+    UErrorCode ICUStatus = U_ZERO_ERROR;
+    
+    auto Name = Signal.getName() ? Signal.getName() : "NULL";
+    
+    auto Formatted = seec::icu::format(Format,
+                       seec::icu::FormatArgumentsWithNames()
+                         .add("name", Name)
+                         .add("value", Signal.getSignal())
+                         .add("message", Signal.getMessage()),
+                       ICUStatus);
+
+    Panel->annotateLine(SciLine, 0,
+                        Formatted,
+                        SciLexerType::SeeCRuntimeError,
+                        WrapStyle::None);
+  }
+}
+
 void
 SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                                   ::seec::cm::FunctionState const &InFunction)
@@ -1673,6 +1710,8 @@ SourceViewerPanel::showActiveStmt(::clang::Stmt const *Statement,
                         SciLexerType::SeeCRuntimeValue,
                         WrapStyle::None);
   }
+  
+  showCaughtSignals(Panel, InFunction.getParent(), Range.EndLine - 1);
 }
 
 void
@@ -1706,6 +1745,8 @@ SourceViewerPanel::showActiveDecl(::clang::Decl const *Declaration,
   
   // Scroll to the active Decl.
   Panel->scrollToRange(Range);
+  
+  showCaughtSignals(Panel, InFunction.getParent(), Range.EndLine - 1);
 }
 
 SourceFilePanel *

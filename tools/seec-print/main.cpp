@@ -105,6 +105,9 @@ namespace seec {
 
     cl::opt<bool>
     TestMovement("test-movement", cl::desc("test movement only"));
+    
+    cl::opt<bool>
+    ShowSignals("signals", cl::desc("print caught signals"));
   }
 }
 

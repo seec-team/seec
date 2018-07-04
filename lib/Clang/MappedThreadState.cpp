@@ -75,6 +75,12 @@ uint32_t ThreadState::getThreadID() const {
   return UnmappedState.getThreadID();
 }
 
+std::vector<seec::trace::CaughtSignalInfo> const &
+ThreadState::getCaughtSignals() const
+{
+  return UnmappedState.getCaughtSignals();
+}
+
 
 //===----------------------------------------------------------------------===//
 // Queries.

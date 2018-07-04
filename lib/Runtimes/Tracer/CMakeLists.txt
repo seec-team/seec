@@ -12,6 +12,7 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(HEADERS
   ../../../include/seec/Runtimes/MangleFunction.h
   PrintRunError.hpp
+  SignalHandling.hpp
   SimpleWrapper.hpp
   Tracer.hpp
   )
@@ -25,6 +26,7 @@ endif (NOT WIN32)
 
 set(SOURCES
   PrintRunError.cpp
+  SignalHandling.cpp
   Tracer.cpp
   WrapCerrno_h.cpp
   WrapCfenv_h.cpp

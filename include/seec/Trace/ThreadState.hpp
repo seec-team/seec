@@ -16,6 +16,7 @@
 
 #include "seec/RuntimeErrors/RuntimeErrors.hpp"
 #include "seec/Trace/StateCommon.hpp"
+#include "seec/Trace/TraceSignalInfo.hpp"
 #include "seec/Util/Maybe.hpp"
 
 #include "llvm/Support/raw_ostream.h"
@@ -66,6 +67,9 @@ class ThreadState {
 
   /// The synthetic thread time that this ThreadState represents.
   uint64_t ThreadTime;
+  
+  /// Caught signals at this time.
+  std::vector<CaughtSignalInfo> m_CaughtSignals;
 
   /// The stack of FunctionState objects.
   std::vector<std::unique_ptr<FunctionState>> CallStack;
@@ -111,6 +115,11 @@ public:
 
   /// \brief Get the synthetic thread time that this ThreadState represents.
   uint64_t getThreadTime() const { return ThreadTime; }
+  
+  /// \brief Get the caught signals at this time.
+  std::vector<CaughtSignalInfo> const &getCaughtSignals() const {
+    return m_CaughtSignals;
+  }
 
   /// \brief Get the current stack of FunctionStates.
   decltype(CallStack) const &getCallStack() const { return CallStack; }

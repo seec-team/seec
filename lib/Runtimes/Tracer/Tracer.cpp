@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PrintRunError.hpp"
+#include "SignalHandling.hpp"
 #include "Tracer.hpp"
 
 #include "seec/DSA/MemoryArea.hpp"
@@ -73,10 +74,14 @@ ThreadEnvironment::ThreadEnvironment(ProcessEnvironment &PE)
                PE.getStreamAllocator()),
   FunIndex(nullptr),
   Stack()
-{}
+{
+  setupThreadForSignalHandling(ThreadTracer);
+}
 
 ThreadEnvironment::~ThreadEnvironment()
-{}
+{
+  teardownThreadForSignalHandling();
+}
 
 void ThreadEnvironment::checkOutputSize()
 {
@@ -269,6 +274,7 @@ ProcessEnvironment::ProcessEnvironment()
   
   if (MaybeOutput.assigned(0)) {
     StreamAllocator = std::move(MaybeOutput.get<0>());
+    setupSignalHandling(StreamAllocator.get());
   }
   else {
     llvm::errs() << "\nSeeC: Failed to create output stream allocator.\n";

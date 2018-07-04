@@ -47,7 +47,8 @@ enum class BlockType : uint8_t {
   ModuleBitcode = 1,
   ProcessTrace = 2,
   ProcessData = 3,
-  ThreadEvents = 4
+  ThreadEvents = 4,
+  SignalInfo = 5
 };
 
 
