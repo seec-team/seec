@@ -13,6 +13,13 @@
 
 #define _POSIX_C_SOURCE 200809L
 
+// We need this under xcode9, otherwise the presence of _POSIX_C_SOURCE causes
+// some functions to not be defined. Those functions are later referenced by
+// __threading_support in libc++, breaking the compile.
+#if (defined(__APPLE__))
+#define _DARWIN_C_SOURCE
+#endif
+
 #include "SignalHandling.hpp"
 
 #include "seec/Runtimes/MangleFunction.h"

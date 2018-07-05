@@ -13,7 +13,7 @@
 
 #define _POSIX_C_SOURCE 199506L
 
-// We need this under xcode9, otherwise the presence of _POSIX_SOURCE causes
+// We need this under xcode9, otherwise the presence of _POSIX_C_SOURCE causes
 // some functions to not be defined. Those functions are later referenced by
 // __threading_support in libc++, breaking the compile.
 #if (defined(__APPLE__))
