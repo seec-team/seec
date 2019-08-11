@@ -114,8 +114,14 @@ constexpr SignalInfo SignalsToCatch[] = {
 #undef SEEC_SIGNAL_ENTRY
 
 static seec::trace::OutputStreamAllocator * volatile GlobalOutput;
+
+#if __has_feature(cxx_thread_local)
 thread_local uint32_t volatile ThreadID;
 thread_local std::atomic<uint64_t> volatile const * volatile ThreadTime;
+#else
+static __thread uint32_t volatile ThreadID;
+static __thread std::atomic<uint64_t> volatile const * volatile ThreadTime;
+#endif
 
 } // anonymous namespace
 
