@@ -626,6 +626,18 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
     llvm::sys::path::remove_filename(PluginPath);    // */bin    -> *
     llvm::sys::path::append(PluginPath, "lib");      // *      -> */lib
     
+    // first check for x86_64-linux-gnu/graphviz
+    llvm::sys::path::append(PluginPath, "x86_64-linux-gnu");
+    llvm::sys::path::append(PluginPath, "graphviz");
+
+    if (llvm::sys::fs::exists(PluginPath)) {
+      llvm::sys::path::remove_filename(PluginPath);
+    }
+    else {
+      llvm::sys::path::remove_filename(PluginPath);
+      llvm::sys::path::remove_filename(PluginPath);
+    }
+    
     PathToGraphvizLibraries = "DYLD_LIBRARY_PATH=";
     PathToGraphvizLibraries += PluginPath.str();
     
