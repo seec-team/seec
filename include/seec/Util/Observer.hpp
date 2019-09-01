@@ -99,7 +99,9 @@ class subject {
     deregistration_proxy_impl(subject &Subject)
     : m_Subject(Subject)
     {}
-    
+
+    virtual ~deregistration_proxy_impl() {}
+
     virtual void deregisterObserver(observer_id const ID) override
     {
       m_Subject.deregisterObserver(ID);

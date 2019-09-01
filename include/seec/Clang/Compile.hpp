@@ -59,18 +59,18 @@ namespace seec {
 
 namespace seec_clang {
 
-class SeeCCodeGenAction : public clang::CodeGenAction {
+class SeeCCodeGenAction : public ::clang::CodeGenAction {
   char const * const *ArgBegin;
   char const * const *ArgEnd;
   
-  clang::CompilerInstance *Compiler;
+  ::clang::CompilerInstance *Compiler;
   std::string File;
   
   uint64_t NextDeclIndex;
   uint64_t NextStmtIndex;
 
-  llvm::DenseMap<clang::Decl const *, uint64_t> DeclMap;
-  llvm::DenseMap<clang::Stmt const *, uint64_t> StmtMap;
+  llvm::DenseMap<::clang::Decl const *, uint64_t> DeclMap;
+  llvm::DenseMap<::clang::Stmt const *, uint64_t> StmtMap;
 
 public:
   SeeCCodeGenAction(const char * const *WithArgBegin,
@@ -88,18 +88,18 @@ public:
   {}
 
   virtual
-  std::unique_ptr<clang::ASTConsumer>
-  CreateASTConsumer(clang::CompilerInstance &CI, llvm::StringRef InFile)
+  std::unique_ptr<::clang::ASTConsumer>
+  CreateASTConsumer(::clang::CompilerInstance &CI, llvm::StringRef InFile)
   override;
   
   virtual void ModuleComplete(llvm::Module *Mod) override;
 
-  void addDeclMap(clang::Decl const *D) {
+  void addDeclMap(::clang::Decl const *D) {
     if (!DeclMap.count(D))
       DeclMap.insert(std::make_pair(D, NextDeclIndex++));
   }
 
-  void addStmtMap(clang::Stmt const *S) {
+  void addStmtMap(::clang::Stmt const *S) {
     if (!StmtMap.count(S))
       StmtMap.insert(std::make_pair(S, NextStmtIndex++));
   }
@@ -158,18 +158,18 @@ public:
 };
 
 class SeeCASTConsumer
-: public clang::ASTConsumer,
-  public clang::RecursiveASTVisitor<SeeCASTConsumer>
+: public ::clang::ASTConsumer,
+  public ::clang::RecursiveASTVisitor<SeeCASTConsumer>
 {
   SeeCCodeGenAction &Action;
 
-  std::unique_ptr<clang::ASTConsumer> Child;
+  std::unique_ptr< ::clang::ASTConsumer > Child;
 
-  std::vector<clang::VariableArrayType *> VATypes;
+  std::vector< ::clang::VariableArrayType * > VATypes;
 
 public:
   SeeCASTConsumer(SeeCCodeGenAction &Action,
-                  std::unique_ptr<clang::ASTConsumer> Child)
+                  std::unique_ptr< ::clang::ASTConsumer > Child)
   : Action(Action),
     Child(std::move(Child)),
     VATypes()
@@ -179,68 +179,68 @@ public:
 
   /// \name ASTConsumer Methods
   /// \{
-  virtual void Initialize(clang::ASTContext &Context) override {
+  virtual void Initialize(::clang::ASTContext &Context) override {
     Child->Initialize(Context);
   }
 
-  virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override;
+  virtual bool HandleTopLevelDecl(::clang::DeclGroupRef D) override;
 
-  virtual void HandleInlineFunctionDefinition(clang::FunctionDecl *D) override {
+  virtual void HandleInlineFunctionDefinition(::clang::FunctionDecl *D) override {
     Child->HandleInlineFunctionDefinition(D);
   }
 
-  virtual void HandleInterestingDecl(clang::DeclGroupRef D) override {
+  virtual void HandleInterestingDecl(::clang::DeclGroupRef D) override {
     HandleTopLevelDecl(D);
   }
 
-  virtual void HandleTranslationUnit(clang::ASTContext &Ctx) override;
+  virtual void HandleTranslationUnit(::clang::ASTContext &Ctx) override;
 
-  virtual void HandleTagDeclDefinition(clang::TagDecl *D) override {
+  virtual void HandleTagDeclDefinition(::clang::TagDecl *D) override {
     Child->HandleTagDeclDefinition(D);
   }
 
-  virtual void HandleTagDeclRequiredDefinition(clang::TagDecl const *D) override
+  virtual void HandleTagDeclRequiredDefinition(::clang::TagDecl const *D) override
   {
     Child->HandleTagDeclRequiredDefinition(D);
   }
 
-  virtual void HandleCXXImplicitFunctionInstantiation(clang::FunctionDecl *D)
+  virtual void HandleCXXImplicitFunctionInstantiation(::clang::FunctionDecl *D)
   override
   {
     Child->HandleCXXImplicitFunctionInstantiation(D);
   }
 
-  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef D) override
+  virtual void HandleTopLevelDeclInObjCContainer(::clang::DeclGroupRef D) override
   {
     Child->HandleTopLevelDeclInObjCContainer(D);
   }
 
-  virtual void HandleImplicitImportDecl(clang::ImportDecl *D) override {
+  virtual void HandleImplicitImportDecl(::clang::ImportDecl *D) override {
     Child->HandleImplicitImportDecl(D);
   }
 
-  virtual void CompleteTentativeDefinition(clang::VarDecl *D) override {
+  virtual void CompleteTentativeDefinition(::clang::VarDecl *D) override {
     Child->CompleteTentativeDefinition(D);
   }
 
-  virtual void AssignInheritanceModel(clang::CXXRecordDecl *RD) override {
+  virtual void AssignInheritanceModel(::clang::CXXRecordDecl *RD) override {
     Child->AssignInheritanceModel(RD);
   }
 
-  virtual void HandleCXXStaticMemberVarInstantiation(clang::VarDecl *D) override
+  virtual void HandleCXXStaticMemberVarInstantiation(::clang::VarDecl *D) override
   {
     Child->HandleCXXStaticMemberVarInstantiation(D);
   }
 
-  virtual void HandleVTable(clang::CXXRecordDecl *D) override {
+  virtual void HandleVTable(::clang::CXXRecordDecl *D) override {
     Child->HandleVTable(D);
   }
 
-  virtual clang::ASTMutationListener *GetASTMutationListener() override {
+  virtual ::clang::ASTMutationListener *GetASTMutationListener() override {
     return Child->GetASTMutationListener();
   }
 
-  virtual clang::ASTDeserializationListener *GetASTDeserializationListener()
+  virtual ::clang::ASTDeserializationListener *GetASTDeserializationListener()
   override
   {
     return Child->GetASTDeserializationListener();
@@ -250,7 +250,7 @@ public:
     Child->PrintStats();
   }
 
-  virtual bool shouldSkipFunctionBody(clang::Decl *D) override {
+  virtual bool shouldSkipFunctionBody(::clang::Decl *D) override {
     return Child->shouldSkipFunctionBody(D);
   }
 
@@ -259,9 +259,9 @@ public:
   /// RecursiveASTVisitor Methods
   /// \{
 
-  bool VisitStmt(clang::Stmt *S);
+  bool VisitStmt(::clang::Stmt *S);
 
-  bool VisitDecl(clang::Decl *D);
+  bool VisitDecl(::clang::Decl *D);
 
   bool VisitVariableArrayType(::clang::VariableArrayType *T);
 
@@ -280,13 +280,13 @@ std::string getRuntimeLibraryDirectory(llvm::StringRef ExecutablePath);
 ///
 void GenerateSerializableMappings(SeeCCodeGenAction &Action,
                                   llvm::Module *Mod,
-                                  clang::SourceManager &SM,
+                                  ::clang::SourceManager &SM,
                                   llvm::StringRef MainFilename);
 
 /// \brief Store all source files in SrcManager into the given llvm::Module.
 ///
 void StoreCompileInformationInModule(llvm::Module *Mod,
-                                     clang::CompilerInstance &Compiler,
+                                     ::clang::CompilerInstance &Compiler,
                                      const char * const *ArgBegin,
                                      const char * const *ArgEnd);
 

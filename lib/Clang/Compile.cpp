@@ -16,6 +16,7 @@
 #include "seec/Transforms/BreakConstantGEPs/BreakConstantGEPs.h"
 #include "seec/Util/ModuleIndex.hpp"
 
+#include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"

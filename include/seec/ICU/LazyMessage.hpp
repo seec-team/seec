@@ -49,6 +49,8 @@ protected:
                                Locale const &GetLocale) const = 0;
 
 public:
+  virtual ~LazyMessage() {}
+
   /// \brief Get the final formatted string.
   ///
   UnicodeString const &get(UErrorCode &Status, Locale const &GetLocale) {
