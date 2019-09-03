@@ -29,7 +29,6 @@ set(SEEC_TRACE_VIEW_HEADERS
   ColourSchemeSettings.hpp
   CommonMenus.hpp
   ExplanationViewer.hpp
-  FunctionStateViewer.hpp
   InternationalizedButton.hpp
   LocaleSettings.hpp
   NotifyContext.hpp
@@ -47,7 +46,6 @@ set(SEEC_TRACE_VIEW_HEADERS
   StmtTooltip.hpp
   StreamStatePanel.hpp
   ThreadMoveEvent.hpp
-  ThreadStateViewer.hpp
   ThreadTimeControl.hpp
   TraceViewerApp.hpp
   TraceViewerFrame.hpp
@@ -74,7 +72,6 @@ set(SEEC_TRACE_VIEW_SRCS
   ColourSchemeSettings.cpp
   CommonMenus.cpp
   ExplanationViewer.cpp
-  FunctionStateViewer.cpp
   InternationalizedButton.cpp
   LocaleSettings.cpp
   NotifyContext.cpp
@@ -91,7 +88,6 @@ set(SEEC_TRACE_VIEW_SRCS
   StmtTooltip.cpp
   StreamStatePanel.cpp
   ThreadMoveEvent.cpp
-  ThreadStateViewer.cpp
   ThreadTimeControl.cpp
   TraceViewerApp.cpp
   TraceViewerFrame.cpp
