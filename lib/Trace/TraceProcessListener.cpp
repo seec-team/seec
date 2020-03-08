@@ -46,7 +46,6 @@ TraceProcessListener::TraceProcessListener(llvm::Module &Module,
   FunctionAddresses(MIndex.getFunctionCount()),
   FunctionLookup(),
   DataOut(),
-  DataOutOffset(0),
   DataOutMutex(),
   Time(0),
   NextThreadID(1),
@@ -328,13 +327,13 @@ offset_uint TraceProcessListener::recordData(char const *Data, size_t Size) {
   if (!DataOut)
     return 0;
 
-  DataOut->write(Data, Size);
+  auto const WrittenOffset = DataOut->write(Data, Size);
+  if (!WrittenOffset)
+    return 0;
 
   // Return the offset that the data was written at, which will be used by
   // events to refer to the data.
-  auto const WrittenOffset = DataOutOffset;
-  DataOutOffset += Size;
-  return WrittenOffset;
+  return *WrittenOffset;
 }
 
 void TraceProcessListener::addKnownMemoryRegion(uintptr_t Address,

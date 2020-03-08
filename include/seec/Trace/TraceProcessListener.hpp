@@ -166,9 +166,6 @@ class TraceProcessListener {
   /// Output stream for this process' data.
   std::unique_ptr<OutputBlockProcessDataStream> DataOut;
 
-  /// Number of bytes written to DataOut so far.
-  offset_uint DataOutOffset;
-
   /// Controls access to the DataOut stream.
   std::mutex DataOutMutex;
 
