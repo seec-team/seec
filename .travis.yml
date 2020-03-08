@@ -88,7 +88,7 @@ before_install:
   - SEEC_LLVM_RELEASE_TAG="v6.0"
   - SEEC_CLANG_RELEASE_TAG="v6.0_1.0"
   - SEEC_WX_RELEASE_TAG="seec_travis_v3.0.3.1"
-  - ICU_SOURCE_URL="http://download.icu-project.org/files/icu4c/57rc/icu4c-57rc-src.tgz"
+  - ICU_SOURCE_URL="https://downloads.sourceforge.net/project/icu/ICU4C/63.1/icu4c-63_1-src.tgz"
   - CMAKE_URL="http://www.cmake.org/files/v3.4/cmake-3.4.3-Linux-x86_64.tar.gz"
   - SEEC_VERSION_STRING="0.50.0"
 
