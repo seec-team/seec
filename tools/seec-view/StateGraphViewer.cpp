@@ -620,19 +620,33 @@ bool StateGraphViewerPanel::Create(wxWindow *Parent,
   if (!PathToDot.empty())
   {
     // Determine the path to Graphviz's libraries, based on the location of dot.
-    llvm::SmallString<256> PluginPath (PathToDot);
+    llvm::SmallString<256> BasePath (PathToDot);
+    llvm::SmallString<256> PluginPath;
     
-    llvm::sys::path::remove_filename(PluginPath);    // */bin/dot -> */bin
-    llvm::sys::path::remove_filename(PluginPath);    // */bin    -> *
-    llvm::sys::path::append(PluginPath, "lib");      // *      -> */lib
+    llvm::sys::path::remove_filename(BasePath);    // */bin/dot -> */bin
+    llvm::sys::path::remove_filename(BasePath);    // */bin    -> *
+
+    char const *SearchPaths[] = {
+      "lib/graphviz",
+      "lib/x86_64-linux-gnu/graphviz",
+    };
+
+    for (auto const SearchPath : seec::range(SearchPaths)) {
+      PluginPath = BasePath;
+      llvm::sys::path::append(PluginPath, SearchPath);
+
+      if (llvm::sys::fs::exists(PluginPath.str())) {
+        break;
+      }
+    }
+
+    PathToGraphvizPlugins = "GVBINDIR=";
+    PathToGraphvizPlugins += PluginPath.str();
+
+    llvm::sys::path::remove_filename(PluginPath); // */lib/*/graphviz -> */lib/*
     
     PathToGraphvizLibraries = "DYLD_LIBRARY_PATH=";
     PathToGraphvizLibraries += PluginPath.str();
-    
-    llvm::sys::path::append(PluginPath, "graphviz"); // */lib -> */lib/graphviz
-    
-    PathToGraphvizPlugins = "GVBINDIR=";
-    PathToGraphvizPlugins += PluginPath.str();
     
     // Setup the layout handler.
     {
